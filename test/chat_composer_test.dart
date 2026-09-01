@@ -13,6 +13,7 @@ import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
+import 'package:discourse_native/src/plugins/chat/chat_drawer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
@@ -25,6 +26,7 @@ import 'package:discourse_native/src/plugins/gifs/gifs_contract.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
+import 'package:discourse_native/src/shell/composer_upload_picker.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -424,8 +426,9 @@ void main() {
       await tester.pumpAndSettle();
 
       final bar = find.byKey(const ValueKey('chat-composer'));
-      expect(find.byTooltip('Add to message'), findsNothing);
+      expect(find.byTooltip('Add to message'), findsOneWidget);
       expect(find.byTooltip('Add emoji'), findsOneWidget);
+      expect(find.byKey(const ValueKey('chat-composer-add')), findsOneWidget);
       expect(find.byKey(const ValueKey('chat-composer-emoji')), findsOneWidget);
       expect(find.byKey(const ValueKey('chat-composer-gif')), findsNothing);
       expect(find.byKey(const ValueKey('chat-composer-send')), findsOneWidget);
@@ -460,8 +463,12 @@ void main() {
       await tester.pump();
 
       final bar = tester.getRect(find.byKey(const ValueKey('chat-composer')));
-      final chromeTarget = bar.topLeft + const Offset(8, 8);
+      final add = tester.getRect(
+        find.byKey(const ValueKey('chat-composer-add')),
+      );
+      final chromeTarget = Offset(add.right + 8, bar.top + 8);
       expect(tester.getRect(fieldFinder).contains(chromeTarget), isFalse);
+      expect(add.contains(chromeTarget), isFalse);
       expect(tester.getRect(sendFinder).contains(chromeTarget), isFalse);
       await tester.tapAt(chromeTarget);
       await tester.pump();
@@ -927,6 +934,7 @@ void main() {
         find.byKey(const ValueKey('chat-upload-drop-overlay')),
         findsNothing,
       );
+      expect(find.byKey(const ValueKey('chat-composer-add')), findsNothing);
       target.onDragDone!(
         DropDoneDetails(
           files: [
@@ -946,7 +954,7 @@ void main() {
   });
 
   group('emoji and GIF picker action handling', () {
-    testWidgets('adds only the compact Send GIF action when enabled', (
+    testWidgets('puts GIF in the add menu in drawer and full-page modes', (
       tester,
     ) async {
       final fixture = await _fixture(
@@ -954,37 +962,69 @@ void main() {
         config: _gifsConfig,
       );
       addTearDown(fixture.shell.dispose);
-      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpWidget(_TwoComposerView(shell: fixture.shell));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Send GIF'), findsOneWidget);
-      expect(find.byTooltip('Insert GIF'), findsNothing);
+      expect(find.byTooltip('Send GIF'), findsNothing);
       expect(find.byTooltip('Search GIFs'), findsNothing);
       expect(find.byTooltip('Insert date/time  Ctrl Shift .'), findsNothing);
-      expect(find.byTooltip('Add to message'), findsNothing);
-      expect(find.byTooltip('Add emoji'), findsOneWidget);
-      final composer = tester.getRect(
-        find.byKey(const ValueKey('chat-composer')),
-      );
-      expect(composer.height, 58);
-      for (final key in const [
-        'chat-composer-emoji',
-        'chat-composer-gif',
-        'chat-composer-send',
+      expect(find.byTooltip('Add to message'), findsNWidgets(2));
+      expect(find.byTooltip('Add emoji'), findsNWidgets(2));
+      expect(find.byKey(const ValueKey('chat-composer-gif')), findsNothing);
+
+      for (final composerKey in const [
+        _drawerComposerKey,
+        _fullPageComposerKey,
       ]) {
-        final finder = find.byKey(ValueKey(key));
-        final dButton = tester.widget<DButton>(finder);
-        final button = tester.getRect(finder);
-        expect(
-          dButton.variant,
-          key == 'chat-composer-send'
-              ? DButtonVariant.transparentPrimary
-              : DButtonVariant.flat,
+        final composer = find.byKey(composerKey);
+        final add = find.descendant(
+          of: composer,
+          matching: find.byKey(const ValueKey('chat-composer-add')),
         );
-        expect(button.size, const Size.square(DButton.minimumDimension));
-        expect(button.height, lessThan(composer.height));
-        expect(button.center.dy, composer.center.dy);
+        expect(add, findsOneWidget);
+        expect(tester.widget<DButton>(add).variant, DButtonVariant.flat);
+
+        await tester.tap(add);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Upload images'), findsOneWidget);
+        expect(find.text('Insert GIF'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('chat-composer-upload')),
+          findsOneWidget,
+        );
+        expect(find.byKey(const ValueKey('chat-composer-gif')), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
       }
+    });
+
+    testWidgets('opens the image picker from the add menu', (tester) async {
+      var pickerCalls = 0;
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(
+        _ComposerView(
+          shell: fixture.shell,
+          channelId: 9,
+          pickImages: () async {
+            pickerCalls++;
+            return const [];
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('chat-composer-upload')));
+      await tester.pumpAndSettle();
+
+      expect(pickerCalls, 1);
+      expect(_field(tester).focusNode!.hasFocus, isTrue);
     });
 
     testWidgets('keeps both send actions idle while the GIF picker is open', (
@@ -1003,7 +1043,7 @@ void main() {
       await tester.pump();
       await _openGifPicker(tester);
 
-      expect(_button(tester, 'chat-composer-gif').onPressed, isNull);
+      expect(_button(tester, 'chat-composer-add').onPressed, isNull);
       expect(_button(tester, 'chat-composer-send').onPressed, isNull);
 
       await _closeGifPicker(tester);
@@ -1011,7 +1051,7 @@ void main() {
 
       expect(_text(tester), 'keep this draft');
       expect(fixture.api.chatMessagesSent, isEmpty);
-      expect(_button(tester, 'chat-composer-gif').onPressed, isNotNull);
+      expect(_button(tester, 'chat-composer-add').onPressed, isNotNull);
       expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
     });
 
@@ -1073,7 +1113,7 @@ void main() {
         expect(fixture.api.chatMessagesSent.single.channelId, 9);
         expect(fixture.api.chatMessagesSent.single.message, _gif.markdown);
         expect(_text(tester), 'unchanged draft');
-        expect(_button(tester, 'chat-composer-gif').onPressed, isNotNull);
+        expect(_button(tester, 'chat-composer-add').onPressed, isNotNull);
         expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
         expect(find.byKey(const ValueKey('chat-preview-gif')), findsOneWidget);
         expect(
@@ -1680,6 +1720,8 @@ DButton _button(WidgetTester tester, String key) =>
     tester.widget(find.byKey(ValueKey(key)));
 
 Future<void> _openGifPicker(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
+  await tester.pumpAndSettle();
   await tester.tap(find.byKey(const ValueKey('chat-composer-gif')));
   await tester.pumpAndSettle();
   expect(find.byKey(const ValueKey('gif-picker-search')), findsOneWidget);
@@ -1709,10 +1751,15 @@ final class _TestView extends StatelessWidget {
 }
 
 final class _ComposerView extends StatelessWidget {
-  const _ComposerView({required this.shell, required this.channelId});
+  const _ComposerView({
+    required this.shell,
+    required this.channelId,
+    this.pickImages = pickComposerImages,
+  });
 
   final ShellController shell;
   final int channelId;
+  final ComposerImagePicker pickImages;
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -1722,7 +1769,11 @@ final class _ComposerView extends StatelessWidget {
       MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
-          body: ChatComposer(siteUrl: _site, channelId: channelId),
+          body: ChatComposer(
+            siteUrl: _site,
+            channelId: channelId,
+            pickImages: pickImages,
+          ),
         ),
       ),
     ),
@@ -1773,10 +1824,12 @@ final class _TwoComposerView extends StatelessWidget {
           body: Row(
             children: [
               Expanded(
-                child: ChatComposer(
-                  key: _drawerComposerKey,
-                  siteUrl: _site,
-                  channelId: 9,
+                child: ChatDrawerScope(
+                  child: ChatComposer(
+                    key: _drawerComposerKey,
+                    siteUrl: _site,
+                    channelId: 9,
+                  ),
                 ),
               ),
               Expanded(
