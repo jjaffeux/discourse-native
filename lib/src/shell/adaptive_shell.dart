@@ -936,16 +936,8 @@ class _WideShell extends StatelessWidget {
                                   resizeKey: 'sidebar',
                                   semanticsLabel: 'Resize sidebar',
                                   maximumWidth: windowMaximum,
+                                  dividerWidth: 1,
                                   child: const InstanceSidebar(),
-                                ),
-                                SizedBox(
-                                  key: const ValueKey(
-                                    'sidebar-content-divider',
-                                  ),
-                                  width: 1,
-                                  child: ColoredBox(
-                                    color: Theme.of(context).shell.divider,
-                                  ),
                                 ),
                                 Expanded(child: MainContent(layout: layout)),
                               ],

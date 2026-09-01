@@ -360,14 +360,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final divider = find.byKey(const ValueKey('sidebar-content-divider'));
+    final divider = find.descendant(
+      of: find.byKey(const ValueKey('sidebar-resize-handle')),
+      matching: find.byType(ColoredBox),
+    );
     expect(divider, findsOneWidget);
     expect(tester.getSize(divider).width, 1);
-    final dividerColor = tester
-        .widget<ColoredBox>(
-          find.descendant(of: divider, matching: find.byType(ColoredBox)),
-        )
-        .color;
+    final dividerColor = tester.widget<ColoredBox>(divider).color;
     expect(dividerColor, Theme.of(tester.element(divider)).shell.divider);
     expect(tester.takeException(), isNull);
   });
