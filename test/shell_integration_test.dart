@@ -17519,6 +17519,13 @@ void main() {
           );
           expect(
             find.descendant(
+              of: find.byKey(ChatDrawerOverlay.fullPageButtonKey),
+              matching: find.dIcon(DIcons.discourseExpand),
+            ),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(
               of: find.byKey(ChatDrawerOverlay.collapseButtonKey),
               matching: find.dIcon(DIcons.discourseCompress),
             ),
