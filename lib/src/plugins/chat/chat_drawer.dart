@@ -433,8 +433,13 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
             end:
                 ChatDrawerOverlay.endMargin +
                 expandedWidth -
-                _DrawerResizeHandle.extent,
-            bottom: bottomOffset + expandedHeight - _DrawerResizeHandle.extent,
+                _DrawerResizeHandle.extent +
+                _DrawerResizeHandle.overhang,
+            bottom:
+                bottomOffset +
+                expandedHeight -
+                _DrawerResizeHandle.extent +
+                _DrawerResizeHandle.overhang,
             child: _DrawerResizeHandle(
               onUpdate: (details) => _resize(
                 details.delta,
@@ -882,6 +887,7 @@ class _DrawerResizeHandle extends StatelessWidget {
   const _DrawerResizeHandle({required this.onUpdate, required this.onEnd});
 
   static const double extent = 15;
+  static const double overhang = 5;
   final GestureDragUpdateCallback onUpdate;
   final GestureDragEndCallback onEnd;
 
@@ -899,47 +905,11 @@ class _DrawerResizeHandle extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onPanUpdate: onUpdate,
           onPanEnd: onEnd,
-          child: SizedBox(
-            width: extent,
-            height: extent,
-            child: CustomPaint(
-              painter: _ResizeGripPainter(
-                color: Theme.of(context).colorScheme.outline,
-                direction: direction,
-              ),
-            ),
-          ),
+          child: const SizedBox(width: extent, height: extent),
         ),
       ),
     );
   }
-}
-
-class _ResizeGripPainter extends CustomPainter {
-  const _ResizeGripPainter({required this.color, required this.direction});
-
-  final Color color;
-  final TextDirection direction;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1;
-    for (var inset = 4.0; inset <= 10; inset += 3) {
-      final start = direction == TextDirection.ltr
-          ? Offset(0, inset)
-          : Offset(size.width, inset);
-      final end = direction == TextDirection.ltr
-          ? Offset(inset, 0)
-          : Offset(size.width - inset, 0);
-      canvas.drawLine(start, end, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_ResizeGripPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.direction != direction;
 }
 
 class ChatDrawerChannelsView extends StatelessWidget {

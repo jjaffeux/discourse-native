@@ -18784,10 +18784,14 @@ void main() {
         final drawer = find.byKey(ChatDrawerOverlay.expandedKey);
         expect(tester.getSize(drawer), const Size(480, 600));
 
-        await tester.drag(
-          find.byKey(ChatDrawerOverlay.resizeHandleKey),
-          const Offset(-80, -70),
+        final resizeHandle = find.byKey(ChatDrawerOverlay.resizeHandleKey);
+        expect(tester.getSize(resizeHandle), const Size.square(15));
+        expect(
+          find.descendant(of: resizeHandle, matching: find.byType(CustomPaint)),
+          findsNothing,
         );
+
+        await tester.drag(resizeHandle, const Offset(-80, -70));
         await tester.pumpAndSettle();
 
         expect(tester.getSize(drawer), const Size(560, 670));
