@@ -112,6 +112,53 @@ void main() {
     expect(editable(tester).renderEditable.plainText, source);
   });
 
+  testWidgets(
+    'multiline plugin components keep their trailing caret beside the widget',
+    (tester) async {
+      final componentSource = [
+        '[component]',
+        for (var index = 0; index < 30; index++) 'source row $index',
+        '[/component]',
+      ].join('\n');
+      final source = '$componentSource \tafter';
+      final componentController = MarkdownEditingController(
+        text: source,
+        syntaxPolicies: const [_MultilineSyntaxPolicy()],
+      );
+      addTearDown(componentController.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: SizedBox(
+              width: 600,
+              child: TextField(controller: componentController, maxLines: null),
+            ),
+          ),
+        ),
+      );
+
+      final component = componentController.syntaxBlocks.single;
+      final componentRect = tester.getRect(
+        find.byKey(const ValueKey('multiline-syntax-component')),
+      );
+      final render = tester
+          .state<EditableTextState>(find.byType(EditableText))
+          .renderEditable;
+      final caret = render
+          .getLocalRectForCaret(TextPosition(offset: component.end))
+          .shift(render.localToGlobal(Offset.zero));
+
+      expect(
+        (caret.center.dy - componentRect.center.dy).abs(),
+        lessThanOrEqualTo(8),
+      );
+      expect(render.getPositionForPoint(caret.center).offset, component.end);
+      expect(render.plainText.length, source.length);
+    },
+  );
+
   testWidgets('moving the caret does not read the source again', (
     tester,
   ) async {
@@ -1266,6 +1313,96 @@ final class _FakeSyntaxProjection implements ComposerSyntaxProjection {
           height: 0,
         ),
       ),
+  ];
+
+  @override
+  void edit(BuildContext context, ComposerEditorHost editor) {}
+
+  @override
+  void remove(BuildContext context, ComposerEditorHost editor) {}
+}
+
+const _multilineSyntaxKind = ComposerSyntaxKind(
+  owner: PluginId('multiline-syntax'),
+  name: 'component',
+);
+
+final class _MultilineSyntaxPolicy implements ComposerSyntaxPolicy {
+  const _MultilineSyntaxPolicy();
+
+  @override
+  ComposerSyntaxKind get kind => _multilineSyntaxKind;
+
+  @override
+  Object? get projectionState => null;
+
+  @override
+  TextInputFormatter? get inputFormatter => null;
+
+  @override
+  List<ComposerSyntaxProjection> parse(String source) => [
+    for (final match in RegExp(
+      r'\[component\][\s\S]*?\[/component\][ \t]*',
+    ).allMatches(source))
+      _MultilineSyntaxProjection(match.start, match.end, match.group(0)!),
+  ];
+}
+
+final class _MultilineSyntaxProjection implements ComposerSyntaxProjection {
+  const _MultilineSyntaxProjection(this.start, this.end, this.source);
+
+  @override
+  final int start;
+
+  @override
+  final int end;
+
+  @override
+  final String source;
+
+  @override
+  bool needsRawSource(
+    TextEditingValue document, {
+    required bool suppressCollapsedCaret,
+  }) =>
+      !suppressCollapsedCaret &&
+      document.selection.extentOffset > start &&
+      document.selection.extentOffset < end;
+
+  @override
+  int caretAfter(String document) => end;
+
+  @override
+  TextEditingValue moveCaretAfter(TextEditingValue document) =>
+      document.copyWith(
+        selection: TextSelection.collapsed(offset: end),
+        composing: TextRange.empty,
+      );
+
+  @override
+  bool get supportsHover => false;
+
+  @override
+  bool get protectsAdjacentDelete => false;
+
+  @override
+  List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) => [
+    const WidgetSpan(
+      alignment: PlaceholderAlignment.middle,
+      child: SizedBox(
+        key: ValueKey('multiline-syntax-component'),
+        width: 80,
+        height: 32,
+      ),
+    ),
+    TextSpan(
+      text: source.substring(1),
+      style: context.baseStyle.copyWith(
+        color: Colors.transparent,
+        fontSize: 0,
+        height: 0,
+      ),
+    ),
   ];
 
   @override
