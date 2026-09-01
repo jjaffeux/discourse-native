@@ -970,6 +970,55 @@ void main() {
       ]);
     });
 
+    test('sorts all drawer channels without excluding starred rows', () async {
+      final subject = build(
+        channels: {
+          site: ChatChannels(
+            public: [
+              channel(9, title: 'Read first', starred: true),
+              channel(10, title: 'Unread second', unread: 1),
+              channel(11, title: 'Mention third', starred: true, mentions: 1),
+            ],
+            direct: [
+              channel(
+                12,
+                title: 'Recent read',
+                kind: ChatChannelKind.directMessage,
+                starred: true,
+                lastMessageId: 50,
+                lastMessageAt: DateTime.utc(2026, 8, 8, 12),
+              ),
+              channel(
+                13,
+                title: 'Older starred unread',
+                kind: ChatChannelKind.directMessage,
+                starred: true,
+                unread: 1,
+                lastMessageId: 40,
+                lastMessageAt: DateTime.utc(2026, 8, 8, 10),
+              ),
+            ],
+          ),
+        },
+      );
+
+      await subject.chat.loadChannels(site);
+
+      expect(subject.chat.activitySortedPublicChannels(site).map((c) => c.id), [
+        11,
+        10,
+        9,
+      ]);
+      expect(subject.chat.activitySortedDirectChannels(site).map((c) => c.id), [
+        13,
+        12,
+      ]);
+      expect(
+        subject.chat.activitySortedStarredChannels(site).map((c) => c.id),
+        [11, 13, 9, 12],
+      );
+    });
+
     test(
       'uses unread thread dates after the membership last-viewed time',
       () async {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
+import '../../shell/adaptive_shell.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
@@ -51,7 +52,7 @@ class ChatHeaderButton extends StatelessWidget {
         }
 
         final exitsChat =
-            shell.chatActive &&
+            shell.fullPageChatActive &&
             shell.separateSidebarMode != ChatSeparateSidebarMode.never;
         if (exitsChat) {
           return DButton.iconOnly(
@@ -62,7 +63,6 @@ class ChatHeaderButton extends StatelessWidget {
             icon: const DIcon(DIcons.shuffle, size: 22),
           );
         }
-
         final preference =
             user.chatCurrentUser?.headerIndicatorPreference ??
             ChatHeaderIndicatorPreference.allNew;
@@ -79,7 +79,13 @@ class ChatHeaderButton extends StatelessWidget {
         return DButton.iconOnly(
           key: buttonKey,
           tooltip: tooltip,
-          onPressed: () => unawaited(shell.openShortcut()),
+          onPressed: () => unawaited(
+            shell.openShortcut(
+              drawerAvailable:
+                  ShellLayout.forWidth(MediaQuery.sizeOf(context).width) !=
+                  ShellLayout.compact,
+            ),
+          ),
           variant: DButtonVariant.flat,
           icon: ExcludeSemantics(
             child: Stack(

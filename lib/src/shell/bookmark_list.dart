@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/bookmark.dart';
 import '../models/notification.dart';
+import '../plugin_api/shell_extensions.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_loader.dart';
@@ -54,7 +55,10 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
 
     final controller = widget.controller;
     final absolute = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
-    if (await controller.openPluginUrl(absolute)) {
+    if (await controller.openPluginUrl(
+      absolute,
+      origin: PluginLinkOrigin.inApp,
+    )) {
       if (mounted) widget.onOpened();
       return;
     }

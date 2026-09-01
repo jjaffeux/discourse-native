@@ -22,6 +22,37 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('panel geometry and hit testing', () {
+    testWidgets('reports its actual painted bounds after moving', (
+      tester,
+    ) async {
+      final composer = ComposerController(_replyTarget);
+      final shell = await _shell();
+      final reports = <Rect?>[];
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpFloatingPanel(
+        tester,
+        shell,
+        composer,
+        onGeometryChanged: reports.add,
+      );
+      await tester.pump();
+
+      expect(reports, isNotEmpty);
+      expect(reports.last, tester.getRect(find.byType(ComposerPanel)));
+
+      await tester.drag(
+        find.byKey(const ValueKey('composer-drag-handle')),
+        const Offset(-48, -72),
+      );
+      await tester.pump();
+
+      expect(reports.last, tester.getRect(find.byType(ComposerPanel)));
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(reports.last, isNull);
+    });
+
     testWidgets('starts at the bottom and stays in bounds while moving', (
       tester,
     ) async {
@@ -741,6 +772,7 @@ Future<void> _pumpFloatingPanel(
   ComposerController composer, {
   Size size = const Size(900, 650),
   ComposerGeometryStore geometryStore = const ComposerGeometryStore(),
+  ValueChanged<Rect?>? onGeometryChanged,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -753,6 +785,7 @@ Future<void> _pumpFloatingPanel(
           body: FloatingComposerPanel(
             composer: composer,
             geometryStore: geometryStore,
+            onGeometryChanged: onGeometryChanged,
           ),
         ),
       ),

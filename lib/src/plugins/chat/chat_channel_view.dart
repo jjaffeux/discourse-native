@@ -20,10 +20,12 @@ import 'chat_channel.dart';
 import 'chat_channel_search.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
+import 'chat_drawer.dart';
 import 'chat_message.dart';
 import 'chat_message_tile.dart';
 import 'chat_pinned_bar.dart';
 import 'chat_route.dart';
+import 'chat_search_controller.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_stream.dart';
@@ -91,7 +93,9 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   Object? _viewToken;
   bool _viewStartScheduled = false;
   bool _tickerEnabled = true;
+  bool _drawerSurface = false;
   ChatShellService? _shell;
+  ChatSearchController? _search;
   Listenable? _navigation;
   bool _opened = false;
   List<int>? _projectedMessageIds;
@@ -110,7 +114,19 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
   bool get _viewerActive => _tickerEnabled && (_shell?.forumActive ?? false);
 
-  void _handleShellChanged() => _syncViewing();
+  void _handleShellChanged() {
+    final shell = _shell;
+    if (_drawerSurface && shell?.drawerActive != true) {
+      _search?.closeScoped(widget.siteUrl, widget.channelId);
+      if (_selectingMessages || _selectedMessageIds.isNotEmpty) {
+        setState(() {
+          _selectingMessages = false;
+          _selectedMessageIds.clear();
+        });
+      }
+    }
+    _syncViewing();
+  }
 
   void _syncViewing() {
     if (!_viewerActive) {
@@ -148,6 +164,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       _shell = shell..addListener(_handleShellChanged);
     }
     _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    _drawerSurface = ChatDrawerScope.isDrawer(context);
+    _search = PluginUiScope.require(context, chatSearchControllerService);
     _syncViewing();
 
     final navigation = shell.navigation;
@@ -164,11 +182,14 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
   bool _consumeNavigation() {
     if (!mounted) return false;
-    final pending = PluginUiScope.require(context, chatShellService).navigation
-        .take(
-          siteUrl: widget.siteUrl,
-          route: ChatRoute.channel(widget.channelId),
-        );
+    final shell = PluginUiScope.require(context, chatShellService);
+    if (!_tickerEnabled || (_drawerSurface && !shell.drawerActive)) {
+      return false;
+    }
+    final pending = shell.navigation.take(
+      siteUrl: widget.siteUrl,
+      route: ChatRoute.channel(widget.channelId),
+    );
     if (pending == null) return false;
 
     _opened = true;

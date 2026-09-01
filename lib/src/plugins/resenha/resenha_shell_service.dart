@@ -52,7 +52,10 @@ final class ResenhaShellService
   }
 
   @override
-  Future<bool> openPluginUrl(String url) async {
+  Future<bool> openPluginUrl(
+    String url, {
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+  }) async {
     if (!controller.supportedPlatform) return false;
     final absolute = resolveSiteUrl(url, _host.currentSite?.url);
     final uri = Uri.tryParse(absolute);

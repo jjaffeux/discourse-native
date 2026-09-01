@@ -55,12 +55,34 @@ enum ChatSeparateSidebarMode {
       };
 }
 
+/// The server-selected landing tab for Chat when no starred channels take
+/// precedence. Unknown values retain the stable Channels default.
+enum ChatPreferredIndex {
+  channels('channels'),
+  directMessages('direct_messages'),
+  myThreads('my_threads');
+
+  const ChatPreferredIndex(this.wireName);
+
+  final String wireName;
+
+  static ChatPreferredIndex read(Object? value) {
+    for (final index in values) {
+      if (value == index.wireName) return index;
+    }
+    return channels;
+  }
+}
+
 @immutable
 final class ChatSettings {
   const ChatSettings({
     this.chatEnabled = true,
     this.uploadsEnabled = true,
     this.searchEnabled = false,
+    this.publicChannelsEnabled = true,
+    this.threadsEnabled = true,
+    this.preferredIndex = ChatPreferredIndex.channels,
     this.channelRetentionDays = 0,
     this.directMessageRetentionDays = 0,
     this.maximumDirectMessageUsers = defaultMaximumDirectMessageUsers,
@@ -74,6 +96,9 @@ final class ChatSettings {
     chatEnabled: json['chat_enabled'] != false,
     uploadsEnabled: json['chat_allow_uploads'] != false,
     searchEnabled: json['chat_search_enabled'] == true,
+    publicChannelsEnabled: json['enable_public_channels'] != false,
+    threadsEnabled: json['chat_threads_enabled'] != false,
+    preferredIndex: ChatPreferredIndex.read(json['chat_preferred_index']),
     channelRetentionDays: _retentionDays(json['chat_channel_retention_days']),
     directMessageRetentionDays: _retentionDays(json['chat_dm_retention_days']),
     maximumDirectMessageUsers: _maximumDirectMessageUsers(
@@ -88,6 +113,9 @@ final class ChatSettings {
     chatEnabled: json['chatEnabled'] != false,
     uploadsEnabled: json['uploadsEnabled'] != false,
     searchEnabled: json['searchEnabled'] == true,
+    publicChannelsEnabled: json['publicChannelsEnabled'] != false,
+    threadsEnabled: json['threadsEnabled'] != false,
+    preferredIndex: ChatPreferredIndex.read(json['preferredIndex']),
     channelRetentionDays: _retentionDays(json['channelRetentionDays']),
     directMessageRetentionDays: _retentionDays(
       json['directMessageRetentionDays'],
@@ -103,6 +131,9 @@ final class ChatSettings {
   final bool chatEnabled;
   final bool uploadsEnabled;
   final bool searchEnabled;
+  final bool publicChannelsEnabled;
+  final bool threadsEnabled;
+  final ChatPreferredIndex preferredIndex;
   final int channelRetentionDays;
   final int directMessageRetentionDays;
   final int maximumDirectMessageUsers;
@@ -112,6 +143,9 @@ final class ChatSettings {
     if (!chatEnabled) 'chatEnabled': false,
     'uploadsEnabled': uploadsEnabled,
     'searchEnabled': searchEnabled,
+    if (!publicChannelsEnabled) 'publicChannelsEnabled': false,
+    if (!threadsEnabled) 'threadsEnabled': false,
+    'preferredIndex': preferredIndex.wireName,
     'channelRetentionDays': channelRetentionDays,
     'directMessageRetentionDays': directMessageRetentionDays,
     'maximumDirectMessageUsers': maximumDirectMessageUsers,
@@ -124,6 +158,9 @@ final class ChatSettings {
       other.chatEnabled == chatEnabled &&
       other.uploadsEnabled == uploadsEnabled &&
       other.searchEnabled == searchEnabled &&
+      other.publicChannelsEnabled == publicChannelsEnabled &&
+      other.threadsEnabled == threadsEnabled &&
+      other.preferredIndex == preferredIndex &&
       other.channelRetentionDays == channelRetentionDays &&
       other.directMessageRetentionDays == directMessageRetentionDays &&
       other.maximumDirectMessageUsers == maximumDirectMessageUsers &&
@@ -134,6 +171,9 @@ final class ChatSettings {
     chatEnabled,
     uploadsEnabled,
     searchEnabled,
+    publicChannelsEnabled,
+    threadsEnabled,
+    preferredIndex,
     channelRetentionDays,
     directMessageRetentionDays,
     maximumDirectMessageUsers,
@@ -290,6 +330,7 @@ final class ChatSettingsPersistenceCodec
           maximumDirectMessageUsers: _maximumDirectMessageUsers(
             json['chatMaximumDirectMessageUsers'],
           ),
+          preferredIndex: ChatPreferredIndex.read(json['chatPreferredIndex']),
         )
       : null;
 }
@@ -382,6 +423,8 @@ extension ChatSiteConfigData on SiteConfig {
 
   bool get chatSearchEnabled => chatSettings.searchEnabled;
 
+  ChatPreferredIndex get chatPreferredIndex => chatSettings.preferredIndex;
+
   int get chatChannelRetentionDays => chatSettings.channelRetentionDays;
 
   int get chatDmRetentionDays => chatSettings.directMessageRetentionDays;
@@ -428,6 +471,7 @@ const Set<String> _legacyChatSettingsKeys = {
   'chatChannelRetentionDays',
   'chatDmRetentionDays',
   'chatMaximumDirectMessageUsers',
+  'chatPreferredIndex',
 };
 
 const Set<String> _legacyChatCurrentUserKeys = {

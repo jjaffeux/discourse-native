@@ -59,7 +59,10 @@ final class AssignShellService implements PluginLinkHandler {
   }
 
   @override
-  Future<bool> openPluginUrl(String url) async {
+  Future<bool> openPluginUrl(
+    String url, {
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+  }) async {
     final absolute = resolveSiteUrl(url, _host.currentSite?.url);
     final link = AssignedGroupLink.parse(absolute);
     if (link == null) return false;

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../plugin_api/shell_extensions.dart';
 import 'external_link.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
@@ -18,7 +19,10 @@ Future<bool> openLink(
       resolveSiteUrl(url, siteUrl);
 
   if (showUserCardForUrl(context, target, siteUrl: siteUrl)) return true;
-  if (await controller?.openPluginUrl(target) ?? false) return true;
+  if (await controller?.openPluginUrl(target, origin: PluginLinkOrigin.inApp) ??
+      false) {
+    return true;
+  }
   if (controller?.openGroupUrl(target) ?? false) return true;
   if (controller?.openTopicUrl(target) ?? false) return true;
   if (controller?.openListUrl(target, title: title) ?? false) return true;

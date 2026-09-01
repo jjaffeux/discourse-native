@@ -76,7 +76,8 @@ class _MainContentBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final forumTabsEnabled = ShellScope.read(context).forumTabsEnabled;
+    final shell = ShellScope.read(context);
+    final forumTabsEnabled = shell.forumTabsEnabled;
 
     final route = state.route;
     if (route == null) return ColoredBox(color: theme.shell.content);
@@ -131,6 +132,8 @@ class _MainContentBody extends StatelessWidget {
                       child: FloatingComposerPanel(
                         key: ObjectKey(composer),
                         composer: composer,
+                        onGeometryChanged: (bounds) => shell
+                            .reportFloatingComposerBounds(composer, bounds),
                       ),
                     ),
                 ],

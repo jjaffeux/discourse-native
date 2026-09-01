@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -181,6 +182,12 @@ class _ChatComposerState extends State<ChatComposer> {
   PluginEmojiHost? _emoji;
   ChatController? _chat;
   ComposerController? _composer;
+  VoidCallback? _composerDraftListener;
+  ValueListenable<ChatComposerDraft?>? _retainedDraft;
+  VoidCallback? _retainedDraftListener;
+  ChatComposerDraft? _deferredRetainedDraft;
+  Set<int>? _completedUploadIdsBeforeDeferral;
+  bool _applyingRetainedDraft = false;
   String? _sourceKey;
   bool _pickingGif = false;
   bool _pickingEmoji = false;
@@ -235,7 +242,24 @@ class _ChatComposerState extends State<ChatComposer> {
     }
 
     widget.uploadDropController?.detach(_composer);
-    _composer?.dispose();
+    if (_composer case final previousComposer?) {
+      if (_composerDraftListener case final listener?) {
+        previousComposer.removeListener(listener);
+        previousComposer.text.removeListener(listener);
+      }
+      previousComposer.dispose();
+    }
+    if (_retainedDraft case final retainedDraft?) {
+      if (_retainedDraftListener case final listener?) {
+        retainedDraft.removeListener(listener);
+      }
+    }
+    _composerDraftListener = null;
+    _retainedDraft = null;
+    _retainedDraftListener = null;
+    _deferredRetainedDraft = null;
+    _completedUploadIdsBeforeDeferral = null;
+    _applyingRetainedDraft = false;
     final channel = chat.channel(widget.siteUrl, widget.channelId);
     _host = host;
     _emoji = emoji;
@@ -254,6 +278,122 @@ class _ChatComposerState extends State<ChatComposer> {
     );
     final composer = _composer;
     if (composer == null) return;
+    final target = _target;
+    final retainedDraft = chat.composerDraftListenableFor(
+      widget.siteUrl,
+      target,
+    );
+    _retainedDraft = retainedDraft;
+
+    void applyRetainedDraft() {
+      if (_applyingRetainedDraft ||
+          widget.editingMessage != null ||
+          !identical(_composer, composer) ||
+          !identical(_retainedDraft, retainedDraft)) {
+        return;
+      }
+      final next =
+          retainedDraft.value ?? ChatComposerDraft(raw: '', uploads: const []);
+      final current = ChatComposerDraft(
+        raw: composer.raw,
+        uploads: composer.completedUploads,
+      );
+      if (current == next) return;
+
+      _applyingRetainedDraft = true;
+      try {
+        if (composer.hasActiveUploads) {
+          _completedUploadIdsBeforeDeferral ??= {
+            for (final upload in composer.completedUploads) upload.id,
+          };
+          _deferredRetainedDraft = next;
+          if (composer.text.text != next.raw) {
+            composer.text.value = TextEditingValue(
+              text: next.raw,
+              selection: TextSelection.collapsed(offset: next.raw.length),
+            );
+          }
+        } else {
+          _deferredRetainedDraft = null;
+          _completedUploadIdsBeforeDeferral = null;
+          composer.replacePluginDocument(raw: next.raw, uploads: next.uploads);
+        }
+      } finally {
+        _applyingRetainedDraft = false;
+      }
+    }
+
+    _retainedDraftListener = applyRetainedDraft;
+    retainedDraft.addListener(applyRetainedDraft);
+
+    void retainDraft() {
+      if (widget.editingMessage != null || _applyingRetainedDraft) return;
+
+      if (_deferredRetainedDraft case final deferred?) {
+        if (composer.hasActiveUploads) {
+          final next = ChatComposerDraft(
+            raw: composer.raw,
+            uploads: deferred.uploads,
+          );
+          _deferredRetainedDraft = next;
+          chat.retainComposerDraft(
+            widget.siteUrl,
+            target,
+            raw: next.raw,
+            uploads: next.uploads,
+          );
+          return;
+        }
+
+        final completedBeforeDeferral =
+            _completedUploadIdsBeforeDeferral ?? const <int>{};
+        final mergedUploads = [...deferred.uploads];
+        final retainedIds = {for (final upload in mergedUploads) upload.id};
+        for (final upload in composer.completedUploads) {
+          if (!completedBeforeDeferral.contains(upload.id) &&
+              retainedIds.add(upload.id)) {
+            mergedUploads.add(upload);
+          }
+        }
+        final merged = ChatComposerDraft(
+          raw: composer.raw,
+          uploads: mergedUploads,
+        );
+        _deferredRetainedDraft = null;
+        _completedUploadIdsBeforeDeferral = null;
+        _applyingRetainedDraft = true;
+        try {
+          composer.replacePluginDocument(
+            raw: merged.raw,
+            uploads: merged.uploads,
+          );
+        } finally {
+          _applyingRetainedDraft = false;
+        }
+        chat.retainComposerDraft(
+          widget.siteUrl,
+          target,
+          raw: merged.raw,
+          uploads: merged.uploads,
+        );
+        return;
+      }
+
+      chat.retainComposerDraft(
+        widget.siteUrl,
+        target,
+        raw: composer.raw,
+        uploads: composer.completedUploads,
+      );
+    }
+
+    _composerDraftListener = retainDraft;
+    composer.addListener(retainDraft);
+    // ComposerController deliberately avoids rebuilding its whole panel for
+    // every keystroke, so observe the document directly as well as upload and
+    // notice changes published by the controller.
+    composer.text.addListener(retainDraft);
+    applyRetainedDraft();
     widget.uploadDropController?.attach(
       composer,
       canAccept: () =>
@@ -299,10 +439,24 @@ class _ChatComposerState extends State<ChatComposer> {
         oldWidget.threadId == widget.threadId;
     if (sameTarget) {
       if (oldWidget.editingMessage?.id != widget.editingMessage?.id) {
+        _deferredRetainedDraft = null;
+        _completedUploadIdsBeforeDeferral = null;
         if (widget.editingMessage case final message?) {
           _replaceWithMessage(_composer!, message, _sourceKey!);
         } else {
-          _composer?.clearDocument();
+          final composer = _composer;
+          final retained = _retainedDraft?.value;
+          if (composer != null) {
+            _applyingRetainedDraft = true;
+            try {
+              composer.replacePluginDocument(
+                raw: retained?.raw ?? '',
+                uploads: retained?.uploads ?? const [],
+              );
+            } finally {
+              _applyingRetainedDraft = false;
+            }
+          }
         }
       }
       if (oldWidget.focusRequest != widget.focusRequest &&
@@ -321,7 +475,18 @@ class _ChatComposerState extends State<ChatComposer> {
   @override
   void dispose() {
     widget.uploadDropController?.detach(_composer);
-    _composer?.dispose();
+    if (_composer case final composer?) {
+      if (_composerDraftListener case final listener?) {
+        composer.removeListener(listener);
+        composer.text.removeListener(listener);
+      }
+      composer.dispose();
+    }
+    if (_retainedDraft case final retainedDraft?) {
+      if (_retainedDraftListener case final listener?) {
+        retainedDraft.removeListener(listener);
+      }
+    }
     super.dispose();
   }
 

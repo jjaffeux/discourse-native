@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui' show Color;
+import 'dart:ui' show Color, Rect;
 
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueListenable;
@@ -886,9 +886,12 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  Future<bool> openPluginUrl(String url) async {
+  Future<bool> openPluginUrl(
+    String url, {
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+  }) async {
     for (final handler in _pluginSession.capabilities<PluginLinkHandler>()) {
-      if (await handler.openPluginUrl(url)) return true;
+      if (await handler.openPluginUrl(url, origin: origin)) return true;
     }
     return false;
   }
@@ -913,7 +916,7 @@ class ShellController extends FrameSafeNotifier
     if (!owned) return false;
 
     final absolute = target.toString();
-    if (await openPluginUrl(absolute)) {
+    if (await openPluginUrl(absolute, origin: PluginLinkOrigin.inApp)) {
       return _revealNotificationTarget();
     }
     if (openGroupUrl(absolute)) return _revealNotificationTarget();
@@ -1023,6 +1026,54 @@ class ShellController extends FrameSafeNotifier
 
   @override
   bool get forumActive => _rootMode == ShellRootMode.forum;
+
+  ({Object owner, PluginVisibleTopicContext context})? _visibleTopicContext;
+
+  @override
+  PluginVisibleTopicContext? get visibleTopicContext {
+    final held = _visibleTopicContext?.context;
+    if (held == null ||
+        currentInstance?.url != held.siteUrl ||
+        currentContent?.topicId != held.topicId) {
+      return null;
+    }
+    return held;
+  }
+
+  /// Publishes the narrow topic viewport snapshot exposed to plugin writes.
+  ///
+  /// [owner] makes teardown race-safe when one topic view replaces another:
+  /// the retiring view cannot clear a newer view's snapshot.
+  void updateVisibleTopicContext({
+    required Object owner,
+    required String siteUrl,
+    required int topicId,
+    required Iterable<int> postIds,
+  }) {
+    if (currentInstance?.url != siteUrl || currentContent?.topicId != topicId) {
+      clearVisibleTopicContext(owner);
+      return;
+    }
+    final normalizedPostIds = <int>[];
+    final seen = <int>{};
+    for (final postId in postIds) {
+      if (postId > 0 && seen.add(postId)) normalizedPostIds.add(postId);
+    }
+    _visibleTopicContext = (
+      owner: owner,
+      context: PluginVisibleTopicContext(
+        siteUrl: siteUrl,
+        topicId: topicId,
+        postIds: normalizedPostIds,
+      ),
+    );
+  }
+
+  void clearVisibleTopicContext(Object owner) {
+    if (identical(_visibleTopicContext?.owner, owner)) {
+      _visibleTopicContext = null;
+    }
+  }
 
   DiscourseInstance? instanceFor(String siteUrl) => _instanceAt(siteUrl);
 
@@ -1569,6 +1620,14 @@ class ShellController extends FrameSafeNotifier
   NotificationTotals? get currentTotals {
     final instance = currentInstance;
     return instance == null ? null : accountActivity.totalsFor(instance.url);
+  }
+
+  @override
+  Rect? get floatingComposerBounds {
+    final composer = visibleComposer;
+    return identical(composer, _floatingComposerBoundsOwner)
+        ? _floatingComposerBounds
+        : null;
   }
 
   int railBadgeFor(DiscourseInstance instance) =>
@@ -5090,6 +5149,8 @@ class ShellController extends FrameSafeNotifier
   }
 
   ComposerController? _composer;
+  ComposerController? _floatingComposerBoundsOwner;
+  Rect? _floatingComposerBounds;
 
   late final ComposerDraftCoordinator _composerDrafts =
       ComposerDraftCoordinator(
@@ -5155,6 +5216,27 @@ class ShellController extends FrameSafeNotifier
       if (tabId != activeTabId) return null;
     }
     return composer;
+  }
+
+  /// Receives the actual painted composer rectangle without making its
+  /// movable presentation geometry part of the composer domain model.
+  void reportFloatingComposerBounds(ComposerController composer, Rect? bounds) {
+    if (isDisposed) return;
+    if (bounds == null) {
+      if (!identical(_floatingComposerBoundsOwner, composer)) return;
+      _floatingComposerBoundsOwner = null;
+      _floatingComposerBounds = null;
+      _notify();
+      return;
+    }
+    if (!identical(visibleComposer, composer) ||
+        identical(_floatingComposerBoundsOwner, composer) &&
+            _floatingComposerBounds == bounds) {
+      return;
+    }
+    _floatingComposerBoundsOwner = composer;
+    _floatingComposerBounds = bounds;
+    _notify();
   }
 
   bool get canReplyHere => currentTopic?.canCreatePost ?? false;
@@ -5521,7 +5603,9 @@ class ShellController extends FrameSafeNotifier
     final route = currentContent;
     final tabId = activeTabId;
     final feedId = currentFeedId;
-    if (!forumActive || route?.id != sourceRouteId) {
+    bool sourceIsCurrent() => request.sourceStillCurrent?.call() ?? true;
+
+    if (!forumActive || route?.id != sourceRouteId || !sourceIsCurrent()) {
       return OpenComposerResult.sourceChanged;
     }
     if (request.seed.raw.trim().isEmpty ||
@@ -5541,6 +5625,7 @@ class ShellController extends FrameSafeNotifier
         !lease.isCurrent ||
         currentInstance?.url != siteUrl ||
         currentContent?.id != sourceRouteId ||
+        !sourceIsCurrent() ||
         activeTabId != tabId ||
         currentFeedId != feedId) {
       return OpenComposerResult.sourceChanged;
@@ -5590,6 +5675,7 @@ class ShellController extends FrameSafeNotifier
         !lease.isCurrent ||
         !identical(_composer, composer) ||
         currentContent?.id != sourceRouteId ||
+        !sourceIsCurrent() ||
         activeTabId != tabId) {
       return OpenComposerResult.sourceChanged;
     }
@@ -11405,6 +11491,13 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
 
   @override
   NotificationTotals? get currentTotals => _shell.currentTotals;
+
+  @override
+  PluginVisibleTopicContext? get visibleTopicContext =>
+      _shell.visibleTopicContext;
+
+  @override
+  Rect? get floatingComposerBounds => _shell.floatingComposerBounds;
 
   @override
   void selectInstance(int index) => _shell.selectInstance(index);

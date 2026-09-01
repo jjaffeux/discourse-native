@@ -100,6 +100,41 @@ void main() {
       expect(await second.settled, ChatSendResult.sent);
     });
 
+    test('captures topic context with each queued send', () async {
+      final sendGate = Completer<void>();
+      final api = FakeDiscourseApi(chatSendGate: sendGate);
+      final projection = _Projection()
+        ..messageContext = (topicId: 31, postIds: [101, 102, 103]);
+      final coordinator = DefaultChatSendCoordinator(
+        api: api,
+        requests: _Requests(),
+        host: projection.host,
+      );
+      addTearDown(coordinator.dispose);
+
+      final first = coordinator.sendMessage(
+        _site,
+        const ChatChannelTarget(9),
+        OutgoingChatMessage.text('first'),
+      )!;
+      projection.messageContext = (topicId: 32, postIds: [201, 202]);
+      final second = coordinator.sendMessage(
+        _site,
+        const ChatChannelTarget(9),
+        OutgoingChatMessage.text('second'),
+      )!;
+
+      await Future<void>.delayed(Duration.zero);
+      sendGate.complete();
+      expect(await first.settled, ChatSendResult.sent);
+      expect(await second.settled, ChatSendResult.sent);
+      expect(api.chatMessagesSent.map((call) => call.contextTopicId), [31, 32]);
+      expect(api.chatMessagesSent.map((call) => call.contextPostIds), [
+        [101, 102, 103],
+        [201, 202],
+      ]);
+    });
+
     test(
       'forget cancels the active credential wait and queued sends',
       () async {
@@ -177,6 +212,7 @@ final class _Projection {
   final sent = <({String stagedId, int? serverId})>[];
   final reconciled = <({String stagedId, Object? payload})>[];
   final _unsettledTargets = <ChatStreamTarget>{};
+  ChatMessageContext? messageContext;
 
   late final host = ChatSendCoordinatorHost(
     isDisposed: () => false,
@@ -202,6 +238,7 @@ final class _Projection {
       reconciled.add((stagedId: stagedId, payload: payload));
       _unsettledTargets.remove(target);
     },
+    messageContextFor: (_) => messageContext,
     report: (_, _, _, _) {},
   );
 }

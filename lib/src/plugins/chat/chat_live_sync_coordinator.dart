@@ -399,7 +399,7 @@ final class ChatLiveSyncCoordinator {
     final token = Object();
     if (_disposed || _host.isDisposed()) return token;
     final site = _siteFor(siteUrl);
-    site.activeChannelViews[channelId] = token;
+    (site.activeChannelViews[channelId] ??= {}).add(token);
     _retainRoot(site, channelId, token);
     return token;
   }
@@ -407,7 +407,9 @@ final class ChatLiveSyncCoordinator {
   void endViewingChannel(String siteUrl, int channelId, Object token) {
     final site = _sites[siteUrl];
     if (site == null) return;
-    if (identical(site.activeChannelViews[channelId], token)) {
+    final tokens = site.activeChannelViews[channelId];
+    tokens?.remove(token);
+    if (tokens != null && tokens.isEmpty) {
       site.activeChannelViews.remove(channelId);
     }
     _releaseRoot(site, channelId, token);
@@ -1548,7 +1550,7 @@ final class _ChatLiveSite {
   final Map<int, _OwnedLiveSubscription> newMentionSubscriptions = {};
   final Map<int, _OwnedLiveSubscription> kickSubscriptions = {};
 
-  final Map<int, Object> activeChannelViews = {};
+  final Map<int, Set<Object>> activeChannelViews = {};
   final Map<int, Set<Object>> rootViewTokens = {};
   final Map<int, _OwnedLiveSubscription> rootSubscriptions = {};
   final Map<ChatThreadTarget, Set<Object>> threadViewTokens = {};
@@ -1577,7 +1579,7 @@ final class _ChatLiveSite {
       ..hasChannelSnapshot = hasChannelSnapshot;
     replacement.awaitingFirstMessage.addAll(awaitingFirstMessage);
     for (final entry in activeChannelViews.entries) {
-      replacement.activeChannelViews[entry.key] = entry.value;
+      replacement.activeChannelViews[entry.key] = {...entry.value};
     }
     for (final entry in rootViewTokens.entries) {
       replacement.rootViewTokens[entry.key] = Set.of(entry.value);

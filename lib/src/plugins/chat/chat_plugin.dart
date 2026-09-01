@@ -23,6 +23,7 @@ import 'chat_channel_search.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_threads_view.dart';
 import 'chat_channel_view.dart';
+import 'chat_drawer.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_header_button.dart';
 import 'chat_my_threads_view.dart';
@@ -35,6 +36,7 @@ import 'chat_route.dart';
 import 'chat_search_view.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
+import 'chat_stream_target.dart';
 import 'chat_thread_view.dart';
 import 'chat_transcript.dart';
 import 'chat_user_avatar.dart';
@@ -54,6 +56,7 @@ class ChatPlugin
         IconCatalogPlugin,
         SidebarPlugin,
         SidebarPanelPlugin,
+        SidebarPanelListenablePlugin,
         ContentPlugin,
         ContentSearchPlugin,
         ContentChromePlugin,
@@ -63,6 +66,7 @@ class ChatPlugin
         ContentHeaderTitlePlugin,
         ForumTabPlugin,
         ShellHeaderPlugin,
+        ShellOverlayPlugin,
         UserCardRecordPlugin<ChatUserCardData>,
         UserCardActionPlugin,
         CookedElementPlugin,
@@ -92,6 +96,9 @@ class ChatPlugin
   static const String searchRouteId = 'chat-search';
   static const String myThreadsRouteId = 'chat-my-threads';
   static const String browseRouteId = 'chat-browse';
+  static const String channelsRouteId = 'chat-channels';
+  static const String starredRouteId = 'chat-starred';
+  static const String directMessagesRouteId = 'chat-direct-messages';
 
   static String channelThreadsRouteId(int channelId) =>
       'chat-c-$channelId-threads';
@@ -105,6 +112,9 @@ class ChatPlugin
       routeId != null &&
       (ChatRoute.parse(routeId) != null ||
           routeId == browseRouteId ||
+          routeId == channelsRouteId ||
+          routeId == starredRouteId ||
+          routeId == directMessagesRouteId ||
           routeId == myThreadsRouteId ||
           routeId == searchRouteId ||
           channelIdFromThreadsRoute(routeId) != null);
@@ -240,20 +250,24 @@ class ChatPlugin
     final starred = chat.starredChannels(siteUrl);
     final public = chat.unstarredPublicChannels(siteUrl);
     final direct = chat.unstarredDirectChannels(siteUrl);
-    final chatAvailable =
-        shell.isConnected(siteUrl) &&
-        shell.currentUser?.hasChatEnabled != false &&
-        shell.currentTotals?.hasChatEnabled == true;
-    final searchEnabled =
-        chatAvailable && chat.siteConfigFor(siteUrl).chatSearchEnabled == true;
-    final myThreadsEnabled = chatAvailable && chat.hasThreads(siteUrl);
+    final settings = chat.siteConfigFor(siteUrl).chatSettings;
+    final chatAvailable = shell.chatAvailable(siteUrl);
+    final authenticatedChatAvailable =
+        chatAvailable && shell.currentUser != null;
+    final publicChannelsEnabled =
+        chatAvailable && settings.publicChannelsEnabled;
+    final searchEnabled = authenticatedChatAvailable && settings.searchEnabled;
+    final myThreadsEnabled =
+        authenticatedChatAvailable &&
+        settings.threadsEnabled &&
+        chat.hasThreads(siteUrl);
     final canCreateDirectMessage =
-        chatAvailable &&
+        authenticatedChatAvailable &&
         (shell.currentUser?.staff == true ||
             shell.currentUser?.canDirectMessage == true);
 
     return [
-      if (chatAvailable)
+      if (authenticatedChatAvailable && settings.publicChannelsEnabled)
         SidebarSection(
           id: 'chat-browse',
           title: '',
@@ -298,7 +312,7 @@ class ChatPlugin
             ),
           ],
         ),
-      if (starred.isNotEmpty)
+      if (authenticatedChatAvailable && starred.isNotEmpty)
         SidebarSection(
           id: 'chat-starred-channels',
           title: 'Starred channels',
@@ -311,7 +325,7 @@ class ChatPlugin
               ),
           ],
         ),
-      if (public.isNotEmpty)
+      if (publicChannelsEnabled && public.isNotEmpty)
         SidebarSection(
           id: 'chat',
           title: 'Chat',
@@ -324,7 +338,8 @@ class ChatPlugin
               ),
           ],
         ),
-      if (chat.channelsLoaded(siteUrl) &&
+      if (authenticatedChatAvailable &&
+          chat.channelsLoaded(siteUrl) &&
           (direct.isNotEmpty || canCreateDirectMessage))
         SidebarSection(
           id: 'direct-messages',
@@ -360,10 +375,7 @@ class ChatPlugin
     if (siteUrl == null) return null;
 
     final active = ownsRouteId(shell.currentContent?.id);
-    final available =
-        shell.isConnected(siteUrl) &&
-        shell.currentUser?.hasChatEnabled != false &&
-        shell.currentTotals?.hasChatEnabled == true;
+    final available = shell.chatAvailable(siteUrl);
     if (!available && !active) return null;
 
     final mode = shell.separateSidebarMode;
@@ -372,16 +384,39 @@ class ChatPlugin
       label: 'Chat',
       icon: DIcons.comment,
       active: active,
-      separateWhenActive: mode != ChatSeparateSidebarMode.never,
+      separateWhenActive: shell.drawerActive
+          ? mode == ChatSeparateSidebarMode.always
+          : mode != ChatSeparateSidebarMode.never,
       // Anonymous visitors have no panel controls, so core leaves their Chat
       // sections in the forum panel until they enter full-page Chat.
       includeSectionsWhenInactive:
           anonymous || mode != ChatSeparateSidebarMode.always,
-      showSwitch: !anonymous && mode != ChatSeparateSidebarMode.never,
+      showSwitch:
+          !anonymous &&
+          mode != ChatSeparateSidebarMode.never &&
+          !shell.drawerActive,
+      selectedDestinationId: shell.drawerExpanded
+          ? _drawerSidebarDestinationId(shell.drawerCurrentContent?.id)
+          : null,
       onOpen: () => unawaited(shell.openShortcut()),
       onClose: shell.closeSidebarPanel,
     );
   }
+
+  static String? _drawerSidebarDestinationId(String? routeId) {
+    if (routeId == null) return null;
+    if (ChatRoute.parse(routeId) case final route?) {
+      return ChatRoute.channel(route.channelId).routeId;
+    }
+    if (channelIdFromThreadsRoute(routeId) case final channelId?) {
+      return ChatRoute.channel(channelId).routeId;
+    }
+    return routeId;
+  }
+
+  @override
+  Listenable sidebarPanelListenable(BuildContext context) =>
+      PluginUiScope.require(context, chatShellService);
 
   @override
   Listenable sidebarListenable(BuildContext context) =>
@@ -409,11 +444,38 @@ class ChatPlugin
   @override
   Widget? content(BuildContext context, ContentRoute route) {
     final shell = PluginUiScope.require(context, chatShellService);
+    final drawerListKind = switch (route.id) {
+      channelsRouteId => ChatDrawerChannelListKind.channels,
+      starredRouteId => ChatDrawerChannelListKind.starred,
+      directMessagesRouteId => ChatDrawerChannelListKind.directMessages,
+      _ => null,
+    };
+    if (drawerListKind != null) {
+      final siteUrl = shell.currentSiteUrl;
+      final available =
+          siteUrl != null &&
+          shell.isConnected(siteUrl) &&
+          shell.currentUser?.hasChatEnabled != false &&
+          shell.currentTotals?.hasChatEnabled == true;
+      return siteUrl == null
+          ? const SizedBox.shrink()
+          : !available
+          ? const Center(child: Text('Chat channels are not available.'))
+          : ChatDrawerChannelsView(
+              key: ValueKey((siteUrl, drawerListKind)),
+              siteUrl: siteUrl,
+              kind: drawerListKind,
+            );
+    }
     if (route.id == browseRouteId) {
       final siteUrl = shell.currentSiteUrl;
       final available =
           siteUrl != null &&
           shell.isConnected(siteUrl) &&
+          shell.chat
+              .siteConfigFor(siteUrl)
+              .chatSettings
+              .publicChannelsEnabled &&
           shell.currentUser?.hasChatEnabled != false &&
           shell.currentTotals?.hasChatEnabled == true;
       return siteUrl == null
@@ -430,6 +492,7 @@ class ChatPlugin
           shell.isConnected(siteUrl) &&
           shell.currentUser?.hasChatEnabled != false &&
           shell.currentTotals?.hasChatEnabled == true &&
+          chat.siteConfigFor(siteUrl).chatSettings.threadsEnabled &&
           chat.channel(siteUrl, channelId)?.threadingEnabled == true;
       return !available
           ? const Center(child: Text('Threads are not available.'))
@@ -444,6 +507,7 @@ class ChatPlugin
       final available =
           siteUrl != null &&
           shell.isConnected(siteUrl) &&
+          shell.chat.siteConfigFor(siteUrl).chatSettings.threadsEnabled &&
           shell.currentUser?.hasChatEnabled != false &&
           shell.currentTotals?.hasChatEnabled == true;
       return siteUrl == null
@@ -480,7 +544,11 @@ class ChatPlugin
       );
     }
     return chatRoute.isThread
-        ? ChatThreadWorkspace(route: chatRoute)
+        ? ChatThreadWorkspace(
+            key: ValueKey((shell.currentSiteUrl, route.id)),
+            route: chatRoute,
+            showHeader: !ChatDrawerScope.isDrawer(context),
+          )
         : ChatChannelView(channelId: chatRoute.channelId);
   }
 
@@ -518,16 +586,35 @@ class ChatPlugin
   @override
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) {
     final chatRoute = ChatRoute.parse(route.id);
-    final siteUrl = PluginUiScope.require(
-      context,
-      chatShellService,
-    ).currentSiteUrl;
-    if (siteUrl == null || chatRoute == null || chatRoute.isThread) {
-      return const [];
+    final shell = PluginUiScope.require(context, chatShellService);
+    final siteUrl = shell.currentSiteUrl;
+    final fullPageAction = shell.fullPageChatActive && shell.drawerAvailable
+        ? DButton.iconOnly(
+            key: const ValueKey('chat-close-full-page'),
+            tooltip: 'Close full-screen chat',
+            onPressed: () => unawaited(shell.openDrawerFromFullPage()),
+            variant: DButtonVariant.flat,
+            icon: const DIcon(DIcons.circleMinus, size: 18),
+          )
+        : null;
+    if (siteUrl == null || chatRoute == null) {
+      return fullPageAction == null ? const [] : [fullPageAction];
+    }
+    if (chatRoute.isThread) {
+      final target = ChatThreadTarget(
+        channelId: chatRoute.channelId,
+        threadId: chatRoute.threadId!,
+      );
+      return [
+        ChatThreadNotificationButton(siteUrl: siteUrl, target: target),
+        ChatThreadSettingsButton(siteUrl: siteUrl, target: target),
+        ?fullPageAction,
+      ];
     }
     if (chatRoute.isInfo) {
       return [
         ChatChannelStarButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
+        ?fullPageAction,
       ];
     }
     return [
@@ -537,6 +624,7 @@ class ChatPlugin
         channelId: chatRoute.channelId,
       ),
       ChatChannelSearchButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
+      ?fullPageAction,
     ];
   }
 
@@ -547,7 +635,10 @@ class ChatPlugin
       context,
       chatShellService,
     ).currentSiteUrl;
-    if (siteUrl == null || chatRoute == null || chatRoute.isThread) return null;
+    if (siteUrl == null || chatRoute == null) return null;
+    if (chatRoute.isThread) {
+      return const DIcon(DIcons.comments, size: 18);
+    }
 
     final chat = PluginUiScope.require(context, chatControllerService);
     final channel = chat.channel(siteUrl, chatRoute.channelId);
@@ -612,6 +703,25 @@ class ChatPlugin
     ChatHeaderButton(
       hideWhenChatActive: surface == PluginHeaderSurface.content && compact,
       ringColor: ringColor,
+    ),
+  ];
+
+  @override
+  List<Widget> shellOverlays(BuildContext context) => [
+    ChatDrawerOverlay(
+      contentBuilder: (context, route) =>
+          content(context, route) ?? const SizedBox.shrink(),
+      headerActionsBuilder: contentHeaderActions,
+      headerLeadingBuilder: contentHeaderLeading,
+      headerTitleTrailingBuilder: contentHeaderTitleTrailing,
+      headerTitleActionBuilder: contentHeaderTitleAction,
+      showFooterForRoute: (route) => const {
+        channelsRouteId,
+        starredRouteId,
+        directMessagesRouteId,
+        myThreadsRouteId,
+        searchRouteId,
+      }.contains(route.id),
     ),
   ];
 
@@ -770,7 +880,8 @@ class _ChatChannelThreadsButton extends StatelessWidget {
     return ValueListenableBuilder<ChatChannel?>(
       valueListenable: chat.channelRef(siteUrl, channelId),
       builder: (context, channel, _) {
-        if (channel?.threadingEnabled != true) {
+        if (!chat.siteConfigFor(siteUrl).chatSettings.threadsEnabled ||
+            channel?.threadingEnabled != true) {
           return const SizedBox.shrink();
         }
         final unread = channel!.unreadThreadCount;

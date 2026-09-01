@@ -1083,10 +1083,29 @@ final class ChatApiClient implements ChatApi {
     int? threadId,
     String? stagedId,
     DateTime? clientCreatedAt,
+    int? contextTopicId,
+    List<int> contextPostIds = const [],
     String? clientId,
   }) async {
     _requirePositiveId(channelId, 'channelId');
     if (threadId != null) _requirePositiveId(threadId, 'threadId');
+    if (contextTopicId != null) {
+      _requirePositiveId(contextTopicId, 'contextTopicId');
+    }
+    if (contextPostIds.any((id) => id <= 0)) {
+      throw ArgumentError.value(
+        contextPostIds,
+        'contextPostIds',
+        'Invalid post IDs.',
+      );
+    }
+    if (contextTopicId == null && contextPostIds.isNotEmpty) {
+      throw ArgumentError.value(
+        contextPostIds,
+        'contextPostIds',
+        'A context topic is required.',
+      );
+    }
     if (message.trim().isEmpty && uploadIds.isEmpty) {
       throw ArgumentError.value(
         '',
@@ -1110,6 +1129,8 @@ final class ChatApiClient implements ChatApi {
         'thread_id': threadId,
         'staged_id': stagedId,
         'client_created_at': clientCreatedAt?.toUtc().toIso8601String(),
+        'context_topic_id': contextTopicId,
+        'context_post_ids': contextTopicId == null ? null : contextPostIds,
       },
     );
     return jsonIntOrNull(body['message_id']);
