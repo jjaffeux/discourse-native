@@ -18,7 +18,8 @@ planned; see [Adding a platform](#adding-a-platform).
   ```sh
   sudo apt install clang cmake ninja-build pkg-config \
                    libgtk-3-dev liblzma-dev libstdc++-12-dev \
-                   libwebkit2gtk-4.1-dev libsoup-3.0-dev
+                   libwebkit2gtk-4.1-dev libsoup-3.0-dev \
+                   gstreamer1.0-libav
   ```
 
 Run `flutter doctor` to check the toolchain.
@@ -1974,8 +1975,29 @@ Playback uses YouTube's official iframe, never an extracted media stream. The
 wrapper supplies the source forum's origin as the referrer/client identity,
 allows iframe navigation, and prevents a link from replacing the app's
 top-level WebView — safe links are handed to the system browser instead.
-`webview_all` is confined to `YoutubePlayerSurface`, keeping Discourse markup
-parsing and the native poster independent of the platform package.
+`webview_all` is confined to app-owned activated media surfaces, keeping
+Discourse markup parsing and the native posters independent of the platform
+package.
+
+Uploaded video is a separate, shared media path. Chat exposes an upload record
+outside cooked HTML, while topics use either core's lazy
+`video-placeholder-container` or its activated `video-onebox` markup;
+[`inline_video.dart`](lib/src/shell/inline_video.dart) normalizes all three into
+the same lazy poster and accessible Play/Open actions. iOS and macOS use
+Flutter's official `video_player` AVFoundation backend and small Flutter
+controls. Linux reuses the existing WebKitGTK surface with an owned HTML5
+`<video>` document and native controls. This keeps Apple builds on Swift
+Package Manager and avoids shipping a second Linux media framework.
+
+A protected same-origin upload is resolved before playback. User API headers
+are sent only to the forum while redirects are walked explicitly; the player
+normally receives the final signed CDN URL with no credentials. Unsafe URLs,
+redirect downgrades, unsupported codecs, and protected endpoints that cannot
+produce a headerless signed URL retain an external-open fallback. Neither
+player is constructed until Play is pressed, and active playback is paused when
+the app leaves the foreground. Starting another uploaded video pauses the
+previous one, and these players follow their list item's lifecycle rather than
+being kept alive after an offscreen item is released.
 
 The parsers never mutate the DOM they are handed; a body remainder is
 serialized back to a string. The document belongs to the caller's `HtmlWidget`.
@@ -2404,6 +2426,7 @@ lib/
       instance_sidebar.dart    per-instance navigation
       main_content.dart        the single main region
       cooked_html.dart         renders a post's cooked HTML
+      inline_video.dart        shared uploaded-video preview/player
       youtube_video.dart       shared YouTube preview/player + core fallback
       emoji.dart               draws img.emoji, and resolves its src
       post_footer.dart         picks what a post's footer is, per plugin
@@ -2446,11 +2469,15 @@ is the default for Flutter 3.44 projects.
 ## Linux
 
 `webkit2gtk-4.1` and `libsoup-3.0` are hard requirements, not optional extras.
-The authentication window and inline YouTube surface both link them into the
-binary, so a machine without them cannot start the app at all — `ld.so` fails at
-exec and a desktop launcher shows nothing. WebKitGTK lets the sign-in window
-intercept the `discourse://auth_redirect` callback in-process and supplies the
-inline iframe used only after a YouTube preview is activated.
+The authentication window and inline media surfaces link them into the binary,
+so a machine without them cannot start the app at all — `ld.so` fails at exec
+and a desktop launcher shows nothing. WebKitGTK lets the sign-in window
+intercept the `discourse://auth_redirect` callback in-process, supplies the
+inline iframe used after a YouTube preview is activated, and delegates uploaded
+HTML5 video decoding to GStreamer. Release packages depend on
+`gstreamer1.0-libav` so common H.264/AAC MP4 uploads work consistently; an
+external-open fallback remains because codec availability still varies across
+distributions.
 
 Linux does not use libsecret or require a Secret Service. API keys and unsent
 draft mirrors are stored in
@@ -2512,8 +2539,9 @@ then
 sudo apt update && sudo apt install discourse-native
 ```
 
-`Depends:` names webkit2gtk and the other linked libraries, so apt pulls them
-in — there is no list of libraries to install by hand. That matters more than
+`Depends:` names webkit2gtk, the MP4 codec runtime, and the other linked
+libraries, so apt pulls them in — there is no list of libraries to install by
+hand. That matters more than
 convenience here: webkit is linked, not loaded on demand, so a machine without
 it cannot start the app at all, and `ld.so` failing at exec shows nothing
 whatsoever from a desktop launcher.

@@ -46,6 +46,11 @@ dependencies:
   # is created. Keep these in lockstep with the umbrella package.
   webview_all_linux: 1.3.10
   webview_all_wkwebview: 1.3.10
+  # Uploaded videos use Flutter's standard controller API on its supported
+  # native platforms. Linux keeps the existing WebKitGTK media surface because
+  # Flutter does not publish a Linux backend; this also keeps the Swift Package
+  # Manager Apple graph on the small, official AVFoundation implementation.
+  video_player: ^2.14.0
   # Used directly to read onebox markup out of cooked posts; also the DOM
   # flutter_widget_from_html_core hands to its custom builders.
   html: ^0.15.6

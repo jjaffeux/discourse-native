@@ -249,7 +249,7 @@ jobs:
             "Section: net" \
             "Priority: optional" \
             "Homepage: https://github.com/${{ github.repository }}" \
-            "Depends: libgtk-3-0, libglib2.0-0, libwebkit2gtk-4.1-0, libsoup-3.0-0" \
+            "Depends: libgtk-3-0, libglib2.0-0, libwebkit2gtk-4.1-0, libsoup-3.0-0, gstreamer1.0-libav" \
             "Description: Native Discourse client" \
             " An experimental native client for Discourse forums, built with Flutter." \
             > "$ROOT/DEBIAN/control"
