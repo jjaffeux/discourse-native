@@ -5,15 +5,18 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../diagnostics/diagnostics_controller.dart';
 import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_scope.dart';
+import '../../shell/command_menu.dart';
 import '../../shell/composer_autocomplete.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/composer_drop.dart';
 import '../../shell/composer_link.dart';
 import '../../shell/composer_panel.dart';
+import '../../shell/composer_upload_picker.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/emoji_composer.dart';
 import '../../shell/emoji_picker.dart';
@@ -23,6 +26,7 @@ import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../gifs/gifs_contract.dart';
+import '../gifs/gifs_icons.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_emoji_usage.dart';
@@ -66,6 +70,8 @@ class ChatUploadDropController {
     composer.focus.requestFocus();
   }
 }
+
+enum _ChatComposerAddAction { uploadImages, gif }
 
 /// The web app binds chat uploads to the channel/thread root, not its textarea.
 class ChatUploadDropRegion extends StatefulWidget {
@@ -160,6 +166,7 @@ class ChatComposer extends StatefulWidget {
     this.editingMessage,
     this.onEditMessage,
     this.onEditFinished,
+    this.pickImages = pickComposerImages,
   });
 
   final String siteUrl;
@@ -169,6 +176,7 @@ class ChatComposer extends StatefulWidget {
   final ChatMessage? editingMessage;
   final ValueChanged<ChatMessage>? onEditMessage;
   final VoidCallback? onEditFinished;
+  final ComposerImagePicker pickImages;
 
   /// A counter lets repeated Reply actions refocus an already-open thread.
   final int focusRequest;
@@ -190,6 +198,7 @@ class _ChatComposerState extends State<ChatComposer> {
   bool _applyingRetainedDraft = false;
   String? _sourceKey;
   bool _pickingGif = false;
+  bool _pickingImages = false;
   bool _pickingEmoji = false;
   bool _savingEdit = false;
 
@@ -398,6 +407,7 @@ class _ChatComposerState extends State<ChatComposer> {
       composer,
       canAccept: () =>
           mounted &&
+          !_pickingImages &&
           !_savingEdit &&
           (_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false),
     );
@@ -428,6 +438,7 @@ class _ChatComposerState extends State<ChatComposer> {
           composer,
           canAccept: () =>
               mounted &&
+              !_pickingImages &&
               !_savingEdit &&
               (_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false),
         );
@@ -497,6 +508,7 @@ class _ChatComposerState extends State<ChatComposer> {
         chat == null ||
         _savingEdit ||
         _pickingGif ||
+        _pickingImages ||
         _pickingEmoji ||
         !composer.canSubmit ||
         composer.hasActiveUploads) {
@@ -603,6 +615,7 @@ class _ChatComposerState extends State<ChatComposer> {
         sourceKey == null ||
         gifs == null ||
         _pickingGif ||
+        _pickingImages ||
         _pickingEmoji ||
         _savingEdit ||
         widget.editingMessage != null ||
@@ -627,6 +640,50 @@ class _ChatComposerState extends State<ChatComposer> {
     }
   }
 
+  Future<void> _pickImages() async {
+    final host = _host;
+    final composer = _composer;
+    final sourceKey = _sourceKey;
+    if (host == null ||
+        composer == null ||
+        sourceKey == null ||
+        composer.imageUploader == null ||
+        _pickingGif ||
+        _pickingImages ||
+        _pickingEmoji ||
+        _savingEdit ||
+        !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
+      return;
+    }
+
+    final selection = composer.text.selection;
+    final offset = selection.isValid
+        ? selection.extentOffset
+        : composer.text.text.length;
+    setState(() => _pickingImages = true);
+    try {
+      final files = await widget.pickImages();
+      if (!_ownsComposer(host, composer, sourceKey)) return;
+      composer.addImages(files, offset);
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'chatComposer.pickImages',
+        source: 'platform',
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+        degraded: true,
+      );
+      if (_ownsComposer(host, composer, sourceKey)) {
+        composer.showNotice("Couldn't open the image picker.");
+      }
+    } finally {
+      if (mounted) setState(() => _pickingImages = false);
+      _refocus(host, composer, sourceKey);
+    }
+  }
+
   Future<void> _pickEmoji({
     required BuildContext pickerContext,
     String initialQuery = '',
@@ -641,6 +698,7 @@ class _ChatComposerState extends State<ChatComposer> {
         composer == null ||
         sourceKey == null ||
         _pickingGif ||
+        _pickingImages ||
         _pickingEmoji ||
         _savingEdit ||
         !host.siteConfigFor(widget.siteUrl).emojiEnabled ||
@@ -866,6 +924,63 @@ class _ChatComposerState extends State<ChatComposer> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            ValueListenableBuilder<SiteConfig>(
+              valueListenable: host.siteConfigListenableFor(
+                composer.target.siteUrl,
+              ),
+              builder: (context, _, _) {
+                final gifs = PluginUiScope.maybe(context, chatGifsService);
+                final canUpload = composer.imageUploader != null;
+                final canInsertGif =
+                    widget.editingMessage == null &&
+                    (gifs?.isAvailable(widget.siteUrl) ?? false);
+                final options = <CommandMenuOption<_ChatComposerAddAction>>[
+                  if (canUpload)
+                    const CommandMenuOption(
+                      value: _ChatComposerAddAction.uploadImages,
+                      label: 'Upload images',
+                      icon: DIcons.upload,
+                      key: ValueKey('chat-composer-upload'),
+                    ),
+                  if (canInsertGif)
+                    const CommandMenuOption(
+                      value: _ChatComposerAddAction.gif,
+                      label: 'Insert GIF',
+                      icon: GifsIcons.gif,
+                      key: ValueKey('chat-composer-gif'),
+                    ),
+                ];
+                if (options.isEmpty) return const SizedBox.shrink();
+
+                final enabled =
+                    !_pickingGif &&
+                    !_pickingImages &&
+                    !_pickingEmoji &&
+                    !_savingEdit &&
+                    (_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false);
+                return Center(
+                  heightFactor: 1,
+                  child: CommandMenuAnchor<_ChatComposerAddAction>(
+                    title: 'Add to message',
+                    options: options,
+                    enabled: enabled,
+                    onSelected: (action) => switch (action) {
+                      _ChatComposerAddAction.uploadImages => unawaited(
+                        _pickImages(),
+                      ),
+                      _ChatComposerAddAction.gif => unawaited(_pickGif()),
+                    },
+                    builder: (context, openMenu) => DButton.iconOnly(
+                      key: const ValueKey('chat-composer-add'),
+                      onPressed: openMenu,
+                      icon: const DIcon(DIcons.plus, size: 18),
+                      tooltip: 'Add to message',
+                      variant: DButtonVariant.flat,
+                    ),
+                  ),
+                );
+              },
+            ),
             Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -888,6 +1003,7 @@ class _ChatComposerState extends State<ChatComposer> {
                           composer: composer,
                           expands: false,
                           enableDropTarget: widget.uploadDropController == null,
+                          pickImages: widget.pickImages,
                           onSuggestionAction:
                               ({
                                 required context,
@@ -936,6 +1052,7 @@ class _ChatComposerState extends State<ChatComposer> {
                               key: const ValueKey('chat-composer-emoji'),
                               onPressed:
                                   _pickingGif ||
+                                      _pickingImages ||
                                       _pickingEmoji ||
                                       _savingEdit ||
                                       !(_chat?.canSendMessage(
@@ -960,37 +1077,6 @@ class _ChatComposerState extends State<ChatComposer> {
                     : const SizedBox.shrink();
               },
             ),
-            ValueListenableBuilder<SiteConfig>(
-              valueListenable: host.siteConfigListenableFor(
-                composer.target.siteUrl,
-              ),
-              builder: (context, _, _) {
-                final gifs = PluginUiScope.maybe(context, chatGifsService);
-                return gifs?.isAvailable(widget.siteUrl) ?? false
-                    ? Center(
-                        heightFactor: 1,
-                        child: DButton.iconOnly(
-                          key: const ValueKey('chat-composer-gif'),
-                          onPressed:
-                              _pickingGif ||
-                                  _pickingEmoji ||
-                                  _savingEdit ||
-                                  widget.editingMessage != null ||
-                                  !(_chat?.canSendMessage(
-                                        widget.siteUrl,
-                                        widget.channelId,
-                                      ) ??
-                                      false)
-                              ? null
-                              : () => unawaited(_pickGif()),
-                          icon: const DIcon(DIcons.paperclip, size: 18),
-                          tooltip: 'Send GIF',
-                          variant: DButtonVariant.flat,
-                        ),
-                      )
-                    : const SizedBox.shrink();
-              },
-            ),
             if (widget.editingMessage != null)
               Center(
                 heightFactor: 1,
@@ -1010,6 +1096,7 @@ class _ChatComposerState extends State<ChatComposer> {
                   key: const ValueKey('chat-composer-send'),
                   onPressed:
                       _pickingGif ||
+                          _pickingImages ||
                           _pickingEmoji ||
                           _savingEdit ||
                           !composer.canSubmit ||
