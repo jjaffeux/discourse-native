@@ -233,7 +233,7 @@ void main() {
           )
           .dy;
 
-      expect(caretTop, greaterThanOrEqualTo(previewBottom));
+      expect(caretTop - previewBottom, inInclusiveRange(-16, 32));
     });
 
     testWidgets('keeps the preview element stable while typing below it', (

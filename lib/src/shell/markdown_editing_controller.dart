@@ -16,6 +16,7 @@ import 'composer_images.dart';
 import 'composer_link.dart';
 import 'composer_pills.dart';
 import 'composer_quotes.dart';
+import 'composer_source_projection.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
 import 'markdown_highlight.dart';
@@ -494,6 +495,7 @@ class MarkdownEditingController extends TextEditingController {
   final Map<int, GlobalKey> _quoteKeys = {};
   final Map<int, GlobalKey> _quoteRemoveKeys = {};
   final Map<int, String> _displayedQuoteContents = {};
+  final Map<int, double> _quoteLayoutHeights = {};
 
   void configureQuoteContentsResolver(
     ComposerQuoteContentsResolver? resolver, {
@@ -562,6 +564,14 @@ class MarkdownEditingController extends TextEditingController {
       _quoteBlocks,
       blocks,
       (block) => block.start,
+    );
+    final previousByStart = {
+      for (final block in _quoteBlocks) block.start: block,
+    };
+    final nextByStart = {for (final block in blocks) block.start: block};
+    _quoteLayoutHeights.removeWhere(
+      (start, _) =>
+          !_sameProjection(previousByStart[start], nextByStart[start]),
     );
     // Cleared rather than retained: this holds what a resolver said about the
     // block that *was* at each offset, and a quote whose contents changed
@@ -968,7 +978,12 @@ class MarkdownEditingController extends TextEditingController {
     for (final projection in projections) {
       if (projection.start < sourceOffset) continue;
       appendMarkdown(sourceOffset, projection.start);
-      children.addAll(projection.build());
+      children.addAll(
+        normalizeCollapsedComponentSourceSpans(
+          source: source.substring(projection.start, projection.end),
+          spans: projection.build(),
+        ),
+      );
       sourceOffset = projection.end;
     }
     appendMarkdown(sourceOffset, source.length);
@@ -1016,6 +1031,14 @@ class MarkdownEditingController extends TextEditingController {
     String displayedContents,
     TextStyle base,
   ) {
+    final lineHeight = (base.fontSize ?? 14) * (base.height ?? 1.4);
+    final sourceLineCount = '\n'.allMatches(block.source).length + 1;
+    final quoteHeight =
+        _quoteLayoutHeights[block.start] ?? sourceLineCount * lineHeight;
+    final reserveLines = ((quoteHeight / lineHeight).ceil() - 1).clamp(
+      1,
+      (block.end - block.start - 1) ~/ 2,
+    );
     return [
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
@@ -1028,14 +1051,18 @@ class MarkdownEditingController extends TextEditingController {
           child: IgnorePointer(
             child: _FollowEditorScroll(
               controller: _imageScrollController,
-              child: ComposerQuotePreview(
-                block: block,
-                contents: displayedContents,
-                baseStyle: base,
-                removeKey: _quoteRemoveKeys.putIfAbsent(
-                  block.start,
-                  () => GlobalKey(
-                    debugLabel: 'composer-quote-remove-${block.start}',
+              child: ComposerComponentLayoutReporter(
+                identity: (block.start, block.end, block.source),
+                onSize: (size) => _cacheQuoteLayoutHeight(block, size.height),
+                child: ComposerQuotePreview(
+                  block: block,
+                  contents: displayedContents,
+                  baseStyle: base,
+                  removeKey: _quoteRemoveKeys.putIfAbsent(
+                    block.start,
+                    () => GlobalKey(
+                      debugLabel: 'composer-quote-remove-${block.start}',
+                    ),
                   ),
                 ),
               ),
@@ -1044,10 +1071,10 @@ class MarkdownEditingController extends TextEditingController {
         ),
       ),
       TextSpan(
-        // The WidgetSpan already contributes the quote's full height. One
-        // transparent line break moves subsequent prose below it; reserving
-        // that height again creates a quote-sized gap before the caret.
-        text: '\n',
+        // A zero-width anchor keeps each transparent line measurable. The
+        // component's measured height, rather than its raw Markdown line
+        // count, determines where following prose and the trailing caret sit.
+        text: List.filled(reserveLines, '\u200B\n').join(),
         style: TextStyle(
           color: const Color(0x00000000),
           fontFamily: base.fontFamily,
@@ -1057,10 +1084,26 @@ class MarkdownEditingController extends TextEditingController {
         ),
       ),
       TextSpan(
-        text: text.substring(block.start + 2, block.end),
+        text: text.substring(block.start + reserveLines * 2 + 1, block.end),
         style: _hidden,
       ),
     ];
+  }
+
+  void _cacheQuoteLayoutHeight(ComposerQuoteBlock block, double height) {
+    if (_disposed) return;
+    ComposerQuoteBlock? current;
+    for (final candidate in _quoteBlocksFor(text)) {
+      if (candidate.start == block.start) {
+        current = candidate;
+        break;
+      }
+    }
+    if (!_sameProjection(current, block)) return;
+
+    if (_quoteLayoutHeights[block.start] == height) return;
+    _quoteLayoutHeights[block.start] = height;
+    artworkArrived();
   }
 
   List<InlineSpan> _buildImageSpans(
@@ -1217,36 +1260,11 @@ class MarkdownEditingController extends TextEditingController {
           height: base.height,
         ),
       ),
-      ..._buildHiddenGallerySourceSpans(
-        gallery.start + reserveLines * 2 + 1,
-        gallery.end,
+      TextSpan(
+        text: text.substring(gallery.start + reserveLines * 2 + 1, gallery.end),
+        style: _hidden,
       ),
     ];
-  }
-
-  List<InlineSpan> _buildHiddenGallerySourceSpans(int start, int end) {
-    final spans = <InlineSpan>[];
-    var textStart = start;
-    for (var offset = start; offset < end; offset++) {
-      final codeUnit = text.codeUnitAt(offset);
-      if (codeUnit != 0x0A && codeUnit != 0x0D) continue;
-      if (textStart < offset) {
-        spans.add(
-          TextSpan(text: text.substring(textStart, offset), style: _hidden),
-        );
-      }
-      spans.add(
-        const WidgetSpan(
-          alignment: PlaceholderAlignment.middle,
-          child: SizedBox.shrink(),
-        ),
-      );
-      textStart = offset + 1;
-    }
-    if (textStart < end) {
-      spans.add(TextSpan(text: text.substring(textStart, end), style: _hidden));
-    }
-    return spans;
   }
 
   void _startGalleryImageDrag(ComposerImageBlock image) {
