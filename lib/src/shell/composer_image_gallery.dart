@@ -37,6 +37,7 @@ class ComposerImageGalleryPreview extends StatelessWidget {
     this.onReorder,
     this.onReorderStarted,
     this.onReorderEnded,
+    this.onLayoutHeight,
   });
 
   final ComposerImageGalleryBlock gallery;
@@ -47,97 +48,180 @@ class ComposerImageGalleryPreview extends StatelessWidget {
   final void Function(ComposerImageBlock image, int newIndex)? onReorder;
   final ValueChanged<ComposerImageBlock>? onReorderStarted;
   final ValueChanged<ComposerImageBlock>? onReorderEnded;
+  final ValueChanged<double>? onLayoutHeight;
 
   static const double tileExtent = 80;
   static const double gap = 6;
   static const double inset = 8;
   static const double verticalMargin = 4;
 
+  static const int maximumGridColumns = 3;
+
   static double _tileStripWidth(int itemCount) =>
       itemCount == 0 ? 0 : tileExtent * itemCount + gap * (itemCount - 1);
 
-  static double displayHeight(int itemCount) {
+  static int renderedGridColumnCount(int itemCount) {
+    if (itemCount == 0) return 0;
+    // Core renders two- and four-item galleries with two columns; all other
+    // galleries use at most three columns on a wide viewport.
+    if (itemCount == 2 || itemCount == 4) return 2;
+    return math.min(itemCount, maximumGridColumns);
+  }
+
+  static double displayHeight(
+    int itemCount, {
+    ComposerGalleryMode mode = ComposerGalleryMode.grid,
+    int? gridColumns,
+  }) {
+    final contentHeight = switch (mode) {
+      ComposerGalleryMode.carousel => itemCount == 0 ? 0 : tileExtent,
+      ComposerGalleryMode.grid => _gridHeight(
+        itemCount,
+        gridColumns ?? renderedGridColumnCount(itemCount),
+      ),
+    };
     return verticalMargin * 2 +
         inset * 2 +
-        math.max(
-          itemCount == 0 ? 0 : tileExtent,
-          ComposerImageGalleryControl.extent,
-        );
+        math.max(contentHeight, ComposerImageGalleryControl.extent);
+  }
+
+  static double _gridHeight(int itemCount, int columns) {
+    if (itemCount == 0 || columns == 0) return 0;
+    final rows = (itemCount / columns).ceil();
+    return rows * tileExtent + (rows - 1) * gap;
+  }
+
+  static int _fittingGridColumnCount(int itemCount, double availableWidth) {
+    final renderedColumns = renderedGridColumnCount(itemCount);
+    if (renderedColumns == 0 || !availableWidth.isFinite) {
+      return renderedColumns;
+    }
+    final fittingColumns = ((availableWidth + gap) / (tileExtent + gap))
+        .floor()
+        .clamp(1, renderedColumns);
+    return math.min(renderedColumns, fittingColumns);
   }
 
   @override
   Widget build(BuildContext context) {
-    final height = displayHeight(items.length);
-    final tileStripWidth = _tileStripWidth(items.length);
     final scheme = Theme.of(context).colorScheme;
 
-    return SizedBox(
-      width: double.infinity,
-      height: height,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: verticalMargin),
-        child: Semantics(
-          container: true,
-          explicitChildNodes: true,
-          label:
-              'Image gallery, ${items.length} ${items.length == 1 ? 'image' : 'images'}',
-          selected: highlighted,
-          child: CustomPaint(
-            foregroundPainter: _GalleryBorder(
-              color: highlighted ? scheme.primary : scheme.outlineVariant,
-              highlighted: highlighted,
-            ),
-            child: Container(
-              width: double.infinity,
-              height: height - verticalMargin * 2,
-              padding: const EdgeInsets.all(inset),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (items.isNotEmpty) ...[
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: SizedBox(
-                          width: tileStripWidth,
-                          height: tileExtent,
-                          child: Row(
-                            children: [
-                              for (final (index, item) in items.indexed) ...[
-                                if (index > 0) const SizedBox(width: gap),
-                                _ReorderableGalleryTile(
-                                  item: item,
-                                  index: index,
-                                  siteUrl: siteUrl,
-                                  onReorder: onReorder,
-                                  onReorderStarted: onReorderStarted,
-                                  onReorderEnded: onReorderEnded,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: gap),
-                  ],
-                  ComposerImageGalleryControl(
-                    key: const ValueKey('composer-gallery-control'),
-                    imageCount: items.length,
-                    onEdit: onEdit,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableTileWidth = math.max(
+          0.0,
+          constraints.maxWidth -
+              inset * 2 -
+              ComposerImageGalleryControl.extent -
+              (items.isEmpty ? 0 : gap),
+        );
+        final gridColumns = _fittingGridColumnCount(
+          items.length,
+          availableTileWidth,
+        );
+        final height = displayHeight(
+          items.length,
+          mode: gallery.mode,
+          gridColumns: gridColumns,
+        );
+        final reportHeight = onLayoutHeight;
+        if (reportHeight != null) {
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => reportHeight(height),
+          );
+        }
+
+        return SizedBox(
+          width: double.infinity,
+          height: height,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: verticalMargin),
+            child: Semantics(
+              container: true,
+              explicitChildNodes: true,
+              label:
+                  'Image gallery, ${items.length} ${items.length == 1 ? 'image' : 'images'}',
+              selected: highlighted,
+              child: CustomPaint(
+                foregroundPainter: _GalleryBorder(
+                  color: highlighted ? scheme.primary : scheme.outlineVariant,
+                  highlighted: highlighted,
+                ),
+                child: Container(
+                  width: double.infinity,
+                  height: height - verticalMargin * 2,
+                  padding: const EdgeInsets.all(inset),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (items.isNotEmpty) ...[
+                        Expanded(
+                          child: switch (gallery.mode) {
+                            ComposerGalleryMode.grid => Align(
+                              alignment: Alignment.centerLeft,
+                              child: SizedBox(
+                                width: _tileStripWidth(gridColumns),
+                                child: Wrap(
+                                  spacing: gap,
+                                  runSpacing: gap,
+                                  children: [
+                                    for (final (index, item) in items.indexed)
+                                      _galleryTile(item, index),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            ComposerGalleryMode.carousel =>
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: SizedBox(
+                                  width: _tileStripWidth(items.length),
+                                  height: tileExtent,
+                                  child: Row(
+                                    children: [
+                                      for (final (index, item)
+                                          in items.indexed) ...[
+                                        if (index > 0)
+                                          const SizedBox(width: gap),
+                                        _galleryTile(item, index),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          },
+                        ),
+                        const SizedBox(width: gap),
+                      ],
+                      ComposerImageGalleryControl(
+                        key: const ValueKey('composer-gallery-control'),
+                        imageCount: items.length,
+                        onEdit: onEdit,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
+
+  Widget _galleryTile(ComposerImageGalleryItem item, int index) =>
+      _ReorderableGalleryTile(
+        item: item,
+        index: index,
+        siteUrl: siteUrl,
+        onReorder: onReorder,
+        onReorderStarted: onReorderStarted,
+        onReorderEnded: onReorderEnded,
+      );
 }
 
 class ComposerImageGalleryControl extends StatelessWidget {
