@@ -104,26 +104,6 @@ class MarkdownEditingController extends TextEditingController {
   final Map<int, GlobalKey> _galleryKeys = {};
   final Map<int, double> _galleryLayoutHeights = {};
 
-  double get galleryScrollExtentCompensation {
-    var compensation = 0.0;
-    for (final gallery in _galleryBlocksFor(text)) {
-      if (gallery.mode != ComposerGalleryMode.grid || gallery.images.isEmpty) {
-        continue;
-      }
-      final height =
-          _galleryLayoutHeights[gallery.start] ??
-          ComposerImageGalleryPreview.displayHeight(gallery.images.length);
-      final singleRowHeight = ComposerImageGalleryPreview.displayHeight(
-        gallery.images.length,
-        mode: ComposerGalleryMode.carousel,
-      );
-      if (height > singleRowHeight) {
-        compensation += height - singleRowHeight;
-      }
-    }
-    return compensation;
-  }
-
   @override
   set value(TextEditingValue newValue) {
     final current = super.value;
@@ -1184,9 +1164,11 @@ class MarkdownEditingController extends TextEditingController {
     final galleryHeight =
         _galleryLayoutHeights[gallery.start] ?? defaultGalleryHeight;
     final lineHeight = (base.fontSize ?? 14) * (base.height ?? 1.4);
-    final breaks = (galleryHeight / lineHeight).ceil().clamp(
+    // A zero-width anchor keeps each transparent line measurable. Consecutive
+    // bare line endings collapse to the same caret geometry in TextPainter.
+    final reserveLines = ((galleryHeight / lineHeight).ceil() - 1).clamp(
       1,
-      gallery.end - gallery.start - 1,
+      (gallery.end - gallery.start - 1) ~/ 2,
     );
 
     return [
@@ -1226,7 +1208,7 @@ class MarkdownEditingController extends TextEditingController {
         ),
       ),
       TextSpan(
-        text: List.filled(breaks, '\n').join(),
+        text: List.filled(reserveLines, '\u200B\n').join(),
         style: TextStyle(
           color: const Color(0x00000000),
           fontFamily: base.fontFamily,
@@ -1235,11 +1217,36 @@ class MarkdownEditingController extends TextEditingController {
           height: base.height,
         ),
       ),
-      TextSpan(
-        text: text.substring(gallery.start + breaks + 1, gallery.end),
-        style: _hidden,
+      ..._buildHiddenGallerySourceSpans(
+        gallery.start + reserveLines * 2 + 1,
+        gallery.end,
       ),
     ];
+  }
+
+  List<InlineSpan> _buildHiddenGallerySourceSpans(int start, int end) {
+    final spans = <InlineSpan>[];
+    var textStart = start;
+    for (var offset = start; offset < end; offset++) {
+      final codeUnit = text.codeUnitAt(offset);
+      if (codeUnit != 0x0A && codeUnit != 0x0D) continue;
+      if (textStart < offset) {
+        spans.add(
+          TextSpan(text: text.substring(textStart, offset), style: _hidden),
+        );
+      }
+      spans.add(
+        const WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: SizedBox.shrink(),
+        ),
+      );
+      textStart = offset + 1;
+    }
+    if (textStart < end) {
+      spans.add(TextSpan(text: text.substring(textStart, end), style: _hidden));
+    }
+    return spans;
   }
 
   void _startGalleryImageDrag(ComposerImageBlock image) {
