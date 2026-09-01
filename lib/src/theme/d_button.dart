@@ -304,6 +304,7 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.alignment = Alignment.center,
+    this.interactiveBackgroundColor,
   }) : _iconOnly = false;
 
   const DButton.iconOnly({
@@ -319,6 +320,7 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.alignment = Alignment.center,
+    this.interactiveBackgroundColor,
   }) : label = const SizedBox.shrink(),
        loadingLabel = null,
        // ignore: prefer_initializing_formals
@@ -340,6 +342,7 @@ class DButton extends StatelessWidget {
   final FocusNode? focusNode;
   final bool autofocus;
   final AlignmentGeometry alignment;
+  final Color? interactiveBackgroundColor;
   final bool _iconOnly;
 
   static const double minimumDimension = 48;
@@ -368,13 +371,26 @@ class DButton extends StatelessWidget {
     final enabled = onPressed != null && !loading;
     final radius = BorderRadius.circular(buttons.borderRadius);
 
+    DButtonStateStyle withInteractiveBackground(DButtonStateStyle state) {
+      final background = interactiveBackgroundColor;
+      if (background == null) return state;
+      return DButtonStateStyle(
+        foregroundColor: state.foregroundColor,
+        backgroundColor: background,
+        iconColor: state.iconColor,
+        border: state.border,
+      );
+    }
+
     DButtonStateStyle resolveState(Set<WidgetState> states) {
       if (states.contains(WidgetState.disabled)) return variantStyle.enabled;
       if (states.contains(WidgetState.pressed) ||
           states.contains(WidgetState.hovered)) {
-        return variantStyle.interactive;
+        return withInteractiveBackground(variantStyle.interactive);
       }
-      if (states.contains(WidgetState.focused)) return variantStyle.focused;
+      if (states.contains(WidgetState.focused)) {
+        return withInteractiveBackground(variantStyle.focused);
+      }
       return variantStyle.enabled;
     }
 

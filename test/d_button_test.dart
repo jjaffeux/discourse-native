@@ -125,6 +125,34 @@ void main() {
     }
   });
 
+  testWidgets('interactive background can stay transparent', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(
+          body: Center(
+            child: DButton.iconOnly(
+              tooltip: 'Action',
+              onPressed: _noop,
+              variant: DButtonVariant.flat,
+              interactiveBackgroundColor: Colors.transparent,
+              icon: Icon(Icons.add),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final style = tester.widget<FilledButton>(find.byType(FilledButton)).style!;
+    for (final state in const [
+      WidgetState.hovered,
+      WidgetState.pressed,
+      WidgetState.focused,
+    ]) {
+      expect(style.backgroundColor!.resolve({state}), Colors.transparent);
+    }
+  });
+
   testWidgets('shortcut tooltips render platform keycaps', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

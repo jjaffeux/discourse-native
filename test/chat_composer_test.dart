@@ -982,7 +982,19 @@ void main() {
           matching: find.byKey(const ValueKey('chat-composer-add')),
         );
         expect(add, findsOneWidget);
-        expect(tester.widget<DButton>(add).variant, DButtonVariant.flat);
+        final addButton = tester.widget<DButton>(add);
+        expect(addButton.variant, DButtonVariant.flat);
+        expect(addButton.interactiveBackgroundColor, Colors.transparent);
+        final addIcon = find.descendant(
+          of: composer,
+          matching: find.byKey(const ValueKey('chat-composer-add-icon')),
+        );
+        expect(addIcon, findsOneWidget);
+        expect(
+          (tester.widget<DecoratedBox>(addIcon).decoration as BoxDecoration)
+              .shape,
+          BoxShape.circle,
+        );
 
         await tester.tap(add);
         await tester.pumpAndSettle();
