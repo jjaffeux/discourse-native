@@ -355,6 +355,24 @@ void main() {
               .widget<MenuItemButton>(
                 find.byKey(const ValueKey('forum-tab-menu-close-chat-2')),
               )
+              .leadingIcon,
+          isNull,
+        );
+        expect(
+          tester
+              .widget<MenuItemButton>(
+                find.byKey(
+                  const ValueKey('forum-tab-menu-close-others-chat-2'),
+                ),
+              )
+              .leadingIcon,
+          isNull,
+        );
+        expect(
+          tester
+              .widget<MenuItemButton>(
+                find.byKey(const ValueKey('forum-tab-menu-close-chat-2')),
+              )
               .shortcut,
           isNull,
         );
