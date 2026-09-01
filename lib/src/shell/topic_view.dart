@@ -70,6 +70,7 @@ class TopicView extends StatefulWidget {
     this.bookmarkBusy = false,
     this.isConnected = false,
     this.registry = PluginRegistry.empty,
+    this.now,
   });
 
   static const double _loadPostsThreshold = 900;
@@ -92,6 +93,7 @@ class TopicView extends StatefulWidget {
   final bool bookmarkBusy;
   final bool isConnected;
   final PluginRegistry registry;
+  final DateTime Function()? now;
 
   @override
   State<TopicView> createState() => _TopicViewState();
@@ -781,13 +783,17 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     ShellController controller,
     String siteUrl,
     List<int> postIds,
+    DateTime today,
   ) {
     // Rebuilding this on every build costs a store read per loaded post, and
     // the floating-day push animation rebuilds per frame. Snapshots allocate
     // a fresh id list each time, so value equality is the usable key; the
     // int comparison is far cheaper than the reads it saves. Created-at never
-    // changes for a held post, so same ids means same day starts.
-    if (_dayStartsSite == siteUrl && listEquals(_dayStartsFor, postIds)) {
+    // changes for a held post, so the same ids on the same reader day mean the
+    // same day starts.
+    if (_dayStartsSite == siteUrl &&
+        _dayStartsToday == today &&
+        listEquals(_dayStartsFor, postIds)) {
       return _dayStartsCache;
     }
     final starts = <_TopicDayStart>[];
@@ -795,7 +801,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     for (var index = 0; index < postIds.length; index++) {
       final post = controller.store.read<Post>(siteUrl, postIds[index]);
       final day = calendarDay(post?.createdAt);
-      if (day != null && day != previousDay) {
+      final isTodaysOpeningPost = post?.postNumber == 1 && day == today;
+      if (day != null && day != previousDay && !isTodaysOpeningPost) {
         starts.add((day: day, postIndex: index));
       }
       previousDay = day;
@@ -803,12 +810,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _dayStartsCache = starts;
     _dayStartsFor = postIds;
     _dayStartsSite = siteUrl;
+    _dayStartsToday = today;
     return starts;
   }
 
   List<_TopicDayStart> _dayStartsCache = const [];
   List<int>? _dayStartsFor;
   String? _dayStartsSite;
+  DateTime? _dayStartsToday;
 
   List<_TopicTimeGap> _timeGaps(
     ShellController controller,
@@ -1399,7 +1408,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final siteUrl = snapshot.siteUrl!;
     _syncViewport(controller, snapshot);
     _viewport.updateLaidOutSnapshot(snapshot);
-    final dayStarts = _dayStarts(controller, siteUrl, postIds);
+    final dayStarts = _dayStarts(
+      controller,
+      siteUrl,
+      postIds,
+      calendarDay(widget.now?.call() ?? DateTime.now())!,
+    );
     _laidOutDayStarts = dayStarts;
     final dayByPostIndex = {
       for (final start in dayStarts) start.postIndex: start.day,
