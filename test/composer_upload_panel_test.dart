@@ -876,7 +876,7 @@ void main() {
       ]);
     });
 
-    testWidgets('gallery toolbar stays usable in a narrow composer', (
+    testWidgets('gallery toolbar fits its controls in a narrow composer', (
       tester,
     ) async {
       final semantics = tester.ensureSemantics();
@@ -916,6 +916,7 @@ void main() {
         final toolbar = find.byKey(const ValueKey('composer-gallery-toolbar'));
         expect(toolbar, findsOneWidget);
         final toolbarRect = tester.getRect(toolbar);
+        expect(toolbarRect.size, const Size(44 * 4, 44));
         final viewport = Rect.fromLTWH(
           0,
           0,
