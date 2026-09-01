@@ -41,14 +41,21 @@ void main() {
     );
   });
 
-  test('Resenha does not copy or import core test support', () {
+  test('Resenha tests are owned by the application suite', () {
     final violations = <String>[];
+    final tests = Directory('test')
+        .listSync()
+        .whereType<File>()
+        .where(
+          (file) => file.path
+              .split(Platform.pathSeparator)
+              .last
+              .startsWith('resenha_'),
+        )
+        .toList(growable: false);
 
-    for (final file in _dartFilesUnder('packages/discourse_resenha/test')) {
+    for (final file in tests) {
       final source = file.readAsStringSync();
-      if (source.contains('FakeDiscourseApi')) {
-        violations.add('${_workspacePath(file)} refers to FakeDiscourseApi');
-      }
       if (_directTransportImplementation.hasMatch(source)) {
         violations.add(
           '${_workspacePath(file)} implements the transport instead of '
@@ -57,20 +64,20 @@ void main() {
       }
       for (final match in _directiveUri.allMatches(source)) {
         final uri = match.group(1)!;
-        if (uri.startsWith('package:discourse_native/test/') ||
-            uri.contains('/test/support/')) {
+        if (uri.startsWith('package:discourse_native/test/')) {
           violations.add('${_workspacePath(file)} imports $uri');
         }
       }
     }
 
+    expect(tests, isNotEmpty);
+    expect(Directory('packages/discourse_resenha/test').existsSync(), isFalse);
     expect(
       violations,
       isEmpty,
       reason:
-          'External plugin tests use discourse_plugin_api/testing.dart for '
-          'transport tests and discourse_plugin_test.dart for host tests. '
-          'They must not copy or import core test support.\n'
+          'Bundled Resenha tests use the application test graph and must not '
+          'reimplement the shared plugin transport.\n'
           '${violations.join('\n')}',
     );
   });
@@ -98,14 +105,6 @@ void main() {
           'narrow wire port.\n${violations.join('\n')}',
     );
   });
-}
-
-Iterable<File> _dartFilesUnder(String path) sync* {
-  final directory = Directory(path);
-  if (!directory.existsSync()) return;
-  for (final entity in directory.listSync(recursive: true)) {
-    if (entity is File && entity.path.endsWith('.dart')) yield entity;
-  }
 }
 
 String _workspacePath(File file) => file.path.replaceFirst(

@@ -6,9 +6,9 @@ the files under `/usr`, and users receive updates through `apt upgrade`.
 
 ## Distribution model
 
-The release workflow builds the production app from `profiles/full` (the
-package graph which includes Resenha) into one amd64 `.deb` and publishes it in
-two places:
+The release workflow builds the production app from the `profiles/full`
+compatibility wrapper. It uses the same always-bundled Resenha graph as the
+root app, produces one amd64 `.deb`, and publishes it in two places:
 
 - a signed apt repository on the `gh-pages` branch, which is the normal install
   and update path;
@@ -202,8 +202,9 @@ Release checks below pass.
 
 Before publication, the job:
 
-1. resolves the core, Resenha, and full lockfiles; analyzes all three package
-   roots; runs the core and Resenha tests; then builds `profiles/full` against
+1. resolves the root app, native CallKit bridge, and compatibility-wrapper
+   lockfiles; analyzes all three package roots; runs the complete application
+   tests; then builds `profiles/full` against
    Ubuntu 22.04/glibc 2.35 and checks that the bundle uses WebKitGTK 4.1;
 2. lays the app under `/usr/lib/discourse-native`, adds the
    `/usr/bin/discourse-native` symlink plus desktop and icon files, and builds

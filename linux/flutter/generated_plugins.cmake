@@ -7,6 +7,8 @@ list(APPEND FLUTTER_PLUGIN_LIST
   desktop_webview_window
   file_selector_linux
   flutter_timezone
+  flutter_webrtc
+  livekit_client
   pasteboard
   url_launcher_linux
   webview_all_linux

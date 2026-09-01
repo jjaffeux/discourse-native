@@ -2,9 +2,9 @@
 
 An experimental native Discourse client, built with Flutter.
 
-The optional-feature system is documented in
-[Plugin architecture](docs/plugin-architecture.md), including full and
-core-only build profiles.
+The bundled feature system is documented in
+[Plugin architecture](docs/plugin-architecture.md). Every application build
+includes Resenha; site capabilities still decide whether its UI is active.
 
 Currently targets **iOS**, **macOS** and **Linux**. Android and Windows are
 planned; see [Adding a platform](#adding-a-platform).
@@ -27,18 +27,13 @@ Run `flutter doctor` to check the toolchain.
 ## Running
 
 ```sh
-# Production/full profile (includes Resenha, WebRTC, LiveKit, and CallKit).
-(cd profiles/full && flutter run -d macos)
-(cd profiles/full && flutter run -d <simulator-id>)
-
-# Core profile (separate dependency graph; excludes those packages entirely).
-flutter run -t lib/main_core.dart -d macos
+flutter run -d macos
+flutter run -d <simulator-id>
 ```
 
-Run `flutter devices` to find the simulator id. The working directory is part
-of the build profile: choosing `lib/main_core.dart` inside `profiles/full` would
-not remove native plugins, because Flutter registration is derived from that
-directory's pubspec. See [Plugin architecture](docs/plugin-architecture.md#build-profiles).
+Run `flutter devices` to find the simulator id. The compatibility app under
+`profiles/full` uses the same bundled manifest and native Resenha graph as the
+repository-root app.
 
 ## Connecting a site
 
@@ -1169,7 +1164,9 @@ their typed settings in [`SiteConfig.plugins`](lib/src/models/site_config.dart),
 so each plugin owns its wire keys and defaults while the core model stays
 schema-free. Those settings answer the question no record can — what may be
 *offered* that has not happened yet, like a picker's emoji list — and nothing
-else. A core-only build ignores optional schemas entirely.
+else. Tests can install an empty manifest to verify that unknown optional
+schemas remain opaque, but application builds always install the complete
+bundled manifest.
 
 The warm-start snapshot uses namespaced plugin codecs. Installed modules decode
 their own values and migrate the old flat fields; namespaces belonging to
@@ -1184,12 +1181,12 @@ other shape — its once-per-site guard is released again in its own failure
 path, so the next thing that asks for categories retries. Signing out drops the
 settings: on a `login_required` site they were only readable as that account.
 
-Adding an SDK-free feature is a module under `lib/src/plugins/<name>/` owning
+Adding a feature is a module under `lib/src/plugins/<name>/` owning
 its models, state, widgets, typed HTTP contract, and the narrow capability
 interfaces it actually contributes, plus an entry in
-`bundledPluginManifest`. A feature that adds a native SDK or platform channel
-must instead follow `packages/discourse_resenha`: its own package owns those
-dependencies and registration, and an outer app profile opts into that package.
+`bundledPluginManifest`. Native platform registration may remain in a narrow
+bridge package, as Resenha's CallKit adapter does, while the application owns
+the feature module and its SDK dependencies so no build can omit it.
 `PluginRegistry` owns ordered UI dispatch, while
 `PluginSession` owns typed services and host-facing capabilities. Immutable
 cross-plugin extensions use typed, owner-scoped static contribution points;
@@ -1206,8 +1203,8 @@ session rather than transport assembly, and Local Dates exposes an optional
 cooked-time parser. Shared reaction visuals consume neutral presentation
 interfaces while Chat and Reactions retain separate models and behavior.
 `DiscourseApi` contains only core endpoints; plugins adapt the shared
-`PluginApiTransport` themselves. Production core never imports
-`lib/src/plugins`, and an architecture test enforces that dependency direction.
+`PluginApiTransport` themselves. Shared host layers do not import feature
+implementations; the composition root is the deliberate dependency boundary.
 
 Plugin-contributed user-menu notification tabs use two cooperating registry
 seams. `UserMenuSectionPlugin` owns the permission gate, label, icon, badge and
@@ -2210,12 +2207,11 @@ flutter pub get --enforce-lockfile
 
 dart format --output=none --set-exit-if-changed \
   lib test integration_test tool \
-  packages/discourse_resenha/lib packages/discourse_resenha/test \
+  packages/discourse_resenha/lib \
   packages/discourse_resenha/tool profiles/full/lib
 flutter analyze
 flutter test --test-randomize-ordering-seed=random
-(cd packages/discourse_resenha && \
-  flutter analyze && flutter test --test-randomize-ordering-seed=random)
+(cd packages/discourse_resenha && flutter analyze)
 (cd profiles/full && flutter analyze)
 ```
 
@@ -2227,12 +2223,11 @@ a `hashCode` that disagrees with `==`. Anything the analyzer reports fails the
 gate, `info` level included — so run it bare, with no path argument and no
 grep, or a file-scoped run will hide exactly those.
 
-CI builds both independently resolved Linux bundles after those checks. It
-verifies that neither has unresolved shared libraries, that the core executable
-contains no WebRTC or LiveKit registration markers, and that the full
-executable contains both. The core and full macOS/iOS bundles are also compiled
-on every change. The full `RunnerTests` target consumes the package-owned
-CallKit tests because Dart cannot type-check that native coordinator.
+CI builds the root and compatibility Linux bundles after those checks. It
+verifies that neither has unresolved shared libraries and that both contain
+WebRTC and LiveKit registration markers. Both macOS/iOS wrappers are compiled
+on every change. `RunnerTests` consumes the package-owned CallKit tests because
+Dart cannot type-check that native coordinator.
 
 The macOS build there is driven as `flutter build macos --debug --config-only`
 followed by `xcodebuild ... CODE_SIGNING_ALLOWED=NO`, because
@@ -2412,8 +2407,8 @@ edge (see `UserBar.maxBottomInset`).
 
 ```
 lib/
-  main.dart                    SDK-free bundled entry point
-  main_core.dart               empty optional-plugin entry point
+  main.dart                    bundled production entry point
+  main_core.dart               compatibility alias of the production entry point
   src/
     app_bootstrap.dart         ordered, testable startup and platform adapter
     app.dart                   root widget, owns the ShellController
@@ -2424,7 +2419,7 @@ lib/
     models/                    instance, sidebar and content-route types
     plugin_api/                stable extension seams and runtime
     plugins/
-      bundled_plugin_manifest.dart  SDK-free bundled modules
+      bundled_plugin_manifest.dart  complete bundled module graph
       reactions/               plugin-owned models, API, state and widgets
       discourse_github/        GitHub block and inline onebox presentation
       discourse_lazy_videos/   lazy-video cooked markup adapters
@@ -2456,10 +2451,10 @@ lib/
       shell_controller.dart    all shell state (plain ChangeNotifier)
       shell_scope.dart         InheritedNotifier access
     theme/app_theme.dart       color schemes + ShellColors/CodeColors
-packages/discourse_resenha/    Resenha Dart/native/SDK package and WebRTC fork
-profiles/full/                 production app graph and independent runners
-ios/                           core iOS runner (Xcode project)
-macos/                         core macOS runner (Xcode project)
+packages/discourse_resenha/    native CallKit bridge and reviewed WebRTC fork
+profiles/full/                 compatibility app wrapper and release runners
+ios/                           root iOS runner (Xcode project)
+macos/                         root macOS runner (Xcode project)
 test/                          widget tests, one group per breakpoint
 ```
 

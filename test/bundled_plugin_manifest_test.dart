@@ -30,6 +30,7 @@ void main() {
       'discourse-ai',
       'discourse-assign',
       'chat',
+      'resenha',
     ]);
 
     final localDates = installed.descriptors.singleWhere(
@@ -74,7 +75,12 @@ void main() {
     expect(discourseAi.liveChannelScopes.map((scope) => scope.path), {
       '/discourse-ai',
     });
-    expect(installed.registry.diagnosticsPlugins, isEmpty);
+    expect(
+      installed.registry.diagnosticsPlugins.map(
+        (plugin) => plugin.diagnosticsId,
+      ),
+      ['resenha'],
+    );
   });
 
   test('core manifest installs without optional features', () async {
@@ -85,18 +91,17 @@ void main() {
     expect(core.registry.plugins, isEmpty);
   });
 
-  test(
-    'widget-test manifest preserves production feature identities',
-    () async {
-      final installed = PluginInstaller.install(bundledWidgetTestManifest);
-      addTearDown(installed.close);
+  test('host-focused widget manifest omits native media sessions', () async {
+    final installed = PluginInstaller.install(bundledWidgetTestManifest);
+    addTearDown(installed.close);
 
-      expect(
-        installed.descriptors.map((descriptor) => descriptor.id),
-        bundledPluginManifest.modules.map((module) => module.descriptor.id),
-      );
-    },
-  );
+    expect(
+      installed.descriptors.map((descriptor) => descriptor.id.value),
+      bundledPluginManifest.modules
+          .map((module) => module.descriptor.id.value)
+          .where((id) => id != 'resenha'),
+    );
+  });
 
   test('bundled production sessions resolve the dependency chain', () {
     final installed = PluginInstaller.install(bundledPluginManifest);

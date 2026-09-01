@@ -1,17 +1,15 @@
 # discourse_resenha
 
-This package is the ownership boundary for the optional Resenha voice-room
-integration. It contains the Dart module, native adapters, LiveKit and WebRTC
-dependencies, and the reviewed `flutter_webrtc` fork used by those transports.
+This package is the native ownership boundary for the always-bundled Resenha
+voice-room integration. It contains the iOS CallKit adapter and the reviewed
+`flutter_webrtc` fork used by the application's media transports.
 
-Applications opt into Resenha by depending on this package and adding
-`resenhaModule` to their `PluginManifest`. Merely importing or running
-`discourse_native` does not add Resenha's SDKs or native registrations.
-Resenha consumes the native host exclusively through the public
-`package:discourse_native/discourse_plugin_sdk.dart` facade; production code in
-this package must not import the host's `lib/src` implementation.
+The Dart module, UI, controllers, diagnostics, and media integrations live in
+`../../lib/src/plugins/resenha` and are part of every application manifest.
+The main package depends on this bridge, so every iOS app graph registers
+`DiscourseResenhaPlugin`; this package deliberately has no dependency back on
+the main package.
 
-The full application composition lives at `../../profiles/full`. Dart Pub does
-not honor a dependency override from a transitive package, so that application
-mirrors this package's `flutter_webrtc` path override. The source and
-provenance record for the fork remain owned here under `third_party/`.
+The source and provenance record for the WebRTC fork remain owned here under
+`third_party/`. Each application pubspec activates that reviewed path because
+Dart Pub does not honor dependency overrides from transitive packages.

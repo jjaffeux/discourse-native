@@ -6,6 +6,8 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:flutter/material.dart';
@@ -281,7 +283,9 @@ void main() {
           },
         ]),
       });
-      final pluginStore = InstanceStore(models: installedPlugins.models);
+      final productionPlugins = PluginInstaller.install(bundledPluginManifest);
+      addTearDown(productionPlugins.close);
+      final pluginStore = InstanceStore(models: productionPlugins.models);
 
       final loaded = await pluginStore.load();
       await pluginStore.save(loaded);
@@ -304,6 +308,7 @@ void main() {
         'gifs/site-settings',
         'discourse-assign/site-settings',
         'chat/site-settings',
+        'resenha/site-settings',
       });
       expect((user['plugins'] as Map<String, dynamic>).keys, {
         'poll/current-user',
@@ -319,6 +324,11 @@ void main() {
         ((config['plugins'] as Map<String, dynamic>)['poll/site-settings']
             as Map<String, dynamic>)['maximumOptions'],
         1,
+      );
+      expect(
+        ((config['plugins'] as Map<String, dynamic>)['resenha/site-settings']
+            as Map<String, dynamic>)['enabled'],
+        isTrue,
       );
     });
 

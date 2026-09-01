@@ -3,7 +3,7 @@ Pod::Spec.new do |s|
   s.version          = '1.0.0'
   s.summary          = 'Native Resenha adapters for discourse_native.'
   s.description      = <<-DESC
-CallKit and audio-session integration owned by the optional Resenha package.
+CallKit and audio-session integration for the always-bundled Resenha feature.
                        DESC
   s.homepage         = 'https://github.com/discourse/discourse-native'
   s.license          = { :type => 'MIT' }

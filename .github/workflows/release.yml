@@ -150,7 +150,7 @@ jobs:
             echo "prerelease=$PRERELEASE"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Resolve independent package graphs
+      - name: Resolve application and native bridge graphs
         run: |
           flutter pub get --enforce-lockfile
           (cd packages/discourse_resenha && flutter pub get --enforce-lockfile)
@@ -162,8 +162,6 @@ jobs:
           flutter analyze
           flutter test --test-randomize-ordering-seed=random
           (cd packages/discourse_resenha && flutter analyze)
-          (cd packages/discourse_resenha && \
-            flutter test --test-randomize-ordering-seed=random)
           (cd profiles/full && flutter analyze)
 
       - name: Build

@@ -26,7 +26,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Resolve independent package graphs
+      - name: Resolve application and native bridge graphs
         run: |
           flutter pub get --enforce-lockfile
           (cd packages/discourse_resenha && flutter pub get --enforce-lockfile)
@@ -37,7 +37,6 @@ jobs:
           dart format --output=none --set-exit-if-changed \
             lib test integration_test tool \
             packages/discourse_resenha/lib \
-            packages/discourse_resenha/test \
             packages/discourse_resenha/tool \
             profiles/full/lib
 
@@ -48,10 +47,7 @@ jobs:
           (cd profiles/full && flutter analyze)
 
       - name: Test
-        run: |
-          flutter test --test-randomize-ordering-seed=random
-          (cd packages/discourse_resenha && \
-            flutter test --test-randomize-ordering-seed=random)
+        run: flutter test --test-randomize-ordering-seed=random
 
   linux-bundle:
     # Keep the native plugin graph buildable between releases without turning
@@ -80,17 +76,17 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Resolve core and full package graphs
+      - name: Resolve root and compatibility package graphs
         run: |
           flutter pub get --enforce-lockfile
           (cd profiles/full && flutter pub get --enforce-lockfile)
 
-      - name: Build core and full Linux bundles
+      - name: Build root and compatibility Linux bundles
         run: |
           flutter build linux --debug
           (cd profiles/full && flutter build linux --debug)
 
-      - name: Smoke-check the core and full artifacts
+      - name: Smoke-check both always-bundled artifacts
         run: |
           set -euxo pipefail
           core=build/linux/x64/debug/bundle/discourse_native
@@ -104,18 +100,16 @@ jobs:
           ! grep -q 'not found' <<< "$core_dependencies"
           ! grep -q 'not found' <<< "$full_dependencies"
 
-          # This is the artifact-level half of the package/registrant tests:
-          # the core executable must contain neither native plugin, while the
-          # independently resolved full executable must contain both.
-          ! LC_ALL=C grep -aFq 'FlutterWebRTCPlugin' "$core"
-          ! LC_ALL=C grep -aFq 'LiveKitPlugin' "$core"
+          # Every application composition includes Resenha and both native
+          # media plugins.
+          LC_ALL=C grep -aFq 'FlutterWebRTCPlugin' "$core"
+          LC_ALL=C grep -aFq 'LiveKitPlugin' "$core"
           LC_ALL=C grep -aFq 'FlutterWebRTCPlugin' "$full"
           LC_ALL=C grep -aFq 'LiveKitPlugin' "$full"
 
   apple-bundles:
-    # Compile both package graphs on Apple. The full iOS target includes the
-    # Resenha-owned CallKit plugin; each macOS target has its own generated
-    # registrant and therefore needs an independent build.
+    # Compile both application wrappers on Apple. Each must include the
+    # Resenha-owned CallKit bridge and media registrants.
     needs: checks
     runs-on: macos-15
     timeout-minutes: 45
@@ -132,12 +126,12 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Resolve core and full package graphs
+      - name: Resolve root and compatibility package graphs
         run: |
           flutter pub get --enforce-lockfile
           (cd profiles/full && flutter pub get --enforce-lockfile)
 
-      - name: Build core macOS bundle
+      - name: Build root macOS bundle
         # `flutter build macos` has no --no-codesign, and the Xcode project now
         # names the TestFlight team, which the runner has no certificate for.
         # Generate the Xcode configuration, then drive xcodebuild directly with
@@ -152,10 +146,10 @@ jobs:
             -derivedDataPath build/macos-core-ci \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Build core iOS simulator bundle
+      - name: Build root iOS simulator bundle
         run: flutter build ios --simulator --debug --no-codesign
 
-      - name: Build full macOS bundle
+      - name: Build compatibility macOS bundle
         run: |
           set -euo pipefail
           (cd profiles/full && flutter build macos --debug --config-only)
@@ -166,7 +160,7 @@ jobs:
             -derivedDataPath build/macos-full-ci \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Build full iOS simulator bundle
+      - name: Build compatibility iOS simulator bundle
         run: |
           cd profiles/full
           flutter build ios --simulator --debug --no-codesign
@@ -196,8 +190,8 @@ jobs:
           test -d build/ios/iphonesimulator/Runner.app
           test -d profiles/full/build/ios/iphonesimulator/Runner.app
 
-          # The package-owned channel is compiled into the full app only.
-          ! LC_ALL=C grep -aRqsF 'org.discourse.native/resenha_callkit' \
+          # The package-owned channel is compiled into every app.
+          LC_ALL=C grep -aRqsF 'org.discourse.native/resenha_callkit' \
             build/ios/iphonesimulator/Runner.app
           LC_ALL=C grep -aRqsF 'org.discourse.native/resenha_callkit' \
             profiles/full/build/ios/iphonesimulator/Runner.app

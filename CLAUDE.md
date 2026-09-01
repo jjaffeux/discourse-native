@@ -16,17 +16,17 @@ flutter pub get --enforce-lockfile
 
 dart format --output=none --set-exit-if-changed \
   lib test integration_test tool \
-  packages/discourse_resenha/lib packages/discourse_resenha/test \
+  packages/discourse_resenha/lib \
   packages/discourse_resenha/tool profiles/full/lib
 flutter analyze
 flutter test --test-randomize-ordering-seed=random
-(cd packages/discourse_resenha && \
-  flutter analyze && flutter test --test-randomize-ordering-seed=random)
+(cd packages/discourse_resenha && flutter analyze)
 (cd profiles/full && flutter analyze)
 ```
 
-The Flutter version is pinned in `.fvmrc`; the root, Resenha, and full-profile
-`pubspec.lock` files are enforced in CI. If you re-resolve dependencies, update
+The Flutter version is pinned in `.fvmrc`; the root, native-bridge, and
+compatibility-profile `pubspec.lock` files are enforced in CI. If you
+re-resolve dependencies, update
 the affected lockfile; if the Flutter pin moves, update the README's
 Requirements line with it.
 
@@ -93,12 +93,14 @@ Requirements line with it.
 - `lib/src/data/` — stores, HTTP transport, API client, request coordinators.
 - `lib/src/models/` — JSON parsing and domain records.
 - `lib/src/shell/` — app frame, navigation, composer, rendering.
-- `lib/src/plugins/` — SDK-free bundled features such as chat, poll, reactions,
-  local_dates, gifs, and assign; each is optional per site.
-- `packages/discourse_resenha/` — the Resenha Dart integration, native CallKit
-  adapter, media SDK dependencies, vendored WebRTC fork, and package tests.
-- `profiles/full/` — the production application graph and runners which opt
-  into Resenha; the repository root remains the SDK-free core graph.
+- `lib/src/plugins/` — bundled features such as Chat, Poll, reactions,
+  Local Dates, GIFs, Assign, and Resenha; each is optional per site, but every
+  app binary contains the complete module graph.
+- `packages/discourse_resenha/` — Resenha's native iOS CallKit bridge and the
+  vendored WebRTC fork; the Dart feature implementation lives in
+  `lib/src/plugins/resenha/`.
+- `profiles/full/` — compatibility application runners using the same bundled
+  manifest as the repository-root app.
 - `lib/src/diagnostics/`, `lib/src/foundation/` — error capture, shared
   primitives.
 - Things with exactly one owner, because a second copy drifts:
@@ -116,11 +118,10 @@ Requirements line with it.
   transports),
   `plugins/chat/chat_message_timeline.dart` (how canonical chat-message ids are
   merged across pages, live arrivals, and the seam back to the present),
-  `packages/discourse_resenha/lib/src/resenha_diagnostics_report.dart` (how
+  `plugins/resenha/resenha_diagnostics_report.dart` (how
   ordinary and deep Resenha diagnostics are sanitized, de-duplicated, and
   merged).
-- Root tests live under `test/`; Resenha tests live under
-  `packages/discourse_resenha/test/`. A change to `foo.dart` almost always has
-  a `foo_test.dart` in its owning package to extend. Follow
+- Application and Resenha tests live under `test/`. A change to `foo.dart`
+  almost always has a `foo_test.dart` in its owning package to extend. Follow
   `docs/testing.md` for suite ownership, naming, assertions, async control,
   and cleanup.
