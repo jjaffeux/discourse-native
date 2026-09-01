@@ -496,6 +496,7 @@ class FakeDiscourseApi
     this.failure,
     this.user,
     this.trackingState,
+    this.trackingStateGate,
     this.doNotDisturbUntil,
     this.totals,
     this.notificationList,
@@ -672,6 +673,7 @@ class FakeDiscourseApi
   final DiscourseUser? user;
 
   final TopicTrackingState? trackingState;
+  final Completer<void>? trackingStateGate;
   final List<String> topicTrackingRequests = [];
 
   final DateTime? doNotDisturbUntil;
@@ -1283,6 +1285,8 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     topicTrackingRequests.add(siteUrl);
+    final gate = trackingStateGate;
+    if (gate != null) await gate.future;
     return trackingState ?? TopicTrackingState();
   }
 

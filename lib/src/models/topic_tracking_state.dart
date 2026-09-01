@@ -14,6 +14,19 @@ final class TopicTrackingState {
 
   Iterable<TrackedTopicState> get topics => _topics.values;
 
+  ({int newTopics, int newReplies}) get newActivityCounts {
+    var newTopics = 0;
+    var newReplies = 0;
+    for (final topic in topics) {
+      if (topic.isUnread) {
+        newReplies++;
+      } else if (topic.isNew) {
+        newTopics++;
+      }
+    }
+    return (newTopics: newTopics, newReplies: newReplies);
+  }
+
   SidebarBadge categoryBadge({
     required int categoryId,
     required Iterable<TopicCategory> categories,

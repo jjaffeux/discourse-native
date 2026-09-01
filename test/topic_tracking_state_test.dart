@@ -75,6 +75,10 @@ void main() {
     );
   });
 
+  test('splits unified New activity into topics and replies', () {
+    expect(state().newActivityCounts, (newTopics: 1, newReplies: 2));
+  });
+
   test('matches core tag counts and the count-versus-dot preference', () {
     final tracking = state();
 

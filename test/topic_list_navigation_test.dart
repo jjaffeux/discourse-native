@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -13,10 +16,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 
-const _totals = NotificationTotals(
+const _legacyTotals = NotificationTotals(
   topicTrackingNew: 1054,
   topicTrackingUnread: 5,
 );
+
+const _unifiedTotals = NotificationTotals(topicTrackingNew: 1059);
 
 const _user = DiscourseUser(id: 7, username: 'sam', unifiedNewEnabled: true);
 
@@ -99,6 +104,36 @@ void main() {
     }
   });
 
+  testWidgets(
+    'waits for the unified tracking snapshot before splitting counts',
+    (tester) async {
+      final trackingStateGate = Completer<void>();
+      final setup = await _controller(trackingStateGate: trackingStateGate);
+      final controller = setup.controller;
+      addTearDown(controller.dispose);
+      await tester.pump();
+
+      expect(setup.api.topicTrackingRequests, ['https://meta.discourse.org']);
+
+      FakeSiteTracker.built.single.deliverTopicTracking(const {
+        'topic_id': 4000,
+        'message_type': 'unread',
+        'payload': {'highest_post_number': 2, 'notification_level': 2},
+      });
+
+      expect(controller.topicListNewCounts, (all: 1059, topics: 0, replies: 0));
+
+      trackingStateGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(controller.topicListNewCounts, (
+        all: 1060,
+        topics: 1054,
+        replies: 6,
+      ));
+    },
+  );
+
   testWidgets('switches every web discovery list inside Topics', (
     tester,
   ) async {
@@ -172,6 +207,20 @@ void main() {
     expect(allText.overflow, TextOverflow.visible);
     expect(topicsText.overflow, TextOverflow.visible);
     expect(repliesText.overflow, TextOverflow.visible);
+
+    FakeSiteTracker.built.single.deliverTopicTracking(const {
+      'topic_id': 4000,
+      'message_type': 'unread',
+      'payload': {'highest_post_number': 2, 'notification_level': 2},
+    });
+    await tester.pump();
+
+    expect(find.text('New (1060)'), findsOneWidget);
+    expect(find.text('Unread (6)'), findsOneWidget);
+    expect(find.text('All (1060)'), findsOneWidget);
+    expect(find.text('Topics (1054)'), findsOneWidget);
+    expect(find.text('Replies (6)'), findsOneWidget);
+    expect(controller.sidebarBadgeFor('latest').count, 1060);
 
     await tester.tap(find.byKey(const ValueKey('topic-list-new-topics')));
     await tester.pumpAndSettle();
@@ -360,15 +409,33 @@ Text _tabText(WidgetTester tester, String key) => tester.widget<Text>(
 Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   DiscourseUser user = _user,
   SiteConfig config = const SiteConfig.unknown(),
+  Completer<void>? trackingStateGate,
 }) async {
+  final totals = user.unifiedNewEnabled ? _unifiedTotals : _legacyTotals;
   final site = instance(
     'meta.discourse.org',
     title: 'Discourse Meta',
-  ).copyWith(user: user, notificationTotals: _totals, config: config);
+  ).copyWith(user: user, notificationTotals: totals, config: config);
   final authenticator = FakeAuthenticator()..keys[site.url] = 'api-key';
   final api = FakeDiscourseApi(
     user: user,
-    totals: _totals,
+    totals: totals,
+    trackingStateGate: trackingStateGate,
+    trackingState: TopicTrackingState([
+      for (var index = 0; index < 1054; index++)
+        TrackedTopicState(
+          topicId: 1000 + index,
+          highestPostNumber: 1,
+          createdInNewPeriod: true,
+        ),
+      for (var index = 0; index < 5; index++)
+        TrackedTopicState(
+          topicId: 3000 + index,
+          highestPostNumber: 2,
+          lastReadPostNumber: 1,
+          notificationLevel: 2,
+        ),
+    ]),
     feeds: const {
       '/latest.json': [_latestTopic],
       '/new.json': [_allNewTopic],
