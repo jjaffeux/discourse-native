@@ -6,6 +6,7 @@ import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
+import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
@@ -108,8 +109,27 @@ class _PreferencesPageState extends State<PreferencesPage> {
       return _LoadingPreferences(host: instance.host);
     }
 
-    final selected = _visibleSection(draft);
     final editable = draft.canEdit;
+    final pluginSections = instance?.user == null
+        ? const <PluginUserPreferenceSection>[]
+        : shell.plugins.registry.userPreferenceSections(
+            context,
+            PluginUserPreferenceContext(
+              siteUrl: widget.siteUrl,
+              preferences: draft,
+              siteSettings: instance!.config.plugins,
+              currentUserData: instance.user!.plugins,
+              currentUserIsAdmin: instance.user!.admin,
+              editable: editable,
+              onEdit: (change) => shell.preferences.edit(
+                widget.siteUrl,
+                PreferenceSection.chat,
+                change,
+              ),
+            ),
+          );
+    final sections = _sectionsFor(draft, pluginSections);
+    final selected = _visibleSection(sections);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -120,7 +140,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
               SizedBox(
                 width: 232,
                 child: _SectionRail(
-                  sections: _sectionsFor(draft),
+                  sections: sections,
+                  pluginSections: pluginSections,
                   selected: selected,
                   onSelected: _selectSection,
                 ),
@@ -144,6 +165,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                       draft,
                       selected,
                       editable,
+                      pluginSections,
                     ),
                   ),
                 ),
@@ -168,10 +190,10 @@ class _PreferencesPageState extends State<PreferencesPage> {
                     labelText: 'Preference section',
                   ),
                   items: [
-                    for (final section in _sectionsFor(draft))
+                    for (final section in sections)
                       DropdownMenuItem(
                         value: section,
-                        child: Text(_sectionTitle(section)),
+                        child: Text(_sectionTitle(section, pluginSections)),
                       ),
                   ],
                   onChanged: (section) {
@@ -187,6 +209,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                   draft,
                   selected,
                   editable,
+                  pluginSections,
                 ),
               ],
             ),
@@ -204,6 +227,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     UserPreferences draft,
     PreferenceSection section,
     bool editable,
+    List<PluginUserPreferenceSection> pluginSections,
   ) {
     final dirty = state.dirty(section);
     final canSave =
@@ -212,7 +236,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _StatusAnnouncement(state: state),
+        _StatusAnnouncement(state: state, pluginSections: pluginSections),
         if (state.error != null || state.loading || state.savedSection != null)
           const SizedBox(height: 16),
         switch (section) {
@@ -258,6 +282,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
                   current.copyWith(bookmarkAutoDeletePreference: preference),
             ),
           ),
+          PreferenceSection.chat =>
+            _pluginSection(PreferenceSection.chat, pluginSections)?.content ??
+                const SizedBox.shrink(),
         },
         const SizedBox(height: 24),
         Align(
@@ -267,7 +294,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
             label: const Text('Save changes'),
             semanticLabel: state.saving
                 ? 'Saving preferences'
-                : 'Save ${_sectionTitle(section)} preferences',
+                : 'Save ${_sectionTitle(section, pluginSections)} preferences',
             onPressed: canSave ? () => _save(shell, instance!, section) : null,
             loading: state.saving,
             loadingLabel: const Text('Saving changes…'),
@@ -323,19 +350,20 @@ class _PreferencesPageState extends State<PreferencesPage> {
     if (value != null) _synchronizeTimezone(value);
   }
 
-  PreferenceSection _visibleSection(UserPreferences preferences) {
-    if (_selectedSection == PreferenceSection.tracking &&
-        !preferences.canChangeTrackingPreferences) {
-      return PreferenceSection.notifications;
-    }
-    return _selectedSection;
-  }
+  PreferenceSection _visibleSection(List<PreferenceSection> sections) =>
+      sections.contains(_selectedSection)
+      ? _selectedSection
+      : PreferenceSection.notifications;
 
-  List<PreferenceSection> _sectionsFor(UserPreferences preferences) => [
+  List<PreferenceSection> _sectionsFor(
+    UserPreferences preferences,
+    List<PluginUserPreferenceSection> pluginSections,
+  ) => [
     PreferenceSection.profile,
     PreferenceSection.notifications,
     if (preferences.canChangeTrackingPreferences) PreferenceSection.tracking,
     PreferenceSection.interface,
+    for (final plugin in pluginSections) plugin.section,
   ];
 
   void _selectSection(PreferenceSection section) {
@@ -377,11 +405,13 @@ class _SectionScroller extends StatelessWidget {
 class _SectionRail extends StatelessWidget {
   const _SectionRail({
     required this.sections,
+    required this.pluginSections,
     required this.selected,
     required this.onSelected,
   });
 
   final List<PreferenceSection> sections;
+  final List<PluginUserPreferenceSection> pluginSections;
   final PreferenceSection selected;
   final ValueChanged<PreferenceSection> onSelected;
 
@@ -393,6 +423,8 @@ class _SectionRail extends StatelessWidget {
         for (final section in sections)
           _SectionRailItem(
             section: section,
+            title: _sectionTitle(section, pluginSections),
+            icon: _sectionIcon(section, pluginSections),
             selected: selected == section,
             onTap: () => onSelected(section),
           ),
@@ -404,11 +436,15 @@ class _SectionRail extends StatelessWidget {
 class _SectionRailItem extends StatelessWidget {
   const _SectionRailItem({
     required this.section,
+    required this.title,
+    required this.icon,
     required this.selected,
     required this.onTap,
   });
 
   final PreferenceSection section;
+  final String title;
+  final DIconData icon;
   final bool selected;
   final VoidCallback onTap;
 
@@ -438,16 +474,12 @@ class _SectionRailItem extends StatelessWidget {
             child: Row(
               children: [
                 ExcludeSemantics(
-                  child: DIcon(
-                    _sectionIcon(section),
-                    size: 18,
-                    color: foreground,
-                  ),
+                  child: DIcon(icon, size: 18, color: foreground),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    _sectionTitle(section),
+                    title,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: foreground,
                       fontWeight: selected ? FontWeight.w600 : null,
@@ -811,16 +843,20 @@ class _PreferenceCard extends StatelessWidget {
 }
 
 class _StatusAnnouncement extends StatelessWidget {
-  const _StatusAnnouncement({required this.state});
+  const _StatusAnnouncement({
+    required this.state,
+    required this.pluginSections,
+  });
 
   final PreferencesState state;
+  final List<PluginUserPreferenceSection> pluginSections;
 
   @override
   Widget build(BuildContext context) {
     final (message, kind) = switch (state) {
       PreferencesState(error: final error?) => (error, _StatusKind.error),
       PreferencesState(savedSection: final section?) => (
-        '${_sectionTitle(section)} preferences saved.',
+        '${_sectionTitle(section, pluginSections)} preferences saved.',
         _StatusKind.success,
       ),
       PreferencesState(loading: true) => (
@@ -962,16 +998,38 @@ class _UnavailablePreferences extends StatelessWidget {
   }
 }
 
-String _sectionTitle(PreferenceSection section) => switch (section) {
-  PreferenceSection.profile => 'Profile',
-  PreferenceSection.notifications => 'Notifications',
-  PreferenceSection.tracking => 'Tracking',
-  PreferenceSection.interface => 'Interface',
-};
+PluginUserPreferenceSection? _pluginSection(
+  PreferenceSection section,
+  List<PluginUserPreferenceSection> pluginSections,
+) {
+  for (final plugin in pluginSections) {
+    if (plugin.section == section) return plugin;
+  }
+  return null;
+}
 
-DIconData _sectionIcon(PreferenceSection section) => switch (section) {
-  PreferenceSection.profile => DIcons.user,
-  PreferenceSection.notifications => DIcons.bell,
-  PreferenceSection.tracking => DIcons.list,
-  PreferenceSection.interface => DIcons.display,
-};
+String _sectionTitle(
+  PreferenceSection section,
+  List<PluginUserPreferenceSection> pluginSections,
+) =>
+    _pluginSection(section, pluginSections)?.title ??
+    switch (section) {
+      PreferenceSection.profile => 'Profile',
+      PreferenceSection.notifications => 'Notifications',
+      PreferenceSection.tracking => 'Tracking',
+      PreferenceSection.interface => 'Interface',
+      PreferenceSection.chat => 'Chat',
+    };
+
+DIconData _sectionIcon(
+  PreferenceSection section,
+  List<PluginUserPreferenceSection> pluginSections,
+) =>
+    _pluginSection(section, pluginSections)?.icon ??
+    switch (section) {
+      PreferenceSection.profile => DIcons.user,
+      PreferenceSection.notifications => DIcons.bell,
+      PreferenceSection.tracking => DIcons.list,
+      PreferenceSection.interface => DIcons.display,
+      PreferenceSection.chat => DIcons.comment,
+    };

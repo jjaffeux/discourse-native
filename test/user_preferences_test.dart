@@ -16,6 +16,7 @@ void main() {
         'auto_track_topics_after_msecs': 60000,
         'notification_level_when_replying': 3,
         'bookmark_auto_delete_preference': 1,
+        'chat_separate_sidebar_mode': 'fullscreen',
       },
     });
 
@@ -31,6 +32,7 @@ void main() {
         notificationLevelWhenReplying: 3,
         bookmarkAutoDeletePreference:
             BookmarkAutoDeletePreference.whenReminderSent,
+        chatSeparateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
         canEdit: true,
         canChangeTrackingPreferences: true,
       ),
@@ -50,6 +52,7 @@ void main() {
         'auto_track_topics_after_msecs': double.infinity,
         'notification_level_when_replying': 0,
         'bookmark_auto_delete_preference': 99,
+        'chat_separate_sidebar_mode': 'unsupported',
       },
     });
 
@@ -66,6 +69,7 @@ void main() {
       autoTrackTopicsAfterMsecs: 120000,
       notificationLevelWhenReplying: 2,
       bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.never,
+      chatSeparateSidebarMode: ChatSeparateSidebarPreference.always,
       canEdit: true,
       canChangeTrackingPreferences: true,
     );
@@ -86,6 +90,7 @@ void main() {
       autoTrackTopicsAfterMsecs: 30000,
       notificationLevelWhenReplying: 1,
       bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.onOwnerReply,
+      chatSeparateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
     );
 
     expect(preferences.payloadFor(PreferenceSection.notifications), {
@@ -103,12 +108,29 @@ void main() {
     expect(preferences.payloadFor(PreferenceSection.interface), {
       'bookmark_auto_delete_preference': 2,
     });
+    expect(preferences.payloadFor(PreferenceSection.chat), {
+      'chat_separate_sidebar_mode': 'fullscreen',
+    });
     expect(
       () => preferences.payloadFor(
         PreferenceSection.notifications,
       )['unexpected'] = true,
       throwsUnsupportedError,
     );
+  });
+
+  test('preserves the server default chat sidebar sentinel', () {
+    final preferences = UserPreferences.fromJson(const {
+      'user_option': {'chat_separate_sidebar_mode': 'default'},
+    });
+
+    expect(
+      preferences.chatSeparateSidebarMode,
+      ChatSeparateSidebarPreference.siteDefault,
+    );
+    expect(preferences.payloadFor(PreferenceSection.chat), {
+      'chat_separate_sidebar_mode': 'default',
+    });
   });
 
   test('copyWith and value equality preserve confirmed/draft snapshots', () {

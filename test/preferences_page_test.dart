@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
 import 'package:discourse_native/src/shell/select.dart';
@@ -19,6 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://preferences.example';
@@ -41,8 +43,22 @@ const _preferences = UserPreferences(
   autoTrackTopicsAfterMsecs: 300000,
   notificationLevelWhenReplying: 2,
   bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
+  chatSeparateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
   canEdit: true,
   canChangeTrackingPreferences: true,
+);
+
+final _chatSite = _site.copyWith(
+  user: _site.user!.withPlugins(
+    _site.user!.plugins.withValue(
+      chatCurrentUserDataKey,
+      const ChatCurrentUser(
+        hasChatEnabled: true,
+        canChat: true,
+        canDirectMessage: true,
+      ),
+    ),
+  ),
 );
 
 typedef _Fixture = ({
@@ -52,19 +68,21 @@ typedef _Fixture = ({
 });
 
 Future<_Fixture> _fixture({
+  DiscourseInstance? site,
   UserPreferences preferences = _preferences,
   Completer<void>? loadGate,
   Completer<void>? writeGate,
   WriteException? writeFailure,
 }) async {
+  final selectedSite = site ?? _chatSite;
   final api = FakeDiscourseApi(
-    user: _site.user,
+    user: selectedSite.user,
     userPreferences: preferences,
     userPreferencesGate: loadGate,
     userPreferencesWriteGate: writeGate,
     writeFailure: writeFailure,
   );
-  final store = _RecordingInstanceStore([_site]);
+  final store = _RecordingInstanceStore([selectedSite]);
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
   final shell = ShellController(
     instanceStore: store,
@@ -74,6 +92,7 @@ Future<_Fixture> _fixture({
     forumTabs: FakeForumTabStore(),
     trackers: FakeSiteTracker.reset(),
     ownsApi: false,
+    plugins: installedPlugins,
   );
   addTearDown(shell.dispose);
   await shell.load();
@@ -153,6 +172,7 @@ String _sectionLabel(PreferenceSection section) => switch (section) {
   PreferenceSection.notifications => 'Notifications',
   PreferenceSection.tracking => 'Tracking',
   PreferenceSection.interface => 'Interface',
+  PreferenceSection.chat => 'Chat',
 };
 
 void main() {
@@ -302,6 +322,8 @@ void main() {
             'Choose when topics become new, tracked, or watched.',
         PreferenceSection.interface:
             'Choose the default bookmark cleanup behavior.',
+        PreferenceSection.chat:
+            'Choose whether forum and chat use separate sidebar modes.',
       };
 
       for (final section in PreferenceSection.values) {
@@ -345,6 +367,85 @@ void main() {
           _saveButton(tester, PreferenceSection.notifications).onPressed,
           isNull,
         );
+      },
+    );
+
+    testWidgets(
+      'offers the three web chat sidebar choices and saves the wire value',
+      (tester) async {
+        final fixture = await _fixture();
+        await _pumpPage(tester, fixture);
+        await _chooseNarrowSection(tester, PreferenceSection.chat);
+
+        expect(
+          find.text('Show separate sidebar modes for forum and chat'),
+          findsOneWidget,
+        );
+        expect(find.text('When chat is in fullscreen'), findsOneWidget);
+        expect(_saveButton(tester, PreferenceSection.chat).onPressed, isNull);
+
+        await tester.tap(find.text('When chat is in fullscreen'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Always'), findsOneWidget);
+        expect(find.text('Never'), findsOneWidget);
+        expect(find.text('Default'), findsNothing);
+
+        await tester.tap(find.text('Always'));
+        await tester.pumpAndSettle();
+        expect(
+          _saveButton(tester, PreferenceSection.chat).onPressed,
+          isNotNull,
+        );
+
+        await tester.tap(_save(PreferenceSection.chat));
+        await tester.pumpAndSettle();
+
+        expect(fixture.api.userPreferenceUpdates.single.values, {
+          'chat_separate_sidebar_mode': 'always',
+        });
+        expect(_saveButton(tester, PreferenceSection.chat).onPressed, isNull);
+      },
+    );
+
+    testWidgets(
+      'shows the inherited site chat mode without dirtying the preference',
+      (tester) async {
+        final site = _chatSite.copyWith(
+          config: _site.config.withPlugins(
+            _site.config.plugins.withValue(
+              chatSettingsDataKey,
+              const ChatSettings(
+                separateSidebarMode: ChatSeparateSidebarMode.always,
+              ),
+            ),
+          ),
+        );
+        final fixture = await _fixture(
+          site: site,
+          preferences: _preferences.copyWith(
+            chatSeparateSidebarMode: ChatSeparateSidebarPreference.siteDefault,
+          ),
+        );
+        await _pumpPage(tester, fixture);
+        await _chooseNarrowSection(tester, PreferenceSection.chat);
+
+        expect(find.text('Always'), findsOneWidget);
+        expect(
+          fixture.shell.preferences
+              .stateFor(_siteUrl)!
+              .draft!
+              .chatSeparateSidebarMode,
+          ChatSeparateSidebarPreference.siteDefault,
+        );
+        expect(
+          fixture.shell.preferences
+              .stateFor(_siteUrl)!
+              .dirty(PreferenceSection.chat),
+          isFalse,
+        );
+        expect(_saveButton(tester, PreferenceSection.chat).onPressed, isNull);
+        expect(fixture.api.userPreferenceUpdates, isEmpty);
       },
     );
 
@@ -557,6 +658,7 @@ void main() {
       tester,
     ) async {
       final fixture = await _fixture(
+        site: _site,
         preferences: _preferences.copyWith(
           canEdit: false,
           canChangeTrackingPreferences: false,
@@ -569,6 +671,11 @@ void main() {
         findsNothing,
       );
       expect(find.text('Tracking'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('preferences-section-chat')),
+        findsNothing,
+      );
+      expect(find.text('Chat'), findsNothing);
       expect(
         tester
             .widget<DropdownButtonFormField<int>>(
@@ -589,6 +696,68 @@ void main() {
         _saveButton(tester, PreferenceSection.notifications).onPressed,
         isNull,
       );
+    });
+
+    testWidgets('allows an admin to edit Chat when can_chat is false', (
+      tester,
+    ) async {
+      const adminSite = DiscourseInstance(
+        url: _siteUrl,
+        title: 'Preferences Forum',
+        user: DiscourseUser(
+          id: 7,
+          username: 'reader',
+          admin: true,
+          timezone: 'Etc/UTC',
+        ),
+      );
+      final fixture = await _fixture(site: adminSite);
+      await _pumpPage(tester, fixture, width: 1000);
+
+      final chat = find.byKey(const ValueKey('preferences-section-chat'));
+      expect(chat, findsOneWidget);
+      await tester.tap(chat);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<DropdownButtonFormField<ChatSeparateSidebarPreference>>(
+              find.byType(
+                DropdownButtonFormField<ChatSeparateSidebarPreference>,
+              ),
+            )
+            .onChanged,
+        isNotNull,
+      );
+      await tester.tap(find.text('When chat is in fullscreen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Always'));
+      await tester.pumpAndSettle();
+      await tester.tap(_save(PreferenceSection.chat));
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.userPreferenceUpdates.single.values, {
+        'chat_separate_sidebar_mode': 'always',
+      });
+    });
+
+    testWidgets('hides Chat when the site setting disables it', (tester) async {
+      final site = _chatSite.copyWith(
+        config: _chatSite.config.withPlugins(
+          _chatSite.config.plugins.withValue(
+            chatSettingsDataKey,
+            const ChatSettings(chatEnabled: false),
+          ),
+        ),
+      );
+      final fixture = await _fixture(site: site);
+      await _pumpPage(tester, fixture, width: 1000);
+
+      expect(
+        find.byKey(const ValueKey('preferences-section-chat')),
+        findsNothing,
+      );
+      expect(find.text('Chat'), findsNothing);
     });
   });
 
@@ -648,6 +817,55 @@ void main() {
         BookmarkAutoDeletePreference.never,
       );
     });
+
+    testWidgets(
+      'persist the confirmed chat mode while preserving chat user state',
+      (tester) async {
+        const heldChatUser = ChatCurrentUser(
+          hasChatEnabled: true,
+          canChat: true,
+          canDirectMessage: false,
+          headerIndicatorPreference: ChatHeaderIndicatorPreference.onlyMentions,
+          separateSidebarMode: ChatSeparateSidebarMode.fullscreen,
+          lastChannelId: 42,
+          ignoredUsernames: ['muted-user'],
+        );
+        final site = _site.copyWith(
+          user: _site.user!.withPlugins(
+            _site.user!.plugins.withValue(chatCurrentUserDataKey, heldChatUser),
+          ),
+        );
+        final fixture = await _fixture(site: site);
+        await _pumpPage(tester, fixture);
+        await _chooseNarrowSection(tester, PreferenceSection.chat);
+
+        await tester.tap(find.text('When chat is in fullscreen'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Always'));
+        await tester.pumpAndSettle();
+        await tester.tap(_save(PreferenceSection.chat));
+        await tester.pumpAndSettle();
+
+        const expected = ChatCurrentUser(
+          hasChatEnabled: true,
+          canChat: true,
+          canDirectMessage: false,
+          headerIndicatorPreference: ChatHeaderIndicatorPreference.onlyMentions,
+          separateSidebarMode: ChatSeparateSidebarMode.always,
+          lastChannelId: 42,
+          ignoredUsernames: ['muted-user'],
+        );
+        expect(
+          fixture.shell.instanceFor(_siteUrl)!.user!.chatCurrentUser,
+          expected,
+        );
+        expect(fixture.store.saved, hasLength(1));
+        expect(
+          fixture.store.saved.single.single.user!.chatCurrentUser,
+          expected,
+        );
+      },
+    );
 
     testWidgets(
       'ignore unrelated loaded profile fields after notification save',

@@ -140,6 +140,8 @@ typedef _SettingsReturnTarget = ({
   ShellRootMode rootMode,
   MobilePane mobilePane,
 });
+typedef _PluginPaneKey = ({String siteUrl, String tabId, PluginId owner});
+typedef _PluginPaneStateKey = ({String siteUrl, String tabId});
 
 int? _destinationNumericId(String destinationId, String prefix) {
   if (!destinationId.startsWith(prefix)) return null;
@@ -964,6 +966,10 @@ class ShellController extends FrameSafeNotifier
       hasInstances ? _instances[_instanceIndex] : null;
 
   final Map<String, ForumWorkspace> _forumWorkspaces = {};
+  final Map<_PluginPaneKey, ForumTab> _mainPaneTabs = {};
+  final Map<_PluginPaneKey, ForumTab> _pluginPaneTabs = {};
+  final Map<_PluginPaneStateKey, PluginId> _activePluginPanes = {};
+  final Set<_PluginPaneStateKey> _coldPluginPanes = {};
   int _tabSequence = 0;
   ({String siteUrl, String tabId})? _pendingTabSelection;
   bool _tabSelectionSettlementScheduled = false;
@@ -1073,6 +1079,7 @@ class ShellController extends FrameSafeNotifier
         existing.accountIdentity == _workspaceAccountIdentity(instance)) {
       return existing;
     }
+    _forgetPluginPaneTabs(instance.url);
     final workspace = _newWorkspace(instance);
     _forumWorkspaces[instance.url] = workspace;
     if (persist) _persistWorkspaces();
@@ -1082,13 +1089,38 @@ class ShellController extends FrameSafeNotifier
   void _putWorkspace(ForumWorkspace workspace, {bool persist = true}) {
     final normalized = _normalizeWorkspace(workspace);
     _forumWorkspaces[normalized.siteUrl] = normalized;
+    final liveTabIds = {for (final tab in normalized.tabs) tab.id};
+    _mainPaneTabs.removeWhere(
+      (key, _) =>
+          key.siteUrl == normalized.siteUrl && !liveTabIds.contains(key.tabId),
+    );
+    _pluginPaneTabs.removeWhere(
+      (key, _) =>
+          key.siteUrl == normalized.siteUrl && !liveTabIds.contains(key.tabId),
+    );
+    _activePluginPanes.removeWhere(
+      (key, _) =>
+          key.siteUrl == normalized.siteUrl && !liveTabIds.contains(key.tabId),
+    );
+    _coldPluginPanes.removeWhere(
+      (key) =>
+          key.siteUrl == normalized.siteUrl && !liveTabIds.contains(key.tabId),
+    );
     if (persist) _persistWorkspaces();
   }
 
   void _removeWorkspace(String siteUrl, {bool persist = true}) {
+    _forgetPluginPaneTabs(siteUrl);
     if (_forumWorkspaces.remove(siteUrl) != null && persist) {
       _persistWorkspaces();
     }
+  }
+
+  void _forgetPluginPaneTabs(String siteUrl) {
+    _mainPaneTabs.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _pluginPaneTabs.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _activePluginPanes.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _coldPluginPanes.removeWhere((key) => key.siteUrl == siteUrl);
   }
 
   void _persistWorkspaces() {
@@ -1771,10 +1803,6 @@ class ShellController extends FrameSafeNotifier
     PreferenceSection section,
     UserPreferences preferences,
   ) {
-    if (section != PreferenceSection.profile &&
-        section != PreferenceSection.interface) {
-      return;
-    }
     final instance = _instanceAt(siteUrl);
     final user = instance?.user;
     if (instance == null ||
@@ -1782,7 +1810,7 @@ class ShellController extends FrameSafeNotifier
         user.username.toLowerCase() != preferences.username.toLowerCase()) {
       return;
     }
-    final updated = switch (section) {
+    var updated = switch (section) {
       PreferenceSection.profile => user.withPreferences(
         timezone: preferences.timezone,
       ),
@@ -1791,6 +1819,19 @@ class ShellController extends FrameSafeNotifier
       ),
       _ => user,
     };
+    for (final mirror
+        in _pluginSession.capabilities<PluginUserPreferenceMirror>()) {
+      try {
+        updated = mirror.mirrorUserPreference(updated, section, preferences);
+      } catch (error, stackTrace) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'preferences.pluginMirror',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+    }
     if (updated == user) return;
     _replaceInstance(instance, instance.copyWith(user: updated));
     _notify();
@@ -10402,6 +10443,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void selectDestination(SidebarDestination destination) {
+    _preparePluginPaneForRoute(destination.id);
     final instance = currentInstance;
     if (instance == null) return;
     final tab = _ensureWorkspace(instance).activeTab;
@@ -10732,10 +10774,19 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void pushContent(ContentRoute route) {
+    final startsPluginPane = _preparePluginPaneForRoute(route.id);
     final tab = activeTab;
     if (tab == null) return;
     _setForumContentRoot();
-    _replaceActiveTab(tab.push(route));
+    _replaceActiveTab(
+      startsPluginPane
+          ? tab.copyWith(
+              rootDestinationId: route.id,
+              contentStack: [route],
+              forwardStack: const [],
+            )
+          : tab.push(route),
+    );
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
@@ -10743,16 +10794,23 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void replaceCurrentContent(ContentRoute route) {
+    final startsPluginPane = _preparePluginPaneForRoute(route.id);
     final tab = activeTab;
     if (tab == null) return;
     _setForumContentRoot();
     _replaceActiveTab(
-      tab.copyWith(
-        contentStack: [
-          ...tab.contentStack.take(tab.contentStack.length - 1),
-          route,
-        ],
-      ),
+      startsPluginPane
+          ? tab.copyWith(
+              rootDestinationId: route.id,
+              contentStack: [route],
+              forwardStack: const [],
+            )
+          : tab.copyWith(
+              contentStack: [
+                ...tab.contentStack.take(tab.contentStack.length - 1),
+                route,
+              ],
+            ),
     );
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
@@ -10763,6 +10821,150 @@ class ShellController extends FrameSafeNotifier
   void showPluginContent() {
     if (!_setForumContentRoot()) return;
     _notify();
+  }
+
+  @override
+  bool activatePluginPane(PluginId owner) {
+    final instance = currentInstance;
+    var tab = activeTab;
+    if (instance == null || tab == null) return false;
+
+    var stateKey = (siteUrl: instance.url, tabId: tab.id);
+    var activeOwner = _activePluginPanes[stateKey];
+    if (activeOwner == null) {
+      final currentRouteId = tab.currentContent.id;
+      final restoredPolicy = _pluginSession
+          .capabilities<PluginPaneRoutePolicy>()
+          .where(
+            (policy) =>
+                policy.ownsPluginPaneRoute(currentRouteId) &&
+                policy.separatesPluginPane(currentRouteId),
+          )
+          .firstOrNull;
+      if (restoredPolicy != null) {
+        activeOwner = restoredPolicy.pluginPaneOwner;
+        _activePluginPanes[stateKey] = activeOwner;
+      }
+    }
+    if (activeOwner == owner) {
+      return !_coldPluginPanes.contains(stateKey);
+    }
+    if (activeOwner != null) {
+      _deactivatePluginPane(activeOwner, notifyAndHydrate: false);
+      tab = activeTab;
+      if (tab == null) return false;
+      stateKey = (siteUrl: instance.url, tabId: tab.id);
+    }
+    final key = (siteUrl: instance.url, tabId: tab.id, owner: owner);
+    _activePluginPanes[stateKey] = owner;
+    _mainPaneTabs[key] = tab;
+    final pluginTab = _pluginPaneTabs[key];
+    if (pluginTab == null) {
+      _coldPluginPanes.add(stateKey);
+      return false;
+    }
+
+    _coldPluginPanes.remove(stateKey);
+    _restorePluginPaneTab(instance, pluginTab);
+    return true;
+  }
+
+  @override
+  void deactivatePluginPane(PluginId owner) {
+    _deactivatePluginPane(owner, notifyAndHydrate: true);
+  }
+
+  void _deactivatePluginPane(PluginId owner, {required bool notifyAndHydrate}) {
+    final instance = currentInstance;
+    final tab = activeTab;
+    if (instance == null || tab == null) return;
+
+    final stateKey = (siteUrl: instance.url, tabId: tab.id);
+    final activeOwner = _activePluginPanes[stateKey];
+    if (activeOwner != null && activeOwner != owner) return;
+    _activePluginPanes.remove(stateKey);
+    final wasCold = _coldPluginPanes.remove(stateKey);
+    final key = (siteUrl: instance.url, tabId: tab.id, owner: owner);
+    if (!wasCold) _pluginPaneTabs[key] = tab;
+    final mainTab =
+        _mainPaneTabs.remove(key) ??
+        ForumTab(
+          id: tab.id,
+          rootDestinationId: instance.defaultDestination.id,
+          contentStack: [
+            ContentRoute.fromDestination(instance.defaultDestination),
+          ],
+        );
+    _restorePluginPaneTab(
+      instance,
+      mainTab,
+      notifyAndHydrate: notifyAndHydrate,
+    );
+  }
+
+  bool _preparePluginPaneForRoute(String routeId) {
+    final instance = currentInstance;
+    final tab = activeTab;
+    if (instance == null || tab == null) return false;
+
+    final stateKey = (siteUrl: instance.url, tabId: tab.id);
+    final policies = _pluginSession
+        .capabilities<PluginPaneRoutePolicy>()
+        .toList(growable: false);
+    var owner = _activePluginPanes[stateKey];
+    if (owner == null) {
+      final currentRouteId = tab.currentContent.id;
+      final currentPolicy = policies
+          .where(
+            (policy) =>
+                policy.ownsPluginPaneRoute(currentRouteId) &&
+                policy.separatesPluginPane(currentRouteId),
+          )
+          .firstOrNull;
+      if (currentPolicy != null) {
+        owner = currentPolicy.pluginPaneOwner;
+        _activePluginPanes[stateKey] = owner;
+      }
+    }
+
+    if (owner != null) {
+      final staysInPane = policies.any(
+        (policy) =>
+            policy.pluginPaneOwner == owner &&
+            policy.ownsPluginPaneRoute(routeId) &&
+            policy.separatesPluginPane(routeId),
+      );
+      if (staysInPane) return _coldPluginPanes.remove(stateKey);
+      _deactivatePluginPane(owner, notifyAndHydrate: false);
+    }
+
+    final targetPolicy = policies
+        .where(
+          (policy) =>
+              policy.ownsPluginPaneRoute(routeId) &&
+              policy.separatesPluginPane(routeId),
+        )
+        .firstOrNull;
+    if (targetPolicy != null) {
+      activatePluginPane(targetPolicy.pluginPaneOwner);
+      return _coldPluginPanes.remove(stateKey);
+    }
+    return false;
+  }
+
+  void _restorePluginPaneTab(
+    DiscourseInstance instance,
+    ForumTab tab, {
+    bool notifyAndHydrate = true,
+  }) {
+    _setForumContentRoot();
+    _replaceActiveTab(tab);
+    _mobilePane = MobilePane.content;
+    _syncTopicChannels();
+    if (notifyAndHydrate) {
+      _notify();
+      _hydrateActiveTab(instance);
+    }
   }
 
   bool handleBack({bool canReturnToSidebar = true}) {
@@ -11220,6 +11422,13 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
 
   @override
   void showPluginContent() => _shell.showPluginContent();
+
+  @override
+  bool activatePluginPane(PluginId owner) => _shell.activatePluginPane(owner);
+
+  @override
+  void deactivatePluginPane(PluginId owner) =>
+      _shell.deactivatePluginPane(owner);
 }
 
 final class _ShellPluginRouteNavigationHost

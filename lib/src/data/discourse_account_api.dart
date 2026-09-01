@@ -651,6 +651,7 @@ final class DiscourseAccountApi {
     'auto_track_topics_after_msecs',
     'notification_level_when_replying',
     'bookmark_auto_delete_preference',
+    'chat_separate_sidebar_mode',
   };
 
   static void _validateUserPreferenceValues(Map<String, Object?> values) {

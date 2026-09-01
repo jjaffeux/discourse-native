@@ -85,6 +85,7 @@ void main() {
                   'auto_track_topics_after_msecs': 120000,
                   'notification_level_when_replying': 3,
                   'bookmark_auto_delete_preference': 1,
+                  'chat_separate_sidebar_mode': 'fullscreen',
                 },
               },
             }),
@@ -119,6 +120,7 @@ void main() {
           notificationLevelWhenReplying: 3,
           bookmarkAutoDeletePreference:
               BookmarkAutoDeletePreference.whenReminderSent,
+          chatSeparateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
           canEdit: true,
           canChangeTrackingPreferences: true,
         ),
@@ -169,6 +171,44 @@ void main() {
         'notify_on_linked_posts': false,
       });
       expect(result, fallback.copyWith(notifyOnLinkedPosts: false));
+    });
+
+    test('puts the chat sidebar mode as a flat user option', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'user': {
+                'user_option': {'chat_separate_sidebar_mode': 'always'},
+              },
+            }),
+            200,
+          );
+        }),
+      );
+      const fallback = UserPreferences(
+        username: 'Sam Name',
+        chatSeparateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
+        canEdit: true,
+      );
+
+      final result = await api.updateUserPreferences(
+        siteUrl: 'https://forum.example',
+        apiKey: 'secret',
+        username: 'Sam Name',
+        fallback: fallback,
+        values: const {'chat_separate_sidebar_mode': 'always'},
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.toString(), 'https://forum.example/u/sam%20name.json');
+      expect(jsonDecode(sent.body), {'chat_separate_sidebar_mode': 'always'});
+      expect(
+        result.chatSeparateSidebarMode,
+        ChatSeparateSidebarPreference.always,
+      );
     });
 
     test('keeps the fallback when a successful response omits user', () async {

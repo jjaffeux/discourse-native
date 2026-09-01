@@ -18,20 +18,60 @@ const PluginDataKey<ChatCurrentUser> chatCurrentUserDataKey = PluginDataKey(
 const chatSettingsPersistenceCodec = ChatSettingsPersistenceCodec();
 const chatCurrentUserPersistenceCodec = ChatCurrentUserPersistenceCodec();
 
+enum ChatSeparateSidebarMode {
+  siteDefault('default'),
+  never('never'),
+  always('always'),
+  fullscreen('fullscreen');
+
+  const ChatSeparateSidebarMode(this.wireName);
+
+  final String wireName;
+
+  static ChatSeparateSidebarMode readSiteSetting(Object? value) =>
+      switch (_read(value)) {
+        final mode? when mode != ChatSeparateSidebarMode.siteDefault => mode,
+        _ => ChatSeparateSidebarMode.never,
+      };
+
+  static ChatSeparateSidebarMode readUserOption(Object? value) => value == null
+      ? ChatSeparateSidebarMode.siteDefault
+      : _read(value) ?? ChatSeparateSidebarMode.never;
+
+  static ChatSeparateSidebarMode? _read(Object? value) {
+    for (final mode in values) {
+      if (value == mode.wireName) return mode;
+    }
+    return null;
+  }
+
+  ChatSeparateSidebarMode resolveAgainst(ChatSeparateSidebarMode siteSetting) =>
+      switch (this) {
+        ChatSeparateSidebarMode.siteDefault =>
+          siteSetting == ChatSeparateSidebarMode.siteDefault
+              ? ChatSeparateSidebarMode.never
+              : siteSetting,
+        _ => this,
+      };
+}
+
 @immutable
 final class ChatSettings {
   const ChatSettings({
+    this.chatEnabled = true,
     this.uploadsEnabled = true,
     this.searchEnabled = false,
     this.channelRetentionDays = 0,
     this.directMessageRetentionDays = 0,
     this.maximumDirectMessageUsers = defaultMaximumDirectMessageUsers,
+    this.separateSidebarMode = ChatSeparateSidebarMode.never,
   });
 
   static const int defaultMaximumDirectMessageUsers = 20;
   static const int maximumDirectMessageUsersLimit = 100;
 
   factory ChatSettings.fromSettings(Map<String, dynamic> json) => ChatSettings(
+    chatEnabled: json['chat_enabled'] != false,
     uploadsEnabled: json['chat_allow_uploads'] != false,
     searchEnabled: json['chat_search_enabled'] == true,
     channelRetentionDays: _retentionDays(json['chat_channel_retention_days']),
@@ -39,9 +79,13 @@ final class ChatSettings {
     maximumDirectMessageUsers: _maximumDirectMessageUsers(
       json['chat_max_direct_message_users'],
     ),
+    separateSidebarMode: ChatSeparateSidebarMode.readSiteSetting(
+      json['chat_separate_sidebar_mode'],
+    ),
   );
 
   factory ChatSettings.fromStored(Map<String, dynamic> json) => ChatSettings(
+    chatEnabled: json['chatEnabled'] != false,
     uploadsEnabled: json['uploadsEnabled'] != false,
     searchEnabled: json['searchEnabled'] == true,
     channelRetentionDays: _retentionDays(json['channelRetentionDays']),
@@ -51,38 +95,49 @@ final class ChatSettings {
     maximumDirectMessageUsers: _maximumDirectMessageUsers(
       json['maximumDirectMessageUsers'],
     ),
+    separateSidebarMode: ChatSeparateSidebarMode.readSiteSetting(
+      json['separateSidebarMode'],
+    ),
   );
 
+  final bool chatEnabled;
   final bool uploadsEnabled;
   final bool searchEnabled;
   final int channelRetentionDays;
   final int directMessageRetentionDays;
   final int maximumDirectMessageUsers;
+  final ChatSeparateSidebarMode separateSidebarMode;
 
   Map<String, Object?> toStored() => {
+    if (!chatEnabled) 'chatEnabled': false,
     'uploadsEnabled': uploadsEnabled,
     'searchEnabled': searchEnabled,
     'channelRetentionDays': channelRetentionDays,
     'directMessageRetentionDays': directMessageRetentionDays,
     'maximumDirectMessageUsers': maximumDirectMessageUsers,
+    'separateSidebarMode': separateSidebarMode.wireName,
   };
 
   @override
   bool operator ==(Object other) =>
       other is ChatSettings &&
+      other.chatEnabled == chatEnabled &&
       other.uploadsEnabled == uploadsEnabled &&
       other.searchEnabled == searchEnabled &&
       other.channelRetentionDays == channelRetentionDays &&
       other.directMessageRetentionDays == directMessageRetentionDays &&
-      other.maximumDirectMessageUsers == maximumDirectMessageUsers;
+      other.maximumDirectMessageUsers == maximumDirectMessageUsers &&
+      other.separateSidebarMode == separateSidebarMode;
 
   @override
   int get hashCode => Object.hash(
+    chatEnabled,
     uploadsEnabled,
     searchEnabled,
     channelRetentionDays,
     directMessageRetentionDays,
     maximumDirectMessageUsers,
+    separateSidebarMode,
   );
 }
 
@@ -112,8 +167,10 @@ enum ChatHeaderIndicatorPreference {
 final class ChatCurrentUser {
   const ChatCurrentUser({
     this.hasChatEnabled,
+    this.canChat,
     this.canDirectMessage,
     this.headerIndicatorPreference = ChatHeaderIndicatorPreference.allNew,
+    this.separateSidebarMode = ChatSeparateSidebarMode.siteDefault,
     this.lastChannelId,
     this.ignoredUsernames = const [],
   });
@@ -123,9 +180,13 @@ final class ChatCurrentUser {
     final customFields = _jsonMap(json['custom_fields']) ?? const {};
     return ChatCurrentUser(
       hasChatEnabled: json['has_chat_enabled'] == true,
+      canChat: json['can_chat'] == true,
       canDirectMessage: json['can_direct_message'] == true,
       headerIndicatorPreference: ChatHeaderIndicatorPreference.read(
         userOption['chat_header_indicator_preference'],
+      ),
+      separateSidebarMode: ChatSeparateSidebarMode.readUserOption(
+        userOption['chat_separate_sidebar_mode'],
       ),
       lastChannelId: jsonIntOrNull(customFields['last_chat_channel_id']),
       ignoredUsernames: _usernames(json['ignored_users']),
@@ -138,6 +199,10 @@ final class ChatCurrentUser {
           final bool value => value,
           _ => null,
         },
+        canChat: switch (json['canChat']) {
+          final bool value => value,
+          _ => null,
+        },
         canDirectMessage: switch (json['canDirectMessage']) {
           final bool value => value,
           _ => null,
@@ -145,21 +210,28 @@ final class ChatCurrentUser {
         headerIndicatorPreference: ChatHeaderIndicatorPreference.read(
           json['headerIndicatorPreference'],
         ),
+        separateSidebarMode: ChatSeparateSidebarMode.readUserOption(
+          json['separateSidebarMode'],
+        ),
         lastChannelId: jsonIntOrNull(json['lastChannelId']),
         ignoredUsernames: _usernames(json['ignoredUsernames']),
       );
 
   final bool? hasChatEnabled;
+  final bool? canChat;
   final bool? canDirectMessage;
   final ChatHeaderIndicatorPreference headerIndicatorPreference;
+  final ChatSeparateSidebarMode separateSidebarMode;
   final int? lastChannelId;
 
   final List<String> ignoredUsernames;
 
   Map<String, Object?> toStored() => {
     'hasChatEnabled': hasChatEnabled,
+    if (canChat != null) 'canChat': canChat,
     if (canDirectMessage != null) 'canDirectMessage': canDirectMessage,
     'headerIndicatorPreference': headerIndicatorPreference.wireName,
+    'separateSidebarMode': separateSidebarMode.wireName,
     'lastChannelId': lastChannelId,
     'ignoredUsernames': ignoredUsernames,
   };
@@ -168,16 +240,20 @@ final class ChatCurrentUser {
   bool operator ==(Object other) =>
       other is ChatCurrentUser &&
       other.hasChatEnabled == hasChatEnabled &&
+      other.canChat == canChat &&
       other.canDirectMessage == canDirectMessage &&
       other.headerIndicatorPreference == headerIndicatorPreference &&
+      other.separateSidebarMode == separateSidebarMode &&
       other.lastChannelId == lastChannelId &&
       listEquals(other.ignoredUsernames, ignoredUsernames);
 
   @override
   int get hashCode => Object.hash(
     hasChatEnabled,
+    canChat,
     canDirectMessage,
     headerIndicatorPreference,
+    separateSidebarMode,
     lastChannelId,
     Object.hashAll(ignoredUsernames),
   );
@@ -253,10 +329,13 @@ final class ChatCurrentUserPersistenceCodec
 
     return ChatCurrentUser(
       hasChatEnabled: decoded?.hasChatEnabled,
+      canChat: decoded?.canChat,
       canDirectMessage: decoded?.canDirectMessage,
       headerIndicatorPreference:
           decoded?.headerIndicatorPreference ??
           ChatHeaderIndicatorPreference.allNew,
+      separateSidebarMode:
+          decoded?.separateSidebarMode ?? ChatSeparateSidebarMode.siteDefault,
       lastChannelId: decoded?.lastChannelId,
       ignoredUsernames: _usernames(record['ignoredUsernames']),
     );
@@ -267,6 +346,10 @@ final class ChatCurrentUserPersistenceCodec
       _containsAny(json, _legacyChatCurrentUserKeys)
       ? ChatCurrentUser(
           hasChatEnabled: switch (json['hasChatEnabled']) {
+            final bool value => value,
+            _ => null,
+          },
+          canChat: switch (json['canChat']) {
             final bool value => value,
             _ => null,
           },
@@ -293,6 +376,8 @@ extension ChatPluginDataRead on PluginData {
 extension ChatSiteConfigData on SiteConfig {
   ChatSettings get chatSettings => plugins.chatSettings;
 
+  bool get chatEnabled => chatSettings.chatEnabled;
+
   bool get chatUploadsEnabled => chatSettings.uploadsEnabled;
 
   bool get chatSearchEnabled => chatSettings.searchEnabled;
@@ -303,6 +388,9 @@ extension ChatSiteConfigData on SiteConfig {
 
   int get chatMaximumDirectMessageUsers =>
       chatSettings.maximumDirectMessageUsers;
+
+  ChatSeparateSidebarMode get chatSeparateSidebarMode =>
+      chatSettings.separateSidebarMode;
 }
 
 extension ChatDiscourseUserData on DiscourseUser {
@@ -310,17 +398,29 @@ extension ChatDiscourseUserData on DiscourseUser {
 
   bool? get hasChatEnabled => chatCurrentUser?.hasChatEnabled;
 
+  bool? get canChat => chatCurrentUser?.canChat;
+
   bool? get canDirectMessage => chatCurrentUser?.canDirectMessage;
 
   ChatHeaderIndicatorPreference get chatHeaderIndicatorPreference =>
       chatCurrentUser?.headerIndicatorPreference ??
       ChatHeaderIndicatorPreference.allNew;
 
+  ChatSeparateSidebarMode get chatSeparateSidebarMode =>
+      chatCurrentUser?.separateSidebarMode ??
+      ChatSeparateSidebarMode.siteDefault;
+
   int? get lastChatChannelId => chatCurrentUser?.lastChannelId;
 
   List<String> get ignoredUsernames =>
       chatCurrentUser?.ignoredUsernames ?? const [];
 }
+
+ChatSeparateSidebarMode effectiveChatSeparateSidebarMode({
+  required ChatSettings settings,
+  ChatCurrentUser? currentUser,
+}) => (currentUser?.separateSidebarMode ?? ChatSeparateSidebarMode.siteDefault)
+    .resolveAgainst(settings.separateSidebarMode);
 
 const Set<String> _legacyChatSettingsKeys = {
   'chatUploadsEnabled',
@@ -332,6 +432,7 @@ const Set<String> _legacyChatSettingsKeys = {
 
 const Set<String> _legacyChatCurrentUserKeys = {
   'hasChatEnabled',
+  'canChat',
   'canDirectMessage',
   'chatHeaderIndicatorPreference',
   'lastChatChannelId',

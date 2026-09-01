@@ -36,6 +36,7 @@ arrow-up
 arrow-rotate-left
 up-right-from-square
 right-from-bracket
+shuffle
 plus
 circle-plus
 circle-minus

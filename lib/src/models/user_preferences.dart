@@ -3,7 +3,28 @@ import 'package:flutter/foundation.dart';
 import 'bookmark.dart';
 import 'json.dart';
 
-enum PreferenceSection { profile, notifications, tracking, interface }
+enum PreferenceSection { profile, notifications, tracking, interface, chat }
+
+enum ChatSeparateSidebarPreference {
+  siteDefault('default'),
+  always('always'),
+  fullscreen('fullscreen'),
+  never('never');
+
+  const ChatSeparateSidebarPreference(this.wireValue);
+
+  final String wireValue;
+
+  static ChatSeparateSidebarPreference read(
+    Object? value,
+    ChatSeparateSidebarPreference fallback,
+  ) {
+    for (final preference in values) {
+      if (value == preference.wireValue) return preference;
+    }
+    return fallback;
+  }
+}
 
 @immutable
 final class UserPreferences {
@@ -17,6 +38,7 @@ final class UserPreferences {
     this.notificationLevelWhenReplying = 2,
     this.bookmarkAutoDeletePreference =
         BookmarkAutoDeletePreference.clearReminder,
+    this.chatSeparateSidebarMode = ChatSeparateSidebarPreference.siteDefault,
     this.canEdit = false,
     this.canChangeTrackingPreferences = false,
   });
@@ -63,6 +85,10 @@ final class UserPreferences {
         options,
         fallback.bookmarkAutoDeletePreference,
       ),
+      chatSeparateSidebarMode: ChatSeparateSidebarPreference.read(
+        options['chat_separate_sidebar_mode'],
+        fallback.chatSeparateSidebarMode,
+      ),
       canEdit: _boolean(json, 'can_edit', fallback.canEdit),
       canChangeTrackingPreferences: _boolean(
         json,
@@ -98,6 +124,7 @@ final class UserPreferences {
   final int notificationLevelWhenReplying;
 
   final BookmarkAutoDeletePreference bookmarkAutoDeletePreference;
+  final ChatSeparateSidebarPreference chatSeparateSidebarMode;
 
   final bool canEdit;
   final bool canChangeTrackingPreferences;
@@ -118,6 +145,9 @@ final class UserPreferences {
           'bookmark_auto_delete_preference':
               bookmarkAutoDeletePreference.wireValue,
         },
+        PreferenceSection.chat => {
+          'chat_separate_sidebar_mode': chatSeparateSidebarMode.wireValue,
+        },
       });
 
   UserPreferences withSectionFrom(
@@ -137,6 +167,9 @@ final class UserPreferences {
     PreferenceSection.interface => copyWith(
       bookmarkAutoDeletePreference: confirmed.bookmarkAutoDeletePreference,
     ),
+    PreferenceSection.chat => copyWith(
+      chatSeparateSidebarMode: confirmed.chatSeparateSidebarMode,
+    ),
   };
 
   UserPreferences copyWith({
@@ -148,6 +181,7 @@ final class UserPreferences {
     int? autoTrackTopicsAfterMsecs,
     int? notificationLevelWhenReplying,
     BookmarkAutoDeletePreference? bookmarkAutoDeletePreference,
+    ChatSeparateSidebarPreference? chatSeparateSidebarMode,
     bool? canEdit,
     bool? canChangeTrackingPreferences,
   }) => UserPreferences(
@@ -164,6 +198,8 @@ final class UserPreferences {
         notificationLevelWhenReplying ?? this.notificationLevelWhenReplying,
     bookmarkAutoDeletePreference:
         bookmarkAutoDeletePreference ?? this.bookmarkAutoDeletePreference,
+    chatSeparateSidebarMode:
+        chatSeparateSidebarMode ?? this.chatSeparateSidebarMode,
     canEdit: canEdit ?? this.canEdit,
     canChangeTrackingPreferences:
         canChangeTrackingPreferences ?? this.canChangeTrackingPreferences,
@@ -182,6 +218,7 @@ final class UserPreferences {
           other.notificationLevelWhenReplying ==
               notificationLevelWhenReplying &&
           other.bookmarkAutoDeletePreference == bookmarkAutoDeletePreference &&
+          other.chatSeparateSidebarMode == chatSeparateSidebarMode &&
           other.canEdit == canEdit &&
           other.canChangeTrackingPreferences == canChangeTrackingPreferences;
 
@@ -195,6 +232,7 @@ final class UserPreferences {
     autoTrackTopicsAfterMsecs,
     notificationLevelWhenReplying,
     bookmarkAutoDeletePreference,
+    chatSeparateSidebarMode,
     canEdit,
     canChangeTrackingPreferences,
   );

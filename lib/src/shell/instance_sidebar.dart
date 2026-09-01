@@ -7,6 +7,7 @@ import '../models/sidebar.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
@@ -72,6 +73,26 @@ final class _SidebarSnapshot {
     topicTrackingRevision,
     Object.hashAll(sections.map(identityHashCode)),
   );
+}
+
+@immutable
+final class _SidebarPanelSnapshot {
+  const _SidebarPanelSnapshot({
+    required this.contentId,
+    required this.presentation,
+  });
+
+  final String? contentId;
+  final Object? presentation;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _SidebarPanelSnapshot &&
+      contentId == other.contentId &&
+      presentation == other.presentation;
+
+  @override
+  int get hashCode => Object.hash(contentId, presentation);
 }
 
 const String _newTopicDestinationId = 'new-topic';
@@ -161,7 +182,6 @@ class InstanceSidebar extends StatelessWidget {
       if (sidebar.siteUrl == null) {
         return ColoredBox(color: theme.shell.sidebar);
       }
-      final controller = ShellScope.read(context);
 
       return ColoredBox(
         color: theme.shell.sidebar,
@@ -171,105 +191,11 @@ class InstanceSidebar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _SidebarHeader(name: sidebar.name!, showUserMenu: showUserMenu),
-              if (showUserMenu) const _SidebarSearchRow(),
               Expanded(
-                child: ScrollbarTheme(
-                  data: const ScrollbarThemeData(
-                    thickness: WidgetStatePropertyAll(4),
-                  ),
-                  child: CustomScrollView(
-                    slivers: [
-                      const SliverToBoxAdapter(
-                        child: SizedBox(
-                          height: _SidebarSpacing.wrapperVerticalPadding,
-                        ),
-                      ),
-                      ListenableBuilder(
-                        listenable: Listenable.merge([
-                          controller.accountActivity.totalsListenable,
-                          controller.draftList,
-                        ]),
-                        builder: (context, _) => SliverMainAxisGroup(
-                          slivers: [
-                            for (final (index, section)
-                                in sidebar.sections.indexed)
-                              _Section(
-                                key: ValueKey((sidebar.siteUrl, section.id)),
-                                siteUrl: sidebar.siteUrl!,
-                                section: section,
-                                first: index == 0,
-                                store: sectionStore,
-                                selectedId: sidebar.destinationId,
-                                badgeFor: controller.sidebarBadgeFor,
-                                insertedDestination:
-                                    sidebar.canCreateTopic &&
-                                        section.destinations.any(
-                                          (destination) =>
-                                              destination.id == 'messages',
-                                        )
-                                    ? _newTopicDestination
-                                    : null,
-                                insertAfterDestinationId: 'messages',
-                                onSelect: (destination) {
-                                  if (destination.id ==
-                                      _newTopicDestinationId) {
-                                    unawaited(
-                                      controller.openNewTopicFromSidebar(),
-                                    );
-                                    return;
-                                  }
-                                  final url = destination.url;
-                                  if (url == null) {
-                                    controller.selectDestination(destination);
-                                  } else {
-                                    unawaited(
-                                      openLink(
-                                        context,
-                                        url,
-                                        title: destination.label,
-                                        siteUrl: sidebar.siteUrl,
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                          ],
-                        ),
-                      ),
-                      ListenableBuilder(
-                        listenable: Listenable.merge(
-                          PluginScope.of(
-                            context,
-                          ).registry.sidebarListenables(context),
-                        ),
-                        builder: (context, _) {
-                          final sections = PluginScope.of(
-                            context,
-                          ).registry.sidebarSections(context);
-                          return SliverMainAxisGroup(
-                            slivers: [
-                              for (final (index, section) in sections.indexed)
-                                _Section(
-                                  key: ValueKey((sidebar.siteUrl, section.id)),
-                                  siteUrl: sidebar.siteUrl!,
-                                  section: section,
-                                  first: sidebar.sections.isEmpty && index == 0,
-                                  store: sectionStore,
-                                  selectedId: sidebar.destinationId,
-                                  badgeFor: controller.sidebarBadgeFor,
-                                  onSelect: controller.selectDestination,
-                                ),
-                            ],
-                          );
-                        },
-                      ),
-                      const SliverToBoxAdapter(
-                        child: SizedBox(
-                          height: _SidebarSpacing.wrapperVerticalPadding,
-                        ),
-                      ),
-                    ],
-                  ),
+                child: _SidebarPanelBody(
+                  sidebar: sidebar,
+                  showUserMenu: showUserMenu,
+                  sectionStore: sectionStore,
                 ),
               ),
             ],
@@ -278,6 +204,177 @@ class InstanceSidebar extends StatelessWidget {
       );
     },
   );
+}
+
+class _SidebarPanelBody extends StatelessWidget {
+  const _SidebarPanelBody({
+    required this.sidebar,
+    required this.showUserMenu,
+    required this.sectionStore,
+  });
+
+  final _SidebarSnapshot sidebar;
+  final bool showUserMenu;
+  final SidebarSectionStore sectionStore;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ShellScope.read(context);
+    return ListenableBuilder(
+      listenable: controller.accountActivity.totalsListenable,
+      builder: (context, _) => ShellSelector<_SidebarPanelSnapshot>(
+        select: (controller) {
+          final instance = controller.currentInstance;
+          return _SidebarPanelSnapshot(
+            contentId: controller.currentContent?.id,
+            presentation: instance == null
+                ? null
+                : (
+                    instance.isConnected,
+                    instance.user,
+                    instance.config,
+                    controller.currentTotals,
+                  ),
+          );
+        },
+        builder: (context, _, _) => _buildPanel(context),
+      ),
+    );
+  }
+
+  Widget _buildPanel(BuildContext context) {
+    final controller = ShellScope.read(context);
+    final registry = PluginScope.of(context).registry;
+    final panels = registry.sidebarPanels(context);
+    OwnedSidebarPanel? selectedPanel;
+    OwnedSidebarPanel? activePanel;
+    for (final candidate in panels) {
+      if (!candidate.panel.active) continue;
+      selectedPanel ??= candidate;
+      if (candidate.panel.separateWhenActive) activePanel ??= candidate;
+    }
+    final showCoreSections = activePanel == null;
+
+    bool includePluginOwner(PluginId owner) {
+      if (activePanel case final active?) return owner == active.owner;
+      for (final candidate in panels) {
+        if (candidate.owner == owner) {
+          return candidate.panel.includeSectionsWhenInactive;
+        }
+      }
+      return true;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (showUserMenu && showCoreSections) const _SidebarSearchRow(),
+        _SidebarPanelSwitchRow(panels: panels, selectedPanel: selectedPanel),
+        Expanded(
+          child: ScrollbarTheme(
+            data: const ScrollbarThemeData(
+              thickness: WidgetStatePropertyAll(4),
+            ),
+            child: CustomScrollView(
+              slivers: [
+                const SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: _SidebarSpacing.wrapperVerticalPadding,
+                  ),
+                ),
+                if (showCoreSections)
+                  ListenableBuilder(
+                    listenable: Listenable.merge([
+                      controller.accountActivity.totalsListenable,
+                      controller.draftList,
+                    ]),
+                    builder: (context, _) => SliverMainAxisGroup(
+                      slivers: [
+                        for (final (index, section) in sidebar.sections.indexed)
+                          _Section(
+                            key: ValueKey((sidebar.siteUrl, section.id)),
+                            siteUrl: sidebar.siteUrl!,
+                            section: section,
+                            first: index == 0,
+                            store: sectionStore,
+                            selectedId: sidebar.destinationId,
+                            badgeFor: controller.sidebarBadgeFor,
+                            insertedDestination:
+                                sidebar.canCreateTopic &&
+                                    section.destinations.any(
+                                      (destination) =>
+                                          destination.id == 'messages',
+                                    )
+                                ? _newTopicDestination
+                                : null,
+                            insertAfterDestinationId: 'messages',
+                            onSelect: (destination) {
+                              if (destination.id == _newTopicDestinationId) {
+                                unawaited(controller.openNewTopicFromSidebar());
+                                return;
+                              }
+                              final url = destination.url;
+                              if (url == null) {
+                                controller.selectDestination(destination);
+                              } else {
+                                unawaited(
+                                  openLink(
+                                    context,
+                                    url,
+                                    title: destination.label,
+                                    siteUrl: sidebar.siteUrl,
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ListenableBuilder(
+                  listenable: Listenable.merge(
+                    registry.sidebarListenables(
+                      context,
+                      includeOwner: includePluginOwner,
+                    ),
+                  ),
+                  builder: (context, _) {
+                    final sections = registry.sidebarSections(
+                      context,
+                      includeOwner: includePluginOwner,
+                    );
+                    return SliverMainAxisGroup(
+                      slivers: [
+                        for (final (index, section) in sections.indexed)
+                          _Section(
+                            key: ValueKey((sidebar.siteUrl, section.id)),
+                            siteUrl: sidebar.siteUrl!,
+                            section: section,
+                            first:
+                                (!showCoreSections ||
+                                    sidebar.sections.isEmpty) &&
+                                index == 0,
+                            store: sectionStore,
+                            selectedId: sidebar.destinationId,
+                            badgeFor: controller.sidebarBadgeFor,
+                            onSelect: controller.selectDestination,
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: _SidebarSpacing.wrapperVerticalPadding,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _SidebarSearchRow extends StatelessWidget {
@@ -298,6 +395,56 @@ class _SidebarSearchRow extends StatelessWidget {
         key: ValueKey('instance-sidebar-search-target'),
         dense: true,
       ),
+    );
+  }
+}
+
+class _SidebarPanelSwitchRow extends StatelessWidget {
+  const _SidebarPanelSwitchRow({
+    required this.panels,
+    required this.selectedPanel,
+  });
+
+  final List<OwnedSidebarPanel> panels;
+  final OwnedSidebarPanel? selectedPanel;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = selectedPanel;
+    final targets = <Widget>[
+      if (active?.panel.showSwitch == true)
+        Expanded(
+          child: DButton(
+            key: const ValueKey('sidebar-panel-switch-main'),
+            label: const Text('Forum'),
+            icon: const DIcon(DIcons.shuffle, size: 16),
+            onPressed: active!.panel.onClose,
+            size: DButtonSize.small,
+            alignment: Alignment.centerLeft,
+          ),
+        ),
+      for (final candidate in panels)
+        if (!candidate.panel.active && candidate.panel.showSwitch)
+          Expanded(
+            child: DButton(
+              key: ValueKey('sidebar-panel-switch-${candidate.owner.value}'),
+              label: Text(candidate.panel.label),
+              icon: DIcon(candidate.panel.icon, size: 16),
+              onPressed: candidate.panel.onOpen,
+              size: DButtonSize.small,
+              alignment: Alignment.centerLeft,
+            ),
+          ),
+    ];
+    if (targets.isEmpty) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: theme.shell.divider)),
+      ),
+      child: Row(spacing: 6, children: targets),
     );
   }
 }
@@ -586,7 +733,9 @@ class _MoreDestinationsTile extends StatelessWidget {
               size: 18,
               color: destination.iconColor,
             ),
-            onPressed: destination.enabled ? () => onSelect(destination) : null,
+            onPressed: destination.enabled
+                ? destination.onTap ?? () => onSelect(destination)
+                : null,
             child: Text(destination.label),
           ),
       ],

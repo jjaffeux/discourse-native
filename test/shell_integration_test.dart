@@ -37,6 +37,10 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart'
+    show SidebarPanelContribution, SidebarPanelPlugin, SitePlugin;
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -180,6 +184,7 @@ Future<void> pumpShell(
   Key? key,
   Future<void> Function()? beforeSettle,
   http.Client? mediaClient,
+  PluginManifest? pluginManifest,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -202,7 +207,7 @@ Future<void> pumpShell(
       updater: updater ?? FakeUpdater(),
       updateStore: updateStore ?? FakeUpdateStore(),
       initialRootMode: ShellRootMode.forum,
-      pluginManifest: bundledWidgetTestManifest,
+      pluginManifest: pluginManifest ?? bundledWidgetTestManifest,
     ),
   );
   if (beforeSettle != null) {
@@ -17068,12 +17073,15 @@ void main() {
     SiteConfig chatConfig({
       bool searchEnabled = false,
       int channelRetentionDays = 0,
+      ChatSeparateSidebarMode separateSidebarMode =
+          ChatSeparateSidebarMode.never,
     }) => SiteConfig(
       plugins: PluginData.none.withValue(
         chatSettingsDataKey,
         ChatSettings(
           searchEnabled: searchEnabled,
           channelRetentionDays: channelRetentionDays,
+          separateSidebarMode: separateSidebarMode,
         ),
       ),
     );
@@ -17082,6 +17090,8 @@ void main() {
       bool? hasChatEnabled,
       ChatHeaderIndicatorPreference headerIndicatorPreference =
           ChatHeaderIndicatorPreference.allNew,
+      ChatSeparateSidebarMode separateSidebarMode =
+          ChatSeparateSidebarMode.siteDefault,
       int? lastChannelId,
     }) => DiscourseUser(
       id: 7,
@@ -17091,6 +17101,7 @@ void main() {
         ChatCurrentUser(
           hasChatEnabled: hasChatEnabled,
           headerIndicatorPreference: headerIndicatorPreference,
+          separateSidebarMode: separateSidebarMode,
           lastChannelId: lastChannelId,
         ),
       ),
@@ -17221,11 +17232,14 @@ void main() {
       FakeDiscourseApi? api,
       Size size = desktop,
       Completer<void>? channelGate,
-      DiscourseUser user = me,
+      DiscourseUser? user = me,
       ChatPresence presence = const ChatPresence(),
       SiteConfig config = const SiteConfig.unknown(),
+      FakeForumTabStore? forumTabs,
       http.Client? mediaClient,
     }) async {
+      final authenticator = FakeAuthenticator();
+      if (user != null) authenticator.keys[site] = 'meta-key';
       await pumpShell(
         tester,
         size,
@@ -17243,7 +17257,10 @@ void main() {
               },
               chatChannelGate: channelGate,
               chatMessagesByKey: messages,
-              siteConfigs: config.chatSettings.searchEnabled
+              siteConfigs:
+                  config.chatSettings.searchEnabled ||
+                      config.chatSettings.separateSidebarMode !=
+                          ChatSeparateSidebarMode.never
                   ? {site: config}
                   : const {},
             ),
@@ -17253,7 +17270,8 @@ void main() {
             title: 'Meta',
           ).copyWith(user: user, config: config),
         ],
-        authenticator: FakeAuthenticator()..keys[site] = 'meta-key',
+        authenticator: authenticator,
+        forumTabs: forumTabs,
         mediaClient: mediaClient,
       );
       await tester.pumpAndSettle();
@@ -17417,6 +17435,670 @@ void main() {
     });
 
     group('in the sidebar', () {
+      group('separate sidebar modes', () {
+        for (final scenario in [
+          (
+            name: 'an explicit never preference overrides the site',
+            userMode: ChatSeparateSidebarMode.never,
+            siteMode: ChatSeparateSidebarMode.always,
+            effectiveMode: ChatSeparateSidebarMode.never,
+          ),
+          (
+            name: 'an explicit always preference overrides the site',
+            userMode: ChatSeparateSidebarMode.always,
+            siteMode: ChatSeparateSidebarMode.never,
+            effectiveMode: ChatSeparateSidebarMode.always,
+          ),
+          (
+            name: 'fullscreen separates only after entering Chat',
+            userMode: ChatSeparateSidebarMode.fullscreen,
+            siteMode: ChatSeparateSidebarMode.never,
+            effectiveMode: ChatSeparateSidebarMode.fullscreen,
+          ),
+          (
+            name: 'the default preference inherits the site setting',
+            userMode: ChatSeparateSidebarMode.siteDefault,
+            siteMode: ChatSeparateSidebarMode.always,
+            effectiveMode: ChatSeparateSidebarMode.always,
+          ),
+        ]) {
+          testWidgets(scenario.name, (tester) async {
+            await pumpChat(
+              tester,
+              public: [channel(9)],
+              messages: {key(9): page(const [])},
+              user: chatUser(separateSidebarMode: scenario.userMode),
+              config: chatConfig(separateSidebarMode: scenario.siteMode),
+            );
+
+            const chatSwitch = ValueKey('sidebar-panel-switch-chat');
+            const forumSwitch = ValueKey('sidebar-panel-switch-main');
+            final separates =
+                scenario.effectiveMode != ChatSeparateSidebarMode.never;
+            final combinesOffChat =
+                scenario.effectiveMode != ChatSeparateSidebarMode.always;
+
+            expect(sidebarDestination('Topics'), findsOneWidget);
+            expect(
+              sidebarDestination('Bugs'),
+              combinesOffChat ? findsOneWidget : findsNothing,
+            );
+            expect(
+              find.byKey(chatSwitch),
+              separates ? findsOneWidget : findsNothing,
+            );
+            expect(find.byKey(forumSwitch), findsNothing);
+
+            await tester.tap(
+              combinesOffChat
+                  ? sidebarDestination('Bugs')
+                  : find.byKey(chatSwitch),
+            );
+            await tester.pumpAndSettle();
+
+            final shell = ShellScope.read(
+              tester.element(find.byType(MainContent)),
+            );
+            expect(shell.currentContent?.id, 'chat-c-9');
+            expect(
+              sidebarDestination('Topics'),
+              separates ? findsNothing : findsOneWidget,
+            );
+            expect(sidebarDestination('Bugs'), findsOneWidget);
+            expect(
+              find.byKey(forumSwitch),
+              separates ? findsOneWidget : findsNothing,
+            );
+            expect(find.byKey(chatSwitch), findsNothing);
+            expect(
+              find.byTooltip(separates ? 'Exit chat' : 'Chat'),
+              findsOneWidget,
+            );
+          });
+        }
+
+        testWidgets('appears when Chat totals arrive after the sidebar', (
+          tester,
+        ) async {
+          await pumpChat(
+            tester,
+            totals: withoutChat,
+            public: [channel(9)],
+            messages: {key(9): page(const [])},
+            user: chatUser(separateSidebarMode: ChatSeparateSidebarMode.always),
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+
+          expect(
+            find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+            findsNothing,
+          );
+
+          shell.accountActivity.applyCounts(site, (_) => withChat);
+          await tester.pumpAndSettle();
+
+          expect(shell.currentTotals?.hasChatEnabled, isTrue);
+          expect(
+            find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+            findsOneWidget,
+          );
+          await tester.tap(
+            find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+          );
+          await tester.pumpAndSettle();
+
+          expect(shell.currentContent?.id, 'chat-c-9');
+          expect(
+            find.byKey(const ValueKey('sidebar-panel-switch-main')),
+            findsOneWidget,
+          );
+        });
+
+        for (final scenario in [
+          (mode: ChatSeparateSidebarMode.never, separates: false),
+          (mode: ChatSeparateSidebarMode.always, separates: true),
+          (mode: ChatSeparateSidebarMode.fullscreen, separates: true),
+        ]) {
+          testWidgets(
+            'anonymous public Chat honors site mode ${scenario.mode.wireName}',
+            (tester) async {
+              await pumpChat(
+                tester,
+                public: [channel(9)],
+                messages: {key(9): page(const [])},
+                user: null,
+                config: chatConfig(separateSidebarMode: scenario.mode),
+              );
+              final shell = ShellScope.read(
+                tester.element(find.byType(MainContent)),
+              );
+              await shell.chat.loadChannels(site);
+              await tester.pumpAndSettle();
+
+              expect(shell.currentInstance?.user, isNull);
+              expect(sidebarDestination('Topics'), findsOneWidget);
+              expect(sidebarDestination('Bugs'), findsOneWidget);
+              expect(
+                find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+                findsNothing,
+              );
+              expect(
+                find.byKey(const ValueKey('sidebar-panel-switch-main')),
+                findsNothing,
+              );
+              expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
+
+              shell.selectDestination(ChatPlugin.destination(channel(9)));
+              await tester.pumpAndSettle();
+
+              expect(shell.currentContent?.id, 'chat-c-9');
+              expect(
+                sidebarDestination('Topics'),
+                scenario.separates ? findsNothing : findsOneWidget,
+              );
+              expect(sidebarDestination('Bugs'), findsOneWidget);
+              expect(
+                find.byKey(const ValueKey('sidebar-panel-switch-main')),
+                findsNothing,
+              );
+              expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
+            },
+          );
+        }
+
+        testWidgets('switches between the exact last forum and Chat routes', (
+          tester,
+        ) async {
+          await pumpChat(
+            tester,
+            public: [channel(9)],
+            messages: {key(9): page(const [])},
+            user: chatUser(separateSidebarMode: ChatSeparateSidebarMode.always),
+            config: chatConfig(
+              searchEnabled: true,
+              separateSidebarMode: ChatSeparateSidebarMode.never,
+            ),
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          shell.pushContent(
+            const ContentRoute(
+              id: 'forum-detail',
+              title: 'Forum detail',
+              icon: DIcons.comments,
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(shell.currentContent?.id, 'forum-detail');
+          expect(sidebarDestination('Topics'), findsOneWidget);
+          expect(sidebarDestination('Bugs'), findsNothing);
+
+          await tester.tap(
+            find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+          );
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.id, 'chat-c-9');
+          expect(sidebarDestination('Topics'), findsNothing);
+          expect(sidebarDestination('Search'), findsOneWidget);
+
+          await tester.tap(sidebarDestination('Search'));
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+          expect(sidebarDestination('Topics'), findsNothing);
+          expect(find.byTooltip('Exit chat'), findsOneWidget);
+
+          await tester.tap(
+            find.byKey(const ValueKey('sidebar-panel-switch-main')),
+          );
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.id, 'forum-detail');
+          expect(sidebarDestination('Topics'), findsOneWidget);
+          expect(sidebarDestination('Bugs'), findsNothing);
+
+          await tester.tap(
+            find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+          );
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+          expect(sidebarDestination('Topics'), findsNothing);
+          expect(sidebarDestination('Search'), findsOneWidget);
+          expect(find.byTooltip('Exit chat'), findsOneWidget);
+        });
+
+        testWidgets(
+          'ordinary forum navigation preserves the auxiliary Chat pane',
+          (tester) async {
+            await pumpChat(
+              tester,
+              public: [channel(9)],
+              messages: {key(9): page(const [])},
+              user: chatUser(
+                separateSidebarMode: ChatSeparateSidebarMode.always,
+              ),
+              config: chatConfig(searchEnabled: true),
+            );
+            final shell = ShellScope.read(
+              tester.element(find.byType(MainContent)),
+            );
+
+            await tester.tap(
+              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(sidebarDestination('Search'));
+            await tester.pumpAndSettle();
+
+            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+            expect(shell.contentStack.map((route) => route.id), [
+              ChatPlugin.searchRouteId,
+            ]);
+
+            shell.selectDestination(
+              const SidebarDestination(
+                id: 'latest',
+                label: 'Topics',
+                icon: DIcons.layerGroup,
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            expect(shell.currentContent?.id, 'latest');
+            expect(shell.destinationId, 'latest');
+            expect(shell.contentStack.map((route) => route.id), ['latest']);
+            expect(sidebarDestination('Topics'), findsOneWidget);
+            expect(sidebarDestination('Bugs'), findsNothing);
+
+            await tester.tap(
+              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+            );
+            await tester.pumpAndSettle();
+
+            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+            expect(shell.contentStack.map((route) => route.id), [
+              ChatPlugin.searchRouteId,
+            ]);
+            expect(sidebarDestination('Topics'), findsNothing);
+            expect(sidebarDestination('Search'), findsOneWidget);
+          },
+        );
+
+        for (final replace in [false, true]) {
+          testWidgets(
+            'cold direct ${replace ? 'replace' : 'push'} starts a clean Chat pane',
+            (tester) async {
+              await pumpChat(
+                tester,
+                public: [channel(9)],
+                messages: {key(9): page(const [])},
+                user: chatUser(
+                  separateSidebarMode: ChatSeparateSidebarMode.always,
+                ),
+                config: chatConfig(searchEnabled: true),
+              );
+              final shell = ShellScope.read(
+                tester.element(find.byType(MainContent)),
+              );
+              final forumRoute = ContentRoute(
+                id: replace ? 'forum-before-replace' : 'forum-before-push',
+                title: replace ? 'Forum before replace' : 'Forum before push',
+                icon: DIcons.comments,
+              );
+              shell.selectDestination(
+                SidebarDestination(
+                  id: forumRoute.id,
+                  label: forumRoute.title,
+                  icon: forumRoute.icon,
+                ),
+              );
+              await tester.pumpAndSettle();
+
+              const chatRoute = ContentRoute(
+                id: ChatPlugin.searchRouteId,
+                title: 'Search',
+                icon: DIcons.magnifyingGlass,
+              );
+              if (replace) {
+                shell.replaceCurrentContent(chatRoute);
+              } else {
+                shell.pushContent(chatRoute);
+              }
+              await tester.pumpAndSettle();
+
+              expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+              expect(shell.contentStack.map((route) => route.id), [
+                ChatPlugin.searchRouteId,
+              ]);
+              expect(shell.canPopContent, isFalse);
+              expect(shell.handleBack(canReturnToSidebar: false), isFalse);
+              expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+
+              await tester.tap(
+                find.byKey(const ValueKey('sidebar-panel-switch-main')),
+              );
+              await tester.pumpAndSettle();
+
+              expect(shell.currentContent, forumRoute);
+              expect(shell.contentStack, [forumRoute]);
+            },
+          );
+        }
+
+        test(
+          'direct entry switches between plugin owners via the Forum pane',
+          () async {
+            final plugins = PluginInstaller.install(
+              const PluginManifest([
+                _PanePolicyModule('alpha'),
+                _PanePolicyModule('beta'),
+              ]),
+            );
+            final shell = ShellController(
+              instanceStore: FakeInstanceStore([
+                instance('meta.discourse.org', title: 'Meta'),
+              ]),
+              api: FakeDiscourseApi(),
+              authenticator: FakeAuthenticator(),
+              drafts: FakeDraftStore(),
+              forumTabs: FakeForumTabStore(),
+              trackers: FakeSiteTracker.reset(),
+              plugins: plugins,
+            );
+            addTearDown(() async {
+              shell.dispose();
+              await shell.pluginTeardown;
+              await plugins.close();
+            });
+            await shell.load();
+
+            const forum = SidebarDestination(
+              id: 'forum-exact',
+              label: 'Exact Forum route',
+              icon: DIcons.layerGroup,
+            );
+            shell.selectDestination(forum);
+
+            expect(shell.activatePluginPane(const PluginId('alpha')), isFalse);
+            shell.pushContent(
+              const ContentRoute(
+                id: 'alpha-root',
+                title: 'Alpha root',
+                icon: DIcons.comments,
+              ),
+            );
+            shell.pushContent(
+              const ContentRoute(
+                id: 'alpha-detail',
+                title: 'Alpha detail',
+                icon: DIcons.comments,
+              ),
+            );
+            expect(shell.contentStack.map((route) => route.id), [
+              'alpha-root',
+              'alpha-detail',
+            ]);
+
+            expect(shell.activatePluginPane(const PluginId('beta')), isFalse);
+            shell.pushContent(
+              const ContentRoute(
+                id: 'beta-root',
+                title: 'Beta root',
+                icon: DIcons.comments,
+              ),
+            );
+            expect(shell.contentStack.map((route) => route.id), ['beta-root']);
+
+            shell.deactivatePluginPane(const PluginId('alpha'));
+            expect(shell.contentStack.map((route) => route.id), ['beta-root']);
+
+            shell.deactivatePluginPane(const PluginId('beta'));
+            expect(shell.contentStack.map((route) => route.id), [
+              'forum-exact',
+            ]);
+
+            expect(shell.activatePluginPane(const PluginId('alpha')), isTrue);
+            expect(shell.contentStack.map((route) => route.id), [
+              'alpha-root',
+              'alpha-detail',
+            ]);
+          },
+        );
+
+        testWidgets(
+          'a restored plugin panel switches through another panel to Forum',
+          (tester) async {
+            final authenticator = FakeAuthenticator()..keys[site] = 'meta-key';
+            await pumpShell(
+              tester,
+              desktop,
+              instances: [
+                instance(
+                  'meta.discourse.org',
+                  title: 'Meta',
+                ).copyWith(user: me),
+              ],
+              api: FakeDiscourseApi(user: me),
+              authenticator: authenticator,
+              forumTabs: FakeForumTabStore([
+                ForumWorkspace(
+                  siteUrl: site,
+                  accountIdentity: 'user:joffreyj',
+                  tabs: [
+                    ForumTab(
+                      id: 'restored-alpha',
+                      rootDestinationId: 'alpha-root',
+                      contentStack: const [
+                        ContentRoute(
+                          id: 'alpha-root',
+                          title: 'Alpha root',
+                          icon: DIcons.comments,
+                        ),
+                      ],
+                    ),
+                  ],
+                  activeTabId: 'restored-alpha',
+                ),
+              ]),
+              pluginManifest: const PluginManifest([
+                _PanePolicyModule('alpha'),
+                _PanePolicyModule('beta'),
+              ]),
+            );
+            final shell = ShellScope.read(
+              tester.element(find.byType(MainContent)),
+            );
+
+            expect(shell.currentContent?.id, 'alpha-root');
+            expect(
+              find.byKey(const ValueKey('sidebar-panel-switch-main')),
+              findsOneWidget,
+            );
+            expect(
+              find.byKey(const ValueKey('sidebar-panel-switch-beta')),
+              findsOneWidget,
+            );
+
+            await tester.tap(
+              find.byKey(const ValueKey('sidebar-panel-switch-beta')),
+            );
+            await tester.pumpAndSettle();
+
+            expect(shell.currentContent?.id, 'beta-root');
+            expect(
+              find.byKey(const ValueKey('sidebar-panel-switch-main')),
+              findsOneWidget,
+            );
+            expect(
+              find.byKey(const ValueKey('sidebar-panel-switch-alpha')),
+              findsOneWidget,
+            );
+            expect(
+              find.byKey(const ValueKey('sidebar-panel-switch-beta')),
+              findsNothing,
+            );
+
+            await tester.tap(
+              find.byKey(const ValueKey('sidebar-panel-switch-main')),
+            );
+            await tester.pumpAndSettle();
+
+            expect(shell.currentContent?.id, 'latest');
+          },
+        );
+
+        testWidgets(
+          'forum push preserves both pane histories without a hybrid stack',
+          (tester) async {
+            await pumpChat(
+              tester,
+              public: [channel(9)],
+              messages: {key(9): page(const [])},
+              user: chatUser(
+                separateSidebarMode: ChatSeparateSidebarMode.always,
+              ),
+              config: chatConfig(searchEnabled: true),
+            );
+            final shell = ShellScope.read(
+              tester.element(find.byType(MainContent)),
+            );
+            shell.selectDestination(
+              const SidebarDestination(
+                id: 'forum-detail-a',
+                label: 'Forum detail A',
+                icon: DIcons.layerGroup,
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(shell.contentStack.map((route) => route.id), [
+              'forum-detail-a',
+            ]);
+
+            await tester.tap(
+              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(sidebarDestination('Search'));
+            await tester.pumpAndSettle();
+            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+
+            shell.pushContent(
+              const ContentRoute(
+                id: 'forum-detail-b',
+                title: 'Forum detail B',
+                icon: DIcons.comments,
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            expect(shell.currentContent?.id, 'forum-detail-b');
+            expect(shell.contentStack.map((route) => route.id), [
+              'forum-detail-a',
+              'forum-detail-b',
+            ]);
+            expect(
+              shell.contentStack.any(
+                (route) => ChatPlugin.ownsRouteId(route.id),
+              ),
+              isFalse,
+            );
+
+            await tester.tap(
+              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+            );
+            await tester.pumpAndSettle();
+            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+            expect(shell.contentStack.map((route) => route.id), [
+              ChatPlugin.searchRouteId,
+            ]);
+
+            await tester.tap(
+              find.byKey(const ValueKey('sidebar-panel-switch-main')),
+            );
+            await tester.pumpAndSettle();
+            expect(shell.currentContent?.id, 'forum-detail-b');
+            expect(shell.contentStack.map((route) => route.id), [
+              'forum-detail-a',
+              'forum-detail-b',
+            ]);
+          },
+        );
+
+        testWidgets(
+          'adopts a restored separated Chat route before forum navigation',
+          (tester) async {
+            final forumTabs = FakeForumTabStore([
+              ForumWorkspace(
+                siteUrl: site,
+                accountIdentity: 'user:joffreyj',
+                tabs: [
+                  ForumTab(
+                    id: 'restored-chat',
+                    rootDestinationId: ChatPlugin.searchRouteId,
+                    contentStack: const [
+                      ContentRoute(
+                        id: ChatPlugin.searchRouteId,
+                        title: 'Search',
+                        icon: DIcons.magnifyingGlass,
+                      ),
+                    ],
+                  ),
+                ],
+                activeTabId: 'restored-chat',
+              ),
+            ]);
+            await pumpChat(
+              tester,
+              public: [channel(9)],
+              user: chatUser(
+                separateSidebarMode: ChatSeparateSidebarMode.always,
+              ),
+              config: chatConfig(searchEnabled: true),
+              forumTabs: forumTabs,
+            );
+            final shell = ShellScope.read(
+              tester.element(find.byType(MainContent)),
+            );
+
+            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+            expect(sidebarDestination('Topics'), findsNothing);
+
+            shell.pushContent(
+              const ContentRoute(
+                id: 'forum-restored-target',
+                title: 'Restored forum target',
+                icon: DIcons.comments,
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            expect(shell.currentContent?.id, 'forum-restored-target');
+            expect(shell.contentStack.map((route) => route.id), [
+              'latest',
+              'forum-restored-target',
+            ]);
+            expect(
+              shell.contentStack.any(
+                (route) => ChatPlugin.ownsRouteId(route.id),
+              ),
+              isFalse,
+            );
+
+            await tester.tap(
+              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+            );
+            await tester.pumpAndSettle();
+
+            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+            expect(shell.contentStack.map((route) => route.id), [
+              ChatPlugin.searchRouteId,
+            ]);
+          },
+        );
+      });
+
       testWidgets('draws nothing on a site whose totals never mentioned chat', (
         tester,
       ) async {
@@ -20337,6 +21019,77 @@ final class _FlakyDraftStore extends FakeDraftStore {
     return super.clear(siteUrl, draftKey, ifCurrent: ifCurrent);
   }
 }
+
+final class _PanePolicyModule implements PluginModule {
+  const _PanePolicyModule(this.id);
+
+  final String id;
+
+  @override
+  PluginDescriptor get descriptor => PluginDescriptor(id: PluginId(id));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addCapability(_PanePanel(id));
+    registrar.addSession(
+      (_, _) => PluginSessionContribution(
+        lifecycle: _PanePolicyLifecycle(),
+        capabilities: [_PanePolicy(id)],
+      ),
+    );
+  }
+}
+
+final class _PanePanel implements SitePlugin, SidebarPanelPlugin {
+  const _PanePanel(this.id);
+
+  final String id;
+
+  @override
+  String get name => id;
+
+  @override
+  SidebarPanelContribution sidebarPanel(BuildContext context) {
+    final shell = ShellScope.read(context);
+    final owner = PluginId(id);
+    return SidebarPanelContribution(
+      label: id,
+      icon: DIcons.comments,
+      active: shell.currentContent?.id.startsWith('$id-') == true,
+      separateWhenActive: true,
+      includeSectionsWhenInactive: false,
+      showSwitch: true,
+      onOpen: () {
+        shell.activatePluginPane(owner);
+        shell.pushContent(
+          ContentRoute(
+            id: '$id-root',
+            title: '$id root',
+            icon: DIcons.comments,
+          ),
+        );
+      },
+      onClose: () => shell.deactivatePluginPane(owner),
+    );
+  }
+}
+
+final class _PanePolicy implements PluginPaneRoutePolicy {
+  const _PanePolicy(this.id);
+
+  final String id;
+
+  @override
+  PluginId get pluginPaneOwner => PluginId(id);
+
+  @override
+  bool ownsPluginPaneRoute(String routeId) => routeId.startsWith('$id-');
+
+  @override
+  bool separatesPluginPane(String routeId) => ownsPluginPaneRoute(routeId);
+}
+
+final class _PanePolicyLifecycle extends PluginSessionLifecycle {}
 
 double _textWidth(WidgetTester tester, Finder text) {
   final widget = tester.widget<Text>(text);

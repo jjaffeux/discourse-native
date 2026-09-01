@@ -217,11 +217,7 @@ final class PreferencesController extends FrameSafeNotifier {
     if (isDisposed) return;
     final state = _states[siteUrl];
     final draft = state?.draft;
-    if (state == null ||
-        draft == null ||
-        !draft.canEdit ||
-        (section == PreferenceSection.tracking &&
-            !draft.canChangeTrackingPreferences)) {
+    if (state == null || draft == null || !_canEditSection(draft, section)) {
       return;
     }
     final updated = change(draft);
@@ -249,9 +245,7 @@ final class PreferencesController extends FrameSafeNotifier {
     if (state == null ||
         draft == null ||
         confirmed == null ||
-        !draft.canEdit ||
-        (section == PreferenceSection.tracking &&
-            !draft.canChangeTrackingPreferences) ||
+        !_canEditSection(draft, section) ||
         !state.dirty(section)) {
       return false;
     }
@@ -414,6 +408,16 @@ final class PreferencesController extends FrameSafeNotifier {
         if (before[key] != value) key: value,
     });
   }
+
+  static bool _canEditSection(
+    UserPreferences preferences,
+    PreferenceSection section,
+  ) =>
+      preferences.canEdit &&
+      switch (section) {
+        PreferenceSection.tracking => preferences.canChangeTrackingPreferences,
+        _ => true,
+      };
 
   static String _saveError(Object error, String host) {
     if (error case final WriteException write) {

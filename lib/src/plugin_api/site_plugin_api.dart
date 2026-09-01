@@ -12,6 +12,7 @@ import '../models/post.dart';
 import '../models/sidebar.dart';
 import '../models/topic.dart';
 import '../models/user_card.dart';
+import '../models/user_preferences.dart';
 import '../shell/composer_controller.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
@@ -416,6 +417,52 @@ abstract interface class ComposerTargetPlugin {
   );
 }
 
+typedef PluginUserPreferenceEdit =
+    void Function(UserPreferences Function(UserPreferences current) change);
+
+@immutable
+final class PluginUserPreferenceContext {
+  const PluginUserPreferenceContext({
+    required this.siteUrl,
+    required this.preferences,
+    required this.siteSettings,
+    required this.currentUserData,
+    required this.currentUserIsAdmin,
+    required this.editable,
+    required this.onEdit,
+  });
+
+  final String siteUrl;
+  final UserPreferences preferences;
+  final PluginData siteSettings;
+  final PluginData currentUserData;
+  final bool currentUserIsAdmin;
+  final bool editable;
+  final PluginUserPreferenceEdit onEdit;
+}
+
+@immutable
+final class PluginUserPreferenceSection {
+  const PluginUserPreferenceSection({
+    required this.section,
+    required this.title,
+    required this.icon,
+    required this.content,
+  });
+
+  final PreferenceSection section;
+  final String title;
+  final DIconData icon;
+  final Widget content;
+}
+
+abstract interface class UserPreferenceSectionPlugin {
+  PluginUserPreferenceSection? userPreferenceSection(
+    BuildContext context,
+    PluginUserPreferenceContext preferences,
+  );
+}
+
 @immutable
 final class ComposerTargetContext {
   const ComposerTargetContext({
@@ -432,6 +479,56 @@ abstract interface class SidebarPlugin {
   List<SidebarSection> sidebarSections(BuildContext context);
 
   Listenable? sidebarListenable(BuildContext context);
+}
+
+/// Describes one plugin-owned sidebar panel and how it composes with the main
+/// forum panel. The shell owns panel rendering and navigation snapshots; the
+/// plugin owns the policy which decides when its sections are combined or
+/// separated.
+@immutable
+final class SidebarPanelContribution {
+  const SidebarPanelContribution({
+    required this.label,
+    required this.icon,
+    required this.active,
+    required this.separateWhenActive,
+    required this.includeSectionsWhenInactive,
+    required this.showSwitch,
+    required this.onOpen,
+    required this.onClose,
+  });
+
+  final String label;
+  final DIconData icon;
+
+  /// Whether the current content belongs to this panel.
+  final bool active;
+
+  /// When true, an active panel hides core and other plugins' sidebar sections.
+  final bool separateWhenActive;
+
+  /// Whether this panel's sections join the main forum panel while inactive.
+  final bool includeSectionsWhenInactive;
+
+  /// Switch buttons are intentionally independent from separation so anonymous
+  /// or otherwise restricted sessions can retain the correct section layout
+  /// without exposing an unavailable navigation control.
+  final bool showSwitch;
+
+  final VoidCallback onOpen;
+  final VoidCallback onClose;
+}
+
+abstract interface class SidebarPanelPlugin {
+  SidebarPanelContribution? sidebarPanel(BuildContext context);
+}
+
+@immutable
+final class OwnedSidebarPanel {
+  const OwnedSidebarPanel({required this.owner, required this.panel});
+
+  final PluginId owner;
+  final SidebarPanelContribution panel;
 }
 
 abstract interface class ForumTabPlugin {
