@@ -595,7 +595,7 @@ void main() {
     expect(
       find.descendant(
         of: threadView,
-        matching: find.byKey(const ValueKey('chat-composer-editing')),
+        matching: find.byKey(const ValueKey('chat-composer-edit-cancel')),
       ),
       findsOneWidget,
     );

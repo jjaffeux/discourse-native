@@ -1629,7 +1629,7 @@ destination channel just as the web modal does.
 Authors can also edit canonical message Markdown from the same adaptive action
 surface. As in the web app, Edit replaces the pinned channel or thread composer
 with the message's source and uploads; the same attachment queue can retain,
-remove, or add files, and a compact message indicator cancels the edit. Saving
+remove, or add files, and an inline composer action cancels the edit. Saving
 projects a safe native preview immediately, writes core's
 `PUT /chat/api/channels/{channel}/messages/{message}` contract, and restores
 the previous content if the site refuses it; the live cooked echo remains
