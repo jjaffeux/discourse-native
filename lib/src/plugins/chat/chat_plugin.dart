@@ -612,17 +612,9 @@ class ChatPlugin
       ];
     }
     if (chatRoute.isInfo) {
-      return [
-        ChatChannelStarButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
-        ?fullPageAction,
-      ];
+      return fullPageAction == null ? const [] : [fullPageAction];
     }
     return [
-      ChatChannelStarButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
-      _ChatChannelThreadsButton(
-        siteUrl: siteUrl,
-        channelId: chatRoute.channelId,
-      ),
       ChatChannelSearchButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
       ?fullPageAction,
     ];
@@ -669,7 +661,7 @@ class ChatPlugin
       return null;
     }
 
-    return _ChatChannelHeaderStatus(
+    return _ChatChannelHeaderTrailing(
       siteUrl: siteUrl,
       channelId: chatRoute.channelId,
     );
@@ -790,6 +782,29 @@ class ChatPlugin
   }
 }
 
+class _ChatChannelHeaderTrailing extends StatelessWidget {
+  const _ChatChannelHeaderTrailing({
+    required this.siteUrl,
+    required this.channelId,
+  });
+
+  final String siteUrl;
+  final int channelId;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      ChatChannelStarButton(
+        siteUrl: siteUrl,
+        channelId: channelId,
+        size: DButtonSize.small,
+      ),
+      _ChatChannelHeaderStatus(siteUrl: siteUrl, channelId: channelId),
+    ],
+  );
+}
+
 class _ChatChannelHeaderStatus extends StatelessWidget {
   const _ChatChannelHeaderStatus({
     required this.siteUrl,
@@ -859,45 +874,6 @@ class _ChatChannelHeaderAvatar extends StatelessWidget {
             size: 14,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
-        );
-      },
-    );
-  }
-}
-
-class _ChatChannelThreadsButton extends StatelessWidget {
-  const _ChatChannelThreadsButton({
-    required this.siteUrl,
-    required this.channelId,
-  });
-
-  final String siteUrl;
-  final int channelId;
-
-  @override
-  Widget build(BuildContext context) {
-    final chat = PluginUiScope.require(context, chatControllerService);
-    return ValueListenableBuilder<ChatChannel?>(
-      valueListenable: chat.channelRef(siteUrl, channelId),
-      builder: (context, channel, _) {
-        if (!chat.siteConfigFor(siteUrl).chatSettings.threadsEnabled ||
-            channel?.threadingEnabled != true) {
-          return const SizedBox.shrink();
-        }
-        final unread = channel!.unreadThreadCount;
-        return DButton.iconOnly(
-          key: const ValueKey('chat-channel-threads-button'),
-          onPressed: () => PluginUiScope.require(
-            context,
-            chatShellService,
-          ).openChannelThreads(siteUrl: siteUrl, channelId: channelId),
-          variant: DButtonVariant.flat,
-          icon: Badge(
-            isLabelVisible: unread > 0,
-            label: Text(unread > 99 ? '99+' : '$unread'),
-            child: const DIcon(DIcons.comments, size: 18),
-          ),
-          tooltip: 'Threads',
         );
       },
     );

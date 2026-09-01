@@ -17543,6 +17543,70 @@ void main() {
       );
 
       testWidgets(
+        'keeps list headers free of channel actions and stars channel titles',
+        (tester) async {
+          await pumpChat(
+            tester,
+            public: [
+              channel(
+                9,
+                title: 'general',
+                starred: true,
+                threadingEnabled: true,
+              ),
+            ],
+            messages: {key(9): page(const [])},
+            hasThreads: true,
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+
+          final header = find.byKey(ChatDrawerOverlay.headerKey);
+          expect(
+            find.descendant(
+              of: header,
+              matching: find.byKey(const ValueKey('chat-channel-star-button')),
+            ),
+            findsNothing,
+          );
+          expect(
+            find.byKey(const ValueKey('chat-channel-threads-button')),
+            findsNothing,
+          );
+          expect(
+            find.descendant(
+              of: find.byKey(ChatDrawerFooter.footerKey),
+              matching: find.byTooltip('My threads'),
+            ),
+            findsOneWidget,
+          );
+
+          await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+          await tester.pumpAndSettle();
+
+          final title = find.descendant(
+            of: header,
+            matching: find.text('general'),
+          );
+          final star = find.descendant(
+            of: header,
+            matching: find.byKey(const ValueKey('chat-channel-star-button')),
+          );
+          expect(star, findsOneWidget);
+          expect(
+            tester.getRect(star).left - tester.getRect(title).right,
+            closeTo(5, 0.01),
+          );
+          expect(
+            find.byKey(const ValueKey('chat-channel-threads-button')),
+            findsNothing,
+          );
+        },
+      );
+
+      testWidgets(
         'drawer rows keep muted urgency and expose web list actions',
         (tester) async {
           await pumpChat(
@@ -17649,7 +17713,7 @@ void main() {
             find
                 .byKey(const ValueKey('chat-channel-star-button'))
                 .hitTestable(),
-            findsNothing,
+            findsOneWidget,
           );
           expect(
             find
@@ -17689,7 +17753,7 @@ void main() {
             find
                 .byKey(const ValueKey('chat-channel-star-button'))
                 .hitTestable(),
-            findsNothing,
+            findsOneWidget,
           );
           expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
 
@@ -17711,7 +17775,7 @@ void main() {
             find
                 .byKey(const ValueKey('chat-channel-star-button'))
                 .hitTestable(),
-            findsNothing,
+            findsOneWidget,
           );
           expect(tester.takeException(), isNull);
         },
@@ -20679,7 +20743,7 @@ void main() {
 
     group('a channel', () {
       testWidgets(
-        'shows a direct-message status icon after the title and its text on hover',
+        'shows a direct-message status after the channel star and its text on hover',
         (tester) async {
           await pumpChat(
             tester,
@@ -20718,16 +20782,25 @@ void main() {
             of: titleAction,
             matching: find.byKey(const ValueKey('chat-channel-header-status')),
           );
+          final star = find.descendant(
+            of: titleAction,
+            matching: find.byKey(const ValueKey('chat-channel-star-button')),
+          );
           final emoji = find.descendant(
             of: status,
             matching: find.byType(SiteEmojiImage),
           );
 
+          expect(star, findsOneWidget);
           expect(status, findsOneWidget);
           expect(emoji, findsOneWidget);
           expect(
-            tester.getRect(emoji).left - tester.getRect(title).right,
-            closeTo(5, 0.01),
+            tester.getRect(star).left - tester.getRect(title).right,
+            closeTo(0, 0.01),
+          );
+          expect(
+            tester.getRect(emoji).left,
+            greaterThan(tester.getRect(star).right),
           );
           expect(
             find.descendant(

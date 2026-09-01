@@ -1056,7 +1056,7 @@ void main() {
 
     group('channel navigation and controls', () {
       testWidgets(
-        'open the live thread list from the channel header and preserve Back',
+        'keeps thread navigation out of the channel header and preserves Back',
         (tester) async {
           await shell.chat.loadChannels(_site);
           shell.accountActivity.applyCounts(
@@ -1080,10 +1080,13 @@ void main() {
 
           expect(
             find.byKey(const ValueKey('chat-channel-threads-button')),
-            findsOneWidget,
+            findsNothing,
           );
-          await tester.tap(
-            find.byKey(const ValueKey('chat-channel-threads-button')),
+          expect(
+            shell.pluginSession
+                .require(chatShellService)
+                .openChannelThreads(siteUrl: _site, channelId: 9),
+            isTrue,
           );
           await tester.pump();
           expect(shell.currentContent?.id, ChatPlugin.channelThreadsRouteId(9));
@@ -1142,6 +1145,26 @@ void main() {
         );
         await tester.pump();
 
+        final titleAction = find.byKey(
+          const ValueKey('content-header-title-action'),
+        );
+        final title = find.descendant(
+          of: titleAction,
+          matching: find.text('Support'),
+        );
+        final star = find.descendant(
+          of: titleAction,
+          matching: find.byKey(const ValueKey('chat-channel-star-button')),
+        );
+        expect(star, findsOneWidget);
+        expect(
+          tester.getRect(star).left - tester.getRect(title).right,
+          closeTo(0, 0.01),
+        );
+        expect(
+          find.byKey(const ValueKey('chat-channel-threads-button')),
+          findsNothing,
+        );
         expect(find.byTooltip('Add to starred channels'), findsOneWidget);
         await tester.tap(find.byTooltip('Add to starred channels'));
         await tester.pumpAndSettle();
