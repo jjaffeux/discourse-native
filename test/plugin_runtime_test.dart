@@ -506,6 +506,44 @@ void main() {
       );
     });
 
+    test(
+      'component syntax claims support component-only and migrating plugins',
+      () {
+        for (final module in const <PluginModule>[
+          _Module(
+            'component-only',
+            syntaxIds: {'component-only/token'},
+            capabilities: [_ComponentCapability('component-only', 'token')],
+          ),
+          _Module(
+            'migrating',
+            syntaxIds: {'migrating/token'},
+            capabilities: [_MigratingSyntaxCapability('migrating', 'token')],
+          ),
+        ]) {
+          expect(
+            () => PluginInstaller.install(PluginManifest([module])),
+            returnsNormally,
+          );
+        }
+
+        expect(
+          () => PluginInstaller.install(
+            const PluginManifest([
+              _Module(
+                'component-mismatch',
+                syntaxIds: {'component-mismatch/declared'},
+                capabilities: [
+                  _ComponentCapability('component-mismatch', 'actual'),
+                ],
+              ),
+            ]),
+          ),
+          throwsA(isA<PluginInstallationException>()),
+        );
+      },
+    );
+
     test('duplicate actual claims are rejected within one module', () {
       for (final duplicate in <PluginModule>[
         const _Module(
@@ -1882,6 +1920,45 @@ final class _SyntaxCapability implements SitePlugin, ComposerSyntaxPlugin {
   @override
   ComposerSyntaxKind get composerSyntaxKind =>
       ComposerSyntaxKind(owner: PluginId(owner ?? name), name: syntaxName);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _ComponentCapability
+    implements SitePlugin, ComposerComponentPlugin {
+  const _ComponentCapability(this.name, this.syntaxName);
+
+  @override
+  final String name;
+
+  final String syntaxName;
+
+  @override
+  ComposerSyntaxKind get composerComponentKind =>
+      ComposerSyntaxKind(owner: PluginId(name), name: syntaxName);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _MigratingSyntaxCapability
+    implements SitePlugin, ComposerSyntaxPlugin, ComposerComponentPlugin {
+  const _MigratingSyntaxCapability(this.name, this.syntaxName);
+
+  @override
+  final String name;
+
+  final String syntaxName;
+
+  ComposerSyntaxKind get _kind =>
+      ComposerSyntaxKind(owner: PluginId(name), name: syntaxName);
+
+  @override
+  ComposerSyntaxKind get composerSyntaxKind => _kind;
+
+  @override
+  ComposerSyntaxKind get composerComponentKind => _kind;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

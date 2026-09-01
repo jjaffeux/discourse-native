@@ -1004,18 +1004,27 @@ final class _PluginRegistrar implements PluginRegistrar {
       registered: _liveChannelScopes,
     );
 
-    final capabilitySyntaxIds = <String>{};
+    final legacySyntaxIds = <String>{};
     for (final capability in _capabilities.whereType<ComposerSyntaxPlugin>()) {
       _addClaim(
-        capabilitySyntaxIds,
+        legacySyntaxIds,
         capability.composerSyntaxKind.id,
         'composer syntax id',
+      );
+    }
+    final componentSyntaxIds = <String>{};
+    for (final capability
+        in _capabilities.whereType<ComposerComponentPlugin>()) {
+      _addClaim(
+        componentSyntaxIds,
+        capability.composerComponentKind.id,
+        'composer component syntax id',
       );
     }
     _validateClaims(
       kind: 'composer syntax ids',
       declared: _syntaxIds,
-      registered: capabilitySyntaxIds,
+      registered: {...legacySyntaxIds, ...componentSyntaxIds},
     );
 
     return _PluginRegistration(
