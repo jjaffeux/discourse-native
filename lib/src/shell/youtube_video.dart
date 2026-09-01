@@ -4,20 +4,18 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart'
     show Factory, TargetPlatform, defaultTargetPlatform;
-import 'package:flutter/gestures.dart'
-    show EagerGestureRecognizer, OneSequenceGestureRecognizer;
+import 'package:flutter/gestures.dart' show OneSequenceGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:webview_all/webview_all.dart';
-import 'package:webview_all_linux/webview_all_linux.dart';
-import 'package:webview_all_wkwebview/webview_all_wkwebview.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
+import 'media_webview.dart';
 import 'site_image.dart';
 
 const Set<String> _youtubeHosts = {
@@ -780,28 +778,10 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
 }
 
 const Set<Factory<OneSequenceGestureRecognizer>>
-youtubePlayerGestureRecognizers = <Factory<OneSequenceGestureRecognizer>>{
-  Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new),
-};
+youtubePlayerGestureRecognizers = mediaPlayerGestureRecognizers;
 
 PlatformWebViewControllerCreationParams youtubeWebViewCreationParams() {
-  const base = PlatformWebViewControllerCreationParams();
-  final platform = WebViewPlatform.instance;
-  if (platform is WebKitWebViewPlatform) {
-    return WebKitWebViewControllerCreationParams.fromPlatformWebViewControllerCreationParams(
-      base,
-      mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
-      allowsInlineMediaPlayback: true,
-    );
-  }
-  if (platform is LinuxWebViewPlatform) {
-    return const LinuxWebViewControllerCreationParams.fromPlatformWebViewControllerCreationParams(
-      base,
-      mediaPlaybackRequiresUserGesture: false,
-      mediaPlaybackAllowsInline: true,
-    );
-  }
-  return base;
+  return mediaWebViewCreationParams();
 }
 
 Uri? youtubeForumOrigin(String? siteUrl) {

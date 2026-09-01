@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../foundation/diagnostic_errors.dart';
 import '../../shell/image_decode.dart';
+import '../../shell/inline_video.dart';
 import '../../shell/lightbox.dart';
 import '../../shell/open_link.dart';
 import '../../shell/site_image.dart';
@@ -20,7 +21,7 @@ class ChatUploads extends StatelessWidget {
   final String siteUrl;
   final List<ChatUpload> uploads;
 
-  /// Core's chat-specific width ceiling; height is separately capped at 150px.
+  /// Core's chat-specific width ceiling; images are capped at 150px high.
   static const double maxWidth = 420;
   static const double maxHeight = 150;
 
@@ -40,9 +41,39 @@ class ChatUploads extends StatelessWidget {
             padding: const EdgeInsets.only(top: 6),
             child: upload.kind == ChatUploadKind.image
                 ? _Image(siteUrl: siteUrl, upload: upload, gallery: images)
+                : upload.kind == ChatUploadKind.video
+                ? _Video(siteUrl: siteUrl, upload: upload)
                 : _Attachment(siteUrl: siteUrl, upload: upload),
           ),
       ],
+    );
+  }
+}
+
+class _Video extends StatelessWidget {
+  const _Video({required this.siteUrl, required this.upload});
+
+  final String siteUrl;
+  final ChatUpload upload;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = InlineVideoData.fromUpload(
+      url: upload.url,
+      title: upload.originalFilename,
+      siteUrl: siteUrl,
+      posterUrl: upload.thumbnailUrl,
+      aspectRatio: upload.aspectRatio,
+    );
+    if (data == null) {
+      return _Attachment(siteUrl: siteUrl, upload: upload);
+    }
+    return InlineVideo(
+      data: data,
+      siteUrl: siteUrl,
+      maximumWidth: ChatUploads.maxWidth,
+      maximumHeight: 240,
+      padding: EdgeInsets.zero,
     );
   }
 }

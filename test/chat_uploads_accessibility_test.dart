@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
+import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -79,6 +80,42 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(launched, ['https://meta.discourse.org/uploads/notes.pdf']);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('video upload is an accessible lazy player', (tester) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: const Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: ChatUploads(
+                siteUrl: 'https://meta.discourse.org',
+                uploads: [
+                  ChatUpload(
+                    url: '/uploads/demo.mp4',
+                    originalFilename: 'demo.mp4',
+                    kind: ChatUploadKind.video,
+                    width: 1920,
+                    height: 1080,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(InlineVideo), findsOneWidget);
+      expect(find.bySemanticsLabel('Play video: demo.mp4'), findsOneWidget);
+      expect(find.text('demo.mp4'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp(r'^Open attachment:')), findsNothing);
     } finally {
       semantics.dispose();
     }

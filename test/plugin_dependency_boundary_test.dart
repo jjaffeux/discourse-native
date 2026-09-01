@@ -195,12 +195,15 @@ void main() {
       ];
       final misplacedImplementations = <String>[];
       const pluginMarkupTokens = <String>{
-        'data-video-',
         'githubcommit',
         'githubissue',
         'githubpullrequest',
         'lazy-video-container',
       };
+
+      // `data-video-*` is not plugin-owned: core's uploaded-video placeholder
+      // uses the same prefix as discourse-lazy-videos. The container class is
+      // the ownership boundary, and remains covered above.
 
       for (final entity in Directory('lib/src/plugins').listSync()) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;

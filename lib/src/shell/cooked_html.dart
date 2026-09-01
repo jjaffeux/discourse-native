@@ -13,6 +13,7 @@ import 'emoji.dart';
 import 'hashtag.dart';
 import 'image_grid.dart';
 import 'inline_code.dart';
+import 'inline_video.dart';
 import 'lightbox.dart';
 import 'mention.dart';
 import 'oneboxes/onebox.dart';
@@ -93,6 +94,7 @@ class CookedHtml extends StatelessWidget {
         ) ??
         imageGridWidgetBuilder(element, siteUrl: siteUrl) ??
         lightboxWidgetBuilder(element, siteUrl: siteUrl) ??
+        inlineVideoWidgetBuilder(element, siteUrl: siteUrl) ??
         youtubeVideoWidgetBuilder(element, siteUrl: siteUrl) ??
         oneboxWidgetBuilder(element, siteUrl: siteUrl) ??
         quoteWidgetBuilder(element, siteUrl: siteUrl) ??
