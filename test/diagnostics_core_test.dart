@@ -631,6 +631,33 @@ void main() {
       expect(controller.visibleEvents, hasLength(2));
     });
 
+    test('visible events are reused until the journal or a filter changes', () {
+      controller.reportError(
+        StateError('first'),
+        StackTrace.current,
+        source: 'topic',
+        severity: DiagnosticSeverity.warning,
+      );
+      // The session's own start event sits beside the reported error.
+      final held = controller.visibleEvents;
+      expect(held, hasLength(2));
+      expect(identical(controller.visibleEvents, held), isTrue);
+
+      controller.setQuery('first');
+      final filtered = controller.visibleEvents;
+      expect(filtered, hasLength(1));
+      expect(identical(controller.visibleEvents, filtered), isTrue);
+
+      controller.reportError(
+        StateError('first again'),
+        StackTrace.current,
+        source: 'topic',
+        severity: DiagnosticSeverity.warning,
+      );
+      expect(identical(controller.visibleEvents, filtered), isFalse);
+      expect(controller.visibleEvents, hasLength(2));
+    });
+
     test('errors hidden by a frozen panel remain unseen until it resumes', () {
       controller.openPanel();
       controller.setFrozen(true);

@@ -569,10 +569,34 @@ final class DiagnosticsController
   @override
   String? get currentOperationId => DiagnosticsSink.currentOperation;
 
+  List<DiagnosticEvent>? _visibleEvents;
+  List<DiagnosticEvent>? _visibleEventsSource;
+  DiagnosticsPanelState? _visibleEventsPanelState;
+
+  /// The filtered journal, reused across rebuilds until the journal or the
+  /// panel state changes: the timeline rebuilds per captured event and per
+  /// keystroke in its search field, over up to the whole retention window.
   List<DiagnosticEvent> get visibleEvents {
     final state = panelState;
-    final query = state.query.trim().toLowerCase();
     final sourceEvents = _frozenEvents ?? events;
+    final held = _visibleEvents;
+    if (held != null &&
+        identical(sourceEvents, _visibleEventsSource) &&
+        identical(state, _visibleEventsPanelState)) {
+      return held;
+    }
+    final visible = _filterEvents(sourceEvents, state);
+    _visibleEvents = visible;
+    _visibleEventsSource = sourceEvents;
+    _visibleEventsPanelState = state;
+    return visible;
+  }
+
+  static List<DiagnosticEvent> _filterEvents(
+    List<DiagnosticEvent> sourceEvents,
+    DiagnosticsPanelState state,
+  ) {
+    final query = state.query.trim().toLowerCase();
     return List.unmodifiable(
       sourceEvents.where((event) {
         if (state.kindFilter == DiagnosticsKindFilter.requests &&

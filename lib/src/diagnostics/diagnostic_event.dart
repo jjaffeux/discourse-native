@@ -112,7 +112,7 @@ final class DiagnosticSessionEvent extends DiagnosticEvent {
   bool get isError => false;
 
   @override
-  String get searchText => [
+  late final String searchText = [
     source,
     operation,
     correlationId,
@@ -250,7 +250,7 @@ final class HttpDiagnosticEvent extends DiagnosticEvent {
       (statusCode != null && statusCode! >= 400);
 
   @override
-  String get searchText => [
+  late final String searchText = [
     source,
     operation,
     correlationId,
@@ -411,7 +411,7 @@ final class DiagnosticLogEvent extends DiagnosticEvent {
   bool get isError => severity == DiagnosticSeverity.error;
 
   @override
-  String get searchText => [
+  late final String searchText = [
     source,
     operation,
     correlationId,
@@ -502,7 +502,7 @@ final class ErrorDiagnosticEvent extends DiagnosticEvent {
   bool get isError => true;
 
   @override
-  String get searchText => [
+  late final String searchText = [
     source,
     operation,
     correlationId,
