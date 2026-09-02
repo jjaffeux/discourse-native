@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -507,9 +508,17 @@ void main() {
         final bar = find.byKey(const ValueKey('chat-composer'));
         final initialHeight = tester.getSize(bar).height;
         expect(initialHeight, 58);
+        expect(_field(tester).focusNode!.hasFocus, isTrue);
         expect(_field(tester).expands, isFalse);
         expect(_field(tester).minLines, 1);
         expect(_field(tester).maxLines, isNull);
+
+        _field(tester).focusNode!.unfocus();
+        await tester.pump();
+        expect(tester.getSize(bar).height, initialHeight);
+        _field(tester).focusNode!.requestFocus();
+        await tester.pump();
+        expect(tester.getSize(bar).height, initialHeight);
 
         await tester.enterText(
           _composerField(),
@@ -667,6 +676,7 @@ void main() {
         final compactComposerHeight = tester
             .getSize(find.byKey(const ValueKey('chat-composer')))
             .height;
+        expect(compactComposerHeight, 58);
         await tester.enterText(_composerField(), 'unrelated draft');
         final pointer = await tester.createGesture(
           kind: PointerDeviceKind.mouse,
@@ -1037,6 +1047,41 @@ void main() {
 
       expect(pickerCalls, 1);
       expect(_field(tester).focusNode!.hasFocus, isTrue);
+    });
+
+    testWidgets('reports image picker failures through the Chat session', (
+      tester,
+    ) async {
+      final diagnostics = _RecordingDiagnosticsSink();
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        pluginDiagnosticsReporter: PluginDiagnosticsReporter.fixed(diagnostics),
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(
+        _ComposerView(
+          shell: fixture.shell,
+          channelId: 9,
+          pickImages: () => throw PlatformException(code: 'picker-failed'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('chat-composer-upload')));
+      await tester.pumpAndSettle();
+
+      expect(find.text("Couldn't open the image picker."), findsOneWidget);
+      expect(diagnostics.errors, [
+        (
+          operation: 'chatComposer.pickImages',
+          source: 'platform',
+          severity: DiagnosticSeverity.warning,
+          handled: true,
+          degraded: true,
+        ),
+      ]);
     });
 
     testWidgets('keeps both send actions idle while the GIF picker is open', (
@@ -1631,6 +1676,8 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   SiteEmojiCatalog? emojiCatalog,
   ComposerUploadResult? composerUploadResult,
   ChatChannelStatus channelStatus = ChatChannelStatus.open,
+  PluginDiagnosticsReporter pluginDiagnosticsReporter =
+      const PluginDiagnosticsReporter.noop(),
 }) async {
   final api = FakeDiscourseApi(
     user: sessionUser,
@@ -1659,6 +1706,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
     plugins: installedPlugins,
+    pluginDiagnosticsReporter: pluginDiagnosticsReporter,
   );
   await shell.load();
   shell.chatRecords.put(
@@ -1857,4 +1905,51 @@ final class _TwoComposerView extends StatelessWidget {
       ),
     ),
   );
+}
+
+final class _RecordingDiagnosticsSink implements DiagnosticsSink {
+  final errors =
+      <
+        ({
+          String? operation,
+          String source,
+          DiagnosticSeverity severity,
+          bool handled,
+          bool degraded,
+        })
+      >[];
+
+  @override
+  void reportError(
+    Object error,
+    StackTrace stackTrace, {
+    String? operation,
+    String source = 'application',
+    DiagnosticSeverity severity = DiagnosticSeverity.error,
+    bool handled = true,
+    bool degraded = true,
+    String? correlationId,
+  }) {
+    errors.add((
+      operation: operation,
+      source: source,
+      severity: severity,
+      handled: handled,
+      degraded: degraded,
+    ));
+  }
+
+  @override
+  void recordLog({
+    required String name,
+    String source = 'application',
+    String? component,
+    String? message,
+    Map<String, Object?> attributes = const {},
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? operation,
+    String? correlationId,
+    bool handled = true,
+    bool degraded = false,
+  }) {}
 }

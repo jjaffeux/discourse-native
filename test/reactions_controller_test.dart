@@ -165,6 +165,7 @@ ReactionsController _controller({
     siteConfigFor: (_) => const SiteConfig.unknown(),
     loadCatalog: (_, {refresh = false}) async => null,
     loadSearchAliases: (_, {refresh = false}) async => null,
+    resolveUrl: (siteUrl, name) => '$siteUrl/$name',
   ),
 );
 
