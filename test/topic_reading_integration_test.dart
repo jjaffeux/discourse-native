@@ -162,6 +162,44 @@ void _registerTopicReadingTests() {
       );
     });
 
+    testWidgets('a category list prefills its category in the topic composer', (
+      tester,
+    ) async {
+      const categoryPath = '/c/support/5.json';
+      const category = TopicCategory(
+        id: 5,
+        name: 'Support',
+        color: '0088CC',
+        slug: 'support',
+      );
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': [], categoryPath: []},
+        creatableFeedPaths: const {categoryPath},
+        categoryList: const [category],
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+
+      await pumpShell(tester, desktop, api: api, authenticator: authenticator);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      expect(controller.openListUrl('/c/support/5'), isTrue);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+      await tester.pumpAndSettle();
+
+      expect(controller.visibleComposer?.categoryId, category.id);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('composer-category')),
+          matching: find.text(category.name),
+        ),
+        findsOneWidget,
+      );
+    });
+
     const inbox = '/topics/private-messages/joffreyj.json';
 
     testWidgets(

@@ -5769,18 +5769,13 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    int? categoryId;
+    final categoryId = canCreateTopicHere ? route.categoryId : null;
     var tags = const <TopicTag>[];
     final path = route.feedPath;
     final link = path == null
         ? null
         : ListLink.parse(path.replaceFirst(RegExp(r'\.json$'), ''));
-    if (link?.kind == ListKind.category) {
-      final category = categories
-          .where((item) => item.id == link?.id)
-          .firstOrNull;
-      if (category?.canCreateTopic == true) categoryId = category!.id;
-    } else if (link?.kind == ListKind.tag && capabilities.canTagTopics) {
+    if (link?.kind == ListKind.tag && capabilities.canTagTopics) {
       try {
         if (apiKey == null) {
           final credential = await _credentialForWrite(instance.url);
