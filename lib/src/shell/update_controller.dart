@@ -147,8 +147,13 @@ class UpdateController extends FrameSafeNotifier {
       _status = release == null
           ? UpdateStatus.upToDate
           : UpdateStatus.available;
-    } on UpdateException catch (e, stackTrace) {
+    } catch (error, stackTrace) {
       if (!checkIsCurrent()) return;
+      final e = _asUpdateException(
+        error,
+        stackTrace,
+        UpdateFailure.unreachable,
+      );
       _report(e, stackTrace, 'updater.check');
       if (silent) {
         // Put back whatever was on screen before, so a failed background check
@@ -185,8 +190,13 @@ class UpdateController extends FrameSafeNotifier {
       if (!_isCurrent(revision)) return;
       _status = UpdateStatus.readyToInstall;
       _progress = 1;
-    } on UpdateException catch (e, stackTrace) {
+    } catch (error, stackTrace) {
       if (!_isCurrent(revision)) return;
+      final e = _asUpdateException(
+        error,
+        stackTrace,
+        UpdateFailure.unreachable,
+      );
       _report(e, stackTrace, 'updater.download');
       _error = e.message;
       // Back to `available`, not `failed`: the release is still on offer and
@@ -209,8 +219,9 @@ class UpdateController extends FrameSafeNotifier {
 
     try {
       await updater.installAndRestart();
-    } on UpdateException catch (e, stackTrace) {
+    } catch (error, stackTrace) {
       if (!_isCurrent(revision)) return;
+      final e = _asUpdateException(error, stackTrace, UpdateFailure.install);
       _report(e, stackTrace, 'updater.install');
       _error = e.message;
       // The download is still staged and still good, so offer the restart
@@ -272,7 +283,7 @@ class UpdateController extends FrameSafeNotifier {
   Future<void> _discardForChannelChange(String operation) async {
     try {
       await updater.discard();
-    } on UpdateException catch (error, stackTrace) {
+    } catch (error, stackTrace) {
       _report(
         error,
         stackTrace,
@@ -283,6 +294,18 @@ class UpdateController extends FrameSafeNotifier {
       // the user about; the check which follows is the useful outcome.
     }
   }
+
+  /// The adapter's contract is `UpdateException`, but a platform can still
+  /// throw anything out of socket, file or process I/O. Whatever it throws
+  /// must not strand the status the caller just set: `checking`,
+  /// `downloading` and `installing` gate every later update action.
+  static UpdateException _asUpdateException(
+    Object error,
+    StackTrace stackTrace,
+    UpdateFailure fallback,
+  ) => error is UpdateException
+      ? error
+      : UpdateException.caused(fallback, null, error, stackTrace);
 
   void _resetForChannel(UpdateChannel channel) {
     _revision++;

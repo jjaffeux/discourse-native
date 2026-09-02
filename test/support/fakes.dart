@@ -124,9 +124,9 @@ class FakeUpdater implements Updater {
 
   final Map<UpdateChannel, UpdateRelease?> releases;
 
-  final UpdateException? checkFailure;
-  final UpdateException? downloadFailure;
-  final UpdateException? installFailure;
+  final Object? checkFailure;
+  final Object? downloadFailure;
+  final Object? installFailure;
 
   final List<double> progressSteps;
 
