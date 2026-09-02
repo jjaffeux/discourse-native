@@ -132,6 +132,10 @@ final class MemoryAggregatePreferencesPersistence
   }
 }
 
+/// Tabs, exclusions and queries are presentation state: a storage failure
+/// degrades to the default tab and must never stop the Aggregate view from
+/// opening. What it must also never do is save that default over the tabs it
+/// could not read — see [_unreadable].
 final class AggregatePreferencesStore {
   AggregatePreferencesStore({AggregatePreferencesPersistence? persistence})
     : _persistence =
@@ -156,9 +160,25 @@ final class AggregatePreferencesStore {
         writeSnapshot: _persist,
       );
 
+  /// Distinguishes an intact but unreadable document from an absent one so the
+  /// default tab cannot overwrite unknown stored tabs. A successful later
+  /// [load] clears it.
+  bool _unreadable = false;
+
   Future<AggregatePreferences> load() async {
+    final String? raw;
     try {
-      final raw = await _snapshots.read(_persistence.read);
+      raw = await _snapshots.read(_persistence.read);
+      _unreadable = false;
+    } catch (error, stackTrace) {
+      _unreadable = true;
+      reportStorageFailure(error, stackTrace, 'aggregatePreferences.load');
+      return AggregatePreferences();
+    }
+
+    // Past here the document was read. Whatever it holds is either usable or
+    // already lost, so a save over it is the repair rather than the damage.
+    try {
       if (raw == null || raw.isEmpty) return AggregatePreferences();
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return AggregatePreferences();
@@ -208,7 +228,7 @@ final class AggregatePreferencesStore {
         },
       );
     } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'aggregatePreferences.load');
+      reportStorageFailure(error, stackTrace, 'aggregatePreferences.decode');
       return AggregatePreferences();
     }
   }
@@ -219,6 +239,7 @@ final class AggregatePreferencesStore {
     Iterable<AggregateTabPreferences>? tabs,
     String? activeTabId,
   }) {
+    if (_unreadable) return Future<void>.value();
     final savedTabs = List<AggregateTabPreferences>.of(
       tabs ??
           [

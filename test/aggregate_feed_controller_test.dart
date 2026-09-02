@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/src/data/aggregate_preferences_store.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
@@ -236,6 +237,56 @@ void main() {
         'queries': <String, String>{},
       });
     });
+
+    test('a document that could not be read is never written over', () async {
+      final persisted = jsonEncode({
+        'version': AggregatePreferencesStore.formatVersion,
+        'active_tab_id': 'work',
+        'tabs': [
+          AggregateTabPreferences(
+            id: 'work',
+            name: 'Open work',
+            queries: {_firstUrl: 'status:open'},
+          ).toJson(),
+        ],
+      });
+      final persistence = _ControlledPersistence()
+        ..stored = persisted
+        ..readError = StateError('preferences unavailable');
+      final store = AggregatePreferencesStore(persistence: persistence);
+
+      final fallback = await store.load();
+      expect(fallback.activeTabId, AggregatePreferencesStore.defaultTabId);
+      await store.save(tabs: fallback.tabs, activeTabId: fallback.activeTabId);
+      expect(persistence.writeCount, 0);
+      expect(persistence.stored, persisted);
+
+      persistence.readError = null;
+      final restored = await store.load();
+      expect(restored.activeTabId, 'work');
+      expect(restored.queries, {_firstUrl: 'status:open'});
+      await store.save(
+        tabs: [AggregateTabPreferences(id: 'fresh')],
+        activeTabId: 'fresh',
+      );
+      expect(persistence.writeCount, 1);
+      expect((await store.load()).activeTabId, 'fresh');
+    });
+
+    test('content the reader cannot use is written over', () async {
+      final persistence = _ControlledPersistence()..stored = 'not json at all';
+      final store = AggregatePreferencesStore(persistence: persistence);
+
+      final fallback = await store.load();
+      expect(fallback.activeTabId, AggregatePreferencesStore.defaultTabId);
+      await store.save(
+        tabs: [AggregateTabPreferences(id: 'fresh')],
+        activeTabId: 'fresh',
+      );
+
+      expect(persistence.writeCount, 1);
+      expect((await store.load()).activeTabId, 'fresh');
+    });
   });
 
   group('tab lifecycle', () {
@@ -463,5 +514,24 @@ final class _RefreshRaceApi extends FakeDiscourseApi {
       return TopicList(topics: [_topic(1, minute: 1)]);
     }
     return TopicList(topics: [_topic(2, minute: 2)]);
+  }
+}
+
+final class _ControlledPersistence implements AggregatePreferencesPersistence {
+  String? stored;
+  Object? readError;
+  int writeCount = 0;
+
+  @override
+  Future<String?> read() async {
+    if (readError case final error?) throw error;
+    return stored;
+  }
+
+  @override
+  Future<bool> write(String value) async {
+    writeCount++;
+    stored = value;
+    return true;
   }
 }
