@@ -10194,6 +10194,18 @@ class ShellController extends FrameSafeNotifier
 
   SiteConfig siteConfigFor(String siteUrl) => _presentation.configFor(siteUrl);
 
+  /// What a bookmark editor needs to know about a site's reader: the account
+  /// the reminder is for, its timezone, and the site's date-picker policy.
+  BookmarkSiteContext bookmarkSiteContextFor(String siteUrl) {
+    final user = currentUserFor(siteUrl);
+    final config = siteConfigFor(siteUrl);
+    return BookmarkSiteContext(
+      username: user?.username,
+      timezone: user?.timezone,
+      suggestWeekendsInDatePickers: config.suggestWeekendsInDatePickers,
+    );
+  }
+
   Future<SiteConfig?> resolveSiteConfig(String siteUrl) =>
       _presentation.resolveConfig(siteUrl);
 
@@ -12349,15 +12361,8 @@ final class _ShellCoreBookmarkTargetHost implements BookmarkTargetHost {
   );
 
   @override
-  BookmarkSiteContext siteContextFor(String siteUrl) {
-    final user = _shell.currentUserFor(siteUrl);
-    final config = _shell.siteConfigFor(siteUrl);
-    return BookmarkSiteContext(
-      username: user?.username,
-      timezone: user?.timezone,
-      suggestWeekendsInDatePickers: config.suggestWeekendsInDatePickers,
-    );
-  }
+  BookmarkSiteContext siteContextFor(String siteUrl) =>
+      _shell.bookmarkSiteContextFor(siteUrl);
 
   @override
   bool bookmarkWriteInFlight({
@@ -12486,15 +12491,8 @@ final class _ShellPluginBookmarkTargetHost implements PluginBookmarkHost {
   );
 
   @override
-  BookmarkSiteContext siteContextFor(String siteUrl) {
-    final user = _shell.currentUserFor(siteUrl);
-    final config = _shell.siteConfigFor(siteUrl);
-    return BookmarkSiteContext(
-      username: user?.username,
-      timezone: user?.timezone,
-      suggestWeekendsInDatePickers: config.suggestWeekendsInDatePickers,
-    );
-  }
+  BookmarkSiteContext siteContextFor(String siteUrl) =>
+      _shell.bookmarkSiteContextFor(siteUrl);
 
   @override
   bool bookmarkWriteInFlight({

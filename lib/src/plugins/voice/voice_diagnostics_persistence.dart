@@ -861,25 +861,7 @@ final class FileVoiceDiagnosticsPersistence
         tailBytes -= voiceDiagnosticSerializedBytes(tail.removeFirst());
       }
       truncated |= record.truncated;
-      switch (record.event) {
-        case 'capture.started':
-          _rememberActiveCapture(
-            activeCaptures,
-            VoiceDiagnosticsActiveCapture(
-              writerId: record.writerId,
-              captureId: record.captureId,
-              startedAtUtc: record.timestampUtc,
-            ),
-          );
-        case 'capture.stopped':
-          if (activeCaptures[record.writerId]?.captureId == record.captureId) {
-            activeCaptures.remove(record.writerId);
-          }
-        case 'capture.interrupted':
-          activeCaptures.removeWhere(
-            (_, capture) => capture.captureId == record.captureId,
-          );
-      }
+      _applyCaptureEvent(activeCaptures, record);
       final latestCapture = activeCaptures.values.lastOrNull;
       activeCaptureId = latestCapture?.captureId;
       activeCaptureStartedAtUtc = latestCapture?.startedAtUtc;
@@ -1087,25 +1069,7 @@ final class FileVoiceDiagnosticsPersistence
     );
     for (final decoded in canonicalAdditionalRecords) {
       final record = decoded.record;
-      switch (record.event) {
-        case 'capture.started':
-          _rememberActiveCapture(
-            activeCaptures,
-            VoiceDiagnosticsActiveCapture(
-              writerId: record.writerId,
-              captureId: record.captureId,
-              startedAtUtc: record.timestampUtc,
-            ),
-          );
-        case 'capture.stopped':
-          if (activeCaptures[record.writerId]?.captureId == record.captureId) {
-            activeCaptures.remove(record.writerId);
-          }
-        case 'capture.interrupted':
-          activeCaptures.removeWhere(
-            (_, capture) => capture.captureId == record.captureId,
-          );
-      }
+      _applyCaptureEvent(activeCaptures, record);
     }
     final latestCapture = activeCaptures.values.lastOrNull;
     activeCaptureId = latestCapture?.captureId;
@@ -1699,6 +1663,34 @@ bool _acceptIdentity(VoiceDiagnosticRecord record, Map<String, int> highWater) {
   return true;
 }
 
+/// Folds one capture lifecycle record into the active-capture roll. A stop
+/// releases only the capture it names; an interruption releases that capture
+/// wherever it is held.
+void _applyCaptureEvent(
+  Map<String, VoiceDiagnosticsActiveCapture> activeCaptures,
+  VoiceDiagnosticRecord record,
+) {
+  switch (record.event) {
+    case 'capture.started':
+      _rememberActiveCapture(
+        activeCaptures,
+        VoiceDiagnosticsActiveCapture(
+          writerId: record.writerId,
+          captureId: record.captureId,
+          startedAtUtc: record.timestampUtc,
+        ),
+      );
+    case 'capture.stopped':
+      if (activeCaptures[record.writerId]?.captureId == record.captureId) {
+        activeCaptures.remove(record.writerId);
+      }
+    case 'capture.interrupted':
+      activeCaptures.removeWhere(
+        (_, capture) => capture.captureId == record.captureId,
+      );
+  }
+}
+
 void _rememberActiveCapture(
   Map<String, VoiceDiagnosticsActiveCapture> captures,
   VoiceDiagnosticsActiveCapture capture,
@@ -1867,25 +1859,7 @@ final class _VoiceDiagnosticsStore {
     _records.add(record);
     retainedBytes += voiceDiagnosticSerializedBytes(record);
     truncated |= record.truncated;
-    switch (record.event) {
-      case 'capture.started':
-        _rememberActiveCapture(
-          activeCaptures,
-          VoiceDiagnosticsActiveCapture(
-            writerId: record.writerId,
-            captureId: record.captureId,
-            startedAtUtc: record.timestampUtc,
-          ),
-        );
-      case 'capture.stopped':
-        if (activeCaptures[record.writerId]?.captureId == record.captureId) {
-          activeCaptures.remove(record.writerId);
-        }
-      case 'capture.interrupted':
-        activeCaptures.removeWhere(
-          (_, capture) => capture.captureId == record.captureId,
-        );
-    }
+    _applyCaptureEvent(activeCaptures, record);
     final latestCapture = activeCaptures.values.lastOrNull;
     activeCaptureId = latestCapture?.captureId;
     activeCaptureStartedAtUtc = latestCapture?.startedAtUtc;

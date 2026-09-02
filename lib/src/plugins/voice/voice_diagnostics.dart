@@ -144,16 +144,7 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
          ),
        ),
        _eventsNotifier = ValueNotifier(const []) {
-    for (final record in stored.records.reversed) {
-      final bytes = voiceDiagnosticSerializedBytes(record);
-      if (_records.length >= _eventsTailLimit ||
-          _eventsTailBytes + bytes > _eventsTailBytesLimit) {
-        break;
-      }
-      _records.addFirst(record);
-      _eventsTailBytes += bytes;
-    }
-    _lastRecordTimestampUtc = stored.records.lastOrNull?.timestampUtc;
+    _adoptTail(stored.records);
     _eventsDirty = true;
     _publishUiNow();
     _scheduleRetentionExpiry();
@@ -938,23 +929,29 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
     _scheduleEventsPublish();
   }
 
+  /// Replaces the held tail with the newest of [records] that fit the events
+  /// tail, oldest first, and remembers when the last of them was written.
+  void _adoptTail(List<VoiceDiagnosticRecord> records) {
+    _records.clear();
+    _eventsTailBytes = 0;
+    for (final record in records.reversed) {
+      final bytes = voiceDiagnosticSerializedBytes(record);
+      if (_records.length >= _eventsTailLimit ||
+          _eventsTailBytes + bytes > _eventsTailBytesLimit) {
+        break;
+      }
+      _records.addFirst(record);
+      _eventsTailBytes += bytes;
+    }
+    _lastRecordTimestampUtc = records.lastOrNull?.timestampUtc;
+  }
+
   void _adoptPersistenceState(VoiceDiagnosticsPersistenceState persisted) {
     final persistedLastIdentity = persisted.records.lastOrNull?.identity;
     if (_pendingWrites.isEmpty &&
         (persistedLastIdentity == null ||
             persistedLastIdentity == _records.lastOrNull?.identity)) {
-      _records.clear();
-      _eventsTailBytes = 0;
-      for (final record in persisted.records.reversed) {
-        final bytes = voiceDiagnosticSerializedBytes(record);
-        if (_records.length >= _eventsTailLimit ||
-            _eventsTailBytes + bytes > _eventsTailBytesLimit) {
-          break;
-        }
-        _records.addFirst(record);
-        _eventsTailBytes += bytes;
-      }
-      _lastRecordTimestampUtc = persisted.records.lastOrNull?.timestampUtc;
+      _adoptTail(persisted.records);
       _scheduleEventsPublish();
     }
     _oldestRetainedTimestampUtc = persisted.oldestTimestampUtc;

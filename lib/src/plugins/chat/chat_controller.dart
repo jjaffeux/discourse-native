@@ -2367,25 +2367,7 @@ class ChatController extends FrameSafeNotifier {
       );
       if (!ownsRequest()) return null;
 
-      lease.commit(() {
-        final deletedAt = _clock().toUtc();
-        final deletedById = _currentUserFor(siteUrl)?.id;
-        for (final id in ids) {
-          final latest = _store.read<ChatMessage>(siteUrl, id);
-          if (latest == null || latest.isDeleted) continue;
-          _store.put(
-            siteUrl,
-            latest.withDeletedAt(deletedAt, deletedById: deletedById),
-          );
-          _bumpStreamsHolding(siteUrl, id);
-          _setLoadedThreadOriginalDeleted(
-            siteUrl,
-            channelId,
-            id,
-            deletedAt: deletedAt,
-          );
-        }
-      });
+      lease.commit(() => _markMessagesDeleted(siteUrl, channelId, ids));
       return null;
     } on WriteException catch (error) {
       return error.message;
@@ -2507,25 +2489,7 @@ class ChatController extends FrameSafeNotifier {
       );
       if (!ownsRequest()) return (move: null, error: null);
 
-      lease.commit(() {
-        final deletedAt = _clock().toUtc();
-        final deletedById = _currentUserFor(siteUrl)?.id;
-        for (final id in ids) {
-          final latest = _store.read<ChatMessage>(siteUrl, id);
-          if (latest == null || latest.isDeleted) continue;
-          _store.put(
-            siteUrl,
-            latest.withDeletedAt(deletedAt, deletedById: deletedById),
-          );
-          _bumpStreamsHolding(siteUrl, id);
-          _setLoadedThreadOriginalDeleted(
-            siteUrl,
-            channelId,
-            id,
-            deletedAt: deletedAt,
-          );
-        }
-      });
+      lease.commit(() => _markMessagesDeleted(siteUrl, channelId, ids));
       return (move: move, error: null);
     } on WriteException catch (error) {
       return (move: null, error: error.message);
@@ -3435,6 +3399,53 @@ class ChatController extends FrameSafeNotifier {
     );
   }
 
+  /// Tombstones [ids] locally once the site has accepted their deletion or
+  /// move, ahead of the bus echo that confirms it.
+  void _markMessagesDeleted(String siteUrl, int channelId, List<int> ids) {
+    final deletedAt = _clock().toUtc();
+    final deletedById = _currentUserFor(siteUrl)?.id;
+    for (final id in ids) {
+      final latest = _store.read<ChatMessage>(siteUrl, id);
+      if (latest == null || latest.isDeleted) continue;
+      _store.put(
+        siteUrl,
+        latest.withDeletedAt(deletedAt, deletedById: deletedById),
+      );
+      _bumpStreamsHolding(siteUrl, id);
+      _setLoadedThreadOriginalDeleted(
+        siteUrl,
+        channelId,
+        id,
+        deletedAt: deletedAt,
+      );
+    }
+  }
+
+  /// Applies one deleted id from a delete event. A reader allowed to inspect
+  /// the tombstone keeps the row; anyone else loses it. Answers the message
+  /// as it was held, or null when it was not held at all.
+  ChatMessage? _applyDeletedId(
+    String siteUrl,
+    Map<String, dynamic> data,
+    int deletedId,
+  ) {
+    final message = _store.read<ChatMessage>(siteUrl, deletedId);
+    if (message == null) return null;
+    if (_canInspectDeletedMessage(siteUrl, message)) {
+      _store.put(
+        siteUrl,
+        message.withDeletedAt(
+          jsonDate(data['deleted_at']) ?? _clock().toUtc(),
+          deletedById: jsonIntOrNull(data['deleted_by_id']),
+        ),
+      );
+    } else {
+      _store.remove<ChatMessage>(siteUrl, deletedId);
+    }
+    if (!message.isDeleted) _bumpStreamsHolding(siteUrl, deletedId);
+    return message;
+  }
+
   void _applyDeleteEvent(
     String siteUrl,
     Map<String, dynamic> data, {
@@ -3443,21 +3454,7 @@ class ChatController extends FrameSafeNotifier {
   }) {
     final deletedId = jsonIntOrNull(data['deleted_id']);
     if (deletedId == null) return;
-    final message = _store.read<ChatMessage>(siteUrl, deletedId);
-    if (message != null) {
-      if (_canInspectDeletedMessage(siteUrl, message)) {
-        _store.put(
-          siteUrl,
-          message.withDeletedAt(
-            jsonDate(data['deleted_at']) ?? _clock().toUtc(),
-            deletedById: jsonIntOrNull(data['deleted_by_id']),
-          ),
-        );
-      } else {
-        _store.remove<ChatMessage>(siteUrl, deletedId);
-      }
-      if (!message.isDeleted) _bumpStreamsHolding(siteUrl, deletedId);
-    }
+    final message = _applyDeletedId(siteUrl, data, deletedId);
 
     final latest = jsonIntOrNull(data['latest_not_deleted_message_id']);
     final resolvedChannelId = channelId ?? message?.channelId;
@@ -3503,21 +3500,7 @@ class ChatController extends FrameSafeNotifier {
       final deletedId = jsonIntOrNull(value);
       if (deletedId == null || deletedId == skipMessageId) continue;
       deletedIds.add(deletedId);
-      final message = _store.read<ChatMessage>(siteUrl, deletedId);
-      if (message != null) {
-        if (_canInspectDeletedMessage(siteUrl, message)) {
-          _store.put(
-            siteUrl,
-            message.withDeletedAt(
-              jsonDate(data['deleted_at']) ?? _clock().toUtc(),
-              deletedById: jsonIntOrNull(data['deleted_by_id']),
-            ),
-          );
-        } else {
-          _store.remove<ChatMessage>(siteUrl, deletedId);
-        }
-        if (!message.isDeleted) _bumpStreamsHolding(siteUrl, deletedId);
-      }
+      _applyDeletedId(siteUrl, data, deletedId);
     }
     final heldChannel = channelId == null ? null : channel(siteUrl, channelId);
     if (heldChannel != null &&
