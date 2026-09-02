@@ -80,7 +80,7 @@ final class PollSettingsPersistenceCodec
 
   @override
   PollSettings? decode(Object? value) {
-    final json = _objectFields(value);
+    final json = jsonObjectFields(value);
     if (json == null) return null;
     return PollSettings(
       maximumOptions: _storedMaximumOptions(json['maximumOptions']),
@@ -116,7 +116,7 @@ final class PollCurrentUserPersistenceCodec
 
   @override
   PollCurrentUser? decode(Object? value) {
-    final json = _objectFields(value);
+    final json = jsonObjectFields(value);
     final canCreatePoll = json?['canCreatePoll'];
     return canCreatePoll is bool
         ? PollCurrentUser(canCreatePoll: canCreatePoll)
@@ -158,13 +158,3 @@ int _wireMaximumOptions(Object? value) => switch (jsonIntOrNull(value)) {
 
 int _storedMaximumOptions(Object? value) =>
     jsonIntOrNull(value) ?? PollSettings.defaultMaximumOptions;
-
-Map<String, Object?>? _objectFields(Object? value) {
-  if (value is! Map) return null;
-  final result = <String, Object?>{};
-  for (final entry in value.entries) {
-    if (entry.key is! String) return null;
-    result[entry.key as String] = entry.value;
-  }
-  return result;
-}

@@ -30,7 +30,7 @@ final class GifsSettings {
       );
 
   static GifsSettings? fromStored(Object? value) {
-    final json = _objectFields(value);
+    final json = jsonObjectFields(value);
     if (json == null) return null;
     return GifsSettings(
       enabled: json['enabled'] == true,
@@ -125,13 +125,3 @@ int _maxResults(Object? raw) => switch (jsonIntOrNull(raw)) {
   final value? when value >= 24 => value,
   _ => GifsSettings.defaultMaxResults,
 };
-
-Map<String, Object?>? _objectFields(Object? value) {
-  if (value is! Map) return null;
-  final result = <String, Object?>{};
-  for (final entry in value.entries) {
-    if (entry.key is! String) return null;
-    result[entry.key as String] = entry.value;
-  }
-  return result;
-}

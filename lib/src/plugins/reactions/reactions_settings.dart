@@ -38,7 +38,7 @@ final class ReactionsSettings {
   }
 
   static ReactionsSettings? fromStored(Object? value) {
-    final json = _objectFields(value);
+    final json = jsonObjectFields(value);
     if (json == null) return null;
     return ReactionsSettings(
       mainReaction: jsonText(json['mainReaction']),
@@ -142,13 +142,3 @@ List<String> _offeredReactions(Object? raw, String? mainReaction) {
 
 List<String> _storedReactionList(Object? raw) =>
     List.unmodifiable(jsonArray(raw).map(jsonText).whereType<String>());
-
-Map<String, Object?>? _objectFields(Object? value) {
-  if (value is! Map) return null;
-  final result = <String, Object?>{};
-  for (final entry in value.entries) {
-    if (entry.key is! String) return null;
-    result[entry.key as String] = entry.value;
-  }
-  return result;
-}

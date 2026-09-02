@@ -76,6 +76,22 @@ void main() {
     });
   });
 
+  group('jsonObjectFields', () {
+    test('copies string-keyed maps whatever their static key type', () {
+      expect(jsonObjectFields(const {'id': 1}), {'id': 1});
+      expect(jsonObjectFields(<Object?, Object?>{'id': 1}), {'id': 1});
+      expect(jsonObjectFields(const <String, Object?>{}), isEmpty);
+    });
+
+    test('answers null for a non-object or a non-string key', () {
+      expect(jsonObjectFields(null), isNull);
+      expect(jsonObjectFields('{}'), isNull);
+      expect(jsonObjectFields(const [1]), isNull);
+      expect(jsonObjectFields(<Object?, Object?>{1: 'one'}), isNull);
+      expect(jsonObjectFields(<Object?, Object?>{'a': 1, 2: 'two'}), isNull);
+    });
+  });
+
   group('jsonText', () {
     test('trims what is there', () {
       expect(jsonText('  sam  '), 'sam');

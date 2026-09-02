@@ -37,7 +37,7 @@ final class LocalDatesSettings {
       );
 
   static LocalDatesSettings? fromStored(Object? value) {
-    final json = _objectFields(value);
+    final json = jsonObjectFields(value);
     if (json == null) return null;
     return LocalDatesSettings(
       enabled: json['enabled'] == true,
@@ -131,14 +131,4 @@ List<String> _pipeListOr(Object? raw, List<String> fallback) {
     values.map((value) => value.trim()).where((value) => value.isNotEmpty),
   );
   return normalized.isEmpty ? List.unmodifiable(fallback) : normalized;
-}
-
-Map<String, Object?>? _objectFields(Object? value) {
-  if (value is! Map) return null;
-  final result = <String, Object?>{};
-  for (final entry in value.entries) {
-    if (entry.key is! String) return null;
-    result[entry.key as String] = entry.value;
-  }
-  return result;
 }
