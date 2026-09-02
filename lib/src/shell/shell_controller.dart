@@ -5812,21 +5812,72 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    final categoryId = canCreateTopicHere ? route.categoryId : null;
-    final selectedCategory = categoryFor(categoryId, siteUrl: instance.url);
-    // A topic feed can expose a restricted or later-page category before the
-    // category directory has loaded it. Keep that selected route available to
-    // the composer so its id can be rendered and edited instead of appearing
-    // as an empty category selection.
-    if (selectedCategory != null &&
-        categories.every((category) => category.id != selectedCategory.id)) {
-      categories = [...categories, selectedCategory];
-    }
-    var tags = const <TopicTag>[];
     final path = route.feedPath;
     final link = path == null
         ? null
         : ListLink.parse(path.replaceFirst(RegExp(r'\.json$'), ''));
+    final categoryId = canCreateTopicHere ? route.categoryId : null;
+    var selectedCategory = categoryFor(categoryId, siteUrl: instance.url);
+    if (categoryId != null && selectedCategory == null) {
+      if (apiKey == null) {
+        final credential = await _credentialForWrite(instance.url);
+        if (!lease.isCurrent ||
+            currentFeedId != feedId ||
+            activeTabId != tabId) {
+          return;
+        }
+        apiKey = credential.apiKey;
+      }
+      if (apiKey != null) {
+        try {
+          final found = await api.categories.findCategories(
+            siteUrl: instance.url,
+            ids: [categoryId],
+            apiKey: apiKey,
+          );
+          selectedCategory = found
+              .where((category) => category.id == categoryId)
+              .firstOrNull;
+        } catch (error, stackTrace) {
+          if (lease.isCurrent) {
+            _reportOperationalError(
+              error,
+              stackTrace,
+              'composer.category',
+              severity: DiagnosticSeverity.warning,
+            );
+          }
+        }
+      }
+      if (!lease.isCurrent || currentFeedId != feedId || activeTabId != tabId) {
+        return;
+      }
+    }
+    if (selectedCategory == null &&
+        categoryId != null &&
+        link?.kind == ListKind.category) {
+      final color = route.color?.toARGB32();
+      selectedCategory = TopicCategory(
+        id: categoryId,
+        name: route.title,
+        color: color == null
+            ? '888888'
+            : (color & 0x00ffffff)
+                  .toRadixString(16)
+                  .padLeft(6, '0')
+                  .toUpperCase(),
+        slug: link!.slug,
+      );
+    }
+    // A topic feed can expose a restricted or later-page category before the
+    // category directory has loaded it. Keep that selected route available to
+    // the composer so its id can be rendered and edited instead of appearing
+    // as an empty category selection.
+    if (selectedCategory case final selected?
+        when categories.every((category) => category.id != selected.id)) {
+      categories = [...categories, selected];
+    }
+    var tags = const <TopicTag>[];
     if (link?.kind == ListKind.tag && capabilities.canTagTopics) {
       try {
         if (apiKey == null) {

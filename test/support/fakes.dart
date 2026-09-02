@@ -530,6 +530,7 @@ class FakeDiscourseApi
     this.creatableFeedPaths = const {},
     this.categoryList = const [],
     this.categoryPages = const {},
+    this.categoryFindResults = const [],
     this.categorySearches = const {},
     this.categoryLoadComplete = true,
     this.categoryPostActionCatalog,
@@ -769,6 +770,7 @@ class FakeDiscourseApi
 
   final List<TopicCategory> categoryList;
   final Map<int, List<TopicCategory>> categoryPages;
+  final List<TopicCategory> categoryFindResults;
   final Map<String, List<TopicCategory>> categorySearches;
   final bool categoryLoadComplete;
   final SitePostActionCatalog? categoryPostActionCatalog;
@@ -1872,7 +1874,9 @@ class FakeDiscourseApi
   }) async {
     final requested = ids.toSet();
     categoryIdsRequested.add(List.unmodifiable(requested));
-    return const [];
+    return categoryFindResults
+        .where((category) => requested.contains(category.id))
+        .toList(growable: false);
   }
 
   @override
