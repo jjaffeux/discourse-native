@@ -237,6 +237,7 @@ final class VoiceController extends ChangeNotifier {
   final Map<String, Object> _siteSessions = {};
   final Map<String, Object> _directoryRequests = {};
   final Map<String, Object> _chatRequests = {};
+  final Map<String, _VoiceInviteRef> _pendingInviteRefs = {};
   final Map<String, int> _roomVideoWatchers = {};
   Future<void>? _joinTail;
   Future<void>? _pendingJoin;
@@ -333,6 +334,24 @@ final class VoiceController extends ChangeNotifier {
     final call = _call;
     if (call?.siteUrl == siteUrl && call?.room.id == roomId) return call?.room;
     return _linkedRooms[siteUrl]?[roomId];
+  }
+
+  void rememberInviteRef({
+    required String siteUrl,
+    required String roomSlug,
+    required String username,
+  }) {
+    _pendingInviteRefs[siteUrl] = _VoiceInviteRef(
+      roomSlug: roomSlug,
+      username: username,
+    );
+  }
+
+  String? _consumeInviteRef(String siteUrl, VoiceRoom room) {
+    final invite = _pendingInviteRefs[siteUrl];
+    if (invite == null || invite.roomSlug != room.slug) return null;
+    _pendingInviteRefs.remove(siteUrl);
+    return invite.username;
   }
 
   Future<VoiceRoom?> resolveRoom(String siteUrl, String slug) =>
@@ -1064,6 +1083,7 @@ final class VoiceController extends ChangeNotifier {
     _errors.remove(siteUrl);
     final apiKey = credentials.apiKey;
     final clientId = credentials.clientId;
+    final invitedBy = _consumeInviteRef(siteUrl, room);
     VoiceMediaSession? media;
     _VoiceParticipantSession? participantSession;
     String? joinedParticipantSessionId;
@@ -1080,6 +1100,7 @@ final class VoiceController extends ChangeNotifier {
           siteUrl: siteUrl,
           roomId: room.id,
           apiKey: apiKey,
+          invitedBy: invitedBy,
           clientId: clientId,
         );
       } on WriteException catch (error) {
@@ -1106,6 +1127,7 @@ final class VoiceController extends ChangeNotifier {
           siteUrl: siteUrl,
           roomId: room.id,
           apiKey: apiKey,
+          invitedBy: invitedBy,
           clientId: clientId,
         );
       }
@@ -2957,6 +2979,7 @@ final class VoiceController extends ChangeNotifier {
     _siteSessions.remove(siteUrl);
     _directoryRequests.remove(siteUrl);
     _chatRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
+    _pendingInviteRefs.remove(siteUrl);
     _directories.remove(siteUrl);
     _attachedTrackers.remove(siteUrl);
     _unavailableSites.remove(siteUrl);
@@ -3209,6 +3232,7 @@ final class VoiceController extends ChangeNotifier {
     _stateRetry = null;
     _stateSyncPending = false;
     _roomVideoWatchers.clear();
+    _pendingInviteRefs.clear();
     _attachedTrackers.clear();
     for (final state in _chats.values) {
       _closeChatConversation(state);
@@ -3313,6 +3337,13 @@ final class VoiceController extends ChangeNotifier {
   void dispose() {
     unawaited(close());
   }
+}
+
+final class _VoiceInviteRef {
+  const _VoiceInviteRef({required this.roomSlug, required this.username});
+
+  final String roomSlug;
+  final String username;
 }
 
 extension on VoiceRoom {

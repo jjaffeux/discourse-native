@@ -60,7 +60,9 @@ final class VoiceShellService
     final absolute = resolveSiteUrl(url, _host.currentSite?.url);
     final uri = Uri.tryParse(absolute);
     if (uri == null) return false;
-    final match = RegExp(r'^/voice/r/([^/]+)/?$').firstMatch(uri.path);
+    final match = RegExp(
+      r'^/voice/r/([^/]+)(?:/invited-by/([^/]+))?/?$',
+    ).firstMatch(uri.path);
     if (match == null) return false;
     final index = _host.sites.indexWhere((instance) => instance.serves(uri));
     if (index < 0 || !_host.sites[index].isConnected) return false;
@@ -74,6 +76,14 @@ final class VoiceShellService
       Uri.decodeComponent(match.group(1)!),
     );
     if (room == null) return false;
+    final invitedBy = match.group(2);
+    if (invitedBy != null) {
+      controller.rememberInviteRef(
+        siteUrl: instance.url,
+        roomSlug: room.slug,
+        username: Uri.decodeComponent(invitedBy).toLowerCase(),
+      );
+    }
     _host.pushContent(
       ContentRoute(
         id: 'voice-room-${room.id}',
