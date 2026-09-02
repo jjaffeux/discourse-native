@@ -143,9 +143,14 @@ final class VoicePlugin
   }
 
   @override
-  List<Widget> shellOverlays(BuildContext context) => const [
+  List<Widget> shellOverlays(BuildContext context) => [
     Positioned.fill(
-      child: IgnorePointer(ignoring: false, child: VoiceCallWidget()),
+      child: IgnorePointer(
+        ignoring: false,
+        child: VoiceCallWidget(
+          port: PluginUiScope.require(context, voiceCallPortService),
+        ),
+      ),
     ),
   ];
 }

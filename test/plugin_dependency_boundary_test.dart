@@ -444,6 +444,30 @@ void main() {
       );
     });
 
+    test('keep the Voice call view behind its presentation port', () {
+      for (final path in const [
+        'lib/src/plugins/voice/voice_call_port.dart',
+        'lib/src/plugins/voice/voice_call_widget.dart',
+      ]) {
+        final source = File(path).readAsStringSync();
+        for (final runtimeType in const [
+          'flutter_webrtc',
+          'VoiceController',
+          'VoiceMediaSession',
+          'VoiceRoom',
+          'VoiceShellService',
+          'VoiceSystemCall',
+          'CallKit',
+        ]) {
+          expect(
+            source,
+            isNot(contains(runtimeType)),
+            reason: '$path must not expose $runtimeType to the call view.',
+          );
+        }
+      }
+    });
+
     test('keep concrete-shell compatibility extensions deleted', () {
       for (final path in const [
         'lib/src/plugins/assign/assignment_shell_extension.dart',
