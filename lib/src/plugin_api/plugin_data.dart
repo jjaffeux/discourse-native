@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'preserved_json.dart';
+
 /// The owner/name pair is explicit instead of relying on a Dart [Type], so the
 /// composition boundary can reject duplicate claims before decoding payloads.
 @immutable
@@ -67,15 +69,7 @@ final class PluginData {
   /// names are ignored and nested collections are copied into immutable JSON
   /// values before the model keeps them.
   factory PluginData.preserveNamespaces(Object? value) {
-    if (value is! Map) return none;
-    final namespaces = <String, Object?>{};
-    for (final entry in value.entries) {
-      final name = entry.key;
-      if (name is! String || name.isEmpty) continue;
-      final preserved = _freezeJson(entry.value);
-      if (!preserved.valid) continue;
-      namespaces[name] = preserved.value;
-    }
+    final namespaces = preserveJsonNamespaces(value);
     return namespaces.isEmpty
         ? none
         : PluginData._(
@@ -148,13 +142,13 @@ final class PluginData {
       identical(this, other) ||
       other is PluginData &&
           mapEquals(other._values, _values) &&
-          _deepEquals(other._preservedNamespaces, _preservedNamespaces);
+          deepJsonEquals(other._preservedNamespaces, _preservedNamespaces);
 
   @override
   int get hashCode => Object.hashAllUnordered([
     ..._values.entries.map((entry) => Object.hash(entry.key, entry.value)),
     ..._preservedNamespaces.entries.map(
-      (entry) => Object.hash(entry.key, _deepHash(entry.value)),
+      (entry) => Object.hash(entry.key, deepJsonHash(entry.value)),
     ),
   ]);
 }
@@ -235,68 +229,3 @@ final class EmptyPluginDataDecoder implements PluginDataDecoder {
     required PluginData incoming,
   }) => incoming;
 }
-
-typedef _FrozenJson = ({bool valid, Object? value});
-
-_FrozenJson _freezeJson(Object? value) {
-  if (value == null || value is String || value is bool) {
-    return (valid: true, value: value);
-  }
-  if (value is num) {
-    return value.isFinite
-        ? (valid: true, value: value)
-        : (valid: false, value: null);
-  }
-  if (value is List) {
-    final result = <Object?>[];
-    for (final item in value) {
-      final frozen = _freezeJson(item);
-      if (!frozen.valid) return (valid: false, value: null);
-      result.add(frozen.value);
-    }
-    return (valid: true, value: List<Object?>.unmodifiable(result));
-  }
-  if (value is Map) {
-    final result = <String, Object?>{};
-    for (final entry in value.entries) {
-      if (entry.key is! String) return (valid: false, value: null);
-      final frozen = _freezeJson(entry.value);
-      if (!frozen.valid) return (valid: false, value: null);
-      result[entry.key as String] = frozen.value;
-    }
-    return (valid: true, value: Map<String, Object?>.unmodifiable(result));
-  }
-  return (valid: false, value: null);
-}
-
-bool _deepEquals(Object? left, Object? right) {
-  if (identical(left, right)) return true;
-  if (left is List && right is List) {
-    if (left.length != right.length) return false;
-    for (var index = 0; index < left.length; index++) {
-      if (!_deepEquals(left[index], right[index])) return false;
-    }
-    return true;
-  }
-  if (left is Map && right is Map) {
-    if (left.length != right.length) return false;
-    for (final entry in left.entries) {
-      if (!right.containsKey(entry.key) ||
-          !_deepEquals(entry.value, right[entry.key])) {
-        return false;
-      }
-    }
-    return true;
-  }
-  return left == right;
-}
-
-int _deepHash(Object? value) => switch (value) {
-  final List<Object?> values => Object.hashAll(values.map(_deepHash)),
-  final Map<Object?, Object?> values => Object.hashAllUnordered(
-    values.entries.map(
-      (entry) => Object.hash(entry.key, _deepHash(entry.value)),
-    ),
-  ),
-  _ => value.hashCode,
-};
