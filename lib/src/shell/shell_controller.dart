@@ -7779,7 +7779,15 @@ class ShellController extends FrameSafeNotifier
 
     void revert() {
       lease.commit(() {
-        store.update<Post>(siteUrl, post.id, (held) => held.withLikesOf(post));
+        // Undo only this reader's own guess, and only where it still stands.
+        // A re-read that landed during the request already carries the
+        // site's count; the tap-time snapshot would rewind other readers'
+        // likes with it.
+        store.update<Post>(
+          siteUrl,
+          post.id,
+          (held) => held.liked == liked ? held.withLike(post.liked) : held,
+        );
         _notify();
       });
     }

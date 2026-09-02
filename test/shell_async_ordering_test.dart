@@ -147,15 +147,20 @@ final class _OneShotGatedAuthenticator extends FakeAuthenticator {
   }
 }
 
-Post _post(String cooked, {bool canDelete = false, bool canLike = false}) =>
-    Post(
-      id: 1,
-      postNumber: 1,
-      username: 'author',
-      cooked: cooked,
-      canDelete: canDelete,
-      canLike: canLike,
-    );
+Post _post(
+  String cooked, {
+  bool canDelete = false,
+  bool canLike = false,
+  int likeCount = 0,
+}) => Post(
+  id: 1,
+  postNumber: 1,
+  username: 'author',
+  cooked: cooked,
+  canDelete: canDelete,
+  canLike: canLike,
+  likeCount: likeCount,
+);
 
 const _closedAction = Post(
   id: 2,
@@ -677,6 +682,40 @@ void main() {
       likeGate.complete();
       expect(await liking, isNull);
       expect(shell.store.read<Post>(_siteUrl, 1)?.liked, isTrue);
+    });
+
+    test('a failed like keeps the count a refetch brought', () async {
+      final likeGate = Completer<void>();
+      final api = _PostOrderingApi(likeGate: likeGate);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+      final post = shell.store.read<Post>(_siteUrl, 1)!.copyWith(canLike: true);
+      shell.store.put(_siteUrl, post);
+
+      final liking = shell.toggleLike(post);
+      await api.likeStarted.future;
+      expect(shell.store.read<Post>(_siteUrl, 1)?.likeCount, 1);
+
+      // Other readers liked the post while the request was out, and a new
+      // reply's refetch brought their count before the site answered.
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial', canLike: true, likeCount: 5)],
+      );
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'created',
+        'id': 2,
+      });
+      await pumpEventQueue();
+      expect(shell.store.read<Post>(_siteUrl, 1)?.likeCount, 5);
+
+      likeGate.completeError(StateError('like lost'));
+      expect(await liking, isNotNull);
+
+      expect(shell.store.read<Post>(_siteUrl, 1)?.likeCount, 5);
+      expect(shell.store.read<Post>(_siteUrl, 1)?.liked, isFalse);
     });
   });
 
