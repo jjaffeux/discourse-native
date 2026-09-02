@@ -153,6 +153,32 @@ void main() {
       },
     );
 
+    test('category suggestions stop at the result cap', () async {
+      final subject = TopicFilterSuggestions(
+        options: const [TopicFilterOption(name: 'category:', type: 'category')],
+        categories: [
+          for (var index = 0; index < 12; index++)
+            TopicCategory(
+              id: index + 1,
+              name: 'Category $index',
+              slug: 'category-$index',
+              color: '0088CC',
+            ),
+        ],
+        tags: (_) async => const [],
+        tagGroups: (_) async => const [],
+        users: (_) async => const [],
+        groups: (_) async => const [],
+      );
+
+      final all = await subject.suggestions('category:');
+      expect(all, hasLength(10));
+      expect(all.first.name, 'category:category-0');
+
+      final one = await subject.suggestions('category:category-11');
+      expect(one.single.name, 'category:category-11');
+    });
+
     test(
       'quotes tag groups and provides local category, date, and number values',
       () async {
