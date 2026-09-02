@@ -35,6 +35,14 @@ Run `flutter devices` to find the simulator id. The compatibility app under
 `profiles/full` uses the same bundled manifest and native Voice graph as the
 repository-root app.
 
+On macOS, **About Discourse** reads the version and build number from the
+running app's bundle (`pubspec.yaml`, or Flutter's `--build-name` and
+`--build-number` overrides used by TestFlight). Each native build also stamps
+its configuration, Git commit, tracked local modifications, and UTC build time
+into the About panel. This distinguishes local builds even when the declared
+version has not changed. Rebuild and relaunch to refresh this information;
+Flutter hot reload does not rebuild the native bundle.
+
 ## Connecting a site
 
 The `+` in the rail resolves whatever you type to a real Discourse. The lookup
