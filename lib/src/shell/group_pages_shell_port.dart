@@ -269,7 +269,6 @@ final class ShellGroupPagesPort implements GroupPagesPort {
       sectionLoading: sectionLoading,
       loadingMore: loadingMore,
       mutating: detail.mutating,
-      saving: detail.mutating,
       loaded: detail.loaded,
       error: detail.error,
       sectionError: sectionError,
@@ -485,13 +484,13 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   }
 
   @override
-  Future<void> saveManage(
+  Future<bool> saveManage(
     GroupPagesOwner owner,
     Group group,
     GroupManageUpdate update,
   ) async {
     final instance = _instance(owner);
-    if (instance == null) return;
-    await _shell.groups.updateGroup(instance, group, update.values);
+    if (instance == null) return false;
+    return _shell.groups.updateGroup(instance, group, update.values);
   }
 }

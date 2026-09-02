@@ -83,7 +83,7 @@ abstract interface class GroupPagesPort implements GroupPagesCoordinatorPort {
     GroupRequestAction action,
   );
 
-  Future<void> saveManage(
+  Future<bool> saveManage(
     GroupPagesOwner owner,
     Group group,
     GroupManageUpdate update,

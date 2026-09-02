@@ -102,7 +102,7 @@ final class _Port implements GroupPagesPort {
   GroupDirectoryState directoryState(
     GroupPagesOwner owner,
     GroupPagesDirectoryQuery query,
-  ) => const GroupDirectoryState(loaded: true);
+  ) => GroupDirectoryState(loaded: true);
 
   @override
   bool canCreateGroup(GroupPagesOwner owner) => false;
