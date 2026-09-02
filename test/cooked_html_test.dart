@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -20,6 +19,7 @@ import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -292,6 +292,83 @@ void main() {
   });
 
   group('links', () {
+    for (final (label, markup) in [
+      (
+        'inline text',
+        '<p>Read <a href="/t/another-topic/42/8">another topic</a> here.</p>',
+      ),
+      (
+        'block text',
+        '<a href="/t/another-topic/42/8"><div>another topic</div></a>',
+      ),
+      (
+        'inline code',
+        '<p><a href="/t/another-topic/42/8"><code>another topic</code></a></p>',
+      ),
+      (
+        'onebox card',
+        '<aside class="onebox" data-onebox-src="/t/another-topic/42/8">'
+            '<article class="onebox-body"><h3><a href="/t/another-topic/42/8">'
+            'another topic</a></h3></article></aside>',
+      ),
+    ]) {
+      testWidgets('middle-click opens a background tab from $label', (
+        tester,
+      ) async {
+        final controller = await pumpCookedInShell(tester, markup);
+        final original = controller.activeTab;
+        final text = find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText &&
+              widget.text.toPlainText().contains('another topic'),
+        );
+        final paragraph = tester.renderObject<RenderParagraph>(text.first);
+        final start = paragraph.text.toPlainText().indexOf('another topic');
+        final box = paragraph
+            .getBoxesForSelection(
+              TextSelection(baseOffset: start, extentOffset: start + 13),
+            )
+            .first;
+        await tester.tapAt(
+          paragraph.localToGlobal(box.toRect().center),
+          kind: PointerDeviceKind.mouse,
+          buttons: kMiddleMouseButton,
+        );
+        await tester.pumpAndSettle();
+
+        expect(controller.tabsForCurrentForum, hasLength(2));
+        expect(controller.activeTab, original);
+        final opened = controller.tabsForCurrentForum.last.currentContent;
+        expect(opened.topicId, 42);
+        expect(opened.postNumber, 8);
+      });
+    }
+
+    testWidgets('middle-click opens a category hashtag in a background tab', (
+      tester,
+    ) async {
+      final controller = await pumpCookedInShell(
+        tester,
+        '<p><a class="hashtag-cooked" data-type="category" data-slug="support" '
+        'href="/c/support/12"><span>support</span></a></p>',
+      );
+      final original = controller.activeTab;
+
+      await tester.tap(
+        find.byType(HashtagPill),
+        kind: PointerDeviceKind.mouse,
+        buttons: kMiddleMouseButton,
+      );
+      await tester.pumpAndSettle();
+
+      expect(controller.activeTab, original);
+      expect(controller.tabsForCurrentForum, hasLength(2));
+      expect(
+        controller.tabsForCurrentForum.last.currentContent.feedPath,
+        '/c/support/12.json',
+      );
+    });
+
     testWidgets('show the server click count beside a matching cooked link', (
       tester,
     ) async {

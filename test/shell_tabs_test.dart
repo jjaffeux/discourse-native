@@ -34,6 +34,94 @@ void main() {
     });
 
     group('creation', () {
+      test('opens a topic in the background with its requested post', () {
+        controller.openTopicUrl('/t/another-topic/42/3');
+        final original = controller.activeTab;
+
+        expect(
+          controller.openLinkInNewTab('/t/another-topic/42/8'),
+          TabOpenResult.opened,
+        );
+
+        expect(controller.activeTab, original);
+        expect(controller.tabsForCurrentForum, hasLength(2));
+        final opened = controller.tabsForCurrentForum.last;
+        expect(opened.currentContent.topicId, 42);
+        expect(opened.currentContent.postNumber, 8);
+
+        controller.selectTab(opened.id);
+        expect(controller.currentContent?.topicId, 42);
+        expect(controller.currentContent?.postNumber, 8);
+      });
+
+      test(
+        'opens another forum’s link without switching the current forum',
+        () {
+          final original = controller.activeTab;
+
+          expect(
+            controller.openLinkInNewTab('https://two.example/tag/flutter'),
+            TabOpenResult.opened,
+          );
+
+          expect(controller.currentInstance?.url, forums.first.url);
+          expect(controller.activeTab, original);
+          expect(controller.tabsForCurrentForum, hasLength(1));
+
+          controller.selectInstance(1);
+          expect(controller.tabsForCurrentForum, hasLength(2));
+          expect(
+            controller.tabsForCurrentForum.last.currentContent.feedPath,
+            '/tag/flutter.json',
+          );
+        },
+      );
+
+      test(
+        'opens category and group links without changing the active tab',
+        () {
+          final original = controller.activeTab;
+
+          expect(
+            controller.openLinkInNewTab('/c/support/12', title: 'Support'),
+            TabOpenResult.opened,
+          );
+          expect(
+            controller.tabsForCurrentForum.last.currentContent.title,
+            'Support',
+          );
+          expect(
+            controller.tabsForCurrentForum.last.currentContent.feedPath,
+            '/c/support/12.json',
+          );
+          expect(controller.openLinkInNewTab('/g/staff'), TabOpenResult.opened);
+          expect(
+            controller
+                .tabsForCurrentForum
+                .last
+                .currentContent
+                .groupRoute
+                ?.groupName,
+            'staff',
+          );
+          expect(controller.activeTab, original);
+        },
+      );
+
+      test('declines unsupported links without creating empty tabs', () {
+        final original = controller.activeTab;
+        for (final url in [
+          'https://other.example/t/topic/42',
+          '/about',
+          'https://name:password@one.example/t/topic/42',
+          '/c/support/12/l/top',
+        ]) {
+          expect(controller.openLinkInNewTab(url), TabOpenResult.unsupported);
+        }
+        expect(controller.tabsForCurrentForum, hasLength(1));
+        expect(controller.activeTab, original);
+      });
+
       test('adds and activates a fresh Topics tab', () {
         final originalTabId = controller.activeTabId;
 
@@ -71,6 +159,13 @@ void main() {
           hasLength(ForumWorkspace.maximumTabs),
         );
         expect(controller.activeTabId, active);
+        final content = controller.currentContent;
+        expect(
+          controller.openLinkInNewTab('/t/full-workspace/42'),
+          TabOpenResult.limitReached,
+        );
+        expect(controller.activeTabId, active);
+        expect(controller.currentContent, content);
       });
     });
 

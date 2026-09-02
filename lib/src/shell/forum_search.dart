@@ -1332,7 +1332,7 @@ class _SearchHitRow extends StatelessWidget {
               ),
           ];
 
-    return Semantics(
+    final row = Semantics(
       button: true,
       selected: selected,
       label: hit.topicTitle,
@@ -1412,6 +1412,12 @@ class _SearchHitRow extends StatelessWidget {
           ),
         ),
       ),
+    );
+    return LinkTarget(
+      url: '/t/${hit.topicSlug}/${hit.topicId}/${hit.postNumber}',
+      title: hit.topicTitle,
+      siteUrl: siteUrl,
+      child: row,
     );
   }
 }

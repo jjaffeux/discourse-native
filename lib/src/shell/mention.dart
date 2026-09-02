@@ -27,12 +27,16 @@ class MentionPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final target = href;
-    final pill = Pill(
-      label: label,
-      baseStyle: baseStyle,
-      onTap: target == null
-          ? null
-          : () => openLink(context, target, siteUrl: siteUrl),
+    final pill = LinkTarget(
+      url: target,
+      siteUrl: siteUrl,
+      child: Pill(
+        label: label,
+        baseStyle: baseStyle,
+        onTap: target == null
+            ? null
+            : () => openLink(context, target, siteUrl: siteUrl),
+      ),
     );
     final reference = status;
     if (reference == null || siteUrl == null) return pill;

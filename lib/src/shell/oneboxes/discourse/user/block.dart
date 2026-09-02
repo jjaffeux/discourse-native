@@ -58,19 +58,23 @@ class DiscourseUserOnebox extends StatelessWidget {
                     if (data.location != null)
                       Text(data.location!, style: _mutedStyle(theme)),
                     if (data.websiteName != null && data.websiteUrl != null)
-                      InlineAction.link(
-                        onTap: () => openLink(
-                          context,
-                          data.websiteUrl!,
-                          siteUrl: siteUrl,
-                        ),
-                        semanticLabel: data.websiteName!,
-                        excludeChildSemantics: true,
-                        child: Text(
-                          data.websiteName!,
-                          style: _mutedStyle(
-                            theme,
-                          )?.copyWith(color: theme.colorScheme.primary),
+                      LinkTarget(
+                        url: data.websiteUrl,
+                        siteUrl: siteUrl,
+                        child: InlineAction.link(
+                          onTap: () => openLink(
+                            context,
+                            data.websiteUrl!,
+                            siteUrl: siteUrl,
+                          ),
+                          semanticLabel: data.websiteName!,
+                          excludeChildSemantics: true,
+                          child: Text(
+                            data.websiteName!,
+                            style: _mutedStyle(
+                              theme,
+                            )?.copyWith(color: theme.colorScheme.primary),
+                          ),
                         ),
                       ),
                   ],

@@ -296,11 +296,15 @@ class _GithubInlineLink extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => InlineAction.link(
-    onTap: () => openLink(context, url, siteUrl: siteUrl),
-    semanticLabel: label,
-    excludeChildSemantics: true,
-    child: child,
+  Widget build(BuildContext context) => LinkTarget(
+    url: url,
+    siteUrl: siteUrl,
+    child: InlineAction.link(
+      onTap: () => openLink(context, url, siteUrl: siteUrl),
+      semanticLabel: label,
+      excludeChildSemantics: true,
+      child: child,
+    ),
   );
 }
 

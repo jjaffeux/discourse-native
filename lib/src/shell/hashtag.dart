@@ -143,16 +143,21 @@ class HashtagPill extends StatelessWidget {
     final target = href;
     final controller = ShellScope.maybeRead(context);
 
-    Widget pill(_HashtagShellPresentation shellPresentation) => Pill(
-      label: label,
-      baseStyle: baseStyle,
-      leading: _leading(context, shellPresentation),
-      // The label rather than the slug: Discourse writes the real name into
-      // the anchor — `Parent > Child` for a subcategory — and that beats
-      // un-slugging the URL once the list is open.
-      onTap: target == null
-          ? null
-          : () => openLink(context, target, title: label, siteUrl: siteUrl),
+    Widget pill(_HashtagShellPresentation shellPresentation) => LinkTarget(
+      url: target,
+      title: label,
+      siteUrl: siteUrl,
+      child: Pill(
+        label: label,
+        baseStyle: baseStyle,
+        leading: _leading(context, shellPresentation),
+        // The label rather than the slug: Discourse writes the real name into
+        // the anchor — `Parent > Child` for a subcategory — and that beats
+        // un-slugging the URL once the list is open.
+        onTap: target == null
+            ? null
+            : () => openLink(context, target, title: label, siteUrl: siteUrl),
+      ),
     );
 
     if (controller == null) return pill(const _HashtagShellPresentation());

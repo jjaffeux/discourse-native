@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/sidebar_section_store.dart';
+import '../models/content_route.dart';
+import '../models/group_route.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
@@ -1057,7 +1059,7 @@ class _DestinationTileState extends State<_DestinationTile> {
     // `const` sections cannot carry a moving number and ask the shell instead.
     final badge = destination.badge ?? this.badge;
 
-    return Padding(
+    final tile = Padding(
       padding: EdgeInsets.only(
         left:
             _SidebarSpacing.wrapperHorizontalPadding + destination.indent * 20,
@@ -1176,6 +1178,17 @@ class _DestinationTileState extends State<_DestinationTile> {
           ),
         ),
       ),
+    );
+    if (!destination.enabled) return tile;
+    if (destination.url case final url?) {
+      return LinkTarget(url: url, title: destination.label, child: tile);
+    }
+    if (destination.onTap != null) return tile;
+    return LinkTarget.content(
+      content: destination.id == 'groups'
+          ? ContentRoute.group(const GroupRoute.directory())
+          : ContentRoute.fromDestination(destination),
+      child: tile,
     );
   }
 }

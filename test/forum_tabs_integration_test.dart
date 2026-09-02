@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/app_shortcuts.dart';
@@ -17,6 +16,7 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:discourse_native/src/theme/d_tooltip.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,6 +28,91 @@ const _medium = Size(1000, 800);
 const _expanded = Size(1440, 900);
 
 void main() {
+  testWidgets(
+    'middle-click opens a sidebar destination in a background tab',
+    (tester) => _withPlatform(TargetPlatform.macOS, () async {
+      await _pumpShell(tester);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      final original = controller.activeTab;
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.text('Topics'),
+        ),
+        kind: PointerDeviceKind.mouse,
+        buttons: kMiddleMouseButton,
+      );
+      await tester.pumpAndSettle();
+
+      expect(controller.activeTab, original);
+      expect(controller.tabsForCurrentForum, hasLength(2));
+      final opened = controller.tabsForCurrentForum.last;
+      expect(opened.currentContent.id, 'latest');
+      expect(opened.contentStack, hasLength(1));
+    }),
+  );
+
+  testWidgets(
+    'middle-click opens a topic row in a background tab',
+    (tester) => _withPlatform(TargetPlatform.macOS, () async {
+      const topic = Topic(
+        id: 42,
+        title: 'A topic to read',
+        slug: 'a-topic-to-read',
+        tags: [TopicTag(name: 'flutter', id: 12, slug: 'flutter')],
+      );
+      await _pumpShell(
+        tester,
+        api: FakeDiscourseApi(
+          feeds: const {
+            '/latest.json': [topic],
+          },
+        ),
+      );
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      final original = controller.activeTab;
+
+      await tester.tap(
+        find.text(topic.title),
+        kind: PointerDeviceKind.mouse,
+        buttons: kMiddleMouseButton,
+      );
+      await tester.pumpAndSettle();
+
+      expect(controller.activeTab, original);
+      expect(controller.tabsForCurrentForum, hasLength(2));
+      final opened = controller.tabsForCurrentForum.last;
+      expect(opened.currentContent.topicId, topic.id);
+      expect(opened.currentContent.title, topic.title);
+
+      await tester.tap(
+        find.text('flutter'),
+        kind: PointerDeviceKind.mouse,
+        buttons: kMiddleMouseButton,
+      );
+      await tester.pumpAndSettle();
+      expect(controller.activeTab, original);
+      expect(controller.tabsForCurrentForum, hasLength(3));
+      expect(
+        controller.tabsForCurrentForum.last.currentContent.feedPath,
+        '/tag/flutter/12.json',
+      );
+      expect(
+        controller.tabsForCurrentForum.last.currentContent.topicId,
+        isNull,
+      );
+
+      controller.selectTab(opened.id);
+      await tester.pumpAndSettle();
+      expect(controller.currentContent?.topicId, topic.id);
+    }),
+  );
+
   testWidgets(
     'number shortcuts map Aggregate and the first eight ordered forums',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {

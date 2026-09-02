@@ -18,6 +18,7 @@ import 'content_reading_lane.dart';
 import 'inline_action.dart';
 import 'list_boundary_shortcuts.dart';
 import 'loading_skeleton.dart';
+import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -995,12 +996,17 @@ class _TopicRowBody extends StatelessWidget {
                       if (category case final category?)
                         Padding(
                           padding: const EdgeInsets.only(right: 10),
-                          child: _CategoryBadge(
-                            category: category,
-                            label: categoryLabel ?? category.name,
-                            onTap: () => controller.openCategory(
-                              category,
-                              siteUrl: siteUrl,
+                          child: LinkTarget(
+                            url: '/c/${category.id}',
+                            title: categoryLabel ?? category.name,
+                            siteUrl: siteUrl,
+                            child: _CategoryBadge(
+                              category: category,
+                              label: categoryLabel ?? category.name,
+                              onTap: () => controller.openCategory(
+                                category,
+                                siteUrl: siteUrl,
+                              ),
                             ),
                           ),
                         ),
@@ -1012,6 +1018,23 @@ class _TopicRowBody extends StatelessWidget {
                             siteUrl: siteUrl,
                             privateMessage: topic.privateMessage,
                           ),
+                          onMiddleClick: () async {
+                            final opened = await controller.openTopicTag(
+                              topic.tags[index],
+                              siteUrl: siteUrl,
+                              privateMessage: topic.privateMessage,
+                              newTab: true,
+                            );
+                            if (!opened && context.mounted) {
+                              ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Could not open this tag in a new tab.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                           hasComma: index < topic.tags.length - 1,
                           trailingSpacing: index < topic.tags.length - 1
                               ? 3
@@ -1059,7 +1082,12 @@ class _TopicRowBody extends StatelessWidget {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: TopicListRow.minimumHeight),
-      child: row,
+      child: LinkTarget(
+        url: '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
+        title: topic.title,
+        siteUrl: siteUrl,
+        child: row,
+      ),
     );
   }
 }
@@ -1125,12 +1153,14 @@ class _TopicTag extends StatelessWidget {
   const _TopicTag({
     required this.tag,
     required this.onTap,
+    required this.onMiddleClick,
     required this.hasComma,
     required this.trailingSpacing,
   });
 
   final TopicTag tag;
   final VoidCallback onTap;
+  final VoidCallback onMiddleClick;
   final bool hasComma;
   final double trailingSpacing;
 
@@ -1141,7 +1171,7 @@ class _TopicTag extends StatelessWidget {
       color: theme.colorScheme.onSurfaceVariant,
     );
 
-    return Padding(
+    final chip = Padding(
       padding: EdgeInsets.only(right: trailingSpacing),
       child: InlineAction.link(
         onTap: onTap,
@@ -1166,6 +1196,11 @@ class _TopicTag extends StatelessWidget {
           ),
         ),
       ),
+    );
+    return GestureDetector(
+      excludeFromSemantics: true,
+      onTertiaryTapUp: (_) => onMiddleClick(),
+      child: chip,
     );
   }
 }

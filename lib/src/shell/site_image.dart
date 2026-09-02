@@ -297,10 +297,12 @@ final class SiteImageWidgetFactory extends WidgetFactory {
   SiteImageWidgetFactory({
     required this.siteUrl,
     this.registry = PluginRegistry.empty,
+    this.onMiddleClickUrl,
   });
 
   final String? siteUrl;
   final PluginRegistry registry;
+  final ValueChanged<String>? onMiddleClickUrl;
   final Set<dom.Element> _excludeLinkSemantics = Set.identity();
 
   @override
@@ -327,12 +329,37 @@ final class SiteImageWidgetFactory extends WidgetFactory {
   }
 
   @override
+  GestureRecognizer? buildGestureRecognizer(
+    BuildTree tree, {
+    GestureTapCallback? onTap,
+  }) {
+    final recognizer = super.buildGestureRecognizer(tree, onTap: onTap);
+    final href = tree.element.attributes['href'];
+    if (recognizer is TapGestureRecognizer &&
+        href != null &&
+        onMiddleClickUrl != null) {
+      recognizer.onTertiaryTapUp = (_) =>
+          onMiddleClickUrl!(urlFull(href) ?? href);
+    }
+    return recognizer;
+  }
+
+  @override
   Widget? buildGestureDetector(
     BuildTree tree,
     Widget child,
     GestureRecognizer recognizer,
   ) {
-    final detector = super.buildGestureDetector(tree, child, recognizer);
+    var detector = super.buildGestureDetector(tree, child, recognizer);
+    if (detector != null &&
+        recognizer is TapGestureRecognizer &&
+        recognizer.onTertiaryTapUp != null) {
+      detector = GestureDetector(
+        excludeFromSemantics: true,
+        onTertiaryTapUp: recognizer.onTertiaryTapUp,
+        child: detector,
+      );
+    }
     if (detector == null || !_excludeLinkSemantics.contains(tree.element)) {
       return detector;
     }
