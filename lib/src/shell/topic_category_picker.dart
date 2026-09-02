@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
 import 'anchored_picker.dart';
 import 'shell_scope.dart';
@@ -133,9 +134,8 @@ class TopicCategoryPicker extends StatefulWidget {
 class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
   final TextEditingController _query = TextEditingController();
   Timer? _debounce;
-  int _revision = 0;
-  bool _searchRunning = false;
-  ({int revision, String term})? _queuedSearch;
+  late final LatestWinsQueuedLookupController<String, List<TopicCategory>>
+  _lookup;
   List<TopicCategory> _results = const [];
   bool _loading = true;
   String? _error;
@@ -143,13 +143,29 @@ class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
   @override
   void initState() {
     super.initState();
-    unawaited(_search(''));
+    _lookup = LatestWinsQueuedLookupController(
+      lookup: (term) => widget.search(term.trim()),
+      onResult: (result) {
+        setState(() {
+          _results = result;
+          _loading = false;
+        });
+      },
+      onError: (_, _) {
+        setState(() {
+          _results = const [];
+          _loading = false;
+          _error = "Couldn't load categories.";
+        });
+      },
+    );
+    _search('');
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
-    _queuedSearch = null;
+    _lookup.dispose();
     _query.dispose();
     super.dispose();
   }
@@ -159,43 +175,12 @@ class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
     _debounce = Timer(const Duration(milliseconds: 250), () => _search(value));
   }
 
-  Future<void> _search(String term) async {
-    final revision = ++_revision;
+  void _search(String term) {
     setState(() {
       _loading = true;
       _error = null;
     });
-    if (_searchRunning) {
-      _queuedSearch = (revision: revision, term: term);
-      return;
-    }
-    await _runSearch(revision, term);
-  }
-
-  Future<void> _runSearch(int revision, String term) async {
-    _searchRunning = true;
-    try {
-      final result = await widget.search(term.trim());
-      if (!mounted || revision != _revision) return;
-      setState(() {
-        _results = result;
-        _loading = false;
-      });
-    } catch (_) {
-      if (!mounted || revision != _revision) return;
-      setState(() {
-        _results = const [];
-        _loading = false;
-        _error = "Couldn't load categories.";
-      });
-    } finally {
-      _searchRunning = false;
-      final queued = _queuedSearch;
-      _queuedSearch = null;
-      if (queued != null && mounted && queued.revision == _revision) {
-        unawaited(_runSearch(queued.revision, queued.term));
-      }
-    }
+    _lookup.request(term);
   }
 
   void _submitQuery() {
