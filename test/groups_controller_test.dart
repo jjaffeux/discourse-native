@@ -501,6 +501,105 @@ void main() {
     },
   );
 
+  test('a member removed while the next page fails stays removed', () async {
+    final nextPage = Completer<Map<String, dynamic>>();
+    final transport = _ControlledGroupTransport()
+      ..objects.addAll([
+        _completed({
+          'members': [
+            {'id': 1, 'username': 'sam'},
+            {'id': 2, 'username': 'lee'},
+          ],
+          'owners': <Object?>[],
+          'meta': {'total': 3, 'limit': 2, 'offset': 0},
+        }),
+        nextPage,
+        _completed(<String, dynamic>{}),
+      ]);
+    final credentials = FakeApiCredentialReader(clientIdValue: 'native-client')
+      ..keys[_site] = 'secret';
+    final controller = _controller(transport, credentials: credentials);
+    addTearDown(controller.dispose);
+    const group = Group(id: 7, name: 'support');
+
+    await controller.loadMembers(_connectedInstance, group.name);
+    final held = controller.membersState(_site, group.name);
+    final pageLoad = controller.loadMembers(
+      _connectedInstance,
+      group.name,
+      more: true,
+    );
+    await pumpEventQueue();
+    expect(
+      await controller.removeMember(
+        _connectedInstance,
+        group,
+        held.members.first,
+      ),
+      isTrue,
+    );
+
+    nextPage.completeError(StateError('members unavailable'));
+    await pageLoad;
+
+    final state = controller.membersState(_site, group.name);
+    expect(state.members.map((member) => member.id), [2]);
+    expect(state.total, 2);
+    expect(state.pageError, isTrue);
+    expect(state.loadingMore, isFalse);
+  });
+
+  test('a directory page landing after a deletion is not kept', () async {
+    final nextPage = Completer<Map<String, dynamic>>();
+    final transport = _ControlledGroupTransport()
+      ..objects.addAll([
+        _completed({
+          'groups': [
+            {'id': 7, 'name': 'support'},
+            {'id': 8, 'name': 'other'},
+          ],
+          'total_rows_groups': 3,
+          'load_more_groups': '/groups?page=1',
+        }),
+        nextPage,
+      ]);
+    final credentials = FakeApiCredentialReader(clientIdValue: 'native-client')
+      ..keys[_site] = 'secret';
+    final controller = _controller(transport, credentials: credentials);
+    addTearDown(controller.dispose);
+    const query = GroupDirectoryQuery();
+
+    await controller.loadDirectory(_connectedInstance, query);
+    expect(controller.directoryState(_site, query).hasMore, isTrue);
+    final pageLoad = controller.loadDirectory(
+      _connectedInstance,
+      query,
+      more: true,
+    );
+    await pumpEventQueue();
+    expect(transport.gets, hasLength(2));
+    expect(
+      await controller.deleteGroup(
+        _connectedInstance,
+        const Group(id: 7, name: 'support'),
+      ),
+      isTrue,
+    );
+
+    nextPage.complete({
+      'groups': [
+        {'id': 9, 'name': 'third'},
+      ],
+      'total_rows_groups': 3,
+    });
+    await pageLoad;
+
+    final state = controller.directoryState(_site, query);
+    expect(state.loaded, isFalse);
+    expect(state.groups, isEmpty);
+    expect(state.loadingMore, isFalse);
+  });
+
   test('a request handled while the next page loads stays handled', () async {
     final nextPage = Completer<Map<String, dynamic>>();
     final transport = _ControlledGroupTransport()

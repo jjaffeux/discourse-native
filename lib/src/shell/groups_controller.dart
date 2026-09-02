@@ -456,7 +456,10 @@ final class GroupsController extends FrameSafeNotifier {
         username: query.username,
       );
       _commit(token, () {
-        final current = _directories[key] ?? held;
+        // An entry absent here was dropped by a deletion; the page predates
+        // that and must not bring the entry back.
+        final current = _directories[key];
+        if (current == null) return;
         final rows = more ? [...current.groups] : <Group>[];
         final seen = {for (final group in rows) group.id};
         for (final group in page.groups) {
@@ -473,12 +476,16 @@ final class GroupsController extends FrameSafeNotifier {
       });
     } catch (error, stackTrace) {
       _fail(token, 'groups.directory', error, stackTrace, () {
+        // The failure keeps whatever the list holds now, for the same reason
+        // the commit does: a mutation may have changed it since the request.
+        final current = _directories[key];
+        if (current == null) return;
         _directories[key] = GroupDirectoryState._(
-          groups: held.groups,
-          typeFilters: held.typeFilters,
-          totalRows: held.totalRows,
-          nextPage: held.nextPage,
-          hasMore: held.hasMore,
+          groups: current.groups,
+          typeFilters: current.typeFilters,
+          totalRows: current.totalRows,
+          nextPage: current.nextPage,
+          hasMore: current.hasMore,
           loaded: true,
           error: more
               ? "Couldn't load more groups."
@@ -593,7 +600,8 @@ final class GroupsController extends FrameSafeNotifier {
         // snapshot: a removal that landed during the request already took
         // its row out, and the page was assembled before that removal, so
         // replaying either would put the member back.
-        final current = _members[key] ?? held;
+        final current = _members[key];
+        if (current == null) return;
         final removed = _removedDuringLoad(
           held.members,
           current.members,
@@ -614,11 +622,13 @@ final class GroupsController extends FrameSafeNotifier {
       });
     } catch (error, stackTrace) {
       _fail(token, 'groups.members', error, stackTrace, () {
+        final current = _members[key];
+        if (current == null) return;
         _members[key] = GroupMembersState._(
-          members: held.members,
-          total: held.total,
-          nextOffset: held.nextOffset,
-          hasMore: held.hasMore,
+          members: current.members,
+          total: current.total,
+          nextOffset: current.nextOffset,
+          hasMore: current.hasMore,
           loaded: true,
           error: more
               ? "Couldn't load more members."
@@ -669,7 +679,8 @@ final class GroupsController extends FrameSafeNotifier {
         filter: filter,
       );
       _commit(token, () {
-        final current = _requesters[key] ?? held;
+        final current = _requesters[key];
+        if (current == null) return;
         final removed = _removedDuringLoad(
           held.requesters,
           current.requesters,
@@ -690,11 +701,13 @@ final class GroupsController extends FrameSafeNotifier {
       });
     } catch (error, stackTrace) {
       _fail(token, 'groups.requests', error, stackTrace, () {
+        final current = _requesters[key];
+        if (current == null) return;
         _requesters[key] = GroupRequestersState._(
-          requesters: held.requesters,
-          total: held.total,
-          nextOffset: held.nextOffset,
-          hasMore: held.hasMore,
+          requesters: current.requesters,
+          total: current.total,
+          nextOffset: current.nextOffset,
+          hasMore: current.hasMore,
           loaded: true,
           error: more
               ? "Couldn't load more requests."
@@ -756,7 +769,8 @@ final class GroupsController extends FrameSafeNotifier {
               before: before,
             );
       _commit(token, () {
-        final current = _activities[key] ?? held;
+        final current = _activities[key];
+        if (current == null) return;
         final rows = more ? [...current.posts] : <GroupActivityPost>[];
         final seen = {for (final post in rows) post.id};
         for (final post in page.posts) {
@@ -770,9 +784,11 @@ final class GroupsController extends FrameSafeNotifier {
       });
     } catch (error, stackTrace) {
       _fail(token, 'groups.activity', error, stackTrace, () {
+        final current = _activities[key];
+        if (current == null) return;
         _activities[key] = GroupActivityState._(
-          posts: held.posts,
-          hasMore: held.hasMore,
+          posts: current.posts,
+          hasMore: current.hasMore,
           loaded: true,
           error: more
               ? "Couldn't load more activity."
@@ -864,7 +880,8 @@ final class GroupsController extends FrameSafeNotifier {
         offset: more ? held.nextPage : 0,
       );
       _commit(token, () {
-        final current = _logs[key] ?? held;
+        final current = _logs[key];
+        if (current == null) return;
         _logs[key] = GroupLogsState(
           logs: List.unmodifiable([if (more) ...current.logs, ...page.logs]),
           nextPage: (more ? held.nextPage : 0) + 1,
@@ -874,10 +891,12 @@ final class GroupsController extends FrameSafeNotifier {
       });
     } catch (error, stackTrace) {
       _fail(token, 'groups.logs', error, stackTrace, () {
+        final current = _logs[key];
+        if (current == null) return;
         _logs[key] = GroupLogsState._(
-          logs: held.logs,
-          nextPage: held.nextPage,
-          hasMore: held.hasMore,
+          logs: current.logs,
+          nextPage: current.nextPage,
+          hasMore: current.hasMore,
           loaded: true,
           error: more
               ? "Couldn't load more group logs."
