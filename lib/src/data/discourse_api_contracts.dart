@@ -37,7 +37,7 @@ const int maximumDiscourseSearchTermLength = 2048;
 const int maximumDiscourseHashtagsPerRequest = 20;
 const List<String> defaultDiscourseHashtagOrder = ['category', 'tag'];
 
-enum SiteLookupFailure { notDiscourse, unreachable, subfolder }
+enum SiteLookupFailure { notDiscourse, unreachable }
 
 class SiteLookupException implements Exception, DiagnosticErrorCause {
   const SiteLookupException(
@@ -65,9 +65,6 @@ class SiteLookupException implements Exception, DiagnosticErrorCause {
       '$term is not a Discourse forum, or is running a version too old to '
           'support apps.',
     SiteLookupFailure.unreachable => "Couldn't reach $term.",
-    SiteLookupFailure.subfolder =>
-      '$term is installed under a path. Forums served from a subfolder '
-          'are not supported yet.',
   };
 
   @override

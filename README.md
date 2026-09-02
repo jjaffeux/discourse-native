@@ -51,11 +51,13 @@ mirrors DiscourseMobile's `Site.fromTerm` (`js/site.js` in that repo):
 One deliberate difference: DiscourseMobile strips the port from the resolved
 URL, which would make a site on `localhost:4200` unreachable. We keep it.
 
-A forum the probe lands on under a path — a subfolder install — is refused with
-an explanation rather than saved. `DiscourseInstance.url` is both a site's
-identity and its base URL, and the instance store drops any stored entry that
-carries a path, so such a site would connect for the session and vanish at the
-next launch.
+A forum served from a subfolder is a site like any other. The path typed, or
+the one a redirect lands on, is kept in `DiscourseInstance.url`, which is both
+the site's identity and the base every request is joined to; app-built paths
+go through `resolveSitePath` so the prefix survives. A link belongs to such a
+site only when it is under that prefix, which is how `serves` and
+`TopicLink.parse` tell `example.com/forum` apart from anything else on the
+host.
 
 Sites are persisted with `shared_preferences`. This includes public site
 metadata and, once connected, the account's public username, name and avatar so

@@ -114,7 +114,6 @@ void main() {
             'url': 'https://reader:password@remote.example',
             'title': 'Credentials',
           },
-          {'url': 'https://remote.example/forum', 'title': 'Path'},
           {'url': 'https://remote.example?api_key=secret', 'title': 'Query'},
           {'url': 'https://remote.example#secret', 'title': 'Fragment'},
           {'url': 'https://remote.example:invalid', 'title': 'Invalid port'},
@@ -128,6 +127,25 @@ void main() {
       expect(loaded.single.url, 'https://kept.example');
       expect(loaded.single.host, 'kept.example');
     });
+
+    test(
+      'keeps a forum served from a subfolder, without its root slash',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'discourse_native.instances': jsonEncode([
+            {'url': 'https://remote.example/forum/', 'title': 'Subfolder'},
+            {'url': 'https://root.example/', 'title': 'Root'},
+          ]),
+        });
+
+        final loaded = await store.load();
+
+        expect(loaded.map((instance) => instance.url), [
+          'https://remote.example/forum',
+          'https://root.example',
+        ]);
+      },
+    );
 
     test(
       'ignores malformed optional appearance without dropping its site',

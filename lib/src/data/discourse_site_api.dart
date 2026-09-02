@@ -57,7 +57,9 @@ final class DiscourseSiteApi {
   }
 
   Future<DiscourseInstance> lookup(String term) async {
-    final probe = normalize(term).resolve('/user-api-key/new');
+    // Joined as text, not resolved as an absolute path: a forum served from
+    // a subfolder keeps the path the reader typed.
+    final probe = Uri.parse('${normalize(term)}/user-api-key/new');
 
     final DiscourseHeadResponse head;
     try {
@@ -104,15 +106,6 @@ final class DiscourseSiteApi {
         .toString()
         .replaceFirst(RegExp(r'/user-api-key/new/*$'), '')
         .replaceFirst(RegExp(r'/+$'), '');
-
-    // `DiscourseInstance.url` is both identity and base URL, and the instance
-    // store refuses a path on it. A forum reached under one would connect for
-    // this session and be dropped at the next launch, so refuse it here where
-    // the reader can be told.
-    final basePath = Uri.parse(baseUrl).path;
-    if (basePath.isNotEmpty && basePath != '/') {
-      throw SiteLookupException(SiteLookupFailure.subfolder, term);
-    }
 
     final Map<String, dynamic> info;
     try {

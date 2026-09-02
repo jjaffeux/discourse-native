@@ -73,7 +73,7 @@ class InstanceStore {
         // that crashes a later `DiscourseInstance.host` read during startup.
         final instance = _models.storedInstance({
           ...entry,
-          'url': _safeStoredOrigin(entry['url']),
+          'url': _safeStoredBase(entry['url']),
         });
         if (seenUrls.add(instance.url)) instances.add(instance);
       } catch (error, stackTrace) {
@@ -84,9 +84,9 @@ class InstanceStore {
     return instances;
   }
 
-  static String _safeStoredOrigin(Object? value) {
+  static String _safeStoredBase(Object? value) {
     if (value is! String) {
-      throw const FormatException('Invalid stored forum origin.');
+      throw const FormatException('Invalid stored forum base URL.');
     }
 
     final Uri parsed;
@@ -95,19 +95,19 @@ class InstanceStore {
     } on FormatException {
       // Uri.parse's exception retains its source. Do not put a damaged value
       // (which may contain credentials) into diagnostics.
-      throw const FormatException('Invalid stored forum origin.');
+      throw const FormatException('Invalid stored forum base URL.');
     }
 
     final safe = requireSafeHttpUrl(parsed);
-    if ((safe.path.isNotEmpty && safe.path != '/') ||
-        safe.hasQuery ||
-        safe.hasFragment) {
+    if (safe.hasQuery || safe.hasFragment) {
       throw UnsafeHttpTransportException(safe);
     }
 
-    // `DiscourseInstance.url` is both identity and base URL. Keep one stable
-    // spelling even when an older entry persisted the origin's root slash.
-    return safe.origin;
+    // `DiscourseInstance.url` is both identity and base URL, and a forum can
+    // be served from a subfolder. Keep one stable spelling — no trailing
+    // slash — even when an older entry persisted the root slash.
+    final path = safe.path.replaceFirst(RegExp(r'/+$'), '');
+    return '${safe.origin}$path';
   }
 
   Future<void> save(List<DiscourseInstance> instances) {
