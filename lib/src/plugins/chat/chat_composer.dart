@@ -578,6 +578,9 @@ class _ChatComposerState extends State<ChatComposer> {
     );
     if (!mounted || !identical(_composer, composer)) return;
     setState(() => _savingEdit = false);
+    // The list can have moved on to another message's edit while this one was
+    // out. Its outcome must neither end that edit nor annotate its document.
+    if (widget.editingMessage?.id != message.id) return;
     if (error != null) {
       composer.showNotice(error);
       return;

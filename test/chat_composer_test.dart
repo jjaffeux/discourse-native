@@ -95,6 +95,71 @@ void main() {
       expect(_text(tester), 'keep across collapse');
     });
 
+    testWidgets(
+      'an edit resolving after the list moved on leaves the next alone',
+      (tester) async {
+        const author = DiscourseUser(id: 2, username: 'sam');
+        final editGate = Completer<void>();
+        final fixture = await _fixture(
+          pages: const {},
+          sessionUser: author,
+          editGate: editGate,
+        );
+        addTearDown(fixture.shell.dispose);
+        ChatMessage message(int id, String raw) => ChatMessage(
+          id: id,
+          channelId: 9,
+          cooked: '<p>$raw</p>',
+          raw: raw,
+          author: const ChatMessageAuthor(id: 2, username: 'sam'),
+          createdAt: DateTime.utc(2026, 8, 11, 0, 0, id),
+        );
+        final first = message(1, 'first');
+        final second = message(2, 'second');
+        fixture.shell.chatRecords
+          ..put(_site, first)
+          ..put(_site, second);
+        var finished = 0;
+
+        await tester.pumpWidget(
+          _ComposerVisibilityView(
+            shell: fixture.shell,
+            visible: true,
+            editingMessage: first,
+            onEditFinished: () => finished++,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(_text(tester), 'first');
+
+        await tester.enterText(_composerField(), 'first, edited');
+        await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+        await tester.pump();
+        expect(fixture.api.chatMessagesEdited.single.messageId, 1);
+
+        // The list moves on to another message's edit while the first is out.
+        // The send control animates while the edit is out, so settle by hand.
+        await tester.pumpWidget(
+          _ComposerVisibilityView(
+            shell: fixture.shell,
+            visible: true,
+            editingMessage: second,
+            onEditFinished: () => finished++,
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(_text(tester), 'second');
+
+        editGate.complete();
+        await tester.pump();
+        await tester.pump();
+
+        expect(finished, 0);
+        expect(_text(tester), 'second');
+      },
+    );
+
     testWidgets('closed drawers retain separate channel and thread drafts', (
       tester,
     ) async {
@@ -1671,6 +1736,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   Map<String, SiteConfig> fetchedSiteConfigs = const {},
   DiscourseUser? sessionUser,
   Completer<void>? sendGate,
+  Completer<void>? editGate,
   WriteException? sendFailure,
   int? sentMessageId,
   SiteEmojiCatalog? emojiCatalog,
@@ -1683,6 +1749,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     user: sessionUser,
     chatMessagesByKey: pages,
     chatSendGate: sendGate,
+    chatEditGate: editGate,
     chatSendFailure: sendFailure,
     chatSentMessageId: sentMessageId ?? 1,
     composerUploadResult: composerUploadResult,
@@ -1845,11 +1912,15 @@ final class _ComposerVisibilityView extends StatelessWidget {
     required this.shell,
     required this.visible,
     this.threadId,
+    this.editingMessage,
+    this.onEditFinished,
   });
 
   final ShellController shell;
   final bool visible;
   final int? threadId;
+  final ChatMessage? editingMessage;
+  final VoidCallback? onEditFinished;
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -1860,7 +1931,13 @@ final class _ComposerVisibilityView extends StatelessWidget {
         theme: AppTheme.light,
         home: Scaffold(
           body: visible
-              ? ChatComposer(siteUrl: _site, channelId: 9, threadId: threadId)
+              ? ChatComposer(
+                  siteUrl: _site,
+                  channelId: 9,
+                  threadId: threadId,
+                  editingMessage: editingMessage,
+                  onEditFinished: onEditFinished,
+                )
               : const SizedBox.shrink(),
         ),
       ),
