@@ -1188,10 +1188,11 @@ final class FileVoiceDiagnosticsPersistence
       current = null;
       try {
         await open?.close();
+        await _deleteGroupTemps();
       } on Object {
-        // The failure being rethrown is the one worth reporting.
+        // The failure being rethrown is the one worth reporting; a leftover
+        // temp is removed by the next pass before it starts.
       }
-      await _deleteGroupTemps();
       rethrow;
     }
 
