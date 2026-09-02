@@ -1669,7 +1669,15 @@ class ShellController extends FrameSafeNotifier
     final tracking = instance == null
         ? null
         : _topicTrackingBySite[instance.url];
-    if (instance == null || user == null || tracking == null) {
+    // A live message can seed a site's tracking state before its snapshot
+    // has landed, or after that load failed. Counting from that state would
+    // show whichever topics happened to arrive on the bus as the whole
+    // category, so until the snapshot is in, there is no badge — the same
+    // rule topicListNewCounts applies before it trusts the state.
+    if (instance == null ||
+        user == null ||
+        tracking == null ||
+        !_topicTrackingSnapshotsLoaded.contains(instance.url)) {
       return SidebarBadge.none;
     }
     final showCount = user.sidebarShowCountOfNewItems;

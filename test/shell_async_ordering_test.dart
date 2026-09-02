@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/models/user_status.dart';
@@ -240,6 +241,62 @@ Future<FakeSiteTracker> _openTopic(ShellController shell) async {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('topic tracking snapshot authority', () {
+    const category = TopicCategory(id: 1, name: 'Support', color: '0088CC');
+    const unreadInCategory = {
+      'topic_id': 7,
+      'message_type': 'unread',
+      'payload': {
+        'highest_post_number': 3,
+        'category_id': 1,
+        'notification_level': 2,
+      },
+    };
+
+    test(
+      'a live message after a failed snapshot load shows no badge',
+      () async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          user: const DiscourseUser(id: 1, username: 'author'),
+          categoryList: const [category],
+          trackingStateGate: gate,
+        );
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        expect(api.topicTrackingRequests, [_siteUrl]);
+
+        gate.completeError(StateError('tracking unavailable'));
+        await pumpEventQueue();
+        FakeSiteTracker.built.single.deliverTopicTracking(unreadInCategory);
+        await pumpEventQueue();
+
+        expect(shell.sidebarBadgeFor('category-1'), SidebarBadge.none);
+      },
+    );
+
+    test('the same message after a loaded snapshot shows the badge', () async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        user: const DiscourseUser(id: 1, username: 'author'),
+        categoryList: const [category],
+        trackingStateGate: gate,
+      );
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+
+      expect(api.topicTrackingRequests, [_siteUrl]);
+      gate.complete();
+      await pumpEventQueue();
+      expect(shell.topicTrackingRevisionFor(_siteUrl), 1);
+      FakeSiteTracker.built.single.deliverTopicTracking(unreadInCategory);
+      await pumpEventQueue();
+      expect(shell.topicTrackingRevisionFor(_siteUrl), 2);
+
+      expect(shell.sidebarBadgeFor('category-1'), isNot(SidebarBadge.none));
+    });
+  });
 
   group('MessageBus bootstrap ordering', () {
     test('installs snapshots before subscribing at their positions', () async {
