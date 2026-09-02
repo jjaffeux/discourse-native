@@ -132,6 +132,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
   final _AggregateRequestPool _requests;
 
   final Map<String, _AggregateTabSession> _tabs = {};
+  final List<_ClosedAggregateTab> _closedTabs = [];
   late String _activeTabId;
   int _tabSequence = 0;
 
@@ -156,6 +157,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
     final loaded = await preferences.load();
     if (isDisposed) return;
     final valid = {for (final instance in instances) instance.url};
+    _closedTabs.clear();
     _tabs.clear();
     for (final saved in loaded.tabs.take(
       AggregatePreferencesStore.maximumTabs,
@@ -293,6 +295,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
     final ids = _tabs.keys.toList();
     final index = ids.indexOf(id);
     final closedActive = id == _activeTabId;
+    _rememberClosedTab(closing, index);
     closing.invalidate();
     _tabs.remove(id);
 
@@ -310,6 +313,35 @@ final class AggregateFeedController extends FrameSafeNotifier {
     return closedActive;
   }
 
+  bool reopenClosedTab() {
+    if (!canCreateTab) return false;
+    while (_closedTabs.isNotEmpty) {
+      final closed = _closedTabs.removeLast();
+      final preferences = closed.preferences;
+      if (_tabs.containsKey(preferences.id)) continue;
+
+      final reopened = _AggregateTabSession(
+        id: preferences.id,
+        name: preferences.name,
+        excludedForums: preferences.excludedForums,
+        queries: preferences.queries,
+      );
+      final entries = _tabs.entries.toList();
+      entries.insert(
+        closed.index.clamp(0, entries.length),
+        MapEntry(reopened.id, reopened),
+      );
+      _tabs
+        ..clear()
+        ..addEntries(entries);
+      _activeTabId = reopened.id;
+      unawaited(_persistTabs());
+      notifySafely();
+      return true;
+    }
+    return false;
+  }
+
   bool closeOtherTabs(String id) {
     final kept = _tabs[id];
     if (kept == null || _tabs.length == 1) return false;
@@ -323,6 +355,16 @@ final class AggregateFeedController extends FrameSafeNotifier {
     unawaited(_persistTabs());
     notifySafely();
     return true;
+  }
+
+  void _rememberClosedTab(_AggregateTabSession tab, int index) {
+    _closedTabs.removeWhere((closed) => closed.preferences.id == tab.id);
+    _closedTabs.add(
+      _ClosedAggregateTab(preferences: tab.preferences, index: index),
+    );
+    if (_closedTabs.length > AggregatePreferencesStore.maximumTabs) {
+      _closedTabs.removeAt(0);
+    }
   }
 
   String _nextTabId() {
@@ -664,6 +706,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
       tab.invalidate();
     }
     _tabs.clear();
+    _closedTabs.clear();
     _requests.close();
     super.dispose();
   }
@@ -675,6 +718,13 @@ final class AggregateFeedController extends FrameSafeNotifier {
     }
     return trimmed.substring(0, AggregatePreferencesStore.maximumQueryLength);
   }
+}
+
+final class _ClosedAggregateTab {
+  const _ClosedAggregateTab({required this.preferences, required this.index});
+
+  final AggregateTabPreferences preferences;
+  final int index;
 }
 
 final class _AggregateTabSession {

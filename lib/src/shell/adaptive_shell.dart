@@ -142,11 +142,17 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     if (!modifierPressed) return false;
 
     final controller = ShellScope.read(context);
-    final extraModifierPressed =
-        keyboard.isShiftPressed ||
-        keyboard.isAltPressed ||
-        (usesMetaModifier ? keyboard.isControlPressed : keyboard.isMetaPressed);
-    if (extraModifierPressed) return false;
+    final secondaryModifierPressed = usesMetaModifier
+        ? keyboard.isControlPressed
+        : keyboard.isMetaPressed;
+    if (keyboard.isAltPressed || secondaryModifierPressed) return false;
+
+    if (keyboard.isShiftPressed) {
+      if (event.logicalKey == LogicalKeyboardKey.keyT) {
+        return _reopenClosedTab(controller);
+      }
+      return false;
+    }
 
     if (event.logicalKey == LogicalKeyboardKey.keyF) {
       if (controller.rootMode != ShellRootMode.forum) return false;
@@ -225,6 +231,15 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         return false;
     }
     return true;
+  }
+
+  bool _reopenClosedTab(ShellController controller) {
+    if (!controller.forumTabsEnabled) return false;
+    return switch (controller.rootMode) {
+      ShellRootMode.aggregate => controller.reopenClosedAggregateTab(),
+      ShellRootMode.forum => controller.reopenClosedTab(),
+      ShellRootMode.settings => false,
+    };
   }
 
   bool _selectAdjacentTab(ShellController controller, int offset) {

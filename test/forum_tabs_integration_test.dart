@@ -175,7 +175,7 @@ void main() {
     TargetPlatform.windows,
   ]) {
     testWidgets(
-      '${platform.name} opens and closes tabs with its primary shortcuts',
+      '${platform.name} opens, closes, and reopens tabs with primary shortcuts',
       (tester) => _withPlatform(platform, () async {
         await _pumpShell(tester);
         final controller = ShellScope.read(
@@ -188,6 +188,15 @@ void main() {
 
         expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyT), isFalse);
         expect(controller.tabsForCurrentForum, hasLength(1));
+        expect(
+          await _pressShortcut(
+            tester,
+            modifier,
+            LogicalKeyboardKey.keyT,
+            shift: true,
+          ),
+          isFalse,
+        );
 
         expect(
           await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyT),
@@ -211,6 +220,58 @@ void main() {
         ]);
         expect(controller.activeTabId, originalTabId);
         expect(_bar(tester).selectedId, originalTabId);
+
+        expect(
+          await _pressShortcut(
+            tester,
+            modifier,
+            LogicalKeyboardKey.keyT,
+            shift: true,
+          ),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+
+        expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
+          originalTabId,
+          openedTabId,
+        ]);
+        expect(controller.activeTabId, openedTabId);
+        expect(_bar(tester).selectedId, openedTabId);
+
+        controller.selectAggregate();
+        await tester.pumpAndSettle();
+        final originalAggregateTabId = controller.activeAggregateTabId;
+
+        expect(
+          await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyT),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+        final openedAggregateTabId = controller.activeAggregateTabId;
+
+        expect(
+          await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyW),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+        expect(controller.activeAggregateTabId, originalAggregateTabId);
+
+        expect(
+          await _pressShortcut(
+            tester,
+            modifier,
+            LogicalKeyboardKey.keyT,
+            shift: true,
+          ),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+        expect(controller.activeAggregateTabId, openedAggregateTabId);
+        expect(controller.aggregateTabs.map((tab) => tab.id), [
+          originalAggregateTabId,
+          openedAggregateTabId,
+        ]);
       }),
     );
   }
@@ -693,10 +754,13 @@ Future<void> _withPlatform(
 Future<bool> _pressShortcut(
   WidgetTester tester,
   LogicalKeyboardKey modifier,
-  LogicalKeyboardKey key,
-) async {
+  LogicalKeyboardKey key, {
+  bool shift = false,
+}) async {
   await tester.sendKeyDownEvent(modifier);
+  if (shift) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
   final handled = await tester.sendKeyEvent(key);
+  if (shift) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
   await tester.sendKeyUpEvent(modifier);
   return handled;
 }

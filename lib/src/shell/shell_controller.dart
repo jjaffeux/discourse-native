@@ -144,6 +144,12 @@ typedef _SettingsReturnTarget = ({
 });
 typedef _PluginPaneKey = ({String siteUrl, String tabId, PluginId owner});
 typedef _PluginPaneStateKey = ({String siteUrl, String tabId});
+typedef _ClosedForumTab = ({
+  String siteUrl,
+  String accountIdentity,
+  ForumTab tab,
+  int index,
+});
 
 int? _destinationNumericId(String destinationId, String prefix) {
   if (!destinationId.startsWith(prefix)) return null;
@@ -978,6 +984,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   final Map<String, ForumWorkspace> _forumWorkspaces = {};
+  final List<_ClosedForumTab> _closedForumTabs = [];
   final Map<_PluginPaneKey, ForumTab> _mainPaneTabs = {};
   final Map<_PluginPaneKey, ForumTab> _pluginPaneTabs = {};
   final Map<_PluginPaneStateKey, PluginId> _activePluginPanes = {};
@@ -10777,6 +10784,12 @@ class ShellController extends FrameSafeNotifier
     if (openedAnotherTab) unawaited(aggregate.open(_instances));
   }
 
+  bool reopenClosedAggregateTab() {
+    if (!forumTabsEnabled || !aggregate.reopenClosedTab()) return false;
+    unawaited(aggregate.open(_instances));
+    return true;
+  }
+
   void moveAggregateTab(String id, int newIndex) {
     if (!forumTabsEnabled) return;
     aggregate.moveTab(id, newIndex);
@@ -11060,6 +11073,12 @@ class ShellController extends FrameSafeNotifier
     }
 
     final closedActive = workspace.activeTabId == id;
+    _rememberClosedForumTab(
+      siteUrl: workspace.siteUrl,
+      accountIdentity: workspace.accountIdentity,
+      tab: workspace.tabs[index],
+      index: index,
+    );
     late ForumWorkspace replacement;
     if (workspace.tabs.length == 1) {
       final fresh = _newDefaultTab(instance);
@@ -11082,6 +11101,56 @@ class ShellController extends FrameSafeNotifier
       _hydrateActiveTab(instance);
     }
     _notify();
+  }
+
+  bool reopenClosedTab() {
+    if (!forumTabsEnabled || !canCreateTab) return false;
+    final instance = currentInstance;
+    final workspace = currentWorkspace;
+    if (instance == null || workspace == null) return false;
+
+    for (var index = _closedForumTabs.length - 1; index >= 0; index--) {
+      final closed = _closedForumTabs[index];
+      if (closed.siteUrl != workspace.siteUrl ||
+          closed.accountIdentity != workspace.accountIdentity) {
+        continue;
+      }
+      _closedForumTabs.removeAt(index);
+      if (workspace.tabById(closed.tab.id) != null) continue;
+
+      final tabs = List<ForumTab>.of(workspace.tabs);
+      tabs.insert(closed.index.clamp(0, tabs.length), closed.tab);
+      _putWorkspace(workspace.copyWith(tabs: tabs, activeTabId: closed.tab.id));
+      _mobilePane = MobilePane.content;
+      _syncTopicChannels();
+      _notify();
+      _hydrateActiveTab(instance);
+      return true;
+    }
+    return false;
+  }
+
+  void _rememberClosedForumTab({
+    required String siteUrl,
+    required String accountIdentity,
+    required ForumTab tab,
+    required int index,
+  }) {
+    _closedForumTabs.removeWhere(
+      (closed) =>
+          closed.siteUrl == siteUrl &&
+          closed.accountIdentity == accountIdentity &&
+          closed.tab.id == tab.id,
+    );
+    _closedForumTabs.add((
+      siteUrl: siteUrl,
+      accountIdentity: accountIdentity,
+      tab: tab,
+      index: index,
+    ));
+    if (_closedForumTabs.length > ForumWorkspace.maximumTabs) {
+      _closedForumTabs.removeAt(0);
+    }
   }
 
   void closeOtherTabs(String id) {
@@ -11473,6 +11542,7 @@ class ShellController extends FrameSafeNotifier
       _persistWorkspaces();
     }
     _topicNotificationRevisions.clear();
+    _closedForumTabs.clear();
     _topicNotificationTails.clear();
     _topicNotificationConfirmed.clear();
     _categoryNotificationRevisions.clear();
