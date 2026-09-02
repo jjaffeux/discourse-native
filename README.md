@@ -1993,12 +1993,15 @@ Uploaded video is a separate, shared media path. Chat exposes an upload record
 outside cooked HTML, while topics use either core's lazy
 `video-placeholder-container` or its activated `video-onebox` markup;
 [`inline_video.dart`](lib/src/shell/inline_video.dart) normalizes all three into
-the same lazy poster and accessible Play/Open actions. iOS and macOS use
-Flutter's official `video_player` AVFoundation backend and small Flutter
-controls, including a full-screen route that keeps the current playback
-position. Linux reuses the existing WebKitGTK surface with an owned HTML5
-`<video>` document and native controls. This keeps Apple builds on Swift
-Package Manager and avoids shipping a second Linux media framework.
+the same lazy poster and accessible Play/Open actions. Its app-owned
+[`inline_video_playback.dart`](lib/src/shell/inline_video_playback.dart) session
+boundary exposes platform-neutral state and playback intents while keeping
+platform controller ownership behind adapters. iOS and macOS use Flutter's
+official `video_player` AVFoundation backend and small Flutter controls,
+including a full-screen route that keeps the current playback position. Linux
+reuses the existing WebKitGTK surface with an owned HTML5 `<video>` document
+and native controls. This keeps Apple builds on Swift Package Manager and
+avoids shipping a second Linux media framework.
 
 A protected same-origin upload is resolved before playback. User API headers
 are sent only to the forum while redirects are walked explicitly; the player
