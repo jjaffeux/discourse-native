@@ -79,6 +79,14 @@ String _voiceDirectoryDiagnosticType(Object? value) => switch (value) {
   _ => 'unknown',
 };
 
+/// Message bus positions only move forward: a cursor served or delivered
+/// behind the one already held is a replay, not news.
+int? _newerCursor(int? current, int? incoming) {
+  if (incoming == null) return current;
+  if (current == null || incoming > current) return incoming;
+  return current;
+}
+
 @immutable
 class VoiceChatSnapshot {
   const VoiceChatSnapshot({
@@ -232,6 +240,7 @@ final class VoiceController extends ChangeNotifier {
   final Map<String, PluginLiveChannelSubscription> _directorySubscriptions = {};
   final Map<String, Map<int, PluginLiveChannelSubscription>>
   _roomSubscriptions = {};
+  final Map<String, _VoiceLiveCursors> _liveCursors = {};
   final Map<String, String> _errors = {};
   final Map<String, _VoiceChatAssociation> _chats = {};
   final Map<String, Object> _siteSessions = {};
@@ -465,7 +474,7 @@ final class VoiceController extends ChangeNotifier {
         component: 'room',
         data: {'roomCount': directory.rooms.length},
       );
-      _replaceSubscriptions(siteUrl, directory);
+      _syncSubscriptions(siteUrl, directory);
     } on SiteLookupException catch (error, stackTrace) {
       if (!isCurrent()) return;
       // Plugin absence and account refusal both mean no section for this site
@@ -528,7 +537,7 @@ final class VoiceController extends ChangeNotifier {
       _attachedTrackers[siteUrl] = tracker;
     }
     final directory = _directories[siteUrl];
-    if (directory != null) _replaceSubscriptions(siteUrl, directory);
+    if (directory != null) _syncSubscriptions(siteUrl, directory);
   }
 
   PluginLiveChannelHandle? _trackerFor(String siteUrl) =>
@@ -543,41 +552,60 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
-  void _replaceSubscriptions(String siteUrl, VoiceDirectory directory) {
+  /// Brings the site's subscriptions in line with [directory]: the index and
+  /// any room without one are subscribed, rooms that left are cancelled. A
+  /// live subscription keeps its own position on the wire and is never
+  /// replaced here: re-subscribing from the snapshot cursor would replay every
+  /// message published since the load, and each replay would arrive in
+  /// [_onDirectoryEvent] to trigger the next. Subscriptions are replaced only
+  /// with the tracker ([attachTracker]) and dropped only with the site
+  /// ([forget]).
+  void _syncSubscriptions(String siteUrl, VoiceDirectory directory) {
     final tracker = _trackerFor(siteUrl);
     if (tracker == null) return;
+    final cursors = _liveCursors.putIfAbsent(siteUrl, _VoiceLiveCursors.new);
+    var changed = false;
+    if (!_directorySubscriptions.containsKey(siteUrl)) {
+      _directorySubscriptions[siteUrl] = tracker.subscribe(
+        '/voice/rooms/index',
+        (data, messageId) => _onDirectoryEvent(siteUrl, data, messageId),
+        lastId: cursors.directoryCursor(directory.messageBusLastId),
+      );
+      changed = true;
+    }
+    final subscriptions = _roomSubscriptions.putIfAbsent(siteUrl, () => {});
+    final wanted = {for (final room in directory.rooms) room.id};
+    for (final id
+        in subscriptions.keys.where((id) => !wanted.contains(id)).toList()) {
+      subscriptions.remove(id)?.cancel();
+      cursors.dropRoom(id);
+      changed = true;
+    }
+    for (final room in directory.rooms) {
+      if (subscriptions.containsKey(room.id)) continue;
+      subscriptions[room.id] = tracker.subscribe(
+        '/voice/rooms/${room.id}',
+        (data, messageId) => _onRoomEvent(siteUrl, room.id, data, messageId),
+        lastId: cursors.roomCursor(room.id, room.messageBusLastId),
+      );
+      changed = true;
+    }
+    if (!changed) return;
     _record(
       'room.subscriptions.synced',
       component: 'room',
       correlationId: _correlationForSite(siteUrl),
       data: {'roomCount': directory.rooms.length},
     );
-    _directorySubscriptions.remove(siteUrl)?.cancel();
-    _directorySubscriptions[siteUrl] = tracker.subscribe(
-      '/voice/rooms/index',
-      (data, _) => _onDirectoryEvent(siteUrl, data),
-      lastId: directory.messageBusLastId,
-    );
-    final subscriptions = _roomSubscriptions.putIfAbsent(siteUrl, () => {});
-    final wanted = {for (final room in directory.rooms) room.id};
-    for (final id
-        in subscriptions.keys.where((id) => !wanted.contains(id)).toList()) {
-      subscriptions.remove(id)?.cancel();
-    }
-    for (final room in directory.rooms) {
-      subscriptions.putIfAbsent(
-        room.id,
-        () => tracker.subscribe(
-          '/voice/rooms/${room.id}',
-          (data, _) => _onRoomEvent(siteUrl, room.id, data),
-          lastId: room.messageBusLastId,
-        ),
-      );
-    }
   }
 
-  void _onDirectoryEvent(String siteUrl, Object? data) {
-    if (_disposed || data is! Map<String, dynamic>) return;
+  void _onDirectoryEvent(String siteUrl, Object? data, int messageId) {
+    if (_disposed) return;
+    // A delivered message is consumed whether or not its payload is
+    // understood; the cursor moves so a replacement tracker is not handed it
+    // again.
+    _liveCursors[siteUrl]?.directoryDelivered(messageId);
+    if (data is! Map<String, dynamic>) return;
     final rawRoom = data['room'];
     if (rawRoom is! Map<String, dynamic>) return;
     final incoming = VoiceRoom.fromJson(rawRoom);
@@ -627,7 +655,7 @@ final class VoiceController extends ChangeNotifier {
       canCreateRoom: held.canCreateRoom,
       messageBusLastId: held.messageBusLastId,
     );
-    _replaceSubscriptions(siteUrl, _directories[siteUrl]!);
+    _syncSubscriptions(siteUrl, _directories[siteUrl]!);
     notifyListeners();
   }
 
@@ -636,8 +664,10 @@ final class VoiceController extends ChangeNotifier {
     VoiceRoom incoming,
   ) => incoming.copyWithPrivileged(held);
 
-  void _onRoomEvent(String siteUrl, int roomId, Object? data) {
-    if (_disposed || data is! Map<String, dynamic>) return;
+  void _onRoomEvent(String siteUrl, int roomId, Object? data, int messageId) {
+    if (_disposed) return;
+    _liveCursors[siteUrl]?.roomDelivered(roomId, messageId);
+    if (data is! Map<String, dynamic>) return;
     if (data['type'] == 'signal') {
       _observe(
         () => _handleSignalEnvelope(siteUrl, roomId, data),
@@ -2981,6 +3011,7 @@ final class VoiceController extends ChangeNotifier {
     _chatRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _pendingInviteRefs.remove(siteUrl);
     _directories.remove(siteUrl);
+    _liveCursors.remove(siteUrl);
     _attachedTrackers.remove(siteUrl);
     _unavailableSites.remove(siteUrl);
     _linkedRooms.remove(siteUrl);
@@ -3346,12 +3377,41 @@ final class _VoiceInviteRef {
   final String username;
 }
 
+/// Where a site's live channels have been read to. The directory and room
+/// records keep the cursors their payloads were served with; these advance
+/// with every delivered message, so a replacement tracker resumes after the
+/// last message this client consumed instead of replaying everything the
+/// server published since the load.
+final class _VoiceLiveCursors {
+  int? _directory;
+  final Map<int, int> _rooms = {};
+
+  int? directoryCursor(int? snapshot) => _newerCursor(snapshot, _directory);
+
+  int? roomCursor(int roomId, int? snapshot) =>
+      _newerCursor(snapshot, _rooms[roomId]);
+
+  void directoryDelivered(int messageId) {
+    final current = _directory;
+    if (current == null || messageId > current) _directory = messageId;
+  }
+
+  void roomDelivered(int roomId, int messageId) {
+    final current = _rooms[roomId];
+    if (current == null || messageId > current) _rooms[roomId] = messageId;
+  }
+
+  void dropRoom(int roomId) => _rooms.remove(roomId);
+}
+
 extension on VoiceRoom {
   /// A refreshed room, keeping whatever the held copy could see that this one
   /// could not. A directory listing is answered to whoever asked for it, so a
   /// room fetched anonymously omits the management and chat fields the joined
-  /// copy already carries.
+  /// copy already carries, and a listing serialized before the held copy's
+  /// last room message carries an older channel cursor.
   VoiceRoom copyWithPrivileged(VoiceRoom held) => copyWith(
+    messageBusLastId: _newerCursor(held.messageBusLastId, messageBusLastId),
     canManage: canManage || held.canManage,
     chatAvailable: chatAvailable || held.chatAvailable,
     chatChannelId: chatChannelId ?? held.chatChannelId,

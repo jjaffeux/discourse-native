@@ -262,6 +262,7 @@ class VoiceRoom {
   final VoiceRecording? recording;
 
   VoiceRoom copyWith({
+    int? messageBusLastId,
     List<VoiceParticipant>? participants,
     bool? canManage,
     bool? chatAvailable,
@@ -282,7 +283,7 @@ class VoiceRoom {
     type: type,
     maxParticipants: maxParticipants,
     memberCount: memberCount,
-    messageBusLastId: messageBusLastId,
+    messageBusLastId: messageBusLastId ?? this.messageBusLastId,
     participants: participants ?? this.participants,
     creatorId: creatorId,
     canManage: canManage ?? this.canManage,
