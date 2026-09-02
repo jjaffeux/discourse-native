@@ -2134,7 +2134,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     String? replyToUsername,
     bool replyingToWhisper = false,
   }) {
-    if (_disposed || _discarding) return;
+    // A submit already out was built from the target as it stood; the reply
+    // it will create must not change underneath it.
+    if (_disposed || _discarding || _state == ComposerState.submitting) return;
     _target = _target.replyingTo(
       replyToPostNumber,
       replyToUsername,

@@ -9057,6 +9057,10 @@ class ShellController extends FrameSafeNotifier
 
     final target = composer.target;
     final raw = composer.raw;
+    // Read beside `raw`, not after the awaits: a reply retargeted at a whisper
+    // while this one is out would otherwise post what was written in public
+    // as a whisper.
+    final whisper = composer.whisper;
     final lease = lifecycle.capture(target.siteUrl);
 
     if (target.isEdit) return _submitEdit(composer, target, raw);
@@ -9096,7 +9100,7 @@ class ShellController extends FrameSafeNotifier
               topicId: target.topicId,
               raw: raw,
               replyToPostNumber: target.replyToPostNumber,
-              whisper: composer.whisper,
+              whisper: whisper,
               typingDuration: composer.typingDuration,
               composerOpenDuration: composer.openDuration,
               draftKey: target.draftKey,

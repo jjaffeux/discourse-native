@@ -76,6 +76,17 @@ void main() {
     expect(composer.hasChanges, isTrue);
   });
 
+  test('a reply is not retargeted while its submit is out', () {
+    final composer = ComposerController(_target);
+    addTearDown(composer.dispose);
+
+    composer.beginSubmit();
+    composer.retarget(replyToPostNumber: 9, replyingToWhisper: true);
+
+    expect(composer.target.replyToPostNumber, isNull);
+    expect(composer.whisper, isFalse);
+  });
+
   test('an unresolved composer can still be discarded', () {
     final composer = ComposerController(_target);
     addTearDown(composer.dispose);

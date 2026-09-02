@@ -221,6 +221,45 @@ void _registerTopicReplyTests() {
       expect(renderedText('Sounds good to me.'), findsOneWidget);
     });
 
+    testWidgets(
+      'a reply retargeted at a whisper while sending posts as written',
+      (tester) async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail()},
+          createPostGate: gate,
+        );
+
+        await openTopic(tester, api);
+        await tester.tap(find.byTooltip('Reply to this topic'));
+        await tester.pumpAndSettle();
+        final shell = ShellScope.read(
+          tester.element(find.byType(ComposerPanel)),
+        );
+
+        await tester.enterText(find.byType(TextField), 'Said in public.');
+        await tester.pumpAndSettle();
+        await tester.tap(sendButton());
+        await tester.pump();
+        expect(shell.visibleComposer?.submitting, isTrue);
+
+        // A reply to a whisper is itself a whisper; while the public one is
+        // out, retargeting must neither change what it posts nor where.
+        shell.openReply(replyToPostNumber: 1, replyingToWhisper: true);
+        await tester.pump();
+        expect(shell.visibleComposer?.whisper, isFalse);
+        expect(shell.visibleComposer?.target.replyToPostNumber, isNull);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(api.created.single['whisper'], isFalse);
+        expect(api.created.single['replyToPostNumber'], isNull);
+        expect(find.byType(ComposerPanel), findsNothing);
+      },
+    );
+
     testWidgets('a whisperer can toggle and submit a whispered reply', (
       tester,
     ) async {
