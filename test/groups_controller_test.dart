@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/group.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/shell/groups_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,18 +26,109 @@ Completer<T> _completed<T>(T value) => Completer<T>()..complete(value);
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('group state snapshots defensively own every exposed list', () {
+    final groups = [const Group(id: 1, name: 'alpha')];
+    final typeFilters = ['public'];
+    final members = [const GroupMember(id: 2, username: 'sam')];
+    final requesters = [const GroupRequester(id: 3, username: 'lee')];
+    final posts = [
+      const GroupActivityPost(
+        id: 4,
+        topicId: 40,
+        postNumber: 1,
+        topicTitle: 'Update',
+        topicSlug: 'update',
+        excerpt: 'News',
+      ),
+    ];
+    final permissions = [
+      const GroupPermission(
+        type: GroupPermissionType.full,
+        category: TopicCategory(id: 5, name: 'Support', color: '0088CC'),
+      ),
+    ];
+    final logs = [const GroupLogEntry(action: 'add_user')];
+
+    final directory = GroupDirectoryState(
+      groups: groups,
+      typeFilters: typeFilters,
+    );
+    final memberState = GroupMembersState(members: members);
+    final requesterState = GroupRequestersState(requesters: requesters);
+    final activity = GroupActivityState(posts: posts);
+    final permissionState = GroupPermissionsState(permissions: permissions);
+    final logState = GroupLogsState(logs: logs);
+
+    groups.add(const Group(id: 6, name: 'beta'));
+    typeFilters.add('private');
+    members.add(const GroupMember(id: 7, username: 'alex'));
+    requesters.add(const GroupRequester(id: 8, username: 'pat'));
+    posts.add(
+      const GroupActivityPost(
+        id: 9,
+        topicId: 90,
+        postNumber: 1,
+        topicTitle: 'Late update',
+        topicSlug: 'late-update',
+        excerpt: 'Late news',
+      ),
+    );
+    permissions.add(
+      const GroupPermission(
+        type: GroupPermissionType.readOnly,
+        category: TopicCategory(id: 10, name: 'Staff', color: '00AA00'),
+      ),
+    );
+    logs.add(const GroupLogEntry(action: 'remove_user'));
+
+    expect(directory.groups.map((group) => group.id), [1]);
+    expect(directory.typeFilters, ['public']);
+    expect(memberState.members.map((member) => member.id), [2]);
+    expect(requesterState.requesters.map((requester) => requester.id), [3]);
+    expect(activity.posts.map((post) => post.id), [4]);
+    expect(
+      permissionState.permissions.map((permission) => permission.category.id),
+      [5],
+    );
+    expect(logState.logs.map((log) => log.action), ['add_user']);
+
+    expect(
+      () => directory.groups.add(const Group(id: 11, name: 'gamma')),
+      throwsUnsupportedError,
+    );
+    expect(
+      () => directory.typeFilters.add('automatic'),
+      throwsUnsupportedError,
+    );
+    expect(
+      () =>
+          memberState.members.add(const GroupMember(id: 12, username: 'jules')),
+      throwsUnsupportedError,
+    );
+    expect(
+      () => requesterState.requesters.add(
+        const GroupRequester(id: 13, username: 'morgan'),
+      ),
+      throwsUnsupportedError,
+    );
+    expect(() => activity.posts.clear(), throwsUnsupportedError);
+    expect(() => permissionState.permissions.clear(), throwsUnsupportedError);
+    expect(() => logState.logs.clear(), throwsUnsupportedError);
+  });
+
   test(
     'directory pagination merges by ID and preserves the confirmed page',
     () async {
+      final firstPayload = <String, dynamic>{
+        'groups': [
+          {'id': 1, 'name': 'alpha'},
+        ],
+        'total_rows_groups': 2,
+        'load_more_groups': '/groups?page=1',
+      };
       final transport = _ControlledGroupTransport()
         ..objects.addAll([
-          _completed({
-            'groups': [
-              {'id': 1, 'name': 'alpha'},
-            ],
-            'total_rows_groups': 2,
-            'load_more_groups': '/groups?page=1',
-          }),
+          _completed(firstPayload),
           _completed({
             'groups': [
               {'id': 1, 'name': 'alpha'},
@@ -50,7 +142,19 @@ void main() {
       const query = GroupDirectoryQuery();
 
       await controller.loadDirectory(_instance, query);
-      await controller.loadDirectory(_instance, query, more: true);
+      final confirmed = controller.directoryState(_site, query);
+      (firstPayload['groups'] as List<Object?>).add({'id': 99, 'name': 'late'});
+
+      expect(confirmed.groups.map((group) => group.id), [1]);
+      expect(
+        () => confirmed.groups.add(const Group(id: 99, name: 'late')),
+        throwsUnsupportedError,
+      );
+
+      final paging = controller.loadDirectory(_instance, query, more: true);
+      final loading = controller.directoryState(_site, query);
+      expect(loading.groups, same(confirmed.groups));
+      await paging;
 
       final state = controller.directoryState(_site, query);
       expect(state.groups.map((group) => group.id), [1, 2]);
@@ -227,6 +331,46 @@ void main() {
       expect(state.detail, isNull);
     },
   );
+
+  test('a stale directory response cannot replace a newer request', () async {
+    final first = Completer<Map<String, dynamic>>();
+    final second = Completer<Map<String, dynamic>>();
+    final transport = _ControlledGroupTransport()
+      ..objects.addAll([first, second]);
+    final lifecycle = SiteLifecycle();
+    final controller = _controller(transport, lifecycle: lifecycle);
+    addTearDown(controller.dispose);
+    const query = GroupDirectoryQuery();
+
+    final staleLoad = controller.loadDirectory(_instance, query);
+    await pumpEventQueue();
+    expect(transport.gets, hasLength(1));
+
+    lifecycle.invalidate(_site);
+    controller.forget(_site);
+    final currentLoad = controller.loadDirectory(_instance, query);
+    await pumpEventQueue();
+    expect(transport.gets, hasLength(2));
+
+    second.complete({
+      'groups': [
+        {'id': 2, 'name': 'current'},
+      ],
+      'total_rows_groups': 1,
+    });
+    await currentLoad;
+    first.complete({
+      'groups': [
+        {'id': 1, 'name': 'stale'},
+      ],
+      'total_rows_groups': 1,
+    });
+    await staleLoad;
+
+    final state = controller.directoryState(_site, query);
+    expect(state.groups.map((group) => group.name), ['current']);
+    expect(state.totalRows, 1);
+  });
 }
 
 GroupsController _controller(

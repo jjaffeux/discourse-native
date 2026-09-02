@@ -41,9 +41,38 @@ final class GroupDirectoryQuery {
 
 const Object _absent = Object();
 
+List<T> _immutableSnapshot<T>(List<T> values) =>
+    values.isEmpty ? const [] : List<T>.unmodifiable(values);
+
 @immutable
 final class GroupDirectoryState {
-  const GroupDirectoryState({
+  factory GroupDirectoryState({
+    List<Group> groups = const [],
+    List<String> typeFilters = const [],
+    int totalRows = 0,
+    int nextPage = 0,
+    bool hasMore = false,
+    bool loading = false,
+    bool loadingMore = false,
+    bool loaded = false,
+    String? error,
+    bool pageError = false,
+  }) => GroupDirectoryState._(
+    groups: _immutableSnapshot(groups),
+    typeFilters: _immutableSnapshot(typeFilters),
+    totalRows: totalRows,
+    nextPage: nextPage,
+    hasMore: hasMore,
+    loading: loading,
+    loadingMore: loadingMore,
+    loaded: loaded,
+    error: error,
+    pageError: pageError,
+  );
+
+  const GroupDirectoryState.empty() : this._();
+
+  const GroupDirectoryState._({
     this.groups = const [],
     this.typeFilters = const [],
     this.totalRows = 0,
@@ -87,7 +116,31 @@ final class GroupDetailState {
 
 @immutable
 final class GroupMembersState {
-  const GroupMembersState({
+  factory GroupMembersState({
+    List<GroupMember> members = const [],
+    int total = 0,
+    int nextOffset = 0,
+    bool hasMore = false,
+    bool loading = false,
+    bool loadingMore = false,
+    bool loaded = false,
+    String? error,
+    bool pageError = false,
+  }) => GroupMembersState._(
+    members: _immutableSnapshot(members),
+    total: total,
+    nextOffset: nextOffset,
+    hasMore: hasMore,
+    loading: loading,
+    loadingMore: loadingMore,
+    loaded: loaded,
+    error: error,
+    pageError: pageError,
+  );
+
+  const GroupMembersState.empty() : this._();
+
+  const GroupMembersState._({
     this.members = const [],
     this.total = 0,
     this.nextOffset = 0,
@@ -112,7 +165,31 @@ final class GroupMembersState {
 
 @immutable
 final class GroupRequestersState {
-  const GroupRequestersState({
+  factory GroupRequestersState({
+    List<GroupRequester> requesters = const [],
+    int total = 0,
+    int nextOffset = 0,
+    bool hasMore = false,
+    bool loading = false,
+    bool loadingMore = false,
+    bool loaded = false,
+    String? error,
+    bool pageError = false,
+  }) => GroupRequestersState._(
+    requesters: _immutableSnapshot(requesters),
+    total: total,
+    nextOffset: nextOffset,
+    hasMore: hasMore,
+    loading: loading,
+    loadingMore: loadingMore,
+    loaded: loaded,
+    error: error,
+    pageError: pageError,
+  );
+
+  const GroupRequestersState.empty() : this._();
+
+  const GroupRequestersState._({
     this.requesters = const [],
     this.total = 0,
     this.nextOffset = 0,
@@ -137,7 +214,27 @@ final class GroupRequestersState {
 
 @immutable
 final class GroupActivityState {
-  const GroupActivityState({
+  factory GroupActivityState({
+    List<GroupActivityPost> posts = const [],
+    bool hasMore = false,
+    bool loading = false,
+    bool loadingMore = false,
+    bool loaded = false,
+    String? error,
+    bool pageError = false,
+  }) => GroupActivityState._(
+    posts: _immutableSnapshot(posts),
+    hasMore: hasMore,
+    loading: loading,
+    loadingMore: loadingMore,
+    loaded: loaded,
+    error: error,
+    pageError: pageError,
+  );
+
+  const GroupActivityState.empty() : this._();
+
+  const GroupActivityState._({
     this.posts = const [],
     this.hasMore = false,
     this.loading = false,
@@ -158,7 +255,21 @@ final class GroupActivityState {
 
 @immutable
 final class GroupPermissionsState {
-  const GroupPermissionsState({
+  factory GroupPermissionsState({
+    List<GroupPermission> permissions = const [],
+    bool loading = false,
+    bool loaded = false,
+    String? error,
+  }) => GroupPermissionsState._(
+    permissions: _immutableSnapshot(permissions),
+    loading: loading,
+    loaded: loaded,
+    error: error,
+  );
+
+  const GroupPermissionsState.empty() : this._();
+
+  const GroupPermissionsState._({
     this.permissions = const [],
     this.loading = false,
     this.loaded = false,
@@ -173,7 +284,29 @@ final class GroupPermissionsState {
 
 @immutable
 final class GroupLogsState {
-  const GroupLogsState({
+  factory GroupLogsState({
+    List<GroupLogEntry> logs = const [],
+    int nextPage = 0,
+    bool hasMore = false,
+    bool loading = false,
+    bool loadingMore = false,
+    bool loaded = false,
+    String? error,
+    bool pageError = false,
+  }) => GroupLogsState._(
+    logs: _immutableSnapshot(logs),
+    nextPage: nextPage,
+    hasMore: hasMore,
+    loading: loading,
+    loadingMore: loadingMore,
+    loaded: loaded,
+    error: error,
+    pageError: pageError,
+  );
+
+  const GroupLogsState.empty() : this._();
+
+  const GroupLogsState._({
     this.logs = const [],
     this.nextPage = 0,
     this.hasMore = false,
@@ -234,7 +367,7 @@ final class GroupsController extends FrameSafeNotifier {
     GroupDirectoryQuery query,
   ) =>
       _directories[(siteUrl: siteUrl, query: query)] ??
-      const GroupDirectoryState();
+      const GroupDirectoryState.empty();
 
   GroupDirectoryState? presentedDirectoryState(String siteUrl) {
     final query = _presentedDirectoryQueries[siteUrl];
@@ -252,7 +385,7 @@ final class GroupsController extends FrameSafeNotifier {
     bool ascending = true,
   }) =>
       _members[_memberListKey(siteUrl, groupName, filter, order, ascending)] ??
-      const GroupMembersState();
+      const GroupMembersState.empty();
 
   GroupRequestersState requestersState(
     String siteUrl,
@@ -260,7 +393,7 @@ final class GroupsController extends FrameSafeNotifier {
     String filter = '',
   }) =>
       _requesters[_filterListKey(siteUrl, groupName, filter)] ??
-      const GroupRequestersState();
+      const GroupRequestersState.empty();
 
   GroupActivityState activityState(
     String siteUrl,
@@ -272,14 +405,14 @@ final class GroupsController extends FrameSafeNotifier {
         groupName: _normalize(groupName),
         mentions: mentions,
       )] ??
-      const GroupActivityState();
+      const GroupActivityState.empty();
 
   GroupPermissionsState permissionsState(String siteUrl, String groupName) =>
       _permissions[_groupKey(siteUrl, groupName)] ??
-      const GroupPermissionsState();
+      const GroupPermissionsState.empty();
 
   GroupLogsState logsState(String siteUrl, String groupName) =>
-      _logs[_groupKey(siteUrl, groupName)] ?? const GroupLogsState();
+      _logs[_groupKey(siteUrl, groupName)] ?? const GroupLogsState.empty();
 
   Future<void> loadDirectory(
     DiscourseInstance instance,
@@ -298,7 +431,7 @@ final class GroupsController extends FrameSafeNotifier {
       return;
     }
     final token = _start(key, instance.url);
-    _directories[key] = GroupDirectoryState(
+    _directories[key] = GroupDirectoryState._(
       groups: held.groups,
       typeFilters: held.typeFilters,
       totalRows: held.totalRows,
@@ -339,7 +472,7 @@ final class GroupsController extends FrameSafeNotifier {
       });
     } catch (error, stackTrace) {
       _fail(token, 'groups.directory', error, stackTrace, () {
-        _directories[key] = GroupDirectoryState(
+        _directories[key] = GroupDirectoryState._(
           groups: held.groups,
           typeFilters: held.typeFilters,
           totalRows: held.totalRows,
@@ -427,7 +560,7 @@ final class GroupsController extends FrameSafeNotifier {
       return;
     }
     final token = _start(key, instance.url);
-    _members[key] = GroupMembersState(
+    _members[key] = GroupMembersState._(
       members: held.members,
       total: held.total,
       nextOffset: held.nextOffset,
@@ -466,7 +599,7 @@ final class GroupsController extends FrameSafeNotifier {
       });
     } catch (error, stackTrace) {
       _fail(token, 'groups.members', error, stackTrace, () {
-        _members[key] = GroupMembersState(
+        _members[key] = GroupMembersState._(
           members: held.members,
           total: held.total,
           nextOffset: held.nextOffset,
@@ -499,7 +632,7 @@ final class GroupsController extends FrameSafeNotifier {
     }
     final requestKey = ('requesters', key);
     final token = _start(requestKey, instance.url);
-    _requesters[key] = GroupRequestersState(
+    _requesters[key] = GroupRequestersState._(
       requesters: held.requesters,
       total: held.total,
       nextOffset: held.nextOffset,
@@ -536,7 +669,7 @@ final class GroupsController extends FrameSafeNotifier {
       });
     } catch (error, stackTrace) {
       _fail(token, 'groups.requests', error, stackTrace, () {
-        _requesters[key] = GroupRequestersState(
+        _requesters[key] = GroupRequestersState._(
           requesters: held.requesters,
           total: held.total,
           nextOffset: held.nextOffset,
@@ -572,7 +705,7 @@ final class GroupsController extends FrameSafeNotifier {
       return;
     }
     final token = _start(key, instance.url);
-    _activities[key] = GroupActivityState(
+    _activities[key] = GroupActivityState._(
       posts: held.posts,
       hasMore: held.hasMore,
       loading: !more,
@@ -615,7 +748,7 @@ final class GroupsController extends FrameSafeNotifier {
       });
     } catch (error, stackTrace) {
       _fail(token, 'groups.activity', error, stackTrace, () {
-        _activities[key] = GroupActivityState(
+        _activities[key] = GroupActivityState._(
           posts: held.posts,
           hasMore: held.hasMore,
           loaded: true,
@@ -640,7 +773,7 @@ final class GroupsController extends FrameSafeNotifier {
     final held = permissionsState(instance.url, groupName);
     if (_requests.containsKey(requestKey) || (!refresh && held.loaded)) return;
     final token = _start(requestKey, instance.url);
-    _permissions[key] = GroupPermissionsState(
+    _permissions[key] = GroupPermissionsState._(
       permissions: held.permissions,
       loading: true,
       loaded: held.loaded,
@@ -663,7 +796,7 @@ final class GroupsController extends FrameSafeNotifier {
       });
     } catch (error, stackTrace) {
       _fail(token, 'groups.permissions', error, stackTrace, () {
-        _permissions[key] = GroupPermissionsState(
+        _permissions[key] = GroupPermissionsState._(
           permissions: held.permissions,
           loaded: true,
           error: "Couldn't load group permissions.",
@@ -689,7 +822,7 @@ final class GroupsController extends FrameSafeNotifier {
       return;
     }
     final token = _start(requestKey, instance.url);
-    _logs[key] = GroupLogsState(
+    _logs[key] = GroupLogsState._(
       logs: held.logs,
       nextPage: held.nextPage,
       hasMore: held.hasMore,
@@ -718,7 +851,7 @@ final class GroupsController extends FrameSafeNotifier {
       });
     } catch (error, stackTrace) {
       _fail(token, 'groups.logs', error, stackTrace, () {
-        _logs[key] = GroupLogsState(
+        _logs[key] = GroupLogsState._(
           logs: held.logs,
           nextPage: held.nextPage,
           hasMore: held.hasMore,
