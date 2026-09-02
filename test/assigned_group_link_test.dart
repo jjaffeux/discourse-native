@@ -46,6 +46,22 @@ void main() {
       );
     });
 
+    test('reads a route under the forum\'s subfolder, and no other', () {
+      final link = AssignedGroupLink.parse(
+        'https://example.com/forum/g/staff/assigned/everyone',
+        siteUrl: 'https://example.com/forum',
+      );
+
+      expect(link?.groupName, 'staff');
+      expect(
+        AssignedGroupLink.parse(
+          'https://example.com/g/staff/assigned',
+          siteUrl: 'https://example.com/forum',
+        ),
+        isNull,
+      );
+    });
+
     test('does not claim nearby pages', () {
       for (final url in const [
         '/g/support/members',

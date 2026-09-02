@@ -101,6 +101,46 @@ void main() {
     ]);
   });
 
+  testWidgets('an invitation link opens its room on a subfolder site', (
+    tester,
+  ) async {
+    const siteUrl = 'https://voice.example/forum';
+    final site = PluginHostSite(
+      url: siteUrl,
+      apiKey: 'key',
+      user: const PluginHostUser(id: 1, username: 'reader'),
+      config: SiteConfig(
+        plugins: PluginData.none.withValue(
+          voiceSettingsDataKey,
+          const VoiceClientConfig(enabled: true),
+        ),
+      ),
+    );
+    // Plugin routes are site-relative; the transport joins them to the site's
+    // base, subfolder included, so the recorded route carries no prefix.
+    final transport = RecordingPluginTransport(
+      responses: {
+        'GET /voice/rooms.json': {
+          'rooms': [_room],
+          'can_create_room': false,
+        },
+      },
+    );
+    final host = await PluginHostHarness.open(
+      transport: transport,
+      manifest: _voiceManifest,
+      sites: [site],
+    );
+    addTearDown(host.close);
+
+    final voice = host.require(voiceShellService);
+    // Discourse writes a subfolder site's links with the subfolder.
+    expect(await voice.openPluginUrl('/forum/voice/r/watercooler'), isTrue);
+    expect(await voice.openPluginUrl('/voice/r/watercooler'), isFalse);
+
+    expect(host.currentContent?.id, 'voice-room-7');
+  });
+
   testWidgets('an invitation link opens its Voice room', (tester) async {
     const siteUrl = 'https://voice.example';
     final site = PluginHostSite(

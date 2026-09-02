@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../models/discourse_instance.dart';
 
 /// Retains the pre-thread channel route for persisted tabs; thread identity is
 /// appended so the channel remains the Back-navigation root.
@@ -109,8 +110,9 @@ final class ChatLink {
   final int? messageId;
 
   /// Recognizes Discourse channel, thread, message-anchor, and info-tab paths;
-  /// sibling Chat routes remain browser links.
-  static ChatLink? parse(String url) {
+  /// sibling Chat routes remain browser links. [siteUrl] names the forum the
+  /// link belongs to, so a subfolder site's prefix is required and skipped.
+  static ChatLink? parse(String url, {String? siteUrl}) {
     if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);
     if (uri == null || uri.userInfo.isNotEmpty) return null;
@@ -120,7 +122,11 @@ final class ChatLink {
     if (uri.hasScheme && (!uri.hasAuthority || uri.host.isEmpty)) return null;
     if (uri.hasAuthority && uri.host.isEmpty) return null;
 
-    final match = _pathPattern.firstMatch(uri.path);
+    final path = siteUrl == null
+        ? uri.path
+        : DiscourseInstance.pathWithinUrl(siteUrl, uri);
+    if (path == null) return null;
+    final match = _pathPattern.firstMatch(path);
     if (match == null) return null;
 
     final channelId = int.tryParse(match.group(1)!);

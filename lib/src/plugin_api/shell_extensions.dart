@@ -30,14 +30,11 @@ final class PluginRouteSite {
   final String title;
   final bool isConnected;
 
-  bool serves(Uri link) {
-    if (!link.hasAuthority) return false;
-    final own = Uri.parse(url);
-    return _authority(link) == _authority(own);
-  }
+  bool serves(Uri link) => DiscourseInstance.urlServes(url, link);
 
-  static String _authority(Uri uri) =>
-      uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
+  /// [link]'s path below this site's subfolder, or null when it is not
+  /// under it; see [DiscourseInstance.pathWithin].
+  String? pathWithin(Uri link) => DiscourseInstance.pathWithinUrl(url, link);
 }
 
 abstract interface class PluginRouteNavigationHost {

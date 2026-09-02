@@ -57,6 +57,31 @@ void main() {
       }
     });
 
+    test('reads a link under the forum\'s subfolder, and no other', () {
+      final link = TopicLink.parse(
+        'https://example.com/forum/t/a-topic/7/2',
+        siteUrl: 'https://example.com/forum',
+      );
+
+      expect(link?.topicId, 7);
+      expect(link?.slug, 'a-topic');
+      expect(link?.postNumber, 2);
+      expect(
+        TopicLink.parse(
+          'https://example.com/t/a-topic/7',
+          siteUrl: 'https://example.com/forum',
+        ),
+        isNull,
+      );
+      expect(
+        TopicLink.parse(
+          'https://meta.discourse.org/t/a-topic/7',
+          siteUrl: 'https://meta.discourse.org',
+        )?.topicId,
+        7,
+      );
+    });
+
     test('rejects oversized and credential-bearing links', () {
       expect(parse('/t/${'a' * TopicLink.maximumUrlLength}/1'), isNull);
       expect(parse('https://user:secret@meta.discourse.org/t/a/1'), isNull);
@@ -102,6 +127,23 @@ void main() {
         meta.serves(Uri.parse('https://team.discourse.org/t/a/1')),
         isFalse,
       );
+    });
+
+    test('claims only the pages under its subfolder', () {
+      const sub = DiscourseInstance(
+        url: 'https://example.com/forum',
+        title: 'Subfolder',
+      );
+
+      expect(sub.serves(Uri.parse('https://example.com/forum/t/a/1')), isTrue);
+      expect(sub.serves(Uri.parse('https://example.com/forum')), isTrue);
+      expect(sub.serves(Uri.parse('https://example.com/t/a/1')), isFalse);
+      expect(
+        sub.serves(Uri.parse('https://example.com/forums/t/a/1')),
+        isFalse,
+      );
+      expect(sub.basePathSegments, ['forum']);
+      expect(meta.basePathSegments, isEmpty);
     });
 
     test('tells two development forums apart by their port', () {

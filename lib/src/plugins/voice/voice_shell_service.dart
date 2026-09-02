@@ -60,12 +60,14 @@ final class VoiceShellService
     final absolute = resolveSiteUrl(url, _host.currentSite?.url);
     final uri = Uri.tryParse(absolute);
     if (uri == null) return false;
-    final match = RegExp(
-      r'^/voice/r/([^/]+)(?:/invited-by/([^/]+))?/?$',
-    ).firstMatch(uri.path);
-    if (match == null) return false;
     final index = _host.sites.indexWhere((instance) => instance.serves(uri));
     if (index < 0 || !_host.sites[index].isConnected) return false;
+    final path = _host.sites[index].pathWithin(uri);
+    if (path == null) return false;
+    final match = RegExp(
+      r'^/voice/r/([^/]+)(?:/invited-by/([^/]+))?/?$',
+    ).firstMatch(path);
+    if (match == null) return false;
     if (_host.currentSite?.url != _host.sites[index].url) {
       _host.selectInstance(index);
     }

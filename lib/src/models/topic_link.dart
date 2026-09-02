@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'discourse_instance.dart';
 
 @immutable
 class TopicLink {
@@ -19,13 +20,20 @@ class TopicLink {
 
   static const int maximumUrlLength = 2048;
 
-  static TopicLink? parse(String url) {
+  /// Reads a topic link. A forum served from a subfolder writes its links
+  /// under that path; [siteUrl] names the forum so the base is required and
+  /// then skipped, and a link under some other path is not a topic of it.
+  static TopicLink? parse(String url, {String? siteUrl}) {
     if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);
     if (uri == null || uri.userInfo.isNotEmpty) return null;
 
-    final segments = uri.pathSegments;
-    if (segments.length < 2 || segments.first != 't') return null;
+    final segments = siteUrl == null
+        ? uri.pathSegments
+        : DiscourseInstance.pathSegmentsWithin(siteUrl, uri);
+    if (segments == null || segments.length < 2 || segments.first != 't') {
+      return null;
+    }
 
     // Which segment holds the id is what tells the two shapes apart. A link
     // with three segments is read as `/t/slug/id` rather than `/t/id/post`,

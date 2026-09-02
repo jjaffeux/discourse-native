@@ -4394,7 +4394,7 @@ class ShellController extends FrameSafeNotifier
         .firstOrNull;
     if (instance == null) return TabOpenResult.unsupported;
 
-    final topic = TopicLink.parse(absolute);
+    final topic = TopicLink.parse(absolute, siteUrl: instance.url);
     final list = ListLink.parse(absolute);
     final group = GroupRoute.parse(absolute);
     final ContentRoute route;
@@ -4471,11 +4471,13 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool _openTopicUrl(String url, {bool refresh = false}) {
-    final link = TopicLink.parse(absoluteUrl(url));
-    if (link == null) return false;
-
-    final index = _instances.indexWhere((i) => i.serves(link.uri));
+    final absolute = absoluteUrl(url);
+    final target = Uri.tryParse(absolute);
+    if (target == null) return false;
+    final index = _instances.indexWhere((i) => i.serves(target));
     if (index < 0) return false;
+    final link = TopicLink.parse(absolute, siteUrl: _instances[index].url);
+    if (link == null) return false;
 
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();

@@ -64,7 +64,7 @@ final class PluginHostSite {
   DiscourseInstance _toCore() {
     final uri = Uri.parse(url);
     return DiscourseInstance(
-      url: uri.origin,
+      url: siteBaseUrl(url),
       title: title ?? uri.host,
       apiVersion: 4,
       loginRequired: loginRequired,
@@ -220,7 +220,7 @@ final class _PluginHostDependencies {
     );
     for (final site in scenarioSites) {
       if (site.apiKey case final apiKey?) {
-        await secureStore.writeApiKey(Uri.parse(site.url).origin, apiKey);
+        await secureStore.writeApiKey(siteBaseUrl(site.url), apiKey);
       }
     }
     final authenticator = Authenticator(store: secureStore);
@@ -628,4 +628,11 @@ final class _NoNetworkClient extends http.BaseClient {
       'Unexpected core network request: ${request.method} ${request.url.path}',
     );
   }
+}
+
+/// A scenario site's URL as the shell stores it: its origin plus the
+/// subfolder it is served from, without a trailing slash.
+String siteBaseUrl(String url) {
+  final uri = Uri.parse(url);
+  return '${uri.origin}${uri.path.replaceFirst(RegExp(r'/+$'), '')}';
 }

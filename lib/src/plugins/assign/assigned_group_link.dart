@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../models/discourse_instance.dart';
 import 'assigned_group.dart';
 
 @immutable
@@ -16,12 +17,18 @@ final class AssignedGroupLink {
 
   static const int maximumUrlLength = 2048;
 
-  static AssignedGroupLink? parse(String url) {
+  /// [siteUrl] names the forum the link belongs to, so a subfolder site's
+  /// prefix is required and skipped before the route is read.
+  static AssignedGroupLink? parse(String url, {String? siteUrl}) {
     if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);
     if (uri == null || uri.userInfo.isNotEmpty) return null;
 
-    final segments = [...uri.pathSegments];
+    final within = siteUrl == null
+        ? uri.pathSegments
+        : DiscourseInstance.pathSegmentsWithin(siteUrl, uri);
+    if (within == null) return null;
+    final segments = [...within];
     while (segments.isNotEmpty && segments.last.isEmpty) {
       segments.removeLast();
     }
