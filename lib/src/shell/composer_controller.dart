@@ -1933,7 +1933,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (_target.createsTopic) {
       _replaceMetadata(
         titleValue: draft.title ?? '',
-        categoryId: _target.isNewTopic ? draft.categoryId : null,
+        // An existing draft without a category should not erase the category
+        // supplied by the list from which the composer was opened.
+        categoryId: _target.isNewTopic ? draft.categoryId ?? _categoryId : null,
         tags: _target.isNewTopic ? draft.tags : const [],
       );
     }

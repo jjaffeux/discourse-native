@@ -4035,6 +4035,7 @@ class ShellController extends FrameSafeNotifier
     }
     if (currentInstance?.url != targetSiteUrl) return;
 
+    store.put(targetSiteUrl, category);
     final categories = _categoriesBySite[targetSiteUrl] ?? const [];
     final byId = <int, TopicCategory>{
       for (final item in categories) item.id: item,
@@ -5812,6 +5813,15 @@ class ShellController extends FrameSafeNotifier
     }
 
     final categoryId = canCreateTopicHere ? route.categoryId : null;
+    final selectedCategory = categoryFor(categoryId, siteUrl: instance.url);
+    // A topic feed can expose a restricted or later-page category before the
+    // category directory has loaded it. Keep that selected route available to
+    // the composer so its id can be rendered and edited instead of appearing
+    // as an empty category selection.
+    if (selectedCategory != null &&
+        categories.every((category) => category.id != selectedCategory.id)) {
+      categories = [...categories, selectedCategory];
+    }
     var tags = const <TopicTag>[];
     final path = route.feedPath;
     final link = path == null
