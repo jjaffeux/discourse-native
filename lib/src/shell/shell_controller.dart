@@ -6878,6 +6878,10 @@ class ShellController extends FrameSafeNotifier
         _topicPostSelections[_topicKey(siteUrl, topicId)] ?? const <int>{},
       );
 
+  bool isTopicPostSelected(String siteUrl, int topicId, int postId) =>
+      _topicPostSelections[_topicKey(siteUrl, topicId)]?.contains(postId) ??
+      false;
+
   List<Post> selectedTopicPosts(String siteUrl, int topicId) {
     final detail = store.read<TopicDetail>(siteUrl, topicId);
     final selected = _topicPostSelections[_topicKey(siteUrl, topicId)];
@@ -7874,10 +7878,10 @@ class ShellController extends FrameSafeNotifier
     return true;
   }
 
-  void _endPostWrite(String siteUrl, int postId) {
+  void _endPostWrite(String siteUrl, int postId, {bool notify = true}) {
     final key = _postKey(siteUrl, postId);
     _postWritesInFlight.remove(key);
-    _notify();
+    if (notify) _notify();
     if (!_postRefreshPending.remove(key)) return;
     final topicId = _postRefreshTopics.remove(key);
     if (topicId != null) {
@@ -8341,7 +8345,7 @@ class ShellController extends FrameSafeNotifier
       lease.commit(() {
         _topicBookmarkWritesInFlight.remove(key);
         for (final postId in postIds) {
-          _endPostWrite(siteUrl, postId);
+          _endPostWrite(siteUrl, postId, notify: false);
         }
         _notify();
       });
@@ -8729,7 +8733,7 @@ class ShellController extends FrameSafeNotifier
         _topicPostSelectionWrites.remove(topicKey);
         if (succeeded) _topicPostSelections.remove(topicKey);
         for (final post in posts) {
-          _endPostWrite(siteUrl, post.id);
+          _endPostWrite(siteUrl, post.id, notify: false);
         }
         _notify();
       });
@@ -12485,14 +12489,14 @@ final class _BookmarkWriteListenable extends ChangeNotifier
     required void Function(_BookmarkWriteListenable listenable) onUnused,
   }) : _source = source,
        _read = read,
-       _onUnused = onUnused,
+       _release = onUnused,
        _value = read() {
     _source.addListener(_refresh);
   }
 
   final Listenable _source;
   final bool Function() _read;
-  final void Function(_BookmarkWriteListenable listenable) _onUnused;
+  final void Function(_BookmarkWriteListenable listenable) _release;
   bool _value;
   bool _released = false;
 
@@ -12511,7 +12515,7 @@ final class _BookmarkWriteListenable extends ChangeNotifier
     super.removeListener(listener);
     if (hasListeners || _released) return;
     _released = true;
-    _onUnused(this);
+    _release(this);
     // A listener may leave from inside a notification, when disposing is
     // not allowed; the shell listener goes once this notification is over.
     scheduleMicrotask(dispose);
