@@ -10,6 +10,15 @@ class and by making a failure useful to diagnose.
 - `test/` owns the application package, including Voice. A production owner normally has one matching
   test file; cross-owner contracts use an explicitly named `*_boundary_test`
   or `*_contract_test` file.
+- Shell boundary coverage is partitioned by observable subsystem. Run
+  `shell_navigation_integration_test.dart`, `connection_session_integration_test.dart`,
+  `topic_reading_integration_test.dart`, `topic_actions_integration_test.dart`,
+  `composer_drafts_integration_test.dart`, `reactions_likes_integration_test.dart`,
+  or `chat_shell_integration_test.dart` for focused ownership. Together these
+  files replace the former `shell_integration_test.dart` monolith and are discovered
+  exactly once by the root runner. Shared shell setup belongs in
+  `support/shell_test_harness.dart`; scenario-specific fakes stay beside the suite
+  that explains them.
 - `integration_test/` is reserved for behavior that needs a real platform,
   such as Keychain persistence. Unit tests still cover all controllable
   success, failure, migration, and ordering branches around that seam.
