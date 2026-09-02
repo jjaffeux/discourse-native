@@ -239,6 +239,8 @@ class CookedHtml extends StatelessWidget {
         factoryBuilder: () => SiteImageWidgetFactory(
           siteUrl: resolvedSiteUrl,
           registry: resolvedRegistry,
+          onMiddleClickUrl: (url) =>
+              openLink(context, url, siteUrl: resolvedSiteUrl, newTab: true),
         ),
         customWidgetBuilder: _customWidget(
           context,

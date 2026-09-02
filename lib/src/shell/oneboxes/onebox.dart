@@ -240,10 +240,14 @@ class OneboxCard extends StatelessWidget {
 
     if (url == null) return card;
 
-    final link = InkWell(
-      onTap: () => openLink(context, url, siteUrl: siteUrl),
-      borderRadius: BorderRadius.circular(8),
-      child: card,
+    final link = LinkTarget(
+      url: url,
+      siteUrl: siteUrl,
+      child: InkWell(
+        onTap: () => openLink(context, url, siteUrl: siteUrl),
+        borderRadius: BorderRadius.circular(8),
+        child: card,
+      ),
     );
     if (!mergeLinkSemantics) return link;
 

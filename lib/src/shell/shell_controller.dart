@@ -109,6 +109,8 @@ enum InstanceLoadStatus { loading, ready, failed }
 
 enum AggregateTopicOpenResult { opened, tabLimitReached, unavailable }
 
+enum TabOpenResult { opened, unsupported, limitReached }
+
 typedef TopicMoveDestination = ({int id, String title, String slug});
 
 // A site can retain a substantial topic, post, and taxonomy working set, while
@@ -4070,6 +4072,7 @@ class ShellController extends FrameSafeNotifier
     TopicTag tag, {
     required String siteUrl,
     bool privateMessage = false,
+    bool newTab = false,
   }) async {
     var resolvedTag = _topicTagWithKnownIdentity(siteUrl, tag);
     final isPrivateMessage =
@@ -4128,6 +4131,14 @@ class ShellController extends FrameSafeNotifier
       privateMessage: isPrivateMessage,
     );
     if (destination == null) return false;
+
+    if (newTab && forumTabsEnabled) {
+      return openContentInNewTab(
+            ContentRoute.fromDestination(destination),
+            siteUrl: siteUrl,
+          ) ==
+          TabOpenResult.opened;
+    }
 
     if (index != _instanceIndex || _rootMode != ShellRootMode.forum) {
       selectInstance(index);
@@ -4243,6 +4254,66 @@ class ShellController extends FrameSafeNotifier
       resolveSiteUrl(url, siteUrl ?? currentInstance?.url);
 
   bool openTopicUrl(String url) => _openTopicUrl(url);
+
+  TabOpenResult openLinkInNewTab(String url, {String? title}) {
+    final absolute = absoluteUrl(url);
+    final target = Uri.tryParse(absolute);
+    if (target == null) return TabOpenResult.unsupported;
+    final instance = _instances
+        .where((site) => site.serves(target))
+        .firstOrNull;
+    if (instance == null) return TabOpenResult.unsupported;
+
+    final topic = TopicLink.parse(absolute);
+    final list = ListLink.parse(absolute);
+    final group = GroupRoute.parse(absolute);
+    final ContentRoute route;
+    if (topic != null) {
+      route = ContentRoute.topic(
+        topicId: topic.topicId,
+        slug: topic.slug,
+        title: title ?? topic.placeholderTitle,
+        postNumber: topic.postNumber,
+      );
+    } else if (list != null) {
+      final category = list.kind == ListKind.category
+          ? categoryFor(list.id, siteUrl: instance.url)
+          : null;
+      route = ContentRoute.list(
+        list,
+        title: title,
+        color: category == null ? null : Color(category.colorValue),
+      );
+    } else if (group != null) {
+      route = ContentRoute.group(
+        group,
+        feedPath: group.topicFeedPath(instance.user?.username),
+      );
+    } else {
+      return TabOpenResult.unsupported;
+    }
+    return openContentInNewTab(route, siteUrl: instance.url);
+  }
+
+  TabOpenResult openContentInNewTab(ContentRoute route, {String? siteUrl}) {
+    if (!forumTabsEnabled) return TabOpenResult.unsupported;
+    final instance = siteUrl == null
+        ? currentInstance
+        : _instances.where((site) => site.url == siteUrl).firstOrNull;
+    if (instance == null) return TabOpenResult.unsupported;
+    final workspace = _ensureWorkspace(instance);
+    if (workspace.tabs.length >= ForumWorkspace.maximumTabs) {
+      return TabOpenResult.limitReached;
+    }
+    final root = _newDefaultTab(instance);
+    final tab = route.id == root.currentContent.id
+        ? root.copyWith(contentStack: [route])
+        : root.push(route);
+    _putWorkspace(workspace.copyWith(tabs: [...workspace.tabs, tab]));
+    _syncTopicChannels();
+    _notify();
+    return TabOpenResult.opened;
+  }
 
   bool openGroupUrl(String url) {
     final absolute = absoluteUrl(url);

@@ -1772,6 +1772,13 @@ only by their port.
 A link only knows the slug, so a topic opened from one is titled from the slug
 until the real title arrives with the topic and replaces it.
 
+Middle-clicking a topic row, search result, sidebar destination, or rendered
+link attempts to open a background app tab. Topic, category, tag, and group
+URLs belonging to a connected forum open in that forum's workspace without
+changing the current page or selected forum. Unsupported URLs follow ordinary
+link handling, including the platform browser for external links. At the tab
+limit, the app asks the reader to close a tab and preserves the current page.
+
 The two list routes are the only ones that carry their own feed path
 ([`ContentRoute.feedPath`](lib/src/models/content_route.dart)). Every other
 destination is one the sidebar already knows the address of; a category exists

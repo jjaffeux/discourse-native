@@ -171,11 +171,15 @@ class _Header extends StatelessWidget {
     );
 
     if (link != null) {
-      return InlineAction.link(
-        onTap: () => openLink(context, link, siteUrl: siteUrl),
-        semanticLabel: data.title ?? link,
-        excludeChildSemantics: true,
-        child: row,
+      return LinkTarget(
+        url: link,
+        siteUrl: siteUrl,
+        child: InlineAction.link(
+          onTap: () => openLink(context, link, siteUrl: siteUrl),
+          semanticLabel: data.title ?? link,
+          excludeChildSemantics: true,
+          child: row,
+        ),
       );
     }
     if (data.username case final username?) {

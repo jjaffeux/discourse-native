@@ -318,11 +318,15 @@ class _TranscriptLink extends StatelessWidget {
     final text = Text(label, style: style);
     if (href == null) return text;
 
-    return InlineAction.link(
-      onTap: () => openLink(context, href!, siteUrl: siteUrl),
-      semanticLabel: label,
-      excludeChildSemantics: true,
-      child: text,
+    return LinkTarget(
+      url: href,
+      siteUrl: siteUrl,
+      child: InlineAction.link(
+        onTap: () => openLink(context, href!, siteUrl: siteUrl),
+        semanticLabel: label,
+        excludeChildSemantics: true,
+        child: text,
+      ),
     );
   }
 }
