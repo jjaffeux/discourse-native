@@ -1,28 +1,31 @@
 import 'dart:async';
-import 'dart:convert' show htmlEscape;
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, immutable, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:html/dom.dart' as dom;
-import 'package:video_player/video_player.dart';
-import 'package:webview_all/webview_all.dart';
 
 import '../data/api_credentials.dart';
 import '../data/http_transport.dart';
 import '../data/site_lifecycle.dart';
-import '../data/site_video_source.dart';
-import '../diagnostics/diagnostics_controller.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
-import 'media_webview.dart';
+import 'inline_video_playback.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
 import 'site_url.dart';
+
+export 'inline_video_playback.dart'
+    show
+        InlineVideoPlaybackPhase,
+        InlineVideoPlaybackRequest,
+        InlineVideoPlaybackSession,
+        InlineVideoPlaybackSessionFactory,
+        InlineVideoPlaybackState,
+        buildInlineVideoHtml,
+        createInlineVideoPlaybackSession;
 
 @immutable
 final class InlineVideoData {
@@ -133,10 +136,6 @@ Widget? inlineVideoWidgetBuilder(dom.Element element, {String? siteUrl}) {
 typedef InlineVideoPlayerBuilder =
     Widget Function(BuildContext context, InlineVideoData data);
 
-@visibleForTesting
-typedef InlineVideoControllerBuilder =
-    VideoPlayerController Function(Uri source);
-
 /// A lazy, app-owned shell around the platform video implementation.
 class InlineVideo extends StatefulWidget {
   const InlineVideo({
@@ -144,6 +143,7 @@ class InlineVideo extends StatefulWidget {
     required this.data,
     required this.siteUrl,
     this.playerBuilder,
+    this.sessionFactory,
     this.maximumWidth,
     this.maximumHeight = 480,
     this.padding = const EdgeInsets.symmetric(vertical: 8),
@@ -153,6 +153,7 @@ class InlineVideo extends StatefulWidget {
   final InlineVideoData data;
   final String? siteUrl;
   final InlineVideoPlayerBuilder? playerBuilder;
+  final InlineVideoPlaybackSessionFactory? sessionFactory;
   final double? maximumWidth;
   final double? maximumHeight;
   final EdgeInsetsGeometry padding;
@@ -216,25 +217,12 @@ class _InlineVideoState extends State<InlineVideo> {
     if (custom != null) return custom(context, widget.data);
 
     final shell = ShellScope.maybeIdentityOf(context);
-    final common = (
+    return InlineVideoPlaybackSurface(
       data: widget.data,
       siteUrl: widget.siteUrl,
       credentials: shell?.authenticator,
       lifecycle: shell?.lifecycle,
-    );
-    if (defaultTargetPlatform == TargetPlatform.linux) {
-      return InlineVideoWebViewSurface(
-        data: common.data,
-        siteUrl: common.siteUrl,
-        credentials: common.credentials,
-        lifecycle: common.lifecycle,
-      );
-    }
-    return InlineVideoNativeSurface(
-      data: common.data,
-      siteUrl: common.siteUrl,
-      credentials: common.credentials,
-      lifecycle: common.lifecycle,
+      sessionFactory: widget.sessionFactory ?? createInlineVideoPlaybackSession,
     );
   }
 
@@ -325,161 +313,109 @@ class _InlineVideoState extends State<InlineVideo> {
   }
 }
 
-class InlineVideoNativeSurface extends StatefulWidget {
-  const InlineVideoNativeSurface({
+class InlineVideoPlaybackSurface extends StatefulWidget {
+  const InlineVideoPlaybackSurface({
     super.key,
     required this.data,
     required this.siteUrl,
     required this.credentials,
     required this.lifecycle,
-    this.controllerBuilder,
+    required this.sessionFactory,
   });
 
   final InlineVideoData data;
   final String? siteUrl;
   final ApiCredentialReader? credentials;
   final SiteLifecycle? lifecycle;
-
-  @visibleForTesting
-  final InlineVideoControllerBuilder? controllerBuilder;
+  final InlineVideoPlaybackSessionFactory sessionFactory;
 
   @override
-  State<InlineVideoNativeSurface> createState() =>
-      _InlineVideoNativeSurfaceState();
+  State<InlineVideoPlaybackSurface> createState() =>
+      _InlineVideoPlaybackSurfaceState();
 }
 
-class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
+class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
     with WidgetsBindingObserver {
-  VideoPlayerController? _controller;
-  _VideoSourceResolution? _sourceResolution;
-  Object? _error;
-  int _generation = 0;
+  InlineVideoPlaybackSession? _session;
   bool _fullscreenOpen = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_initialize());
+    _replaceSession();
   }
 
   @override
-  void didUpdateWidget(InlineVideoNativeSurface oldWidget) {
+  void didUpdateWidget(InlineVideoPlaybackSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data.playbackIdentity != widget.data.playbackIdentity ||
         oldWidget.siteUrl != widget.siteUrl ||
         !identical(oldWidget.credentials, widget.credentials) ||
         !identical(oldWidget.lifecycle, widget.lifecycle) ||
-        !identical(oldWidget.controllerBuilder, widget.controllerBuilder)) {
-      unawaited(_initialize());
+        !identical(oldWidget.sessionFactory, widget.sessionFactory)) {
+      _replaceSession();
     }
   }
 
-  Future<void> _initialize() async {
-    final generation = ++_generation;
-    _InlineVideoPlaybackCoordinator.release(this);
-    _sourceResolution?.cancel();
-    _sourceResolution = null;
-    final previous = _controller;
-    _controller = null;
-    _error = null;
-    if (mounted) setState(() {});
+  void _replaceSession() {
+    final previous = _session;
+    _session = null;
     if (previous != null) {
-      previous.removeListener(_playerChanged);
-      await _disposeNativeController(previous);
+      previous.removeListener(_sessionChanged);
+      _InlineVideoPlaybackCoordinator.release(previous);
+      previous.dispose();
     }
-    if (!mounted || generation != _generation) return;
 
-    try {
-      final resolution = _VideoSourceResolution(
-        data: widget.data,
+    final session = widget.sessionFactory(
+      InlineVideoPlaybackRequest(
+        source: widget.data.source,
+        title: widget.data.title,
+        posterUrl: widget.data.posterUrl,
+        aspectRatio: widget.data.aspectRatio,
         siteUrl: widget.siteUrl,
         credentials: widget.credentials,
         lifecycle: widget.lifecycle,
-      );
-      _sourceResolution = resolution;
-      late final SiteVideoSource source;
-      try {
-        source = await resolution.resolve();
-      } finally {
-        if (identical(_sourceResolution, resolution)) {
-          _sourceResolution = null;
-        }
-        resolution.cancel();
-      }
-      if (!mounted || generation != _generation) return;
-      final controller =
-          widget.controllerBuilder?.call(source.url) ??
-          VideoPlayerController.networkUrl(source.url);
-      _controller = controller;
-      controller.addListener(_playerChanged);
-      await controller.initialize();
-      if (!mounted || generation != _generation || _error != null) {
-        controller.removeListener(_playerChanged);
-        if (_error == null && !identical(_controller, controller)) {
-          await _disposeNativeController(controller);
-        }
-        return;
-      }
-      await _play(controller);
-      if (mounted && generation == _generation) setState(() {});
-    } on Object catch (error, stackTrace) {
-      if (!mounted || generation != _generation) return;
-      if (_error != null) return;
-      _reportVideoError(error, stackTrace, 'video.native.initialize');
-      final controller = _controller;
-      _controller = null;
-      if (controller != null) {
-        controller.removeListener(_playerChanged);
-        await _disposeNativeController(controller);
-      }
-      if (mounted && generation == _generation) {
-        setState(() => _error = error);
-      }
-    }
+      ),
+    );
+    _session = session;
+    session.addListener(_sessionChanged);
+    if (mounted) setState(() {});
+    unawaited(session.start());
   }
 
-  void _playerChanged() {
-    final controller = _controller;
-    if (!mounted || controller == null) return;
-    final value = controller.value;
-    if (value.hasError && _error == null) {
-      _failNative(
-        controller,
-        StateError(
-          value.errorDescription ?? 'The platform video player failed.',
-        ),
-        StackTrace.current,
-        'video.native.playback',
-      );
-      return;
-    }
-    if (value.isPlaying) {
-      _InlineVideoPlaybackCoordinator.activate(this, controller.pause);
+  void _sessionChanged() {
+    final session = _session;
+    if (!mounted || session == null) return;
+    if (session.state.isPlaying) {
+      _InlineVideoPlaybackCoordinator.activate(session, session.pause);
     }
     setState(() {});
   }
 
-  Future<void> _play(VideoPlayerController controller) async {
-    _InlineVideoPlaybackCoordinator.activate(this, controller.pause);
-    await controller.play();
-  }
+  void _retry() => _replaceSession();
 
-  Future<void> _togglePlayback(VideoPlayerController controller) async {
-    if (!identical(_controller, controller) || _error != null) return;
-    try {
-      if (controller.value.isPlaying) {
-        await controller.pause();
-      } else {
-        await _play(controller);
-      }
-    } on Object catch (error, stackTrace) {
-      _failNative(controller, error, stackTrace, 'video.native.controls');
+  Future<void> _togglePlayback() async {
+    final session = _session;
+    if (session == null ||
+        session.state.phase != InlineVideoPlaybackPhase.ready) {
+      return;
+    }
+    if (session.state.isPlaying) {
+      await session.pause();
+    } else {
+      _InlineVideoPlaybackCoordinator.activate(session, session.pause);
+      await session.play();
     }
   }
 
-  Future<void> _openFullscreen(VideoPlayerController controller) async {
-    if (_fullscreenOpen || !identical(_controller, controller)) return;
+  Future<void> _openFullscreen() async {
+    final session = _session;
+    if (_fullscreenOpen ||
+        session == null ||
+        !session.state.supportsFullscreen) {
+      return;
+    }
     setState(() => _fullscreenOpen = true);
     try {
       await Navigator.of(context, rootNavigator: true).push(
@@ -488,8 +424,8 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
           fullscreenDialog: true,
           builder: (context) => _InlineVideoFullscreen(
             data: widget.data,
-            controller: controller,
-            onTogglePlayback: () => unawaited(_togglePlayback(controller)),
+            session: session,
+            onTogglePlayback: () => unawaited(_togglePlayback()),
           ),
         ),
       );
@@ -498,65 +434,23 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
     }
   }
 
-  void _failNative(
-    VideoPlayerController controller,
-    Object error,
-    StackTrace stackTrace,
-    String operation,
-  ) {
-    if (!mounted || !identical(_controller, controller) || _error != null) {
-      return;
-    }
-    controller.removeListener(_playerChanged);
-    _controller = null;
-    _InlineVideoPlaybackCoordinator.release(this);
-    _reportVideoError(error, stackTrace, operation);
-    unawaited(_disposeNativeController(controller));
-    setState(() => _error = error);
-  }
-
-  Future<void> _disposeNativeController(
-    VideoPlayerController controller,
-  ) async {
-    try {
-      await controller.pause();
-    } on Object {
-      // An errored platform controller may reject pause during teardown.
-    }
-    try {
-      await controller.dispose();
-    } on Object {
-      // Disposal is best-effort after the platform reports playback failure.
-    }
-  }
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
-      final controller = _controller;
-      if (controller != null) {
-        unawaited(_pauseNativeIgnoringErrors(controller));
-      }
-    }
-  }
-
-  Future<void> _pauseNativeIgnoringErrors(
-    VideoPlayerController controller,
-  ) async {
-    try {
-      await controller.pause();
-    } on Object {
-      // The player may be concurrently replaced while the app backgrounds.
+      final session = _session;
+      if (session != null) unawaited(session.pause());
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
-    if (_error != null) {
-      return _VideoFailure(data: widget.data);
+    final session = _session;
+    final state = session?.state;
+    if (state?.phase == InlineVideoPlaybackPhase.failed) {
+      return _VideoFailure(data: widget.data, onRetry: _retry);
     }
-    if (controller == null || !controller.value.isInitialized) {
+    final playerBuilder = state?.playerBuilder;
+    if (session == null || playerBuilder == null) {
       return _ActiveVideoFrame(
         data: widget.data,
         child: const ColoredBox(
@@ -566,10 +460,6 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
       );
     }
 
-    final value = controller.value;
-    final playerRatio = value.aspectRatio.isFinite && value.aspectRatio > 0
-        ? value.aspectRatio
-        : widget.data.aspectRatio;
     return _ActiveVideoFrame(
       data: widget.data,
       child: Semantics(
@@ -581,35 +471,27 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
             children: [
               Center(
                 child: AspectRatio(
-                  aspectRatio: playerRatio,
+                  aspectRatio: state!.aspectRatio,
                   child: _fullscreenOpen
                       ? const SizedBox.shrink()
-                      : VideoPlayer(controller),
+                      : playerBuilder(),
                 ),
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Color(0xDD000000)],
-                    ),
-                  ),
-                  child: _NativeVideoControls(
-                    controller: controller,
-                    value: value,
-                    onTogglePlayback: () =>
-                        unawaited(_togglePlayback(controller)),
-                    onEnterFullscreen: () =>
-                        unawaited(_openFullscreen(controller)),
+              if (state.showAppControls)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _PlaybackControls(
+                    state: state,
+                    onTogglePlayback: () => unawaited(_togglePlayback()),
+                    onSeek: session.seekTo,
+                    onEnterFullscreen: state.supportsFullscreen
+                        ? () => unawaited(_openFullscreen())
+                        : null,
                   ),
                 ),
-              ),
-              if (value.isBuffering)
+              if (state.isBuffering)
                 const Center(
                   child: CircularProgressIndicator(color: Colors.white),
                 ),
@@ -622,16 +504,13 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
 
   @override
   void dispose() {
-    _generation++;
     WidgetsBinding.instance.removeObserver(this);
-    _InlineVideoPlaybackCoordinator.release(this);
-    _sourceResolution?.cancel();
-    _sourceResolution = null;
-    final controller = _controller;
-    _controller = null;
-    if (controller != null) {
-      controller.removeListener(_playerChanged);
-      unawaited(_disposeNativeController(controller));
+    final session = _session;
+    _session = null;
+    if (session != null) {
+      session.removeListener(_sessionChanged);
+      _InlineVideoPlaybackCoordinator.release(session);
+      session.dispose();
     }
     super.dispose();
   }
@@ -640,12 +519,12 @@ class _InlineVideoNativeSurfaceState extends State<InlineVideoNativeSurface>
 class _InlineVideoFullscreen extends StatelessWidget {
   const _InlineVideoFullscreen({
     required this.data,
-    required this.controller,
+    required this.session,
     required this.onTogglePlayback,
   });
 
   final InlineVideoData data;
-  final VideoPlayerController controller;
+  final InlineVideoPlaybackSession session;
   final VoidCallback onTogglePlayback;
 
   @override
@@ -661,12 +540,11 @@ class _InlineVideoFullscreen extends StatelessWidget {
         backgroundColor: Colors.black,
         body: SafeArea(
           child: AnimatedBuilder(
-            animation: controller,
+            animation: session,
             builder: (context, _) {
-              final value = controller.value;
-              final ratio = value.aspectRatio.isFinite && value.aspectRatio > 0
-                  ? value.aspectRatio
-                  : data.aspectRatio;
+              final state = session.state;
+              final playerBuilder = state.playerBuilder;
+              if (playerBuilder == null) return const SizedBox.shrink();
               return Semantics(
                 label: 'Full-screen video player: ${data.title}',
                 child: Stack(
@@ -674,31 +552,22 @@ class _InlineVideoFullscreen extends StatelessWidget {
                   children: [
                     Center(
                       child: AspectRatio(
-                        aspectRatio: ratio,
-                        child: VideoPlayer(controller),
+                        aspectRatio: state.aspectRatio,
+                        child: playerBuilder(),
                       ),
                     ),
                     Positioned(
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      child: DecoratedBox(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Color(0xDD000000)],
-                          ),
-                        ),
-                        child: _NativeVideoControls(
-                          controller: controller,
-                          value: value,
-                          onTogglePlayback: onTogglePlayback,
-                          onExitFullscreen: Navigator.of(context).pop,
-                        ),
+                      child: _PlaybackControls(
+                        state: state,
+                        onTogglePlayback: onTogglePlayback,
+                        onSeek: session.seekTo,
+                        onExitFullscreen: Navigator.of(context).pop,
                       ),
                     ),
-                    if (value.isBuffering)
+                    if (state.isBuffering)
                       const Center(
                         child: CircularProgressIndicator(color: Colors.white),
                       ),
@@ -713,360 +582,103 @@ class _InlineVideoFullscreen extends StatelessWidget {
   );
 }
 
-class _NativeVideoControls extends StatelessWidget {
-  const _NativeVideoControls({
-    required this.controller,
-    required this.value,
+class _PlaybackControls extends StatelessWidget {
+  const _PlaybackControls({
+    required this.state,
     required this.onTogglePlayback,
+    required this.onSeek,
     this.onEnterFullscreen,
     this.onExitFullscreen,
   }) : assert(onEnterFullscreen == null || onExitFullscreen == null);
 
-  final VideoPlayerController controller;
-  final VideoPlayerValue value;
+  final InlineVideoPlaybackState state;
   final VoidCallback onTogglePlayback;
+  final ValueChanged<Duration> onSeek;
   final VoidCallback? onEnterFullscreen;
   final VoidCallback? onExitFullscreen;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      IconButton(
-        tooltip: value.isPlaying ? 'Pause' : 'Play',
-        color: Colors.white,
-        onPressed: onTogglePlayback,
-        icon: Icon(
-          value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-        ),
-      ),
-      Expanded(
-        child: VideoProgressIndicator(
-          controller,
-          allowScrubbing: true,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          colors: const VideoProgressColors(
-            playedColor: Colors.white,
-            bufferedColor: Color(0x88FFFFFF),
-            backgroundColor: Color(0x55FFFFFF),
-          ),
-        ),
-      ),
-      const SizedBox(width: 8),
-      Text(
-        '${_duration(value.position)} / ${_duration(value.duration)}',
-        style: Theme.of(
-          context,
-        ).textTheme.labelSmall?.copyWith(color: Colors.white),
-      ),
-      if (onEnterFullscreen case final enter?)
-        IconButton(
-          key: const ValueKey('inline-video-fullscreen'),
-          tooltip: 'Enter full screen',
-          color: Colors.white,
-          onPressed: enter,
-          icon: const DIcon(DIcons.expand, size: 18, color: Colors.white),
-        )
-      else if (onExitFullscreen case final exit?)
-        IconButton(
-          key: const ValueKey('inline-video-fullscreen-close'),
-          tooltip: 'Exit full screen',
-          color: Colors.white,
-          onPressed: exit,
-          icon: const Icon(Icons.fullscreen_exit_rounded),
-        )
-      else
-        const SizedBox(width: 12),
-    ],
-  );
-}
-
-class InlineVideoWebViewSurface extends StatefulWidget {
-  const InlineVideoWebViewSurface({
-    super.key,
-    required this.data,
-    required this.siteUrl,
-    required this.credentials,
-    required this.lifecycle,
-  });
-
-  final InlineVideoData data;
-  final String? siteUrl;
-  final ApiCredentialReader? credentials;
-  final SiteLifecycle? lifecycle;
-
-  @override
-  State<InlineVideoWebViewSurface> createState() =>
-      _InlineVideoWebViewSurfaceState();
-}
-
-class _InlineVideoWebViewSurfaceState extends State<InlineVideoWebViewSurface>
-    with WidgetsBindingObserver {
-  WebViewController? _controller;
-  _VideoSourceResolution? _sourceResolution;
-  Object? _error;
-  int _generation = 0;
-  bool _loadingDocument = true;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _initialize();
-  }
-
-  @override
-  void didUpdateWidget(InlineVideoWebViewSurface oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.data.playbackIdentity != widget.data.playbackIdentity ||
-        oldWidget.siteUrl != widget.siteUrl ||
-        !identical(oldWidget.credentials, widget.credentials) ||
-        !identical(oldWidget.lifecycle, widget.lifecycle)) {
-      _initialize();
-    }
-  }
-
-  void _initialize() {
-    final generation = ++_generation;
-    _InlineVideoPlaybackCoordinator.release(this);
-    _sourceResolution?.cancel();
-    _sourceResolution = null;
-    final previous = _controller;
-    if (previous != null) _pause(previous);
-    _controller = null;
-    _error = null;
-    _loadingDocument = true;
-    if (mounted) setState(() {});
-
-    unawaited(
-      _configure(generation).catchError((Object error, StackTrace stackTrace) {
-        if (!mounted || generation != _generation) return;
-        _reportVideoError(error, stackTrace, 'video.webview.initialize');
-        setState(() => _error = error);
-      }),
-    );
-  }
-
-  Future<void> _configure(int generation) async {
-    final resolution = _VideoSourceResolution(
-      data: widget.data,
-      siteUrl: widget.siteUrl,
-      credentials: widget.credentials,
-      lifecycle: widget.lifecycle,
-    );
-    _sourceResolution = resolution;
-    late final SiteVideoSource source;
-    try {
-      source = await resolution.resolve();
-    } finally {
-      if (identical(_sourceResolution, resolution)) {
-        _sourceResolution = null;
-      }
-      resolution.cancel();
-    }
-    if (!mounted || generation != _generation) return;
-
-    final controller = WebViewController.fromPlatformCreationParams(
-      mediaWebViewCreationParams(),
-    );
-    await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
-    if (!_isCurrent(generation)) return;
-    await controller.addJavaScriptChannel(
-      _videoBridgeName,
-      onMessageReceived: (message) {
-        if (!_isCurrent(generation, controller)) return;
-        switch (message.message) {
-          case 'play':
-            _InlineVideoPlaybackCoordinator.activate(
-              this,
-              () => _pauseIgnoringErrors(controller),
-            );
-          case 'error':
-            _failWebView(
-              StateError('The WebKit media element could not play the video.'),
-              StackTrace.current,
-              generation,
-              controller,
-            );
-        }
-      },
-    );
-    if (!_isCurrent(generation)) return;
-    await controller.setBackgroundColor(Colors.black);
-    if (!_isCurrent(generation)) return;
-    await controller.setNavigationDelegate(
-      NavigationDelegate(
-        onNavigationRequest: (request) {
-          if (!_isCurrent(generation, controller)) {
-            return NavigationDecision.prevent;
-          }
-          if (!request.isMainFrame || _loadingDocument) {
-            return NavigationDecision.navigate;
-          }
-          unawaited(openExternalLink(request.url));
-          return NavigationDecision.prevent;
-        },
-        onPageFinished: (_) {
-          if (_isCurrent(generation, controller) && _loadingDocument) {
-            setState(() => _loadingDocument = false);
-            unawaited(_play(controller, generation));
-          }
-        },
-        onWebResourceError: (error) {
-          if (error.isForMainFrame == false ||
-              !_isCurrent(generation, controller)) {
-            return;
-          }
-          _failWebView(error, StackTrace.current, generation, controller);
-        },
-      ),
-    );
-    if (!_isCurrent(generation)) return;
-    setState(() => _controller = controller);
-    await controller.loadHtmlString(
-      buildInlineVideoHtml(source.url, posterUrl: widget.data.posterUrl),
-      baseUrl: _originOf(source.url).toString(),
-    );
-    if (!_isCurrent(generation, controller)) _pause(controller);
-  }
-
-  bool _isCurrent(int generation, [WebViewController? controller]) =>
-      mounted &&
-      generation == _generation &&
-      (controller == null || identical(_controller, controller));
-
-  Future<void> _play(WebViewController controller, int generation) async {
-    try {
-      _InlineVideoPlaybackCoordinator.activate(
-        this,
-        () => _pauseIgnoringErrors(controller),
-      );
-      await controller.runJavaScript(_playVideoScript);
-    } on Object catch (error, stackTrace) {
-      _failWebView(error, stackTrace, generation, controller);
-    }
-  }
-
-  void _failWebView(
-    Object error,
-    StackTrace stackTrace,
-    int generation,
-    WebViewController controller,
-  ) {
-    if (!_isCurrent(generation, controller) || _error != null) return;
-    _InlineVideoPlaybackCoordinator.release(this);
-    _pause(controller);
-    _reportVideoError(error, stackTrace, 'video.webview.playback');
-    setState(() => _error = error);
-  }
-
-  void _pause(WebViewController controller) {
-    unawaited(_pauseIgnoringErrors(controller));
-  }
-
-  Future<void> _pauseIgnoringErrors(WebViewController controller) async {
-    try {
-      await controller.runJavaScript(_pauseVideoScript);
-    } on Object {
-      // The owned document may not exist yet during replacement or teardown.
-    }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) {
-      final controller = _controller;
-      if (controller != null) _pause(controller);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final controller = _controller;
-    if (_error != null) return _VideoFailure(data: widget.data);
-    if (controller == null) {
-      return _ActiveVideoFrame(
-        data: widget.data,
-        child: const ColoredBox(
-          color: Colors.black,
-          child: Center(child: CircularProgressIndicator(color: Colors.white)),
+    final durationMilliseconds = state.duration.inMilliseconds;
+    final positionMilliseconds = state.position.inMilliseconds.clamp(
+      0,
+      math.max(durationMilliseconds, 0),
+    );
+    final bufferedMilliseconds = state.buffered.inMilliseconds.clamp(
+      positionMilliseconds,
+      math.max(durationMilliseconds, positionMilliseconds),
+    );
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.transparent, Color(0xDD000000)],
         ),
-      );
-    }
-    return _ActiveVideoFrame(
-      data: widget.data,
-      child: Semantics(
-        label: 'Video player: ${widget.data.title}',
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            WebViewWidget(
-              controller: controller,
-              gestureRecognizers: mediaPlayerGestureRecognizers,
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: state.isPlaying ? 'Pause' : 'Play',
+            color: Colors.white,
+            onPressed: onTogglePlayback,
+            icon: Icon(
+              state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
             ),
-            if (_loadingDocument)
-              const ColoredBox(
-                color: Colors.black,
-                child: Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
+          ),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: Colors.white,
+                inactiveTrackColor: const Color(0x55FFFFFF),
+                secondaryActiveTrackColor: const Color(0x88FFFFFF),
+                thumbColor: Colors.white,
+                overlayColor: const Color(0x33FFFFFF),
+                trackHeight: 2,
               ),
-          ],
-        ),
+              child: Slider(
+                value: durationMilliseconds > 0
+                    ? positionMilliseconds.toDouble()
+                    : 0,
+                max: math.max(durationMilliseconds, 1).toDouble(),
+                secondaryTrackValue: durationMilliseconds > 0
+                    ? bufferedMilliseconds.toDouble()
+                    : null,
+                onChanged: durationMilliseconds > 0
+                    ? (value) => onSeek(Duration(milliseconds: value.round()))
+                    : null,
+              ),
+            ),
+          ),
+          Text(
+            '${_duration(state.position)} / ${_duration(state.duration)}',
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: Colors.white),
+          ),
+          if (onEnterFullscreen case final enter?)
+            IconButton(
+              key: const ValueKey('inline-video-fullscreen'),
+              tooltip: 'Enter full screen',
+              color: Colors.white,
+              onPressed: enter,
+              icon: const DIcon(DIcons.expand, size: 18, color: Colors.white),
+            )
+          else if (onExitFullscreen case final exit?)
+            IconButton(
+              key: const ValueKey('inline-video-fullscreen-close'),
+              tooltip: 'Exit full screen',
+              color: Colors.white,
+              onPressed: exit,
+              icon: const Icon(Icons.fullscreen_exit_rounded),
+            )
+          else
+            const SizedBox(width: 12),
+        ],
       ),
     );
   }
-
-  @override
-  void dispose() {
-    _generation++;
-    WidgetsBinding.instance.removeObserver(this);
-    _InlineVideoPlaybackCoordinator.release(this);
-    _sourceResolution?.cancel();
-    _sourceResolution = null;
-    final controller = _controller;
-    if (controller != null) _pause(controller);
-    super.dispose();
-  }
 }
-
-String buildInlineVideoHtml(Uri source, {String? posterUrl}) {
-  final safeSource = requireSafeHttpUrl(source);
-  final safePoster = _safeAbsoluteUrl(posterUrl, null);
-  final escapedSource = htmlEscape.convert(safeSource.toString());
-  final poster = safePoster == null
-      ? ''
-      : ' poster="${htmlEscape.convert(safePoster.toString())}"';
-  final mediaSources = [
-    'https:',
-    if (safeSource.scheme == 'http') safeSource.origin,
-  ].join(' ');
-  final imageSources = [
-    'https:',
-    'data:',
-    if (safePoster?.scheme == 'http') safePoster!.origin,
-  ].join(' ');
-  return '''<!doctype html>
-<html><head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src $mediaSources; img-src $imageSources; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
-<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000}video{width:100%;height:100%;object-fit:contain}</style>
-</head><body>
-<video src="$escapedSource"$poster controls playsinline preload="metadata"></video>
-<script>
-const video = document.querySelector('video');
-const notify = (event) => {
-  if (window.$_videoBridgeName) window.$_videoBridgeName.postMessage(event);
-};
-video.addEventListener('play', () => notify('play'));
-video.addEventListener('error', () => notify('error'));
-</script>
-</body></html>''';
-}
-
-const _videoBridgeName = 'DiscourseVideo';
-const _pauseVideoScript = "document.querySelector('video')?.pause();";
-const _playVideoScript = "document.querySelector('video')?.play();";
 
 final class _InlineVideoPlaybackCoordinator {
   static Object? _owner;
@@ -1152,9 +764,10 @@ class _OpenVideoButton extends StatelessWidget {
 }
 
 class _VideoFailure extends StatelessWidget {
-  const _VideoFailure({required this.data});
+  const _VideoFailure({required this.data, required this.onRetry});
 
   final InlineVideoData data;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) => ColoredBox(
@@ -1168,45 +781,26 @@ class _VideoFailure extends StatelessWidget {
             style: TextStyle(color: Colors.white),
           ),
           const SizedBox(height: 8),
-          DButton(
-            label: const Text('Open video'),
-            onPressed: () =>
-                unawaited(openExternalLink(data.source.toString())),
-            variant: DButtonVariant.link,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DButton(
+                label: const Text('Try again'),
+                onPressed: onRetry,
+                variant: DButtonVariant.link,
+              ),
+              DButton(
+                label: const Text('Open video'),
+                onPressed: () =>
+                    unawaited(openExternalLink(data.source.toString())),
+                variant: DButtonVariant.link,
+              ),
+            ],
           ),
         ],
       ),
     ),
   );
-}
-
-final class _VideoSourceResolution {
-  _VideoSourceResolution({
-    required this.data,
-    required this.siteUrl,
-    required ApiCredentialReader? credentials,
-    required SiteLifecycle? lifecycle,
-  }) : _resolver = siteUrl == null || credentials == null || lifecycle == null
-           ? null
-           : SiteVideoSourceResolver(
-               credentials: credentials,
-               lifecycle: lifecycle,
-             );
-
-  final InlineVideoData data;
-  final String? siteUrl;
-  final SiteVideoSourceResolver? _resolver;
-
-  Future<SiteVideoSource> resolve() {
-    final resolver = _resolver;
-    final connectedSite = siteUrl;
-    if (resolver == null || connectedSite == null) {
-      return Future.value(SiteVideoSource(data.source));
-    }
-    return resolver.resolve(siteUrl: connectedSite, url: data.source);
-  }
-
-  void cancel() => _resolver?.close();
 }
 
 Uri? _safeAbsoluteUrl(String? value, String? siteUrl) {
@@ -1257,23 +851,4 @@ String _duration(Duration duration) {
         '${seconds.toString().padLeft(2, '0')}';
   }
   return '$minutes:${seconds.toString().padLeft(2, '0')}';
-}
-
-Uri _originOf(Uri url) => Uri(
-  scheme: url.scheme,
-  host: url.host,
-  port: url.hasPort ? url.port : null,
-  path: '/',
-);
-
-void _reportVideoError(Object error, StackTrace stackTrace, String operation) {
-  DiagnosticsSink.current.reportError(
-    error,
-    stackTrace,
-    operation: operation,
-    source: 'platform',
-    severity: DiagnosticSeverity.warning,
-    handled: true,
-    degraded: true,
-  );
 }

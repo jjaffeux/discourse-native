@@ -7,7 +7,6 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html_parser;
-import 'package:video_player/video_player.dart';
 
 void main() {
   group('InlineVideoData', () {
@@ -234,7 +233,7 @@ void main() {
     expect(disposals, 1);
   });
 
-  testWidgets('native controls keep playback active in a full-screen route', (
+  testWidgets('session controls keep playback active in a full-screen route', (
     tester,
   ) async {
     final data = InlineVideoData.fromUpload(
@@ -242,21 +241,19 @@ void main() {
       title: 'Demo',
       siteUrl: 'https://meta.discourse.org',
     )!;
-    final controller = _FakeVideoPlayerController();
-    var controllerBuilds = 0;
+    late _FakePlaybackSession session;
 
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark,
         home: Scaffold(
-          body: InlineVideoNativeSurface(
+          body: InlineVideoPlaybackSurface(
             data: data,
             siteUrl: null,
             credentials: null,
             lifecycle: null,
-            controllerBuilder: (_) {
-              controllerBuilds++;
-              return controller;
+            sessionFactory: (request) {
+              return session = _FakePlaybackSession(request)..completeReady();
             },
           ),
         ),
@@ -265,8 +262,7 @@ void main() {
     await tester.pumpAndSettle();
 
     const fullscreenButton = ValueKey('inline-video-fullscreen');
-    expect(controllerBuilds, 1);
-    expect(controller.value.isPlaying, isTrue);
+    expect(session.state.isPlaying, isTrue);
     expect(
       tester.widget<IconButton>(find.byKey(fullscreenButton)).tooltip,
       'Enter full screen',
@@ -283,9 +279,8 @@ void main() {
       find.bySemanticsLabel(RegExp('Full-screen video player: Demo')),
       findsOneWidget,
     );
-    expect(controllerBuilds, 1);
-    expect(controller.value.isPlaying, isTrue);
-    expect(find.byType(VideoPlayer), findsOneWidget);
+    expect(session.state.isPlaying, isTrue);
+    expect(find.byKey(const ValueKey('fake-player')), findsOneWidget);
 
     const closeButton = ValueKey('inline-video-fullscreen-close');
     expect(
@@ -300,8 +295,7 @@ void main() {
       findsNothing,
     );
     expect(find.byKey(fullscreenButton), findsOneWidget);
-    expect(controllerBuilds, 1);
-    expect(controller.value.isPlaying, isTrue);
+    expect(session.state.isPlaying, isTrue);
 
     await tester.tap(find.byKey(fullscreenButton));
     await tester.pumpAndSettle();
@@ -318,8 +312,173 @@ void main() {
       findsNothing,
     );
     expect(find.byKey(fullscreenButton), findsOneWidget);
-    expect(controllerBuilds, 1);
-    expect(controller.value.isPlaying, isTrue);
+    expect(session.state.isPlaying, isTrue);
+  });
+
+  testWidgets('source replacement releases the prior session exactly once', (
+    tester,
+  ) async {
+    final sessions = <_FakePlaybackSession>[];
+    final first = _videoData('first.mp4', 'First');
+    final second = _videoData('second.mp4', 'Second');
+
+    Widget app(InlineVideoData data) => MaterialApp(
+      theme: AppTheme.dark,
+      home: Scaffold(
+        body: InlineVideoPlaybackSurface(
+          key: const ValueKey('surface'),
+          data: data,
+          siteUrl: null,
+          credentials: null,
+          lifecycle: null,
+          sessionFactory: (request) {
+            final session = _FakePlaybackSession(request);
+            sessions.add(session);
+            return session;
+          },
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(app(first));
+    expect(sessions, hasLength(1));
+
+    await tester.pumpWidget(app(second));
+    expect(sessions, hasLength(2));
+    expect(sessions.first.disposeCount, 1);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(sessions.first.disposeCount, 1);
+    expect(sessions.last.disposeCount, 1);
+  });
+
+  testWidgets('disposal ignores late initialization and releases once', (
+    tester,
+  ) async {
+    final sessions = <_FakePlaybackSession>[];
+    await tester.pumpWidget(
+      _sessionApp(_videoData('demo.mp4', 'Demo'), sessions),
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    sessions.single.completeReady();
+    sessions.single.fail();
+    await tester.pump();
+
+    expect(sessions.single.disposeCount, 1);
+    expect(find.byKey(const ValueKey('fake-player')), findsNothing);
+    expect(find.text("Couldn't play this video."), findsNothing);
+  });
+
+  testWidgets('stale initialization success cannot replace the new source', (
+    tester,
+  ) async {
+    final sessions = <_FakePlaybackSession>[];
+    final first = _videoData('first.mp4', 'First');
+    final second = _videoData('second.mp4', 'Second');
+
+    await tester.pumpWidget(_sessionApp(first, sessions));
+    await tester.pumpWidget(_sessionApp(second, sessions));
+
+    sessions.first.completeReady();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('fake-player')), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    sessions.last.completeReady();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('fake-player')), findsOneWidget);
+  });
+
+  testWidgets('stale initialization failure cannot replace the new source', (
+    tester,
+  ) async {
+    final sessions = <_FakePlaybackSession>[];
+    final first = _videoData('first.mp4', 'First');
+    final second = _videoData('second.mp4', 'Second');
+
+    await tester.pumpWidget(_sessionApp(first, sessions));
+    await tester.pumpWidget(_sessionApp(second, sessions));
+
+    sessions.first.fail();
+    await tester.pump();
+    expect(find.text("Couldn't play this video."), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    sessions.last.completeReady();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('fake-player')), findsOneWidget);
+  });
+
+  testWidgets('visibility changes pause but do not restart playback', (
+    tester,
+  ) async {
+    final sessions = <_FakePlaybackSession>[];
+    await tester.pumpWidget(
+      _sessionApp(_videoData('demo.mp4', 'Demo'), sessions),
+    );
+    sessions.single.completeReady();
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(sessions.single.pauseCount, 1);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(sessions.single.pauseCount, 1);
+  });
+
+  testWidgets('error UI retries with a fresh session and keeps open fallback', (
+    tester,
+  ) async {
+    final sessions = <_FakePlaybackSession>[];
+    await tester.pumpWidget(
+      _sessionApp(_videoData('demo.mp4', 'Demo'), sessions),
+    );
+    sessions.single.fail();
+    await tester.pump();
+
+    expect(find.text("Couldn't play this video."), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.text('Open video'), findsOneWidget);
+
+    await tester.tap(find.text('Try again'));
+    await tester.pump();
+    expect(sessions, hasLength(2));
+    expect(sessions.first.disposeCount, 1);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    sessions.last.completeReady();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('fake-player')), findsOneWidget);
+  });
+
+  testWidgets('unsupported platform renders the external-open fallback', (
+    tester,
+  ) async {
+    final data = _videoData('demo.mp4', 'Demo');
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: InlineVideoPlaybackSurface(
+            data: data,
+            siteUrl: null,
+            credentials: null,
+            lifecycle: null,
+            sessionFactory: (request) => createInlineVideoPlaybackSession(
+              request,
+              platform: TargetPlatform.windows,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text("Couldn't play this video."), findsOneWidget);
+    expect(find.text('Open video'), findsOneWidget);
   });
 
   test('Linux document escapes attributes and locks down remote content', () {
@@ -376,27 +535,131 @@ class _DisposeSpyState extends State<_DisposeSpy> {
   }
 }
 
-class _FakeVideoPlayerController extends VideoPlayerController {
-  _FakeVideoPlayerController()
-    : super.networkUrl(Uri.parse('https://cdn.example.com/demo.mp4')) {
-    value = const VideoPlayerValue(
-      duration: Duration(seconds: 20),
-      position: Duration(seconds: 7),
-      size: Size(1280, 720),
-      isInitialized: true,
+InlineVideoData _videoData(String filename, String title) =>
+    InlineVideoData.fromUpload(
+      url: '/uploads/$filename',
+      title: title,
+      siteUrl: 'https://meta.discourse.org',
+    )!;
+
+Widget _sessionApp(InlineVideoData data, List<_FakePlaybackSession> sessions) =>
+    MaterialApp(
+      theme: AppTheme.dark,
+      home: Scaffold(
+        body: InlineVideoPlaybackSurface(
+          key: const ValueKey('surface'),
+          data: data,
+          siteUrl: null,
+          credentials: null,
+          lifecycle: null,
+          sessionFactory: (request) {
+            final session = _FakePlaybackSession(request);
+            sessions.add(session);
+            return session;
+          },
+        ),
+      ),
     );
+
+final class _FakePlaybackSession implements InlineVideoPlaybackSession {
+  _FakePlaybackSession(this.request)
+    : _state = InlineVideoPlaybackState(
+        phase: InlineVideoPlaybackPhase.initializing,
+        aspectRatio: request.aspectRatio,
+      );
+
+  final InlineVideoPlaybackRequest request;
+  final Set<VoidCallback> _listeners = {};
+  InlineVideoPlaybackState _state;
+  int startCount = 0;
+  int playCount = 0;
+  int pauseCount = 0;
+  int disposeCount = 0;
+
+  @override
+  InlineVideoPlaybackState get state => _state;
+
+  void completeReady() {
+    _state = InlineVideoPlaybackState(
+      phase: InlineVideoPlaybackPhase.ready,
+      aspectRatio: request.aspectRatio,
+      playerBuilder: () =>
+          const ColoredBox(key: ValueKey('fake-player'), color: Colors.black),
+      isPlaying: true,
+      position: const Duration(seconds: 7),
+      duration: const Duration(seconds: 20),
+      buffered: const Duration(seconds: 12),
+      showAppControls: true,
+      supportsFullscreen: true,
+    );
+    _notifyListeners();
+  }
+
+  void fail() {
+    _state = InlineVideoPlaybackState(
+      phase: InlineVideoPlaybackPhase.failed,
+      aspectRatio: request.aspectRatio,
+      error: StateError('failed'),
+    );
+    _notifyListeners();
+  }
+
+  void _notifyListeners() {
+    for (final listener in _listeners.toList(growable: false)) {
+      listener();
+    }
   }
 
   @override
-  Future<void> initialize() async {}
+  void addListener(VoidCallback listener) => _listeners.add(listener);
+
+  @override
+  void removeListener(VoidCallback listener) => _listeners.remove(listener);
+
+  @override
+  Future<void> start() async {
+    startCount++;
+  }
 
   @override
   Future<void> play() async {
-    value = value.copyWith(isPlaying: true);
+    playCount++;
+    _state = InlineVideoPlaybackState(
+      phase: _state.phase,
+      aspectRatio: _state.aspectRatio,
+      playerBuilder: _state.playerBuilder,
+      isPlaying: true,
+      position: _state.position,
+      duration: _state.duration,
+      buffered: _state.buffered,
+      showAppControls: _state.showAppControls,
+      supportsFullscreen: _state.supportsFullscreen,
+    );
+    _notifyListeners();
   }
 
   @override
   Future<void> pause() async {
-    value = value.copyWith(isPlaying: false);
+    pauseCount++;
+    _state = InlineVideoPlaybackState(
+      phase: _state.phase,
+      aspectRatio: _state.aspectRatio,
+      playerBuilder: _state.playerBuilder,
+      isPlaying: false,
+      position: _state.position,
+      duration: _state.duration,
+      buffered: _state.buffered,
+      showAppControls: _state.showAppControls,
+      supportsFullscreen: _state.supportsFullscreen,
+    );
+    _notifyListeners();
+  }
+
+  @override
+  Future<void> seekTo(Duration position) async {}
+
+  @override
+  void dispose() {
+    disposeCount++;
   }
 }
