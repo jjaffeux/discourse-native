@@ -12258,6 +12258,11 @@ final class _ShellCoreBookmarkTargetHost implements BookmarkTargetHost {
           topicId: topicId,
           targetId: targetId,
         ),
+        onUnused: (listenable) {
+          if (identical(_writeListenables[key], listenable)) {
+            _writeListenables.remove(key);
+          }
+        },
       ),
     );
   }
@@ -12383,6 +12388,11 @@ final class _ShellPluginBookmarkTargetHost implements PluginBookmarkHost {
       () => _BookmarkWriteListenable(
         _shell,
         () => bookmarkWriteInFlight(siteUrl: siteUrl, targetId: targetId),
+        onUnused: (listenable) {
+          if (identical(_writeListenables[key], listenable)) {
+            _writeListenables.remove(key);
+          }
+        },
       ),
     );
   }
@@ -12459,18 +12469,32 @@ final class _ShellPluginBookmarkTargetHost implements PluginBookmarkHost {
   }
 }
 
+/// A per-target busy flag derived from the shell.
+///
+/// Every message tile asks for one, and each one is a listener on the shell
+/// facade that runs on every shell notification. So an instance lives only
+/// while something listens to it: when the last listener leaves, the host
+/// forgets it and it lets go of the shell, and the next request builds a
+/// fresh one. Otherwise every message ever scrolled past would keep a
+/// listener on the facade for the life of the app.
 final class _BookmarkWriteListenable extends ChangeNotifier
     implements ValueListenable<bool> {
-  _BookmarkWriteListenable(Listenable source, bool Function() read)
-    : _source = source,
-      _read = read,
-      _value = read() {
+  _BookmarkWriteListenable(
+    Listenable source,
+    bool Function() read, {
+    required void Function(_BookmarkWriteListenable listenable) onUnused,
+  }) : _source = source,
+       _read = read,
+       _onUnused = onUnused,
+       _value = read() {
     _source.addListener(_refresh);
   }
 
   final Listenable _source;
   final bool Function() _read;
+  final void Function(_BookmarkWriteListenable listenable) _onUnused;
   bool _value;
+  bool _released = false;
 
   @override
   bool get value => _value;
@@ -12483,7 +12507,19 @@ final class _BookmarkWriteListenable extends ChangeNotifier
   }
 
   @override
+  void removeListener(VoidCallback listener) {
+    super.removeListener(listener);
+    if (hasListeners || _released) return;
+    _released = true;
+    _onUnused(this);
+    // A listener may leave from inside a notification, when disposing is
+    // not allowed; the shell listener goes once this notification is over.
+    scheduleMicrotask(dispose);
+  }
+
+  @override
   void dispose() {
+    _released = true;
     _source.removeListener(_refresh);
     super.dispose();
   }
