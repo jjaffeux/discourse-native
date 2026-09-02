@@ -381,7 +381,7 @@ class _RevisionModePicker extends StatelessWidget {
   );
 }
 
-class _RevisionDiffView extends StatelessWidget {
+class _RevisionDiffView extends StatefulWidget {
   const _RevisionDiffView({
     super.key,
     required this.diff,
@@ -398,48 +398,71 @@ class _RevisionDiffView extends StatelessWidget {
   final bool currentHidden;
 
   @override
-  Widget build(BuildContext context) => switch (mode) {
+  State<_RevisionDiffView> createState() => _RevisionDiffViewState();
+}
+
+/// The diff HTML is parsed once per revision, not per build: a view-mode
+/// toggle, a hidden-revision toggle or a theme change must not re-parse a
+/// large edit.
+class _RevisionDiffViewState extends State<_RevisionDiffView> {
+  String? _fragmentsSource;
+  ({String previous, String current})? _fragments;
+  String? _rowsSource;
+  List<({String previous, String current})> _rows = const [];
+
+  @override
+  Widget build(BuildContext context) => switch (widget.mode) {
     _PostRevisionViewMode.inline => _inline(),
     _PostRevisionViewMode.sideBySide => _sideBySide(),
     _PostRevisionViewMode.markdown => _markdown(),
   };
 
   Widget _inline() {
-    final html = diff.inline ?? diff.sideBySide;
+    final html = widget.diff.inline ?? widget.diff.sideBySide;
     if (html == null) return const SizedBox.shrink();
     return Opacity(
-      opacity: previousHidden || currentHidden ? 0.5 : 1,
+      opacity: widget.previousHidden || widget.currentHidden ? 0.5 : 1,
       child: CookedHtml(
         key: const ValueKey('post-revision-diff-inline'),
         html: html,
-        siteUrl: siteUrl,
+        siteUrl: widget.siteUrl,
         revisionDiff: true,
       ),
     );
   }
 
   Widget _sideBySide() {
-    final fragments = _sideBySideFragments(diff.sideBySide);
+    final html = widget.diff.sideBySide;
+    if (!identical(html, _fragmentsSource)) {
+      _fragmentsSource = html;
+      _fragments = _sideBySideFragments(html);
+    }
+    final fragments = _fragments;
     if (fragments == null) return _inline();
     return _RevisionColumns(
       key: const ValueKey('post-revision-diff-side-by-side'),
       previous: fragments.previous,
       current: fragments.current,
-      siteUrl: siteUrl,
-      previousHidden: previousHidden,
-      currentHidden: currentHidden,
+      siteUrl: widget.siteUrl,
+      previousHidden: widget.previousHidden,
+      currentHidden: widget.currentHidden,
     );
   }
 
   Widget _markdown() {
-    final rows = _markdownDiffRows(diff.sideBySideMarkdown);
+    final html = widget.diff.sideBySideMarkdown;
+    if (!identical(html, _rowsSource)) {
+      _rowsSource = html;
+      _rows = _markdownDiffRows(html);
+    }
+    final rows = _rows;
     if (rows.isEmpty) return _sideBySide();
     return _RevisionMarkdownTable(
       key: const ValueKey('post-revision-diff-markdown'),
       rows: rows,
-      siteUrl: siteUrl,
-      previousHidden: previousHidden,
-      currentHidden: currentHidden,
+      siteUrl: widget.siteUrl,
+      previousHidden: widget.previousHidden,
+      currentHidden: widget.currentHidden,
     );
   }
 }
@@ -638,7 +661,9 @@ List<({String previous, String current})> _markdownDiffRows(String? html) {
   if (html == null || html.isEmpty) return const [];
   final rows = <({String previous, String current})>[];
   for (final row in html_parser.parseFragment(html).querySelectorAll('tr')) {
-    final cells = row.children
+    // `Element.children` rebuilds itself out of `nodes` on every read.
+    final cells = row.nodes
+        .whereType<dom.Element>()
         .where((element) => element.localName == 'td')
         .toList(growable: false);
     if (cells.length < 2) continue;
