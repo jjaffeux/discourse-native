@@ -2839,6 +2839,10 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
+    final hidePresenceVersion = _hidePresenceVersions[siteUrl] ?? 0;
+    final groupedUnreadNotificationVersion =
+        _groupedUnreadNotificationVersions[siteUrl] ?? 0;
+    final draftCountVersion = _draftCountVersions[siteUrl] ?? 0;
     final bootstrap = apiKey == null
         ? null
         : await _messageBusBootstrap(
@@ -2847,10 +2851,21 @@ class ShellController extends FrameSafeNotifier
             clientId: clientId,
             lease: lease,
           );
+    final bootstrapUser = bootstrap?.currentUser;
+    final freshBootstrapUser = bootstrapUser == null
+        ? null
+        : _acceptFreshCurrentUserSnapshot(
+            siteUrl,
+            bootstrapUser,
+            lease,
+            hidePresenceVersion,
+            groupedUnreadNotificationVersion,
+            draftCountVersion,
+          );
 
     final userId = apiKey == null
         ? null
-        : bootstrap?.currentUser?.id ??
+        : freshBootstrapUser?.id ??
               await _accountId(siteUrl, apiKey: apiKey, lease: lease);
     final initialLastIds =
         bootstrap?.initialLastIds(userId: userId) ?? const {};
@@ -2886,7 +2901,7 @@ class ShellController extends FrameSafeNotifier
 
       final trackingUsername = apiKey == null
           ? null
-          : bootstrap?.currentUser?.username ?? current.user?.username;
+          : freshBootstrapUser?.username ?? current.user?.username;
       final bootstrapTracking = bootstrap?.topicTrackingState;
       if (trackingUsername != null &&
           userId != null &&
@@ -3244,7 +3259,27 @@ class ShellController extends FrameSafeNotifier
       });
       return null;
     }
-    if (isDisposed || !lease.isCurrent) return null;
+    return _acceptFreshCurrentUserSnapshot(
+      siteUrl,
+      responseUser,
+      lease,
+      hidePresenceVersion,
+      groupedUnreadNotificationVersion,
+      draftCountVersion,
+    );
+  }
+
+  DiscourseUser? _acceptFreshCurrentUserSnapshot(
+    String siteUrl,
+    DiscourseUser responseUser,
+    SiteLease lease,
+    int hidePresenceVersion,
+    int groupedUnreadNotificationVersion,
+    int draftCountVersion,
+  ) {
+    if (isDisposed || !lease.isCurrent || _connectingSiteUrl == siteUrl) {
+      return null;
+    }
     final user = _acceptDoNotDisturbSnapshot(siteUrl, responseUser);
 
     var changed = false;

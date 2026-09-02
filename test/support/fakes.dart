@@ -692,6 +692,7 @@ class FakeDiscourseApi
   final SiteMessageBusBootstrap? messageBusBootstrapResult;
   final Completer<void>? messageBusBootstrapGate;
   final List<String> messageBusBootstrapRequests = [];
+  final List<String> currentUserRequests = [];
 
   final TopicTrackingState? trackingState;
   final Completer<void>? trackingStateGate;
@@ -1308,8 +1309,11 @@ class FakeDiscourseApi
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async =>
-      user ?? const DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+  }) async {
+    currentUserRequests.add(siteUrl);
+    return user ??
+        const DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+  }
 
   @override
   Future<TopicTrackingState> topicTrackingState({

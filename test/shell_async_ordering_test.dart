@@ -244,7 +244,7 @@ void main() {
   group('MessageBus bootstrap ordering', () {
     test('installs snapshots before subscribing at their positions', () async {
       const bootstrapUser = DiscourseUser(
-        id: 1,
+        id: 2,
         username: 'author',
         status: UserStatus(
           description: 'Heads down',
@@ -256,7 +256,7 @@ void main() {
       final bootstrap = SiteMessageBusBootstrap(
         currentUser: bootstrapUser,
         currentUserState: const {
-          'id': 1,
+          'id': 2,
           'username': 'author',
           'all_unread_notifications_count': 5,
           'new_personal_messages_notifications_count': 2,
@@ -274,7 +274,7 @@ void main() {
           '/latest': 303,
           '/new': 304,
           '/unread': 305,
-          '/unread/1': 306,
+          '/unread/2': 306,
           '/delete': 307,
           '/recover': 308,
           '/destroy': 309,
@@ -294,22 +294,40 @@ void main() {
         '/latest': 303,
         '/new': 304,
         '/unread': 305,
-        '/unread/1': 306,
+        '/unread/2': 306,
         '/delete': 307,
         '/recover': 308,
         '/destroy': 309,
-        '/notification/1': 310,
+        '/notification/2': 310,
         '/user-status': 301,
-        '/do-not-disturb/1': 302,
+        '/do-not-disturb/2': 302,
       });
       expect(tracker.topicTrackingLastIds, tracker.initialLastIds);
       expect(api.messageBusBootstrapRequests, [_siteUrl]);
+      expect(api.currentUserRequests, isEmpty);
       expect(api.topicTrackingRequests, isEmpty);
+      expect(shell.currentInstance?.user?.id, 2);
+      expect(shell.freshCurrentUserFor(_siteUrl)?.id, 2);
       expect(shell.topicTrackingRevisionFor(_siteUrl), 1);
       expect(shell.currentTotals?.unreadNotifications, 3);
       expect(shell.currentTotals?.unreadPersonalMessages, 2);
       expect(shell.currentTotals?.unseenReviewables, 4);
     });
+
+    test(
+      'falls back when the application document has no current user',
+      () async {
+        const currentUser = DiscourseUser(id: 1, username: 'author');
+        final api = FakeDiscourseApi(user: currentUser);
+
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+
+        expect(api.messageBusBootstrapRequests, [_siteUrl]);
+        expect(api.currentUserRequests, [_siteUrl]);
+        expect(shell.freshCurrentUserFor(_siteUrl), currentUser);
+      },
+    );
   });
 
   group('incoming feed ordering', () {
