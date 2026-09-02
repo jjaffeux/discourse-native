@@ -12,6 +12,14 @@ import 'assign_services.dart';
 import 'assign_shell_service.dart';
 import 'assigned_group.dart';
 import 'assigned_group_controller.dart';
+import 'assigned_group_presentation.dart';
+
+typedef AssignedGroupPresentationFactory =
+    AssignedGroupPresentation Function(
+      String siteUrl,
+      String groupName,
+      String? subsection,
+    );
 
 class AssignedGroupView extends StatefulWidget {
   const AssignedGroupView({
@@ -19,42 +27,27 @@ class AssignedGroupView extends StatefulWidget {
     required this.siteUrl,
     required this.groupName,
     required this.subsection,
+    this.presentationFactory,
   });
 
   final String siteUrl;
   final String groupName;
   final String? subsection;
+  final AssignedGroupPresentationFactory? presentationFactory;
 
   @override
   State<AssignedGroupView> createState() => _AssignedGroupViewState();
 }
 
 class _AssignedGroupViewState extends State<AssignedGroupView> {
-  AssignedGroupTopicQuery _query = const AssignedGroupTopicQuery();
-  String _memberSearch = '';
-  bool _loadScheduled = false;
-
-  AssignedGroupController get _controller =>
-      PluginUiScope.require(context, assignedGroupControllerService);
-
-  AssignShellService get _navigation =>
-      PluginUiScope.require(context, assignGroupNavigationService);
-
-  AssignedGroupFilter get _filter {
-    final subsection = widget.subsection;
-    if (subsection == null || subsection == 'everyone') {
-      return const AssignedGroupFilter.everyone();
-    }
-    if (subsection == widget.groupName) {
-      return const AssignedGroupFilter.directGroup();
-    }
-    return AssignedGroupFilter.member(subsection);
-  }
+  AssignedGroupPresentation? _presentation;
+  AssignedGroupController? _domainController;
+  AssignShellService? _navigationService;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _scheduleLoad();
+    _ensurePresentation();
   }
 
   @override
@@ -62,191 +55,196 @@ class _AssignedGroupViewState extends State<AssignedGroupView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.groupName != widget.groupName ||
-        oldWidget.subsection != widget.subsection) {
-      _scheduleLoad();
+        oldWidget.subsection != widget.subsection ||
+        oldWidget.presentationFactory != widget.presentationFactory) {
+      _ensurePresentation(replace: true);
     }
   }
 
-  void _scheduleLoad() {
-    if (_loadScheduled) return;
-    _loadScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadScheduled = false;
-      if (!mounted) return;
-      unawaited(_load());
-    });
-  }
+  void _ensurePresentation({bool replace = false}) {
+    final factory = widget.presentationFactory;
+    if (factory != null) {
+      if (replace || _presentation == null) {
+        _replacePresentation(
+          factory(widget.siteUrl, widget.groupName, widget.subsection),
+        );
+      }
+      return;
+    }
 
-  Future<void> _load({bool refresh = false}) async {
-    await Future.wait([
-      _controller.loadMembers(
+    final domain = PluginUiScope.require(
+      context,
+      assignedGroupControllerService,
+    );
+    final navigation = PluginUiScope.require(
+      context,
+      assignGroupNavigationService,
+    );
+    if (!replace &&
+        _presentation != null &&
+        identical(_domainController, domain) &&
+        identical(_navigationService, navigation)) {
+      return;
+    }
+    _domainController = domain;
+    _navigationService = navigation;
+    _replacePresentation(
+      AssignedGroupPresentationController(
         siteUrl: widget.siteUrl,
         groupName: widget.groupName,
-        search: _memberSearch,
-        refresh: refresh,
-      ),
-      _controller.loadTopics(
-        siteUrl: widget.siteUrl,
-        groupName: widget.groupName,
-        filter: _filter,
-        query: _query,
-        refresh: refresh,
-      ),
-    ]);
-  }
-
-  void _select(AssignedGroupFilter filter) {
-    _navigation.selectGroupFilter(widget.groupName, filter);
-  }
-
-  void _replaceQuery(AssignedGroupTopicQuery query) {
-    if (query == _query) return;
-    setState(() => _query = query);
-    unawaited(
-      _controller.loadTopics(
-        siteUrl: widget.siteUrl,
-        groupName: widget.groupName,
-        filter: _filter,
-        query: query,
-        refresh: true,
+        subsection: widget.subsection,
+        controller: domain,
+        onSelectFilter: navigation.selectGroupFilter,
+        onOpenTopic: navigation.openTopic,
       ),
     );
   }
 
+  void _replacePresentation(AssignedGroupPresentation next) {
+    _presentation?.dispose();
+    _presentation = next;
+    _scheduleLoad(next);
+  }
+
+  void _scheduleLoad(AssignedGroupPresentation presentation) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_presentation, presentation)) return;
+      unawaited(presentation.load());
+    });
+  }
+
+  @override
+  void dispose() {
+    _presentation?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
+    final presentation = _presentation;
+    if (presentation == null) return const SizedBox.shrink();
+    return ListenableBuilder(
+      listenable: presentation,
+      builder: (context, _) => AssignedGroupPresentationView(
+        state: presentation.state,
+        onRefresh: () => presentation.load(refresh: true),
+        onSelect: presentation.selectFilter,
+        onQueryChanged: presentation.replaceQuery,
+        onMemberSearch: presentation.searchMembers,
+        onLoadMoreMembers: presentation.loadMoreMembers,
+        onLoadMoreTopics: presentation.loadMoreTopics,
+        onOpenTopic: presentation.openTopic,
+      ),
+    );
+  }
+}
+
+class AssignedGroupPresentationView extends StatelessWidget {
+  const AssignedGroupPresentationView({
+    super.key,
+    required this.state,
+    required this.onRefresh,
+    required this.onSelect,
+    required this.onQueryChanged,
+    required this.onMemberSearch,
+    required this.onLoadMoreMembers,
+    required this.onLoadMoreTopics,
+    required this.onOpenTopic,
+  });
+
+  final AssignedGroupPresentationState state;
+  final RefreshCallback onRefresh;
+  final ValueChanged<AssignedGroupFilter> onSelect;
+  final ValueChanged<AssignedGroupTopicQuery> onQueryChanged;
+  final ValueChanged<String> onMemberSearch;
+  final VoidCallback onLoadMoreMembers;
+  final VoidCallback onLoadMoreTopics;
+  final ValueChanged<Topic> onOpenTopic;
+
+  @override
+  Widget build(BuildContext context) {
+    final feed = state.feed;
+    final topics = state.topics;
     return ContentReadingLane(
       basePadding: const EdgeInsets.symmetric(horizontal: 16),
       builder: (context, lane) => RefreshIndicator(
-        onRefresh: () => _load(refresh: true),
-        child: ListenableBuilder(
-          listenable: controller,
-          builder: (context, _) {
-            final members = controller.membersStateFor(
-              widget.siteUrl,
-              widget.groupName,
-              search: _memberSearch,
-            );
-            final feed = controller.topicFeedFor(
-              widget.siteUrl,
-              widget.groupName,
-              _filter,
-              query: _query,
-            );
-            final topics = controller.topicsFor(
-              widget.siteUrl,
-              widget.groupName,
-              _filter,
-              query: _query,
-            );
-            return CustomScrollView(
-              key: PageStorageKey(
-                'assigned-${widget.groupName}-${_filter.routeSegment(widget.groupName)}',
+        onRefresh: onRefresh,
+        child: CustomScrollView(
+          key: PageStorageKey(
+            'assigned-${state.groupName}-${state.filter.routeSegment(state.groupName)}',
+          ),
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.only(
+                left: lane.leftInset,
+                right: lane.rightInset,
               ),
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.only(
-                    left: lane.leftInset,
-                    right: lane.rightInset,
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _AssignedControls(
+                      groupName: state.groupName,
+                      filter: state.filter,
+                      query: state.query,
+                      members: state.members,
+                      onSelect: onSelect,
+                      onQueryChanged: onQueryChanged,
+                      onMemberSearch: onMemberSearch,
+                      onLoadMoreMembers: onLoadMoreMembers,
+                    ),
                   ),
-                  sliver: SliverMainAxisGroup(
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: _AssignedControls(
-                          groupName: widget.groupName,
-                          filter: _filter,
-                          query: _query,
-                          members: members,
-                          onSelect: _select,
-                          onQueryChanged: _replaceQuery,
-                          onMemberSearch: (value) {
-                            final search = value.trim();
-                            if (search == _memberSearch) return;
-                            setState(() => _memberSearch = search);
-                            unawaited(
-                              controller.loadMembers(
-                                siteUrl: widget.siteUrl,
-                                groupName: widget.groupName,
-                                search: search,
-                                refresh: true,
-                              ),
-                            );
-                          },
-                          onLoadMoreMembers: () => unawaited(
-                            controller.loadMoreMembers(
-                              siteUrl: widget.siteUrl,
-                              groupName: widget.groupName,
-                              search: _memberSearch,
-                            ),
+                  if (feed.loading && topics.isNotEmpty)
+                    const SliverToBoxAdapter(
+                      child: LinearProgressIndicator(minHeight: 2),
+                    ),
+                  if (feed.error case final error?)
+                    SliverToBoxAdapter(
+                      child: _AssignedError(message: error, onRetry: onRefresh),
+                    ),
+                  if (!feed.loaded && feed.loading)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: CircularProgressIndicator.adaptive(),
+                      ),
+                    )
+                  else if (topics.isEmpty && feed.error == null)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _AssignedEmpty(),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                      sliver: SliverList.separated(
+                        itemCount: topics.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) => _AssignedTopicRow(
+                          topic: topics[index],
+                          onTap: () => onOpenTopic(topics[index]),
+                        ),
+                      ),
+                    ),
+                  if (feed.hasMore || feed.loadingMore)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 28),
+                        child: Center(
+                          child: DButton(
+                            label: const Text('Load more assignments'),
+                            loading: feed.loadingMore,
+                            onPressed: feed.loadingMore
+                                ? null
+                                : onLoadMoreTopics,
                           ),
                         ),
                       ),
-                      if (feed.loading && topics.isNotEmpty)
-                        const SliverToBoxAdapter(
-                          child: LinearProgressIndicator(minHeight: 2),
-                        ),
-                      if (feed.error case final error?)
-                        SliverToBoxAdapter(
-                          child: _AssignedError(
-                            message: error,
-                            onRetry: () => unawaited(_load(refresh: true)),
-                          ),
-                        ),
-                      if (!feed.loaded && feed.loading)
-                        const SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: Center(
-                            child: CircularProgressIndicator.adaptive(),
-                          ),
-                        )
-                      else if (topics.isEmpty && feed.error == null)
-                        const SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: _AssignedEmpty(),
-                        )
-                      else
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-                          sliver: SliverList.separated(
-                            itemCount: topics.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 8),
-                            itemBuilder: (context, index) => _AssignedTopicRow(
-                              topic: topics[index],
-                              onTap: () => _navigation.openTopic(topics[index]),
-                            ),
-                          ),
-                        ),
-                      if (feed.hasMore || feed.loadingMore)
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 28),
-                            child: Center(
-                              child: DButton(
-                                label: const Text('Load more assignments'),
-                                loading: feed.loadingMore,
-                                onPressed: feed.loadingMore
-                                    ? null
-                                    : () => unawaited(
-                                        controller.loadMoreTopics(
-                                          siteUrl: widget.siteUrl,
-                                          groupName: widget.groupName,
-                                          filter: _filter,
-                                          query: _query,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
