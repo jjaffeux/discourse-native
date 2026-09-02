@@ -345,8 +345,14 @@ final class AggregateFeedController extends FrameSafeNotifier {
   bool closeOtherTabs(String id) {
     final kept = _tabs[id];
     if (kept == null || _tabs.length == 1) return false;
-    for (final tab in _tabs.values) {
-      if (!identical(tab, kept)) tab.invalidate();
+    // Remembered right to left so that reopening restores the leftmost tab
+    // first, and every reopen lands at the position it left.
+    final closing = _tabs.values.toList(growable: false);
+    for (var index = closing.length - 1; index >= 0; index--) {
+      final tab = closing[index];
+      if (identical(tab, kept)) continue;
+      _rememberClosedTab(tab, index);
+      tab.invalidate();
     }
     _tabs
       ..clear()

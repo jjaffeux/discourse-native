@@ -11308,6 +11308,18 @@ class ShellController extends FrameSafeNotifier
       closeComposer();
     }
 
+    // Remembered right to left so that reopening restores the leftmost tab
+    // first, and every reopen lands at the position it left.
+    for (var index = workspace.tabs.length - 1; index >= 0; index--) {
+      final tab = workspace.tabs[index];
+      if (tab.id == id) continue;
+      _rememberClosedForumTab(
+        siteUrl: workspace.siteUrl,
+        accountIdentity: workspace.accountIdentity,
+        tab: tab,
+        index: index,
+      );
+    }
     final activeChanged = workspace.activeTabId != id;
     _putWorkspace(workspace.copyWith(tabs: [kept], activeTabId: id));
     if (activeChanged) {

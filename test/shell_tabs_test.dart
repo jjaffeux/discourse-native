@@ -415,6 +415,33 @@ void main() {
         expect(controller.activeTabId, firstTabId);
         expect(_routeIds(controller), ['latest', 'topic-303']);
       });
+
+      test('reopens tabs closed by close others in their original order', () {
+        final firstTabId = controller.activeTabId!;
+        controller.createTab();
+        final secondTabId = controller.activeTabId!;
+        controller.createTab();
+        final thirdTabId = controller.activeTabId!;
+
+        controller.closeOtherTabs(secondTabId);
+
+        expect(controller.reopenClosedTab(), isTrue);
+        expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
+          firstTabId,
+          secondTabId,
+        ]);
+        expect(controller.activeTabId, firstTabId);
+
+        expect(controller.reopenClosedTab(), isTrue);
+        expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
+          firstTabId,
+          secondTabId,
+          thirdTabId,
+        ]);
+        expect(controller.activeTabId, thirdTabId);
+
+        expect(controller.reopenClosedTab(), isFalse);
+      });
     });
 
     group('per-tab state', () {
