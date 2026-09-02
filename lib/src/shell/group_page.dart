@@ -20,7 +20,6 @@ import 'group/group_manage_controller.dart';
 import 'group/group_members_controller.dart';
 import 'group/group_page_types.dart';
 import 'relative_time.dart';
-import 'shell_scope.dart';
 import 'shell_sheet.dart';
 
 export 'group/group_page_types.dart';
@@ -98,7 +97,6 @@ class GroupPage extends StatefulWidget {
     required this.data,
     this.topicFeed,
     this.messageFeed,
-    this.onLoadRequested,
     this.onRefresh,
     this.onLoadMore,
     this.onSelectRoute,
@@ -124,7 +122,6 @@ class GroupPage extends StatefulWidget {
   final GroupPageData data;
   final Widget? topicFeed;
   final Widget? messageFeed;
-  final ValueChanged<GroupRoute>? onLoadRequested;
   final Future<void> Function()? onRefresh;
   final VoidCallback? onLoadMore;
   final ValueChanged<GroupRoute>? onSelectRoute;
@@ -152,43 +149,8 @@ class GroupPage extends StatefulWidget {
 }
 
 class _GroupPageState extends State<GroupPage> {
-  GroupRoute? _requestedRoute;
-  bool _requestScheduled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _scheduleLoad();
-  }
-
-  @override
-  void didUpdateWidget(GroupPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.siteUrl != widget.siteUrl ||
-        oldWidget.route != widget.route) {
-      _scheduleLoad();
-    }
-  }
-
-  void _scheduleLoad() {
-    if (_requestScheduled || _requestedRoute == widget.route) return;
-    _requestScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _requestScheduled = false;
-      if (!mounted || _requestedRoute == widget.route) return;
-      _requestedRoute = widget.route;
-      widget.onLoadRequested?.call(widget.route);
-    });
-  }
-
   void _select(GroupRoute route) {
-    if (widget.onSelectRoute case final callback?) {
-      callback(route);
-      return;
-    }
-    final shell = ShellScope.maybeRead(context);
-    final username = shell?.currentInstance?.user?.username;
-    shell?.selectGroupRoute(route, feedPath: route.topicFeedPath(username));
+    widget.onSelectRoute?.call(route);
   }
 
   @override
