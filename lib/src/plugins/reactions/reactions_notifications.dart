@@ -26,6 +26,11 @@ ResolvedNotification? _decodeReactionNotification(
     return null;
   }
   final data = notification.data;
+  final consolidated = data['consolidated'] == true;
+  final count = jsonInt(data['count']);
+  final actor = jsonText(
+    data['display_username'] ?? data['username'] ?? data['original_username'],
+  );
   final payloadTitle = data['topic_title'];
   final title = payloadTitle is String && payloadTitle.isNotEmpty
       ? payloadTitle
@@ -35,15 +40,21 @@ ResolvedNotification? _decodeReactionNotification(
   return ResolvedNotification(
     presentation: NotificationPresentation(
       icon: DIcons.discourseEmojis,
-      actor:
-          jsonText(
-            data['display_username'] ??
-                data['username'] ??
-                data['original_username'],
-          ) ??
-          'Someone',
-      phrase: 'reacted to your post in $title',
+      actor: actor ?? 'Someone',
+      phrase: consolidated
+          ? count > 0
+                ? 'reacted to $count of your posts'
+                : 'reacted to your posts'
+          : 'reacted to your post in $title',
     ),
-    path: notificationTopicPath(notification),
+    path: consolidated
+        ? Uri(
+            path: '/my/notifications/reactions-received',
+            queryParameters: {
+              'acting_username': ?jsonText(data['username']) ?? actor,
+              'include_likes': 'true',
+            },
+          ).toString()
+        : notificationTopicPath(notification),
   );
 }

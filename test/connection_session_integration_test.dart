@@ -668,6 +668,60 @@ void _registerConnectionSessionTests() {
       );
     });
 
+    testWidgets('a consolidated reaction opens received reactions by actor', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final launched = watchBrowser(tester);
+        final api = FakeDiscourseApi(
+          notificationList: [
+            DiscourseNotification.fromJson(const {
+              'id': 5,
+              'notification_type': 25,
+              'read': false,
+              'topic_id': null,
+              'post_number': null,
+              'fancy_title': null,
+              'slug': null,
+              'data': {
+                'topic_title': 'Today I used AI for...',
+                'display_username': 'jomaxro',
+                'username': 'jomaxro',
+                'consolidated': true,
+                'count': 3,
+              },
+            }),
+          ],
+        );
+
+        await pumpShell(
+          tester,
+          desktop,
+          instances: connected,
+          api: api,
+          authenticator: signedIn(),
+        );
+        await openMenu(tester);
+        expect(
+          find.textContaining('jomaxro reacted to 3 of your posts'),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const ValueKey('notification-row-5')));
+        await tester.pumpAndSettle();
+
+        expect(launched, [
+          'https://meta.discourse.org/my/notifications/reactions-received'
+              '?acting_username=jomaxro&include_likes=true',
+        ]);
+        expect(api.markedRead, [5]);
+        expect(find.byType(UserMenuPanel), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
     testWidgets('Replies can retry a failed filtered request', (tester) async {
       final api = FakeDiscourseApi();
 

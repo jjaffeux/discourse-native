@@ -1237,6 +1237,11 @@ has this the like affordance is *replaced*, not joined —
 [`PostFooter`](lib/src/shell/post_footer.dart) draws the row where the count
 was, and the menu offers React where it offered Like.
 
+Reaction notifications for one post open that post. Consolidated notifications
+from one person have no topic id: their row shows the number of posts and opens
+the site's reactions-received history in the browser, filtered by that person
+with likes included.
+
 **Nothing on a reactions post is ever written through `/post_actions`.**
 Reacting with a non-excluded emoji creates a shadow like *alongside* the
 reaction, so an unliking `DELETE` there destroys the like and orphans the
