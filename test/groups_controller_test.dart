@@ -431,6 +431,76 @@ void main() {
     expect(state.loadingMore, isFalse);
   });
 
+  test(
+    'members added while the next page loads are shown by the refresh',
+    () async {
+      final nextPage = Completer<Map<String, dynamic>>();
+      final transport = _ControlledGroupTransport()
+        ..objects.addAll([
+          _completed({
+            'members': [
+              {'id': 1, 'username': 'sam'},
+              {'id': 2, 'username': 'lee'},
+            ],
+            'owners': <Object?>[],
+            'meta': {'total': 3, 'limit': 2, 'offset': 0},
+          }),
+          nextPage,
+          _completed(<String, dynamic>{}),
+          _completed({
+            'members': [
+              {'id': 1, 'username': 'sam'},
+              {'id': 2, 'username': 'lee'},
+              {'id': 4, 'username': 'ada'},
+            ],
+            'owners': <Object?>[],
+            'meta': {'total': 4, 'limit': 50, 'offset': 0},
+          }),
+        ]);
+      final credentials = FakeApiCredentialReader(
+        clientIdValue: 'native-client',
+      )..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      const group = Group(id: 7, name: 'support');
+
+      await controller.loadMembers(_connectedInstance, group.name);
+      final pageLoad = controller.loadMembers(
+        _connectedInstance,
+        group.name,
+        more: true,
+      );
+      await pumpEventQueue();
+      expect(transport.gets, hasLength(2));
+
+      final added = await controller.addMembers(
+        _connectedInstance,
+        group,
+        usernames: ['ada'],
+      );
+      expect(added, isNotNull);
+      expect(transport.gets, hasLength(4));
+      expect(
+        controller.membersState(_site, group.name).members.map((m) => m.id),
+        [1, 2, 4],
+      );
+
+      nextPage.complete({
+        'members': [
+          {'id': 3, 'username': 'kim'},
+        ],
+        'owners': <Object?>[],
+        'meta': {'total': 3, 'limit': 2, 'offset': 2},
+      });
+      await pageLoad;
+
+      final state = controller.membersState(_site, group.name);
+      expect(state.members.map((member) => member.id), [1, 2, 4]);
+      expect(state.total, 4);
+      expect(state.loadingMore, isFalse);
+    },
+  );
+
   test('a request handled while the next page loads stays handled', () async {
     final nextPage = Completer<Map<String, dynamic>>();
     final transport = _ControlledGroupTransport()

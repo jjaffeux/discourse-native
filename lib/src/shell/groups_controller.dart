@@ -555,7 +555,11 @@ final class GroupsController extends FrameSafeNotifier {
       order: order,
       ascending: ascending,
     );
-    if (_requests.containsKey(key) ||
+    // A refresh supersedes a page already in flight for this list. It is
+    // issued after a confirmed mutation such as adding members, so dropping
+    // it would hide that mutation until the next visit; the older page's
+    // commit is dropped by its token instead.
+    if ((_requests.containsKey(key) && !refresh) ||
         (!refresh && !more && held.loaded) ||
         (more && (!held.loaded || !held.hasMore))) {
       return;
