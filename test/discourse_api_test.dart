@@ -2751,7 +2751,7 @@ void _feedGroups() {
       expect(card.timeRead, 7200);
       expect(card.badgeCount, 12);
       expect(card.isStaff, isTrue);
-      expect(card.isSuspended, isFalse);
+      expect(card.suspendedTill, isNull);
     });
 
     test('a payload without a user is not something we can show', () async {
@@ -2786,7 +2786,12 @@ void _feedGroups() {
         username: 'banned',
       );
 
-      expect(card.isSuspended, isTrue);
+      expect(card.suspendedTill, until);
+      expect(
+        card.isSuspendedAt(until.subtract(const Duration(hours: 1))),
+        isTrue,
+      );
+      expect(card.isSuspendedAt(until), isFalse);
     });
   });
 }
