@@ -18,6 +18,7 @@ import '../theme/d_tooltip.dart';
 import 'adaptive_activity_indicator.dart';
 import 'add_instance_sheet.dart';
 import 'avatar_image.dart';
+import 'curved_animation_builder.dart';
 import 'instance_actions.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
@@ -1499,53 +1500,25 @@ class _RailTooltip extends StatelessWidget {
   }
 }
 
-class _RailTooltipTransition extends StatefulWidget {
+class _RailTooltipTransition extends StatelessWidget {
   const _RailTooltipTransition({required this.animation, required this.child});
 
   final Animation<double> animation;
   final Widget child;
 
   @override
-  State<_RailTooltipTransition> createState() => _RailTooltipTransitionState();
-}
-
-class _RailTooltipTransitionState extends State<_RailTooltipTransition> {
-  late CurvedAnimation _eased;
-
-  @override
-  void initState() {
-    super.initState();
-    _eased = _createAnimation();
-  }
-
-  @override
-  void didUpdateWidget(_RailTooltipTransition oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.animation == widget.animation) return;
-    _eased.dispose();
-    _eased = _createAnimation();
-  }
-
-  CurvedAnimation _createAnimation() => CurvedAnimation(
-    parent: widget.animation,
-    curve: Curves.easeOutCubic,
-    reverseCurve: Curves.easeInCubic,
-  );
-
-  @override
-  void dispose() {
-    _eased.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _eased,
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.96, end: 1).animate(_eased),
-        alignment: Alignment.centerLeft,
-        child: widget.child,
+    return CurvedAnimationBuilder(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+      builder: (context, curved) => FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1).animate(curved),
+          alignment: Alignment.centerLeft,
+          child: child,
+        ),
       ),
     );
   }

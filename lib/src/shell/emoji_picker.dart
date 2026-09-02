@@ -13,6 +13,7 @@ import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
+import 'curved_animation_builder.dart';
 import 'emoji.dart';
 import 'emoji_picker_controller.dart';
 import 'platform.dart';
@@ -87,21 +88,20 @@ Future<String?> showEmojiPicker({
           ),
         ),
       ),
-      transitionBuilder: (context, animation, secondary, child) {
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOut,
-          reverseCurve: Curves.easeIn,
-        );
-        return FadeTransition(
-          opacity: curved,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.97, end: 1).animate(curved),
-            alignment: Alignment.bottomLeft,
-            child: child,
+      transitionBuilder: (context, animation, secondary, child) =>
+          CurvedAnimationBuilder(
+            parent: animation,
+            curve: Curves.easeOut,
+            reverseCurve: Curves.easeIn,
+            builder: (context, curved) => FadeTransition(
+              opacity: curved,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.97, end: 1).animate(curved),
+                alignment: Alignment.bottomLeft,
+                child: child,
+              ),
+            ),
           ),
-        );
-      },
     );
   } finally {
     controller.dispose();
