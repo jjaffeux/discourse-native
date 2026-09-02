@@ -101,6 +101,44 @@ void main() {
     ]);
   });
 
+  testWidgets('an invitation link opens its Voice room', (tester) async {
+    const siteUrl = 'https://voice.example';
+    final site = PluginHostSite(
+      url: siteUrl,
+      apiKey: 'key',
+      user: const PluginHostUser(id: 1, username: 'reader'),
+      config: SiteConfig(
+        plugins: PluginData.none.withValue(
+          voiceSettingsDataKey,
+          const VoiceClientConfig(enabled: true),
+        ),
+      ),
+    );
+    final transport = RecordingPluginTransport(
+      responses: {
+        'GET /voice/rooms.json': {
+          'rooms': [_room],
+          'can_create_room': false,
+        },
+      },
+    );
+    final host = await PluginHostHarness.open(
+      transport: transport,
+      manifest: _voiceManifest,
+      sites: [site],
+    );
+    addTearDown(host.close);
+
+    final voice = host.require(voiceShellService);
+    expect(
+      await voice.openPluginUrl('/voice/r/watercooler/invited-by/Inviter'),
+      isTrue,
+    );
+
+    expect(host.currentContent?.id, 'voice-room-7');
+    expect(host.currentContent?.title, 'Watercooler');
+  });
+
   testWidgets('a cooked room without Voice falls back to its safe link', (
     tester,
   ) async {

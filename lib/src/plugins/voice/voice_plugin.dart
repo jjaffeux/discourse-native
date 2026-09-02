@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'voice_call_widget.dart';
 import 'voice_hashtag.dart';
 import 'voice_models.dart';
+import 'voice_notifications.dart';
 import 'voice_room_view.dart';
 import 'voice_services.dart';
 import 'voice_settings.dart';
@@ -15,6 +16,7 @@ final class VoicePlugin
         SidebarPlugin,
         ContentPlugin,
         ShellOverlayPlugin,
+        NotificationTypePlugin,
         SiteSettingsPlugin<VoiceClientConfig>,
         HashtagKindPlugin,
         PluginSiteFeature {
@@ -31,6 +33,9 @@ final class VoicePlugin
 
   @override
   String get name => 'voice';
+
+  @override
+  List<PluginNotificationType> get notificationTypes => voiceNotificationTypes;
 
   @override
   List<PluginHashtagKind> get hashtagKinds => const [voiceRoomHashtagKind];

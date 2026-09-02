@@ -43,11 +43,13 @@ final class VoiceApi {
     required int roomId,
     required String apiKey,
     bool skipStatus = false,
+    String? invitedBy,
     String? participantSessionId,
     String? clientId,
   }) async => VoiceJoinResponse.fromJson(
     await _write(siteUrl, '/voice/rooms/$roomId/join.json', 'POST', apiKey, {
       'skip_status': skipStatus ? true : null,
+      'invited_by': invitedBy,
       'participant_session_id': participantSessionId,
     }, clientId),
   );

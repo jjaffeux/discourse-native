@@ -903,6 +903,25 @@ void main() {
 
   group('credential and session boundaries', () {
     test(
+      'credits a pending room invitation on the next matching join',
+      () async {
+        final room = VoiceRoom.fromJson(fixture('room'));
+        controller.rememberInviteRef(
+          siteUrl: firstSite,
+          roomSlug: room.slug,
+          username: 'inviter',
+        );
+
+        await controller.join(siteUrl: firstSite, siteName: 'One', room: room);
+
+        final request = transport.writes.firstWhere(
+          (request) => request.path == '/voice/rooms/7/join.json',
+        );
+        expect(request.body['invited_by'], 'inviter');
+      },
+    );
+
+    test(
       'prevent a credential-gated join after the site is forgotten',
       () async {
         final gate = Completer<void>();

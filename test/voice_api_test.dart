@@ -92,6 +92,7 @@ void main() {
         siteUrl: _siteUrl,
         roomId: _roomId,
         apiKey: _apiKey,
+        invitedBy: 'sam',
         participantSessionId: 'existing-participant-session',
       );
 
@@ -103,6 +104,7 @@ void main() {
         path: '/voice/rooms/7/join.json',
         body: {
           'skip_status': null,
+          'invited_by': 'sam',
           'participant_session_id': 'existing-participant-session',
         },
       );
