@@ -89,6 +89,20 @@ void main() {
         line(describe(CoreNotificationTypes.bookmarkReminder)),
         'Reminder: Better image handling',
       );
+      expect(
+        line(
+          describe(
+            CoreNotificationTypes.bookmarkReminder,
+            title: '',
+            data: const {
+              'title': 'Chat message in #general',
+              'bookmarkable_url': '/chat/c/general/3/456',
+            },
+          ),
+        ),
+        'Reminder: Chat message in #general',
+        reason: 'a chat message bookmark has no topic to name',
+      );
     });
 
     test('describes upcoming changes from their notification payload', () {
