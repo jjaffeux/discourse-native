@@ -574,7 +574,9 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
 
     void fail(String message) {
-      if (held != null && held.notifications.isNotEmpty) return;
+      // Rows that arrived while the request was out stay on screen.
+      final current = feeds[instance.url];
+      if (current != null && current.notifications.isNotEmpty) return;
       feeds[instance.url] = NotificationFeed.failed(message);
     }
 
@@ -718,7 +720,9 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
 
     void fail(String message) {
-      if (held != null && held.hasRows) return;
+      // Rows that arrived while the request was out stay on screen.
+      final current = _bookmarks[instance.url];
+      if (current != null && current.hasRows) return;
       _bookmarks[instance.url] = BookmarkFeed.failed(message);
     }
 
