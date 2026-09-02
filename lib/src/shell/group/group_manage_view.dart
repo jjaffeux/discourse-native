@@ -15,7 +15,7 @@ class _ManageSection extends StatelessWidget {
   final Group group;
   final GroupPageData data;
   final ValueChanged<GroupRoute> onSelect;
-  final Future<void> Function(GroupManageUpdate)? onSave;
+  final GroupManageSubmit? onSave;
   final VoidCallback? onLoadMore;
 
   @override
@@ -66,7 +66,6 @@ class _ManageSection extends StatelessWidget {
                   key: ValueKey('group-manage-form-${group.id}-$selected'),
                   group: group,
                   subsection: selected,
-                  saving: data.saving,
                   onSave: onSave,
                 ),
         ),
@@ -80,27 +79,28 @@ class _GroupManageForm extends StatefulWidget {
     super.key,
     required this.group,
     required this.subsection,
-    required this.saving,
     required this.onSave,
   });
 
   final Group group;
   final String subsection;
-  final bool saving;
-  final Future<void> Function(GroupManageUpdate)? onSave;
+  final GroupManageSubmit? onSave;
 
   @override
   State<_GroupManageForm> createState() => _GroupManageFormState();
 }
 
 class _GroupManageFormState extends State<_GroupManageForm> {
-  final _formKey = GlobalKey<FormState>();
   late final GroupManageController controller;
 
   @override
   void initState() {
     super.initState();
-    controller = GroupManageController(group: widget.group);
+    controller = GroupManageController(
+      group: widget.group,
+      subsection: widget.subsection,
+      onSubmit: widget.onSave,
+    );
   }
 
   @override
@@ -109,55 +109,60 @@ class _GroupManageFormState extends State<_GroupManageForm> {
     super.dispose();
   }
 
-  Future<void> _save() async {
-    if (_formKey.currentState?.validate() != true) return;
-    await controller.save(widget.subsection, widget.onSave);
-  }
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
-    builder: (context, _) => ContentReadingLane(
-      basePadding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
-      builder: (context, lane) => Form(
-        key: _formKey,
-        child: ListView(
-          key: PageStorageKey('group-manage-${widget.subsection}-scroll'),
-          padding: lane.padding,
-          children: [
-            Align(
-              alignment: lane.alignment,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 760),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _manageFields(),
-                    const SizedBox(height: 20),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: DButton(
-                        key: ValueKey('save-group-${widget.subsection}'),
-                        label: const Text('Save changes'),
-                        loading: widget.saving,
-                        variant: DButtonVariant.primary,
-                        onPressed: widget.onSave == null ? null : _save,
+    builder: (context, _) {
+      final snapshot = controller.snapshot;
+      return Column(
+        children: [
+          if (snapshot.error case final error?) _InlineError(message: error),
+          Expanded(
+            child: ContentReadingLane(
+              basePadding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
+              builder: (context, lane) => ListView(
+                key: PageStorageKey('group-manage-${widget.subsection}-scroll'),
+                padding: lane.padding,
+                children: [
+                  Align(
+                    alignment: lane.alignment,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 760),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _manageFields(),
+                          const SizedBox(height: 20),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: DButton(
+                              key: ValueKey('save-group-${widget.subsection}'),
+                              label: const Text('Save changes'),
+                              loading: snapshot.submitting,
+                              variant: DButtonVariant.primary,
+                              onPressed: snapshot.canSubmit
+                                  ? () => unawaited(controller.submit())
+                                  : null,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
-    ),
+          ),
+        ],
+      );
+    },
   );
 
   Widget _manageFields() => switch (widget.subsection) {
     GroupRoute.profile => _ProfileFields(
       group: widget.group,
       controllers: controller.textControllers,
+      errors: controller.snapshot.fieldErrors,
     ),
     GroupRoute.membership => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -316,10 +321,15 @@ class _GroupManageFormState extends State<_GroupManageForm> {
 }
 
 class _ProfileFields extends StatelessWidget {
-  const _ProfileFields({required this.group, required this.controllers});
+  const _ProfileFields({
+    required this.group,
+    required this.controllers,
+    required this.errors,
+  });
 
   final Group group;
   final Map<String, TextEditingController> controllers;
+  final Map<String, String> errors;
 
   @override
   Widget build(BuildContext context) {
@@ -332,12 +342,11 @@ class _ProfileFields extends StatelessWidget {
             minLines: lines,
             maxLines: lines,
             enabled: key != 'name' || !group.automatic,
-            decoration: InputDecoration(labelText: label, hintText: hint),
-            validator: key == 'name'
-                ? (value) => value == null || value.trim().isEmpty
-                      ? 'Enter a group name.'
-                      : null
-                : null,
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hint,
+              errorText: errors[key],
+            ),
           ),
         );
     return Column(

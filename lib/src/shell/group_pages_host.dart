@@ -340,7 +340,6 @@ class _GroupPageHostState extends State<GroupPageHost> {
       sectionLoading: sectionLoading,
       loadingMore: loadingMore,
       mutating: detail.mutating,
-      saving: detail.mutating,
       loaded: detail.loaded,
       error: detail.error,
       sectionError: sectionError,

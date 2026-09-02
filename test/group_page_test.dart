@@ -373,7 +373,10 @@ void main() {
           taggingEnabled: true,
           loaded: true,
         ),
-        onSaveManage: (update) async => saved = update,
+        onSaveManage: (update) async {
+          saved = update;
+          return true;
+        },
       ),
     );
 
@@ -393,7 +396,9 @@ void main() {
       find.byKey(const ValueKey('group-field-watching_tags')),
       'flutter, native',
     );
+    await tester.pump();
     await tester.ensureVisible(find.byKey(const ValueKey('save-group-tags')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('save-group-tags')));
     await tester.pump();
 
@@ -401,6 +406,115 @@ void main() {
     expect(saved?.values['watching_tags'], ['flutter', 'native']);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('manage controls honor group and site capabilities', (
+    tester,
+  ) async {
+    const automaticGroup = Group(
+      id: 10,
+      name: 'trust-level-1',
+      automatic: true,
+      canAdminGroup: true,
+    );
+    await _pump(
+      tester,
+      GroupPage(
+        siteUrl: 'https://meta.discourse.org',
+        route: GroupRoute.detail(
+          'trust-level-1',
+          section: GroupRoute.manage,
+          subsection: GroupRoute.profile,
+        ),
+        registry: PluginRegistry.empty,
+        onOpenMember: _ignoreMember,
+        data: const GroupPageData(
+          detail: GroupDetail(group: automaticGroup),
+          smtpEnabled: true,
+          taggingEnabled: false,
+          loaded: true,
+        ),
+        onSaveManage: (_) async => true,
+      ),
+    );
+
+    expect(find.text('Profile'), findsNWidgets(2));
+    expect(find.text('Interaction'), findsOneWidget);
+    expect(find.text('Categories'), findsOneWidget);
+    expect(find.text('Logs'), findsOneWidget);
+    expect(find.text('Membership'), findsNothing);
+    expect(find.text('Email'), findsNothing);
+    expect(find.text('Tags'), findsNothing);
+    expect(
+      tester
+          .widget<TextFormField>(find.byKey(const ValueKey('group-field-name')))
+          .enabled,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<DButton>(find.byKey(const ValueKey('save-group-profile')))
+          .onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets(
+    'profile form keeps input focus and renders controller validation',
+    (tester) async {
+      var submissions = 0;
+      await _pump(
+        tester,
+        GroupPage(
+          siteUrl: 'https://meta.discourse.org',
+          route: GroupRoute.detail(
+            'support',
+            section: GroupRoute.manage,
+            subsection: GroupRoute.profile,
+          ),
+          registry: PluginRegistry.empty,
+          onOpenMember: _ignoreMember,
+          data: const GroupPageData(detail: _detail, loaded: true),
+          onSaveManage: (_) async {
+            submissions += 1;
+            return true;
+          },
+        ),
+      );
+      final nameField = find.byKey(const ValueKey('group-field-name'));
+      final saveButton = find.byKey(const ValueKey('save-group-profile'));
+      final formList = find.byKey(
+        const PageStorageKey('group-manage-profile-scroll'),
+      );
+
+      await tester.tap(nameField);
+      await tester.enterText(nameField, '');
+      await tester.pump();
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(
+                of: nameField,
+                matching: find.byType(EditableText),
+              ),
+            )
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+
+      await tester.drag(formList, const Offset(0, -500));
+      await tester.pumpAndSettle();
+      await tester.tap(saveButton);
+      await tester.pump();
+      expect(find.text('Enter a group name.'), findsOneWidget);
+      expect(submissions, 0);
+
+      await tester.enterText(nameField, 'community-support');
+      await tester.pump();
+      expect(find.text('Enter a group name.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('plugin tabs and plugin-owned content render through registry', (
     tester,

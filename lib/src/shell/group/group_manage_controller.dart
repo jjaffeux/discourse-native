@@ -1,11 +1,36 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 
 import '../../models/group.dart';
 import '../../models/group_route.dart';
 import 'group_page_types.dart';
 
+typedef GroupManageErrorMapper = String Function(Object error);
+
+@immutable
+final class GroupManageSnapshot {
+  const GroupManageSnapshot({
+    required this.dirty,
+    required this.submitting,
+    required this.canSubmit,
+    this.fieldErrors = const {},
+    this.error,
+  });
+
+  final bool dirty;
+  final bool submitting;
+  final bool canSubmit;
+  final Map<String, String> fieldErrors;
+  final String? error;
+}
+
 final class GroupManageController extends ChangeNotifier {
-  GroupManageController({required this.group}) {
+  GroupManageController({
+    required this.group,
+    this.subsection = GroupRoute.profile,
+    this.onSubmit,
+    this.errorMapper = _defaultErrorMessage,
+  }) {
     void value(String key, Object? value) =>
         _text[key] = TextEditingController(text: value?.toString() ?? '');
 
@@ -61,9 +86,17 @@ final class GroupManageController extends ChangeNotifier {
         : group.allowMembershipRequests
         ? 'request'
         : 'closed';
+
+    for (final controller in _text.values) {
+      controller.addListener(_textChanged);
+    }
+    _savedValues = _valuesForSubsection(subsection);
   }
 
   final Group group;
+  final String subsection;
+  final GroupManageSubmit? onSubmit;
+  final GroupManageErrorMapper errorMapper;
   final Map<String, TextEditingController> _text = {};
   late bool _publicExit;
   late bool _publishReadState;
@@ -75,6 +108,13 @@ final class GroupManageController extends ChangeNotifier {
   late int _messageable;
   late int _defaultNotification;
   late String _admission;
+  late Map<String, Object?> _savedValues;
+  Map<String, String> _fieldErrors = const {};
+  String? _error;
+  bool _submitting = false;
+  bool _disposed = false;
+  int _revision = 0;
+  int _submissionGeneration = 0;
 
   Map<String, TextEditingController> get textControllers =>
       Map.unmodifiable(_text);
@@ -88,6 +128,16 @@ final class GroupManageController extends ChangeNotifier {
   int get messageable => _messageable;
   int get defaultNotification => _defaultNotification;
   String get admission => _admission;
+  GroupManageSnapshot get snapshot {
+    final dirty = !_mapsEqual(_valuesForSubsection(subsection), _savedValues);
+    return GroupManageSnapshot(
+      dirty: dirty,
+      submitting: _submitting,
+      canSubmit: onSubmit != null && dirty && !_submitting,
+      fieldErrors: Map.unmodifiable(_fieldErrors),
+      error: _error,
+    );
+  }
 
   TextEditingController textController(String key) => _text[key]!;
 
@@ -107,20 +157,82 @@ final class GroupManageController extends ChangeNotifier {
 
   void _set(VoidCallback update) {
     update();
+    _changed();
+  }
+
+  void _textChanged() => _changed();
+
+  void _changed() {
+    _revision += 1;
+    _error = null;
+    if (_fieldErrors.isNotEmpty) {
+      _fieldErrors = _validationErrors();
+    }
     notifyListeners();
   }
 
-  GroupManageUpdate buildUpdate(String subsection) => GroupManageUpdate(
-    subsection: subsection,
-    values: _valuesForSubsection(subsection),
-  );
+  GroupManageUpdate buildUpdate([String? targetSubsection]) =>
+      GroupManageUpdate(
+        subsection: targetSubsection ?? subsection,
+        values: _valuesForSubsection(targetSubsection ?? subsection),
+      );
 
-  Future<void> save(
-    String subsection,
-    Future<void> Function(GroupManageUpdate)? onSave,
-  ) async {
-    await onSave?.call(buildUpdate(subsection));
+  bool validate() {
+    _fieldErrors = _validationErrors();
+    notifyListeners();
+    return _fieldErrors.isEmpty;
   }
+
+  Future<bool> submit() async {
+    final submit = onSubmit;
+    if (submit == null || _submitting) return false;
+
+    final errors = _validationErrors();
+    if (errors.isNotEmpty) {
+      _fieldErrors = errors;
+      notifyListeners();
+      return false;
+    }
+
+    final update = buildUpdate();
+    final submittedRevision = _revision;
+    final generation = ++_submissionGeneration;
+    _fieldErrors = const {};
+    _error = null;
+    _submitting = true;
+    notifyListeners();
+
+    try {
+      final saved = await submit(update);
+      if (!_isCurrent(generation)) return false;
+      if (saved) {
+        _savedValues = update.values;
+      } else if (_revision == submittedRevision) {
+        _error = _saveFailureMessage;
+      }
+      return saved;
+    } catch (error) {
+      if (_isCurrent(generation) && _revision == submittedRevision) {
+        _error = errorMapper(error);
+      }
+      return false;
+    } finally {
+      if (_isCurrent(generation)) {
+        _submitting = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  bool _isCurrent(int generation) =>
+      !_disposed && generation == _submissionGeneration;
+
+  Map<String, String> _validationErrors() => switch (subsection) {
+    GroupRoute.profile when _value('name').isEmpty => const {
+      'name': 'Enter a group name.',
+    },
+    _ => const {},
+  };
 
   Map<String, Object?> _valuesForSubsection(String subsection) =>
       switch (subsection) {
@@ -188,11 +300,36 @@ final class GroupManageController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _submissionGeneration += 1;
     for (final controller in _text.values) {
+      controller.removeListener(_textChanged);
       controller.dispose();
     }
     super.dispose();
   }
+}
+
+String _defaultErrorMessage(Object error) => _saveFailureMessage;
+
+const _saveFailureMessage = "Couldn't save that group change.";
+
+bool _mapsEqual(Map<String, Object?> first, Map<String, Object?> second) {
+  if (first.length != second.length) return false;
+  for (final entry in first.entries) {
+    if (!second.containsKey(entry.key) ||
+        !_valuesEqual(entry.value, second[entry.key])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _valuesEqual(Object? first, Object? second) {
+  if (first is List<Object?> && second is List<Object?>) {
+    return listEquals(first, second);
+  }
+  return first == second;
 }
 
 const groupCategoryKeys = [

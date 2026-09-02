@@ -24,6 +24,7 @@ typedef GroupCreateInvite =
     Future<GroupInvite?> Function({String? email, String? customMessage});
 typedef GroupMemberActionCallback =
     Future<bool> Function(GroupMember member, GroupMemberAction action);
+typedef GroupManageSubmit = Future<bool> Function(GroupManageUpdate update);
 
 @immutable
 final class GroupManageUpdate {
