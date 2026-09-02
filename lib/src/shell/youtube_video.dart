@@ -390,7 +390,9 @@ class _YoutubeVideoState extends State<YoutubeVideo>
   void _removePlayer() {
     _geometrySyncToken = null;
     _MacOSYoutubeScrollBridge.unregister(this);
-    _playerEntry?.remove();
+    _playerEntry
+      ?..remove()
+      ..dispose();
     _playerEntry = null;
     _playerViewport = null;
   }

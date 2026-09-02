@@ -635,7 +635,9 @@ class _ChannelMembersState extends State<_ChannelMembers> {
   void initState() {
     super.initState();
     _scroll.addListener(_maybeLoadMore);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load(reset: true));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_load(reset: true));
+    });
   }
 
   @override

@@ -128,6 +128,7 @@ class _EmojiPickerAnchorState extends State<EmojiPickerAnchor> {
   void dispose() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _presence.value = false;
+      _presence.dispose();
     });
     super.dispose();
   }
