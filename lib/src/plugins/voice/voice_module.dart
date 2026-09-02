@@ -1,5 +1,8 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+
 import 'voice_api.dart';
+import 'voice_call_controller_port.dart';
+import 'voice_call_port.dart';
 import 'voice_controller.dart';
 import 'voice_diagnostics.dart';
 import 'voice_diagnostics_plugin.dart';
@@ -69,14 +72,20 @@ final class VoiceModule implements PluginModule {
           recordingEnabled: (siteUrl) =>
               siteState.siteConfigFor(siteUrl).voiceSettings.recordingEnabled,
         );
+        final callPort = VoiceCallControllerPort(
+          controller: controller,
+          shell: shell,
+        );
         return PluginSessionContribution(
           lifecycle: _VoiceSessionLifecycle(
             controller: controller,
+            callPort: callPort,
             retention: retention,
           ),
           services: [
             PluginService<Object>(voiceControllerService, controller),
             PluginService<Object>(voiceShellService, shell),
+            PluginService<Object>(voiceCallPortService, callPort),
           ],
           capabilities: [shell],
         );
@@ -97,9 +106,14 @@ final class VoiceModule implements PluginModule {
 }
 
 final class _VoiceSessionLifecycle extends PluginSessionLifecycle {
-  _VoiceSessionLifecycle({required this.controller, required this.retention});
+  _VoiceSessionLifecycle({
+    required this.controller,
+    required this.callPort,
+    required this.retention,
+  });
 
   final VoiceController controller;
+  final VoiceCallPort callPort;
   final _VoiceBackgroundRetention retention;
 
   @override
@@ -114,7 +128,7 @@ final class _VoiceSessionLifecycle extends PluginSessionLifecycle {
   @override
   Future<void> close() async {
     try {
-      await controller.close();
+      await Future.wait([callPort.close(), controller.close()]);
     } finally {
       retention.close();
     }

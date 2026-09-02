@@ -361,6 +361,10 @@ action, and Voice owns its global call overlay rather than being imported by
 core shell widgets. Closing a Voice session is asynchronous: the plugin
 lifecycle does not complete until its server leave, media, subscriptions,
 system call, CallKit, diagnostics, and audio-session teardown have settled.
+The overlay itself receives only a `VoiceCallPort`: its controller adapter
+owns platform support, call-state projection, semantic action dispatch,
+failure translation, and pending-action teardown, so WebRTC and CallKit types
+cannot enter the view contract.
 The native audio adapter serializes process-global operations and checks its
 owner before each queued operation. Replacement preparation therefore runs
 after any already-started teardown, while queued stale teardown is skipped, so
