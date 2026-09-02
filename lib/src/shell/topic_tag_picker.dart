@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -139,22 +140,37 @@ class TopicTagPicker extends StatefulWidget {
 class _TopicTagPickerState extends State<TopicTagPicker> {
   final TextEditingController _query = TextEditingController();
   Timer? _debounce;
-  int _revision = 0;
-  bool _searchRunning = false;
-  ({int revision, String term})? _queuedSearch;
+  late final LatestWinsQueuedLookupController<String, TopicTagSearch> _lookup;
   TopicTagSearch _result = const TopicTagSearch();
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_search(''));
+    _lookup = LatestWinsQueuedLookupController(
+      lookup: (term) => widget.search(term.trim()),
+      onResult: (result) {
+        setState(() {
+          _result = result;
+          _loading = false;
+        });
+      },
+      onError: (_, _) {
+        setState(() {
+          _result = const TopicTagSearch(
+            forbiddenMessage: "Couldn't load tags.",
+          );
+          _loading = false;
+        });
+      },
+    );
+    _search('');
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
-    _queuedSearch = null;
+    _lookup.dispose();
     _query.dispose();
     super.dispose();
   }
@@ -164,39 +180,9 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
     _debounce = Timer(const Duration(milliseconds: 250), () => _search(value));
   }
 
-  Future<void> _search(String term) async {
-    final revision = ++_revision;
+  void _search(String term) {
     setState(() => _loading = true);
-    if (_searchRunning) {
-      _queuedSearch = (revision: revision, term: term);
-      return;
-    }
-    await _runSearch(revision, term);
-  }
-
-  Future<void> _runSearch(int revision, String term) async {
-    _searchRunning = true;
-    try {
-      final result = await widget.search(term.trim());
-      if (!mounted || revision != _revision) return;
-      setState(() {
-        _result = result;
-        _loading = false;
-      });
-    } catch (_) {
-      if (!mounted || revision != _revision) return;
-      setState(() {
-        _result = const TopicTagSearch(forbiddenMessage: "Couldn't load tags.");
-        _loading = false;
-      });
-    } finally {
-      _searchRunning = false;
-      final queued = _queuedSearch;
-      _queuedSearch = null;
-      if (queued != null && mounted && queued.revision == _revision) {
-        unawaited(_runSearch(queued.revision, queued.term));
-      }
-    }
+    _lookup.request(term);
   }
 
   bool _selected(TopicTag tag) =>
