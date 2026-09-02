@@ -105,6 +105,15 @@ final class DiscourseSiteApi {
         .replaceFirst(RegExp(r'/user-api-key/new/*$'), '')
         .replaceFirst(RegExp(r'/+$'), '');
 
+    // `DiscourseInstance.url` is both identity and base URL, and the instance
+    // store refuses a path on it. A forum reached under one would connect for
+    // this session and be dropped at the next launch, so refuse it here where
+    // the reader can be told.
+    final basePath = Uri.parse(baseUrl).path;
+    if (basePath.isNotEmpty && basePath != '/') {
+      throw SiteLookupException(SiteLookupFailure.subfolder, term);
+    }
+
     final Map<String, dynamic> info;
     try {
       final response = await _transport.request(
