@@ -459,6 +459,7 @@ class ShellController extends FrameSafeNotifier
       loadSearchAliases: (siteUrl, {refresh = false}) => refresh
           ? refreshEmojiSearchAliases(siteUrl)
           : ensureEmojiSearchAliases(siteUrl),
+      resolveUrl: emojiUrlFor,
     );
     return PluginHostPort<Object>(
       corePluginEmojiPort,
@@ -468,6 +469,7 @@ class ShellController extends FrameSafeNotifier
         siteConfigFor: host.siteConfigFor,
         loadCatalog: host.loadCatalog,
         loadSearchAliases: host.loadSearchAliases,
+        resolveUrl: host.resolveUrl,
       ),
     );
   }

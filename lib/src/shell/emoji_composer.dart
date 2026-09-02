@@ -111,6 +111,7 @@ Future<void> openEmojiPickerForTopicComposer({
     loadSearchAliases: (siteUrl, {refresh = false}) => refresh
         ? shell.refreshEmojiSearchAliases(siteUrl)
         : shell.ensureEmojiSearchAliases(siteUrl),
+    resolveUrl: shell.emojiUrlFor,
   );
 
   return openEmojiPickerForComposer(

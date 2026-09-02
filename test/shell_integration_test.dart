@@ -17611,7 +17611,7 @@ void main() {
         (tester) async {
           await pumpChat(
             tester,
-            public: [channel(9, mentions: 100, muted: true)],
+            public: [channel(9, emoji: 'bug', mentions: 100, muted: true)],
             direct: [dm(12)],
             user: chatUser(canDirectMessage: true),
             preferredDisplayMode: ChatPreferredDisplayMode.drawer,
@@ -17625,6 +17625,15 @@ void main() {
           await tester.pumpAndSettle();
 
           final row = find.byKey(const ValueKey('chat-drawer-channel-9'));
+          final emoji = find.descendant(
+            of: row,
+            matching: find.byType(EmojiImage),
+          );
+          expect(emoji, findsOneWidget);
+          expect(
+            tester.widget<EmojiImage>(emoji).url,
+            shell.emojiUrlFor(site, 'bug'),
+          );
           expect(
             find.descendant(of: row, matching: find.text('99+')),
             findsOneWidget,

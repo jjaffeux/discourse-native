@@ -1,3 +1,4 @@
+import '../../diagnostics/diagnostics_controller.dart';
 import '../../plugin_api/bookmark_host.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/notification_feed_host.dart';
@@ -38,6 +39,12 @@ const chatEmojiHostService = PluginServiceKey<PluginEmojiHost>(
   owner: chatPluginId,
   name: 'emoji-host',
 );
+
+const chatDiagnosticsReporterService =
+    PluginServiceKey<PluginDiagnosticsReporter>(
+      owner: chatPluginId,
+      name: 'diagnostics-reporter',
+    );
 
 const chatNotificationHostService =
     PluginServiceKey<PluginNotificationFeedHost>(

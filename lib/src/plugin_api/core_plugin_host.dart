@@ -239,12 +239,14 @@ final class PluginEmojiHost {
     required this.siteConfigFor,
     required this.loadCatalog,
     required this.loadSearchAliases,
+    required this.resolveUrl,
   });
 
   final EmojiPreferenceStore preferences;
   final PluginSiteConfigReader siteConfigFor;
   final PluginEmojiCatalogLoader loadCatalog;
   final PluginEmojiSearchAliasLoader loadSearchAliases;
+  final String Function(String siteUrl, String name) resolveUrl;
 }
 
 const corePluginTransportPort = PluginHostPortKey<PluginApiTransport>(

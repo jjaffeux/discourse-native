@@ -11,7 +11,6 @@ import '../../shell/adaptive_shell.dart';
 import '../../shell/emoji.dart';
 import '../../shell/platform.dart';
 import '../../shell/relative_time.dart';
-import '../../shell/shell_scope.dart';
 import '../../shell/title_bar.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_button.dart';
@@ -1146,9 +1145,9 @@ class _DrawerChannelPrefix extends StatelessWidget {
     } else if (channel.isDirectMessage) {
       art = DIcon(DIcons.users, size: 18, color: foreground);
     } else if (channel.emoji case final emoji?) {
-      final shell = ShellScope.read(context);
+      final emojiHost = PluginUiScope.require(context, chatEmojiHostService);
       art = EmojiImage(
-        url: shell.emojiUrlFor(siteUrl, emoji),
+        url: emojiHost.resolveUrl(siteUrl, emoji),
         size: 18,
         alt: ':$emoji:',
       );

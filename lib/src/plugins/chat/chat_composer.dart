@@ -26,7 +26,6 @@ import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../gifs/gifs_contract.dart';
-import '../gifs/gifs_icons.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_emoji_usage.dart';
@@ -188,6 +187,7 @@ class ChatComposer extends StatefulWidget {
 class _ChatComposerState extends State<ChatComposer> {
   PluginComposerHost? _host;
   PluginEmojiHost? _emoji;
+  PluginDiagnosticsReporter? _diagnostics;
   ChatController? _chat;
   ComposerController? _composer;
   VoidCallback? _composerDraftListener;
@@ -232,6 +232,7 @@ class _ChatComposerState extends State<ChatComposer> {
     _useComposer(
       PluginUiScope.require(context, chatComposerHostService),
       PluginUiScope.require(context, chatEmojiHostService),
+      PluginUiScope.require(context, chatDiagnosticsReporterService),
       PluginUiScope.require(context, chatControllerService),
     );
   }
@@ -239,12 +240,14 @@ class _ChatComposerState extends State<ChatComposer> {
   void _useComposer(
     PluginComposerHost host,
     PluginEmojiHost emoji,
+    PluginDiagnosticsReporter diagnostics,
     ChatController chat,
   ) {
     final sourceKey =
         '${widget.siteUrl}~${widget.channelId}~${widget.threadId ?? 'channel'}';
     if (identical(_host, host) &&
         identical(_emoji, emoji) &&
+        identical(_diagnostics, diagnostics) &&
         identical(_chat, chat) &&
         _sourceKey == sourceKey) {
       return;
@@ -272,6 +275,7 @@ class _ChatComposerState extends State<ChatComposer> {
     final channel = chat.channel(widget.siteUrl, widget.channelId);
     _host = host;
     _emoji = emoji;
+    _diagnostics = diagnostics;
     _chat = chat;
     _sourceKey = sourceKey;
     _composer = host.buildComposer(
@@ -479,6 +483,8 @@ class _ChatComposerState extends State<ChatComposer> {
     _useComposer(
       _host ?? PluginUiScope.require(context, chatComposerHostService),
       _emoji ?? PluginUiScope.require(context, chatEmojiHostService),
+      _diagnostics ??
+          PluginUiScope.require(context, chatDiagnosticsReporterService),
       _chat ?? PluginUiScope.require(context, chatControllerService),
     );
   }
@@ -666,7 +672,7 @@ class _ChatComposerState extends State<ChatComposer> {
       if (!_ownsComposer(host, composer, sourceKey)) return;
       composer.addImages(files, offset);
     } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
+      _diagnostics!.reportError(
         error,
         stackTrace,
         operation: 'chatComposer.pickImages',
@@ -946,7 +952,7 @@ class _ChatComposerState extends State<ChatComposer> {
                     const CommandMenuOption(
                       value: _ChatComposerAddAction.gif,
                       label: 'Insert GIF',
-                      icon: GifsIcons.gif,
+                      icon: gifsPickerIcon,
                       key: ValueKey('chat-composer-gif'),
                     ),
                 ];
@@ -1002,7 +1008,7 @@ class _ChatComposerState extends State<ChatComposer> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(minHeight: 56),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 15, 0, 15),
+                    padding: const EdgeInsets.fromLTRB(16, 13.5, 0, 13.5),
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
                         maxHeight: MediaQuery.sizeOf(context).height * 0.25,

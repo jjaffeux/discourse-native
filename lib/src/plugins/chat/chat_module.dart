@@ -61,6 +61,7 @@ final class ChatModule implements PluginModule {
         final accountEvents = bindings.require(corePluginAccountEventsPort);
         final composerHost = bindings.require(corePluginComposerPort);
         final navigation = bindings.require(corePluginNavigationPort);
+        final reporter = bindings.require(pluginDiagnosticsReporterPort);
         final chatApi = apiFactory?.call(transport) ?? ChatApiClient(transport);
         final gifs = dependencies.maybe(gifsPickerSessionService);
         final controller = ChatController(
@@ -73,9 +74,9 @@ final class ChatModule implements PluginModule {
             plugins: bindings
                 .require(corePluginStaticContributionsPort)
                 .contributions(chatPreviewContributions),
-            reporter: bindings.require(pluginDiagnosticsReporterPort),
+            reporter: reporter,
           ),
-          reporter: bindings.require(pluginDiagnosticsReporterPort),
+          reporter: reporter,
           onChatNotificationsDelta: (siteUrl, delta) =>
               accountEvents.updateNotificationCounter(
                 siteUrl,
@@ -97,7 +98,7 @@ final class ChatModule implements PluginModule {
           api: chatApi,
           requests: requests,
           store: store,
-          reporter: bindings.require(pluginDiagnosticsReporterPort),
+          reporter: reporter,
         );
         final shell = ChatShellService(
           chat: controller,
@@ -127,6 +128,7 @@ final class ChatModule implements PluginModule {
                   .forTarget(chatMessageBookmarkTarget),
             ),
             PluginService<Object>(chatComposerHostService, composerHost),
+            PluginService<Object>(chatDiagnosticsReporterService, reporter),
             PluginService<Object>(
               chatEmojiHostService,
               bindings.require(corePluginEmojiPort),
