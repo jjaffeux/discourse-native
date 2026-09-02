@@ -300,6 +300,28 @@ void main() {
   });
 
   group('live topic updates', () {
+    test('watches a cached topic from its server snapshot', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = FakeSiteTracker.built.single;
+      shell.store.put(
+        _siteUrl,
+        topicPayload(
+          id: 7,
+          title: 'A topic',
+          posts: [_post('initial')],
+          messageBusLastId: 144,
+        ).detail,
+      );
+
+      shell.pushContent(
+        ContentRoute.topic(topicId: 7, slug: 'a-topic', title: 'A topic'),
+      );
+
+      expect(tracker.watchedChannelLastIds['/topic/7'], 144);
+    });
+
     test('commits only the newest post refresh', () async {
       final api = _PostOrderingApi();
       final shell = await _loadShell(api);

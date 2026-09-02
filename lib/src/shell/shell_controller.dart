@@ -2629,6 +2629,12 @@ class ShellController extends FrameSafeNotifier
     // manual reload. Plugin channels are additional topic-scoped hints.
     final coreChannel = '/topic/$topicId';
     final channels = [coreChannel, ...plugins.registry.topicChannels(topicId)];
+    // Core starts this channel at the cursor serialized with the topic. That
+    // closes the gap when the HTTP snapshot lands before tracker startup;
+    // plugin channels own independent positions.
+    final messageBusLastId = store
+        .read<TopicDetail>(siteUrl, topicId)
+        ?.messageBusLastId;
 
     tracker.watchTopic(topicId, channels, (channel, data) {
       if (channel == coreChannel && _coreTopicMessageRefreshesStream(data)) {
@@ -2647,7 +2653,7 @@ class ShellController extends FrameSafeNotifier
       if (stale.isNotEmpty) {
         unawaited(_refreshPosts(siteUrl, topicId, stale));
       }
-    });
+    }, lastIds: {coreChannel: ?messageBusLastId});
   }
 
   static bool _coreTopicMessageRefreshesStream(Object? data) {

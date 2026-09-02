@@ -552,6 +552,7 @@ class TopicDetail with Storable<TopicDetail> {
     required this.id,
     required this.title,
     required this.stream,
+    this.messageBusLastId,
     this.gapsBefore = const {},
     this.gapsAfter = const {},
     this.postsCount = 0,
@@ -616,6 +617,7 @@ class TopicDetail with Storable<TopicDetail> {
       detail: TopicDetail(
         id: jsonInt(json['id']),
         title: jsonTitle(json['title'], json['fancy_title']),
+        messageBusLastId: jsonIntOrNull(json['message_bus_last_id']),
         stream: List.unmodifiable(
           jsonArray(postStream['stream']).map(jsonIntOrNull).whereType<int>(),
         ),
@@ -705,6 +707,7 @@ class TopicDetail with Storable<TopicDetail> {
 
   final int id;
   final String title;
+  final int? messageBusLastId;
 
   final List<int> stream;
 
@@ -936,6 +939,7 @@ class TopicDetail with Storable<TopicDetail> {
   TopicDetail withPlugins(PluginData next) => TopicDetail(
     id: id,
     title: title,
+    messageBusLastId: messageBusLastId,
     stream: stream,
     gapsBefore: gapsBefore,
     gapsAfter: gapsAfter,
@@ -1040,6 +1044,7 @@ class TopicDetail with Storable<TopicDetail> {
   }) => TopicDetail(
     id: id,
     title: title ?? this.title,
+    messageBusLastId: messageBusLastId,
     stream: stream == null ? this.stream : List.unmodifiable(stream),
     gapsBefore: gapsBefore == null
         ? this.gapsBefore
@@ -1098,6 +1103,7 @@ class TopicDetail with Storable<TopicDetail> {
       other is TopicDetail &&
           other.id == id &&
           other.title == title &&
+          other.messageBusLastId == messageBusLastId &&
           listEquals(other.stream, stream) &&
           _postGapsEqual(other.gapsBefore, gapsBefore) &&
           _postGapsEqual(other.gapsAfter, gapsAfter) &&
@@ -1147,6 +1153,7 @@ class TopicDetail with Storable<TopicDetail> {
   int get hashCode => Object.hashAll([
     id,
     title,
+    messageBusLastId,
     Object.hashAll(stream),
     _postGapsHash(gapsBefore),
     _postGapsHash(gapsAfter),
