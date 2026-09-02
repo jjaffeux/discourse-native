@@ -1,7 +1,4 @@
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'serial_operation_queue.dart';
-import 'store_diagnostics.dart';
+import 'scalar_preference_repository.dart';
 
 abstract interface class DiagnosticsPanelWidthPersistence {
   Future<double?> readWidth();
@@ -13,16 +10,15 @@ final class SharedPreferencesDiagnosticsPanelWidthPersistence
     implements DiagnosticsPanelWidthPersistence {
   const SharedPreferencesDiagnosticsPanelWidthPersistence();
 
-  @override
-  Future<double?> readWidth() async => (await SharedPreferences.getInstance())
-      .getDouble(DiagnosticsPanelWidthStore.storageKey);
+  static const _preferences = SharedPreferencesDoublePreferencePersistence();
 
   @override
-  Future<bool> writeWidth(double width) async =>
-      (await SharedPreferences.getInstance()).setDouble(
-        DiagnosticsPanelWidthStore.storageKey,
-        width,
-      );
+  Future<double?> readWidth() =>
+      _preferences.read(DiagnosticsPanelWidthStore.storageKey);
+
+  @override
+  Future<bool> writeWidth(double width) =>
+      _preferences.write(DiagnosticsPanelWidthStore.storageKey, width);
 }
 
 final class DiagnosticsPanelWidthStore {
@@ -33,35 +29,34 @@ final class DiagnosticsPanelWidthStore {
            const SharedPreferencesDiagnosticsPanelWidthPersistence();
 
   static const String storageKey = 'discourse_native.diagnostics_panel_width';
-  static final SerialOperationQueue _operations = SerialOperationQueue();
 
   final DiagnosticsPanelWidthPersistence _persistence;
 
-  Future<double?> read() =>
-      _operations.run(owner: _persistence, key: storageKey, operation: _read);
+  ScalarPreferenceRepository<double> get _repository =>
+      ScalarPreferenceRepository<double>(
+        persistence: _DiagnosticsPanelWidthScalarPersistence(_persistence),
+        owner: _persistence,
+        key: storageKey,
+        readOperation: 'diagnosticsPanel.readWidth',
+        writeOperation: 'diagnosticsPanel.writeWidth',
+        writeFailureMessage: 'Could not persist the diagnostics panel width.',
+      );
 
-  Future<double?> _read() async {
-    try {
-      return await _persistence.readWidth();
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'diagnosticsPanel.readWidth');
-      return null;
-    }
-  }
+  Future<double?> read() => _repository.read();
 
-  Future<void> write(double width) => _operations.run<void>(
-    owner: _persistence,
-    key: storageKey,
-    operation: () => _persist(width),
-  );
+  Future<void> write(double width) => _repository.write(width);
+}
 
-  Future<void> _persist(double width) async {
-    try {
-      if (!await _persistence.writeWidth(width)) {
-        throw StateError('Could not persist the diagnostics panel width.');
-      }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'diagnosticsPanel.writeWidth');
-    }
-  }
+final class _DiagnosticsPanelWidthScalarPersistence
+    implements ScalarPreferencePersistence<double> {
+  const _DiagnosticsPanelWidthScalarPersistence(this._persistence);
+
+  final DiagnosticsPanelWidthPersistence _persistence;
+
+  @override
+  Future<double?> read(String key) => _persistence.readWidth();
+
+  @override
+  Future<bool> write(String key, double value) =>
+      _persistence.writeWidth(value);
 }
