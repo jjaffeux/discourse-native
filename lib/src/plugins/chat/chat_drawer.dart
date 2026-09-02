@@ -271,17 +271,21 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
                 final visible = available && shell.drawerActive;
                 if (_drawerWasVisible && !visible) {
                   final focused = FocusManager.instance.primaryFocus;
-                  if (_drawerContains(focused?.context)) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted &&
-                          identical(
-                            focused,
-                            FocusManager.instance.primaryFocus,
-                          )) {
-                        focused?.unfocus();
-                      }
-                    });
-                  }
+                  // Primary focus can still belong to a deactivated element
+                  // during layout. Check its ancestry after tree finalization.
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    final focusedContext = focused?.context;
+                    if (mounted &&
+                        identical(
+                          focused,
+                          FocusManager.instance.primaryFocus,
+                        ) &&
+                        focusedContext != null &&
+                        focusedContext.mounted &&
+                        _drawerContains(focusedContext)) {
+                      focused?.unfocus();
+                    }
+                  });
                 }
                 _drawerWasVisible = visible;
                 return TickerMode(
