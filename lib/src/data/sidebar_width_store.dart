@@ -1,7 +1,4 @@
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'serial_operation_queue.dart';
-import 'store_diagnostics.dart';
+import 'scalar_preference_repository.dart';
 
 abstract interface class SidebarWidthPersistence {
   Future<double?> readWidth();
@@ -13,16 +10,15 @@ final class SharedPreferencesSidebarWidthPersistence
     implements SidebarWidthPersistence {
   const SharedPreferencesSidebarWidthPersistence();
 
-  @override
-  Future<double?> readWidth() async => (await SharedPreferences.getInstance())
-      .getDouble(SidebarWidthStore.storageKey);
+  static const _preferences = SharedPreferencesDoublePreferencePersistence();
 
   @override
-  Future<bool> writeWidth(double width) async =>
-      (await SharedPreferences.getInstance()).setDouble(
-        SidebarWidthStore.storageKey,
-        width,
-      );
+  Future<double?> readWidth() =>
+      _preferences.read(SidebarWidthStore.storageKey);
+
+  @override
+  Future<bool> writeWidth(double width) =>
+      _preferences.write(SidebarWidthStore.storageKey, width);
 }
 
 final class SidebarWidthStore {
@@ -31,35 +27,34 @@ final class SidebarWidthStore {
           persistence ?? const SharedPreferencesSidebarWidthPersistence();
 
   static const String storageKey = 'discourse_native.sidebar_width';
-  static final SerialOperationQueue _operations = SerialOperationQueue();
 
   final SidebarWidthPersistence _persistence;
 
-  Future<double?> read() =>
-      _operations.run(owner: _persistence, key: storageKey, operation: _read);
+  ScalarPreferenceRepository<double> get _repository =>
+      ScalarPreferenceRepository<double>(
+        persistence: _SidebarWidthScalarPersistence(_persistence),
+        owner: _persistence,
+        key: storageKey,
+        readOperation: 'sidebar.readWidth',
+        writeOperation: 'sidebar.writeWidth',
+        writeFailureMessage: 'Could not persist the sidebar width.',
+      );
 
-  Future<double?> _read() async {
-    try {
-      return await _persistence.readWidth();
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'sidebar.readWidth');
-      return null;
-    }
-  }
+  Future<double?> read() => _repository.read();
 
-  Future<void> write(double width) => _operations.run<void>(
-    owner: _persistence,
-    key: storageKey,
-    operation: () => _persist(width),
-  );
+  Future<void> write(double width) => _repository.write(width);
+}
 
-  Future<void> _persist(double width) async {
-    try {
-      if (!await _persistence.writeWidth(width)) {
-        throw StateError('Could not persist the sidebar width.');
-      }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'sidebar.writeWidth');
-    }
-  }
+final class _SidebarWidthScalarPersistence
+    implements ScalarPreferencePersistence<double> {
+  const _SidebarWidthScalarPersistence(this._persistence);
+
+  final SidebarWidthPersistence _persistence;
+
+  @override
+  Future<double?> read(String key) => _persistence.readWidth();
+
+  @override
+  Future<bool> write(String key, double value) =>
+      _persistence.writeWidth(value);
 }
