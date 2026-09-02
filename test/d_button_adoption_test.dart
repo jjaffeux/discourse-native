@@ -17,7 +17,6 @@ const _intentionalMaterialButtons = <String, int>{
   'lib/src/shell/composer_panel.dart': 1, // Bespoke composer submit control.
   'lib/src/shell/do_not_disturb_dialog.dart': 1, // Fixed 44px option grid.
   'lib/src/shell/reaction_presentation.dart': 1, // Fixed 44px picker action.
-  'lib/src/shell/topic_create_button.dart': 3, // Split primary/menu control.
   'lib/src/shell/topic_view.dart': 8, // Dense selection and inline link tools.
   'lib/src/shell/user_menu_button.dart': 2, // Fixed shell account control.
   'lib/src/shell/user_summary.dart': 1, // Compact numeric count link.
