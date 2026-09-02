@@ -225,6 +225,112 @@ void _registerTopicReadingTests() {
       },
     );
 
+    testWidgets(
+      'a restored category route resolves its off-page category for composing',
+      (tester) async {
+        const categoryPath = '/c/discourse-native-app/features/5.json';
+        const parent = TopicCategory(
+          id: 4,
+          name: 'Discourse Native App',
+          color: '553388',
+          slug: 'discourse-native-app',
+        );
+        const category = TopicCategory(
+          id: 5,
+          name: 'Features',
+          color: '0088CC',
+          slug: 'features',
+          parentCategoryId: 4,
+        );
+        final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': [], categoryPath: []},
+          creatableFeedPaths: const {categoryPath},
+          categoryList: const [parent],
+          categoryFindResults: const [category],
+        );
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
+
+        await pumpShell(
+          tester,
+          desktop,
+          api: api,
+          authenticator: authenticator,
+        );
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+        expect(
+          controller.openListUrl('/c/discourse-native-app/features/5'),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+        await tester.pumpAndSettle();
+
+        expect(api.categoryIdsRequested, [
+          [category.id],
+        ]);
+        expect(controller.visibleComposer?.categoryId, category.id);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('composer-category')),
+            matching: find.text(
+              topicCategoryPathLabel(category, parent: parent),
+            ),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'a restored category route keeps its selection when lookup is empty',
+      (tester) async {
+        const categoryPath = '/c/discourse-native-app/features/5.json';
+        final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': [], categoryPath: []},
+          creatableFeedPaths: const {categoryPath},
+        );
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
+
+        await pumpShell(
+          tester,
+          desktop,
+          api: api,
+          authenticator: authenticator,
+        );
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+        expect(
+          controller.openListUrl(
+            '/c/discourse-native-app/features/5',
+            title: 'Features',
+          ),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+        await tester.pumpAndSettle();
+
+        expect(api.categoryIdsRequested, [
+          [5],
+        ]);
+        expect(controller.visibleComposer?.categoryId, 5);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('composer-category')),
+            matching: find.text('Features'),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
     const inbox = '/topics/private-messages/joffreyj.json';
 
     testWidgets(
