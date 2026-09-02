@@ -2075,6 +2075,7 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _topicTrackingLoads = {};
   final Map<String, ({SiteLease lease, Future<void> Function() load})>
   _topicTrackingRetries = {};
+  bool _topicTrackingNotifyPending = false;
   final Map<String, List<Object?>> _topicTrackingPendingEvents = {};
   final Map<String, CategoryFeed> _categoryFeeds = {};
   final Set<(String, int)> _categoryIdsLoading = {};
@@ -3191,8 +3192,20 @@ class ShellController extends FrameSafeNotifier
         (value) => value + 1,
         ifAbsent: () => 1,
       );
-      _notify();
+      _notifyTopicTrackingChanged();
     }
+  }
+
+  /// One poll answer can carry a backlog of tracking messages, delivered in
+  /// one synchronous run. The facade notifies once for the run: every shell
+  /// selector would otherwise re-select per row.
+  void _notifyTopicTrackingChanged() {
+    if (_topicTrackingNotifyPending) return;
+    _topicTrackingNotifyPending = true;
+    scheduleMicrotask(() {
+      _topicTrackingNotifyPending = false;
+      if (!isDisposed) _notify();
+    });
   }
 
   /// Category and tag badges stay dark until a snapshot lands, because the bus

@@ -373,6 +373,32 @@ void main() {
       await pumpEventQueue();
       expect(api.topicTrackingRequests, [_siteUrl, _siteUrl, _siteUrl]);
     });
+
+    test('a run of tracking messages notifies the shell once', () async {
+      final api = FakeDiscourseApi(
+        user: const DiscourseUser(id: 1, username: 'author'),
+        categoryList: const [category],
+      );
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      expect(shell.topicTrackingRevisionFor(_siteUrl), 1);
+
+      var notifications = 0;
+      shell.addListener(() => notifications++);
+      final tracker = FakeSiteTracker.built.single;
+      for (var topicId = 7; topicId < 12; topicId++) {
+        tracker.deliverTopicTracking({
+          ...unreadInCategory,
+          'topic_id': topicId,
+        });
+      }
+
+      // The state is current before the run ends; only the redraw waits.
+      expect(shell.topicTrackingRevisionFor(_siteUrl), 6);
+      expect(notifications, 0);
+      await pumpEventQueue();
+      expect(notifications, 1);
+    });
   });
 
   group('MessageBus bootstrap ordering', () {

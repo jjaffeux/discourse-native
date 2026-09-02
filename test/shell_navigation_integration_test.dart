@@ -1721,6 +1721,9 @@ void _registerShellNavigationTests() {
         ],
       },
     });
+    // A tracking run notifies the shell once, after the delivery's microtask,
+    // so the redraw lands in the frame after that notification.
+    await tester.pump();
     await tester.pump();
 
     expect(count('Support', 2), findsOneWidget);
