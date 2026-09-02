@@ -229,6 +229,7 @@ final class DiscourseTransport {
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    String? accept,
   }) async {
     final http.Response response;
     try {
@@ -238,6 +239,7 @@ final class DiscourseTransport {
         url,
         () {
           final request = http.Request('GET', url);
+          if (accept != null) request.headers['Accept'] = accept;
           if (apiKey != null) {
             request.headers.addAll(authHeaders(apiKey, clientId: clientId));
           }

@@ -20,6 +20,7 @@ typedef SiteTrackerFactory =
       String? apiKey,
       String? clientId,
       bool Function()? shouldLongPoll,
+      Map<String, int?> initialLastIds,
     });
 
 abstract interface class SiteMessageBusSession {
@@ -56,9 +57,11 @@ class SiteTracker {
     String? apiKey,
     String? clientId,
     bool Function()? shouldLongPoll,
+    Map<String, int?> initialLastIds = const {},
     http.Client? httpClient,
     SiteMessageBusSession? messageBus,
-  }) : _signedIn = apiKey != null {
+  }) : _signedIn = apiKey != null,
+       _initialLastIds = Map.unmodifiable(initialLastIds) {
     final Uri baseUrl;
     try {
       baseUrl = requireSafeHttpUrl(Uri.parse(siteUrl));
@@ -105,6 +108,7 @@ class SiteTracker {
   final int? userId;
 
   final bool _signedIn;
+  final Map<String, int?> _initialLastIds;
   late final SafeHttpClient _http;
   late final SiteMessageBusSession _bus;
   StreamSubscription<Object>? _errorSubscription;
@@ -182,27 +186,37 @@ class SiteTracker {
   }
 
   void _subscribe() {
-    // Nothing is server-rendered here, so unlike core there is no preloaded
-    // channel position; start after the already-fetched lists and counters.
     // `/latest` is public, while `/new` is meaningful only to a signed-in user.
-    _bus.subscribe('/latest', (data, _) => _onTopicMessage(data));
+    // Authenticated startup supplies core's preloaded positions; anonymous and
+    // older sites retain MessageBus's new-messages default.
+    _subscribeChannel('/latest', (data, _) => _onTopicMessage(data));
     if (_signedIn) {
-      _bus.subscribe('/new', (data, _) => _onTopicMessage(data));
+      _subscribeChannel('/new', (data, _) => _onTopicMessage(data));
     }
 
     // Discourse additionally scopes this named channel with `user_ids: [id]`;
     // the channel name itself is not the account isolation boundary.
     if ((_signedIn, userId) case (true, final userId?)) {
-      _bus.subscribe(
+      _subscribeChannel(
         '/notification/$userId',
         (data, _) => _onNotification(data),
       );
-      _bus.subscribe(
+      _subscribeChannel(
         '/reviewable_counts/$userId',
         (data, _) => _onReviewableCounts(data),
       );
     }
   }
+
+  SiteMessageBusSubscription _subscribeChannel(
+    String channel,
+    void Function(Object? data, int messageId) onMessage, {
+    int? lastId,
+  }) => _bus.subscribe(
+    channel,
+    onMessage,
+    lastId: lastId ?? _initialLastIds[channel],
+  );
 
   final List<SiteMessageBusSubscription> _topicSubscriptions = [];
   int? _watchedTopic;
@@ -264,8 +278,9 @@ class SiteTracker {
 
   void watchTopicTrackingState(
     int accountId,
-    void Function(Object? data) onMessage,
-  ) {
+    void Function(Object? data) onMessage, {
+    Map<String, int?> lastIds = const {},
+  }) {
     _ensureActive();
     if (!_signedIn || _onTopicTrackingState != null) return;
     _onTopicTrackingState = onMessage;
@@ -276,7 +291,11 @@ class SiteTracker {
       '/recover',
       '/destroy',
     ]) {
-      _bus.subscribe(channel, (data, _) => _emitTopicTrackingState(data));
+      _subscribeChannel(
+        channel,
+        (data, _) => _emitTopicTrackingState(data),
+        lastId: lastIds[channel],
+      );
     }
   }
 
@@ -297,7 +316,7 @@ class SiteTracker {
   }) {
     _ensureActive();
     final gate = _MessageBusCallbackGate();
-    final subscription = _bus.subscribe(channel, (data, messageId) {
+    final subscription = _subscribeChannel(channel, (data, messageId) {
       // A transport can already have copied this callback into its delivery
       // queue when the channel is cancelled or the site is forgotten. Keep
       // the tracker as the lifecycle boundary instead of requiring every

@@ -37,6 +37,7 @@ import 'discourse_api_contracts.dart';
 import 'discourse_transport.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';
+import 'site_message_bus_bootstrap.dart';
 
 export 'discourse_api_contracts.dart';
 export 'plugin_transport.dart';
@@ -110,6 +111,17 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
 
   @override
   Future<DiscourseInstance> lookup(String term) async => _site.lookup(term);
+
+  @override
+  Future<SiteMessageBusBootstrap?> messageBusBootstrap({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) => _site.messageBusBootstrap(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<DiscourseUser> currentUser({

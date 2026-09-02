@@ -11,6 +11,7 @@ import '../data/forum_tab_store.dart';
 import '../data/instance_store.dart';
 import '../data/private_storage.dart';
 import '../data/secure_store.dart';
+import '../data/site_message_bus_bootstrap.dart';
 import '../data/site_tracker.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
@@ -379,6 +380,13 @@ final class _PluginHostApi extends DiscourseApi {
   }) async => const NotificationTotals();
 
   @override
+  Future<SiteMessageBusBootstrap?> messageBusBootstrap({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async => null;
+
+  @override
   Future<DiscourseUser> currentUser({
     required String siteUrl,
     required String apiKey,
@@ -548,6 +556,7 @@ SiteTracker _memoryTracker({
   String? apiKey,
   String? clientId,
   bool Function()? shouldLongPoll,
+  Map<String, int?> initialLastIds = const {},
 }) => SiteTracker(
   siteUrl: siteUrl,
   onIncomingTopics: onIncomingTopics,
@@ -557,6 +566,7 @@ SiteTracker _memoryTracker({
   apiKey: apiKey,
   clientId: clientId,
   shouldLongPoll: shouldLongPoll,
+  initialLastIds: initialLastIds,
   httpClient: _NoNetworkClient(),
   messageBus: _MemoryMessageBus(),
 );

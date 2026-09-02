@@ -90,6 +90,7 @@ void main() {
         String? apiKey,
         String? clientId,
         bool Function()? shouldLongPoll,
+        Map<String, int?> initialLastIds = const {},
       }) {
         longPollChecks.add(shouldLongPoll!);
         final tracker = FakeSiteTracker(

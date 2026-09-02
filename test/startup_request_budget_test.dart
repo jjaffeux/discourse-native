@@ -17,7 +17,7 @@ import 'support/site_appearance_fixtures.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('cold start never requests account state from inactive sites', () async {
+  test('cold start fully hydrates only the selected site', () async {
     const firstUrl = 'https://first.example';
     const secondUrl = 'https://second.example';
     final first = _connected(firstUrl).copyWith(appearance: siteAppearance());
@@ -39,6 +39,10 @@ void main() {
     await shell.load();
     await pumpEventQueue();
 
+    expect(api.messageBusBootstrapRequests, [
+      firstUrl,
+      secondUrl,
+    ], reason: 'every connected live tracker needs a cursor snapshot');
     expect(api.totalsSites, [firstUrl]);
     expect(
       api.appearancesRequested,
@@ -67,6 +71,7 @@ void main() {
     await pumpEventQueue();
 
     expect(api.totalsSites, [firstUrl, secondUrl]);
+    expect(api.messageBusBootstrapRequests, [firstUrl, secondUrl]);
     expect(api.sessionSites, [firstUrl, secondUrl]);
     expect(api.sidebarSites, [firstUrl, secondUrl]);
 
@@ -84,6 +89,39 @@ void main() {
       firstUrl,
       secondUrl,
     ], reason: 'an empty custom-sidebar response is still a loaded snapshot');
+    expect(api.messageBusBootstrapRequests, [
+      firstUrl,
+      secondUrl,
+    ], reason: 'each live tracker needs one fresh cursor snapshot');
+  });
+
+  test('selected JSON refreshes wait for the cursor snapshot', () async {
+    const siteUrl = 'https://first.example';
+    final bootstrapGate = Completer<void>();
+    final api = FakeDiscourseApi(
+      totals: const NotificationTotals(),
+      messageBusBootstrapGate: bootstrapGate,
+    );
+    final shell = ShellController(
+      instanceStore: FakeInstanceStore([_connected(siteUrl)]),
+      api: api,
+      authenticator: FakeAuthenticator()..keys[siteUrl] = 'key',
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      plugins: installedPlugins,
+    );
+    addTearDown(shell.dispose);
+
+    await shell.load();
+    await pumpEventQueue();
+
+    expect(api.messageBusBootstrapRequests, [siteUrl]);
+    expect(api.totalsCalls, 0);
+
+    bootstrapGate.complete();
+    await pumpEventQueue();
+
+    expect(api.totalsCalls, 1);
   });
 
   test(

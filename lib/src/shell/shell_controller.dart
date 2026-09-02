@@ -19,6 +19,7 @@ import '../data/instance_store.dart';
 import '../data/shell_api_ports.dart';
 import '../data/site_image_repository.dart';
 import '../data/site_lifecycle.dart';
+import '../data/site_message_bus_bootstrap.dart';
 import '../data/site_tracker.dart';
 import '../data/store.dart';
 import '../data/update_store.dart';
@@ -1729,6 +1730,11 @@ class ShellController extends FrameSafeNotifier
 
   Future<void> _refreshAccountState(DiscourseInstance? initialInstance) async {
     if (initialInstance case final instance? when instance.isConnected) {
+      // The tracker installs the root document's snapshot before opening its
+      // matching MessageBus cursors. Let later JSON refreshes run second so a
+      // slow HTML response cannot overwrite a newer totals response.
+      await _trackerStartRequests[instance.url];
+      if (isDisposed || !contains(instance.url)) return;
       await Future.wait([
         _refreshOne(instance),
         _refreshSessionUserFor(instance),
@@ -2527,6 +2533,7 @@ class ShellController extends FrameSafeNotifier
 
   final Map<String, SiteTracker> _trackers = {};
   final Set<String> _trackersStarting = {};
+  final Map<String, Future<void>> _trackerStartRequests = {};
   final Map<String, Map<int, UserStatus?>> _userStatusOverrides = {};
   final Set<String> _userStatusWrites = {};
   final Map<String, bool> _optimisticHidePresence = {};
@@ -2595,7 +2602,7 @@ class ShellController extends FrameSafeNotifier
 
       final tracker = _trackers[candidate.url];
       if (tracker == null) {
-        unawaited(_startTracking(candidate));
+        unawaited(_ensureTrackerStarted(candidate));
       } else {
         tracker.start();
       }
@@ -2793,6 +2800,21 @@ class ShellController extends FrameSafeNotifier
     _pluginNotificationFeedRefreshTimers[siteUrl] = timer;
   }
 
+  Future<void> _ensureTrackerStarted(DiscourseInstance instance) {
+    final active = _trackerStartRequests[instance.url];
+    if (active != null) return active;
+
+    late final Future<void> request;
+    request = _startTracking(instance).whenComplete(() {
+      if (identical(_trackerStartRequests[instance.url], request)) {
+        final removed = _trackerStartRequests.remove(instance.url);
+        assert(identical(removed, request));
+      }
+    });
+    _trackerStartRequests[instance.url] = request;
+    return request;
+  }
+
   Future<void> _startTracking(DiscourseInstance instance) async {
     final siteUrl = instance.url;
     if (instance.loginRequired && !instance.isConnected) return;
@@ -2817,9 +2839,21 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
+    final bootstrap = apiKey == null
+        ? null
+        : await _messageBusBootstrap(
+            siteUrl: siteUrl,
+            apiKey: apiKey,
+            clientId: clientId,
+            lease: lease,
+          );
+
     final userId = apiKey == null
         ? null
-        : await _accountId(siteUrl, apiKey: apiKey, lease: lease);
+        : bootstrap?.currentUser?.id ??
+              await _accountId(siteUrl, apiKey: apiKey, lease: lease);
+    final initialLastIds =
+        bootstrap?.initialLastIds(userId: userId) ?? const {};
 
     lease.commit(() {
       _trackersStarting.remove(siteUrl);
@@ -2841,7 +2875,32 @@ class ShellController extends FrameSafeNotifier
         if (!isDisposed) lease.commit(mutation);
       }
 
-      final trackingUsername = apiKey == null ? null : current.user?.username;
+      final bootstrapState = bootstrap?.currentUserState;
+      if (bootstrapState != null) {
+        _acceptLiveNotificationState(siteUrl, bootstrapState, lease);
+        _applyCounts(
+          siteUrl,
+          (held) => held.withReviewableCounts(bootstrapState),
+        );
+      }
+
+      final trackingUsername = apiKey == null
+          ? null
+          : bootstrap?.currentUser?.username ?? current.user?.username;
+      final bootstrapTracking = bootstrap?.topicTrackingState;
+      if (trackingUsername != null &&
+          userId != null &&
+          bootstrapTracking != null &&
+          bootstrap!.hasCompleteTopicTrackingSnapshot(userId)) {
+        _topicTrackingBySite[siteUrl] = bootstrapTracking;
+        _topicTrackingSnapshotsLoaded.add(siteUrl);
+        _topicTrackingRevisions.update(
+          siteUrl,
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
+        if (currentInstance?.url == siteUrl) _notify();
+      }
       final shouldLoadTopicTracking =
           trackingUsername != null &&
           !_topicTrackingBySite.containsKey(siteUrl) &&
@@ -2857,6 +2916,7 @@ class ShellController extends FrameSafeNotifier
           userId: userId,
           apiKey: apiKey,
           clientId: clientId,
+          initialLastIds: initialLastIds,
           shouldLongPoll: () =>
               _foreground || _backgroundRetention.retains(siteUrl),
           onIncomingTopics: () => commit(() {
@@ -2886,6 +2946,7 @@ class ShellController extends FrameSafeNotifier
             tracker.watchTopicTrackingState(
               userId,
               (data) => commit(() => _applyTopicTrackingMessage(siteUrl, data)),
+              lastIds: initialLastIds,
             );
           } catch (error, stackTrace) {
             _reportOperationalError(
@@ -2911,7 +2972,9 @@ class ShellController extends FrameSafeNotifier
           tracker.watchPluginChannel(
             '/user-status',
             (data) => commit(() => _applyUserStatusMessage(siteUrl, data)),
-            lastId: _instanceAt(siteUrl)?.user?.status?.messageBusLastId,
+            lastId:
+                bootstrap?.currentUser?.status?.messageBusLastId ??
+                _instanceAt(siteUrl)?.user?.status?.messageBusLastId,
           );
         } catch (error, stackTrace) {
           _reportOperationalError(
@@ -2940,7 +3003,9 @@ class ShellController extends FrameSafeNotifier
             tracker.watchPluginChannel(
               '/do-not-disturb/$userId',
               (data) => commit(() => doNotDisturb.applyMessage(siteUrl, data)),
-              lastId: user?.doNotDisturbChannelPosition,
+              lastId:
+                  bootstrap?.currentUser?.doNotDisturbChannelPosition ??
+                  user?.doNotDisturbChannelPosition,
             );
           } catch (error, stackTrace) {
             _reportOperationalError(
@@ -2982,6 +3047,35 @@ class ShellController extends FrameSafeNotifier
         _syncTopicWatch(siteUrl, tracker);
       }
     });
+  }
+
+  Future<SiteMessageBusBootstrap?> _messageBusBootstrap({
+    required String siteUrl,
+    required String apiKey,
+    required String clientId,
+    required SiteLease lease,
+  }) async {
+    try {
+      final bootstrap = await api.site.messageBusBootstrap(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
+      return !isDisposed && lease.isCurrent ? bootstrap : null;
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        // The endpoint is the ordinary application document, so older and
+        // customized sites may not expose every preload entry. Existing JSON
+        // snapshots remain the compatibility path.
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'messageBus.preload',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      return null;
+    }
   }
 
   Future<void> _loadTopicTrackingState({
@@ -10446,6 +10540,7 @@ class ShellController extends FrameSafeNotifier
     _observePluginLifecycle(forgetPlugins, 'plugins.session.forget');
     topicFeeds.forget(siteUrl);
     _trackersStarting.remove(siteUrl);
+    _trackerStartRequests.remove(siteUrl)?.ignore();
     _sessionUsersRefreshed.remove(siteUrl);
     _sessionUserRequests.remove(siteUrl)?.ignore();
     doNotDisturb.forget(siteUrl);
@@ -11423,6 +11518,7 @@ class ShellController extends FrameSafeNotifier
       tracker.dispose().ignore();
     }
     _trackers.clear();
+    _trackerStartRequests.clear();
     if (ownsApi) api.close();
     super.dispose();
   }
