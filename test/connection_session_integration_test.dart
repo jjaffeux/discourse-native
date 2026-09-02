@@ -1047,14 +1047,14 @@ void _registerConnectionSessionTests() {
       );
 
       expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
-      expect(find.byTooltip('Open the latest drafts menu'), findsOneWidget);
+      expect(find.byKey(TopicCreateButton.draftsButtonKey), findsOneWidget);
 
       await _openProfileSection(tester);
       await tester.tap(find.byKey(const ValueKey('user-menu-row-preferences')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
-      expect(find.byTooltip('Open the latest drafts menu'), findsNothing);
+      expect(find.byKey(TopicCreateButton.draftsButtonKey), findsNothing);
       expect(
         ShellScope.read(
           tester.element(find.byType(MainContent)),
