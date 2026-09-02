@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -717,6 +718,52 @@ void main() {
       expect(shell.store.read<Post>(_siteUrl, 1)?.likeCount, 5);
       expect(shell.store.read<Post>(_siteUrl, 1)?.liked, isFalse);
     });
+
+    test(
+      'does not overwrite a bookmark bulk delete with an older read',
+      () async {
+        final api = _PostOrderingApi();
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        final tracker = await _openTopic(shell);
+        final bookmark = Bookmark(
+          id: 5,
+          bookmarkableId: 1,
+          bookmarkableType: BookmarkTargetType.post.wireName,
+        );
+        shell.store.put(
+          _siteUrl,
+          shell.store.read<Post>(_siteUrl, 1)!.withBookmark(bookmark),
+        );
+        shell.store.put(
+          _siteUrl,
+          shell.store.read<TopicDetail>(_siteUrl, 7)!.withBookmark(bookmark),
+        );
+
+        tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
+        await api.waitForPostRequests(1);
+
+        final deleting = shell.deleteAllTopicBookmarks(
+          siteUrl: _siteUrl,
+          topicId: 7,
+        );
+        expect((await deleting).saved, isTrue);
+        expect(shell.store.read<Post>(_siteUrl, 1)?.bookmark, isNull);
+
+        // The read that was already out is disowned by the write and replayed
+        // once it ends; its pre-delete answer must not bring the ribbon back.
+        await api.waitForPostRequests(2);
+        api.postRequests[0].response.complete([
+          _post('stale').withBookmark(bookmark),
+        ]);
+        await pumpEventQueue();
+        expect(shell.store.read<Post>(_siteUrl, 1)?.bookmark, isNull);
+
+        api.postRequests[1].response.complete([_post('fresh')]);
+        await pumpEventQueue();
+        expect(shell.store.read<Post>(_siteUrl, 1)?.bookmark, isNull);
+      },
+    );
   });
 
   group('session replacement', () {

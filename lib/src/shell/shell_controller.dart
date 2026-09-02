@@ -7998,14 +7998,20 @@ class ShellController extends FrameSafeNotifier
   final Map<String, int> _postRefreshTopics = {};
 
   bool _beginPostWrite(String key) {
-    if (!_postWritesInFlight.add(key)) return false;
-    // A live invalidation may already be reading the pre-write snapshot. It
-    // must not land over the optimistic write or the write's own re-read.
+    if (_postWritesInFlight.contains(key)) return false;
+    _holdPostWrite(key);
+    _notify();
+    return true;
+  }
+
+  /// A live invalidation may already be reading the pre-write snapshot. It
+  /// must not land over the optimistic write or the write's own re-read, so
+  /// its request is disowned here and replayed when the write ends.
+  void _holdPostWrite(String key) {
+    _postWritesInFlight.add(key);
     if (_postRefreshRequests.remove(key) != null) {
       _postRefreshPending.add(key);
     }
-    _notify();
-    return true;
   }
 
   void _endPostWrite(String siteUrl, int postId, {bool notify = true}) {
@@ -8432,7 +8438,7 @@ class ShellController extends FrameSafeNotifier
       );
     }
     _topicBookmarkWritesInFlight.add(key);
-    _postWritesInFlight.addAll(postKeys);
+    postKeys.forEach(_holdPostWrite);
     _notify();
     final lease = lifecycle.capture(siteUrl);
     try {
@@ -8820,12 +8826,7 @@ class ShellController extends FrameSafeNotifier
     }
     final lease = lifecycle.capture(siteUrl);
     _topicPostSelectionWrites.add(topicKey);
-    for (final key in postKeys) {
-      _postWritesInFlight.add(key);
-      if (_postRefreshRequests.remove(key) != null) {
-        _postRefreshPending.add(key);
-      }
-    }
+    postKeys.forEach(_holdPostWrite);
     _notify();
 
     var succeeded = false;
