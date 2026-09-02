@@ -107,7 +107,11 @@ class Bookmark {
       id: jsonInt(json['id']),
       bookmarkableId: jsonIntOrNull(json['bookmarkable_id']),
       bookmarkableType: jsonText(json['bookmarkable_type']),
-      postNumber: jsonIntOrNull(json['post_number']),
+      // The topic view serializes a post bookmark's `post_number`; the user
+      // menu's list serializer names the same number `linked_post_number`.
+      postNumber: jsonIntOrNull(
+        json['post_number'] ?? json['linked_post_number'],
+      ),
       title: jsonTitle(json['title'], json['fancy_title']),
       name: jsonText(json['name']),
       author: jsonText(user['username']),
