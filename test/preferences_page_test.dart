@@ -520,6 +520,32 @@ void main() {
       }
     });
 
+    testWidgets('the timezone entries are built once for the page', (
+      tester,
+    ) async {
+      final fixture = await _fixture();
+      await _pumpPage(tester, fixture);
+      await _chooseNarrowSection(tester, PreferenceSection.profile);
+      final entries = tester
+          .widget<DropdownMenu<String>>(_timezoneMenu)
+          .dropdownMenuEntries;
+      expect(entries.map((entry) => entry.value), contains('Europe/London'));
+
+      await _pumpPage(tester, fixture);
+
+      // The menu materialises a button per IANA entry; a rebuild of the card
+      // must hand it the list it already has.
+      expect(
+        identical(
+          tester
+              .widget<DropdownMenu<String>>(_timezoneMenu)
+              .dropdownMenuEntries,
+          entries,
+        ),
+        isTrue,
+      );
+    });
+
     testWidgets('filters known timezones without accepting free text', (
       tester,
     ) async {
