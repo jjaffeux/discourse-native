@@ -265,6 +265,10 @@ class _DiscourseAppState extends State<DiscourseApp>
     ShellController controller,
     InstalledPlugins plugins,
   ) async {
+    // A plugin that cannot boot is reported and left behind. The sites must
+    // still load: the only retry the shell offers is on a failed load, so a
+    // load that never starts would leave every launch on the spinner.
+    var pluginsStarted = false;
     try {
       await plugins.startPhase(
         PluginStartupPhase.bootstrap,
@@ -275,25 +279,37 @@ class _DiscourseAppState extends State<DiscourseApp>
         plugins,
         WidgetsBinding.instance.lifecycleState?.name ?? 'unknown',
       );
+      pluginsStarted = true;
+    } catch (error, stackTrace) {
+      _reportPluginStartFailure(error, stackTrace);
+    }
+    if (!mounted || !identical(_controller, controller)) return;
+    try {
       await controller.load();
       if (!mounted || !identical(_controller, controller)) return;
       _notificationNavigationController = controller;
       _drainNotificationUrls();
-      await plugins.startPhase(
-        PluginStartupPhase.appReady,
-        bindings: _pluginHostBindings,
-      );
+      if (pluginsStarted) {
+        await plugins.startPhase(
+          PluginStartupPhase.appReady,
+          bindings: _pluginHostBindings,
+        );
+      }
     } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'app.plugins.start',
-        source: 'plugins',
-        severity: DiagnosticSeverity.error,
-        handled: true,
-        degraded: true,
-      );
+      _reportPluginStartFailure(error, stackTrace);
     }
+  }
+
+  void _reportPluginStartFailure(Object error, StackTrace stackTrace) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: 'app.plugins.start',
+      source: 'plugins',
+      severity: DiagnosticSeverity.error,
+      handled: true,
+      degraded: true,
+    );
   }
 
   void _listenToNotificationOpens(Stream<String> urls) {

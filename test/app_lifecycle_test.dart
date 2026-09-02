@@ -197,6 +197,32 @@ void main() {
   });
 
   group('plugin lifecycle and diagnostics', () {
+    testWidgets('loads the sites when a plugin fails to boot', (tester) async {
+      final manifest = PluginManifest([
+        _LifecycleTestModule('lifecycle-broken', _BrokenBootstrapLifecycle()),
+      ]);
+
+      await tester.pumpWidget(
+        DiscourseApp(
+          store: FakeInstanceStore([instance('first.example')]),
+          api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          forumTabs: FakeForumTabStore(),
+          trackers: FakeSiteTracker.reset(),
+          updater: FakeUpdater(),
+          updateStore: FakeUpdateStore(),
+          pluginManifest: manifest,
+          initialRootMode: ShellRootMode.forum,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_controller(tester).loadStatus, InstanceLoadStatus.ready);
+      expect(_controller(tester).currentInstance?.host, 'first.example');
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets(
       'dispatches app state and background flush to every registered lifecycle',
       (tester) async {
@@ -601,6 +627,15 @@ final class _LifecycleTestModule implements PluginModule {
   @override
   void register(PluginRegistrar registrar) {
     registrar.addAppLifecycle(lifecycle);
+  }
+}
+
+final class _BrokenBootstrapLifecycle extends PluginAppLifecycle {
+  @override
+  void startPhase(PluginStartupPhase phase, PluginHostBindings bindings) {
+    if (phase == PluginStartupPhase.bootstrap) {
+      throw StateError('bootstrap refused');
+    }
   }
 }
 
