@@ -296,6 +296,83 @@ void main() {
 
       expect(shell.sidebarBadgeFor('category-1'), isNot(SidebarBadge.none));
     });
+
+    test(
+      'a failed snapshot load is retried by the next tracking message',
+      () async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          user: const DiscourseUser(id: 1, username: 'author'),
+          categoryList: const [category],
+          trackingStateGate: gate,
+        );
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        gate.completeError(StateError('tracking unavailable'));
+        await pumpEventQueue();
+        expect(api.topicTrackingRequests, [_siteUrl]);
+
+        api.trackingStateGate = null;
+        FakeSiteTracker.built.single.deliverTopicTracking(unreadInCategory);
+        await pumpEventQueue();
+
+        // The message that proved the site reachable is replayed onto the
+        // snapshot it triggered, so the badge it describes is not lost to it.
+        expect(api.topicTrackingRequests, [_siteUrl, _siteUrl]);
+        expect(shell.sidebarBadgeFor('category-1'), isNot(SidebarBadge.none));
+      },
+    );
+
+    test(
+      'a failed snapshot load is retried on return to the foreground',
+      () async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          user: const DiscourseUser(id: 1, username: 'author'),
+          categoryList: const [category],
+          trackingStateGate: gate,
+        );
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        gate.completeError(StateError('tracking unavailable'));
+        await pumpEventQueue();
+        expect(api.topicTrackingRequests, [_siteUrl]);
+
+        api.trackingStateGate = null;
+        shell.setForeground(false);
+        shell.setForeground(true);
+        await pumpEventQueue();
+        expect(api.topicTrackingRequests, [_siteUrl, _siteUrl]);
+
+        FakeSiteTracker.built.single.deliverTopicTracking(unreadInCategory);
+        await pumpEventQueue();
+        expect(shell.sidebarBadgeFor('category-1'), isNot(SidebarBadge.none));
+      },
+    );
+
+    test('a retry that fails again waits for the next trigger', () async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        user: const DiscourseUser(id: 1, username: 'author'),
+        categoryList: const [category],
+        trackingStateGate: gate,
+      );
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      gate.completeError(StateError('tracking unavailable'));
+      await pumpEventQueue();
+
+      shell.setForeground(false);
+      shell.setForeground(true);
+      await pumpEventQueue();
+      expect(api.topicTrackingRequests, [_siteUrl, _siteUrl]);
+      expect(shell.sidebarBadgeFor('category-1'), SidebarBadge.none);
+
+      shell.setForeground(false);
+      shell.setForeground(true);
+      await pumpEventQueue();
+      expect(api.topicTrackingRequests, [_siteUrl, _siteUrl, _siteUrl]);
+    });
   });
 
   group('MessageBus bootstrap ordering', () {

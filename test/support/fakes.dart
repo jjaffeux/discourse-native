@@ -697,7 +697,7 @@ class FakeDiscourseApi
   final List<String> currentUserRequests = [];
 
   final TopicTrackingState? trackingState;
-  final Completer<void>? trackingStateGate;
+  Completer<void>? trackingStateGate;
   final List<String> topicTrackingRequests = [];
 
   final DateTime? doNotDisturbUntil;

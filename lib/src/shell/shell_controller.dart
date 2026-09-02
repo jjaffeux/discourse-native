@@ -2073,6 +2073,8 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _topicTrackingSnapshotsLoaded = {};
   final Map<String, int> _topicTrackingRevisions = {};
   final Set<String> _topicTrackingLoads = {};
+  final Map<String, ({SiteLease lease, Future<void> Function() load})>
+  _topicTrackingRetries = {};
   final Map<String, List<Object?>> _topicTrackingPendingEvents = {};
   final Map<String, CategoryFeed> _categoryFeeds = {};
   final Set<(String, int)> _categoryIdsLoading = {};
@@ -2934,6 +2936,7 @@ class ShellController extends FrameSafeNotifier
         );
         if (currentInstance?.url == siteUrl) _notify();
       }
+      _topicTrackingRetries.remove(siteUrl);
       final shouldLoadTopicTracking =
           trackingUsername != null &&
           !_topicTrackingBySite.containsKey(siteUrl) &&
@@ -3154,6 +3157,16 @@ class ShellController extends FrameSafeNotifier
           'topicTracking.load',
           severity: DiagnosticSeverity.warning,
         );
+        _topicTrackingRetries[siteUrl] = (
+          lease: lease,
+          load: () => _loadTopicTrackingState(
+            siteUrl: siteUrl,
+            username: username,
+            apiKey: apiKey,
+            clientId: clientId,
+            lease: lease,
+          ),
+        );
       }
     } finally {
       lease.commit(() {
@@ -3164,6 +3177,9 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _applyTopicTrackingMessage(String siteUrl, Object? data) {
+    // A message proves the site reachable again. A snapshot whose load failed
+    // is fetched before this message is buffered, so the replay covers it.
+    _retryTopicTrackingLoad(siteUrl);
     _topicTrackingPendingEvents[siteUrl]?.add(data);
     final tracking = _topicTrackingBySite.putIfAbsent(
       siteUrl,
@@ -3177,6 +3193,24 @@ class ShellController extends FrameSafeNotifier
       );
       _notify();
     }
+  }
+
+  /// Category and tag badges stay dark until a snapshot lands, because the bus
+  /// alone cannot seed them. A load that failed is retried once the site is
+  /// reachable or looked at again: on a tracking message, on foreground, and
+  /// on selection. The retry keeps the failed load's account and lease, so a
+  /// site tracked again since then owns its own load instead.
+  void _retryTopicTrackingLoad(String siteUrl) {
+    final retry = _topicTrackingRetries.remove(siteUrl);
+    if (retry == null ||
+        isDisposed ||
+        !retry.lease.isCurrent ||
+        _topicTrackingSnapshotsLoaded.contains(siteUrl) ||
+        !_topicTrackingLoads.add(siteUrl)) {
+      return;
+    }
+    _topicTrackingPendingEvents[siteUrl] = <Object?>[];
+    unawaited(retry.load());
   }
 
   Future<int?> _accountId(
@@ -3348,6 +3382,7 @@ class ShellController extends FrameSafeNotifier
           _topicTrackingSnapshotsLoaded.remove(siteUrl);
           _topicTrackingRevisions.remove(siteUrl);
           _topicTrackingLoads.remove(siteUrl);
+          _topicTrackingRetries.remove(siteUrl);
           _topicTrackingPendingEvents.remove(siteUrl);
         }
         _replaceInstance(
@@ -3825,6 +3860,7 @@ class ShellController extends FrameSafeNotifier
       final connected = _instanceAt(entry.key)?.isConnected ?? false;
       if (selected || connected || retainedSiteUrls.contains(entry.key)) {
         entry.value.pollNow();
+        _retryTopicTrackingLoad(entry.key);
       }
     }
   }
@@ -10762,6 +10798,7 @@ class ShellController extends FrameSafeNotifier
     _topicTrackingSnapshotsLoaded.remove(siteUrl);
     _topicTrackingRevisions.remove(siteUrl);
     _topicTrackingLoads.remove(siteUrl);
+    _topicTrackingRetries.remove(siteUrl);
     _topicTrackingPendingEvents.remove(siteUrl);
     _categoryFeeds.remove(siteUrl);
     _categoryIdsLoading.removeWhere((entry) => entry.$1 == siteUrl);
@@ -10890,6 +10927,7 @@ class ShellController extends FrameSafeNotifier
     }
     _syncTracking();
     _syncTopicChannels();
+    _retryTopicTrackingLoad(instance.url);
     // Totals may have landed while this site was inactive. The ordinary
     // refresh on reselection can legitimately reuse that five-minute snapshot,
     // so activation itself must notify totals observers instead of relying on
