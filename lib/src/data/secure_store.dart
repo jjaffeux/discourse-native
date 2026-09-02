@@ -133,7 +133,7 @@ class SecureStore {
 
     final mutation = _apiKeyMutations[siteUrl];
     if (mutation != null) {
-      await mutation;
+      await _settled(mutation);
       return readApiKey(siteUrl);
     }
 
@@ -184,8 +184,17 @@ class SecureStore {
 
   Future<String?> _readApiKeyAfterCurrentMutation(String siteUrl) async {
     final mutation = _apiKeyMutations[siteUrl];
-    if (mutation != null) await mutation;
+    if (mutation != null) await _settled(mutation);
     return readApiKey(siteUrl);
+  }
+
+  /// A read that joins a mutation waits for it to settle, whatever its
+  /// outcome. The mutation's own caller is told of its failure; a read
+  /// answers from what storage holds once it is over.
+  static Future<void> _settled(Future<void> mutation) async {
+    try {
+      await mutation;
+    } catch (_) {}
   }
 
   Future<void> writeApiKey(String siteUrl, String key) async {
