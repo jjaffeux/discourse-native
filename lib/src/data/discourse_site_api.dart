@@ -153,6 +153,32 @@ final class DiscourseSiteApi {
     apiKey: apiKey,
     clientId: clientId,
   );
+
+  Future<SiteMessageBusBootstrap?> messageBusBootstrap({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    final parsed = Uri.parse(siteUrl);
+    final documentUrl = parsed.replace(
+      path: parsed.path.endsWith('/') ? parsed.path : '${parsed.path}/',
+      query: null,
+      fragment: null,
+    );
+    final response = await _transport.get(
+      documentUrl,
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+      accept: 'text/html',
+    );
+    return SiteMessageBusBootstrap.fromHtml(
+      response.body,
+      siteUrl: siteUrl,
+      models: _models,
+    );
+  }
+
   Future<SiteConfig> siteConfig({
     required String siteUrl,
     String? apiKey,

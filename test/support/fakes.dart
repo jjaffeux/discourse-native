@@ -8,6 +8,7 @@ import 'package:discourse_native/src/data/forum_tab_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
 import 'package:discourse_native/src/data/update_store.dart';
 import 'package:discourse_native/src/data/updater.dart';
@@ -289,6 +290,7 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
     required this.onReviewableCounts,
     this.userId,
     this.apiKey,
+    this.initialLastIds = const {},
   });
 
   static final List<FakeSiteTracker> built = [];
@@ -307,6 +309,7 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
     String? apiKey,
     String? clientId,
     bool Function()? shouldLongPoll,
+    Map<String, int?> initialLastIds = const {},
   }) {
     final tracker = FakeSiteTracker(
       siteUrl: siteUrl,
@@ -315,6 +318,7 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
       onReviewableCounts: onReviewableCounts,
       userId: userId,
       apiKey: apiKey,
+      initialLastIds: initialLastIds,
     );
     built.add(tracker);
     return tracker;
@@ -336,6 +340,7 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
   final int? userId;
 
   final String? apiKey;
+  final Map<String, int?> initialLastIds;
 
   @override
   final IncomingTopics incoming = IncomingTopics();
@@ -356,10 +361,14 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
   @override
   void watchTopicTrackingState(
     int accountId,
-    void Function(Object? data) onMessage,
-  ) {
+    void Function(Object? data) onMessage, {
+    Map<String, int?> lastIds = const {},
+  }) {
     _onTopicTrackingState ??= onMessage;
+    topicTrackingLastIds.addAll(lastIds);
   }
+
+  final Map<String, int?> topicTrackingLastIds = {};
 
   void deliverNotification(Object? message) => onNotifications(message);
 
@@ -501,6 +510,8 @@ class FakeDiscourseApi
     this.results = const {},
     this.failure,
     this.user,
+    this.messageBusBootstrapResult,
+    this.messageBusBootstrapGate,
     this.trackingState,
     this.trackingStateGate,
     this.doNotDisturbUntil,
@@ -677,6 +688,10 @@ class FakeDiscourseApi
   final SiteLookupFailure? failure;
 
   final DiscourseUser? user;
+
+  final SiteMessageBusBootstrap? messageBusBootstrapResult;
+  final Completer<void>? messageBusBootstrapGate;
+  final List<String> messageBusBootstrapRequests = [];
 
   final TopicTrackingState? trackingState;
   final Completer<void>? trackingStateGate;
@@ -1275,6 +1290,17 @@ class FakeDiscourseApi
     final result = results[term];
     if (result != null) return result;
     throw SiteLookupException(failure ?? SiteLookupFailure.unreachable, term);
+  }
+
+  @override
+  Future<SiteMessageBusBootstrap?> messageBusBootstrap({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    messageBusBootstrapRequests.add(siteUrl);
+    await messageBusBootstrapGate?.future;
+    return messageBusBootstrapResult;
   }
 
   @override

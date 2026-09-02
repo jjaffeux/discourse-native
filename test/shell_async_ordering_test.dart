@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_tracking_state.dart';
+import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -237,6 +240,77 @@ Future<FakeSiteTracker> _openTopic(ShellController shell) async {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('MessageBus bootstrap ordering', () {
+    test('installs snapshots before subscribing at their positions', () async {
+      const bootstrapUser = DiscourseUser(
+        id: 1,
+        username: 'author',
+        status: UserStatus(
+          description: 'Heads down',
+          emoji: 'hammer_and_wrench',
+          messageBusLastId: 301,
+        ),
+        doNotDisturbChannelPosition: 302,
+      );
+      final bootstrap = SiteMessageBusBootstrap(
+        currentUser: bootstrapUser,
+        currentUserState: const {
+          'id': 1,
+          'username': 'author',
+          'all_unread_notifications_count': 5,
+          'new_personal_messages_notifications_count': 2,
+          'unseen_reviewable_count': 4,
+        },
+        topicTrackingState: TopicTrackingState.fromJson(const [
+          {
+            'topic_id': 7,
+            'highest_post_number': 3,
+            'last_read_post_number': 1,
+            'notification_level': 2,
+          },
+        ]),
+        topicTrackingLastIds: const {
+          '/latest': 303,
+          '/new': 304,
+          '/unread': 305,
+          '/unread/1': 306,
+          '/delete': 307,
+          '/recover': 308,
+          '/destroy': 309,
+        },
+        notificationChannelPosition: 310,
+      );
+      final api = FakeDiscourseApi(
+        user: bootstrapUser,
+        messageBusBootstrapResult: bootstrap,
+      );
+
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = FakeSiteTracker.built.single;
+
+      expect(tracker.initialLastIds, {
+        '/latest': 303,
+        '/new': 304,
+        '/unread': 305,
+        '/unread/1': 306,
+        '/delete': 307,
+        '/recover': 308,
+        '/destroy': 309,
+        '/notification/1': 310,
+        '/user-status': 301,
+        '/do-not-disturb/1': 302,
+      });
+      expect(tracker.topicTrackingLastIds, tracker.initialLastIds);
+      expect(api.messageBusBootstrapRequests, [_siteUrl]);
+      expect(api.topicTrackingRequests, isEmpty);
+      expect(shell.topicTrackingRevisionFor(_siteUrl), 1);
+      expect(shell.currentTotals?.unreadNotifications, 3);
+      expect(shell.currentTotals?.unreadPersonalMessages, 2);
+      expect(shell.currentTotals?.unseenReviewables, 4);
+    });
+  });
 
   group('incoming feed ordering', () {
     test(

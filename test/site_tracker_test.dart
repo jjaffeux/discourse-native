@@ -75,6 +75,12 @@ void main() {
           onIncomingTopics: () => incomingCalls += 1,
           onNotifications: notifications.add,
           onReviewableCounts: reviewableCounts.add,
+          initialLastIds: const {
+            '/latest': 101,
+            '/new': 102,
+            '/notification/42': 103,
+            '/reviewable_counts/42': 104,
+          },
           httpClient: MockClient((_) async => http.Response('', 200)),
           messageBus: bus,
         );
@@ -85,6 +91,12 @@ void main() {
           '/new',
           '/notification/42',
           '/reviewable_counts/42',
+        });
+        expect(bus.lastIds, {
+          '/latest': 101,
+          '/new': 102,
+          '/notification/42': 103,
+          '/reviewable_counts/42': 104,
         });
 
         bus.deliver('/latest', {'topic_id': 7, 'message_type': 'new_topic'});
@@ -108,7 +120,17 @@ void main() {
         addTearDown(tracker.dispose);
         final messages = <Object?>[];
 
-        tracker.watchTopicTrackingState(42, messages.add);
+        tracker.watchTopicTrackingState(
+          42,
+          messages.add,
+          lastIds: const {
+            '/unread': 201,
+            '/unread/42': 202,
+            '/delete': 203,
+            '/recover': 204,
+            '/destroy': 205,
+          },
+        );
 
         expect(bus.channels, {
           '/latest',
@@ -121,6 +143,11 @@ void main() {
           '/notification/42',
           '/reviewable_counts/42',
         });
+        expect(bus.lastIds, containsPair('/unread', 201));
+        expect(bus.lastIds, containsPair('/unread/42', 202));
+        expect(bus.lastIds, containsPair('/delete', 203));
+        expect(bus.lastIds, containsPair('/recover', 204));
+        expect(bus.lastIds, containsPair('/destroy', 205));
 
         const latest = {'topic_id': 7, 'message_type': 'new_topic'};
         const unread = {'topic_id': 8, 'message_type': 'unread'};

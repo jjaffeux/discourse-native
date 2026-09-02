@@ -31,6 +31,7 @@ import '../models/user_preferences.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'plugin_transport.dart';
+import 'site_message_bus_bootstrap.dart';
 
 const int maximumDiscourseSearchTermLength = 2048;
 const int maximumDiscourseHashtagsPerRequest = 20;
@@ -252,6 +253,12 @@ abstract interface class SiteLookupApi {
 }
 
 abstract interface class ShellSiteApi {
+  Future<SiteMessageBusBootstrap?> messageBusBootstrap({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  });
+
   Future<DiscourseUser> currentUser({
     required String siteUrl,
     required String apiKey,
