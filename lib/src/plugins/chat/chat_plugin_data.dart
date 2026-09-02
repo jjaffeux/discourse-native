@@ -216,8 +216,8 @@ final class ChatCurrentUser {
   });
 
   factory ChatCurrentUser.fromCurrentUser(Map<String, dynamic> json) {
-    final userOption = _jsonMap(json['user_option']) ?? const {};
-    final customFields = _jsonMap(json['custom_fields']) ?? const {};
+    final userOption = jsonObjectFields(json['user_option']) ?? const {};
+    final customFields = jsonObjectFields(json['custom_fields']) ?? const {};
     return ChatCurrentUser(
       hasChatEnabled: json['has_chat_enabled'] == true,
       canChat: json['can_chat'] == true,
@@ -308,7 +308,7 @@ final class ChatSettingsPersistenceCodec
 
   @override
   ChatSettings? decode(Object? value) {
-    final json = _jsonMap(value);
+    final json = jsonObjectFields(value);
     return json == null ? null : ChatSettings.fromStored(json);
   }
 
@@ -344,7 +344,7 @@ final class ChatCurrentUserPersistenceCodec
 
   @override
   ChatCurrentUser? decode(Object? value) {
-    final json = _jsonMap(value);
+    final json = jsonObjectFields(value);
     return json == null ? null : ChatCurrentUser.fromStored(json);
   }
 
@@ -364,7 +364,8 @@ final class ChatCurrentUserPersistenceCodec
     );
     if (!hasNamespacedValue ||
         !record.containsKey('ignoredUsernames') ||
-        _jsonMap(namespacedValue)?.containsKey('ignoredUsernames') == true) {
+        jsonObjectFields(namespacedValue)?.containsKey('ignoredUsernames') ==
+            true) {
       return decoded;
     }
 
@@ -500,14 +501,4 @@ bool _containsAny(Map<String, dynamic> json, Set<String> keys) {
     if (json.containsKey(key)) return true;
   }
   return false;
-}
-
-Map<String, dynamic>? _jsonMap(Object? value) {
-  if (value is! Map) return null;
-  final result = <String, dynamic>{};
-  for (final entry in value.entries) {
-    if (entry.key is! String) return null;
-    result[entry.key as String] = entry.value;
-  }
-  return result;
 }

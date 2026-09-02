@@ -819,6 +819,7 @@ final class ChatShellService
     await chat.loadChannels(siteUrl);
     if (_host.currentInstance?.url != siteUrl) return;
     await _drawerPreferencesRestored;
+    if (_host.isDisposed || _host.currentInstance?.url != siteUrl) return;
     if (_shouldNavigateDrawer) {
       final initialRoute = _initialDrawerRoute(siteUrl);
       if (initialRoute == null) {

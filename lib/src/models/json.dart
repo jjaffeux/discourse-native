@@ -40,6 +40,21 @@ String jsonString(Object? value, {String fallback = ''}) =>
 Map<String, dynamic> jsonObject(Object? value) =>
     value is Map<String, dynamic> ? value : const {};
 
+/// Plugin codecs read values back from this app's own storage, where a map
+/// may have been decoded with untyped keys. A codec answers null for a value
+/// that is not an object or carries a non-string key, because a value it
+/// cannot read is one it must not claim to hold; [jsonObject]'s empty
+/// fallback would turn that into a default record.
+Map<String, Object?>? jsonObjectFields(Object? value) {
+  if (value is! Map) return null;
+  final result = <String, Object?>{};
+  for (final entry in value.entries) {
+    if (entry.key is! String) return null;
+    result[entry.key as String] = entry.value;
+  }
+  return result;
+}
+
 List<dynamic> jsonArray(Object? value) =>
     value is List<dynamic> ? value : const [];
 

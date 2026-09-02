@@ -681,7 +681,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
         minute: wallInitial.minute,
       ),
     );
-    if (time == null) return;
+    if (time == null || !mounted) return;
     final instant = BookmarkReminderCalculator.resolveWallTime(
       location: location,
       date: date,

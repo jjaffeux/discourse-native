@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../models/discourse_user.dart';
+import '../../models/json.dart';
 import '../../models/site_config.dart';
 import '../../plugin_api/site_plugin_api.dart';
 
@@ -83,7 +84,7 @@ final class AssignSettingsPersistenceCodec
 
   @override
   AssignSettings? decode(Object? value) {
-    final json = _objectFields(value);
+    final json = jsonObjectFields(value);
     if (json == null) return null;
     final enabled = json['statusesEnabled'] == true;
     return AssignSettings(
@@ -121,7 +122,7 @@ final class AssignCurrentUserPersistenceCodec
 
   @override
   AssignCurrentUser? decode(Object? value) {
-    final json = _objectFields(value);
+    final json = jsonObjectFields(value);
     if (json == null) return null;
     final canAssign = json['canAssign'];
     final canAssignGlobally = json['canAssignGlobally'];
@@ -178,14 +179,4 @@ List<String> _stringList(Object? value) {
   return List.unmodifiable(
     values.map((value) => value.trim()).where((value) => value.isNotEmpty),
   );
-}
-
-Map<String, Object?>? _objectFields(Object? value) {
-  if (value is! Map) return null;
-  final result = <String, Object?>{};
-  for (final entry in value.entries) {
-    if (entry.key is! String) return null;
-    result[entry.key as String] = entry.value;
-  }
-  return result;
 }

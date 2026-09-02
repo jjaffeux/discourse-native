@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
+import 'curved_animation_builder.dart';
 import 'platform.dart';
 import 'shell_sheet.dart';
 
@@ -213,22 +214,22 @@ class _ChoiceMenuTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final curved = CurvedAnimation(
+    return CurvedAnimationBuilder(
       parent: animation,
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
-    );
-    return FadeTransition(
-      opacity: curved,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: Offset(0, alignment.y < 0 ? -0.025 : 0.025),
-          end: Offset.zero,
-        ).animate(curved),
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.97, end: 1).animate(curved),
-          alignment: alignment,
-          child: child,
+      builder: (context, curved) => FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: Offset(0, alignment.y < 0 ? -0.025 : 0.025),
+            end: Offset.zero,
+          ).animate(curved),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.97, end: 1).animate(curved),
+            alignment: alignment,
+            child: child,
+          ),
         ),
       ),
     );

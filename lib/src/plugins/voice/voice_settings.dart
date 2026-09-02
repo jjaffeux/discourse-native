@@ -188,7 +188,7 @@ final class VoiceSettingsPersistenceCodec
 
   @override
   VoiceClientConfig? decode(Object? value) {
-    final json = _jsonMap(value);
+    final json = jsonObjectFields(value);
     return json == null ? null : VoiceClientConfig.fromJson(json);
   }
 
@@ -197,7 +197,7 @@ final class VoiceSettingsPersistenceCodec
 
   @override
   VoiceClientConfig? decodeLegacy(Map<String, dynamic> json) {
-    final legacy = _jsonMap(json['voice']);
+    final legacy = jsonObjectFields(json['voice']);
     return legacy == null ? null : VoiceClientConfig.fromJson(legacy);
   }
 }
@@ -211,14 +211,4 @@ extension VoiceSiteConfigData on SiteConfig {
   VoiceClientConfig get voiceSettings => plugins.voiceSettings;
 
   VoiceClientConfig get voice => voiceSettings;
-}
-
-Map<String, dynamic>? _jsonMap(Object? value) {
-  if (value is! Map) return null;
-  final result = <String, dynamic>{};
-  for (final entry in value.entries) {
-    if (entry.key is! String) return null;
-    result[entry.key as String] = entry.value;
-  }
-  return result;
 }

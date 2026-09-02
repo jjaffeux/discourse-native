@@ -247,6 +247,31 @@ void main() {
     );
   });
 
+  test(
+    'a shortcut that resolves after a site switch leaves the drawer closed',
+    () async {
+      final persistence = _PreferencesPersistence.gated();
+      final fixture = await _fixture(
+        channels: ChatChannels(public: [_channel(9)]),
+        persistence: persistence,
+      );
+      addTearDown(fixture.dispose);
+
+      final opened = fixture.shell.openShortcut(drawerAvailable: true);
+      await Future<void>.delayed(Duration.zero);
+      expect(fixture.shell.drawerActive, isFalse);
+
+      fixture.host.switchTo(
+        const DiscourseInstance(url: 'https://other.example', title: 'Other'),
+      );
+      persistence.completeDisplayModeRead('DRAWER_CHAT');
+      await opened;
+
+      expect(fixture.shell.drawerActive, isFalse);
+      expect(fixture.shell.drawerContentStack, isEmpty);
+    },
+  );
+
   test('channel cycling works full page but not from an index route', () async {
     final fixture = await _fixture(
       channels: ChatChannels(
@@ -396,7 +421,7 @@ final class _NavigationHost implements PluginNavigationHost {
         ContentRoute.fromDestination(instance.defaultDestination),
       ];
 
-  final DiscourseInstance instance;
+  DiscourseInstance instance;
   final NotificationTotals totals;
   final ChangeNotifier _changes = ChangeNotifier();
   List<ContentRoute> _contentStack;
@@ -437,6 +462,12 @@ final class _NavigationHost implements PluginNavigationHost {
 
   @override
   void selectInstance(int index) {}
+
+  void switchTo(DiscourseInstance next) {
+    instance = next;
+    _contentStack = [ContentRoute.fromDestination(next.defaultDestination)];
+    _changes.notifyListeners();
+  }
 
   @override
   void selectDestination(SidebarDestination destination) {

@@ -1363,6 +1363,14 @@ class _StreamState extends State<ChatMessageStream>
   ) async {
     if (!widget.stream.atPresent) {
       await chat.showLatestFor(siteUrl, widget.target);
+      // The state is reused across channels, so the count cleared here must
+      // belong to the channel that asked for the present, not whichever one
+      // is on screen when the fetch resolves.
+      if (!mounted ||
+          widget.siteUrl != siteUrl ||
+          widget.channelId != channelId) {
+        return;
+      }
       _unseenLiveMessages = 0;
       return;
     }

@@ -68,7 +68,10 @@ void main() {
       await _pump(tester);
 
       final button = tester.widget<FilledButton>(
-        find.byKey(TopicCreateButton.buttonKey),
+        find.descendant(
+          of: find.byKey(TopicCreateButton.buttonKey),
+          matching: find.byType(FilledButton),
+        ),
       );
       final theme = Theme.of(
         tester.element(find.byKey(TopicCreateButton.buttonKey)),
@@ -85,7 +88,7 @@ void main() {
       expect(
         tester
             .widget<DTooltip>(
-              find.ancestor(
+              find.descendant(
                 of: find.byKey(TopicCreateButton.buttonKey),
                 matching: find.byType(DTooltip),
               ),
@@ -114,7 +117,7 @@ void main() {
       expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
       expect(find.text('New topic'), findsNothing);
       expect(
-        find.ancestor(
+        find.descendant(
           of: find.byKey(TopicCreateButton.buttonKey),
           matching: find.byType(DTooltip),
         ),

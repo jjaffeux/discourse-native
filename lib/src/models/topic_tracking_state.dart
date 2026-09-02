@@ -12,6 +12,18 @@ final class TopicTrackingState {
 
   final Map<int, TrackedTopicState> _topics;
 
+  /// Sidebar badges are asked for per visible row on every sidebar rebuild.
+  /// Both indexes are built from the current topics on first use and dropped
+  /// by any change [applyMessage] makes, so a row costs the topics in its own
+  /// categories or tag rather than a pass over every tracked topic.
+  Map<int, List<TrackedTopicState>>? _topicsByCategory;
+  Map<int, List<TrackedTopicState>>? _topicsByTag;
+
+  /// The parent-to-children map depends only on the category list, which a
+  /// site keeps by identity between configuration loads.
+  Iterable<TopicCategory>? _childrenSource;
+  Map<int, List<int>>? _childrenByParent;
+
   Iterable<TrackedTopicState> get topics => _topics.values;
 
   ({int newTopics, int newReplies}) get newActivityCounts {
@@ -33,14 +45,22 @@ final class TopicTrackingState {
     required bool unifiedNew,
     required bool showCount,
   }) {
-    final descendants = _descendantCategoryIds(categoryId, categories);
+    final descendants = _descendantCategoryIds(
+      categoryId,
+      _childrenFor(categories),
+    );
+    final byCategory = _topicsByCategory ??= _indexBy(
+      (topic) => [?topic.categoryId],
+    );
     return _badge(
-      topics.where((topic) {
-        if (!descendants.contains(topic.categoryId)) return false;
-        // A child category's definition topic belongs to that child only. Core
-        // excludes it when calculating the recursive parent-category count.
-        return !topic.isCategoryTopic || topic.categoryId == categoryId;
-      }),
+      [
+        for (final id in descendants)
+          for (final topic in byCategory[id] ?? const <TrackedTopicState>[])
+            // A child category's definition topic belongs to that child only.
+            // Core excludes it when calculating the recursive parent-category
+            // count.
+            if (!topic.isCategoryTopic || topic.categoryId == categoryId) topic,
+      ],
       unifiedNew: unifiedNew,
       showCount: showCount,
     );
@@ -51,10 +71,31 @@ final class TopicTrackingState {
     required bool unifiedNew,
     required bool showCount,
   }) => _badge(
-    topics.where((topic) => topic.tagIds.contains(tagId)),
+    (_topicsByTag ??= _indexBy((topic) => topic.tagIds))[tagId] ??
+        const <TrackedTopicState>[],
     unifiedNew: unifiedNew,
     showCount: showCount,
   );
+
+  Map<int, List<TrackedTopicState>> _indexBy(
+    Iterable<int> Function(TrackedTopicState topic) keysOf,
+  ) {
+    final index = <int, List<TrackedTopicState>>{};
+    for (final topic in _topics.values) {
+      for (final key in keysOf(topic)) {
+        (index[key] ??= []).add(topic);
+      }
+    }
+    return index;
+  }
+
+  Map<int, List<int>> _childrenFor(Iterable<TopicCategory> categories) {
+    if (!identical(categories, _childrenSource)) {
+      _childrenSource = categories;
+      _childrenByParent = _childrenByParentOf(categories);
+    }
+    return _childrenByParent!;
+  }
 
   SidebarBadge _badge(
     Iterable<TrackedTopicState> candidates, {
@@ -79,6 +120,15 @@ final class TopicTrackingState {
   }
 
   bool applyMessage(Object? value) {
+    final changed = _applyMessage(value);
+    if (changed) {
+      _topicsByCategory = null;
+      _topicsByTag = null;
+    }
+    return changed;
+  }
+
+  bool _applyMessage(Object? value) {
     if (value is! Map) return false;
     final topicId = jsonIntOrNull(value['topic_id']);
     final type = jsonText(value['message_type']);
@@ -137,16 +187,16 @@ final class TopicTrackingState {
   }
 }
 
-Set<int> _descendantCategoryIds(
-  int categoryId,
-  Iterable<TopicCategory> categories,
-) {
+Map<int, List<int>> _childrenByParentOf(Iterable<TopicCategory> categories) {
   final children = <int, List<int>>{};
   for (final category in categories) {
     final parentId = category.parentCategoryId;
     if (parentId != null) (children[parentId] ??= []).add(category.id);
   }
+  return children;
+}
 
+Set<int> _descendantCategoryIds(int categoryId, Map<int, List<int>> children) {
   final result = <int>{categoryId};
   final pending = <int>[categoryId];
   while (pending.isNotEmpty) {

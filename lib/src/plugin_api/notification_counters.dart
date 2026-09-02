@@ -2,6 +2,7 @@ import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/json.dart';
+import 'preserved_json.dart';
 
 /// The identity is independent of the server field name so a plugin may own
 /// wire migrations without teaching core about the feature.
@@ -110,7 +111,7 @@ final class PluginNotificationCounters {
     Iterable<PluginNotificationCounter> counters,
     Object? value,
   ) {
-    final preserved = _preserveNamespaces(value);
+    final preserved = preserveJsonNamespaces(value);
     final states =
         <PluginNotificationCounterId, PluginNotificationCounterState>{};
     for (final counter in counters) {
@@ -138,7 +139,7 @@ final class PluginNotificationCounters {
   }, const {});
 
   factory PluginNotificationCounters.preserveNamespaces(Object? value) {
-    final preserved = _preserveNamespaces(value);
+    final preserved = preserveJsonNamespaces(value);
     return preserved.isEmpty ? none : _from(const {}, preserved);
   }
 
@@ -238,13 +239,13 @@ final class PluginNotificationCounters {
       identical(this, other) ||
       other is PluginNotificationCounters &&
           mapEquals(other._states, _states) &&
-          _deepEquals(other._preservedNamespaces, _preservedNamespaces);
+          deepJsonEquals(other._preservedNamespaces, _preservedNamespaces);
 
   @override
   int get hashCode => Object.hashAllUnordered([
     ..._states.entries.map((entry) => Object.hash(entry.key, entry.value)),
     ..._preservedNamespaces.entries.map(
-      (entry) => Object.hash(entry.key, _deepHash(entry.value)),
+      (entry) => Object.hash(entry.key, deepJsonHash(entry.value)),
     ),
   ]);
 }
@@ -286,82 +287,3 @@ final class EmptyPluginNotificationCounterCodec
 }
 
 int _count(int? value) => value == null || value < 0 ? 0 : value;
-
-Map<String, Object?> _preserveNamespaces(Object? value) {
-  if (value is! Map) return <String, Object?>{};
-  final namespaces = <String, Object?>{};
-  for (final entry in value.entries) {
-    final name = entry.key;
-    if (name is! String || name.isEmpty) continue;
-    final frozen = _freezeJson(entry.value);
-    if (frozen.valid) namespaces[name] = frozen.value;
-  }
-  return namespaces;
-}
-
-typedef _FrozenJson = ({bool valid, Object? value});
-
-_FrozenJson _freezeJson(Object? value) {
-  if (value == null || value is String || value is bool) {
-    return (valid: true, value: value);
-  }
-  if (value is num) {
-    return value.isFinite
-        ? (valid: true, value: value)
-        : (valid: false, value: null);
-  }
-  if (value is List) {
-    final result = <Object?>[];
-    for (final item in value) {
-      final frozen = _freezeJson(item);
-      if (!frozen.valid) return (valid: false, value: null);
-      result.add(frozen.value);
-    }
-    return (valid: true, value: List<Object?>.unmodifiable(result));
-  }
-  if (value is Map) {
-    final result = <String, Object?>{};
-    for (final entry in value.entries) {
-      if (entry.key is! String) return (valid: false, value: null);
-      final frozen = _freezeJson(entry.value);
-      if (!frozen.valid) return (valid: false, value: null);
-      result[entry.key as String] = frozen.value;
-    }
-    return (valid: true, value: Map<String, Object?>.unmodifiable(result));
-  }
-  return (valid: false, value: null);
-}
-
-bool _deepEquals(Object? left, Object? right) {
-  if (identical(left, right)) return true;
-  if (left is List && right is List) {
-    if (left.length != right.length) return false;
-    for (var index = 0; index < left.length; index++) {
-      if (!_deepEquals(left[index], right[index])) return false;
-    }
-    return true;
-  }
-  if (left is Map && right is Map) {
-    if (left.length != right.length) return false;
-    for (final entry in left.entries) {
-      if (!right.containsKey(entry.key) ||
-          !_deepEquals(entry.value, right[entry.key])) {
-        return false;
-      }
-    }
-    return true;
-  }
-  return left == right;
-}
-
-int _deepHash(Object? value) {
-  if (value is List) return Object.hashAll(value.map(_deepHash));
-  if (value is Map) {
-    return Object.hashAllUnordered(
-      value.entries.map(
-        (entry) => Object.hash(entry.key, _deepHash(entry.value)),
-      ),
-    );
-  }
-  return value.hashCode;
-}
