@@ -54,7 +54,6 @@ final class GroupPageData {
     this.sectionLoading = false,
     this.loadingMore = false,
     this.mutating = false,
-    this.saving = false,
     this.loaded = false,
     this.error,
     this.sectionError,
@@ -82,7 +81,6 @@ final class GroupPageData {
   final bool sectionLoading;
   final bool loadingMore;
   final bool mutating;
-  final bool saving;
   final bool loaded;
   final String? error;
   final String? sectionError;
@@ -145,7 +143,7 @@ class GroupPage extends StatefulWidget {
     GroupRequestAction action,
   )?
   onRequestAction;
-  final Future<void> Function(GroupManageUpdate update)? onSaveManage;
+  final GroupManageSubmit? onSaveManage;
 
   @override
   State<GroupPage> createState() => _GroupPageState();

@@ -89,7 +89,7 @@ void main() {
   });
 
   group('GroupManageController', () {
-    test('owns form state and serializes subsection-specific updates', () {
+    test('owns dirty state and serializes subsection-specific updates', () {
       final controller = GroupManageController(
         group: const Group(
           id: 9,
@@ -98,14 +98,17 @@ void main() {
           associatedGroupIds: [3],
           watchingTags: [GroupTag(name: 'existing')],
         ),
+        subsection: GroupRoute.membership,
       );
       addTearDown(controller.dispose);
 
+      expect(controller.snapshot.dirty, isFalse);
       controller.setAdmission('free');
       controller.setPublicExit(true);
       controller.textController('associated_group_ids').text = '4, nope, 8';
-      final membership = controller.buildUpdate(GroupRoute.membership);
+      final membership = controller.buildUpdate();
 
+      expect(controller.snapshot.dirty, isTrue);
       expect(membership.values['public_admission'], isTrue);
       expect(membership.values['allow_membership_requests'], isFalse);
       expect(membership.values['public_exit'], isTrue);
@@ -117,22 +120,105 @@ void main() {
       expect(tags.values.keys, unorderedEquals(groupTagKeys));
     });
 
-    test('save invokes the command callback with the current values', () async {
+    test('validation rejects an empty group name before submission', () async {
+      var submissions = 0;
       final controller = GroupManageController(
         group: const Group(id: 9, name: 'support'),
+        onSubmit: (_) async {
+          submissions += 1;
+          return true;
+        },
       );
       addTearDown(controller.dispose);
-      GroupManageUpdate? submitted;
+
+      controller.textController('name').text = '  ';
+      expect(await controller.submit(), isFalse);
+      expect(submissions, 0);
+      expect(controller.snapshot.fieldErrors, {'name': 'Enter a group name.'});
+
+      controller.textController('name').text = 'community-support';
+      expect(controller.snapshot.fieldErrors, isEmpty);
+    });
+
+    test(
+      'reports progress and accepts the submitted values on success',
+      () async {
+        final completion = Completer<bool>();
+        GroupManageUpdate? submitted;
+        final controller = GroupManageController(
+          group: const Group(id: 9, name: 'support'),
+          onSubmit: (update) {
+            submitted = update;
+            return completion.future;
+          },
+        );
+        addTearDown(controller.dispose);
+        controller.textController('full_name').text = 'Support Team';
+
+        final save = controller.submit();
+        expect(controller.snapshot.submitting, isTrue);
+        expect(controller.snapshot.canSubmit, isFalse);
+        expect(submitted?.values['full_name'], 'Support Team');
+
+        completion.complete(true);
+        expect(await save, isTrue);
+        expect(controller.snapshot.submitting, isFalse);
+        expect(controller.snapshot.dirty, isFalse);
+        expect(controller.snapshot.error, isNull);
+      },
+    );
+
+    test('maps thrown submission failures and keeps the form dirty', () async {
+      final controller = GroupManageController(
+        group: const Group(id: 9, name: 'support'),
+        onSubmit: (_) async => throw StateError('offline'),
+        errorMapper: (error) => 'Mapped ${error.runtimeType}',
+      );
+      addTearDown(controller.dispose);
       controller.textController('full_name').text = 'Support Team';
 
-      await controller.save(
-        GroupRoute.profile,
-        (update) async => submitted = update,
-      );
-
-      expect(submitted?.subsection, GroupRoute.profile);
-      expect(submitted?.values['full_name'], 'Support Team');
+      expect(await controller.submit(), isFalse);
+      expect(controller.snapshot.submitting, isFalse);
+      expect(controller.snapshot.dirty, isTrue);
+      expect(controller.snapshot.error, 'Mapped StateError');
     });
+
+    test(
+      'uses the save failure message when the command rejects the update',
+      () async {
+        final controller = GroupManageController(
+          group: const Group(id: 9, name: 'support'),
+          onSubmit: (_) async => false,
+        );
+        addTearDown(controller.dispose);
+        controller.textController('full_name').text = 'Support Team';
+
+        expect(await controller.submit(), isFalse);
+        expect(controller.snapshot.error, "Couldn't save that group change.");
+      },
+    );
+
+    test(
+      'stale failure does not overwrite edits made during submission',
+      () async {
+        final completion = Completer<bool>();
+        final controller = GroupManageController(
+          group: const Group(id: 9, name: 'support'),
+          onSubmit: (_) => completion.future,
+        );
+        addTearDown(controller.dispose);
+        controller.textController('full_name').text = 'First value';
+
+        final save = controller.submit();
+        controller.textController('full_name').text = 'Newer value';
+        completion.complete(false);
+
+        expect(await save, isFalse);
+        expect(controller.snapshot.error, isNull);
+        expect(controller.snapshot.dirty, isTrue);
+        expect(controller.buildUpdate().values['full_name'], 'Newer value');
+      },
+    );
   });
 }
 
