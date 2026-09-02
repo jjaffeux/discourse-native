@@ -245,6 +245,8 @@ class OneboxCard extends StatelessWidget {
       siteUrl: siteUrl,
       child: InkWell(
         onTap: () => openLink(context, url, siteUrl: siteUrl),
+        mouseCursor: SystemMouseCursors.click,
+        hoverColor: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: card,
       ),
