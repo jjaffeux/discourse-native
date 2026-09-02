@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../../models/found_user.dart';
+import '../site_url.dart';
 import 'group_page_types.dart';
 
 final class GroupMemberFilterController extends ChangeNotifier {
@@ -194,7 +195,7 @@ final class GroupInviteController extends ChangeNotifier {
     }
     final rawLink = invite.link;
     _saving = false;
-    _link = rawLink == null ? null : _resolveSitePath(siteUrl, rawLink);
+    _link = rawLink == null ? null : resolveSitePath(siteUrl, rawLink);
     _error = rawLink == null
         ? 'The server did not return an invite link.'
         : null;
@@ -212,9 +213,4 @@ final class GroupInviteController extends ChangeNotifier {
     message.dispose();
     super.dispose();
   }
-}
-
-String _resolveSitePath(String siteUrl, String path) {
-  final base = Uri.parse(siteUrl.endsWith('/') ? siteUrl : '$siteUrl/');
-  return base.resolve(path).toString();
 }

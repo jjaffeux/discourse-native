@@ -21,6 +21,7 @@ import 'group/group_members_controller.dart';
 import 'group/group_page_types.dart';
 import 'relative_time.dart';
 import 'shell_sheet.dart';
+import 'site_url.dart';
 
 export 'group/group_page_types.dart';
 
@@ -415,7 +416,7 @@ class _GroupHeader extends StatelessWidget {
         );
         break;
       case _GroupHeaderCommand.copyLink:
-        final link = _resolveSitePath(
+        final link = resolveSitePath(
           siteUrl,
           'g/${Uri.encodeComponent(group.name)}',
         );
@@ -612,11 +613,6 @@ Future<bool?> _confirmDeleteGroup(BuildContext context, Group group) {
     context: context,
     builder: (_) => _DeleteGroupDialog(group: group),
   );
-}
-
-String _resolveSitePath(String siteUrl, String path) {
-  final base = Uri.parse(siteUrl.endsWith('/') ? siteUrl : '$siteUrl/');
-  return base.resolve(path).toString();
 }
 
 class _DeleteGroupDialog extends StatefulWidget {

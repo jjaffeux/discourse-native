@@ -16,3 +16,11 @@ String resolveSiteUrl(String url, String? siteUrl) {
   }
   return url;
 }
+
+/// Resolves a path this app builds, such as `g/staff`, against the site it
+/// belongs to. The site URL is treated as a directory so a forum served from
+/// a subfolder keeps that prefix; an absolute [path] is returned as it is.
+String resolveSitePath(String siteUrl, String path) {
+  final base = Uri.parse(siteUrl.endsWith('/') ? siteUrl : '$siteUrl/');
+  return base.resolve(path).toString();
+}
