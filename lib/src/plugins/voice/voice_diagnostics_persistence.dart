@@ -1112,7 +1112,7 @@ final class FileVoiceDiagnosticsPersistence
     activeCaptureStartedAtUtc = latestCapture?.startedAtUtc;
 
     final groups = <_TemporaryGroup>[];
-    // ignore: close_sinks, closed by closeCurrent before every exit
+    // ignore: close_sinks, closed by closeCurrent or the failure path below
     IOSink? sink;
     _TemporaryGroup? current;
 
@@ -1154,28 +1154,46 @@ final class FileVoiceDiagnosticsPersistence
 
     final highWater = <String, int>{};
     DateTime? timestampHighWater;
-    for (var index = _segmentCount - 1; index >= 0; index -= 1) {
-      final segment = segmentFile(index);
-      if (!await segment.exists()) continue;
-      await for (final line in _boundedJsonLines(segment)) {
-        if (line == null || _looksLikeStateLine(line)) continue;
-        var decoded = _decodeRecordLine(line);
-        if (decoded == null ||
-            !_acceptIdentity(decoded.record, highWater) ||
-            !decoded.record.timestampUtc.isAfter(cutoff)) {
-          continue;
+    try {
+      for (var index = _segmentCount - 1; index >= 0; index -= 1) {
+        final segment = segmentFile(index);
+        if (!await segment.exists()) continue;
+        await for (final line in _boundedJsonLines(segment)) {
+          if (line == null || _looksLikeStateLine(line)) continue;
+          var decoded = _decodeRecordLine(line);
+          if (decoded == null ||
+              !_acceptIdentity(decoded.record, highWater) ||
+              !decoded.record.timestampUtc.isAfter(cutoff)) {
+            continue;
+          }
+          decoded = _clampTimestamp(decoded, timestampHighWater);
+          timestampHighWater = decoded.record.timestampUtc;
+          await writeLine(decoded.line, decoded.bytes);
         }
-        decoded = _clampTimestamp(decoded, timestampHighWater);
+      }
+      for (final additional in canonicalAdditionalRecords) {
+        final decoded = _clampTimestamp(additional, timestampHighWater);
         timestampHighWater = decoded.record.timestampUtc;
         await writeLine(decoded.line, decoded.bytes);
       }
+      await _compactionFaultInjector?.call('before_close', groups.length);
+      await closeCurrent();
+    } catch (_) {
+      // A pass that fails while writing must not leave its open segment or
+      // partial temp files behind. The live segments are untouched until the
+      // atomic replacement, so releasing the descriptor and removing what was
+      // written restores the state before the attempt.
+      final open = sink;
+      sink = null;
+      current = null;
+      try {
+        await open?.close();
+      } on Object {
+        // The failure being rethrown is the one worth reporting.
+      }
+      await _deleteGroupTemps();
+      rethrow;
     }
-    for (final additional in canonicalAdditionalRecords) {
-      final decoded = _clampTimestamp(additional, timestampHighWater);
-      timestampHighWater = decoded.record.timestampUtc;
-      await writeLine(decoded.line, decoded.bytes);
-    }
-    await closeCurrent();
 
     while (groups.length > _segmentCount) {
       final removed = groups.removeAt(0);

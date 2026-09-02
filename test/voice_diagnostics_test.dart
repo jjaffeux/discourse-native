@@ -1053,6 +1053,74 @@ void main() {
         }
       }
     });
+
+    test(
+      'a compaction that fails while writing removes its partial segments',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'voice-diagnostics-write-failure-',
+        );
+        try {
+          final file = File('${directory.path}/voice.jsonl');
+          final now = DateTime.utc(2026, 8, 11, 16, 59);
+          final seed = FileVoiceDiagnosticsPersistence(
+            file,
+            segmentCount: 3,
+            segmentBytes: 2048,
+          );
+          await seed.append([
+            for (var sequence = 1; sequence <= 30; sequence += 1)
+              _record(
+                sequence,
+                now,
+                writerId: 'writer-failure',
+                event: 'write.$sequence',
+                message: 'payload-${'x' * 160}',
+              ),
+          ], nowUtc: now);
+          final before = _reportEventNames(
+            await seed.buildJsonReport(
+              generatedAtUtc: now,
+              reportFormatVersion: 1,
+              state: const {},
+            ),
+          );
+          final crashing = FileVoiceDiagnosticsPersistence(
+            file,
+            segmentCount: 3,
+            segmentBytes: 2048,
+            compactionFaultInjector: (phase, _) {
+              if (phase == 'before_close') throw StateError('disk full');
+            },
+          );
+
+          await expectLater(crashing.compact(nowUtc: now), throwsStateError);
+
+          final leftovers = [
+            await for (final entity in directory.list())
+              if (entity.path.contains('.group.')) entity.path,
+          ];
+          expect(leftovers, isEmpty);
+          final recovered = FileVoiceDiagnosticsPersistence(
+            file,
+            segmentCount: 3,
+            segmentBytes: 2048,
+          );
+          expect(
+            _reportEventNames(
+              await recovered.buildJsonReport(
+                generatedAtUtc: now,
+                reportFormatVersion: 1,
+                state: const {},
+              ),
+            ),
+            before,
+          );
+        } finally {
+          if (await directory.exists()) await directory.delete(recursive: true);
+        }
+      },
+    );
   });
 
   group('SDK bridge lifecycle', () {
