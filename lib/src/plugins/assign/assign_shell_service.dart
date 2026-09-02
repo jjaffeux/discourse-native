@@ -64,12 +64,13 @@ final class AssignShellService implements PluginLinkHandler {
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
   }) async {
     final absolute = resolveSiteUrl(url, _host.currentSite?.url);
-    final link = AssignedGroupLink.parse(absolute);
-    if (link == null) return false;
-
-    final index = _host.sites.indexWhere((site) => site.serves(link.uri));
+    final target = Uri.tryParse(absolute);
+    if (target == null) return false;
+    final index = _host.sites.indexWhere((site) => site.serves(target));
     if (index < 0 || !_host.sites[index].isConnected) return false;
     final site = _host.sites[index];
+    final link = AssignedGroupLink.parse(absolute, siteUrl: site.url);
+    if (link == null) return false;
     if (!_canOpenGroupAssignments(site.url)) return false;
 
     if (_host.currentSite?.url != site.url) _host.selectInstance(index);

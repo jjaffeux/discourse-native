@@ -25,7 +25,7 @@ class ChatSearchView extends StatefulWidget {
 
 class _ChatSearchViewState extends State<ChatSearchView> {
   late final ChatSearchController _search;
-  late final TextEditingController _query;
+  final TextEditingController _query = TextEditingController();
   late final FocusNode _focus;
   late final ScrollController _scroll;
   VoidCallback? _unregisterFocus;
@@ -43,9 +43,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     super.didChangeDependencies();
     if (_ready) return;
     _search = PluginUiScope.require(context, chatSearchControllerService);
-    _query = TextEditingController(
-      text: _search.globalState(widget.siteUrl).query,
-    );
+    _query.text = _search.globalState(widget.siteUrl).query;
     _unregisterFocus = _search.registerGlobalFocus(
       widget.siteUrl,
       _focus.requestFocus,

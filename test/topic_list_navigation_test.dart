@@ -213,6 +213,9 @@ void main() {
       'message_type': 'unread',
       'payload': {'highest_post_number': 2, 'notification_level': 2},
     });
+    // A tracking run notifies the shell once, after the delivery's microtask,
+    // so the redraw lands in the frame after that notification.
+    await tester.pump();
     await tester.pump();
 
     expect(find.text('New (1060)'), findsOneWidget);

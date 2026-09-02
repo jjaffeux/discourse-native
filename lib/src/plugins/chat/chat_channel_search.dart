@@ -72,7 +72,7 @@ class ChatChannelSearchBar extends StatefulWidget {
 
 class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
   late final ChatSearchController _search;
-  late final TextEditingController _query;
+  final TextEditingController _query = TextEditingController();
   int _seenSelectionRevision = 0;
   bool _ready = false;
   bool _tickerEnabled = true;
@@ -109,7 +109,7 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
     if (_ready) return;
     _search = PluginUiScope.require(context, chatSearchControllerService);
     final state = _search.scopedState(widget.siteUrl, widget.channelId);
-    _query = TextEditingController(text: state.query);
+    _query.text = state.query;
     _seenSelectionRevision = state.selectionRevision;
     _ready = true;
   }

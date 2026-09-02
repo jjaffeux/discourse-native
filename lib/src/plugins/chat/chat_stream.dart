@@ -194,6 +194,61 @@ List<ChatStreamItem>? prependChatStream({
   ];
 }
 
+/// Reprojects only an appended run and the held window's trailing seam:
+/// [existingTrailing] is the last non-deleted held message followed by any
+/// deleted run after it. Null means the held rows would change as well and
+/// the projection must be rebuilt: there is no non-deleted splice point, or a
+/// held sole newest unread row now needs the divider the full projection
+/// omits above it.
+List<ChatStreamItem>? appendChatStream({
+  required List<ChatStreamItem> existingItems,
+  required List<ChatMessage> existingTrailing,
+  required List<ChatMessage> appended,
+  int? lastReadMessageId,
+  int? newestMessageId,
+  int showTimeGapDays = SiteConfig.defaultShowTimeGapDays,
+}) {
+  if (appended.isEmpty || existingTrailing.isEmpty) return null;
+
+  final boundary = existingTrailing.first;
+  if (boundary.isDeleted) return null;
+
+  final boundaryRow = existingItems.lastIndexWhere(
+    (item) => item is ChatStreamMessage && item.id == boundary.id,
+  );
+  if (boundaryRow < 0) return null;
+
+  // Ids ascend along the window, so the kept rows hold the first unread row
+  // exactly when their last row is unread. They then own the divider: a row
+  // that has none was the sole newest unread and gains one only through a
+  // full projection. A first unread row in the rebuilt tail, or none at all,
+  // lets the tail place the divider the way the full projection would.
+  final keptRowsHoldFirstUnread =
+      lastReadMessageId != null && boundary.id > lastReadMessageId;
+  if (keptRowsHoldFirstUnread &&
+      !existingItems
+          .take(boundaryRow + 1)
+          .any((item) => item is ChatStreamNewDivider)) {
+    return null;
+  }
+
+  final tail = buildChatStream(
+    [...existingTrailing, ...appended],
+    lastReadMessageId: keptRowsHoldFirstUnread ? null : lastReadMessageId,
+    newestMessageId: newestMessageId,
+    showTimeGapDays: showTimeGapDays,
+  );
+  final tailBoundaryRow = tail.indexWhere(
+    (item) => item is ChatStreamMessage && item.id == boundary.id,
+  );
+  if (tailBoundaryRow < 0) return null;
+
+  return [
+    ...existingItems.take(boundaryRow + 1),
+    ...tail.skip(tailBoundaryRow + 1),
+  ];
+}
+
 /// Matches Discourse's speaker-chain rules except `firstOfResults`: this client
 /// proves page adjacency, so transport boundaries do not create visual seams.
 bool _chains(ChatMessage message, ChatMessage? previous) {

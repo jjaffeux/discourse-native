@@ -38,6 +38,22 @@ typedef _SectionListSnapshot = ({
   bool userStatusEnabled,
 });
 
+_SectionListSnapshot _sectionListSnapshot(
+  ShellController controller,
+  String siteUrl,
+) {
+  final instance = controller.instances
+      .where((instance) => instance.url == siteUrl)
+      .firstOrNull;
+  return (
+    controller: controller,
+    siteUrl: instance?.url,
+    host: instance?.host,
+    user: instance?.user,
+    userStatusEnabled: instance?.config.userStatusEnabled ?? false,
+  );
+}
+
 @immutable
 class UserMenuSection {
   const UserMenuSection({
@@ -1061,18 +1077,7 @@ class _SectionList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ShellSelector<_SectionListSnapshot>(
-    select: (controller) {
-      final instance = controller.instances
-          .where((instance) => instance.url == siteUrl)
-          .firstOrNull;
-      return (
-        controller: controller,
-        siteUrl: instance?.url,
-        host: instance?.host,
-        user: instance?.user,
-        userStatusEnabled: instance?.config.userStatusEnabled ?? false,
-      );
-    },
+    select: (controller) => _sectionListSnapshot(controller, siteUrl),
     builder: (context, state, _) {
       final controller = state.controller;
       final currentSiteUrl = state.siteUrl;
@@ -1148,18 +1153,7 @@ class _LiveNestedSectionBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ShellSelector<_SectionListSnapshot>(
-    select: (controller) {
-      final instance = controller.instances
-          .where((instance) => instance.url == siteUrl)
-          .firstOrNull;
-      return (
-        controller: controller,
-        siteUrl: instance?.url,
-        host: instance?.host,
-        user: instance?.user,
-        userStatusEnabled: instance?.config.userStatusEnabled ?? false,
-      );
-    },
+    select: (controller) => _sectionListSnapshot(controller, siteUrl),
     builder: (context, state, _) {
       final currentSiteUrl = state.siteUrl;
       final host = state.host;

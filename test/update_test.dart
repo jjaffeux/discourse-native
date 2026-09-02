@@ -199,6 +199,37 @@ void main() {
       expect(controller.error, contains("Couldn't reach"));
     });
 
+    test('a check that dies of something else can be tried again', () async {
+      final updater = FakeUpdater(
+        isSupported: true,
+        checkFailure: const FormatException('not a manifest'),
+      );
+      final controller = controllerWith(updater: updater);
+
+      await controller.check();
+      expect(controller.status, UpdateStatus.failed);
+      expect(controller.error, contains("Couldn't reach"));
+
+      // `checking` gates every later check; it must not survive the failure.
+      await controller.check();
+      expect(updater.checkCount, 2);
+      expect(controller.status, UpdateStatus.failed);
+    });
+
+    test('a quiet check that dies of something else leaves no trace', () async {
+      final controller = controllerWith(
+        updater: FakeUpdater(
+          isSupported: true,
+          checkFailure: StateError('adapter bug'),
+        ),
+      );
+
+      await controller.check(silent: true);
+
+      expect(controller.error, isNull);
+      expect(controller.status, UpdateStatus.idle);
+    });
+
     test('a check nobody asked for fails quietly', () async {
       final controller = controllerWith(
         updater: FakeUpdater(
@@ -417,6 +448,24 @@ void main() {
       expect(controller.available, isNotNull);
     });
 
+    test('a download that dies of something else keeps the offer', () async {
+      final controller = controllerWith(
+        updater: FakeUpdater(
+          isSupported: true,
+          releases: {UpdateChannel.stable: release('1.4.0')},
+          downloadFailure: StateError('disk full'),
+        ),
+      );
+
+      await controller.check();
+      await controller.download();
+
+      expect(controller.status, UpdateStatus.available);
+      expect(controller.progress, 0);
+      expect(controller.error, contains("Couldn't reach"));
+      expect(controller.available?.version, '1.4.0');
+    });
+
     test('restarting hands the app over to the updater', () async {
       final updater = FakeUpdater(
         isSupported: true,
@@ -447,6 +496,42 @@ void main() {
       expect(controller.status, UpdateStatus.readyToInstall);
       expect(controller.error, isNotNull);
     });
+
+    test(
+      'an install that dies of something else still offers the staged build',
+      () async {
+        final controller = controllerWith(
+          updater: FakeUpdater(
+            isSupported: true,
+            releases: {UpdateChannel.stable: release('1.4.0')},
+            installFailure: StateError('helper missing'),
+          ),
+        );
+
+        await controller.check();
+        await controller.download();
+        await controller.installAndRestart();
+
+        expect(controller.status, UpdateStatus.readyToInstall);
+        expect(controller.error, contains('could not be installed'));
+      },
+    );
+
+    test(
+      'a discard that dies of something else still asks the new channel',
+      () async {
+        final updater = _ThrowingDiscardUpdater(
+          releases: {UpdateChannel.canary: release('1.5.0-canary.2')},
+        );
+        final controller = controllerWith(updater: updater);
+
+        await controller.setChannel(UpdateChannel.canary);
+
+        expect(updater.lastCheckedChannel, UpdateChannel.canary);
+        expect(controller.status, UpdateStatus.available);
+        expect(controller.available?.version, '1.5.0-canary.2');
+      },
+    );
 
     test('switching channels persists the choice', () async {
       final store = FakeUpdateStore();
@@ -649,7 +734,7 @@ void main() {
 }
 
 final class _ThrowingDiscardUpdater extends FakeUpdater {
-  _ThrowingDiscardUpdater() : super(isSupported: true);
+  _ThrowingDiscardUpdater({super.releases}) : super(isSupported: true);
 
   @override
   Future<void> discard() => throw StateError('cleanup failed');

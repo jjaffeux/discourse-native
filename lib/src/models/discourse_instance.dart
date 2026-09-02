@@ -164,7 +164,43 @@ class DiscourseInstance {
 
   String get host => _authority(Uri.parse(url));
 
-  bool serves(Uri link) => link.hasAuthority && _authority(link) == host;
+  /// The path a forum served from a subfolder lives under; empty at the root.
+  List<String> get basePathSegments => basePathSegmentsOf(url);
+
+  static List<String> basePathSegmentsOf(String siteUrl) => [
+    for (final segment in Uri.parse(siteUrl).pathSegments)
+      if (segment.isNotEmpty) segment,
+  ];
+
+  /// Whether [link] is one of this forum's pages: the same host, and under
+  /// the subfolder when the forum is served from one.
+  bool serves(Uri link) => urlServes(url, link);
+
+  static bool urlServes(String siteUrl, Uri link) =>
+      link.hasAuthority &&
+      _authority(link) == _authority(Uri.parse(siteUrl)) &&
+      pathSegmentsWithin(siteUrl, link) != null;
+
+  /// [link]'s path below the forum's subfolder, as the root-relative path a
+  /// root install would write; null when the link is not under it. Discourse
+  /// writes a subfolder site's links with the subfolder, so its own route
+  /// patterns apply to what is left.
+  String? pathWithin(Uri link) => pathWithinUrl(url, link);
+
+  static String? pathWithinUrl(String siteUrl, Uri link) {
+    final segments = pathSegmentsWithin(siteUrl, link);
+    return segments == null ? null : '/${segments.join('/')}';
+  }
+
+  static List<String>? pathSegmentsWithin(String siteUrl, Uri link) {
+    final base = basePathSegmentsOf(siteUrl);
+    final segments = link.pathSegments;
+    if (segments.length < base.length) return null;
+    for (var index = 0; index < base.length; index++) {
+      if (segments[index] != base[index]) return null;
+    }
+    return segments.sublist(base.length);
+  }
 
   static String _authority(Uri uri) =>
       uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;

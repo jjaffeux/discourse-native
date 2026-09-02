@@ -574,7 +574,9 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
 
     void fail(String message) {
-      if (held != null && held.notifications.isNotEmpty) return;
+      // Rows that arrived while the request was out stay on screen.
+      final current = feeds[instance.url];
+      if (current != null && current.notifications.isNotEmpty) return;
       feeds[instance.url] = NotificationFeed.failed(message);
     }
 
@@ -718,7 +720,9 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
 
     void fail(String message) {
-      if (held != null && held.hasRows) return;
+      // Rows that arrived while the request was out stay on screen.
+      final current = _bookmarks[instance.url];
+      if (current != null && current.hasRows) return;
       _bookmarks[instance.url] = BookmarkFeed.failed(message);
     }
 
@@ -1074,73 +1078,37 @@ final class AccountActivityController extends FrameSafeNotifier {
   void _markCachedNotificationIdsRead(String siteUrl, Set<int> ids) {
     if (ids.isEmpty) return;
     _locallyReadNotificationIds.putIfAbsent(siteUrl, () => <int>{}).addAll(ids);
-
-    NotificationFeed markFeed(NotificationFeed feed) {
-      var updated = feed;
-      for (final id in ids) {
-        updated = updated.withRead(id);
-      }
-      return updated;
-    }
-
-    var notificationChanged = false;
-    var replyNotificationChanged = false;
-    final pluginNotificationChanges = <_PluginNotificationState>[];
-    var bookmarkChanged = false;
-    if (_notifications[siteUrl] case final feed?) {
-      final updated = markFeed(feed);
-      if (!identical(updated, feed)) {
-        _notifications[siteUrl] = updated;
-        notificationChanged = true;
-      }
-    }
-    if (_replyNotifications[siteUrl] case final feed?) {
-      final updated = markFeed(feed);
-      if (!identical(updated, feed)) {
-        _replyNotifications[siteUrl] = updated;
-        replyNotificationChanged = true;
-      }
-    }
-    for (final state in _pluginNotifications.values) {
-      if (state.feeds[siteUrl] case final feed?) {
-        final updated = markFeed(feed);
-        if (!identical(updated, feed)) {
-          state.feeds[siteUrl] = updated;
-          pluginNotificationChanges.add(state);
-        }
-      }
-    }
-    if (_bookmarks[siteUrl] case final feed?) {
-      var updated = feed;
-      for (final id in ids) {
-        updated = updated.withRead(id);
-      }
-      if (!identical(updated, feed)) {
-        _bookmarks[siteUrl] = updated;
-        bookmarkChanged = true;
-      }
-    }
-    if (notificationChanged) _notificationChanges.changed();
-    if (replyNotificationChanged) _replyNotificationChanges.changed();
-    for (final state in pluginNotificationChanges) {
-      state.changes.changed();
-    }
-    if (bookmarkChanged) _bookmarkChanges.changed();
-    if (notificationChanged ||
-        replyNotificationChanged ||
-        pluginNotificationChanges.isNotEmpty ||
-        bookmarkChanged) {
-      notifySafely();
-    }
+    _markCachedNotificationIds(
+      siteUrl,
+      ids,
+      markNotification: (feed, id) => feed.withRead(id),
+      markBookmark: (feed, id) => feed.withRead(id),
+    );
   }
 
   void _markCachedNotificationIdsUnread(String siteUrl, Set<int> ids) {
     if (ids.isEmpty) return;
+    _markCachedNotificationIds(
+      siteUrl,
+      ids,
+      markNotification: (feed, id) => feed.withUnread(id),
+      markBookmark: (feed, id) => feed.withUnread(id),
+    );
+  }
 
+  /// Walks every cached feed holding [siteUrl]'s rows, applies [markNotification]
+  /// and [markBookmark] per id, and notifies exactly the aspects that changed.
+  void _markCachedNotificationIds(
+    String siteUrl,
+    Set<int> ids, {
+    required NotificationFeed Function(NotificationFeed feed, int id)
+    markNotification,
+    required BookmarkFeed Function(BookmarkFeed feed, int id) markBookmark,
+  }) {
     NotificationFeed markFeed(NotificationFeed feed) {
       var updated = feed;
       for (final id in ids) {
-        updated = updated.withUnread(id);
+        updated = markNotification(updated, id);
       }
       return updated;
     }
@@ -1175,7 +1143,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     if (_bookmarks[siteUrl] case final feed?) {
       var updated = feed;
       for (final id in ids) {
-        updated = updated.withUnread(id);
+        updated = markBookmark(updated, id);
       }
       if (!identical(updated, feed)) {
         _bookmarks[siteUrl] = updated;

@@ -2073,6 +2073,9 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _topicTrackingSnapshotsLoaded = {};
   final Map<String, int> _topicTrackingRevisions = {};
   final Set<String> _topicTrackingLoads = {};
+  final Map<String, ({SiteLease lease, Future<void> Function() load})>
+  _topicTrackingRetries = {};
+  bool _topicTrackingNotifyPending = false;
   final Map<String, List<Object?>> _topicTrackingPendingEvents = {};
   final Map<String, CategoryFeed> _categoryFeeds = {};
   final Set<(String, int)> _categoryIdsLoading = {};
@@ -2934,6 +2937,7 @@ class ShellController extends FrameSafeNotifier
         );
         if (currentInstance?.url == siteUrl) _notify();
       }
+      _topicTrackingRetries.remove(siteUrl);
       final shouldLoadTopicTracking =
           trackingUsername != null &&
           !_topicTrackingBySite.containsKey(siteUrl) &&
@@ -3154,6 +3158,16 @@ class ShellController extends FrameSafeNotifier
           'topicTracking.load',
           severity: DiagnosticSeverity.warning,
         );
+        _topicTrackingRetries[siteUrl] = (
+          lease: lease,
+          load: () => _loadTopicTrackingState(
+            siteUrl: siteUrl,
+            username: username,
+            apiKey: apiKey,
+            clientId: clientId,
+            lease: lease,
+          ),
+        );
       }
     } finally {
       lease.commit(() {
@@ -3164,6 +3178,9 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _applyTopicTrackingMessage(String siteUrl, Object? data) {
+    // A message proves the site reachable again. A snapshot whose load failed
+    // is fetched before this message is buffered, so the replay covers it.
+    _retryTopicTrackingLoad(siteUrl);
     _topicTrackingPendingEvents[siteUrl]?.add(data);
     final tracking = _topicTrackingBySite.putIfAbsent(
       siteUrl,
@@ -3175,8 +3192,38 @@ class ShellController extends FrameSafeNotifier
         (value) => value + 1,
         ifAbsent: () => 1,
       );
-      _notify();
+      _notifyTopicTrackingChanged();
     }
+  }
+
+  /// One poll answer can carry a backlog of tracking messages, delivered in
+  /// one synchronous run. The facade notifies once for the run: every shell
+  /// selector would otherwise re-select per row.
+  void _notifyTopicTrackingChanged() {
+    if (_topicTrackingNotifyPending) return;
+    _topicTrackingNotifyPending = true;
+    scheduleMicrotask(() {
+      _topicTrackingNotifyPending = false;
+      if (!isDisposed) _notify();
+    });
+  }
+
+  /// Category and tag badges stay dark until a snapshot lands, because the bus
+  /// alone cannot seed them. A load that failed is retried once the site is
+  /// reachable or looked at again: on a tracking message, on foreground, and
+  /// on selection. The retry keeps the failed load's account and lease, so a
+  /// site tracked again since then owns its own load instead.
+  void _retryTopicTrackingLoad(String siteUrl) {
+    final retry = _topicTrackingRetries.remove(siteUrl);
+    if (retry == null ||
+        isDisposed ||
+        !retry.lease.isCurrent ||
+        _topicTrackingSnapshotsLoaded.contains(siteUrl) ||
+        !_topicTrackingLoads.add(siteUrl)) {
+      return;
+    }
+    _topicTrackingPendingEvents[siteUrl] = <Object?>[];
+    unawaited(retry.load());
   }
 
   Future<int?> _accountId(
@@ -3348,6 +3395,7 @@ class ShellController extends FrameSafeNotifier
           _topicTrackingSnapshotsLoaded.remove(siteUrl);
           _topicTrackingRevisions.remove(siteUrl);
           _topicTrackingLoads.remove(siteUrl);
+          _topicTrackingRetries.remove(siteUrl);
           _topicTrackingPendingEvents.remove(siteUrl);
         }
         _replaceInstance(
@@ -3825,6 +3873,7 @@ class ShellController extends FrameSafeNotifier
       final connected = _instanceAt(entry.key)?.isConnected ?? false;
       if (selected || connected || retainedSiteUrls.contains(entry.key)) {
         entry.value.pollNow();
+        _retryTopicTrackingLoad(entry.key);
       }
     }
   }
@@ -4345,7 +4394,7 @@ class ShellController extends FrameSafeNotifier
         .firstOrNull;
     if (instance == null) return TabOpenResult.unsupported;
 
-    final topic = TopicLink.parse(absolute);
+    final topic = TopicLink.parse(absolute, siteUrl: instance.url);
     final list = ListLink.parse(absolute);
     final group = GroupRoute.parse(absolute);
     final ContentRoute route;
@@ -4422,11 +4471,13 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool _openTopicUrl(String url, {bool refresh = false}) {
-    final link = TopicLink.parse(absoluteUrl(url));
-    if (link == null) return false;
-
-    final index = _instances.indexWhere((i) => i.serves(link.uri));
+    final absolute = absoluteUrl(url);
+    final target = Uri.tryParse(absolute);
+    if (target == null) return false;
+    final index = _instances.indexWhere((i) => i.serves(target));
     if (index < 0) return false;
+    final link = TopicLink.parse(absolute, siteUrl: _instances[index].url);
+    if (link == null) return false;
 
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();
@@ -7730,7 +7781,15 @@ class ShellController extends FrameSafeNotifier
 
     void revert() {
       lease.commit(() {
-        store.update<Post>(siteUrl, post.id, (held) => held.withLikesOf(post));
+        // Undo only this reader's own guess, and only where it still stands.
+        // A re-read that landed during the request already carries the
+        // site's count; the tap-time snapshot would rewind other readers'
+        // likes with it.
+        store.update<Post>(
+          siteUrl,
+          post.id,
+          (held) => held.liked == liked ? held.withLike(post.liked) : held,
+        );
         _notify();
       });
     }
@@ -7941,14 +8000,20 @@ class ShellController extends FrameSafeNotifier
   final Map<String, int> _postRefreshTopics = {};
 
   bool _beginPostWrite(String key) {
-    if (!_postWritesInFlight.add(key)) return false;
-    // A live invalidation may already be reading the pre-write snapshot. It
-    // must not land over the optimistic write or the write's own re-read.
+    if (_postWritesInFlight.contains(key)) return false;
+    _holdPostWrite(key);
+    _notify();
+    return true;
+  }
+
+  /// A live invalidation may already be reading the pre-write snapshot. It
+  /// must not land over the optimistic write or the write's own re-read, so
+  /// its request is disowned here and replayed when the write ends.
+  void _holdPostWrite(String key) {
+    _postWritesInFlight.add(key);
     if (_postRefreshRequests.remove(key) != null) {
       _postRefreshPending.add(key);
     }
-    _notify();
-    return true;
   }
 
   void _endPostWrite(String siteUrl, int postId, {bool notify = true}) {
@@ -8375,7 +8440,7 @@ class ShellController extends FrameSafeNotifier
       );
     }
     _topicBookmarkWritesInFlight.add(key);
-    _postWritesInFlight.addAll(postKeys);
+    postKeys.forEach(_holdPostWrite);
     _notify();
     final lease = lifecycle.capture(siteUrl);
     try {
@@ -8763,12 +8828,7 @@ class ShellController extends FrameSafeNotifier
     }
     final lease = lifecycle.capture(siteUrl);
     _topicPostSelectionWrites.add(topicKey);
-    for (final key in postKeys) {
-      _postWritesInFlight.add(key);
-      if (_postRefreshRequests.remove(key) != null) {
-        _postRefreshPending.add(key);
-      }
-    }
+    postKeys.forEach(_holdPostWrite);
     _notify();
 
     var succeeded = false;
@@ -8999,6 +9059,10 @@ class ShellController extends FrameSafeNotifier
 
     final target = composer.target;
     final raw = composer.raw;
+    // Read beside `raw`, not after the awaits: a reply retargeted at a whisper
+    // while this one is out would otherwise post what was written in public
+    // as a whisper.
+    final whisper = composer.whisper;
     final lease = lifecycle.capture(target.siteUrl);
 
     if (target.isEdit) return _submitEdit(composer, target, raw);
@@ -9038,7 +9102,7 @@ class ShellController extends FrameSafeNotifier
               topicId: target.topicId,
               raw: raw,
               replyToPostNumber: target.replyToPostNumber,
-              whisper: composer.whisper,
+              whisper: whisper,
               typingDuration: composer.typingDuration,
               composerOpenDuration: composer.openDuration,
               draftKey: target.draftKey,
@@ -10145,6 +10209,18 @@ class ShellController extends FrameSafeNotifier
 
   SiteConfig siteConfigFor(String siteUrl) => _presentation.configFor(siteUrl);
 
+  /// What a bookmark editor needs to know about a site's reader: the account
+  /// the reminder is for, its timezone, and the site's date-picker policy.
+  BookmarkSiteContext bookmarkSiteContextFor(String siteUrl) {
+    final user = currentUserFor(siteUrl);
+    final config = siteConfigFor(siteUrl);
+    return BookmarkSiteContext(
+      username: user?.username,
+      timezone: user?.timezone,
+      suggestWeekendsInDatePickers: config.suggestWeekendsInDatePickers,
+    );
+  }
+
   Future<SiteConfig?> resolveSiteConfig(String siteUrl) =>
       _presentation.resolveConfig(siteUrl);
 
@@ -10762,6 +10838,7 @@ class ShellController extends FrameSafeNotifier
     _topicTrackingSnapshotsLoaded.remove(siteUrl);
     _topicTrackingRevisions.remove(siteUrl);
     _topicTrackingLoads.remove(siteUrl);
+    _topicTrackingRetries.remove(siteUrl);
     _topicTrackingPendingEvents.remove(siteUrl);
     _categoryFeeds.remove(siteUrl);
     _categoryIdsLoading.removeWhere((entry) => entry.$1 == siteUrl);
@@ -10890,6 +10967,7 @@ class ShellController extends FrameSafeNotifier
     }
     _syncTracking();
     _syncTopicChannels();
+    _retryTopicTrackingLoad(instance.url);
     // Totals may have landed while this site was inactive. The ordinary
     // refresh on reselection can legitimately reuse that five-minute snapshot,
     // so activation itself must notify totals observers instead of relying on
@@ -12298,15 +12376,8 @@ final class _ShellCoreBookmarkTargetHost implements BookmarkTargetHost {
   );
 
   @override
-  BookmarkSiteContext siteContextFor(String siteUrl) {
-    final user = _shell.currentUserFor(siteUrl);
-    final config = _shell.siteConfigFor(siteUrl);
-    return BookmarkSiteContext(
-      username: user?.username,
-      timezone: user?.timezone,
-      suggestWeekendsInDatePickers: config.suggestWeekendsInDatePickers,
-    );
-  }
+  BookmarkSiteContext siteContextFor(String siteUrl) =>
+      _shell.bookmarkSiteContextFor(siteUrl);
 
   @override
   bool bookmarkWriteInFlight({
@@ -12435,15 +12506,8 @@ final class _ShellPluginBookmarkTargetHost implements PluginBookmarkHost {
   );
 
   @override
-  BookmarkSiteContext siteContextFor(String siteUrl) {
-    final user = _shell.currentUserFor(siteUrl);
-    final config = _shell.siteConfigFor(siteUrl);
-    return BookmarkSiteContext(
-      username: user?.username,
-      timezone: user?.timezone,
-      suggestWeekendsInDatePickers: config.suggestWeekendsInDatePickers,
-    );
-  }
+  BookmarkSiteContext siteContextFor(String siteUrl) =>
+      _shell.bookmarkSiteContextFor(siteUrl);
 
   @override
   bool bookmarkWriteInFlight({

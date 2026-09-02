@@ -574,6 +574,59 @@ void main() {
       expect(site.iconUrl, 'https://meta.discourse.org/uploads/icon.png');
     });
 
+    test('keeps the subfolder a forum is served from', () async {
+      final requested = <Uri>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requested.add(request.url);
+          if (request.url.path == '/forum/user-api-key/new') {
+            return http.Response('', 200, headers: {'auth-api-version': '4'});
+          }
+          if (request.url.path == '/forum/site/basic-info.json') {
+            return http.Response(jsonEncode({'title': 'Subfolder'}), 200);
+          }
+          return http.Response('not found', 404);
+        }),
+      );
+
+      final site = await api.lookup('example.com/forum/');
+
+      expect(site.url, 'https://example.com/forum');
+      expect(site.title, 'Subfolder');
+      expect(
+        requested.first,
+        Uri.parse('https://example.com/forum/user-api-key/new'),
+      );
+    });
+
+    test('keeps the subfolder a redirect lands the forum under', () async {
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          if (request.url ==
+              Uri.parse('https://example.com/user-api-key/new')) {
+            return http.Response(
+              '',
+              301,
+              headers: {
+                'location': 'https://example.com/forum/user-api-key/new',
+              },
+            );
+          }
+          if (request.url.path == '/forum/user-api-key/new') {
+            return http.Response('', 200, headers: {'auth-api-version': '4'});
+          }
+          if (request.url.path == '/forum/site/basic-info.json') {
+            return http.Response(jsonEncode({'title': 'Subfolder'}), 200);
+          }
+          return http.Response('not found', 404);
+        }),
+      );
+
+      final site = await api.lookup('example.com');
+
+      expect(site.url, 'https://example.com/forum');
+    });
+
     test('rejects a 404 on the probe as not a Discourse', () async {
       final api = DiscourseApi(client: discourseServing(probeStatus: 404));
 
@@ -951,6 +1004,37 @@ void main() {
         ),
       );
     });
+
+    test(
+      'plugin transport keeps a subfolder site\'s prefix on its routes',
+      () async {
+        final requests = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            requests.add(request);
+            return http.Response('{"ok":true}', 200);
+          }),
+        );
+
+        await api.pluginGetJson(
+          siteUrl: 'https://example.com/forum',
+          path: '/voice/rooms.json?limit=20',
+          apiKey: 'secret',
+        );
+        await api.pluginWriteJson(
+          siteUrl: 'https://example.com/forum',
+          path: 'voice/rooms/1.json',
+          method: 'PUT',
+          apiKey: 'secret',
+          body: const {'name': 'Room'},
+        );
+
+        expect(requests.map((request) => request.url), [
+          Uri.parse('https://example.com/forum/voice/rooms.json?limit=20'),
+          Uri.parse('https://example.com/forum/voice/rooms/1.json'),
+        ]);
+      },
+    );
 
     test('authenticated reads reject oversized API responses', () async {
       final api = DiscourseApi(

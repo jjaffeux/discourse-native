@@ -124,9 +124,9 @@ class FakeUpdater implements Updater {
 
   final Map<UpdateChannel, UpdateRelease?> releases;
 
-  final UpdateException? checkFailure;
-  final UpdateException? downloadFailure;
-  final UpdateException? installFailure;
+  final Object? checkFailure;
+  final Object? downloadFailure;
+  final Object? installFailure;
 
   final List<double> progressSteps;
 
@@ -556,6 +556,7 @@ class FakeDiscourseApi
     this.postsById = const {},
     this.postRecommendations = const {},
     this.postGate,
+    this.createPostGate,
     this.cards = const {},
     this.creation,
     this.writeFailure,
@@ -697,7 +698,7 @@ class FakeDiscourseApi
   final List<String> currentUserRequests = [];
 
   final TopicTrackingState? trackingState;
-  final Completer<void>? trackingStateGate;
+  Completer<void>? trackingStateGate;
   final List<String> topicTrackingRequests = [];
 
   final DateTime? doNotDisturbUntil;
@@ -827,6 +828,7 @@ class FakeDiscourseApi
   final Map<int, TopicRecommendations> postRecommendations;
 
   final Completer<void>? postGate;
+  final Completer<void>? createPostGate;
 
   final Map<String, UserCard> cards;
 
@@ -2205,6 +2207,7 @@ class FakeDiscourseApi
       'composerOpenDurationMsecs': composerOpenDuration.inMilliseconds,
       'draftKey': draftKey,
     });
+    await createPostGate?.future;
 
     final failure = writeFailure;
     if (failure != null) throw failure;

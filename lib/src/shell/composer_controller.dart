@@ -1984,7 +1984,14 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     // Scheduled even once the remote sync has given up: the save then writes
     // the local copy only — see `_saveDraft` — which is what the panel's
     // "kept on this device only" promises.
-    if (onSaveDraft == null || _disposed || _state != ComposerState.editing) {
+    // A submit the site could not confirm leaves the field editable; what is
+    // typed after it must survive a close or a quit like any other text. A
+    // submit still out, or being checked, must not race the site clearing
+    // the draft it is about to turn into a post.
+    if (onSaveDraft == null ||
+        _disposed ||
+        (_state != ComposerState.editing &&
+            _state != ComposerState.unresolved)) {
       return;
     }
     _draftTimer?.cancel();
@@ -2129,18 +2136,37 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         isCurrent: () => pending.revision == _draftRevision,
       );
 
+  /// Points the reply at another post. The draft records the reply target,
+  /// so the change advances the draft revision and schedules a save like any
+  /// other draft field; a draft being restored passes [recordDraft] false,
+  /// since the target is the draft's own.
   void retarget({
     int? replyToPostNumber,
     String? replyToUsername,
     bool replyingToWhisper = false,
+    bool recordDraft = true,
   }) {
-    if (_disposed || _discarding) return;
-    _target = _target.replyingTo(
+    // A submit already out was built from the target as it stood; the reply
+    // it will create must not change underneath it.
+    if (_disposed || _discarding || _state == ComposerState.submitting) return;
+    final next = _target.replyingTo(
       replyToPostNumber,
       replyToUsername,
       replyingToWhisper: replyingToWhisper,
     );
-    if (replyingToWhisper) _whisper = true;
+    final whisper = replyingToWhisper || _whisper;
+    if (next.replyToPostNumber == _target.replyToPostNumber &&
+        next.replyToUsername == _target.replyToUsername &&
+        next.replyingToWhisper == _target.replyingToWhisper &&
+        whisper == _whisper) {
+      return;
+    }
+    _target = next;
+    _whisper = whisper;
+    if (recordDraft) {
+      _draftRevision++;
+      _scheduleDraft();
+    }
     _notify();
   }
 

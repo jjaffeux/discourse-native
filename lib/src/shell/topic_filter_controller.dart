@@ -421,20 +421,30 @@ class _ValueSuggester {
 
   List<TopicFilterSuggestion> _categories() {
     final query = searchTerm.toLowerCase();
-    return [
-      for (final category in categories)
-        if (query.isEmpty ||
-            category.name.toLowerCase().contains(query) ||
-            category.slug.toLowerCase().contains(query))
-          TopicFilterSuggestion(
-            name: _name(category.slug),
-            description: category.name,
-            term: category.slug,
-            isSuggestion: true,
-            category: category,
-          ),
-    ].take(10).toList(growable: false);
+    final result = <TopicFilterSuggestion>[];
+    // Runs per keystroke over every site category; stop at the cap rather
+    // than build a suggestion for every match first.
+    for (final category in categories) {
+      if (query.isNotEmpty &&
+          !category.name.toLowerCase().contains(query) &&
+          !category.slug.toLowerCase().contains(query)) {
+        continue;
+      }
+      result.add(
+        TopicFilterSuggestion(
+          name: _name(category.slug),
+          description: category.name,
+          term: category.slug,
+          isSuggestion: true,
+          category: category,
+        ),
+      );
+      if (result.length == _maximumCategorySuggestions) break;
+    }
+    return result;
   }
+
+  static const int _maximumCategorySuggestions = 10;
 
   Future<List<TopicFilterSuggestion>> _remote(
     TopicFilterLookup lookup, {

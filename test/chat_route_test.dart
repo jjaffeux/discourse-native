@@ -54,6 +54,30 @@ void main() {
   });
 
   group('ChatLink', () {
+    test('reads a link under the forum\'s subfolder, and no other', () {
+      final link = ChatLink.parse(
+        'https://example.com/forum/chat/c/design/9/t/44',
+        siteUrl: 'https://example.com/forum',
+      );
+
+      expect(link?.route.channelId, 9);
+      expect(link?.route.threadId, 44);
+      expect(
+        ChatLink.parse(
+          'https://example.com/chat/c/design/9',
+          siteUrl: 'https://example.com/forum',
+        ),
+        isNull,
+      );
+      expect(
+        ChatLink.parse(
+          'https://example.com/chat/c/design/9',
+          siteUrl: 'https://example.com',
+        )?.route.channelId,
+        9,
+      );
+    });
+
     test('parses channel and thread links with optional message anchors', () {
       final cases = <String, (ChatRoute, int?)>{
         'https://meta.discourse.org/chat/c/-/9': (ChatRoute.channel(9), null),

@@ -57,7 +57,9 @@ final class DiscourseSiteApi {
   }
 
   Future<DiscourseInstance> lookup(String term) async {
-    final probe = normalize(term).resolve('/user-api-key/new');
+    // Joined as text, not resolved as an absolute path: a forum served from
+    // a subfolder keeps the path the reader typed.
+    final probe = Uri.parse('${normalize(term)}/user-api-key/new');
 
     final DiscourseHeadResponse head;
     try {

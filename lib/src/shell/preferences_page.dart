@@ -33,6 +33,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
   final TextEditingController _timezone = TextEditingController();
   final FocusNode _timezoneFocus = FocusNode();
   late final List<String> _timezoneNames;
+  late final List<DropdownMenuEntry<String>> _timezoneEntries;
 
   ShellController? _shell;
   PreferencesController? _preferences;
@@ -43,6 +44,13 @@ class _PreferencesPageState extends State<PreferencesPage> {
     super.initState();
     _timezoneNames = TimezoneEnvironment.instance.timezoneNames.toList()
       ..sort();
+    // `DropdownMenu` materialises a button per entry; the IANA list is built
+    // once here rather than on every rebuild of the card.
+    _timezoneEntries = List.unmodifiable([
+      const DropdownMenuEntry(value: '', label: _forumDefaultTimezoneLabel),
+      for (final name in _timezoneNames)
+        DropdownMenuEntry(value: name, label: name),
+    ]);
     _timezoneFocus.addListener(_restoreSelectedTimezoneAfterFiltering);
   }
 
@@ -245,6 +253,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
             timezoneFocus: _timezoneFocus,
             selectedTimezone: draft.timezone,
             timezoneNames: _timezoneNames,
+            timezoneEntries: _timezoneEntries,
             deviceTimezone: TimezoneEnvironment.instance.deviceTimezone,
             enabled: editable,
             onTimezoneChanged: (timezone) => shell.preferences.edit(
@@ -672,6 +681,7 @@ class _ProfileForm extends StatelessWidget {
     required this.timezoneFocus,
     required this.selectedTimezone,
     required this.timezoneNames,
+    required this.timezoneEntries,
     required this.deviceTimezone,
     required this.enabled,
     required this.onTimezoneChanged,
@@ -682,6 +692,7 @@ class _ProfileForm extends StatelessWidget {
   final FocusNode timezoneFocus;
   final String selectedTimezone;
   final List<String> timezoneNames;
+  final List<DropdownMenuEntry<String>> timezoneEntries;
   final String? deviceTimezone;
   final bool enabled;
   final ValueChanged<String> onTimezoneChanged;
@@ -705,14 +716,7 @@ class _ProfileForm extends StatelessWidget {
           label: const Text('Timezone'),
           helperText:
               'Type to filter IANA timezones used for dates and reminders.',
-          dropdownMenuEntries: [
-            const DropdownMenuEntry(
-              value: '',
-              label: _PreferencesPageState._forumDefaultTimezoneLabel,
-            ),
-            for (final name in timezoneNames)
-              DropdownMenuEntry(value: name, label: name),
-          ],
+          dropdownMenuEntries: timezoneEntries,
           onSelected: enabled
               ? (value) {
                   if (value == null) {

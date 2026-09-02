@@ -391,13 +391,20 @@ final class ChatShellService
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
   }) async {
     final absolute = resolveSiteUrl(url, _host.currentInstance?.url);
-    final link = ChatLink.parse(absolute);
+    final target = Uri.tryParse(absolute);
+    if (target == null) return false;
+    var index = _host.instances.indexWhere(
+      (instance) => instance.serves(target),
+    );
+    // A link shaped like a chat route states the latest intent even when it
+    // turns out to point nowhere this app can go; only then is the site
+    // checked, so an earlier open completing late still stands down.
+    final link = ChatLink.parse(
+      absolute,
+      siteUrl: index < 0 ? null : _host.instances[index].url,
+    );
     if (link == null) return false;
     final generation = ++_urlOpenGeneration;
-
-    var index = _host.instances.indexWhere(
-      (instance) => instance.serves(link.uri),
-    );
     if (index < 0 || !_host.instances[index].isConnected) return false;
 
     final siteUrl = _host.instances[index].url;

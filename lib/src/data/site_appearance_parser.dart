@@ -873,31 +873,23 @@ final class _CssLengthParser {
     return _number();
   }
 
-  _CssNumeric? _number() {
-    final start = _index;
+  /// Advances over a run of digits and answers whether there was one.
+  bool _consumeDigits() {
     var sawDigit = false;
     while (true) {
       final character = _peek();
-      if (character == null) break;
-      if (_isDigit(character)) {
-        sawDigit = true;
-        _index++;
-      } else {
-        break;
-      }
+      if (character == null || !_isDigit(character)) return sawDigit;
+      sawDigit = true;
+      _index++;
     }
+  }
+
+  _CssNumeric? _number() {
+    final start = _index;
+    var sawDigit = _consumeDigits();
     if (_peek() == '.') {
       _index++;
-      while (true) {
-        final character = _peek();
-        if (character == null) break;
-        if (_isDigit(character)) {
-          sawDigit = true;
-          _index++;
-        } else {
-          break;
-        }
-      }
+      sawDigit |= _consumeDigits();
     }
     if (!sawDigit) {
       _index = start;

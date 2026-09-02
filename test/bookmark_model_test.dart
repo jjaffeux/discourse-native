@@ -32,6 +32,18 @@ void main() {
       expect(bookmark.author, 'sam');
     });
 
+    test('reads the linked post number of a user-menu row', () {
+      final bookmark = Bookmark.fromJson(const {
+        'id': 8,
+        'bookmarkable_id': 44,
+        'bookmarkable_type': 'Post',
+        'linked_post_number': 3,
+        'bookmarkable_url': 'https://forum.example/t/a-topic/7/3',
+      });
+
+      expect(bookmark.postNumber, 3);
+    });
+
     test('keeps absent and malformed metadata readable', () {
       final bookmark = Bookmark.fromJson(const {
         'id': 'not-an-id',

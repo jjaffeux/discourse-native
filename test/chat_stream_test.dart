@@ -350,4 +350,139 @@ void main() {
       );
     });
   });
+
+  group('appending a projected run', () {
+    List<ChatStreamItem>? appended(
+      List<ChatMessage> held,
+      List<ChatMessage> arrived, {
+      int? lastRead,
+    }) {
+      final trailing = <ChatMessage>[];
+      for (final message in held.reversed) {
+        trailing.add(message);
+        if (!message.isDeleted) break;
+      }
+      return appendChatStream(
+        existingItems: buildChatStream(held, lastReadMessageId: lastRead),
+        existingTrailing: trailing.reversed.toList(),
+        appended: arrived,
+        lastReadMessageId: lastRead,
+        newestMessageId: arrived.last.id,
+      );
+    }
+
+    test('matches a full projection across a chained seam', () {
+      final held = [at(1), at(2, minute: 1)];
+      final arrived = [at(3, minute: 2)];
+
+      final incremental = appended(held, arrived);
+
+      expect(incremental, buildChatStream([...held, ...arrived]));
+      expect(chainedAt(incremental!, 3), isTrue);
+    });
+
+    test('discovers a day change and a long gap below the seam', () {
+      final held = [at(1, day: 1)];
+      final arrived = [at(2, day: 10)];
+
+      final incremental = appended(held, arrived);
+
+      expect(incremental, buildChatStream([...held, ...arrived]));
+      expect(incremental!.whereType<ChatStreamDay>(), hasLength(2));
+      expect(incremental.whereType<ChatStreamTimeGap>(), hasLength(1));
+    });
+
+    test('joins a deleted run that crosses the seam', () {
+      final held = [at(1), at(2, minute: 1, deleted: true)];
+      final arrived = [at(3, minute: 2, deleted: true), at(4, minute: 3)];
+
+      final incremental = appended(held, arrived);
+
+      expect(incremental, buildChatStream([...held, ...arrived]));
+      expect(incremental!.whereType<ChatStreamDeleted>().single.messageIds, [
+        2,
+        3,
+      ]);
+    });
+
+    test('keeps the divider already drawn above a held unread row', () {
+      final held = [at(1), at(2, minute: 1), at(3, minute: 2)];
+      final arrived = [at(4, minute: 3)];
+
+      final incremental = appended(held, arrived, lastRead: 1);
+
+      expect(
+        incremental,
+        buildChatStream([...held, ...arrived], lastReadMessageId: 1),
+      );
+      expect(incremental!.indexOf(const ChatStreamNewDivider()), 2);
+    });
+
+    test(
+      'declines when the arrival gives a held sole unread row its divider',
+      () {
+        final held = [at(1), at(2, minute: 1)];
+        final arrived = [at(3, minute: 2)];
+
+        expect(
+          buildChatStream(held, lastReadMessageId: 1),
+          isNot(contains(const ChatStreamNewDivider())),
+        );
+        expect(
+          buildChatStream([...held, ...arrived], lastReadMessageId: 1),
+          contains(const ChatStreamNewDivider()),
+        );
+        expect(appended(held, arrived, lastRead: 1), isNull);
+      },
+    );
+
+    test('draws the divider above an arriving first unread row', () {
+      final held = [at(1), at(2, minute: 1)];
+      final arrived = [at(3, minute: 2), at(4, minute: 3)];
+
+      final incremental = appended(held, arrived, lastRead: 2);
+
+      expect(
+        incremental,
+        buildChatStream([...held, ...arrived], lastReadMessageId: 2),
+      );
+      expect(incremental!.indexOf(const ChatStreamNewDivider()), 3);
+    });
+
+    test('omits the divider from a sole newest unread arrival', () {
+      final held = [at(1), at(2, minute: 1)];
+      final arrived = [at(3, minute: 2)];
+
+      final incremental = appended(held, arrived, lastRead: 2);
+
+      expect(
+        incremental,
+        buildChatStream([...held, ...arrived], lastReadMessageId: 2),
+      );
+      expect(incremental, isNot(contains(const ChatStreamNewDivider())));
+    });
+
+    test('rebuilds the divider that sat above a trailing deleted run', () {
+      final held = [
+        at(1),
+        at(2, minute: 1, deleted: true),
+        at(3, minute: 2, deleted: true),
+      ];
+      final arrived = [at(4, minute: 3)];
+
+      final incremental = appended(held, arrived, lastRead: 1);
+
+      expect(
+        incremental,
+        buildChatStream([...held, ...arrived], lastReadMessageId: 1),
+      );
+      expect(incremental!.indexOf(const ChatStreamNewDivider()), 2);
+    });
+
+    test('declines a window with no non-deleted row to splice at', () {
+      final held = [at(1, deleted: true)];
+
+      expect(appended(held, [at(2, minute: 1)]), isNull);
+    });
+  });
 }

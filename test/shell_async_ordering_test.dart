@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -147,15 +148,20 @@ final class _OneShotGatedAuthenticator extends FakeAuthenticator {
   }
 }
 
-Post _post(String cooked, {bool canDelete = false, bool canLike = false}) =>
-    Post(
-      id: 1,
-      postNumber: 1,
-      username: 'author',
-      cooked: cooked,
-      canDelete: canDelete,
-      canLike: canLike,
-    );
+Post _post(
+  String cooked, {
+  bool canDelete = false,
+  bool canLike = false,
+  int likeCount = 0,
+}) => Post(
+  id: 1,
+  postNumber: 1,
+  username: 'author',
+  cooked: cooked,
+  canDelete: canDelete,
+  canLike: canLike,
+  likeCount: likeCount,
+);
 
 const _closedAction = Post(
   id: 2,
@@ -295,6 +301,109 @@ void main() {
       expect(shell.topicTrackingRevisionFor(_siteUrl), 2);
 
       expect(shell.sidebarBadgeFor('category-1'), isNot(SidebarBadge.none));
+    });
+
+    test(
+      'a failed snapshot load is retried by the next tracking message',
+      () async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          user: const DiscourseUser(id: 1, username: 'author'),
+          categoryList: const [category],
+          trackingStateGate: gate,
+        );
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        gate.completeError(StateError('tracking unavailable'));
+        await pumpEventQueue();
+        expect(api.topicTrackingRequests, [_siteUrl]);
+
+        api.trackingStateGate = null;
+        FakeSiteTracker.built.single.deliverTopicTracking(unreadInCategory);
+        await pumpEventQueue();
+
+        // The message that proved the site reachable is replayed onto the
+        // snapshot it triggered, so the badge it describes is not lost to it.
+        expect(api.topicTrackingRequests, [_siteUrl, _siteUrl]);
+        expect(shell.sidebarBadgeFor('category-1'), isNot(SidebarBadge.none));
+      },
+    );
+
+    test(
+      'a failed snapshot load is retried on return to the foreground',
+      () async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          user: const DiscourseUser(id: 1, username: 'author'),
+          categoryList: const [category],
+          trackingStateGate: gate,
+        );
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        gate.completeError(StateError('tracking unavailable'));
+        await pumpEventQueue();
+        expect(api.topicTrackingRequests, [_siteUrl]);
+
+        api.trackingStateGate = null;
+        shell.setForeground(false);
+        shell.setForeground(true);
+        await pumpEventQueue();
+        expect(api.topicTrackingRequests, [_siteUrl, _siteUrl]);
+
+        FakeSiteTracker.built.single.deliverTopicTracking(unreadInCategory);
+        await pumpEventQueue();
+        expect(shell.sidebarBadgeFor('category-1'), isNot(SidebarBadge.none));
+      },
+    );
+
+    test('a retry that fails again waits for the next trigger', () async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        user: const DiscourseUser(id: 1, username: 'author'),
+        categoryList: const [category],
+        trackingStateGate: gate,
+      );
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      gate.completeError(StateError('tracking unavailable'));
+      await pumpEventQueue();
+
+      shell.setForeground(false);
+      shell.setForeground(true);
+      await pumpEventQueue();
+      expect(api.topicTrackingRequests, [_siteUrl, _siteUrl]);
+      expect(shell.sidebarBadgeFor('category-1'), SidebarBadge.none);
+
+      shell.setForeground(false);
+      shell.setForeground(true);
+      await pumpEventQueue();
+      expect(api.topicTrackingRequests, [_siteUrl, _siteUrl, _siteUrl]);
+    });
+
+    test('a run of tracking messages notifies the shell once', () async {
+      final api = FakeDiscourseApi(
+        user: const DiscourseUser(id: 1, username: 'author'),
+        categoryList: const [category],
+      );
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      expect(shell.topicTrackingRevisionFor(_siteUrl), 1);
+
+      var notifications = 0;
+      shell.addListener(() => notifications++);
+      final tracker = FakeSiteTracker.built.single;
+      for (var topicId = 7; topicId < 12; topicId++) {
+        tracker.deliverTopicTracking({
+          ...unreadInCategory,
+          'topic_id': topicId,
+        });
+      }
+
+      // The state is current before the run ends; only the redraw waits.
+      expect(shell.topicTrackingRevisionFor(_siteUrl), 6);
+      expect(notifications, 0);
+      await pumpEventQueue();
+      expect(notifications, 1);
     });
   });
 
@@ -575,6 +684,86 @@ void main() {
       expect(await liking, isNull);
       expect(shell.store.read<Post>(_siteUrl, 1)?.liked, isTrue);
     });
+
+    test('a failed like keeps the count a refetch brought', () async {
+      final likeGate = Completer<void>();
+      final api = _PostOrderingApi(likeGate: likeGate);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+      final post = shell.store.read<Post>(_siteUrl, 1)!.copyWith(canLike: true);
+      shell.store.put(_siteUrl, post);
+
+      final liking = shell.toggleLike(post);
+      await api.likeStarted.future;
+      expect(shell.store.read<Post>(_siteUrl, 1)?.likeCount, 1);
+
+      // Other readers liked the post while the request was out, and a new
+      // reply's refetch brought their count before the site answered.
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial', canLike: true, likeCount: 5)],
+      );
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'created',
+        'id': 2,
+      });
+      await pumpEventQueue();
+      expect(shell.store.read<Post>(_siteUrl, 1)?.likeCount, 5);
+
+      likeGate.completeError(StateError('like lost'));
+      expect(await liking, isNotNull);
+
+      expect(shell.store.read<Post>(_siteUrl, 1)?.likeCount, 5);
+      expect(shell.store.read<Post>(_siteUrl, 1)?.liked, isFalse);
+    });
+
+    test(
+      'does not overwrite a bookmark bulk delete with an older read',
+      () async {
+        final api = _PostOrderingApi();
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        final tracker = await _openTopic(shell);
+        final bookmark = Bookmark(
+          id: 5,
+          bookmarkableId: 1,
+          bookmarkableType: BookmarkTargetType.post.wireName,
+        );
+        shell.store.put(
+          _siteUrl,
+          shell.store.read<Post>(_siteUrl, 1)!.withBookmark(bookmark),
+        );
+        shell.store.put(
+          _siteUrl,
+          shell.store.read<TopicDetail>(_siteUrl, 7)!.withBookmark(bookmark),
+        );
+
+        tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
+        await api.waitForPostRequests(1);
+
+        final deleting = shell.deleteAllTopicBookmarks(
+          siteUrl: _siteUrl,
+          topicId: 7,
+        );
+        expect((await deleting).saved, isTrue);
+        expect(shell.store.read<Post>(_siteUrl, 1)?.bookmark, isNull);
+
+        // The read that was already out is disowned by the write and replayed
+        // once it ends; its pre-delete answer must not bring the ribbon back.
+        await api.waitForPostRequests(2);
+        api.postRequests[0].response.complete([
+          _post('stale').withBookmark(bookmark),
+        ]);
+        await pumpEventQueue();
+        expect(shell.store.read<Post>(_siteUrl, 1)?.bookmark, isNull);
+
+        api.postRequests[1].response.complete([_post('fresh')]);
+        await pumpEventQueue();
+        expect(shell.store.read<Post>(_siteUrl, 1)?.bookmark, isNull);
+      },
+    );
   });
 
   group('session replacement', () {

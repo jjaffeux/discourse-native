@@ -465,7 +465,9 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       return;
     }
 
-    final extended = _extendProjectionIntoPast(stream);
+    final extended =
+        _extendProjectionIntoPast(stream) ||
+        _extendProjectionIntoFuture(stream);
     if (!extended) {
       final messages = widget.chat.messages(widget.siteUrl, widget.channelId);
       // Use the opening snapshot so read receipts cannot move the divider.
@@ -521,6 +523,59 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       existingItems: _items,
       prepended: prepended,
       existingLeading: existingLeading,
+      lastReadMessageId: stream.lastReadOnOpen,
+      newestMessageId:
+          stream.localMessageIds.lastOrNull ?? stream.messageIds.lastOrNull,
+      showTimeGapDays: widget.showTimeGapDays,
+    );
+    if (projected == null) return false;
+    _items = projected;
+    return true;
+  }
+
+  /// Reprojects an appended run through the last held non-deleted seam;
+  /// other changes take the full fallback. Live arrivals are the common case,
+  /// and the held window is never scanned again for one.
+  bool _extendProjectionIntoFuture(ChatStreamState stream) {
+    final previous = _projectedMessageIds;
+    if (previous == null || previous.isEmpty) return false;
+    if (!identical(_projectedLocalMessageIds, stream.localMessageIds) ||
+        _projectedLastRead != stream.lastReadOnOpen ||
+        _projectedRevision != stream.revision ||
+        _projectedShowTimeGapDays != widget.showTimeGapDays) {
+      return false;
+    }
+
+    final added = stream.messageIds.length - previous.length;
+    if (added <= 0 ||
+        stream.messageIds.first != previous.first ||
+        stream.messageIds[previous.length - 1] != previous.last) {
+      return false;
+    }
+
+    final appended = <ChatMessage>[];
+    for (
+      var index = previous.length;
+      index < stream.messageIds.length;
+      index++
+    ) {
+      final message = _message(stream.messageIds[index]);
+      if (message == null) return false;
+      appended.add(message);
+    }
+
+    final existingTrailing = <ChatMessage>[];
+    for (final id in previous.reversed) {
+      final message = _message(id);
+      if (message == null) return false;
+      existingTrailing.add(message);
+      if (!message.isDeleted) break;
+    }
+
+    final projected = appendChatStream(
+      existingItems: _items,
+      existingTrailing: existingTrailing.reversed.toList(),
+      appended: appended,
       lastReadMessageId: stream.lastReadOnOpen,
       newestMessageId:
           stream.localMessageIds.lastOrNull ?? stream.messageIds.lastOrNull,

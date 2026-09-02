@@ -747,6 +747,7 @@ final class ComposerDraftCoordinator {
         composer.retarget(
           replyToPostNumber: draft.replyToPostNumber,
           replyToUsername: draft.replyToUsername,
+          recordDraft: false,
         );
       }
     });
