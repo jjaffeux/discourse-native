@@ -10779,6 +10779,7 @@ class ShellController extends FrameSafeNotifier
     _customSidebarSectionAttemptedAt.remove(siteUrl);
     _customSidebarSectionRequests.remove(siteUrl)?.ignore();
     _sitePresentation?.forget(siteUrl);
+    _pluginSiteConfigListenables.remove(siteUrl)?.dispose();
     _hashtags.remove(siteUrl);
     _hashtagsInFlight.remove(siteUrl);
     _mentioned.remove(siteUrl);
