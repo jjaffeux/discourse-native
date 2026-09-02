@@ -197,6 +197,71 @@ void main() {
   });
 
   group('plugin lifecycle and diagnostics', () {
+    testWidgets('keeps the API open until the plugins have closed', (
+      tester,
+    ) async {
+      final closing = Completer<void>();
+      final lifecycle = _GatedCloseLifecycle(closing.future);
+      final api = FakeDiscourseApi();
+
+      await tester.pumpWidget(
+        DiscourseApp(
+          store: FakeInstanceStore(),
+          api: api,
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          forumTabs: FakeForumTabStore(),
+          trackers: FakeSiteTracker.reset(),
+          updater: FakeUpdater(),
+          updateStore: FakeUpdateStore(),
+          pluginManifest: PluginManifest([
+            _LifecycleTestModule('lifecycle-closing', lifecycle),
+          ]),
+          initialRootMode: ShellRootMode.forum,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await tester.pump();
+
+      expect(lifecycle.closeStarted, isTrue);
+      expect(api.closeCalls, 0, reason: 'a plugin may still be leaving');
+
+      closing.complete();
+      await tester.pump();
+      await tester.pump();
+
+      expect(api.closeCalls, 1);
+    });
+
+    testWidgets('loads the sites when a plugin fails to boot', (tester) async {
+      final manifest = PluginManifest([
+        _LifecycleTestModule('lifecycle-broken', _BrokenBootstrapLifecycle()),
+      ]);
+
+      await tester.pumpWidget(
+        DiscourseApp(
+          store: FakeInstanceStore([instance('first.example')]),
+          api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          forumTabs: FakeForumTabStore(),
+          trackers: FakeSiteTracker.reset(),
+          updater: FakeUpdater(),
+          updateStore: FakeUpdateStore(),
+          pluginManifest: manifest,
+          initialRootMode: ShellRootMode.forum,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_controller(tester).loadStatus, InstanceLoadStatus.ready);
+      expect(_controller(tester).currentInstance?.host, 'first.example');
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets(
       'dispatches app state and background flush to every registered lifecycle',
       (tester) async {
@@ -601,6 +666,28 @@ final class _LifecycleTestModule implements PluginModule {
   @override
   void register(PluginRegistrar registrar) {
     registrar.addAppLifecycle(lifecycle);
+  }
+}
+
+final class _GatedCloseLifecycle extends PluginAppLifecycle {
+  _GatedCloseLifecycle(this._gate);
+
+  final Future<void> _gate;
+  bool closeStarted = false;
+
+  @override
+  Future<void> close() async {
+    closeStarted = true;
+    await _gate;
+  }
+}
+
+final class _BrokenBootstrapLifecycle extends PluginAppLifecycle {
+  @override
+  void startPhase(PluginStartupPhase phase, PluginHostBindings bindings) {
+    if (phase == PluginStartupPhase.bootstrap) {
+      throw StateError('bootstrap refused');
+    }
   }
 }
 

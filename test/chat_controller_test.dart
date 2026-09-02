@@ -622,6 +622,49 @@ void main() {
     });
 
     test(
+      'a refused star keeps tracking that arrived while it was in flight',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(
+          channels: {
+            site: ChatChannels(
+              public: [channel(9, lastRead: 40)],
+              userTrackingBusLastId: 90,
+            ),
+          },
+          channelStarGate: gate,
+          channelStarFailure: const WriteException(WriteFailure.forbidden),
+          currentUser: currentUser,
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+
+        final update = subject.chat.updateChannelStarred(site, 9, true);
+        expect(subject.chat.channel(site, 9)?.membership.starred, isTrue);
+        tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+          'channel_id': 9,
+          'last_read_message_id': 40,
+          'unread_count': 3,
+          'mention_count': 1,
+          'watched_threads_unread_count': 0,
+        });
+        expect(subject.chat.channel(site, 9)?.tracking.unreadCount, 3);
+
+        gate.complete();
+        expect(await update, isNotNull);
+
+        final restored = subject.chat.channel(site, 9)!;
+        expect(restored.membership.starred, isFalse);
+        expect(
+          restored.tracking,
+          const ChatTracking(unreadCount: 3, mentionCount: 1),
+        );
+        expect(subject.chat.starredChannels(site), isEmpty);
+      },
+    );
+
+    test(
       'staff update public channel metadata without losing unread state',
       () async {
         const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
@@ -932,6 +975,80 @@ void main() {
           membership.notificationLevel,
           ChatChannelNotificationLevel.mention,
         );
+      },
+    );
+
+    test('keeps a read that happened during a notification write over the '
+        'older response cursor', () async {
+      final gate = Completer<void>();
+      final viewedAt = DateTime.utc(2026, 8, 8, 12);
+      final subject = build(
+        channels: {
+          site: ChatChannels(public: [channel(9, lastRead: 7)]),
+        },
+        channelNotificationMembership: const ChatMembership(
+          following: true,
+          lastReadMessageId: 7,
+        ),
+        channelNotificationGate: gate,
+        currentUser: currentUser,
+        clock: () => viewedAt,
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+
+      final update = subject.chat.updateChannelNotifications(
+        site,
+        9,
+        notificationLevel: ChatChannelNotificationLevel.always,
+      );
+      await subject.chat.markRead(site, 9, 12);
+      expect(subject.chat.channel(site, 9)?.membership.lastReadMessageId, 12);
+
+      gate.complete();
+      expect(await update, isNull);
+
+      final membership = subject.chat.channel(site, 9)!.membership;
+      expect(membership.notificationLevel, ChatChannelNotificationLevel.always);
+      expect(membership.lastReadMessageId, 12);
+      expect(membership.lastViewedAt, viewedAt);
+      expect(subject.api.chatReadsMarked, const [
+        (channelId: 9, messageId: 12),
+      ]);
+    });
+
+    test(
+      'a refused notification write keeps a star set while it was in flight',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(
+          channels: {
+            site: ChatChannels(public: [channel(9)]),
+          },
+          channelNotificationGate: gate,
+          channelNotificationFailure: const WriteException(
+            WriteFailure.forbidden,
+          ),
+          currentUser: currentUser,
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+
+        final update = subject.chat.updateChannelNotifications(
+          site,
+          9,
+          muted: true,
+        );
+        expect(await subject.chat.updateChannelStarred(site, 9, true), isNull);
+        expect(subject.chat.channel(site, 9)?.membership.muted, isTrue);
+
+        gate.complete();
+        expect(await update, isNotNull);
+
+        final membership = subject.chat.channel(site, 9)!.membership;
+        expect(membership.muted, isFalse);
+        expect(membership.starred, isTrue);
+        expect(subject.chat.starredChannels(site).map((item) => item.id), [9]);
       },
     );
 

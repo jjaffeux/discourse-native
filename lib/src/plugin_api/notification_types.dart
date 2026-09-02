@@ -359,7 +359,7 @@ ResolvedNotification? _decodeCoreNotification(
     16 => '${_plural(count, 'message')} in your $group inbox',
     22 => "You're now a member of $group",
     23 => '${_plural(count, 'membership request')} for $group',
-    18 || 24 => 'Reminder: $title',
+    18 || 24 => 'Reminder: ${_reminderTitle(notification)}',
     20 => 'Your post in $title was approved',
     37 => 'New features are available',
     38 => 'There is new advice on your site dashboard',
@@ -463,6 +463,21 @@ String _coreTopicTitle(DiscourseNotification notification) {
   final payloadTitle = notification.data['topic_title'];
   if (payloadTitle is String && payloadTitle.isNotEmpty) return payloadTitle;
   return notification.title.isEmpty ? 'a topic' : notification.title;
+}
+
+/// A reminder names what was bookmarked. A post or topic bookmark carries
+/// the topic title on the envelope; a chat message bookmark has no topic and
+/// carries only the `title` its bookmarkable wrote into the payload ("Chat
+/// message in #channel"), which is what core's bookmark-reminder.js falls
+/// back to.
+String _reminderTitle(DiscourseNotification notification) {
+  final data = notification.data;
+  final topicTitle = data['topic_title'];
+  if (topicTitle is String && topicTitle.isNotEmpty) return topicTitle;
+  if (notification.title.isNotEmpty) return notification.title;
+  final title = data['title'];
+  if (title is String && title.isNotEmpty) return title;
+  return 'a topic';
 }
 
 String _upcomingChangePhrase(

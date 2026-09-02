@@ -34,8 +34,12 @@ abstract final class DiagnosticsRedactor {
     // word characters so doubled slashes inside identifiers stay untouched.
     r'''(?<![:\w/])//[^\s<>"']+''',
   );
+  // The name may be the tail of a snake_case identifier: Discourse's own
+  // spelling of the credential is `user_api_key`, and push tokens arrive as
+  // `push_token`/`device_token`. `\b` would refuse those because `_` is a
+  // word character, so the boundary is "not preceded by a letter or digit".
   static final RegExp _sensitiveAssignment = RegExp(
-    r'''["']?\b(authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|x[-_ ]?api[-_ ]?key|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|auth[-_ ]?token|token|password|passwd|secret|credential|client[-_ ]?(?:id|secret)|ice[-_ ]?(?:pwd|password|ufrag)|livekit[-_ ]?(?:token|jwt|key|secret|credential|password)|turn[-_ ]?(?:username|token|key|secret|credential|password))\b["']?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)''',
+    r'''["']?(?<![A-Za-z0-9])(authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|x[-_ ]?api[-_ ]?key|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|auth[-_ ]?token|token|password|passwd|secret|credential|client[-_ ]?(?:id|secret)|ice[-_ ]?(?:pwd|password|ufrag)|livekit[-_ ]?(?:token|jwt|key|secret|credential|password)|turn[-_ ]?(?:username|token|key|secret|credential|password))\b["']?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)''',
     caseSensitive: false,
   );
   static final RegExp _authorizationValue = RegExp(

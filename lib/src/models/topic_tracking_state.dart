@@ -26,7 +26,14 @@ final class TopicTrackingState {
 
   Iterable<TrackedTopicState> get topics => _topics.values;
 
-  ({int newTopics, int newReplies}) get newActivityCounts {
+  /// Selected for every mounted topic list on every shell notification, so
+  /// the pass over the tracked topics is made once per change, not per read.
+  ({int newTopics, int newReplies})? _newActivityCounts;
+
+  ({int newTopics, int newReplies}) get newActivityCounts =>
+      _newActivityCounts ??= _countNewActivity();
+
+  ({int newTopics, int newReplies}) _countNewActivity() {
     var newTopics = 0;
     var newReplies = 0;
     for (final topic in topics) {
@@ -124,6 +131,7 @@ final class TopicTrackingState {
     if (changed) {
       _topicsByCategory = null;
       _topicsByTag = null;
+      _newActivityCounts = null;
     }
     return changed;
   }

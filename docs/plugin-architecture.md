@@ -45,7 +45,9 @@ order and validates point ownership, value type, contribution ids, and
 cardinality before any session is opened.
 
 App startup has idempotent `bootstrap` and `appReady` phases. A failed phase
-rolls back every lifecycle already started in reverse order. A shell opens one
+rolls back every lifecycle already started in reverse order; the shell still
+loads its sites, and only a runtime that booted is told the app is ready. A
+shell opens one
 session, receives only explicitly declared host ports, and dispatches
 foreground, site-forget, and close events with failure isolation. Session
 teardown awaits each module in reverse dependency order.

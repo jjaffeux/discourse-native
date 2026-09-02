@@ -4,8 +4,8 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
-import 'curved_animation_builder.dart';
 import 'platform.dart';
+import 'popup_transition.dart';
 import 'shell_sheet.dart';
 
 /// Opens picker content in a compact popover for pointers and a sheet for
@@ -78,7 +78,7 @@ Future<T?> showAnchoredPicker<T>({
               gap: 4,
               margin: 10,
             ),
-            child: _AnchoredPickerTransition(
+            child: PopupTransition(
               animation: animation,
               alignment: alignment,
               child: Semantics(
@@ -328,35 +328,6 @@ class AnchoredPickerMessage extends StatelessWidget {
         textAlign: textAlign,
         style: theme.textTheme.bodySmall?.copyWith(
           color: color ?? theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-}
-
-class _AnchoredPickerTransition extends StatelessWidget {
-  const _AnchoredPickerTransition({
-    required this.animation,
-    required this.alignment,
-    required this.child,
-  });
-
-  final Animation<double> animation;
-  final Alignment alignment;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return CurvedAnimationBuilder(
-      parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-      builder: (context, curved) => FadeTransition(
-        opacity: curved,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.97, end: 1).animate(curved),
-          alignment: alignment,
-          child: child,
         ),
       ),
     );

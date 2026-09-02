@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:discourse_native/src/data/byte_cache.dart';
 import 'package:discourse_native/src/data/byte_cache_store.dart';
 import 'package:discourse_native/src/data/media_request_coordinator.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -500,6 +501,54 @@ void main() {
       },
     );
 
+    test('a media backlog rejection is not remembered as a failure', () async {
+      final coordinator = MediaRequestCoordinator(
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 1,
+      );
+      addTearDown(coordinator.close);
+      final diagnostics = _RecordingDiagnosticsSink();
+      addTearDown(DiagnosticsSink.install(diagnostics).close);
+      final activeStarted = Completer<void>();
+      final activeResponse = Completer<http.Response>();
+      final requested = <String>[];
+      final cache = _TestByteCache(
+        coordinator: coordinator,
+        client: MockClient((request) {
+          final name = request.url.pathSegments.single;
+          requested.add(name);
+          if (name == 'active') {
+            activeStarted.complete();
+            return activeResponse.future;
+          }
+          return Future.value(http.Response.bytes([name.length], 200));
+        }),
+      );
+      addTearDown(cache.close);
+
+      final active = cache.load('https://site.test/active');
+      await activeStarted.future;
+      final queued = cache.load('https://site.test/queued');
+      await Future<void>.delayed(Duration.zero);
+      final rejected = cache.load('https://site.test/rejected');
+
+      expect(await rejected, isNull);
+      expect(cache.isCached('https://site.test/rejected'), isFalse);
+      expect(diagnostics.errors, isEmpty);
+      expect(requested, ['active']);
+
+      activeResponse.complete(http.Response.bytes([1], 200));
+      expect(await active, orderedEquals([1]));
+      expect(await queued, orderedEquals([6]));
+
+      expect(
+        await cache.load('https://site.test/rejected'),
+        orderedEquals([8]),
+      );
+      expect(requested, ['active', 'queued', 'rejected']);
+      expect(diagnostics.errors, isEmpty);
+    });
+
     test(
       'shares concurrency and a 429 circuit breaker across media caches',
       () async {
@@ -928,5 +977,37 @@ final class _SeededByteCacheStore implements ByteCacheStore {
     required DateTime expiresAt,
   }) async {
     entries[url] = bytes;
+  }
+}
+
+final class _RecordingDiagnosticsSink implements DiagnosticsSink {
+  final List<Object> errors = [];
+
+  @override
+  void recordLog({
+    required String name,
+    String source = 'application',
+    String? component,
+    String? message,
+    Map<String, Object?> attributes = const {},
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? operation,
+    String? correlationId,
+    bool handled = true,
+    bool degraded = false,
+  }) {}
+
+  @override
+  void reportError(
+    Object error,
+    StackTrace stackTrace, {
+    String? operation,
+    String source = 'application',
+    DiagnosticSeverity severity = DiagnosticSeverity.error,
+    bool handled = true,
+    bool degraded = true,
+    String? correlationId,
+  }) {
+    errors.add(error);
   }
 }

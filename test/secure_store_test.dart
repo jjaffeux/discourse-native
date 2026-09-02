@@ -319,6 +319,28 @@ void main() {
       expect(await store.readApiKey(siteUrl), 'new-key');
     });
 
+    test('a read joining a failed write answers from storage', () async {
+      const siteUrl = 'https://meta.discourse.org';
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      final storage = _FakeStorage()
+        ..values['api_key::$siteUrl'] = 'stored-key'
+        ..gatedWriteKey = 'api_key::$siteUrl'
+        ..writeGate = gate
+        ..writeStarted = started
+        ..writeErrors['api_key::$siteUrl'] = StateError('keychain refused');
+      final store = SecureStore(storage: storage);
+
+      final write = store.writeApiKey(siteUrl, 'new-key');
+      await started.future;
+      final read = store.readApiKey(siteUrl);
+      gate.complete();
+
+      await expectLater(write, throwsStateError);
+      expect(await read, 'stored-key');
+      expect(await store.readApiKey(siteUrl), 'stored-key');
+    });
+
     test('serializes writes so the last requested key wins', () async {
       const siteUrl = 'https://meta.discourse.org';
       final gate = Completer<void>();

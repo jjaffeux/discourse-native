@@ -15,6 +15,10 @@ const _credentials = UserApiCredentials(
   apiVersion: 4,
   push: false,
 );
+const _macosRegistration = PushRegistration(
+  clientId: 'macos-apns-token',
+  pushUrl: PlatformPushRegistrationProvider.macosPushUrl,
+);
 
 void main() {
   group('Authenticator.connect', () {
@@ -361,6 +365,84 @@ void main() {
     });
   });
 
+  group('Authenticator.clientId', () {
+    test('reuses the push registration for later client id reads', () async {
+      final events = <String>[];
+      final authenticator = Authenticator(
+        store: _FakeSecureStore(events: events),
+        pushRegistrations: _FakePushRegistrationProvider(
+          _macosRegistration,
+          events: events,
+        ),
+      );
+
+      expect(await authenticator.clientId(), 'macos-apns-token');
+      expect(await authenticator.clientId(), 'macos-apns-token');
+      expect(events, ['read-push-registration']);
+    });
+
+    test(
+      'shares one registration read between concurrent client id reads',
+      () async {
+        final events = <String>[];
+        final registrationRead = Completer<void>();
+        final authenticator = Authenticator(
+          store: _FakeSecureStore(events: events),
+          pushRegistrations: _FakePushRegistrationProvider(
+            _macosRegistration,
+            events: events,
+            gate: registrationRead,
+          ),
+        );
+
+        final reads = [authenticator.clientId(), authenticator.clientId()];
+        expect(events, ['read-push-registration']);
+
+        registrationRead.complete();
+        expect(await Future.wait(reads), [
+          'macos-apns-token',
+          'macos-apns-token',
+        ]);
+        expect(events, ['read-push-registration']);
+      },
+    );
+
+    test(
+      'asks the platform again for a client id only after the retry interval when registration was unavailable',
+      () async {
+        final events = <String>[];
+        var now = DateTime.utc(2026, 9, 2, 12);
+        final provider = _FakePushRegistrationProvider(null, events: events);
+        final authenticator = Authenticator(
+          store: _FakeSecureStore(events: events),
+          pushRegistrations: provider,
+          pushRegistrationRetryInterval: const Duration(seconds: 90),
+          clock: () => now,
+        );
+
+        expect(await authenticator.clientId(), 'client-id');
+        provider.value = _macosRegistration;
+        now = now.add(const Duration(seconds: 90));
+        expect(await authenticator.clientId(), 'client-id');
+        expect(events, [
+          'read-push-registration',
+          'read-client-id',
+          'read-client-id',
+        ]);
+
+        now = now.add(const Duration(seconds: 1));
+        expect(await authenticator.clientId(), 'macos-apns-token');
+        expect(await authenticator.clientId(), 'macos-apns-token');
+        expect(events, [
+          'read-push-registration',
+          'read-client-id',
+          'read-client-id',
+          'read-push-registration',
+        ]);
+      },
+    );
+  });
+
   test('credential lifecycle methods delegate keychain failures', () async {
     final error = StateError('keychain unavailable');
     final store = _FakeSecureStore(
@@ -429,14 +511,16 @@ final class _FakeProtocol extends UserApiKeyProtocol {
 }
 
 final class _FakePushRegistrationProvider implements PushRegistrationProvider {
-  _FakePushRegistrationProvider(this.value, {this.events});
+  _FakePushRegistrationProvider(this.value, {this.events, this.gate});
 
-  final PushRegistration? value;
+  PushRegistration? value;
   final List<String>? events;
+  final Completer<void>? gate;
 
   @override
   Future<PushRegistration?> registration() async {
     events?.add('read-push-registration');
+    if (gate case final pending?) await pending.future;
     return value;
   }
 }

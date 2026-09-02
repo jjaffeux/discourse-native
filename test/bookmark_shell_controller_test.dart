@@ -511,6 +511,51 @@ void main() {
       expect((await first).saved, isTrue);
     });
 
+    test('forgets a busy listenable once nobody listens to it', () async {
+      final api = _GatedCreateBookmarkApi();
+      addTearDown(() {
+        if (!api.response.isCompleted) api.response.complete(88);
+      });
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      _putChatFixture(shell);
+      final host = shell.pluginSession.require(chatBookmarkHostService);
+      final busy = host.bookmarkWriteInFlightListenable(
+        siteUrl: _site,
+        targetId: 42,
+      );
+      void first() {}
+      void second() {}
+      busy
+        ..addListener(first)
+        ..addListener(second)
+        ..removeListener(first);
+
+      expect(
+        host.bookmarkWriteInFlightListenable(siteUrl: _site, targetId: 42),
+        same(busy),
+        reason: 'a listenable stays shared while anything still listens',
+      );
+
+      busy.removeListener(second);
+      await pumpEventQueue();
+
+      final replacement = host.bookmarkWriteInFlightListenable(
+        siteUrl: _site,
+        targetId: 42,
+      );
+      expect(replacement, isNot(same(busy)));
+      addTearDown(() => replacement.removeListener(first));
+      replacement.addListener(first);
+
+      final write = host.createBookmark(siteUrl: _site, targetId: 42);
+      await api.started.future;
+      await pumpEventQueue();
+      expect(replacement.value, isTrue);
+      api.response.complete(88);
+      await write;
+    });
+
     test(
       'filters unrelated shell changes from the plugin busy state',
       () async {

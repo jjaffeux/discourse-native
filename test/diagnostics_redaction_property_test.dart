@@ -33,6 +33,16 @@ const _keys = [
   'ice_ufrag',
   'livekit_token',
   'turn-credential',
+  // Snake_case identifiers whose sensitive word is the tail: the wire's own
+  // `user_api_key`, and the names the push and sign-in flows log.
+  'user_api_key',
+  'one_time_password',
+  'push_token',
+  'device_token',
+  'registration_token',
+  'app_secret',
+  'new_password',
+  'turn_credential',
 ];
 
 const _hosts = ['example.com', 'meta.discourse.org', 'localhost:4200'];

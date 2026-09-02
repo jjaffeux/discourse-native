@@ -31,6 +31,30 @@ Map<String, dynamic> fixture(String name) =>
 
 RecordingPluginLiveChannels tracker(String _) => RecordingPluginLiveChannels();
 
+Map<String, dynamic> renamedRoomEvent({
+  String type = 'updated',
+  int? messageBusLastId,
+}) => {
+  'type': type,
+  'room': {
+    'id': 7,
+    'name': 'Renamed Room',
+    'slug': 'conf-room-1',
+    'public': false,
+    'ephemeral': false,
+    'room_type': 'stage',
+    'message_bus_last_id': ?messageBusLastId,
+    'active_participants': const <Object?>[],
+  },
+};
+
+Map<String, dynamic> speakerRosterEvent(String username) => {
+  'type': 'participants',
+  'participants': [
+    {'id': 2, 'username': username, 'role': 'speaker'},
+  ],
+};
+
 final class FakeVoiceMediaFactory implements VoiceMediaFactory {
   final List<FakeVoiceMediaSession> sessions = [];
   final List<String> correlationIds = [];
@@ -509,6 +533,23 @@ final class _AwaitableSubscriptionTracker extends RecordingPluginLiveChannels {
     }
     await cancellationGate.future;
   });
+}
+
+/// Counts subscribe calls per channel. [RecordingPluginLiveChannels] shows
+/// only the registrations that are live, which a cancel followed by a fresh
+/// subscribe leaves unchanged.
+final class _CountingTracker extends RecordingPluginLiveChannels {
+  final Map<String, int> subscribeCounts = {};
+
+  @override
+  PluginLiveChannelSubscription subscribe(
+    String channel,
+    void Function(Object? data, int messageId) onMessage, {
+    int? lastId,
+  }) {
+    subscribeCounts.update(channel, (count) => count + 1, ifAbsent: () => 1);
+    return super.subscribe(channel, onMessage, lastId: lastId);
+  }
 }
 
 final class _PendingPluginGet {
@@ -1881,6 +1922,192 @@ void main() {
           controller.room(firstSite, 7)?.participants.single.username,
           'new',
         );
+      },
+    );
+
+    test(
+      'apply a directory event without re-subscribing the directory channel',
+      () async {
+        final counting = _CountingTracker();
+        firstTracker = counting;
+        await controller.ensureLoaded(firstSite);
+        expect(counting.subscribeCounts, {
+          '/voice/rooms/index': 1,
+          '/voice/rooms/7': 1,
+        });
+
+        counting.deliver(
+          '/voice/rooms/index',
+          renamedRoomEvent(),
+          messageId: 145,
+        );
+
+        expect(controller.room(firstSite, 7)?.name, 'Renamed Room');
+        expect(counting.subscribeCounts, {
+          '/voice/rooms/index': 1,
+          '/voice/rooms/7': 1,
+        });
+        expect(counting.subscriberCount('/voice/rooms/index'), 1);
+      },
+    );
+
+    test(
+      'reuse live subscriptions across repeated and forced directory loads',
+      () async {
+        final counting = _CountingTracker();
+        firstTracker = counting;
+        await controller.ensureLoaded(firstSite);
+
+        await controller.ensureLoaded(firstSite);
+        expect(counting.subscribeCounts, {
+          '/voice/rooms/index': 1,
+          '/voice/rooms/7': 1,
+        });
+
+        await controller.ensureLoaded(firstSite, force: true);
+        expect(counting.subscribeCounts, {
+          '/voice/rooms/index': 1,
+          '/voice/rooms/7': 1,
+        });
+      },
+    );
+
+    test('reuse live subscriptions across a join', () async {
+      final counting = _CountingTracker();
+      firstTracker = counting;
+      await controller.ensureLoaded(firstSite);
+
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      expect(counting.subscribeCounts, {
+        '/voice/rooms/index': 1,
+        '/voice/rooms/7': 1,
+      });
+    });
+
+    test(
+      'resume a replacement tracker from the last delivered directory id',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver(
+          '/voice/rooms/index',
+          renamedRoomEvent(),
+          messageId: 145,
+        );
+        final replacement = tracker(firstSite);
+
+        controller.attachTracker(firstSite, replacement);
+
+        expect(replacement.lastIds['/voice/rooms/index'], 145);
+        expect(replacement.lastIds['/voice/rooms/7'], 91);
+      },
+    );
+
+    test(
+      'resume a replacement tracker from the last delivered room id',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver(
+          '/voice/rooms/7',
+          speakerRosterEvent('lee'),
+          messageId: 95,
+        );
+        final replacement = tracker(firstSite);
+
+        controller.attachTracker(firstSite, replacement);
+
+        expect(replacement.lastIds['/voice/rooms/7'], 95);
+        expect(replacement.lastIds['/voice/rooms/index'], 144);
+      },
+    );
+
+    test(
+      'advance both cursors past messages the client does not understand',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver(
+          '/voice/rooms/index',
+          renamedRoomEvent(type: 'archived'),
+          messageId: 146,
+        );
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'archived',
+        }, messageId: 96);
+        final replacement = tracker(firstSite);
+
+        controller.attachTracker(firstSite, replacement);
+
+        expect(controller.room(firstSite, 7)?.name, 'Conf Room 1');
+        expect(replacement.lastIds['/voice/rooms/index'], 146);
+        expect(replacement.lastIds['/voice/rooms/7'], 96);
+      },
+    );
+
+    test(
+      'keep a delivered id below the snapshot cursor from moving it back',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver(
+          '/voice/rooms/index',
+          renamedRoomEvent(),
+          messageId: 1,
+        );
+        firstTracker.deliver(
+          '/voice/rooms/7',
+          speakerRosterEvent('lee'),
+          messageId: 1,
+        );
+        final replacement = tracker(firstSite);
+
+        controller.attachTracker(firstSite, replacement);
+
+        expect(replacement.lastIds['/voice/rooms/index'], 144);
+        expect(replacement.lastIds['/voice/rooms/7'], 91);
+      },
+    );
+
+    test(
+      'keep the held room cursor when a directory update carries none or an older one',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/rooms/index', renamedRoomEvent());
+        firstTracker.deliver(
+          '/voice/rooms/index',
+          renamedRoomEvent(messageBusLastId: 90),
+        );
+        final replacement = tracker(firstSite);
+
+        controller.attachTracker(firstSite, replacement);
+
+        expect(replacement.lastIds['/voice/rooms/7'], 91);
+      },
+    );
+
+    test(
+      'resume a replacement tracker from the delivered ids after a forced reload served older ones',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver(
+          '/voice/rooms/index',
+          renamedRoomEvent(),
+          messageId: 145,
+        );
+        firstTracker.deliver(
+          '/voice/rooms/7',
+          speakerRosterEvent('lee'),
+          messageId: 95,
+        );
+        await controller.ensureLoaded(firstSite, force: true);
+        final replacement = tracker(firstSite);
+
+        controller.attachTracker(firstSite, replacement);
+
+        expect(replacement.lastIds['/voice/rooms/index'], 145);
+        expect(replacement.lastIds['/voice/rooms/7'], 95);
       },
     );
 

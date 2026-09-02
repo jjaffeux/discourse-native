@@ -146,6 +146,7 @@ typedef _SettingsReturnTarget = ({
 });
 typedef _PluginPaneKey = ({String siteUrl, String tabId, PluginId owner});
 typedef _PluginPaneStateKey = ({String siteUrl, String tabId});
+typedef _PostWindow = ({List<int> stream, (int, int)? range, List<int> ids});
 typedef _ClosedForumTab = ({
   String siteUrl,
   String accountIdentity,
@@ -3888,10 +3889,18 @@ class ShellController extends FrameSafeNotifier
     return _topicStream(instance.url, detail);
   }
 
-  List<int> get currentPostIds {
+  List<int> get currentPostIds => _currentPostWindow().ids;
+
+  /// The loaded, contiguous run of the open topic's stream, with its bounds.
+  ///
+  /// The viewport snapshot and the paging flags ask on every shell
+  /// notification, so the run is found once per change of its inputs:
+  /// finding it reads the store once per loaded post, and every read touches
+  /// the store's recency order.
+  _PostWindow _currentPostWindow() {
     final instance = currentInstance;
     final detail = currentTopic;
-    if (instance == null || detail == null) return const [];
+    if (instance == null || detail == null) return _emptyPostWindow;
     final stream = _topicStream(instance.url, detail);
     final key = (
       instance.url,
@@ -3900,24 +3909,84 @@ class ShellController extends FrameSafeNotifier
       currentContent?.postNumber,
       store.generationOf<Post>(instance.url),
     );
-    final cachedKey = _postIdsCacheKey;
+    final cachedKey = _postWindowCacheKey;
     if (cachedKey != null &&
         cachedKey.$1 == key.$1 &&
         identical(cachedKey.$2, key.$2) &&
         identical(cachedKey.$3, key.$3) &&
         cachedKey.$4 == key.$4 &&
         cachedKey.$5 == key.$5) {
-      return _postIdsCache;
+      return _postWindowCache;
     }
     final range = _loadedPostRange(instance.url, detail, stream: stream);
-    _postIdsCacheKey = key;
-    return _postIdsCache = range == null
-        ? const []
-        : [for (final id in stream.sublist(range.$1, range.$2 + 1)) id];
+    _postWindowCacheKey = key;
+    return _postWindowCache = (
+      stream: stream,
+      range: range,
+      ids: range == null
+          ? const []
+          : [for (final id in stream.sublist(range.$1, range.$2 + 1)) id],
+    );
   }
 
-  List<int> _postIdsCache = const [];
-  (String, TopicDetail, List<int>, int?, int)? _postIdsCacheKey;
+  static const _PostWindow _emptyPostWindow = (
+    stream: [],
+    range: null,
+    ids: [],
+  );
+  _PostWindow _postWindowCache = _emptyPostWindow;
+  (String, TopicDetail, List<int>, int?, int)? _postWindowCacheKey;
+
+  /// Where the topic's saved reading position falls in the loaded window,
+  /// counting the "earlier" row that precedes the window when there is one.
+  ///
+  /// The viewport snapshot asks on every shell notification, and the answer
+  /// moves only with the window, the target and that row, so it is kept
+  /// against them: resolving it reads the store once per post up to the
+  /// target. A window is a new list whenever its inputs change, so its
+  /// identity stands for them.
+  int? initialPostIndexFor(
+    String siteUrl,
+    List<int> postIds,
+    int target, {
+    required bool hasEarlier,
+  }) {
+    final cached = _initialPostIndexCache;
+    if (cached != null &&
+        identical(cached.postIds, postIds) &&
+        cached.siteUrl == siteUrl &&
+        cached.target == target &&
+        cached.hasEarlier == hasEarlier) {
+      return cached.index;
+    }
+    int? index;
+    for (var i = 0; i < postIds.length; i++) {
+      final post = store.read<Post>(siteUrl, postIds[i]);
+      // If the named post has since been deleted, reveal the next visible
+      // one rather than dropping the reader at the start of the window.
+      if (post != null && post.postNumber >= target) {
+        index = i + (hasEarlier ? 1 : 0);
+        break;
+      }
+    }
+    _initialPostIndexCache = (
+      siteUrl: siteUrl,
+      postIds: postIds,
+      target: target,
+      hasEarlier: hasEarlier,
+      index: index,
+    );
+    return index;
+  }
+
+  ({
+    String siteUrl,
+    List<int> postIds,
+    int target,
+    bool hasEarlier,
+    int? index,
+  })?
+  _initialPostIndexCache;
 
   (int, int)? _loadedPostRange(
     String siteUrl,
@@ -3990,18 +4059,22 @@ class ShellController extends FrameSafeNotifier
     ];
   }
 
+  /// Whether the stream continues past the loaded window.
+  ///
+  /// The window is the longest contiguous run of loaded posts, so the post
+  /// after it is unloaded by construction, and with no window at all every
+  /// post of the stream is still to come.
   bool get currentTopicHasMore {
-    final instance = currentInstance;
-    final detail = currentTopic;
-    if (instance == null || detail == null) return false;
-    return _pendingPostIds(instance.url, detail).isNotEmpty;
+    final window = _currentPostWindow();
+    final range = window.range;
+    return range == null
+        ? window.stream.isNotEmpty
+        : range.$2 + 1 < window.stream.length;
   }
 
   bool get currentTopicHasEarlier {
-    final instance = currentInstance;
-    final detail = currentTopic;
-    if (instance == null || detail == null) return false;
-    return _pendingEarlierPostIds(instance.url, detail, 1).isNotEmpty;
+    final range = _currentPostWindow().range;
+    return range != null && range.$1 > 0;
   }
 
   bool get currentTopicLoading {
@@ -6878,6 +6951,10 @@ class ShellController extends FrameSafeNotifier
         _topicPostSelections[_topicKey(siteUrl, topicId)] ?? const <int>{},
       );
 
+  bool isTopicPostSelected(String siteUrl, int topicId, int postId) =>
+      _topicPostSelections[_topicKey(siteUrl, topicId)]?.contains(postId) ??
+      false;
+
   List<Post> selectedTopicPosts(String siteUrl, int topicId) {
     final detail = store.read<TopicDetail>(siteUrl, topicId);
     final selected = _topicPostSelections[_topicKey(siteUrl, topicId)];
@@ -7874,10 +7951,10 @@ class ShellController extends FrameSafeNotifier
     return true;
   }
 
-  void _endPostWrite(String siteUrl, int postId) {
+  void _endPostWrite(String siteUrl, int postId, {bool notify = true}) {
     final key = _postKey(siteUrl, postId);
     _postWritesInFlight.remove(key);
-    _notify();
+    if (notify) _notify();
     if (!_postRefreshPending.remove(key)) return;
     final topicId = _postRefreshTopics.remove(key);
     if (topicId != null) {
@@ -8341,7 +8418,7 @@ class ShellController extends FrameSafeNotifier
       lease.commit(() {
         _topicBookmarkWritesInFlight.remove(key);
         for (final postId in postIds) {
-          _endPostWrite(siteUrl, postId);
+          _endPostWrite(siteUrl, postId, notify: false);
         }
         _notify();
       });
@@ -8729,7 +8806,7 @@ class ShellController extends FrameSafeNotifier
         _topicPostSelectionWrites.remove(topicKey);
         if (succeeded) _topicPostSelections.remove(topicKey);
         for (final post in posts) {
-          _endPostWrite(siteUrl, post.id);
+          _endPostWrite(siteUrl, post.id, notify: false);
         }
         _notify();
       });
@@ -10702,6 +10779,7 @@ class ShellController extends FrameSafeNotifier
     _customSidebarSectionAttemptedAt.remove(siteUrl);
     _customSidebarSectionRequests.remove(siteUrl)?.ignore();
     _sitePresentation?.forget(siteUrl);
+    _pluginSiteConfigListenables.remove(siteUrl)?.dispose();
     _hashtags.remove(siteUrl);
     _hashtagsInFlight.remove(siteUrl);
     _mentioned.remove(siteUrl);
@@ -11308,6 +11386,18 @@ class ShellController extends FrameSafeNotifier
       closeComposer();
     }
 
+    // Remembered right to left so that reopening restores the leftmost tab
+    // first, and every reopen lands at the position it left.
+    for (var index = workspace.tabs.length - 1; index >= 0; index--) {
+      final tab = workspace.tabs[index];
+      if (tab.id == id) continue;
+      _rememberClosedForumTab(
+        siteUrl: workspace.siteUrl,
+        accountIdentity: workspace.accountIdentity,
+        tab: tab,
+        index: index,
+      );
+    }
     final activeChanged = workspace.activeTabId != id;
     _putWorkspace(workspace.copyWith(tabs: [kept], activeTabId: id));
     if (activeChanged) {
@@ -12246,6 +12336,11 @@ final class _ShellCoreBookmarkTargetHost implements BookmarkTargetHost {
           topicId: topicId,
           targetId: targetId,
         ),
+        onUnused: (listenable) {
+          if (identical(_writeListenables[key], listenable)) {
+            _writeListenables.remove(key);
+          }
+        },
       ),
     );
   }
@@ -12371,6 +12466,11 @@ final class _ShellPluginBookmarkTargetHost implements PluginBookmarkHost {
       () => _BookmarkWriteListenable(
         _shell,
         () => bookmarkWriteInFlight(siteUrl: siteUrl, targetId: targetId),
+        onUnused: (listenable) {
+          if (identical(_writeListenables[key], listenable)) {
+            _writeListenables.remove(key);
+          }
+        },
       ),
     );
   }
@@ -12447,18 +12547,32 @@ final class _ShellPluginBookmarkTargetHost implements PluginBookmarkHost {
   }
 }
 
+/// A per-target busy flag derived from the shell.
+///
+/// Every message tile asks for one, and each one is a listener on the shell
+/// facade that runs on every shell notification. So an instance lives only
+/// while something listens to it: when the last listener leaves, the host
+/// forgets it and it lets go of the shell, and the next request builds a
+/// fresh one. Otherwise every message ever scrolled past would keep a
+/// listener on the facade for the life of the app.
 final class _BookmarkWriteListenable extends ChangeNotifier
     implements ValueListenable<bool> {
-  _BookmarkWriteListenable(Listenable source, bool Function() read)
-    : _source = source,
-      _read = read,
-      _value = read() {
+  _BookmarkWriteListenable(
+    Listenable source,
+    bool Function() read, {
+    required void Function(_BookmarkWriteListenable listenable) onUnused,
+  }) : _source = source,
+       _read = read,
+       _release = onUnused,
+       _value = read() {
     _source.addListener(_refresh);
   }
 
   final Listenable _source;
   final bool Function() _read;
+  final void Function(_BookmarkWriteListenable listenable) _release;
   bool _value;
+  bool _released = false;
 
   @override
   bool get value => _value;
@@ -12471,7 +12585,19 @@ final class _BookmarkWriteListenable extends ChangeNotifier
   }
 
   @override
+  void removeListener(VoidCallback listener) {
+    super.removeListener(listener);
+    if (hasListeners || _released) return;
+    _released = true;
+    _release(this);
+    // A listener may leave from inside a notification, when disposing is
+    // not allowed; the shell listener goes once this notification is over.
+    scheduleMicrotask(dispose);
+  }
+
+  @override
   void dispose() {
+    _released = true;
     _source.removeListener(_refresh);
     super.dispose();
   }

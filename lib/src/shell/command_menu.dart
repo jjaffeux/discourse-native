@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import 'anchored_layout.dart';
-import 'curved_animation_builder.dart';
+import 'popup_transition.dart';
 
 @immutable
 final class CommandMenuOption<T> {
@@ -122,7 +122,7 @@ Future<T?> showCommandMenu<T>({
               gap: 4,
               margin: 10,
             ),
-            child: _CommandMenuTransition(
+            child: PopupTransition(
               animation: animation,
               alignment: alignment,
               child: _CommandMenuSurface<T>(
@@ -148,35 +148,6 @@ Alignment _transitionAlignment<T>({
   final roomBelow = viewport.height - anchor.bottom - 10;
   final above = roomBelow < estimatedHeight && anchor.top > roomBelow;
   return Alignment(right ? 1 : -1, above ? 1 : -1);
-}
-
-class _CommandMenuTransition extends StatelessWidget {
-  const _CommandMenuTransition({
-    required this.animation,
-    required this.alignment,
-    required this.child,
-  });
-
-  final Animation<double> animation;
-  final Alignment alignment;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return CurvedAnimationBuilder(
-      parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-      builder: (context, curved) => FadeTransition(
-        opacity: curved,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.97, end: 1).animate(curved),
-          alignment: alignment,
-          child: child,
-        ),
-      ),
-    );
-  }
 }
 
 class _CommandMenuSurface<T> extends StatelessWidget {

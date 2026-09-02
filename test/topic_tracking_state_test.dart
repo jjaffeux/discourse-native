@@ -96,6 +96,37 @@ void main() {
     );
   });
 
+  test(
+    'new activity counts follow events applied after they were computed',
+    () {
+      final state = TopicTrackingState(const [
+        TrackedTopicState(
+          topicId: 1,
+          highestPostNumber: 3,
+          lastReadPostNumber: 1,
+          notificationLevel: 2,
+        ),
+        TrackedTopicState(
+          topicId: 2,
+          highestPostNumber: 1,
+          createdInNewPeriod: true,
+        ),
+      ]);
+      expect(state.newActivityCounts, (newTopics: 1, newReplies: 1));
+
+      expect(
+        state.applyMessage({
+          'topic_id': 1,
+          'message_type': 'read',
+          'payload': {'last_read_post_number': 3, 'highest_post_number': 3},
+        }),
+        isTrue,
+      );
+
+      expect(state.newActivityCounts, (newTopics: 1, newReplies: 0));
+    },
+  );
+
   test('badges follow events applied after they were computed', () {
     final tracking = state();
     SidebarBadge category() => tracking.categoryBadge(

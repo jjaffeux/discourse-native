@@ -3378,19 +3378,28 @@ class _PostTileState extends State<_PostTile> {
   @override
   Widget build(BuildContext context) =>
       ShellSelector<({bool enabled, bool selected, bool busy})>(
-        select: (controller) => (
-          enabled: controller.topicPostSelectionEnabled(
+        select: (controller) {
+          // Runs for every mounted post on every shell notification, so it
+          // must stay a few map lookups and copy nothing.
+          final enabled = controller.topicPostSelectionEnabled(
             widget.siteUrl,
             widget.topic.id,
-          ),
-          selected: controller
-              .selectedTopicPostIds(widget.siteUrl, widget.topic.id)
-              .contains(widget.post.id),
-          busy: controller.topicPostSelectionWriteInFlight(
-            widget.siteUrl,
-            widget.topic.id,
-          ),
-        ),
+          );
+          return (
+            enabled: enabled,
+            selected:
+                enabled &&
+                controller.isTopicPostSelected(
+                  widget.siteUrl,
+                  widget.topic.id,
+                  widget.post.id,
+                ),
+            busy: controller.topicPostSelectionWriteInFlight(
+              widget.siteUrl,
+              widget.topic.id,
+            ),
+          );
+        },
         builder: (context, selection, _) => _build(context, selection),
       );
 

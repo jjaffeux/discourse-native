@@ -157,6 +157,21 @@ void main() {
       );
     });
 
+    test('reports an undecodable callback query as a bad reply', () {
+      expect(
+        () => protocol.payloadFromCallback(
+          'discourse://auth_redirect?payload=%FF',
+        ),
+        throwsA(
+          isA<UserApiAuthException>().having(
+            (error) => error.failure,
+            'failure',
+            UserApiAuthFailure.badReply,
+          ),
+        ),
+      );
+    });
+
     test('accepts a callback at the protocol boundary', () {
       const prefix = 'discourse://auth_redirect?payload=abc%3D#';
       final callback = prefix.padRight(

@@ -121,6 +121,9 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
             subtitle: metadata.isEmpty ? null : Text(metadata),
             onTap: () {
               Navigator.of(sheetContext).pop();
+              // The sheet outlives a bar rebuilt under a new key while it is
+              // open; a pin tapped then must not reach the old bar.
+              if (!mounted) return;
               widget.onJumpToMessage(pin.messageId);
               setState(() => _activeMessageId = pin.messageId);
             },

@@ -23,7 +23,7 @@ class UserCard with Storable<UserCard> {
     this.timeRead = 0,
     this.badgeCount = 0,
     this.isStaff = false,
-    this.isSuspended = false,
+    this.suspendedTill,
     this.plugins = PluginData.none,
   });
 
@@ -52,8 +52,7 @@ class UserCard with Storable<UserCard> {
       timeRead: jsonInt(json['time_read']),
       badgeCount: jsonInt(json['badge_count']),
       isStaff: json['admin'] == true || json['moderator'] == true,
-      isSuspended:
-          jsonDate(json['suspended_till'])?.isAfter(DateTime.now()) ?? false,
+      suspendedTill: jsonDate(json['suspended_till']),
       plugins: extensions.readUserCard(json, siteUrl),
     );
   }
@@ -76,7 +75,13 @@ class UserCard with Storable<UserCard> {
   final int timeRead;
   final int badgeCount;
   final bool isStaff;
-  final bool isSuspended;
+
+  /// Present only while the site reports the user as suspended.
+  final DateTime? suspendedTill;
+
+  /// Decided when drawn, not when parsed: a card is cached, and a suspension
+  /// ends while it is held.
+  bool isSuspendedAt(DateTime now) => suspendedTill?.isAfter(now) ?? false;
 
   final PluginData plugins;
 
@@ -109,7 +114,7 @@ class UserCard with Storable<UserCard> {
           other.timeRead == timeRead &&
           other.badgeCount == badgeCount &&
           other.isStaff == isStaff &&
-          other.isSuspended == isSuspended &&
+          other.suspendedTill == suspendedTill &&
           other.plugins == plugins;
 
   @override
@@ -129,7 +134,7 @@ class UserCard with Storable<UserCard> {
     timeRead,
     badgeCount,
     isStaff,
-    isSuspended,
+    suspendedTill,
     plugins,
   );
 }

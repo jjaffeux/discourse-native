@@ -268,6 +268,12 @@ abstract class ByteCache<T extends Object> {
         _put(url, null, byteSize: 0);
       }
       return null;
+    } on MediaRequestOverloadException {
+      // A backlog rejection never reached the network and says nothing about
+      // this URL, only that its origin's queue was full. Like in-memory
+      // overflow it is neither cached nor remembered as a failure, so a later
+      // visible rebuild can try again once the backlog drains.
+      return null;
     } catch (error, stackTrace) {
       if (!identical(_generation, generation)) return null;
       _report(error, stackTrace, url, 'image.load');

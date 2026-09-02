@@ -52,6 +52,36 @@ void main() {
       );
       expect(AvatarLoader.looksLikeSvg(pngBytes), isFalse);
     });
+
+    test('sniffs an SVG the way the disk cache hands it back', () {
+      // A cached avatar comes back without its content type, so the bytes
+      // Discourse served must still read as SVG on their own.
+      final bom = Uint8List.fromList([
+        0xEF,
+        0xBB,
+        0xBF,
+        ...bytes('<?xml version="1.0"?><svg width="10"></svg>'),
+      ]);
+      expect(AvatarLoader.looksLikeSvg(bom), isTrue);
+
+      final comment = '<!-- ${'exported by an editor ' * 20}-->';
+      expect(
+        AvatarLoader.looksLikeSvg(
+          bytes(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
+            '"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n'
+            '$comment\n<svg width="10"></svg>',
+          ),
+        ),
+        isTrue,
+        reason: 'the root sits past the first 256 bytes',
+      );
+      expect(
+        AvatarLoader.looksLikeSvg(bytes('<html><body>svg</body></html>')),
+        isFalse,
+      );
+    });
   });
 
   group('AvatarLoader.load', () {

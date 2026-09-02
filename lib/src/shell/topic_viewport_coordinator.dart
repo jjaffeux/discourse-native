@@ -485,11 +485,11 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     final binding = _binding;
     if (binding == null || _restored || snapshot.loading) return;
 
-    final index = snapshot.initialPostIndex;
+    final hasTarget =
+        snapshot.topicId != null && binding.savedPostNumber() != null;
+    final index = _initialIndexFor(snapshot, hasTarget: hasTarget);
     if (index == null) {
-      if (snapshot.topicId == null || binding.savedPostNumber() == null) {
-        _restored = true;
-      }
+      if (!hasTarget) _restored = true;
       return;
     }
     _restored = true;
@@ -501,7 +501,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     void jumpToTarget() {
       if (!_isGenerationCurrent(binding, generation)) return;
       final current = binding.currentSnapshot();
-      final currentIndex = current.initialPostIndex;
+      final currentIndex = _initialIndexFor(current, hasTarget: hasTarget);
       if (currentIndex == null) return;
       final postIndex = currentIndex - (current.hasEarlier ? 1 : 0);
       final target = binding.savedPostNumber();
@@ -532,6 +532,26 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
         scheduleLoadEarlier(binding.currentSnapshot());
       });
     });
+  }
+
+  /// Where the saved reading position lands in [snapshot].
+  ///
+  /// A saved position past every post the site still has — the last post
+  /// was deleted, a topic was truncated, or a deep link overshot — can never
+  /// be resolved by a later page. Once the stream's end is loaded it lands on
+  /// the last post rather than leaving the reader un-restored, which would
+  /// keep the progress control, read receipts and anchor saves off for the
+  /// whole visit.
+  static int? _initialIndexFor(
+    TopicViewportSnapshot snapshot, {
+    required bool hasTarget,
+  }) {
+    final index = snapshot.initialPostIndex;
+    if (index != null || !hasTarget) return index;
+    if (snapshot.hasMore || snapshot.loadingMore || snapshot.postIds.isEmpty) {
+      return null;
+    }
+    return snapshot.postIds.length - 1 + (snapshot.hasEarlier ? 1 : 0);
   }
 
   TopicViewportWindowChange updateWindow(
@@ -1203,18 +1223,14 @@ final class TopicViewportSnapshot {
         ? null
         : controller.topicScrollPostNumber(topicId);
     final hasEarlier = controller.currentTopicHasEarlier;
-    int? initialPostIndex;
-    if (siteUrl != null && target != null) {
-      for (var index = 0; index < postIds.length; index++) {
-        final post = controller.store.read<Post>(siteUrl, postIds[index]);
-        // If the named post has since been deleted, reveal the next visible
-        // one rather than dropping the reader at the start of the window.
-        if (post != null && post.postNumber >= target) {
-          initialPostIndex = index + (hasEarlier ? 1 : 0);
-          break;
-        }
-      }
-    }
+    final initialPostIndex = siteUrl != null && target != null
+        ? controller.initialPostIndexFor(
+            siteUrl,
+            postIds,
+            target,
+            hasEarlier: hasEarlier,
+          )
+        : null;
 
     return TopicViewportSnapshot(
       topicId: controller.currentTopic?.id,

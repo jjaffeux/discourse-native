@@ -137,6 +137,57 @@ void main() {
       },
     );
 
+    test('a saved position past the stream restores at the last post', () {
+      final frames = _FrameQueue();
+      final geometry = _Geometry();
+      final subject = _coordinator(frames: frames, geometry: geometry);
+      _disposeAfter(subject, frames);
+      final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]))
+        ..savedPostNumber = 99;
+
+      subject
+        ..bind(owner.binding)
+        ..restoreInitialPost(owner.snapshot);
+      frames.flushFrame();
+      frames.flushFrame();
+      subject.recordObservation(
+        snapshot: owner.snapshot,
+        saveAnchor: false,
+        visible: const (postId: 11, postNumber: 2, caughtUp: true),
+      );
+
+      expect(
+        subject.progressPosition,
+        2,
+        reason: 'the reader is restored, so what is on screen counts',
+      );
+    });
+
+    test(
+      'a saved position past a window that can still grow keeps waiting',
+      () {
+        final frames = _FrameQueue();
+        final geometry = _Geometry();
+        final subject = _coordinator(frames: frames, geometry: geometry);
+        _disposeAfter(subject, frames);
+        final owner = _Owner(
+          _snapshot(topicId: 1, postIds: const [10, 11], hasMore: true),
+        )..savedPostNumber = 99;
+
+        subject
+          ..bind(owner.binding)
+          ..restoreInitialPost(owner.snapshot);
+        frames.flushFrame();
+        subject.recordObservation(
+          snapshot: owner.snapshot,
+          saveAnchor: false,
+          visible: const (postId: 11, postNumber: 2, caughtUp: true),
+        );
+
+        expect(subject.progressPosition, isNull);
+      },
+    );
+
     test('queued paging is deduplicated, stale-checked, and retryable', () {
       final frames = _FrameQueue();
       final geometry = _Geometry();
@@ -307,6 +358,7 @@ final class _Owner {
   TopicViewportSnapshot snapshot;
   bool current = true;
   bool forumActive = true;
+  int? savedPostNumber;
   int loadMoreCount = 0;
   int loadEarlierCount = 0;
   int flushCount = 0;
@@ -336,7 +388,7 @@ final class _Owner {
     saveAnchor: (topicId, postNumber, viewportOffset) =>
         anchors.add((postNumber: postNumber, viewportOffset: viewportOffset)),
     flushAnchorPersist: () => flushCount++,
-    savedPostNumber: () => null,
+    savedPostNumber: () => savedPostNumber,
     savedPostOffset: () => 0,
     postNumberFor: (postId) => null,
   );

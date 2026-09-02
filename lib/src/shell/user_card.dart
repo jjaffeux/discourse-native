@@ -548,7 +548,7 @@ class _CardIdentity extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyLarge,
                 ),
-              if (card.isStaff || card.isSuspended) ...[
+              if (card.isStaff || card.isSuspendedAt(DateTime.now())) ...[
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 6,
@@ -556,7 +556,7 @@ class _CardIdentity extends StatelessWidget {
                   children: [
                     if (card.isStaff)
                       _Badge(label: 'staff', color: theme.colorScheme.primary),
-                    if (card.isSuspended)
+                    if (card.isSuspendedAt(DateTime.now()))
                       _Badge(
                         label: 'suspended',
                         color: theme.colorScheme.error,

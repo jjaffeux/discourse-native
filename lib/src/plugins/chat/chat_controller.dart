@@ -736,20 +736,25 @@ class ChatController extends FrameSafeNotifier {
         lease.isCurrent &&
         !isDisposed;
 
-    void project(ChatChannel value) {
+    // The star is the only field this write owns. Tracking, mentions, and
+    // read cursors that arrive while the request is in flight belong to the
+    // live record, so both the optimistic write and its rollback rebase on
+    // it rather than on the [held] snapshot.
+    void project(bool starred) {
       lease.commit(() {
-        _store.put(siteUrl, value);
+        final current = channel(siteUrl, channelId) ?? held;
+        _store.put(siteUrl, current.withStarred(starred));
         notifySafely();
       });
     }
 
-    project(held.withStarred(starred));
+    project(starred);
     try {
       final requestCredentials = await _requests.credentialsFor(siteUrl);
       final apiKey = requestCredentials.apiKey;
       if (!isCurrent()) return null;
       if (apiKey == null) {
-        project(held);
+        project(held.membership.starred);
         return 'Reconnect this site to change the channel.';
       }
       final clientId = requestCredentials.clientId;
@@ -763,7 +768,7 @@ class ChatController extends FrameSafeNotifier {
       );
       return null;
     } on WriteException catch (error) {
-      if (isCurrent()) project(held);
+      if (isCurrent()) project(held.membership.starred);
       return error.message;
     } catch (error, stackTrace) {
       if (isCurrent()) {
@@ -773,7 +778,7 @@ class ChatController extends FrameSafeNotifier {
           'chat.updateChannelStarred',
           severity: DiagnosticSeverity.warning,
         );
-        project(held);
+        project(held.membership.starred);
       }
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
@@ -820,10 +825,23 @@ class ChatController extends FrameSafeNotifier {
         lease.isCurrent &&
         !isDisposed;
 
-    void project(ChatMembership membership) {
+    // This write owns only muting and the push level. A read, star, or pin
+    // view that lands while the request is in flight stays on the live
+    // membership: the server's answer carries cursors older than a read that
+    // happened locally meanwhile, and the rollback must not undo a
+    // concurrent optimistic star.
+    void project(ChatMembership source) {
       lease.commit(() {
         final current = channel(siteUrl, channelId) ?? held;
-        _store.put(siteUrl, current.withMembership(membership));
+        _store.put(
+          siteUrl,
+          current.withMembership(
+            current.membership.withNotifications(
+              muted: source.muted,
+              notificationLevel: source.notificationLevel,
+            ),
+          ),
+        );
         notifySafely();
       });
     }
@@ -1241,23 +1259,27 @@ class ChatController extends FrameSafeNotifier {
             );
       if (!isCurrent()) return null;
 
-      final changed = membership.following != held.membership.following;
-      final memberDelta = held.isDirectMessage || !changed
-          ? 0
-          : membership.following
-          ? 1
-          : -1;
-      final next = held.withMembership(
-        membership,
-        membershipsCount: held.membershipsCount + memberDelta,
-      );
       lease.commit(() {
+        // The commit builds on the record as it stands now, not the [held]
+        // snapshot: tracking and a live member count that arrived during the
+        // request stay in place.
+        final current = channel(siteUrl, held.id) ?? held;
+        final changed = membership.following != current.membership.following;
+        final memberDelta = current.isDirectMessage || !changed
+            ? 0
+            : membership.following
+            ? 1
+            : -1;
+        final next = current.withMembership(
+          membership,
+          membershipsCount: current.membershipsCount + memberDelta,
+        );
         _store.put(siteUrl, next);
-        final ids = (held.isDirectMessage ? _directIds : _publicIds)
+        final ids = (next.isDirectMessage ? _directIds : _publicIds)
             .putIfAbsent(siteUrl, () => []);
         if (membership.following) {
           if (!ids.contains(next.id)) ids.add(next.id);
-          if (!held.isDirectMessage) {
+          if (!next.isDirectMessage) {
             ids.sort((left, right) {
               final a = channel(siteUrl, left);
               final b = channel(siteUrl, right);
@@ -4129,7 +4151,10 @@ class ChatController extends FrameSafeNotifier {
 
     final key = _myThreadsKey(siteUrl);
     final active = _myThreadRequests[key];
-    if (active != null) return active;
+    // A refresh supersedes a page already in flight: joining it would append
+    // that page and leave the list unrefreshed. Replacing the run token drops
+    // the older request's commit and error write.
+    if (active != null && (more || !force)) return active;
 
     final offset = more ? (_myThreadOffsets[siteUrl] ?? 0) : 0;
     final run = Object();
@@ -4223,7 +4248,10 @@ class ChatController extends FrameSafeNotifier {
       return Future.value();
     }
     final active = _channelThreadListRequests[key];
-    if (active != null) return active;
+    // A refresh supersedes a page already in flight: joining it would append
+    // that page and leave the list unrefreshed. Replacing the run token drops
+    // the older request's commit and error write.
+    if (active != null && (more || !force)) return active;
 
     final offset = more ? (_channelThreadOffsets[key] ?? 0) : 0;
     final run = Object();

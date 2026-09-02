@@ -2347,8 +2347,11 @@ Forum tabs are a native-desktop capability, independent of window width. On a
 compact desktop layout, the strip stays with the main content pane and scrolls
 horizontally when its tabs no longer fit; the add action follows the final tab
 in that strip and no opened-tab count is shown. Right-clicking a tab exposes
-commands to close it or close every other tab. Back unwinds the active tab's
-stack before returning to the sidebar. iOS, Android, Fuchsia, and web do not
+commands to close it or close every other tab. Command+Shift+T (Control on
+Linux and Windows) reopens the most recently closed tab at the position it
+left, including the tabs "close every other tab" closed, leftmost first so the
+original order comes back. Back unwinds the active tab's stack before
+returning to the sidebar. iOS, Android, Fuchsia, and web do not
 show any forum-tab controls; each forum keeps a single navigation context with
 no add, switch, or close lifecycle.
 
@@ -2358,7 +2361,9 @@ macOS. Linux and Windows use Control with the same numbers. Reordering forums
 updates both the shortcut mapping and the shortcut shown in each rail tooltip.
 Command+Left Arrow and Command+Right Arrow select the previous or next tab,
 wrapping at either end; Linux and Windows use Control. Focused form controls
-retain their native arrow-key behavior.
+retain their native arrow-key behavior, and every shell shortcut stays idle
+while a dialog, sheet or picker is open above the shell, whether or not the
+modal's content takes focus.
 
 ### Removing a site
 

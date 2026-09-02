@@ -170,10 +170,13 @@ class _DiscourseAppState extends State<DiscourseApp>
     final previousOwnsPlugins = _ownsPlugins;
     previousController.dispose();
     final pluginsChanged = _pluginsChanged(oldWidget);
-    if (pluginsChanged && previousOwnsPlugins) {
-      _closePlugins(previousPlugins, after: previousController.pluginTeardown);
-    }
-    _updateDependencies(oldWidget);
+    final previousTeardown = pluginsChanged && previousOwnsPlugins
+        ? _closePlugins(
+            previousPlugins,
+            after: previousController.pluginTeardown,
+          )
+        : _settled(previousController.pluginTeardown);
+    _updateDependencies(oldWidget, previousTeardown);
     _controller = _createController()..setForeground(_foreground);
     _startAfterFirstFrame(_controller, _plugins);
   }
@@ -207,7 +210,10 @@ class _DiscourseAppState extends State<DiscourseApp>
       (widget.plugins == null &&
           widget.pluginManifest != oldWidget.pluginManifest);
 
-  void _updateDependencies(DiscourseApp oldWidget) {
+  void _updateDependencies(
+    DiscourseApp oldWidget,
+    Future<void> previousTeardown,
+  ) {
     final pluginsChanged = _pluginsChanged(oldWidget);
     if (pluginsChanged) {
       _plugins =
@@ -220,7 +226,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     }
     if (!identical(widget.api, oldWidget.api) ||
         (pluginsChanged && widget.api == null)) {
-      _api.close();
+      _closeApiAfter(_api, previousTeardown);
       _api = widget.api ?? DiscourseApi(models: _plugins.models);
     }
     if (!identical(widget.authenticator, oldWidget.authenticator)) {
@@ -252,10 +258,10 @@ class _DiscourseAppState extends State<DiscourseApp>
     unawaited(_notificationOpenSubscription?.cancel());
     final controller = _controller;
     controller.dispose();
-    _api.close();
-    if (_ownsPlugins) {
-      _closePlugins(_plugins, after: controller.pluginTeardown);
-    }
+    final teardown = _ownsPlugins
+        ? _closePlugins(_plugins, after: controller.pluginTeardown)
+        : _settled(controller.pluginTeardown);
+    _closeApiAfter(_api, teardown);
     _pluginDiagnosticsSink = null;
     _releaseDiagnostics(widget.diagnostics);
     super.dispose();
@@ -265,6 +271,10 @@ class _DiscourseAppState extends State<DiscourseApp>
     ShellController controller,
     InstalledPlugins plugins,
   ) async {
+    // A plugin that cannot boot is reported and left behind. The sites must
+    // still load: the only retry the shell offers is on a failed load, so a
+    // load that never starts would leave every launch on the spinner.
+    var pluginsStarted = false;
     try {
       await plugins.startPhase(
         PluginStartupPhase.bootstrap,
@@ -275,25 +285,37 @@ class _DiscourseAppState extends State<DiscourseApp>
         plugins,
         WidgetsBinding.instance.lifecycleState?.name ?? 'unknown',
       );
+      pluginsStarted = true;
+    } catch (error, stackTrace) {
+      _reportPluginStartFailure(error, stackTrace);
+    }
+    if (!mounted || !identical(_controller, controller)) return;
+    try {
       await controller.load();
       if (!mounted || !identical(_controller, controller)) return;
       _notificationNavigationController = controller;
       _drainNotificationUrls();
-      await plugins.startPhase(
-        PluginStartupPhase.appReady,
-        bindings: _pluginHostBindings,
-      );
+      if (pluginsStarted) {
+        await plugins.startPhase(
+          PluginStartupPhase.appReady,
+          bindings: _pluginHostBindings,
+        );
+      }
     } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'app.plugins.start',
-        source: 'plugins',
-        severity: DiagnosticSeverity.error,
-        handled: true,
-        degraded: true,
-      );
+      _reportPluginStartFailure(error, stackTrace);
     }
+  }
+
+  void _reportPluginStartFailure(Object error, StackTrace stackTrace) {
+    DiagnosticsSink.current.reportError(
+      error,
+      stackTrace,
+      operation: 'app.plugins.start',
+      source: 'plugins',
+      severity: DiagnosticSeverity.error,
+      handled: true,
+      degraded: true,
+    );
   }
 
   void _listenToNotificationOpens(Stream<String> urls) {
@@ -362,24 +384,36 @@ class _DiscourseAppState extends State<DiscourseApp>
     }
   }
 
-  void _closePlugins(InstalledPlugins plugins, {Future<void>? after}) {
-    unawaited(
-      _closePluginsAfterSession(plugins, after).onError((
-        Object error,
-        StackTrace stackTrace,
-      ) {
-        DiagnosticsSink.current.reportError(
-          error,
-          stackTrace,
-          operation: 'app.plugins.close',
-          source: 'plugins',
-          severity: DiagnosticSeverity.warning,
-          handled: true,
-          degraded: true,
-        );
-      }),
-    );
+  /// Closes [plugins] once the session they served has torn down, and
+  /// answers when they have; a failure is reported, not raised.
+  Future<void> _closePlugins(InstalledPlugins plugins, {Future<void>? after}) {
+    final closing = _closePluginsAfterSession(plugins, after).onError((
+      Object error,
+      StackTrace stackTrace,
+    ) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'app.plugins.close',
+        source: 'plugins',
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+        degraded: true,
+      );
+    });
+    unawaited(closing);
+    return closing;
   }
+
+  /// Plugins leave the session over the API transport — Voice tells the site
+  /// it left the room — so the transport stays open until they have, whether
+  /// the app is going away or swapping the API underneath a new controller.
+  void _closeApiAfter(ShellApiCapabilities api, Future<void> teardown) {
+    unawaited(teardown.whenComplete(api.close));
+  }
+
+  static Future<void> _settled(Future<void> future) =>
+      future.then<void>((_) {}, onError: (Object _, StackTrace _) {});
 
   Future<void> _closePluginsAfterSession(
     InstalledPlugins plugins,
