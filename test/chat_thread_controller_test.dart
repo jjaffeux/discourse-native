@@ -380,6 +380,62 @@ final class _SequencedNotificationApi extends FakeDiscourseApi {
   }
 }
 
+/// Answers each thread-list page through its own completer so a test can
+/// finish an earlier page after a later refresh has already been issued.
+final class _SequencedThreadListApi extends FakeDiscourseApi {
+  _SequencedThreadListApi({super.chatChannelsBySite});
+
+  final List<Completer<ChatThreadPage>> myThreadPages = [];
+  final List<Completer<ChatThreadPage>> channelThreadPages = [];
+  Completer<void>? _myThreadPageStarted;
+  Completer<void>? _channelThreadPageStarted;
+
+  /// Resolves once the next my-threads page request reaches the API.
+  Future<void> nextMyThreadPage() =>
+      (_myThreadPageStarted = Completer<void>()).future;
+
+  /// Resolves once the next channel threads page request reaches the API.
+  Future<void> nextChannelThreadPage() =>
+      (_channelThreadPageStarted = Completer<void>()).future;
+
+  @override
+  Future<ChatThreadPage> chatThreads({
+    required String siteUrl,
+    required String apiKey,
+    int offset = 0,
+    int limit = ChatThreadPage.pageSize,
+    String? clientId,
+  }) {
+    chatThreadPagesRequested.add((offset: offset, limit: limit));
+    final response = Completer<ChatThreadPage>();
+    myThreadPages.add(response);
+    _myThreadPageStarted?.complete();
+    _myThreadPageStarted = null;
+    return response.future;
+  }
+
+  @override
+  Future<ChatThreadPage> chatChannelThreads({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    int offset = 0,
+    int limit = ChatThreadPage.pageSize,
+    String? clientId,
+  }) {
+    chatChannelThreadPagesRequested.add((
+      channelId: channelId,
+      offset: offset,
+      limit: limit,
+    ));
+    final response = Completer<ChatThreadPage>();
+    channelThreadPages.add(response);
+    _channelThreadPageStarted?.complete();
+    _channelThreadPageStarted = null;
+    return response.future;
+  }
+}
+
 ({ChatController chat, Store store}) _controllerFor(
   ChatApi api, {
   Store? store,
@@ -535,6 +591,131 @@ void main() {
     ]);
     expect(subject.chat.channelThreadsHaveMore(site, 9), isFalse);
   });
+
+  test('a my-threads refresh supersedes a page already in flight', () async {
+    final api = _SequencedThreadListApi(
+      chatChannelsBySite: {
+        site: ChatChannels(public: [followedChannel()]),
+      },
+    );
+    final subject = _controllerFor(api);
+    await subject.chat.loadChannels(site);
+
+    final initialStarted = api.nextMyThreadPage();
+    final initial = subject.chat.loadMyThreads(site);
+    await initialStarted;
+    api.myThreadPages[0].complete(
+      ChatThreadPage(threads: [listedThread(1)], hasMore: true),
+    );
+    await initial;
+    expect(subject.chat.myThreads(site).map((thread) => thread.id), [1]);
+
+    final pageStarted = api.nextMyThreadPage();
+    final page = subject.chat.loadMyThreads(site, more: true);
+    await pageStarted;
+    final refreshStarted = api.nextMyThreadPage();
+    final refresh = subject.chat.loadMyThreads(site, force: true);
+    api.myThreadPages[1].complete(ChatThreadPage(threads: [listedThread(2)]));
+    await page;
+
+    expect(subject.chat.myThreads(site).map((thread) => thread.id), [1]);
+    expect(subject.chat.myThreadsLoadingMore(site), isTrue);
+    await refreshStarted;
+    expect(api.chatThreadPagesRequested, [
+      (offset: 0, limit: 10),
+      (offset: 1, limit: 10),
+      (offset: 0, limit: 10),
+    ]);
+
+    api.myThreadPages[2].complete(
+      ChatThreadPage(threads: [listedThread(3)], hasMore: true),
+    );
+    await refresh;
+
+    expect(subject.chat.myThreads(site).map((thread) => thread.id), [3]);
+    expect(subject.chat.myThreadsHaveMore(site), isTrue);
+    expect(subject.chat.myThreadsLoadingMore(site), isFalse);
+    expect(subject.chat.myThreadsError(site), isNull);
+
+    final nextStarted = api.nextMyThreadPage();
+    final next = subject.chat.loadMyThreads(site, more: true);
+    await nextStarted;
+    expect(api.chatThreadPagesRequested.last, (offset: 1, limit: 10));
+    api.myThreadPages[3].complete(const ChatThreadPage());
+    await next;
+    expect(subject.chat.myThreads(site).map((thread) => thread.id), [3]);
+  });
+
+  test(
+    'a channel threads refresh supersedes a page already in flight',
+    () async {
+      final api = _SequencedThreadListApi(
+        chatChannelsBySite: {
+          site: ChatChannels(public: [followedChannel()]),
+        },
+      );
+      final subject = _controllerFor(api);
+      await subject.chat.loadChannels(site);
+
+      final initialStarted = api.nextChannelThreadPage();
+      final initial = subject.chat.loadChannelThreads(site, 9);
+      await initialStarted;
+      api.channelThreadPages[0].complete(
+        ChatThreadPage(threads: [listedThread(1)], hasMore: true),
+      );
+      await initial;
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        1,
+      ]);
+
+      final pageStarted = api.nextChannelThreadPage();
+      final page = subject.chat.loadChannelThreads(site, 9, more: true);
+      await pageStarted;
+      final refreshStarted = api.nextChannelThreadPage();
+      final refresh = subject.chat.loadChannelThreads(site, 9, force: true);
+      api.channelThreadPages[1].complete(
+        ChatThreadPage(threads: [listedThread(2)]),
+      );
+      await page;
+
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        1,
+      ]);
+      expect(subject.chat.channelThreadsLoadingMore(site, 9), isTrue);
+      await refreshStarted;
+      expect(api.chatChannelThreadPagesRequested, [
+        (channelId: 9, offset: 0, limit: 10),
+        (channelId: 9, offset: 1, limit: 10),
+        (channelId: 9, offset: 0, limit: 10),
+      ]);
+
+      api.channelThreadPages[2].complete(
+        ChatThreadPage(threads: [listedThread(3)], hasMore: true),
+      );
+      await refresh;
+
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        3,
+      ]);
+      expect(subject.chat.channelThreadsHaveMore(site, 9), isTrue);
+      expect(subject.chat.channelThreadsLoadingMore(site, 9), isFalse);
+      expect(subject.chat.channelThreadsError(site, 9), isNull);
+
+      final nextStarted = api.nextChannelThreadPage();
+      final next = subject.chat.loadChannelThreads(site, 9, more: true);
+      await nextStarted;
+      expect(api.chatChannelThreadPagesRequested.last, (
+        channelId: 9,
+        offset: 1,
+        limit: 10,
+      ));
+      api.channelThreadPages[3].complete(const ChatThreadPage());
+      await next;
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        3,
+      ]);
+    },
+  );
 
   test(
     'live tracking, deletion, and restoration reproject channel threads',
