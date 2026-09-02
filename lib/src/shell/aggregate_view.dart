@@ -121,12 +121,17 @@ class AggregateView extends StatefulWidget {
   const AggregateView({super.key});
 
   @override
-  State<AggregateView> createState() => _AggregateViewState();
+  State<AggregateView> createState() => AggregateViewState();
 }
 
-class _AggregateViewState extends State<AggregateView> {
+class AggregateViewState extends State<AggregateView> {
   final Map<String, ScrollController> _scrolls = {};
   ShellController? _controller;
+  bool _releaseScheduled = false;
+
+  /// One controller per open tab whose topic list has been laid out.
+  @visibleForTesting
+  int get retainedScrollControllerCount => _scrolls.length;
 
   @override
   void dispose() {
@@ -142,6 +147,27 @@ class _AggregateViewState extends State<AggregateView> {
     scroll.addListener(() => _loadMoreNearEnd(tabId, scroll));
     return scroll;
   });
+
+  /// A tab closed while active keeps its list attached until this build's
+  /// unmount pass, so its controller is released once the frame has ended and
+  /// the position has detached. A tab reopened before then keeps its
+  /// controller.
+  void _releaseClosedTabScrolls(ShellController controller) {
+    if (_releaseScheduled) return;
+    final open = {for (final tab in controller.aggregateTabs) tab.id};
+    if (_scrolls.keys.every(open.contains)) return;
+    _releaseScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _releaseScheduled = false;
+      if (!mounted) return;
+      final stillOpen = {for (final tab in controller.aggregateTabs) tab.id};
+      _scrolls.removeWhere((tabId, scroll) {
+        if (stillOpen.contains(tabId) || scroll.hasClients) return false;
+        scroll.dispose();
+        return true;
+      });
+    });
+  }
 
   void _loadMoreNearEnd(String tabId, ScrollController scroll) {
     final controller = _controller;
@@ -168,6 +194,7 @@ class _AggregateViewState extends State<AggregateView> {
         child: ListenableBuilder(
           listenable: controller.aggregate,
           builder: (context, _) {
+            _releaseClosedTabScrolls(controller);
             final state = controller.aggregate.state;
             final activeTabId = controller.activeAggregateTabId;
             return Column(

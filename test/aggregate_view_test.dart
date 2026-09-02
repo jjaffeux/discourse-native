@@ -341,6 +341,38 @@ void main() {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
   });
+  testWidgets('closing a tab releases the scroll controller of its list', (
+    tester,
+  ) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+    try {
+      await _pumpMixedAggregateView(tester);
+
+      AggregateViewState view() =>
+          tester.state<AggregateViewState>(find.byType(AggregateView));
+      expect(view().retainedScrollControllerCount, 1);
+
+      await tester.tap(find.byKey(const ValueKey('forum-tabs-add')));
+      await tester.pumpAndSettle();
+
+      final tabs = tester.widget<ForumTabsBar>(find.byType(ForumTabsBar)).items;
+      expect(tabs, hasLength(2));
+      expect(view().retainedScrollControllerCount, 2);
+
+      await tester.tap(find.byKey(ValueKey('forum-tab-close-${tabs.last.id}')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<ForumTabsBar>(find.byType(ForumTabsBar)).items,
+        hasLength(1),
+      );
+      expect(view().retainedScrollControllerCount, 1);
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
 }
 
 Future<({List<String> forumUrls, FakeDiscourseApi api})>
