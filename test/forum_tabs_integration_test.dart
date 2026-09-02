@@ -254,6 +254,64 @@ void main() {
     );
   }
 
+  testWidgets('tab shortcuts stay idle under a dialog', (tester) async {
+    await _withPlatform(TargetPlatform.macOS, () async {
+      await _pumpShell(tester);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      final originalTabId = controller.activeTabId!;
+      controller.createTab();
+      await tester.pumpAndSettle();
+      expect(controller.tabsForCurrentForum, hasLength(2));
+
+      unawaited(
+        showDialog<void>(
+          context: tester.element(find.byType(MainContent)),
+          builder: (_) => const AlertDialog(title: Text('Remove this forum?')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Remove this forum?'), findsOneWidget);
+
+      expect(
+        await _pressShortcut(
+          tester,
+          LogicalKeyboardKey.metaLeft,
+          LogicalKeyboardKey.keyW,
+        ),
+        isFalse,
+      );
+      expect(
+        await _pressShortcut(
+          tester,
+          LogicalKeyboardKey.metaLeft,
+          LogicalKeyboardKey.keyT,
+        ),
+        isFalse,
+      );
+      await tester.pumpAndSettle();
+      expect(controller.tabsForCurrentForum, hasLength(2));
+      expect(find.text('Remove this forum?'), findsOneWidget);
+
+      Navigator.of(tester.element(find.text('Remove this forum?'))).pop();
+      await tester.pumpAndSettle();
+
+      expect(
+        await _pressShortcut(
+          tester,
+          LogicalKeyboardKey.metaLeft,
+          LogicalKeyboardKey.keyW,
+        ),
+        isTrue,
+      );
+      await tester.pumpAndSettle();
+      expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
+        originalTabId,
+      ]);
+    });
+  });
+
   for (final platform in const [
     TargetPlatform.macOS,
     TargetPlatform.linux,

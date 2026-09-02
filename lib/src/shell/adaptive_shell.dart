@@ -110,6 +110,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   bool _handleShortcut(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
+    // A dialog, sheet or picker above the shell owns the keyboard: a shortcut
+    // must neither act on the shell underneath it nor be swallowed on its way
+    // to the modal. Focus alone cannot tell, because a modal whose content
+    // takes no focus leaves primary focus on a scope node.
+    if (Navigator.of(context).canPop()) return false;
 
     final keyboard = HardwareKeyboard.instance;
     if (newTopicShortcut.accepts(event, keyboard)) {
