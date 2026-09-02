@@ -524,6 +524,7 @@ class FakeDiscourseApi
     this.categoryPostActionCatalog,
     this.categorySiteTopTags = const [],
     this.categoryAnonymousDefaultTags = const [],
+    this.categoryNotificationGate,
     this.tagList = const [],
     this.composerCapabilities = const TopicComposerCapabilities(),
     this.topicTagSearches = const {},
@@ -757,6 +758,7 @@ class FakeDiscourseApi
   final SitePostActionCatalog? categoryPostActionCatalog;
   final List<SidebarTag> categorySiteTopTags;
   final List<SidebarTag> categoryAnonymousDefaultTags;
+  final Completer<void>? categoryNotificationGate;
   final List<SidebarTag> tagList;
   final TopicComposerCapabilities composerCapabilities;
   final List<String> categoryRequests = [];
@@ -764,6 +766,14 @@ class FakeDiscourseApi
   final List<int> categoryPagesRequested = [];
   final List<List<int>> categoryIdsRequested = [];
   final List<String> categorySearchTerms = [];
+  final List<
+    ({
+      String siteUrl,
+      int categoryId,
+      CategoryNotificationLevel notificationLevel,
+    })
+  >
+  categoryNotificationLevelsUpdated = [];
   final List<String> topicComposerCapabilityRequests = [];
   final Map<String, TopicTagSearch> topicTagSearches;
 
@@ -1845,6 +1855,24 @@ class FakeDiscourseApi
   }) async {
     categorySearchTerms.add(term);
     return categorySearches[term] ?? const [];
+  }
+
+  @override
+  Future<void> updateCategoryNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required int categoryId,
+    required CategoryNotificationLevel notificationLevel,
+    String? clientId,
+  }) async {
+    categoryNotificationLevelsUpdated.add((
+      siteUrl: siteUrl,
+      categoryId: categoryId,
+      notificationLevel: notificationLevel,
+    ));
+    await categoryNotificationGate?.future;
+    final failure = writeFailure;
+    if (failure != null) throw failure;
   }
 
   @override

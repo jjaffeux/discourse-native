@@ -1218,7 +1218,10 @@ void _feedGroups() {
         expect(categories.first.readRestricted, isTrue);
         expect(categories.first.topicCount, 12);
         expect(categories.first.position, 3);
-        expect(categories.first.notificationLevel, 0);
+        expect(
+          categories.first.notificationLevel,
+          CategoryNotificationLevel.muted,
+        );
         expect(categories.first.isMuted, isTrue);
         expect(categories.first.featuredTopics.map((topic) => topic.id), [
           101,
@@ -1252,7 +1255,10 @@ void _feedGroups() {
         expect(categories[2].topicCount, 0);
         expect(categories[2].position, isNull);
         expect(categories[2].isUncategorized, isFalse);
-        expect(categories[2].notificationLevel, 1);
+        expect(
+          categories[2].notificationLevel,
+          CategoryNotificationLevel.normal,
+        );
         expect(categories[2].isMuted, isFalse);
         expect(categories[2].featuredTopics, isEmpty);
       },
@@ -1322,7 +1328,8 @@ void _feedGroups() {
         int topicCount = 12,
         int position = 3,
         bool isUncategorized = false,
-        int notificationLevel = 0,
+        CategoryNotificationLevel notificationLevel =
+            CategoryNotificationLevel.muted,
         List<CategoryFeaturedTopic> featuredTopics = const [
           CategoryFeaturedTopic(id: 101, title: 'A topic', slug: 'a-topic'),
         ],
@@ -1358,7 +1365,7 @@ void _feedGroups() {
         category(topicCount: 13),
         category(position: 4),
         category(isUncategorized: true),
-        category(notificationLevel: 1),
+        category(notificationLevel: CategoryNotificationLevel.normal),
         category(
           featuredTopics: const [
             CategoryFeaturedTopic(
@@ -1397,7 +1404,7 @@ void _feedGroups() {
       expect(category.topicCount, 0);
       expect(category.position, isNull);
       expect(category.isUncategorized, isFalse);
-      expect(category.notificationLevel, 1);
+      expect(category.notificationLevel, CategoryNotificationLevel.normal);
       expect(category.isMuted, isFalse);
       expect(category.featuredTopics, isEmpty);
     });
@@ -2420,6 +2427,33 @@ void _feedGroups() {
         expect(sent.method, 'POST');
         expect(sent.url.path, '/t/12/notifications');
         expect(jsonDecode(sent.body), {'notification_level': 0});
+      },
+    );
+
+    test(
+      'updates a category notification level through the web endpoint',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(jsonEncode({'success': 'OK'}), 200);
+          }),
+        );
+
+        await api.updateCategoryNotificationLevel(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          categoryId: 12,
+          notificationLevel: CategoryNotificationLevel.watchingFirstPost,
+          clientId: 'client',
+        );
+
+        expect(sent.method, 'POST');
+        expect(sent.url.path, '/category/12/notifications');
+        expect(sent.headers['User-Api-Key'], 'key');
+        expect(sent.headers['User-Api-Client-Id'], 'client');
+        expect(jsonDecode(sent.body), {'notification_level': 4});
       },
     );
 

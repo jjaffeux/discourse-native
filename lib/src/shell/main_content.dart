@@ -16,6 +16,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
 import 'categories_page.dart';
+import 'category_notifications.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
 import 'forum_tabs_bar.dart';
@@ -498,6 +499,11 @@ class _ContentHeader extends StatelessWidget {
                   route.id != 'activity' &&
                   showCreateTopicAction)
                 _TopicCreateAction(controller: controller),
+              if (isConnected && siteUrl != null && route.categoryId != null)
+                CategoryNotificationLevelButton(
+                  siteUrl: siteUrl!,
+                  categoryId: route.categoryId!,
+                ),
               if (ShellTitleBar.columnsCarryUserMenu) ...[
                 ...registry.shellHeaderActions(
                   context,

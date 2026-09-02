@@ -849,6 +849,21 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
   );
 
   @override
+  Future<void> updateCategoryNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required int categoryId,
+    required CategoryNotificationLevel notificationLevel,
+    String? clientId,
+  }) async => _site.updateCategoryNotificationLevel(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    categoryId: categoryId,
+    notificationLevel: notificationLevel,
+    clientId: clientId,
+  );
+
+  @override
   Future<List<SidebarTag>> tags({
     required String siteUrl,
     String? apiKey,

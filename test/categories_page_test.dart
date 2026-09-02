@@ -142,7 +142,7 @@ void main() {
               name: 'Muted',
               color: '999999',
               slug: 'muted',
-              notificationLevel: 0,
+              notificationLevel: CategoryNotificationLevel.muted,
               featuredTopics: [
                 CategoryFeaturedTopic(
                   id: 104,

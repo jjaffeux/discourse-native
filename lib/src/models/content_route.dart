@@ -252,6 +252,17 @@ class ContentRoute {
 
   bool get isGroup => !isTopic && groupRoute?.isDetail == true;
 
+  int? get categoryId {
+    final path = feedPath;
+    if (path == null) return null;
+    final uri = Uri.tryParse(path);
+    if (uri == null || !uri.path.endsWith('.json')) return null;
+    final link = ListLink.parse(
+      uri.path.substring(0, uri.path.length - '.json'.length),
+    );
+    return link?.kind == ListKind.category ? link!.id : null;
+  }
+
   /// Contains presentation only, never fetched content or credentials.
   Map<String, Object?> toJson() => {
     'id': id,

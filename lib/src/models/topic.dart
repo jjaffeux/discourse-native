@@ -115,6 +115,27 @@ enum TopicNotificationLevel {
       };
 }
 
+enum CategoryNotificationLevel {
+  muted(0),
+  normal(1),
+  tracking(2),
+  watching(3),
+  watchingFirstPost(4);
+
+  const CategoryNotificationLevel(this.value);
+
+  final int value;
+
+  static CategoryNotificationLevel fromJson(Object? value) =>
+      switch (jsonIntOrNull(value)) {
+        0 => muted,
+        2 => tracking,
+        3 => watching,
+        4 => watchingFirstPost,
+        _ => normal,
+      };
+}
+
 @immutable
 class Topic with Storable<Topic> {
   const Topic({
@@ -662,7 +683,7 @@ class TopicCategory with Storable<TopicCategory> {
     this.topicCount = 0,
     this.position,
     this.isUncategorized = false,
-    this.notificationLevel = 1,
+    this.notificationLevel = CategoryNotificationLevel.normal,
     this.featuredTopics = const [],
   });
 
@@ -683,7 +704,9 @@ class TopicCategory with Storable<TopicCategory> {
     topicCount: jsonInt(json['topic_count']),
     position: jsonIntOrNull(json['position']),
     isUncategorized: json['is_uncategorized'] == true,
-    notificationLevel: jsonIntOrNull(json['notification_level']) ?? 1,
+    notificationLevel: CategoryNotificationLevel.fromJson(
+      json['notification_level'],
+    ),
     featuredTopics: List.unmodifiable([
       for (final topic in jsonObjects(json['topics']))
         if (jsonIntOrNull(topic['id']) case final id? when id > 0)
@@ -712,12 +735,32 @@ class TopicCategory with Storable<TopicCategory> {
 
   final bool isUncategorized;
 
-  final int notificationLevel;
+  final CategoryNotificationLevel notificationLevel;
 
   final List<CategoryFeaturedTopic> featuredTopics;
 
   bool get canCreateTopic => permission == 1;
-  bool get isMuted => notificationLevel == 0;
+  bool get isMuted => notificationLevel == CategoryNotificationLevel.muted;
+
+  TopicCategory withNotificationLevel(CategoryNotificationLevel level) =>
+      TopicCategory(
+        id: id,
+        name: name,
+        color: color,
+        slug: slug,
+        parentCategoryId: parentCategoryId,
+        permission: permission,
+        minimumRequiredTags: minimumRequiredTags,
+        styleType: styleType,
+        icon: icon,
+        emoji: emoji,
+        readRestricted: readRestricted,
+        topicCount: topicCount,
+        position: position,
+        isUncategorized: isUncategorized,
+        notificationLevel: level,
+        featuredTopics: featuredTopics,
+      );
 
   int get colorValue => categoryColorValue(color);
 

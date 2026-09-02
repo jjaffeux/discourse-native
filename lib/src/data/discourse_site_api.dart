@@ -489,6 +489,24 @@ final class DiscourseSiteApi {
     ]);
   }
 
+  Future<void> updateCategoryNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required int categoryId,
+    required CategoryNotificationLevel notificationLevel,
+    String? clientId,
+  }) async {
+    _requirePositiveId(categoryId, 'categoryId');
+    await _transport.write(
+      Uri.parse('$siteUrl/category/$categoryId/notifications'),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'notification_level': notificationLevel.value},
+    );
+  }
+
   Future<({Map<String, dynamic>? body, bool complete})> _categorySiteMetadata({
     required String siteUrl,
     String? apiKey,

@@ -220,6 +220,7 @@ abstract interface class ShellApiCapabilities
         ShellSearchApi,
         ShellLookupApi,
         CategoryQueriesApi,
+        CategoryMutationsApi,
         TagQueriesApi,
         TopicComposerQueriesApi,
         TopicContentApi,
@@ -416,6 +417,16 @@ abstract interface class CategoryQueriesApi {
     required String term,
     required String apiKey,
     bool includeUncategorized = true,
+    String? clientId,
+  });
+}
+
+abstract interface class CategoryMutationsApi {
+  Future<void> updateCategoryNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required int categoryId,
+    required CategoryNotificationLevel notificationLevel,
     String? clientId,
   });
 }

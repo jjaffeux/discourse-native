@@ -3696,6 +3696,10 @@ class ShellController extends FrameSafeNotifier
   final Map<String, int> _topicNotificationRevisions = {};
   final Map<String, Future<void>> _topicNotificationTails = {};
   final Map<String, TopicNotificationLevel> _topicNotificationConfirmed = {};
+  final Map<String, int> _categoryNotificationRevisions = {};
+  final Map<String, Future<void>> _categoryNotificationTails = {};
+  final Map<String, CategoryNotificationLevel> _categoryNotificationConfirmed =
+      {};
   final Set<String> _topicPinWrites = {};
   final Set<String> _topicStatusWrites = {};
   final Set<String> _topicDeletionWrites = {};
@@ -3703,6 +3707,9 @@ class ShellController extends FrameSafeNotifier
   int _topicNavigationRevision = 0;
 
   static String _topicKey(String siteUrl, int topicId) => '$siteUrl#$topicId';
+
+  static String _categoryKey(String siteUrl, int categoryId) =>
+      '$siteUrl^$categoryId';
 
   TopicDetail? get currentTopic {
     final instance = currentInstance;
@@ -4750,6 +4757,147 @@ class ShellController extends FrameSafeNotifier
       );
       _notify();
     });
+  }
+
+  Future<bool> updateCategoryNotificationLevel(
+    String siteUrl,
+    int categoryId,
+    CategoryNotificationLevel level,
+  ) {
+    if (isDisposed || categoryId <= 0) return Future.value(false);
+    final held = store.read<TopicCategory>(siteUrl, categoryId);
+    if (held == null) return Future.value(false);
+
+    final key = _categoryKey(siteUrl, categoryId);
+    if (held.notificationLevel == level &&
+        !_categoryNotificationTails.containsKey(key)) {
+      return Future.value(true);
+    }
+    _categoryNotificationConfirmed.putIfAbsent(
+      key,
+      () => held.notificationLevel,
+    );
+    final revision = (_categoryNotificationRevisions[key] ?? 0) + 1;
+    _categoryNotificationRevisions[key] = revision;
+    _projectCategoryNotificationLevel(siteUrl, categoryId, level);
+
+    final write = _QueuedCategoryNotification(
+      siteUrl: siteUrl,
+      categoryId: categoryId,
+      level: level,
+      revision: revision,
+      lease: lifecycle.capture(siteUrl),
+    );
+    final previousTail = _categoryNotificationTails[key] ?? Future.value();
+    late final Future<void> tail;
+    tail = previousTail
+        .catchError((_) {
+          // Every write settles internally. Keep one unexpected failure from
+          // stranding later selections in the queue.
+        })
+        .then((_) => _performCategoryNotificationWrite(key, write))
+        .whenComplete(() {
+          if (!identical(_categoryNotificationTails[key], tail)) return;
+          final _ = _categoryNotificationTails.remove(key);
+          _categoryNotificationRevisions.remove(key);
+          _categoryNotificationConfirmed.remove(key);
+        });
+    _categoryNotificationTails[key] = tail;
+    unawaited(tail);
+    return write.result.future;
+  }
+
+  Future<void> _performCategoryNotificationWrite(
+    String key,
+    _QueuedCategoryNotification write,
+  ) async {
+    bool isLatest() =>
+        _categoryNotificationRevisions[key] == write.revision &&
+        write.lease.isCurrent &&
+        !isDisposed;
+
+    if (!isLatest()) {
+      write.complete(false);
+      return;
+    }
+
+    try {
+      final credential = await _credentialForWrite(write.siteUrl);
+      if (!isLatest()) {
+        write.complete(false);
+        return;
+      }
+      if (credential.failure != null) {
+        _rollbackCategoryNotification(key, write);
+        write.complete(false);
+        return;
+      }
+      final clientId = await authenticator.clientId();
+      if (!isLatest()) {
+        write.complete(false);
+        return;
+      }
+      await api.categoryMutations.updateCategoryNotificationLevel(
+        siteUrl: write.siteUrl,
+        apiKey: credential.apiKey!,
+        categoryId: write.categoryId,
+        notificationLevel: write.level,
+        clientId: clientId,
+      );
+      if (!write.lease.isCurrent || isDisposed) {
+        write.complete(false);
+        return;
+      }
+      _categoryNotificationConfirmed[key] = write.level;
+      if (isLatest()) {
+        write.lease.commit(
+          () => _projectCategoryNotificationLevel(
+            write.siteUrl,
+            write.categoryId,
+            write.level,
+          ),
+        );
+      }
+      write.complete(true);
+    } catch (error, stackTrace) {
+      if (write.lease.isCurrent && !isDisposed) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'category.updateNotificationLevel',
+          severity: DiagnosticSeverity.warning,
+        );
+        if (isLatest()) _rollbackCategoryNotification(key, write);
+      }
+      write.complete(false);
+    }
+  }
+
+  void _rollbackCategoryNotification(
+    String key,
+    _QueuedCategoryNotification write,
+  ) {
+    if (!write.lease.isCurrent || isDisposed) return;
+    final confirmed = _categoryNotificationConfirmed[key];
+    if (confirmed == null) return;
+    write.lease.commit(
+      () => _projectCategoryNotificationLevel(
+        write.siteUrl,
+        write.categoryId,
+        confirmed,
+      ),
+    );
+  }
+
+  void _projectCategoryNotificationLevel(
+    String siteUrl,
+    int categoryId,
+    CategoryNotificationLevel level,
+  ) {
+    final held = store.read<TopicCategory>(siteUrl, categoryId);
+    if (held == null || held.notificationLevel == level) return;
+    _mergeCategories(siteUrl, [held.withNotificationLevel(level)]);
+    _notify();
   }
 
   bool topicPinWriteInFlight(String siteUrl, int topicId) =>
@@ -10245,6 +10393,15 @@ class ShellController extends FrameSafeNotifier
     _topicNotificationConfirmed.removeWhere(
       (key, _) => key.startsWith('$siteUrl#'),
     );
+    _categoryNotificationRevisions.removeWhere(
+      (key, _) => key.startsWith('$siteUrl^'),
+    );
+    _categoryNotificationTails.removeWhere(
+      (key, _) => key.startsWith('$siteUrl^'),
+    );
+    _categoryNotificationConfirmed.removeWhere(
+      (key, _) => key.startsWith('$siteUrl^'),
+    );
     _topicPinWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicStatusWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicDeletionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
@@ -11193,6 +11350,9 @@ class ShellController extends FrameSafeNotifier
     _topicNotificationRevisions.clear();
     _topicNotificationTails.clear();
     _topicNotificationConfirmed.clear();
+    _categoryNotificationRevisions.clear();
+    _categoryNotificationTails.clear();
+    _categoryNotificationConfirmed.clear();
     _topicPinWrites.clear();
     _topicStatusWrites.clear();
     _userStatusOverrides.clear();
@@ -12123,6 +12283,27 @@ final class _QueuedTopicNotification {
   final String siteUrl;
   final int topicId;
   final TopicNotificationLevel level;
+  final int revision;
+  final SiteLease lease;
+  final Completer<bool> result = Completer<bool>();
+
+  void complete(bool succeeded) {
+    if (!result.isCompleted) result.complete(succeeded);
+  }
+}
+
+final class _QueuedCategoryNotification {
+  _QueuedCategoryNotification({
+    required this.siteUrl,
+    required this.categoryId,
+    required this.level,
+    required this.revision,
+    required this.lease,
+  });
+
+  final String siteUrl;
+  final int categoryId;
+  final CategoryNotificationLevel level;
   final int revision;
   final SiteLease lease;
   final Completer<bool> result = Completer<bool>();

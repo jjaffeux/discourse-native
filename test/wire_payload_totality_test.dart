@@ -459,6 +459,11 @@ void main() {
       probe('TopicTag', () => TopicTag.parse(loose), loose);
       probe('SidebarTag', () => SidebarTag.fromJson(loose), loose);
       probe(
+        'CategoryNotificationLevel',
+        () => CategoryNotificationLevel.fromJson(loose),
+        loose,
+      );
+      probe(
         'TopicNotificationLevel',
         () => TopicNotificationLevel.fromJson(loose),
         loose,
