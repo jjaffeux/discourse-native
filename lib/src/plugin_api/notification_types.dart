@@ -254,6 +254,22 @@ const coreNotificationTypes = <PluginNotificationType>[
     wireType: CoreNotificationTypes.linkedConsolidated,
     decode: _decodeCoreNotification,
   ),
+  PluginNotificationType(
+    id: PluginNotificationTypeId(
+      owner: PluginId('core'),
+      name: 'upcoming-change-available',
+    ),
+    wireType: CoreNotificationTypes.upcomingChangeAvailable,
+    decode: _decodeCoreNotification,
+  ),
+  PluginNotificationType(
+    id: PluginNotificationTypeId(
+      owner: PluginId('core'),
+      name: 'upcoming-change-automatically-promoted',
+    ),
+    wireType: CoreNotificationTypes.upcomingChangeAutomaticallyPromoted,
+    decode: _decodeCoreNotification,
+  ),
 ];
 
 ResolvedNotification resolveCoreNotification(
@@ -299,7 +315,18 @@ ResolvedNotification? _decodeCoreNotification(
   final group = jsonText(data['group_name']) ?? 'a group';
   final count = jsonInt(data['count'] ?? data['inbox_count']);
   final namesActor = switch (type) {
-    12 || 16 || 18 || 20 || 22 || 23 || 24 || 37 || 38 || 14 => false,
+    12 ||
+    14 ||
+    16 ||
+    18 ||
+    20 ||
+    22 ||
+    23 ||
+    24 ||
+    37 ||
+    38 ||
+    41 ||
+    42 => false,
     _ => true,
   };
   final actor = namesActor
@@ -337,6 +364,8 @@ ResolvedNotification? _decodeCoreNotification(
     37 => 'New features are available',
     38 => 'There is new advice on your site dashboard',
     14 => notification.title.isEmpty ? 'New notification' : notification.title,
+    41 => _upcomingChangePhrase(data, automaticallyPromoted: false),
+    42 => _upcomingChangePhrase(data, automaticallyPromoted: true),
     _ => null,
   };
   if (phrase == null) return null;
@@ -380,12 +409,16 @@ DIconData _coreIcon(int type) {
     37 => CoreNotificationTypes.newFeatures.wireName,
     38 => CoreNotificationTypes.adminProblems.wireName,
     39 => CoreNotificationTypes.linkedConsolidated.wireName,
+    41 => CoreNotificationTypes.upcomingChangeAvailable.wireName,
+    42 => CoreNotificationTypes.upcomingChangeAutomaticallyPromoted.wireName,
     _ => '',
   };
   return DIcons.byName['notification.$wireName'] ??
       switch (type) {
         9 || 17 || 36 => DIcons.comment,
         37 => DIcons.asterisk,
+        41 => DIcons.flask,
+        42 => DIcons.discourseFlaskCheck,
         38 => DIcons.triangleExclamation,
         _ => DIcons.bell,
       };
@@ -408,6 +441,7 @@ String? _corePath(DiscourseNotification notification) {
     8 when displayUsername != null => '/u/$displayUsername',
     37 => '/admin/whats-new',
     38 => '/admin',
+    41 || 42 => _upcomingChangePath(data),
     _ => null,
   };
   if (ownPath != null) return ownPath;
@@ -429,6 +463,60 @@ String _coreTopicTitle(DiscourseNotification notification) {
   final payloadTitle = notification.data['topic_title'];
   if (payloadTitle is String && payloadTitle.isNotEmpty) return payloadTitle;
   return notification.title.isEmpty ? 'a topic' : notification.title;
+}
+
+String _upcomingChangePhrase(
+  Map<String, Object?> data, {
+  required bool automaticallyPromoted,
+}) {
+  final names = _notificationTexts(
+    data['upcoming_change_humanized_names'],
+    data['upcoming_change_humanized_name'],
+  );
+  var count = jsonInt(data['count']);
+  if (count <= 0) count = names.length;
+
+  if (names.isEmpty) {
+    return automaticallyPromoted
+        ? 'Upcoming changes were automatically enabled'
+        : 'Upcoming changes are available for preview';
+  }
+  if (count <= 1) {
+    return automaticallyPromoted
+        ? "'${names.first}' has been automatically enabled"
+        : "'${names.first}' is available for preview";
+  }
+  if (count == 2 && names.length > 1) {
+    return automaticallyPromoted
+        ? "'${names[0]}' and '${names[1]}' were automatically enabled"
+        : "'${names[0]}' and '${names[1]}' are available for preview";
+  }
+
+  final otherCount = count - 1;
+  return automaticallyPromoted
+      ? "'${names.first}' and $otherCount more changes were automatically enabled"
+      : "'${names.first}' and $otherCount more changes are available for preview";
+}
+
+String _upcomingChangePath(Map<String, Object?> data) {
+  const base = '/admin/config/upcoming-changes';
+  final names = _notificationTexts(
+    data['upcoming_change_names'],
+    data['upcoming_change_name'],
+  );
+  if (names.isEmpty) return base;
+  return '$base?changeNamesFilter=${Uri.encodeQueryComponent(names.join(','))}';
+}
+
+List<String> _notificationTexts(Object? values, Object? singular) {
+  if (values case final List<Object?> values) {
+    final texts = values.map(jsonText).whereType<String>().toList();
+    if (texts.isNotEmpty) return texts;
+  }
+  return switch (jsonText(singular)) {
+    final text? => [text],
+    null => const [],
+  };
 }
 
 String? _badgePath(Map<String, Object?> data) {

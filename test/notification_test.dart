@@ -133,6 +133,30 @@ void main() {
       );
     });
 
+    test('upcoming change notifications open the filtered admin page', () {
+      for (final type in [
+        CoreNotificationTypes.upcomingChangeAvailable,
+        CoreNotificationTypes.upcomingChangeAutomaticallyPromoted,
+      ]) {
+        final path = resolveCoreNotification(
+          parse(
+            type,
+            data: const {
+              'upcoming_change_names': ['enable_feature_x', 'enable_feature_y'],
+            },
+          ),
+        ).path;
+
+        expect(path, isNotNull);
+        final uri = Uri.parse(path!);
+        expect(uri.path, '/admin/config/upcoming-changes');
+        expect(
+          uri.queryParameters['changeNamesFilter'],
+          'enable_feature_x,enable_feature_y',
+        );
+      }
+    });
+
     test(
       'bookmark reminders accept only safe site-relative payload routes',
       () {

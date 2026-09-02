@@ -38,6 +38,7 @@ up-right-from-square
 right-from-bracket
 shuffle
 plus
+minus
 circle-plus
 circle-minus
 circle-info
@@ -58,6 +59,8 @@ ear-listen
 hand
 phone-slash
 expand
+discourse-compress
+discourse-expand
 
 # --- Topics and posts
 far-file-lines
@@ -101,6 +104,8 @@ paperclip
 # --- Notifications
 # What Discourse's own reactions plugin gives a reaction notification.
 discourse-emojis
+flask
+discourse-flask-check
 quote-right
 link
 check
@@ -157,6 +162,8 @@ notification.membership_request_accepted = user-plus
 notification.membership_request_consolidated = users
 notification.reaction = discourse-emojis
 notification.votes_released = plus
+notification.upcoming_change_available = flask
+notification.upcoming_change_automatically_promoted = discourse-flask-check
 # Discourse also maps notification.posted, .watching_category_or_tag and
 # .watching_first_post onto discourse-bell-exclamation and discourse-bell-one,
 # which are not in the sprites this generator reads. NotificationDescription

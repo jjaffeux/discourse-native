@@ -108,6 +108,14 @@ abstract final class CoreNotificationTypes {
     39,
     'linked_consolidated',
   );
+  static const upcomingChangeAvailable = NotificationWireType(
+    41,
+    'upcoming_change_available',
+  );
+  static const upcomingChangeAutomaticallyPromoted = NotificationWireType(
+    42,
+    'upcoming_change_automatically_promoted',
+  );
 
   static const values = <NotificationWireType>[
     mentioned,
@@ -137,6 +145,8 @@ abstract final class CoreNotificationTypes {
     newFeatures,
     adminProblems,
     linkedConsolidated,
+    upcomingChangeAvailable,
+    upcomingChangeAutomaticallyPromoted,
   ];
 }
 

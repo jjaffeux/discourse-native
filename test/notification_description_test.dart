@@ -10,6 +10,7 @@ NotificationPresentation describe(
   int count = 0,
   String? badgeName,
   String? groupName,
+  Map<String, Object?> data = const {},
 }) {
   final resolved = resolveCoreNotification(
     DiscourseNotification.fromJson({
@@ -21,6 +22,7 @@ NotificationPresentation describe(
         'count': count,
         'badge_name': ?badgeName,
         'group_name': ?groupName,
+        ...data,
       },
     }),
   );
@@ -89,6 +91,48 @@ void main() {
       );
     });
 
+    test('describes upcoming changes from their notification payload', () {
+      expect(
+        line(
+          describe(
+            CoreNotificationTypes.upcomingChangeAvailable,
+            data: const {
+              'upcoming_change_humanized_names': ['Experimental sidebar'],
+              'count': 1,
+            },
+          ),
+        ),
+        "'Experimental sidebar' is available for preview",
+      );
+      expect(
+        line(
+          describe(
+            CoreNotificationTypes.upcomingChangeAutomaticallyPromoted,
+            data: const {
+              'upcoming_change_humanized_names': [
+                'Experimental sidebar',
+                'New composer',
+              ],
+              'count': 2,
+            },
+          ),
+        ),
+        "'Experimental sidebar' and 'New composer' were automatically enabled",
+      );
+      expect(
+        line(
+          describe(
+            CoreNotificationTypes.upcomingChangeAvailable,
+            data: const {
+              'upcoming_change_humanized_names': ['Experimental sidebar'],
+              'count': 4,
+            },
+          ),
+        ),
+        "'Experimental sidebar' and 3 more changes are available for preview",
+      );
+    });
+
     test('a missing actor uses a safe subject', () {
       expect(
         line(describe(CoreNotificationTypes.replied, actor: null)),
@@ -107,6 +151,14 @@ void main() {
       DIcons.certificate,
     );
     expect(describe(CoreNotificationTypes.linked).icon, DIcons.link);
+    expect(
+      describe(CoreNotificationTypes.upcomingChangeAvailable).icon,
+      DIcons.flask,
+    );
+    expect(
+      describe(CoreNotificationTypes.upcomingChangeAutomaticallyPromoted).icon,
+      DIcons.discourseFlaskCheck,
+    );
   });
 
   test('every declared core type has exactly one decoder registration', () {
