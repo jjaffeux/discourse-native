@@ -95,6 +95,32 @@ void main() {
     }
   });
 
+  testWidgets('buttons can override the radius for joined controls', (
+    tester,
+  ) async {
+    const radius = BorderRadius.horizontal(left: Radius.circular(8));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(
+          body: Center(
+            child: DButton(
+              label: Text('Action'),
+              onPressed: _noop,
+              borderRadius: radius,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final rendered = tester.widget<FilledButton>(find.byType(FilledButton));
+    final shape = rendered.style!.shape!.resolve({});
+
+    expect(shape, isA<RoundedRectangleBorder>());
+    expect((shape! as RoundedRectangleBorder).borderRadius, radius);
+  });
+
   testWidgets('buttons use a pointer cursor when enabled', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

@@ -7,6 +7,7 @@ import '../app_shortcuts.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_draft.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_tooltip.dart';
@@ -106,85 +107,58 @@ class _TopicCreateControl extends StatelessWidget {
   final VoidCallback onPressed;
   final VoidCallback? onDraftsPressed;
 
-  ButtonStyle _style(
-    BuildContext context, {
-    required BorderRadius borderRadius,
-    required EdgeInsetsGeometry padding,
-  }) {
-    final theme = Theme.of(context);
-    return FilledButton.styleFrom(
-      minimumSize: const Size(44, 44),
-      padding: padding,
-      backgroundColor: theme.colorScheme.primary,
-      foregroundColor: theme.colorScheme.onPrimary,
-      shape: RoundedRectangleBorder(borderRadius: borderRadius),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    const radius = Radius.circular(8);
+    final dimension = DButton.iconOnlyDimensionFor(DButtonSize.small);
+    final radius = Radius.circular(
+      Theme.of(context).discourseButtons.borderRadius,
+    );
     final mainRadius = showDraftsButton
-        ? const BorderRadius.horizontal(left: radius)
-        : const BorderRadius.all(radius);
-    final mainStyle = _style(
-      context,
-      borderRadius: mainRadius,
-      padding: EdgeInsets.symmetric(horizontal: showLabel ? 14 : 10),
-    );
+        ? BorderRadius.horizontal(left: radius)
+        : BorderRadius.all(radius);
 
-    final mainButton = DTooltip(
-      message: 'New topic',
-      shortcut: const DShortcut(newTopicShortcut),
-      excludeFromSemantics: true,
-      child: showLabel
-          ? FilledButton.icon(
-              key: TopicCreateButton.buttonKey,
-              style: mainStyle,
-              onPressed: onPressed,
-              icon: const ExcludeSemantics(
-                child: DIcon(DIcons.farPenToSquare, size: 20),
-              ),
-              label: const Text('New topic'),
-            )
-          : FilledButton(
-              key: TopicCreateButton.buttonKey,
-              style: mainStyle,
-              onPressed: onPressed,
-              child: Semantics(
-                label: 'New topic',
-                child: const ExcludeSemantics(
-                  child: DIcon(DIcons.farPenToSquare, size: 20),
-                ),
-              ),
-            ),
-    );
+    final mainButton = showLabel
+        ? DButton(
+            key: TopicCreateButton.buttonKey,
+            label: const Text('New topic'),
+            icon: const DIcon(DIcons.farPenToSquare, size: 18),
+            tooltip: 'New topic',
+            shortcut: const DShortcut(newTopicShortcut),
+            semanticLabel: 'New topic',
+            onPressed: onPressed,
+            variant: DButtonVariant.primary,
+            size: DButtonSize.small,
+            borderRadius: mainRadius,
+          )
+        : DButton.iconOnly(
+            key: TopicCreateButton.buttonKey,
+            icon: const DIcon(DIcons.farPenToSquare, size: 18),
+            tooltip: 'New topic',
+            shortcut: const DShortcut(newTopicShortcut),
+            semanticLabel: 'New topic',
+            onPressed: onPressed,
+            variant: DButtonVariant.primary,
+            size: DButtonSize.small,
+            borderRadius: mainRadius,
+          );
+    final sizedMainButton = SizedBox(height: dimension, child: mainButton);
 
-    if (!showDraftsButton) return mainButton;
+    if (!showDraftsButton) return sizedMainButton;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        mainButton,
+        sizedMainButton,
         const SizedBox(width: 2),
-        Tooltip(
-          message: 'Open the latest drafts menu',
-          excludeFromSemantics: true,
-          child: FilledButton(
-            key: TopicCreateButton.draftsButtonKey,
-            style: _style(
-              context,
-              borderRadius: const BorderRadius.horizontal(right: radius),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-            ),
-            onPressed: onDraftsPressed,
-            child: Semantics(
-              label: 'Open the latest drafts menu',
-              child: const ExcludeSemantics(
-                child: DIcon(DIcons.chevronDown, size: 16),
-              ),
-            ),
-          ),
+        DButton.iconOnly(
+          key: TopicCreateButton.draftsButtonKey,
+          icon: const DIcon(DIcons.chevronDown, size: 16),
+          tooltip: 'Open the latest drafts menu',
+          semanticLabel: 'Open the latest drafts menu',
+          onPressed: onDraftsPressed,
+          variant: DButtonVariant.primary,
+          size: DButtonSize.small,
+          borderRadius: BorderRadius.horizontal(right: radius),
         ),
       ],
     );

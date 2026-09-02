@@ -6,6 +6,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,7 +21,7 @@ const _draft = UserDraft(
 );
 
 void main() {
-  testWidgets('compact New topic controls are 44 pixel keyboard buttons', (
+  testWidgets('New topic controls use small DButton geometry and keyboard', (
     tester,
   ) async {
     final fixture = await _pump(tester);
@@ -29,9 +30,12 @@ void main() {
       final create = find.byKey(TopicCreateButton.buttonKey);
       final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
 
-      _expectAccessibleTarget(tester, create);
-      _expectAccessibleTarget(tester, drafts);
-      expect(find.byTooltip('Open the latest drafts menu'), findsOneWidget);
+      _expectSmallDButton(tester, create, iconOnly: false);
+      _expectSmallDButton(tester, drafts, iconOnly: true);
+      expect(
+        tester.widget<DButton>(drafts).tooltip,
+        'Open the latest drafts menu',
+      );
       expect(
         tester.getSemantics(create),
         isSemantics(
@@ -85,18 +89,19 @@ void main() {
   });
 }
 
-void _expectAccessibleTarget(WidgetTester tester, Finder target) {
+void _expectSmallDButton(
+  WidgetTester tester,
+  Finder target, {
+  required bool iconOnly,
+}) {
+  final button = tester.widget<DButton>(target);
   final size = tester.getSize(target);
-  expect(size.width, greaterThanOrEqualTo(44));
-  expect(size.height, greaterThanOrEqualTo(44));
-  expect(
-    tester
-        .widget<FilledButton>(target)
-        .style
-        ?.minimumSize
-        ?.resolve(<WidgetState>{}),
-    const Size.square(44),
-  );
+  expect(button.size, DButtonSize.small);
+  expect(button.variant, DButtonVariant.primary);
+  expect(size.height, DButton.iconOnlyDimensionFor(DButtonSize.small));
+  if (iconOnly) {
+    expect(size.width, DButton.iconOnlyDimensionFor(DButtonSize.small));
+  }
 }
 
 typedef _Fixture = ({FakeDiscourseApi api, int Function() createCalls});
@@ -142,7 +147,7 @@ Future<_Fixture> _pump(WidgetTester tester) async {
           body: Align(
             alignment: Alignment.topLeft,
             child: TopicCreateButton(
-              showLabel: false,
+              showLabel: true,
               onPressed: () => createCalls++,
             ),
           ),

@@ -304,6 +304,7 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.alignment = Alignment.center,
+    this.borderRadius,
     this.interactiveBackgroundColor,
   }) : _iconOnly = false;
 
@@ -320,6 +321,7 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.alignment = Alignment.center,
+    this.borderRadius,
     this.interactiveBackgroundColor,
   }) : label = const SizedBox.shrink(),
        loadingLabel = null,
@@ -342,6 +344,7 @@ class DButton extends StatelessWidget {
   final FocusNode? focusNode;
   final bool autofocus;
   final AlignmentGeometry alignment;
+  final BorderRadiusGeometry? borderRadius;
   final Color? interactiveBackgroundColor;
   final bool _iconOnly;
 
@@ -369,7 +372,7 @@ class DButton extends StatelessWidget {
     final fontSize = fontSizeFor(size);
     final iconOnlyDimension = iconOnlyDimensionFor(size);
     final enabled = onPressed != null && !loading;
-    final radius = BorderRadius.circular(buttons.borderRadius);
+    final radius = borderRadius ?? BorderRadius.circular(buttons.borderRadius);
 
     DButtonStateStyle withInteractiveBackground(DButtonStateStyle state) {
       final background = interactiveBackgroundColor;
@@ -469,13 +472,21 @@ class DButton extends StatelessWidget {
             softWrap: false,
             overflow: TextOverflow.ellipsis,
             child: icon == null
-                ? label
+                ? ExcludeSemantics(
+                    excluding: semanticLabel != null,
+                    child: label,
+                  )
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       ExcludeSemantics(child: icon!),
                       SizedBox(width: fontSize * 0.45),
-                      Flexible(child: label),
+                      Flexible(
+                        child: ExcludeSemantics(
+                          excluding: semanticLabel != null,
+                          child: label,
+                        ),
+                      ),
                     ],
                   ),
           );
