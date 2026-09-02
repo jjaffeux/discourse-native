@@ -971,6 +971,11 @@ class ShellController extends FrameSafeNotifier
   DiscourseInstance? get currentInstance =>
       hasInstances ? _instances[_instanceIndex] : null;
 
+  String? get currentAccountIdentity {
+    final instance = currentInstance;
+    return instance == null ? null : _workspaceAccountIdentity(instance);
+  }
+
   final Map<String, ForumWorkspace> _forumWorkspaces = {};
   final Map<_PluginPaneKey, ForumTab> _mainPaneTabs = {};
   final Map<_PluginPaneKey, ForumTab> _pluginPaneTabs = {};
@@ -3185,6 +3190,7 @@ class ShellController extends FrameSafeNotifier
         changed = true;
         if (accountChanged) {
           accountActivity.forget(siteUrl);
+          groups.forget(siteUrl);
           _topicTrackingBySite.remove(siteUrl);
           _topicTrackingSnapshotsLoaded.remove(siteUrl);
           _topicTrackingRevisions.remove(siteUrl);

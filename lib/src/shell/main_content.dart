@@ -19,7 +19,10 @@ import 'categories_page.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
 import 'forum_tabs_bar.dart';
+import 'group_pages_coordinator.dart';
 import 'group_pages_host.dart';
+import 'group_pages_port.dart';
+import 'group_pages_shell_port.dart';
 import 'message_inbox_page.dart';
 import 'preferences_page.dart';
 import 'shell_controller.dart';
@@ -38,38 +41,82 @@ import 'user_activity.dart';
 import 'user_menu_button.dart';
 import 'user_summary.dart';
 
-class MainContent extends StatelessWidget {
+class MainContent extends StatefulWidget {
   const MainContent({super.key, required this.layout, this.registry});
 
   final ShellLayout layout;
   final PluginRegistry? registry;
 
   @override
+  State<MainContent> createState() => _MainContentState();
+}
+
+class _MainContentState extends State<MainContent> {
+  final GroupPagesCoordinator _groupPages = GroupPagesCoordinator();
+
+  @override
   Widget build(BuildContext context) {
     return ShellSelector<_MainContentSnapshot>(
       select: _MainContentSnapshot.from,
-      builder: (context, state, _) => _MainContentBody(
-        layout: layout,
-        state: state,
-        registry:
-            registry ??
-            PluginScope.maybeOf(context)?.registry ??
-            PluginRegistry.empty,
-      ),
+      builder: (context, state, _) {
+        final shell = ShellScope.read(context);
+        final port = ShellGroupPagesPort(shell);
+        final route = state.route;
+        _groupPages.bind(
+          port,
+          GroupPagesRouteSnapshot(
+            owner: (
+              siteUrl: state.siteUrl ?? '',
+              accountIdentity: state.groupAccountIdentity ?? 'signed-out',
+              tabId: state.activeTabId,
+            ),
+            routeId: route?.id ?? '',
+            groupNamespace: _isGroupNamespace(route),
+            route: route?.groupRoute,
+            canPopContent: state.canPop,
+          ),
+        );
+        return _MainContentBody(
+          layout: widget.layout,
+          state: state,
+          registry:
+              widget.registry ??
+              PluginScope.maybeOf(context)?.registry ??
+              PluginRegistry.empty,
+          groupPages: _groupPages,
+          groupPagesPort: port,
+        );
+      },
     );
   }
+
+  @override
+  void dispose() {
+    _groupPages.dispose();
+    super.dispose();
+  }
 }
+
+bool _isGroupNamespace(ContentRoute? route) =>
+    route != null &&
+    (route.groupRoute != null ||
+        route.id == 'groups' ||
+        route.id.startsWith('group-'));
 
 class _MainContentBody extends StatelessWidget {
   const _MainContentBody({
     required this.layout,
     required this.state,
     required this.registry,
+    required this.groupPages,
+    required this.groupPagesPort,
   });
 
   final ShellLayout layout;
   final _MainContentSnapshot state;
   final PluginRegistry registry;
+  final GroupPagesCoordinator groupPages;
+  final GroupPagesPort groupPagesPort;
 
   @override
   Widget build(BuildContext context) {
@@ -80,12 +127,15 @@ class _MainContentBody extends StatelessWidget {
     if (route == null) return ColoredBox(color: theme.shell.content);
     final pluginContent = registry.content(context, route);
     final pluginOwnsChrome = registry.ownsContentChrome(context, route);
-    final contentKey = ValueKey((
-      state.siteUrl,
-      state.activeTabId,
-      route.id,
-      route.postNumber,
-    ));
+    final contentKey = ValueKey(
+      groupPages.childIdentity ??
+          (
+            siteUrl: state.siteUrl,
+            activeTabId: state.activeTabId,
+            routeId: route.id,
+            postNumber: route.postNumber,
+          ),
+    );
 
     return Material(
       color: theme.shell.content,
@@ -103,6 +153,7 @@ class _MainContentBody extends StatelessWidget {
                 showCreateTopicAction: pluginContent == null,
                 isConnected: state.isConnected,
                 registry: registry,
+                groupPages: groupPages,
               ),
             Expanded(
               child: KeyedSubtree(
@@ -118,6 +169,8 @@ class _MainContentBody extends StatelessWidget {
                   pluginContent: pluginContent,
                   filterCategories: state.filterCategories,
                   categoryFeed: state.categoryFeed,
+                  groupPages: groupPages,
+                  groupPagesPort: groupPagesPort,
                 ),
               ),
             ),
@@ -140,6 +193,8 @@ class _ContentViewport extends StatelessWidget {
     required this.pluginContent,
     required this.filterCategories,
     required this.categoryFeed,
+    required this.groupPages,
+    required this.groupPagesPort,
   });
 
   final ShellLayout layout;
@@ -152,6 +207,8 @@ class _ContentViewport extends StatelessWidget {
   final Widget? pluginContent;
   final List<TopicCategory> filterCategories;
   final CategoryFeed? categoryFeed;
+  final GroupPagesCoordinator groupPages;
+  final GroupPagesPort groupPagesPort;
 
   @override
   Widget build(BuildContext context) {
@@ -170,13 +227,10 @@ class _ContentViewport extends StatelessWidget {
     if (!route.isTopic && route.id == 'activity' && siteUrl != null) {
       return UserActivityView(siteUrl: siteUrl!);
     }
-    if (route.isGroups && siteUrl != null) {
-      return GroupsDirectoryHost(siteUrl: siteUrl!);
-    }
-    if (route.isGroup && siteUrl != null) {
-      return GroupPageHost(
-        siteUrl: siteUrl!,
-        route: route.groupRoute!,
+    if (groupPages.page.isOwned && siteUrl != null) {
+      return GroupPagesHost(
+        coordinator: groupPages,
+        port: groupPagesPort,
         registry: registry,
       );
     }
@@ -267,6 +321,7 @@ class _ContentHeader extends StatelessWidget {
     required this.showCreateTopicAction,
     required this.isConnected,
     required this.registry,
+    required this.groupPages,
   });
 
   final ShellLayout layout;
@@ -276,6 +331,7 @@ class _ContentHeader extends StatelessWidget {
   final bool showCreateTopicAction;
   final bool isConnected;
   final PluginRegistry registry;
+  final GroupPagesCoordinator groupPages;
 
   static const _searchSlotKey = ValueKey('content-header-search-slot');
 
@@ -293,7 +349,12 @@ class _ContentHeader extends StatelessWidget {
       context,
       route,
     );
-    final showBack = layout.isCompact || canPop;
+    final groupBackIntent = groupPages.page.isOwned
+        ? groupPages.backIntent(canReturnToSidebar: layout.isCompact)
+        : null;
+    final showBack = groupBackIntent != null
+        ? groupBackIntent != GroupPagesBackIntent.none
+        : layout.isCompact || canPop;
 
     return Container(
       height: shellHeaderHeight,
@@ -313,9 +374,17 @@ class _ContentHeader extends StatelessWidget {
             children: [
               if (showBack)
                 DButton.iconOnly(
-                  onPressed: () => controller.handleBack(
-                    canReturnToSidebar: layout.isCompact,
-                  ),
+                  onPressed: () {
+                    if (groupBackIntent != null) {
+                      groupPages.handleBack(
+                        canReturnToSidebar: layout.isCompact,
+                      );
+                    } else {
+                      controller.handleBack(
+                        canReturnToSidebar: layout.isCompact,
+                      );
+                    }
+                  },
                   icon: const DIcon(DIcons.arrowLeft, size: 20),
                   tooltip: 'Back',
                   variant: DButtonVariant.flat,
@@ -709,6 +778,7 @@ class _MainContentSnapshot {
     required this.isConnected,
     required this.filterCategories,
     required this.categoryFeed,
+    required this.groupAccountIdentity,
   });
 
   factory _MainContentSnapshot.from(ShellController controller) =>
@@ -747,6 +817,9 @@ class _MainContentSnapshot {
           ),
           _ => null,
         },
+        groupAccountIdentity: _isGroupNamespace(controller.currentContent)
+            ? controller.currentAccountIdentity
+            : null,
       );
 
   final String? siteUrl;
@@ -758,6 +831,7 @@ class _MainContentSnapshot {
   final bool isConnected;
   final List<TopicCategory> filterCategories;
   final CategoryFeed? categoryFeed;
+  final String? groupAccountIdentity;
 
   @override
   bool operator ==(Object other) =>
@@ -770,7 +844,8 @@ class _MainContentSnapshot {
       bookmarkBusy == other.bookmarkBusy &&
       isConnected == other.isConnected &&
       identical(filterCategories, other.filterCategories) &&
-      identical(categoryFeed, other.categoryFeed);
+      identical(categoryFeed, other.categoryFeed) &&
+      groupAccountIdentity == other.groupAccountIdentity;
 
   @override
   int get hashCode => Object.hash(
@@ -783,5 +858,6 @@ class _MainContentSnapshot {
     isConnected,
     identityHashCode(filterCategories),
     identityHashCode(categoryFeed),
+    groupAccountIdentity,
   );
 }

@@ -9,7 +9,6 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'choice_menu.dart';
 import 'content_reading_lane.dart';
-import 'shell_scope.dart';
 
 @immutable
 final class GroupsPageData {
@@ -129,13 +128,7 @@ class _GroupsPageState extends State<GroupsPage> {
   }
 
   void _openGroup(Group group) {
-    if (widget.onOpenGroup case final callback?) {
-      callback(group);
-      return;
-    }
-    ShellScope.maybeRead(
-      context,
-    )?.openGroupUrl(Uri(pathSegments: ['g', group.name]).path);
+    widget.onOpenGroup?.call(group);
   }
 
   @override

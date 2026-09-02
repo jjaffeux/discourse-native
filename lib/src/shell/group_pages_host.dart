@@ -2,46 +2,46 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../data/groups_api.dart';
-import '../models/content_route.dart';
 import '../models/group.dart';
 import '../models/group_route.dart';
-import '../plugin_api/plugin_data.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../theme/d_button.dart';
-import 'external_link.dart';
 import 'group_page.dart';
-import 'groups_controller.dart';
+import 'group_pages_coordinator.dart';
+import 'group_pages_port.dart';
 import 'groups_page.dart';
 import 'message_inbox_page.dart';
-import 'shell_controller.dart';
-import 'shell_scope.dart';
 import 'topic_list_view.dart';
-import 'user_card.dart';
 
-class GroupsDirectoryHost extends StatefulWidget {
-  const GroupsDirectoryHost({super.key, required this.siteUrl});
+class GroupPagesHost extends StatefulWidget {
+  const GroupPagesHost({
+    super.key,
+    required this.coordinator,
+    required this.port,
+    required this.registry,
+  });
 
-  final String siteUrl;
+  final GroupPagesCoordinator coordinator;
+  final GroupPagesPort port;
+  final PluginRegistry registry;
 
   @override
-  State<GroupsDirectoryHost> createState() => _GroupsDirectoryHostState();
+  State<GroupPagesHost> createState() => _GroupPagesHostState();
 }
 
-class _GroupsDirectoryHostState extends State<GroupsDirectoryHost> {
-  GroupDirectoryQuery _query = const GroupDirectoryQuery();
+class _GroupPagesHostState extends State<GroupPagesHost> {
   bool _loadScheduled = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
+  void initState() {
+    super.initState();
     _scheduleLoad();
   }
 
   @override
-  void didUpdateWidget(GroupsDirectoryHost oldWidget) {
+  void didUpdateWidget(GroupPagesHost oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.siteUrl != widget.siteUrl) _scheduleLoad();
+    _scheduleLoad();
   }
 
   void _scheduleLoad() {
@@ -49,327 +49,106 @@ class _GroupsDirectoryHostState extends State<GroupsDirectoryHost> {
     _loadScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadScheduled = false;
-      if (!mounted) return;
-      final shell = ShellScope.read(context);
-      final instance = shell.currentInstance;
-      if (instance?.url == widget.siteUrl) {
-        unawaited(shell.groups.loadDirectory(instance!, _query));
-      }
+      if (mounted) unawaited(widget.coordinator.requestLoad());
     });
   }
 
-  Future<void> _load({bool refresh = false, bool more = false}) async {
-    final shell = ShellScope.read(context);
-    final instance = shell.currentInstance;
-    if (instance?.url != widget.siteUrl) return;
-    await shell.groups.loadDirectory(
-      instance!,
-      _query,
-      refresh: refresh,
-      more: more,
-    );
-  }
+  @override
+  Widget build(BuildContext context) => switch (widget.coordinator.page.kind) {
+    GroupPagesPageKind.directory => _GroupsDirectoryView(
+      coordinator: widget.coordinator,
+      port: widget.port,
+    ),
+    GroupPagesPageKind.detail => _GroupDetailView(
+      coordinator: widget.coordinator,
+      port: widget.port,
+      registry: widget.registry,
+    ),
+    GroupPagesPageKind.unknown => const Center(
+      child: Text('Unknown group route.', key: ValueKey('unknown-group-route')),
+    ),
+    GroupPagesPageKind.none => const SizedBox.shrink(),
+  };
+}
 
-  void _replaceQuery(GroupDirectoryQuery query) {
-    if (query == _query) return;
-    setState(() => _query = query);
-    unawaited(_load(refresh: true));
-  }
+class _GroupsDirectoryView extends StatelessWidget {
+  const _GroupsDirectoryView({required this.coordinator, required this.port});
+
+  final GroupPagesCoordinator coordinator;
+  final GroupPagesPort port;
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.read(context);
+    final owner = coordinator.childIdentity!.owner;
     return ListenableBuilder(
-      listenable: shell.groups,
+      listenable: port.changes,
       builder: (context, _) {
-        final state = shell.groups.directoryState(widget.siteUrl, _query);
+        final query = coordinator.directoryQuery;
+        final state = port.directoryState(owner, query);
         return GroupsPage(
-          siteUrl: widget.siteUrl,
+          siteUrl: owner.siteUrl,
           data: GroupsPageData(
             groups: state.groups,
             typeFilters: state.typeFilters,
             totalRows: state.totalRows,
-            query: _query.filter,
-            type: _query.type,
+            query: query.filter,
+            type: query.type,
             loading: state.loading,
             loadingMore: state.loadingMore,
             loaded: state.loaded,
             hasMore: state.hasMore,
             error: state.error,
             pageError: state.pageError,
-            canCreateGroup:
-                shell.currentUserFor(widget.siteUrl)?.canCreateGroup == true,
+            canCreateGroup: port.canCreateGroup(owner),
           ),
-          onSearchChanged: (value) =>
-              _replaceQuery(_query.copyWith(filter: value)),
-          onTypeChanged: (value) => _replaceQuery(_query.copyWith(type: value)),
-          onRefresh: () => _load(refresh: true),
-          onLoadMore: () => unawaited(_load(more: true)),
-          onCreateGroup: () =>
-              unawaited(openExternalLink('${widget.siteUrl}/g/custom/new')),
+          onSearchChanged: (value) {
+            if (coordinator.replaceDirectoryQuery(
+              coordinator.directoryQuery.copyWith(filter: value),
+            )) {
+              unawaited(coordinator.requestLoad(refresh: true));
+            }
+          },
+          onTypeChanged: (value) {
+            final query = value == null
+                ? coordinator.directoryQuery.withoutType()
+                : coordinator.directoryQuery.copyWith(type: value);
+            if (coordinator.replaceDirectoryQuery(query)) {
+              unawaited(coordinator.requestLoad(refresh: true));
+            }
+          },
+          onRefresh: () => coordinator.requestLoad(refresh: true),
+          onLoadMore: () => unawaited(coordinator.loadMore()),
+          onOpenGroup: (group) => port.openGroup(owner, group.name),
+          onCreateGroup: () => port.createGroup(owner),
         );
       },
     );
   }
 }
 
-class GroupPageHost extends StatefulWidget {
-  const GroupPageHost({
-    super.key,
-    required this.siteUrl,
-    required this.route,
+class _GroupDetailView extends StatelessWidget {
+  const _GroupDetailView({
+    required this.coordinator,
+    required this.port,
     required this.registry,
   });
 
-  final String siteUrl;
-  final GroupRoute route;
+  final GroupPagesCoordinator coordinator;
+  final GroupPagesPort port;
   final PluginRegistry registry;
 
-  @override
-  State<GroupPageHost> createState() => _GroupPageHostState();
-}
-
-class _GroupPageHostState extends State<GroupPageHost> {
-  String _memberFilter = '';
-  String _memberOrder = 'last_seen_at';
-  bool _memberAscending = false;
-
-  @override
-  void didUpdateWidget(GroupPageHost oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.siteUrl != widget.siteUrl ||
-        oldWidget.route.groupName != widget.route.groupName) {
-      _memberFilter = '';
-      _memberOrder = 'last_seen_at';
-      _memberAscending = false;
-    }
-  }
-
-  Future<void> _load(GroupRoute route, {bool refresh = false}) async {
-    final shell = ShellScope.read(context);
-    final instance = shell.currentInstance;
-    if (instance?.url != widget.siteUrl || route.groupName == null) return;
-    await shell.groups.loadDetail(
-      instance!,
-      route.groupName!,
-      refresh: refresh,
-    );
-    if (!mounted || shell.currentInstance?.url != widget.siteUrl) return;
-    await _loadSection(route, refresh: refresh);
-  }
-
-  Future<void> _loadSection(
-    GroupRoute route, {
-    bool refresh = false,
-    bool more = false,
-  }) async {
-    final shell = ShellScope.read(context);
-    final instance = shell.currentInstance;
-    final groupName = route.groupName;
-    if (instance?.url != widget.siteUrl ||
-        groupName == null ||
-        route.isPlugin) {
-      return;
-    }
-    switch (route.section) {
-      case GroupRoute.members:
-        await shell.groups.loadMembers(
-          instance!,
-          groupName,
-          filter: _memberFilter,
-          order: _memberOrder,
-          ascending: _memberAscending,
-          refresh: refresh,
-          more: more,
-        );
-        break;
-      case GroupRoute.activity:
-        final detail = shell.groups
-            .detailState(widget.siteUrl, groupName)
-            .detail;
-        final subsection =
-            route.subsection ??
-            (detail?.group.canSeeMembers == true
-                ? GroupRoute.posts
-                : GroupRoute.mentions);
-        if (subsection == GroupRoute.posts ||
-            subsection == GroupRoute.mentions) {
-          await shell.groups.loadActivity(
-            instance!,
-            groupName,
-            mentions: subsection == GroupRoute.mentions,
-            refresh: refresh,
-            more: more,
-          );
-        }
-        break;
-      case GroupRoute.requests:
-        await shell.groups.loadRequesters(
-          instance!,
-          groupName,
-          refresh: refresh,
-          more: more,
-        );
-        break;
-      case GroupRoute.permissions:
-        await shell.groups.loadPermissions(
-          instance!,
-          groupName,
-          refresh: refresh,
-        );
-        break;
-      case GroupRoute.manage when route.subsection == GroupRoute.logs:
-        await shell.groups.loadLogs(
-          instance!,
-          groupName,
-          refresh: refresh,
-          more: more,
-        );
-        break;
-      default:
-        break;
-    }
-  }
-
-  GroupPageData _data(ShellController shell) {
-    final groupName = widget.route.groupName!;
-    final detail = shell.groups.detailState(widget.siteUrl, groupName);
-    final members = shell.groups.membersState(
-      widget.siteUrl,
-      groupName,
-      filter: _memberFilter,
-      order: _memberOrder,
-      ascending: _memberAscending,
-    );
-    final requesters = shell.groups.requestersState(widget.siteUrl, groupName);
-    final subsection =
-        widget.route.subsection ??
-        (detail.detail?.group.canSeeMembers == true
-            ? GroupRoute.posts
-            : GroupRoute.mentions);
-    final activity = shell.groups.activityState(
-      widget.siteUrl,
-      groupName,
-      mentions: subsection == GroupRoute.mentions,
-    );
-    final permissions = shell.groups.permissionsState(
-      widget.siteUrl,
-      groupName,
-    );
-    final logs = shell.groups.logsState(widget.siteUrl, groupName);
-    final user = shell.currentInstance?.user;
-    final config = shell.siteConfigFor(widget.siteUrl);
-
-    final sectionLoading = switch (widget.route.section) {
-      GroupRoute.members => members.loading,
-      GroupRoute.activity => activity.loading,
-      GroupRoute.requests => requesters.loading,
-      GroupRoute.permissions => permissions.loading,
-      GroupRoute.manage when widget.route.subsection == GroupRoute.logs =>
-        logs.loading,
-      _ => false,
-    };
-    final loadingMore = switch (widget.route.section) {
-      GroupRoute.members => members.loadingMore,
-      GroupRoute.activity => activity.loadingMore,
-      GroupRoute.requests => requesters.loadingMore,
-      GroupRoute.manage when widget.route.subsection == GroupRoute.logs =>
-        logs.loadingMore,
-      _ => false,
-    };
-    final hasMore = switch (widget.route.section) {
-      GroupRoute.members => members.hasMore,
-      GroupRoute.activity => activity.hasMore,
-      GroupRoute.requests => requesters.hasMore,
-      GroupRoute.manage when widget.route.subsection == GroupRoute.logs =>
-        logs.hasMore,
-      _ => false,
-    };
-    final sectionError = switch (widget.route.section) {
-      GroupRoute.members => members.error,
-      GroupRoute.activity => activity.error,
-      GroupRoute.requests => requesters.error,
-      GroupRoute.permissions => permissions.error,
-      GroupRoute.manage when widget.route.subsection == GroupRoute.logs =>
-        logs.error,
-      _ => null,
-    };
-
-    return GroupPageData(
-      detail: detail.detail,
-      members: members.loaded
-          ? GroupMembersPage(
-              members: members.members,
-              total: members.total,
-              limit: GroupsApi.defaultMemberPageSize,
-              offset: 0,
-            )
-          : null,
-      requesters: requesters.loaded
-          ? GroupRequestersPage(
-              requesters: requesters.requesters,
-              total: requesters.total,
-              limit: GroupsApi.defaultMemberPageSize,
-              offset: 0,
-            )
-          : null,
-      activity: activity.loaded
-          ? GroupActivityPage(
-              posts: activity.posts,
-              rawPostCount: activity.hasMore
-                  ? GroupActivityPage.pageSize
-                  : activity.posts.length,
-            )
-          : null,
-      permissions: permissions.permissions,
-      logs: logs.loaded
-          ? GroupLogsPage(logs: logs.logs, allLoaded: !logs.hasMore)
-          : null,
-      currentUserData: user?.plugins ?? PluginData.none,
-      canSendPrivateMessages: user?.canSendPrivateMessages == true,
-      canInviteToForum: user?.canInviteToForum == true,
-      currentUserStaff: user?.staff == true,
-      isAdmin: user?.admin == true,
-      memberFilter: _memberFilter,
-      memberOrder: _memberOrder,
-      memberAscending: _memberAscending,
-      mentionsEnabled: config.mentionsEnabled,
-      smtpEnabled: config.smtpEnabled,
-      taggingEnabled: config.taggingEnabled,
-      loading: detail.loading,
-      sectionLoading: sectionLoading,
-      loadingMore: loadingMore,
-      mutating: detail.mutating,
-      loaded: detail.loaded,
-      error: detail.error,
-      sectionError: sectionError,
-      hasMore: hasMore,
-    );
-  }
-
-  Widget? _topicFeed(ShellController shell, {required bool messages}) {
-    final route = shell.currentContent;
-    final feed = route == null
-        ? null
-        : shell.topicFeeds.feedFor(widget.siteUrl, route.id);
-    if (feed == null) return null;
-    return messages ? MessageInboxPage(feed: feed) : TopicListView(feed: feed);
-  }
-
-  Future<void> _membership(GroupMembershipAction action) async {
-    final shell = ShellScope.read(context);
-    final instance = shell.currentInstance;
-    final group = shell.groups
-        .detailState(widget.siteUrl, widget.route.groupName!)
-        .detail
-        ?.group;
-    if (instance == null || group == null) return;
+  Future<void> _membership(
+    BuildContext context,
+    GroupPagesOwner owner,
+    Group group,
+    GroupMembershipAction action,
+  ) async {
     switch (action) {
       case GroupMembershipAction.join:
-        await shell.groups.join(instance, group);
+        await port.join(owner, group);
         break;
       case GroupMembershipAction.leave:
-        await shell.groups.leave(instance, group);
+        await port.leave(owner, group);
         break;
       case GroupMembershipAction.request:
         final controller = TextEditingController(
@@ -401,178 +180,108 @@ class _GroupPageHostState extends State<GroupPageHost> {
         );
         controller.dispose();
         if (reason?.trim().isNotEmpty == true) {
-          await shell.groups.requestMembership(instance, group, reason!);
+          await port.requestMembership(owner, group, reason!);
         }
         break;
     }
   }
 
-  void _changeMemberFilter(String value) {
-    if (value == _memberFilter) return;
-    setState(() => _memberFilter = value);
-    unawaited(_loadSection(widget.route, refresh: true));
-  }
-
-  void _changeMemberSort(String order, bool ascending) {
-    if (order == _memberOrder && ascending == _memberAscending) return;
-    setState(() {
-      _memberOrder = order;
-      _memberAscending = ascending;
-    });
-    unawaited(_loadSection(widget.route, refresh: true));
-  }
-
-  Future<bool> _memberAction(
-    ShellController shell,
-    Group group,
-    GroupMember member,
-    GroupMemberAction action,
-  ) {
-    final instance = shell.currentInstance!;
-    return switch (action) {
-      GroupMemberAction.remove => shell.groups.removeMember(
-        instance,
-        group,
-        member,
-      ),
-      GroupMemberAction.makeOwner => shell.groups.setMemberOwner(
-        instance,
-        group,
-        member,
-        owner: true,
-      ),
-      GroupMemberAction.removeOwner => shell.groups.setMemberOwner(
-        instance,
-        group,
-        member,
-        owner: false,
-      ),
-      GroupMemberAction.makePrimary => shell.groups.setMemberPrimary(
-        instance,
-        group,
-        member,
-        primary: true,
-      ),
-      GroupMemberAction.removePrimary => shell.groups.setMemberPrimary(
-        instance,
-        group,
-        member,
-        primary: false,
-      ),
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.read(context);
+    final owner = coordinator.childIdentity!.owner;
+    final route = coordinator.page.route!;
     return ListenableBuilder(
-      listenable: Listenable.merge([shell.groups, shell.topicFeeds]),
+      listenable: port.changes,
       builder: (context, _) {
-        final data = _data(shell);
+        final data = port.groupData(owner, route, coordinator.memberQuery);
         final group = data.detail?.group;
         final isTopicFeed =
-            widget.route.section == GroupRoute.activity &&
-            widget.route.subsection == GroupRoute.topics;
-        final isMessageFeed = widget.route.section == GroupRoute.messages;
+            route.section == GroupRoute.activity &&
+            route.subsection == GroupRoute.topics;
+        final isMessageFeed = route.section == GroupRoute.messages;
+        final feed = port.topicFeed(owner, route.id);
         return GroupPage(
-          siteUrl: widget.siteUrl,
-          route: widget.route,
-          registry: widget.registry,
+          siteUrl: owner.siteUrl,
+          route: route,
+          registry: registry,
           data: data,
-          topicFeed: isTopicFeed ? _topicFeed(shell, messages: false) : null,
-          messageFeed: isMessageFeed ? _topicFeed(shell, messages: true) : null,
-          onLoadRequested: (route) => unawaited(_load(route)),
-          onRefresh: () => _load(widget.route, refresh: true),
-          onLoadMore: () => unawaited(_loadSection(widget.route, more: true)),
-          onSelectRoute: shell.selectGroupRoute,
-          onMembershipAction: _membership,
-          onSwitchGroup: (name) => shell.replaceCurrentContent(
-            ContentRoute.group(GroupRoute.detail(name)),
-          ),
+          topicFeed: isTopicFeed && feed != null
+              ? TopicListView(feed: feed)
+              : null,
+          messageFeed: isMessageFeed && feed != null
+              ? MessageInboxPage(feed: feed)
+              : null,
+          onRefresh: () => coordinator.requestLoad(refresh: true),
+          onLoadMore: () => unawaited(coordinator.loadMore()),
+          onSelectRoute: coordinator.selectRoute,
+          onMembershipAction: group == null
+              ? null
+              : (action) => _membership(context, owner, group, action),
+          onSwitchGroup: coordinator.switchGroup,
           onDeleteGroup: group == null
               ? null
               : () async {
-                  final deleted = await shell.groups.deleteGroup(
-                    shell.currentInstance!,
-                    group,
-                  );
-                  if (deleted) {
-                    shell.replaceCurrentContent(
-                      ContentRoute.group(const GroupRoute.directory()),
-                    );
-                  }
+                  final deleted = await port.deleteGroup(owner, group);
+                  if (deleted) coordinator.showDirectory();
                   return deleted;
                 },
-          onMemberFilterChanged: _changeMemberFilter,
-          onMemberSortChanged: _changeMemberSort,
-          onSearchUsers: (query) => shell.searchUsers(
-            siteUrl: widget.siteUrl,
-            topicId: null,
-            term: query,
-          ),
+          onMemberFilterChanged: (value) {
+            if (coordinator.replaceMemberQuery(
+              coordinator.memberQuery.copyWith(filter: value),
+            )) {
+              unawaited(coordinator.requestLoad(refresh: true));
+            }
+          },
+          onMemberSortChanged: (order, ascending) {
+            if (coordinator.replaceMemberQuery(
+              coordinator.memberQuery.copyWith(
+                order: order,
+                ascending: ascending,
+              ),
+            )) {
+              unawaited(coordinator.requestLoad(refresh: true));
+            }
+          },
+          onSearchUsers: (query) => port.searchUsers(owner, query),
           onAddMembers: group == null
               ? null
-              : (usernames, emails) => shell.groups.addMembers(
-                  shell.currentInstance!,
+              : (usernames, emails) => port.addMembers(
+                  owner,
                   group,
-                  usernames: usernames,
-                  emails: emails,
-                  filter: _memberFilter,
-                  order: _memberOrder,
-                  ascending: _memberAscending,
+                  usernames,
+                  emails,
+                  coordinator.memberQuery,
                 ),
           onCreateInvite: group == null
               ? null
-              : ({String? email, String? customMessage}) =>
-                    shell.groups.createInvite(
-                      shell.currentInstance!,
-                      group,
-                      email: email,
-                      customMessage: customMessage,
-                    ),
+              : ({String? email, String? customMessage}) => port.createInvite(
+                  owner,
+                  group,
+                  email: email,
+                  customMessage: customMessage,
+                ),
           onMemberAction: group == null
               ? null
-              : (member, action) => _memberAction(shell, group, member, action),
+              : (member, action) =>
+                    port.memberAction(owner, group, member, action),
           onMessageGroup:
               group?.canShowMessages(
-                    canSendPrivateMessages:
-                        shell.currentInstance?.user?.canSendPrivateMessages ==
-                        true,
-                    isAdmin: shell.currentInstance?.user?.admin == true,
+                    canSendPrivateMessages: data.canSendPrivateMessages,
+                    isAdmin: data.isAdmin,
                   ) ==
                   true
-              ? () => shell.openPrivateMessage(
-                  siteUrl: widget.siteUrl,
-                  targetRecipients: group!.name,
-                )
+              ? () => port.messageGroup(owner, group!)
               : null,
-          onOpenMember: (memberContext, member) => unawaited(
-            showUserCard(
-              context: memberContext,
-              username: member.username,
-              siteUrl: widget.siteUrl,
-            ),
-          ),
-          onOpenActivityPost: (post) => shell.openTopicPost(
-            siteUrl: widget.siteUrl,
-            topicId: post.topicId,
-            postNumber: post.postNumber,
-          ),
+          onOpenMember: (memberContext, member) =>
+              port.openMember(memberContext, owner, member),
+          onOpenActivityPost: (post) => port.openActivityPost(owner, post),
           onRequestAction: group == null
               ? null
-              : (requester, action) => shell.groups.handleRequest(
-                  shell.currentInstance!,
-                  group,
-                  requester,
-                  accept: action == GroupRequestAction.accept,
-                ),
+              : (requester, action) =>
+                    port.handleRequest(owner, group, requester, action),
           onSaveManage: group == null
               ? null
-              : (update) => shell.groups.updateGroup(
-                  shell.currentInstance!,
-                  group,
-                  update.values,
-                ),
+              : (update) => port.saveManage(owner, group, update),
         );
       },
     );
