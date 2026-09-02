@@ -495,15 +495,15 @@ class _ContentHeader extends StatelessWidget {
                 const SizedBox(width: 4),
               ],
               ...contentHeader,
-              if (!route.isTopic &&
-                  route.id != 'activity' &&
-                  showCreateTopicAction)
-                _TopicCreateAction(controller: controller),
               if (isConnected && siteUrl != null && route.categoryId != null)
                 CategoryNotificationLevelButton(
                   siteUrl: siteUrl!,
                   categoryId: route.categoryId!,
                 ),
+              if (!route.isTopic &&
+                  route.id != 'activity' &&
+                  showCreateTopicAction)
+                _TopicCreateAction(controller: controller),
               if (ShellTitleBar.columnsCarryUserMenu) ...[
                 ...registry.shellHeaderActions(
                   context,

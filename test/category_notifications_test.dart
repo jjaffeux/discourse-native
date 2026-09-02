@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,6 +19,7 @@ const _category = TopicCategory(
   name: 'Support',
   color: '0088CC',
   slug: 'support',
+  permission: 1,
 );
 const _user = DiscourseUser(id: 7, username: 'reader');
 
@@ -51,6 +53,7 @@ void main() {
     final gate = Completer<void>();
     final api = FakeDiscourseApi(
       feeds: const {'/latest.json': [], '/c/support/5.json': []},
+      creatableFeedPaths: const {'/c/support/5.json'},
       categoryList: const [_category],
       categoryNotificationGate: gate,
     );
@@ -61,6 +64,11 @@ void main() {
 
     expect(button, findsOneWidget);
     expect(find.byTooltip('Category notifications: Normal'), findsOneWidget);
+    expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
+    expect(
+      tester.getCenter(button).dx,
+      lessThan(tester.getCenter(find.byKey(TopicCreateButton.buttonKey)).dx),
+    );
 
     await tester.tap(button);
     await tester.pumpAndSettle();
