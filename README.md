@@ -51,6 +51,12 @@ mirrors DiscourseMobile's `Site.fromTerm` (`js/site.js` in that repo):
 One deliberate difference: DiscourseMobile strips the port from the resolved
 URL, which would make a site on `localhost:4200` unreachable. We keep it.
 
+A forum the probe lands on under a path — a subfolder install — is refused with
+an explanation rather than saved. `DiscourseInstance.url` is both a site's
+identity and its base URL, and the instance store drops any stored entry that
+carries a path, so such a site would connect for the session and vanish at the
+next launch.
+
 Sites are persisted with `shared_preferences`. This includes public site
 metadata and, once connected, the account's public username, name and avatar so
 the rail can render immediately after launch. Credentials never go there.
