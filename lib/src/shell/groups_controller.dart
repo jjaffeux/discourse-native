@@ -456,7 +456,8 @@ final class GroupsController extends FrameSafeNotifier {
         username: query.username,
       );
       _commit(token, () {
-        final rows = more ? [...held.groups] : <Group>[];
+        final current = _directories[key] ?? held;
+        final rows = more ? [...current.groups] : <Group>[];
         final seen = {for (final group in rows) group.id};
         for (final group in page.groups) {
           if (seen.add(group.id)) rows.add(group);
@@ -584,14 +585,24 @@ final class GroupsController extends FrameSafeNotifier {
         filter: filter,
       );
       _commit(token, () {
-        final rows = more ? [...held.members] : <GroupMember>[];
-        final seen = {for (final member in rows) member.id};
+        // The commit must build on the list as it stands now, not the [held]
+        // snapshot: a removal that landed during the request already took
+        // its row out, and the page was assembled before that removal, so
+        // replaying either would put the member back.
+        final current = _members[key] ?? held;
+        final removed = _removedDuringLoad(
+          held.members,
+          current.members,
+          (member) => member.id,
+        );
+        final rows = more ? [...current.members] : <GroupMember>[];
+        final seen = {for (final member in rows) member.id, ...removed};
         for (final member in page.members) {
           if (seen.add(member.id)) rows.add(member);
         }
         _members[key] = GroupMembersState(
           members: List.unmodifiable(rows),
-          total: page.total,
+          total: _totalAfterRemovals(page.total, removed),
           nextOffset: page.nextOffset,
           hasMore: page.hasMore,
           loaded: true,
@@ -654,14 +665,20 @@ final class GroupsController extends FrameSafeNotifier {
         filter: filter,
       );
       _commit(token, () {
-        final rows = more ? [...held.requesters] : <GroupRequester>[];
-        final seen = {for (final requester in rows) requester.id};
+        final current = _requesters[key] ?? held;
+        final removed = _removedDuringLoad(
+          held.requesters,
+          current.requesters,
+          (requester) => requester.id,
+        );
+        final rows = more ? [...current.requesters] : <GroupRequester>[];
+        final seen = {for (final requester in rows) requester.id, ...removed};
         for (final requester in page.requesters) {
           if (seen.add(requester.id)) rows.add(requester);
         }
         _requesters[key] = GroupRequestersState(
           requesters: List.unmodifiable(rows),
-          total: page.total,
+          total: _totalAfterRemovals(page.total, removed),
           nextOffset: page.nextOffset,
           hasMore: page.hasMore,
           loaded: true,
@@ -735,7 +752,8 @@ final class GroupsController extends FrameSafeNotifier {
               before: before,
             );
       _commit(token, () {
-        final rows = more ? [...held.posts] : <GroupActivityPost>[];
+        final current = _activities[key] ?? held;
+        final rows = more ? [...current.posts] : <GroupActivityPost>[];
         final seen = {for (final post in rows) post.id};
         for (final post in page.posts) {
           if (seen.add(post.id)) rows.add(post);
@@ -842,8 +860,9 @@ final class GroupsController extends FrameSafeNotifier {
         offset: more ? held.nextPage : 0,
       );
       _commit(token, () {
+        final current = _logs[key] ?? held;
         _logs[key] = GroupLogsState(
-          logs: List.unmodifiable([if (more) ...held.logs, ...page.logs]),
+          logs: List.unmodifiable([if (more) ...current.logs, ...page.logs]),
           nextPage: (more ? held.nextPage : 0) + 1,
           hasMore: !page.allLoaded,
           loaded: true,
@@ -1308,6 +1327,25 @@ final class GroupsController extends FrameSafeNotifier {
     if (auth == null || auth.apiKey != null) return auth;
     throw StateError('This group page requires a connected account.');
   }
+
+  /// Ids a mutation took out of [heldRows] while a page for the same list
+  /// was in flight. That page was assembled before the mutation, so both its
+  /// rows and its total still count them.
+  static Set<int> _removedDuringLoad<T>(
+    List<T> heldRows,
+    List<T> currentRows,
+    int Function(T row) idOf,
+  ) {
+    if (identical(heldRows, currentRows)) return const {};
+    final currentIds = {for (final row in currentRows) idOf(row)};
+    return {
+      for (final row in heldRows)
+        if (!currentIds.contains(idOf(row))) idOf(row),
+    };
+  }
+
+  static int _totalAfterRemovals(int total, Set<int> removed) =>
+      total > removed.length ? total - removed.length : 0;
 
   void _commit(
     ({Object key, Object token, SiteLease lease}) request,

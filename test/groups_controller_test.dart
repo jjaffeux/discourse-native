@@ -371,6 +371,116 @@ void main() {
     expect(state.groups.map((group) => group.name), ['current']);
     expect(state.totalRows, 1);
   });
+
+  test('a member removed while the next page loads stays removed', () async {
+    final nextPage = Completer<Map<String, dynamic>>();
+    final transport = _ControlledGroupTransport()
+      ..objects.addAll([
+        _completed({
+          'members': [
+            {'id': 1, 'username': 'sam'},
+            {'id': 2, 'username': 'lee'},
+          ],
+          'owners': <Object?>[],
+          'meta': {'total': 3, 'limit': 2, 'offset': 0},
+        }),
+        nextPage,
+        _completed(<String, dynamic>{}),
+      ]);
+    final credentials = FakeApiCredentialReader(clientIdValue: 'native-client')
+      ..keys[_site] = 'secret';
+    final controller = _controller(transport, credentials: credentials);
+    addTearDown(controller.dispose);
+    const group = Group(id: 7, name: 'support');
+
+    await controller.loadMembers(_connectedInstance, group.name);
+    final held = controller.membersState(_site, group.name);
+    expect(held.hasMore, isTrue);
+    final pageLoad = controller.loadMembers(
+      _connectedInstance,
+      group.name,
+      more: true,
+    );
+    await pumpEventQueue();
+    expect(transport.gets, hasLength(2));
+
+    final removed = await controller.removeMember(
+      _connectedInstance,
+      group,
+      held.members.first,
+    );
+    expect(removed, isTrue);
+    expect(
+      controller.membersState(_site, group.name).members.map((m) => m.id),
+      [2],
+    );
+
+    nextPage.complete({
+      'members': [
+        {'id': 1, 'username': 'sam'},
+        {'id': 3, 'username': 'kim'},
+      ],
+      'owners': <Object?>[],
+      'meta': {'total': 3, 'limit': 2, 'offset': 2},
+    });
+    await pageLoad;
+
+    final state = controller.membersState(_site, group.name);
+    expect(state.members.map((member) => member.id), [2, 3]);
+    expect(state.total, 2);
+    expect(state.loadingMore, isFalse);
+  });
+
+  test('a request handled while the next page loads stays handled', () async {
+    final nextPage = Completer<Map<String, dynamic>>();
+    final transport = _ControlledGroupTransport()
+      ..objects.addAll([
+        _completed({
+          'members': [
+            {'id': 1, 'username': 'sam'},
+            {'id': 2, 'username': 'lee'},
+          ],
+          'meta': {'total': 3, 'limit': 2, 'offset': 0},
+        }),
+        nextPage,
+      ]);
+    final credentials = FakeApiCredentialReader(clientIdValue: 'native-client')
+      ..keys[_site] = 'secret';
+    final controller = _controller(transport, credentials: credentials);
+    addTearDown(controller.dispose);
+    const group = Group(id: 7, name: 'support');
+
+    await controller.loadRequesters(_connectedInstance, group.name);
+    final held = controller.requestersState(_site, group.name);
+    expect(held.hasMore, isTrue);
+    final pageLoad = controller.loadRequesters(
+      _connectedInstance,
+      group.name,
+      more: true,
+    );
+    await pumpEventQueue();
+    expect(transport.gets, hasLength(2));
+
+    final handled = await controller.handleRequest(
+      _connectedInstance,
+      group,
+      held.requesters.first,
+      accept: true,
+    );
+    expect(handled, isTrue);
+
+    nextPage.complete({
+      'members': [
+        {'id': 3, 'username': 'kim'},
+      ],
+      'meta': {'total': 3, 'limit': 2, 'offset': 2},
+    });
+    await pageLoad;
+
+    final state = controller.requestersState(_site, group.name);
+    expect(state.requesters.map((requester) => requester.id), [2, 3]);
+    expect(state.total, 2);
+  });
 }
 
 GroupsController _controller(
