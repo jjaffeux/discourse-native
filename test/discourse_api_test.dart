@@ -1005,6 +1005,37 @@ void main() {
       );
     });
 
+    test(
+      'plugin transport keeps a subfolder site\'s prefix on its routes',
+      () async {
+        final requests = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            requests.add(request);
+            return http.Response('{"ok":true}', 200);
+          }),
+        );
+
+        await api.pluginGetJson(
+          siteUrl: 'https://example.com/forum',
+          path: '/voice/rooms.json?limit=20',
+          apiKey: 'secret',
+        );
+        await api.pluginWriteJson(
+          siteUrl: 'https://example.com/forum',
+          path: 'voice/rooms/1.json',
+          method: 'PUT',
+          apiKey: 'secret',
+          body: const {'name': 'Room'},
+        );
+
+        expect(requests.map((request) => request.url), [
+          Uri.parse('https://example.com/forum/voice/rooms.json?limit=20'),
+          Uri.parse('https://example.com/forum/voice/rooms/1.json'),
+        ]);
+      },
+    );
+
     test('authenticated reads reject oversized API responses', () async {
       final api = DiscourseApi(
         client: MockClient((_) async => http.Response('12345', 200)),

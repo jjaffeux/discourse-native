@@ -1524,7 +1524,14 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
 
   static Uri _resolvePluginPath(String siteUrl, String path) {
     final site = Uri.parse(siteUrl);
-    final target = site.resolve(path);
+    // Plugin paths are written from the forum root — `/voice/rooms.json` —
+    // and a forum served from a subfolder keeps that prefix in front of
+    // them, so the site is the directory the path is resolved in. A
+    // scheme-relative path keeps both slashes and fails the origin check.
+    final relative = path.startsWith('//')
+        ? path
+        : path.replaceFirst(RegExp(r'^/'), '');
+    final target = Uri.parse('$siteUrl/').resolve(relative);
     if (target.origin != site.origin) {
       throw ArgumentError.value(
         path,
