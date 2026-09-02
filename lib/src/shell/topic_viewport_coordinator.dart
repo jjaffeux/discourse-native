@@ -1203,18 +1203,14 @@ final class TopicViewportSnapshot {
         ? null
         : controller.topicScrollPostNumber(topicId);
     final hasEarlier = controller.currentTopicHasEarlier;
-    int? initialPostIndex;
-    if (siteUrl != null && target != null) {
-      for (var index = 0; index < postIds.length; index++) {
-        final post = controller.store.read<Post>(siteUrl, postIds[index]);
-        // If the named post has since been deleted, reveal the next visible
-        // one rather than dropping the reader at the start of the window.
-        if (post != null && post.postNumber >= target) {
-          initialPostIndex = index + (hasEarlier ? 1 : 0);
-          break;
-        }
-      }
-    }
+    final initialPostIndex = siteUrl != null && target != null
+        ? controller.initialPostIndexFor(
+            siteUrl,
+            postIds,
+            target,
+            hasEarlier: hasEarlier,
+          )
+        : null;
 
     return TopicViewportSnapshot(
       topicId: controller.currentTopic?.id,
