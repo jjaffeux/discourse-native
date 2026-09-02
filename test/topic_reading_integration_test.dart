@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
 import 'package:discourse_native/src/data/topic_sidebar_store.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
@@ -162,43 +163,67 @@ void _registerTopicReadingTests() {
       );
     });
 
-    testWidgets('a category list prefills its category in the topic composer', (
-      tester,
-    ) async {
-      const categoryPath = '/c/support/5.json';
-      const category = TopicCategory(
-        id: 5,
-        name: 'Support',
-        color: '0088CC',
-        slug: 'support',
-      );
-      final api = FakeDiscourseApi(
-        feeds: const {'/latest.json': [], categoryPath: []},
-        creatableFeedPaths: const {categoryPath},
-        categoryList: const [category],
-      );
-      final authenticator = FakeAuthenticator()
-        ..keys['https://meta.discourse.org'] = 'meta-key';
+    testWidgets(
+      'a category list keeps its off-page category through draft restore',
+      (tester) async {
+        const categoryPath = '/c/discourse-native-app/features/5.json';
+        const parent = TopicCategory(
+          id: 4,
+          name: 'Discourse Native App',
+          color: '553388',
+          slug: 'discourse-native-app',
+        );
+        const category = TopicCategory(
+          id: 5,
+          name: 'Features',
+          color: '0088CC',
+          slug: 'features',
+          parentCategoryId: 4,
+        );
+        final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': [], categoryPath: []},
+          creatableFeedPaths: const {categoryPath},
+          categoryList: const [parent],
+          draftToRestore: const (
+            draft: ComposerDraft(
+              reply: 'Saved draft body',
+              title: 'Saved draft title',
+            ),
+            sequence: 1,
+          ),
+        );
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
 
-      await pumpShell(tester, desktop, api: api, authenticator: authenticator);
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
-      expect(controller.openListUrl('/c/support/5'), isTrue);
-      await tester.pumpAndSettle();
+        await pumpShell(
+          tester,
+          desktop,
+          api: api,
+          authenticator: authenticator,
+        );
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+        controller.openCategory(category);
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(TopicCreateButton.buttonKey));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+        await tester.pumpAndSettle();
 
-      expect(controller.visibleComposer?.categoryId, category.id);
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('composer-category')),
-          matching: find.text(category.name),
-        ),
-        findsOneWidget,
-      );
-    });
+        expect(controller.visibleComposer?.title.text, 'Saved draft title');
+        expect(controller.visibleComposer?.text.text, 'Saved draft body');
+        expect(controller.visibleComposer?.categoryId, category.id);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('composer-category')),
+            matching: find.text(
+              topicCategoryPathLabel(category, parent: parent),
+            ),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
     const inbox = '/topics/private-messages/joffreyj.json';
 
