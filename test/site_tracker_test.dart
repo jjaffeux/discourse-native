@@ -260,6 +260,22 @@ void main() {
         expect(bus.activeSubscriptionCount('/topic/12/status'), 0);
       });
 
+      test('starts each topic channel from its server snapshot', () async {
+        final bus = _FakeMessageBusSession();
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+
+        tracker.watchTopic(
+          12,
+          ['/topic/12', '/topic/12/status'],
+          (_, _) {},
+          lastIds: const {'/topic/12': 144},
+        );
+
+        expect(bus.lastIds['/topic/12'], 144);
+        expect(bus.lastIds['/topic/12/status'], isNull);
+      });
+
       test('suppress callbacks retained by a previous topic', () async {
         final bus = _FakeMessageBusSession();
         final tracker = _tracker(bus);

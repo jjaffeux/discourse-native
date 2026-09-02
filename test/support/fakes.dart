@@ -366,6 +366,7 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
   void deliverReviewableCounts(Object? message) => onReviewableCounts(message);
 
   final List<String> watchedChannels = [];
+  final Map<String, int?> watchedChannelLastIds = {};
 
   @override
   int? watchedTopic;
@@ -376,12 +377,16 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
   void watchTopic(
     int topicId,
     List<String> channels,
-    void Function(String channel, Object? data) onMessage,
-  ) {
+    void Function(String channel, Object? data) onMessage, {
+    Map<String, int?> lastIds = const {},
+  }) {
     if (watchedTopic == topicId) return;
     unwatchTopic();
     watchedTopic = topicId;
     watchedChannels.addAll(channels);
+    for (final channel in channels) {
+      watchedChannelLastIds[channel] = lastIds[channel];
+    }
     _onTopicMessage = onMessage;
   }
 
@@ -389,6 +394,7 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
   void unwatchTopic() {
     watchedTopic = null;
     watchedChannels.clear();
+    watchedChannelLastIds.clear();
     _onTopicMessage = null;
   }
 
@@ -3899,6 +3905,7 @@ class FakeAuthenticator implements Authenticator {
 TopicPayload topicPayload({
   required int id,
   String title = '',
+  int? messageBusLastId,
   List<Post> posts = const [],
   List<int>? stream,
   Map<int, List<int>> gapsBefore = const {},
@@ -3945,6 +3952,7 @@ TopicPayload topicPayload({
   detail: TopicDetail(
     id: id,
     title: title,
+    messageBusLastId: messageBusLastId,
     stream: stream ?? [for (final post in posts) post.id],
     gapsBefore: gapsBefore,
     gapsAfter: gapsAfter,

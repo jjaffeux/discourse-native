@@ -38,6 +38,17 @@ void main() {
     expect(detail(const {}).canEditTags, isFalse);
   });
 
+  test('topic details retain the live-channel position', () {
+    final payload = TopicDetail.parse(const {
+      'id': 7,
+      'title': 'A topic',
+      'message_bus_last_id': 144,
+      'post_stream': {'stream': <int>[], 'posts': <Object?>[]},
+    }, siteUrl);
+
+    expect(payload.detail.messageBusLastId, 144);
+  });
+
   test('user cards retain plugin-owned serializer records', () {
     final enabled = UserCard.fromJson(
       const {'username': 'sam', 'can_chat_user': true},

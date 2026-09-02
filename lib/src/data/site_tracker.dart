@@ -213,8 +213,9 @@ class SiteTracker {
   void watchTopic(
     int topicId,
     List<String> channels,
-    void Function(String channel, Object? data) onMessage,
-  ) {
+    void Function(String channel, Object? data) onMessage, {
+    Map<String, int?> lastIds = const {},
+  }) {
     _ensureActive();
     if (_watchedTopic == topicId) return;
     unwatchTopic();
@@ -226,7 +227,7 @@ class SiteTracker {
           _bus.subscribe(channel, (data, _) {
             if (_disposed || revision != _topicWatchRevision) return;
             onMessage(channel, data);
-          }),
+          }, lastId: lastIds[channel]),
         );
       }
     } catch (_) {
