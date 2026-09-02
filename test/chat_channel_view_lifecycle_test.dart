@@ -424,6 +424,70 @@ void main() {
       expect(store.messageReads, 0);
     });
 
+    testWidgets('a live message does not reproject the held window', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(id: 7, username: 'reader');
+      final api = _ChatApi(
+        user: reader,
+        chatChannelsBySite: {
+          firstSite: ChatChannels(
+            public: [
+              ChatChannel(
+                id: 9,
+                title: 'Chat',
+                kind: ChatChannelKind.category,
+                membership: const ChatMembership(
+                  following: true,
+                  lastReadMessageId: 50,
+                ),
+                lastMessageId: 50,
+                lastMessageAt: DateTime.utc(2026, 1, 1, 0, 50),
+              ),
+            ],
+          ),
+        },
+        openPages: {
+          firstSite: [_messagesPage(1, 50)],
+        },
+      );
+      final store = _CountingStore();
+      final controller = await _controller(
+        api,
+        sites: const [firstSite],
+        store: store,
+        user: reader,
+      );
+      addTearDown(controller.dispose);
+      await controller.chat.loadChannels(firstSite);
+      await controller.chat.openChannel(firstSite, 9);
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+      store.messageReads = 0;
+
+      final tracker = FakeSiteTracker.built.singleWhere(
+        (tracker) => tracker.siteUrl == firstSite,
+      );
+      tracker.deliverPluginMessage('/chat/9/new-messages', {
+        'type': 'channel',
+        'channel_id': 9,
+        'message': {
+          'id': 51,
+          'chat_channel_id': 9,
+          'message': 'hello',
+          'cooked': '<p>hello</p>',
+          'created_at': '2026-01-01T00:51:00.000Z',
+          'user': {'id': 2, 'username': 'sam'},
+        },
+      });
+      await tester.pump();
+
+      expect(controller.chat.stream(firstSite, 9).messageIds.last, 51);
+      // The seam is resolved through the rows' stable refs; a live arrival
+      // never scans the fifty-message window already projected.
+      expect(store.messageReads, 0);
+    });
+
     testWidgets('message skeletons represent paging in either direction', (
       tester,
     ) async {
