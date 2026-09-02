@@ -1994,16 +1994,31 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ShellSelector<
-      ({bool enabled, bool busy, List<Post> selected, int loaded})
+      ({bool enabled, bool busy, List<Post> selected, bool anyLoaded})
     >(
-      select: (controller) => (
-        enabled: controller.topicPostSelectionEnabled(siteUrl, topic.id),
-        busy: controller.topicPostSelectionWriteInFlight(siteUrl, topic.id),
-        selected: controller.selectedTopicPosts(siteUrl, topic.id),
-        loaded: topic.stream
-            .where((id) => controller.store.read<Post>(siteUrl, id) != null)
-            .length,
-      ),
+      // This selector runs on every shell notification for every open
+      // topic. Selection is off almost always, so nothing that walks the
+      // post stream may run before that check, and the walk itself stops at
+      // the first loaded post rather than counting them all.
+      select: (controller) {
+        final enabled = controller.topicPostSelectionEnabled(siteUrl, topic.id);
+        if (!enabled) {
+          return (
+            enabled: false,
+            busy: false,
+            selected: const <Post>[],
+            anyLoaded: false,
+          );
+        }
+        return (
+          enabled: true,
+          busy: controller.topicPostSelectionWriteInFlight(siteUrl, topic.id),
+          selected: controller.selectedTopicPosts(siteUrl, topic.id),
+          anyLoaded: topic.stream.any(
+            (id) => controller.store.read<Post>(siteUrl, id) != null,
+          ),
+        );
+      },
       builder: (context, state, _) {
         if (!state.enabled) return const SizedBox.shrink();
         final controller = ShellScope.read(context);
@@ -2051,7 +2066,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                     const SizedBox(width: 8),
                     TextButton(
                       key: const ValueKey('topic-selected-posts-all'),
-                      onPressed: state.busy || state.loaded == 0
+                      onPressed: state.busy || !state.anyLoaded
                           ? null
                           : () => controller.selectAllLoadedTopicPosts(
                               siteUrl,
