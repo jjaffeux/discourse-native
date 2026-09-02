@@ -127,15 +127,17 @@ class _MainContentBody extends StatelessWidget {
     if (route == null) return ColoredBox(color: theme.shell.content);
     final pluginContent = registry.content(context, route);
     final pluginOwnsChrome = registry.ownsContentChrome(context, route);
-    final contentKey = ValueKey(
-      groupPages.childIdentity ??
-          (
-            siteUrl: state.siteUrl,
-            activeTabId: state.activeTabId,
-            routeId: route.id,
-            postNumber: route.postNumber,
-          ),
-    );
+    final Key contentKey;
+    if (groupPages.childIdentity case final childIdentity?) {
+      contentKey = ValueKey<GroupPagesChildIdentity>(childIdentity);
+    } else {
+      contentKey = ValueKey<(String?, String?, String, int?)>((
+        state.siteUrl,
+        state.activeTabId,
+        route.id,
+        route.postNumber,
+      ));
+    }
 
     return Material(
       color: theme.shell.content,
