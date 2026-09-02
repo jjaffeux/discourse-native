@@ -131,8 +131,18 @@ class UserApiKeyProtocol {
     }
 
     final Uri callback;
+    final String? payload;
     try {
       callback = Uri.parse(callbackUrl);
+      if (callback.scheme != redirectScheme || callback.host != redirectHost) {
+        throw const UserApiAuthException(
+          UserApiAuthFailure.badReply,
+          'unexpected callback URL',
+        );
+      }
+      // Percent-escapes are decoded when the query is read, not when the URL
+      // is parsed, so an undecodable one fails here.
+      payload = callback.queryParameters['payload'];
     } on FormatException catch (error) {
       throw UserApiAuthException(
         UserApiAuthFailure.badReply,
@@ -140,14 +150,6 @@ class UserApiKeyProtocol {
       );
     }
 
-    if (callback.scheme != redirectScheme || callback.host != redirectHost) {
-      throw const UserApiAuthException(
-        UserApiAuthFailure.badReply,
-        'unexpected callback URL',
-      );
-    }
-
-    final payload = callback.queryParameters['payload'];
     if (payload == null || payload.isEmpty) {
       throw const UserApiAuthException(
         UserApiAuthFailure.badReply,
