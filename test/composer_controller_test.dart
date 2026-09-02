@@ -76,6 +76,76 @@ void main() {
     expect(composer.hasChanges, isTrue);
   });
 
+  testWidgets('text typed after an unresolved submit is still drafted', (
+    tester,
+  ) async {
+    final saves = <ComposerDraftSave>[];
+    final composer = ComposerController(
+      _target,
+      onSaveDraft: (save) async {
+        saves.add(save);
+        return save.sequence + 1;
+      },
+    );
+    addTearDown(composer.dispose);
+
+    composer.text.text = 'Sent once.';
+    await tester.pump(ComposerController.draftDebounce);
+    await tester.pump();
+    expect(saves, hasLength(1));
+
+    // While the submit is out the site may be turning this draft into a post;
+    // a save now would race the site clearing it.
+    composer.beginSubmit();
+    composer.text.text = 'Sent once. Typed while it was out.';
+    await tester.pump(ComposerController.draftDebounce);
+    await tester.pump();
+    expect(saves, hasLength(1));
+
+    composer.unresolved();
+    composer.text.text = 'Sent once. Typed while it was out. And after.';
+    await tester.pump(ComposerController.draftDebounce);
+    await tester.pump();
+
+    expect(saves, hasLength(2));
+    expect(saves.last.draft.reply, endsWith('And after.'));
+    expect(composer.draftPersistencePending, isFalse);
+  });
+
+  testWidgets('retargeting a reply records the new target in its draft', (
+    tester,
+  ) async {
+    final saves = <ComposerDraftSave>[];
+    final composer = ComposerController(
+      _target,
+      onSaveDraft: (save) async {
+        saves.add(save);
+        return save.sequence + 1;
+      },
+    );
+    addTearDown(composer.dispose);
+
+    composer.text.text = 'A reply.';
+    await tester.pump(ComposerController.draftDebounce);
+    await tester.pump();
+    expect(saves.single.draft.replyToPostNumber, isNull);
+
+    final revision = composer.draftRevision;
+    composer.retarget(replyToPostNumber: 9, replyToUsername: 'nine');
+    expect(composer.draftRevision, greaterThan(revision));
+    await tester.pump(ComposerController.draftDebounce);
+    await tester.pump();
+
+    expect(saves, hasLength(2));
+    expect(saves.last.draft.replyToPostNumber, 9);
+
+    // The same target again is not a change worth a save.
+    composer.retarget(replyToPostNumber: 9, replyToUsername: 'nine');
+    await tester.pump(ComposerController.draftDebounce);
+    await tester.pump();
+    expect(saves, hasLength(2));
+  });
+
   test('a reply is not retargeted while its submit is out', () {
     final composer = ComposerController(_target);
     addTearDown(composer.dispose);
