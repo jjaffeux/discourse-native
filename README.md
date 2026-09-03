@@ -2398,6 +2398,9 @@ Accounts whose current-user guardian permits topic creation get a **New Topic**
 action immediately below **Messages** in the forum sidebar. The action is
 omitted when the account cannot post. It opens the composer without replacing
 the route on screen; on compact layouts it also reveals the content pane.
+It reuses loaded categories and composer settings. If a metadata request fails,
+the composer still opens with the available data and retries the missing
+metadata the next time it opens.
 
 Three ways to show something, and they are not interchangeable:
 

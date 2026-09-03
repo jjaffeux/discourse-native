@@ -5979,42 +5979,24 @@ class ShellController extends FrameSafeNotifier
         : feedId;
 
     final lease = lifecycle.capture(instance.url);
-    var capabilities = _topicComposerCapabilities[instance.url];
-    var categories = _categoriesBySite[instance.url];
-    String? apiKey;
-    if (capabilities == null || categories == null) {
-      final credential = await _credentialForWrite(instance.url);
-      if (!lease.isCurrent || currentFeedId != feedId || activeTabId != tabId) {
-        return;
-      }
-      if (credential.failure != null) return;
-      apiKey = credential.apiKey!;
-      try {
-        final results = await Future.wait<Object>([
-          api.topicComposerQueries.topicComposerCapabilities(
-            siteUrl: instance.url,
-            apiKey: apiKey,
-          ),
-          api.categories.categories(siteUrl: instance.url, apiKey: apiKey),
-        ]);
-        capabilities = results[0] as TopicComposerCapabilities;
-        categories = results[1] as List<TopicCategory>;
-      } catch (error, stackTrace) {
-        if (lease.isCurrent) {
-          _reportOperationalError(
-            error,
-            stackTrace,
-            'composer.topicCapabilities',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
-        return;
-      }
+    if (!_topicComposerCapabilities.containsKey(instance.url) ||
+        !_categorised.contains(instance.url)) {
+      // These lookups enrich the composer; a temporary metadata failure must
+      // not prevent an account that can post from opening it. The loaders keep
+      // successful results and leave failures retryable on the next open.
+      await Future.wait<void>([
+        if (!_topicComposerCapabilities.containsKey(instance.url))
+          _ensureTopicComposerCapabilities(instance.url),
+        if (!_categorised.contains(instance.url)) loadCategories(instance.url),
+      ]);
     }
     if (!lease.isCurrent || currentFeedId != feedId || activeTabId != tabId) {
       return;
     }
 
+    final capabilities = topicComposerCapabilities(instance.url);
+    var categories = topicComposerCategories(instance.url);
+    String? apiKey;
     final path = route.feedPath;
     final link = path == null
         ? null
@@ -6022,15 +6004,11 @@ class ShellController extends FrameSafeNotifier
     final categoryId = canCreateTopicHere ? route.categoryId : null;
     var selectedCategory = categoryFor(categoryId, siteUrl: instance.url);
     if (categoryId != null && selectedCategory == null) {
-      if (apiKey == null) {
-        final credential = await _credentialForWrite(instance.url);
-        if (!lease.isCurrent ||
-            currentFeedId != feedId ||
-            activeTabId != tabId) {
-          return;
-        }
-        apiKey = credential.apiKey;
+      final credential = await _credentialForWrite(instance.url);
+      if (!lease.isCurrent || currentFeedId != feedId || activeTabId != tabId) {
+        return;
       }
+      apiKey = credential.apiKey;
       if (apiKey != null) {
         try {
           final found = await api.categories.findCategories(
@@ -6107,9 +6085,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    _categoriesBySite[instance.url] = List.unmodifiable(categories);
-    _topicComposerCapabilities[instance.url] = capabilities;
-    store.putAll(instance.url, categories);
+    if (categories.isNotEmpty) _mergeCategories(instance.url, categories);
     if (!_replaceComposer()) return;
     final target = ComposerTarget(
       siteUrl: instance.url,
