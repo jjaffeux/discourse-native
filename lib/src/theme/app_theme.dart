@@ -642,6 +642,11 @@ abstract final class AppTheme {
         thickness: 1,
         space: 1,
       ),
+      cardTheme: CardThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(borderRadius),
+        ),
+      ),
       popupMenuTheme: PopupMenuThemeData(
         color: shell.floating,
         shape: menuShape,
