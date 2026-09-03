@@ -36,6 +36,8 @@ final class AssignShellService implements PluginLinkHandler {
   }
 
   void openTopic(Topic topic) {
+    final siteUrl = _host.currentSite?.url;
+    if (siteUrl == null) return;
     _host.pushContent(
       ContentRoute.topic(
         topicId: topic.id,
@@ -43,6 +45,11 @@ final class AssignShellService implements PluginLinkHandler {
         title: topic.title,
         postNumber: topic.lastUnreadPostNumber,
       ),
+    );
+    _host.openTopicPost(
+      siteUrl: siteUrl,
+      topicId: topic.id,
+      postNumber: topic.lastUnreadPostNumber ?? 1,
     );
   }
 
