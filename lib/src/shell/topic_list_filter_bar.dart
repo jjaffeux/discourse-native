@@ -112,14 +112,17 @@ class TopicListFilterBar extends StatelessWidget {
                     ],
                     if (hasFilters) ...[
                       const SizedBox(width: 4),
-                      DButton(
-                        key: const ValueKey('topic-list-filter-reset'),
-                        label: const Text('Reset'),
-                        icon: const DIcon(DIcons.arrowsRotate, size: 14),
-                        semanticLabel: 'Reset topic filters',
-                        onPressed: onReset,
-                        variant: DButtonVariant.flat,
-                        size: DButtonSize.small,
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 40),
+                        child: DButton(
+                          key: const ValueKey('topic-list-filter-reset'),
+                          label: const Text('Reset'),
+                          icon: const DIcon(DIcons.arrowsRotate, size: 14),
+                          semanticLabel: 'Reset topic filters',
+                          onPressed: onReset,
+                          variant: DButtonVariant.flat,
+                          size: DButtonSize.small,
+                        ),
                       ),
                     ],
                   ],
