@@ -76,6 +76,7 @@ dependencies:
   # sees an ImageProvider and a page index. Replacing it is a one-file job.
   photo_view: ^0.15.0
   super_sliver_list: ^0.4.1
+  flutter_staggered_grid_view: ^0.7.0
   # message_bus is the transport every live update on a Discourse rides on, so
   # anything that has to change without being asked — the incoming-topics
   # banner today, presence and post streams later — goes through this. See

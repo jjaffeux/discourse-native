@@ -24,7 +24,153 @@ const _moderators = Group(
   isGroupOwner: true,
 );
 
+const _weeklyFocus = Group(
+  id: 3,
+  name: 'weekly-focus-dev',
+  fullName: 'Dev Weekly Focus Roster',
+  userCount: 3,
+  bioExcerpt:
+      'Used in the Dev Weekly Focus automation to automatically assign '
+      'managers to write a new post.',
+  isGroupOwner: true,
+);
+
+const _design = Group(id: 4, name: 'design', userCount: 8);
+
 void main() {
+  for (final (width, columns, platform) in [
+    (390.0, 1, TargetPlatform.macOS),
+    (700.0, 2, TargetPlatform.macOS),
+    (1100.0, 2, TargetPlatform.macOS),
+    (1100.0, 3, TargetPlatform.android),
+  ]) {
+    testWidgets(
+      'cards fit their content in $columns masonry columns at width $width',
+      (tester) async {
+        const groups = [_weeklyFocus, _design, _support, _moderators];
+        Group? opened;
+        await _pump(
+          tester,
+          GroupsPage(
+            siteUrl: 'https://meta.discourse.org',
+            data: const GroupsPageData(groups: groups, loaded: true),
+            onOpenGroup: (group) => opened = group,
+          ),
+          size: Size(width, 1000),
+        );
+
+        final cards = [
+          for (final group in groups)
+            tester.getRect(find.byKey(ValueKey('group-card-${group.name}'))),
+        ];
+        expect(cards[0].height, greaterThan(cards[1].height));
+        for (var i = 0; i < cards.length; i++) {
+          expect(cards[i].width, cards[0].width);
+          for (var j = i + 1; j < cards.length; j++) {
+            expect(cards[i].overlaps(cards[j]), isFalse);
+          }
+        }
+
+        if (columns == 1) {
+          expect(cards[1].left, cards[0].left);
+          expect(cards[1].top, closeTo(cards[0].bottom + 12, 0.01));
+        } else {
+          expect(cards[1].top, cards[0].top);
+          expect(cards[1].left, greaterThan(cards[0].right));
+          expect(cards[columns].left, cards[1].left);
+          expect(cards[columns].top, closeTo(cards[1].bottom + 12, 0.01));
+          expect(cards[columns].top, lessThan(cards[0].bottom + 12));
+        }
+
+        final description = tester.getRect(find.text(_weeklyFocus.bioExcerpt!));
+        final members = tester.getRect(find.text('3 members'));
+        expect(members.top - description.bottom, greaterThanOrEqualTo(16));
+        expect(find.text('No group description.'), findsNothing);
+        await tester.tap(
+          find.byKey(const ValueKey('group-card-weekly-focus-dev')),
+        );
+        expect(opened, same(_weeklyFocus));
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
+
+  testWidgets(
+    'masonry supports scrolling, pagination, resizing, and filtering',
+    (tester) async {
+      final groups = [
+        for (var i = 0; i < 80; i++)
+          Group(
+            id: i,
+            name: 'group-$i',
+            userCount: i,
+            bioExcerpt: i.isEven ? _weeklyFocus.bioExcerpt : null,
+          ),
+      ];
+      var data = GroupsPageData(
+        groups: groups.take(60).toList(),
+        loaded: true,
+        hasMore: true,
+      );
+      var loadMore = 0;
+      Group? opened;
+      late StateSetter update;
+      await _pump(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return GroupsPage(
+              siteUrl: 'https://meta.discourse.org',
+              data: data,
+              onLoadMore: () => loadMore++,
+              onOpenGroup: (group) => opened = group,
+            );
+          },
+        ),
+        size: const Size(700, 760),
+      );
+      final scrollable = find
+          .descendant(
+            of: find.byType(CustomScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+
+      expect(find.byKey(const ValueKey('group-card-group-59')), findsNothing);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('group-card-group-59')),
+        500,
+        scrollable: scrollable,
+        maxScrolls: 50,
+      );
+      expect(loadMore, greaterThan(0));
+
+      update(() => data = GroupsPageData(groups: groups, loaded: true));
+      await tester.pump();
+      tester.view.physicalSize = const Size(390, 760);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('group-card-group-79')),
+        500,
+        scrollable: scrollable,
+        maxScrolls: 50,
+      );
+      await tester.tap(find.byKey(const ValueKey('group-card-group-79')));
+      expect(opened, same(groups.last));
+
+      tester.view.physicalSize = const Size(1100, 760);
+      await tester.pumpAndSettle();
+      update(() {
+        data = GroupsPageData(groups: [groups.last], loaded: true);
+      });
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('group-card-group-79')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('directory exposes new group and type dropdown', (tester) async {
     String? search;
     String? type = 'unset';
