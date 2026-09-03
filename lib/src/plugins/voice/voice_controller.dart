@@ -116,6 +116,11 @@ final class _VoiceChatAssociation {
   VoiceChatSession session;
   ChatConversation? conversation;
   VoidCallback? conversationListener;
+
+  /// The room's chat channel, watched while the panel is open: the server
+  /// publishes a content-free "updated" there when the session's thread
+  /// changes (someone's first message opened it, or it rolled over).
+  PluginLiveChannelSubscription? liveUpdates;
   bool visible = false;
   bool loading = false;
   bool sending = false;
@@ -768,6 +773,9 @@ final class VoiceController extends ChangeNotifier {
   void _cancelTrackerSubscriptions(String siteUrl) {
     _directorySubscriptions.remove(siteUrl)?.cancel();
     _ringSubscriptions.remove(siteUrl)?.cancel();
+    for (final entry in _chats.entries) {
+      if (entry.key.startsWith('$siteUrl#')) _unwatchChatUpdates(entry.value);
+    }
     if (_incomingCall?.siteUrl == siteUrl) _clearIncomingCall();
     for (final subscription
         in _roomSubscriptions.remove(siteUrl)?.values ??
@@ -838,6 +846,12 @@ final class VoiceController extends ChangeNotifier {
         lastId: cursors.roomCursor(room.id, room.messageBusLastId),
       );
       changed = true;
+    }
+    for (final entry in _chats.entries) {
+      if (!entry.key.startsWith('$siteUrl#') || !entry.value.visible) continue;
+      final roomId = int.tryParse(entry.key.substring(siteUrl.length + 1));
+      if (roomId == null) continue;
+      _watchChatUpdates(siteUrl, roomId, entry.key, entry.value);
     }
     if (!changed) return;
     _record(
@@ -3114,6 +3128,7 @@ final class VoiceController extends ChangeNotifier {
     state
       ..visible = false
       ..loading = false;
+    _unwatchChatUpdates(state);
     _closeChatConversation(state);
     if (!_disposed) notifyListeners();
   }
@@ -3150,6 +3165,10 @@ final class VoiceController extends ChangeNotifier {
       );
       if (!isCurrent()) return;
       state.session = session;
+      // Watched only once the session has been read: a change published
+      // before that is reflected in the read itself, and a panel whose site
+      // was forgotten mid-read must not leave a subscription behind.
+      _watchChatUpdates(siteUrl, roomId, key, state);
       final conversation = _bindChatConversation(siteUrl, key, state);
       if (conversation != null) await conversation.refresh(force: force);
     } catch (error, stackTrace) {
@@ -3162,6 +3181,80 @@ final class VoiceController extends ChangeNotifier {
         state.loading = false;
         notifyListeners();
       }
+    }
+  }
+
+  void _watchChatUpdates(
+    String siteUrl,
+    int roomId,
+    String key,
+    _VoiceChatAssociation state,
+  ) {
+    if (state.liveUpdates != null) return;
+    final tracker = _trackerFor(siteUrl);
+    if (tracker == null) return;
+    state.liveUpdates = tracker.subscribe('/voice/rooms/$roomId/chat', (
+      data,
+      _,
+    ) {
+      if (_disposed || !state.visible || !identical(_chats[key], state)) {
+        return;
+      }
+      if (data is Map && data['type'] == 'updated') {
+        _observe(
+          () => _refreshChatSession(siteUrl, roomId),
+          'voice.chat.refresh',
+        );
+      }
+    });
+  }
+
+  void _unwatchChatUpdates(_VoiceChatAssociation state) {
+    state.liveUpdates?.cancel();
+    state.liveUpdates = null;
+  }
+
+  /// The panel is open and the server said the session changed: re-read it
+  /// through the chat_session endpoint (which re-checks this user's access)
+  /// and follow the thread it names now. Deliberately not [_openChat]: no
+  /// loading state, so the panel does not blink on every rollover.
+  Future<void> _refreshChatSession(String siteUrl, int roomId) async {
+    final key = '$siteUrl#$roomId';
+    final state = _chats[key];
+    if (state == null || !state.visible) return;
+    final siteSession = _siteSession(siteUrl);
+    final request = Object();
+    _chatRequests[key] = request;
+    bool isCurrent() =>
+        _isCurrentSiteSession(siteUrl, siteSession) &&
+        identical(_chatRequests[key], request) &&
+        identical(_chats[key], state) &&
+        state.visible;
+    try {
+      final credentials = await _requestCredentials(
+        siteUrl,
+        ifCurrent: isCurrent,
+      );
+      if (credentials == null) return;
+      final session = await api.chatSession(
+        siteUrl: siteUrl,
+        roomId: roomId,
+        apiKey: credentials.apiKey,
+      );
+      if (!isCurrent()) return;
+      final changed =
+          session.channelId != state.session.channelId ||
+          session.threadId != state.session.threadId;
+      state.session = session;
+      final conversation = _bindChatConversation(siteUrl, key, state);
+      if (conversation != null && changed) {
+        await conversation.refresh(force: true);
+      }
+      if (isCurrent()) notifyListeners();
+    } catch (error, stackTrace) {
+      if (isCurrent()) _report(error, stackTrace, 'voice.chat.refresh');
+    } finally {
+      if (identical(_chatRequests[key], request)) _chatRequests.remove(key);
     }
   }
 
@@ -3331,7 +3424,10 @@ final class VoiceController extends ChangeNotifier {
     final key = '$siteUrl#$roomId';
     _chatRequests.remove(key);
     final state = _chats.remove(key);
-    if (state != null) _closeChatConversation(state);
+    if (state != null) {
+      _unwatchChatUpdates(state);
+      _closeChatConversation(state);
+    }
   }
 
   void _pruneChatAssociations(String siteUrl, Set<int> roomIds) {
@@ -3344,7 +3440,10 @@ final class VoiceController extends ChangeNotifier {
       if (roomId != null && roomIds.contains(roomId)) continue;
       _chatRequests.remove(key);
       final state = _chats.remove(key);
-      if (state != null) _closeChatConversation(state);
+      if (state != null) {
+        _unwatchChatUpdates(state);
+        _closeChatConversation(state);
+      }
     }
   }
 
@@ -3798,6 +3897,7 @@ final class VoiceController extends ChangeNotifier {
       return true;
     });
     for (final state in forgottenChats) {
+      _unwatchChatUpdates(state);
       _closeChatConversation(state);
     }
     _cancelTrackerSubscriptions(siteUrl);
@@ -4042,6 +4142,7 @@ final class VoiceController extends ChangeNotifier {
     _pendingInviteRefs.clear();
     _attachedTrackers.clear();
     for (final state in _chats.values) {
+      _unwatchChatUpdates(state);
       _closeChatConversation(state);
     }
     _chats.clear();

@@ -4812,4 +4812,69 @@ void main() {
       );
     });
   });
+
+  group('room Chat live session', () {
+    test('follows the thread the server rolls the session over to', () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.openChat(firstSite, 7);
+      expect(firstTracker.subscriberCount('/voice/rooms/7/chat'), 1);
+      expect(controller.chat(firstSite, 7)?.session.threadId, 99);
+      final readsBefore = transport.reads
+          .where((read) => read.path.endsWith('/chat_session.json'))
+          .length;
+
+      transport.responses['GET /voice/rooms/7/chat_session.json'] = {
+        'channel_id': 42,
+        'thread_id': 100,
+      };
+      firstTracker.deliver('/voice/rooms/7/chat', {'type': 'updated'});
+      await pumpEventQueue();
+
+      expect(controller.chat(firstSite, 7)?.session.threadId, 100);
+      expect(
+        transport.reads
+            .where((read) => read.path.endsWith('/chat_session.json'))
+            .length,
+        readsBefore + 1,
+      );
+      expect(
+        chatConversations.opened.map((key) => key.threadId),
+        containsAll([99, 100]),
+      );
+      expect(controller.chat(firstSite, 7)?.loading, isFalse);
+
+      firstTracker.deliver('/voice/rooms/7/chat', {'type': 'noise'});
+      await pumpEventQueue();
+      expect(
+        transport.reads
+            .where((read) => read.path.endsWith('/chat_session.json'))
+            .length,
+        readsBefore + 1,
+      );
+    });
+
+    test('stops watching when the panel closes', () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.openChat(firstSite, 7);
+
+      controller.closeChat(firstSite, 7);
+
+      expect(firstTracker.subscriberCount('/voice/rooms/7/chat'), 0);
+      final readsBefore = transport.reads.length;
+      firstTracker.deliver('/voice/rooms/7/chat', {'type': 'updated'});
+      await pumpEventQueue();
+      expect(transport.reads.length, readsBefore);
+    });
+
+    test('moves the watch to a replacement tracker', () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.openChat(firstSite, 7);
+      final replacement = tracker(firstSite);
+
+      controller.attachTracker(firstSite, replacement);
+
+      expect(firstTracker.subscriberCount('/voice/rooms/7/chat'), 0);
+      expect(replacement.subscriberCount('/voice/rooms/7/chat'), 1);
+    });
+  });
 }
