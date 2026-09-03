@@ -1653,6 +1653,16 @@ void _registerShellNavigationTests() {
     );
     expect(parentBreadcrumb, findsOneWidget);
     expect(find.bySemanticsLabel('Parent category: Parent'), findsOneWidget);
+    final categoryTitle = find.byKey(
+      const ValueKey('content-header-category-title'),
+    );
+    expect(categoryTitle, findsOneWidget);
+    expect(
+      (tester.getCenter(parentBreadcrumb).dy -
+              tester.getCenter(categoryTitle).dy)
+          .abs(),
+      lessThan(1),
+    );
     expect(
       find.descendant(
         of: find.byType(TopicListView),

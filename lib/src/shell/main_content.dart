@@ -556,13 +556,20 @@ class _CategoryHeaderIdentity extends StatelessWidget {
       );
     },
     builder: (context, parent, _) {
+      if (parent == null) {
+        return _CategoryHeaderTitle(
+          route: route,
+          trailing: trailing,
+          titleAction: titleAction,
+        );
+      }
+
       final controller = ShellScope.read(context);
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      final theme = Theme.of(context);
+      return Row(
         children: [
-          if (parent != null)
-            LinkTarget(
+          Flexible(
+            child: LinkTarget(
               url: '/c/${parent.id}',
               title: parent.name,
               siteUrl: siteUrl,
@@ -572,45 +579,41 @@ class _CategoryHeaderIdentity extends StatelessWidget {
                 semanticLabel: 'Parent category: ${parent.name}',
                 excludeChildSemantics: true,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 20),
+                  constraints: const BoxConstraints(minHeight: 32),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: Color(parent.colorValue),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(width: 5),
                       Flexible(
                         child: Text(
                           parent.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 4),
                       DIcon(
                         DIcons.chevronRight,
-                        size: 11,
-                        color: Theme.of(context).colorScheme.primary,
+                        size: 12,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ],
                   ),
                 ),
               ),
             ),
-          _CategoryHeaderTitle(
-            route: route,
-            trailing: trailing,
-            titleAction: titleAction,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            flex: 2,
+            child: _CategoryHeaderTitle(
+              route: route,
+              trailing: trailing,
+              titleAction: titleAction,
+            ),
           ),
         ],
       );
@@ -638,6 +641,7 @@ class _CategoryHeaderTitle extends StatelessWidget {
           fit: FlexFit.loose,
           child: Text(
             route.title,
+            key: const ValueKey('content-header-category-title'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleSmall?.copyWith(
