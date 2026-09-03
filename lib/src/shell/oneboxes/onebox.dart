@@ -372,6 +372,7 @@ class _Thumbnail extends StatelessWidget {
         siteUrl: siteUrl,
         fit: BoxFit.cover,
         cacheWidth: imagePhysicalPixels(context, width),
+        gifPlaybackControls: true,
         errorBuilder: (context, error, stackTrace) {
           reportImageError(error, stackTrace, operation: 'onebox.thumbnail');
           return const SizedBox();

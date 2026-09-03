@@ -1418,6 +1418,10 @@ void main() {
         expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
         expect(find.byKey(const ValueKey('chat-preview-gif')), findsOneWidget);
         expect(
+          find.byKey(const ValueKey('gif-playback-toggle')),
+          findsOneWidget,
+        );
+        expect(
           tester.getSize(find.byKey(const ValueKey('chat-preview-gif'))).height,
           150,
         );

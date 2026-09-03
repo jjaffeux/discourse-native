@@ -120,6 +120,7 @@ class _Image extends StatelessWidget {
       fit: BoxFit.contain,
       width: double.infinity,
       cacheWidth: imagePhysicalPixels(context, width),
+      gifPlaybackControls: true,
       errorBuilder: (context, error, stackTrace) {
         reportImageError(error, stackTrace, operation: 'chat.image');
         return UnavailableImage(color: theme.shell.placeholder);
@@ -131,22 +132,22 @@ class _Image extends StatelessWidget {
     }
 
     return Semantics(
+      container: true,
+      explicitChildNodes: true,
       button: true,
       label: 'Open image: ${upload.originalFilename}',
       onTap: open,
-      child: ExcludeSemantics(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: width,
-            maxHeight: ChatUploads.maxHeight,
-          ),
-          child: Material(
-            color: _placeholder ?? theme.shell.floating,
-            child: InkWell(
-              hoverColor: Colors.transparent,
-              onTap: open,
-              child: picture,
-            ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: width,
+          maxHeight: ChatUploads.maxHeight,
+        ),
+        child: Material(
+          color: _placeholder ?? theme.shell.floating,
+          child: InkWell(
+            hoverColor: Colors.transparent,
+            onTap: open,
+            child: picture,
           ),
         ),
       ),

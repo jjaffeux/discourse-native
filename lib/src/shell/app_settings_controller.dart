@@ -11,6 +11,7 @@ final class AppSettingsController extends FrameSafeNotifier {
   AppSettings _settings = AppSettings.defaults;
   AppSettings get settings => _settings;
   ContentAlignment get contentAlignment => _settings.contentAlignment;
+  bool get disableGifAnimations => _settings.disableGifAnimations;
 
   bool _loaded = false;
   bool get loaded => _loaded;
@@ -48,6 +49,18 @@ final class AppSettingsController extends FrameSafeNotifier {
 
     _mutationRevision++;
     _settings = _settings.copyWith(contentAlignment: alignment);
+    _loaded = true;
+    notifySafely();
+    return store.write(_settings);
+  }
+
+  Future<void> setDisableGifAnimations(bool disabled) {
+    if (isDisposed || (_loaded && disabled == disableGifAnimations)) {
+      return Future<void>.value();
+    }
+
+    _mutationRevision++;
+    _settings = _settings.copyWith(disableGifAnimations: disabled);
     _loaded = true;
     notifySafely();
     return store.write(_settings);

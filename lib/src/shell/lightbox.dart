@@ -289,34 +289,35 @@ class LightboxTile extends StatelessWidget {
         void activate() => open(context);
 
         return Semantics(
+          container: true,
+          explicitChildNodes: true,
           button: true,
           label: label,
           onTap: activate,
-          child: ExcludeSemantics(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  onTap: activate,
-                  child: Hero(
-                    tag: image.heroTag,
-                    child: SiteImage(
-                      url: image.thumbnailSrc ?? image.fullSrc,
-                      siteUrl: siteUrl,
-                      fit: fit,
-                      width: double.infinity,
-                      height: fillsBox ? double.infinity : null,
-                      cacheWidth: cacheWidth,
-                      errorBuilder: (context, error, stackTrace) {
-                        reportImageError(
-                          error,
-                          stackTrace,
-                          operation: 'lightbox.thumbnail',
-                        );
-                        return UnavailableImage(color: theme.shell.placeholder);
-                      },
-                    ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: activate,
+                child: Hero(
+                  tag: image.heroTag,
+                  child: SiteImage(
+                    url: image.thumbnailSrc ?? image.fullSrc,
+                    siteUrl: siteUrl,
+                    fit: fit,
+                    width: double.infinity,
+                    height: fillsBox ? double.infinity : null,
+                    cacheWidth: cacheWidth,
+                    gifPlaybackControls: true,
+                    errorBuilder: (context, error, stackTrace) {
+                      reportImageError(
+                        error,
+                        stackTrace,
+                        operation: 'lightbox.thumbnail',
+                      );
+                      return UnavailableImage(color: theme.shell.placeholder);
+                    },
                   ),
                 ),
               ),
@@ -744,41 +745,41 @@ class _LightboxGalleryState extends State<LightboxGallery> {
               onTapUp: (context, details, value) =>
                   setState(() => _chromeVisible = !_chromeVisible),
               child: Semantics(
+                container: true,
+                explicitChildNodes: true,
                 image: true,
                 label:
                     widget.images[index].description ??
                     widget.images[index].title,
-                child: ExcludeSemantics(
-                  child: SiteImage(
-                    url: widget.images[index].fullSrc,
-                    siteUrl: widget.siteUrl,
-                    fit: BoxFit.contain,
-                    width: double.infinity,
-                    height: double.infinity,
-                    excludeFromSemantics: true,
-                    onNaturalSize: (size) =>
-                        _rememberFullImageSize(index, size),
-                    loadingBuilder: (context) => const Center(
-                      child: SizedBox.square(
-                        dimension: 24,
-                        child: AdaptiveActivityIndicator(
-                          color: Colors.white,
-                          cupertinoRadius: 12,
-                          materialStrokeWidth: 2,
-                        ),
+                child: SiteImage(
+                  url: widget.images[index].fullSrc,
+                  siteUrl: widget.siteUrl,
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                  height: double.infinity,
+                  excludeFromSemantics: true,
+                  gifPlaybackControls: true,
+                  onNaturalSize: (size) => _rememberFullImageSize(index, size),
+                  loadingBuilder: (context) => const Center(
+                    child: SizedBox.square(
+                      dimension: 24,
+                      child: AdaptiveActivityIndicator(
+                        color: Colors.white,
+                        cupertinoRadius: 12,
+                        materialStrokeWidth: 2,
                       ),
                     ),
-                    errorBuilder: (context, error, stackTrace) {
-                      reportImageError(
-                        error,
-                        stackTrace,
-                        operation: 'lightbox.fullImage',
-                      );
-                      return const Center(
-                        child: UnavailableImage(color: Colors.white54),
-                      );
-                    },
                   ),
+                  errorBuilder: (context, error, stackTrace) {
+                    reportImageError(
+                      error,
+                      stackTrace,
+                      operation: 'lightbox.fullImage',
+                    );
+                    return const Center(
+                      child: UnavailableImage(color: Colors.white54),
+                    );
+                  },
                 ),
               ),
             ),

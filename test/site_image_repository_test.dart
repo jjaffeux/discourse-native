@@ -39,6 +39,7 @@ void main() {
     final image = await repository.load(siteUrl: siteUrl, url: secureUrl);
 
     expect(image?.bytes, orderedEquals([1, 2, 3]));
+    expect(image?.isAnimated, isFalse);
     expect(requests, hasLength(2));
     expect(requests.first.followRedirects, isFalse);
     expect(requests.first.headers['User-Api-Key'], 'account-key');
@@ -46,6 +47,57 @@ void main() {
     expect(requests.last.url.host, 'objects.example');
     expect(requests.last.headers, isNot(contains('User-Api-Key')));
     expect(requests.last.headers, isNot(contains('User-Api-Client-Id')));
+  });
+
+  test('recognizes animated image responses', () async {
+    final repository = SiteImageRepository(
+      credentials: FakeApiCredentialReader(),
+      lifecycle: SiteLifecycle(),
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('typed')) {
+          return http.Response.bytes(
+            [1],
+            200,
+            headers: {'content-type': 'image/gif; charset=binary'},
+          );
+        }
+        if (request.url.path.endsWith('signed')) {
+          return http.Response.bytes('GIF89a'.codeUnits, 200);
+        }
+        return http.Response.bytes([
+          ...'RIFF'.codeUnits,
+          13,
+          0,
+          0,
+          0,
+          ...'WEBP'.codeUnits,
+          ...'VP8X'.codeUnits,
+          1,
+          0,
+          0,
+          0,
+          0x02,
+        ], 200);
+      }),
+    );
+    addTearDown(repository.dispose);
+
+    final typed = await repository.load(
+      siteUrl: siteUrl,
+      url: '$siteUrl/typed',
+    );
+    final signed = await repository.load(
+      siteUrl: siteUrl,
+      url: '$siteUrl/signed',
+    );
+    final webp = await repository.load(
+      siteUrl: siteUrl,
+      url: '$siteUrl/animated-webp',
+    );
+
+    expect(typed?.isAnimated, isTrue);
+    expect(signed?.isAnimated, isTrue);
+    expect(webp?.isAnimated, isTrue);
   });
 
   test('does not attach forum credentials to an external image', () async {

@@ -36,11 +36,31 @@ class AppSettingsPage extends StatelessWidget {
                     constraints: const BoxConstraints(maxWidth: 720),
                     child: ListenableBuilder(
                       listenable: appSettings,
-                      builder: (context, _) => _ContentAlignmentSetting(
-                        alignment: appSettings.contentAlignment,
-                        onChanged: (alignment) => unawaited(
-                          appSettings.setContentAlignment(alignment),
-                        ),
+                      builder: (context, _) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _ContentAlignmentSetting(
+                            alignment: appSettings.contentAlignment,
+                            onChanged: (alignment) => unawaited(
+                              appSettings.setContentAlignment(alignment),
+                            ),
+                          ),
+                          const SizedBox(height: 36),
+                          SwitchListTile.adaptive(
+                            key: const ValueKey(
+                              'disable-gif-animations-switch',
+                            ),
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Disable GIF animations'),
+                            subtitle: const Text(
+                              'Pause GIFs by default in posts and chat messages.',
+                            ),
+                            value: appSettings.disableGifAnimations,
+                            onChanged: (disabled) => unawaited(
+                              appSettings.setDisableGifAnimations(disabled),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

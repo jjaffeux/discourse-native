@@ -8,6 +8,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../data/site_image_repository.dart';
 import '../plugin_api/plugin_registry.dart';
+import '../theme/d_button.dart';
 import 'image_decode.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
@@ -28,6 +29,8 @@ class SiteImage extends StatefulWidget {
     this.onNaturalSize,
     this.loadingBuilder,
     this.errorBuilder,
+    this.gifPlaybackControls = false,
+    this.knownAnimated = false,
   });
 
   final String url;
@@ -43,6 +46,8 @@ class SiteImage extends StatefulWidget {
   final ValueChanged<Size>? onNaturalSize;
   final WidgetBuilder? loadingBuilder;
   final ImageErrorWidgetBuilder? errorBuilder;
+  final bool gifPlaybackControls;
+  final bool knownAnimated;
 
   @override
   State<SiteImage> createState() => _SiteImageState();
@@ -205,17 +210,35 @@ class _SiteImageState extends State<SiteImage> {
     }
 
     if (widget.excludeFromSemantics) {
-      return ExcludeSemantics(child: child);
+      child = ExcludeSemantics(child: child);
+    } else if (widget.semanticLabel case final label?) {
+      child = Semantics(
+        image: true,
+        label: label,
+        child: ExcludeSemantics(child: child),
+      );
     }
-    final label = widget.semanticLabel;
-    return label == null
-        ? child
-        : Semantics(
-            image: true,
-            label: label,
-            child: ExcludeSemantics(child: child),
-          );
+
+    if (!widget.gifPlaybackControls || !_isAnimated) return child;
+
+    final appSettings = ShellScope.maybeIdentityOf(context)?.appSettings;
+    if (appSettings == null) {
+      return _GifPlaybackControl(disabledByDefault: false, child: child);
+    }
+    return ListenableBuilder(
+      listenable: appSettings,
+      child: child,
+      builder: (context, child) => _GifPlaybackControl(
+        disabledByDefault: appSettings.disableGifAnimations,
+        child: child!,
+      ),
+    );
   }
+
+  bool get _isAnimated =>
+      widget.knownAnimated ||
+      _bytes?.isAnimated == true ||
+      Uri.tryParse(_url)?.path.toLowerCase().endsWith('.gif') == true;
 
   Widget _networkImage() {
     if (_isSvgUrl(_url)) {
@@ -282,6 +305,62 @@ class _SiteImageState extends State<SiteImage> {
 
   static bool _isSvgUrl(String url) =>
       Uri.tryParse(url)?.path.toLowerCase().endsWith('.svg') == true;
+}
+
+class _GifPlaybackControl extends StatefulWidget {
+  const _GifPlaybackControl({
+    required this.disabledByDefault,
+    required this.child,
+  });
+
+  final bool disabledByDefault;
+  final Widget child;
+
+  @override
+  State<_GifPlaybackControl> createState() => _GifPlaybackControlState();
+}
+
+class _GifPlaybackControlState extends State<_GifPlaybackControl> {
+  late bool _playing = !widget.disabledByDefault;
+
+  @override
+  void didUpdateWidget(_GifPlaybackControl oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.disabledByDefault != widget.disabledByDefault) {
+      _playing = !widget.disabledByDefault;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inheritedMediaQuery = MediaQuery.maybeOf(context);
+    final image = inheritedMediaQuery == null
+        ? widget.child
+        : MediaQuery(
+            data: inheritedMediaQuery.copyWith(disableAnimations: !_playing),
+            child: widget.child,
+          );
+    final action = _playing ? 'Pause GIF' : 'Play GIF';
+
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        image,
+        PositionedDirectional(
+          end: 4,
+          bottom: 4,
+          child: DButton.iconOnly(
+            key: const ValueKey('gif-playback-toggle'),
+            icon: Icon(_playing ? Icons.pause : Icons.play_arrow, size: 18),
+            tooltip: action,
+            semanticLabel: action,
+            size: DButtonSize.small,
+            onPressed: () => setState(() => _playing = !_playing),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 final class SiteImageUnavailableException implements Exception {
@@ -397,6 +476,7 @@ final class SiteImageWidgetFactory extends WidgetFactory {
           cacheWidth: cacheWidth,
           semanticLabel: semanticLabel,
           excludeFromSemantics: semanticLabel == null,
+          gifPlaybackControls: true,
           loadingBuilder: (context) =>
               onLoadingBuilder(context, tree, null, src) ??
               const SizedBox.shrink(),

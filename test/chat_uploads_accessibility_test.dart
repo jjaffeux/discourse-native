@@ -1,12 +1,52 @@
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';
+import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('a GIF can be paused without opening the image viewer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: ChatUploads(
+              siteUrl: 'https://meta.discourse.org',
+              uploads: [
+                ChatUpload(
+                  url: '/uploads/party.gif',
+                  originalFilename: 'party.gif',
+                  kind: ChatUploadKind.image,
+                  width: 400,
+                  height: 200,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final toggle = find.byKey(const ValueKey('gif-playback-toggle'));
+    expect(toggle, findsOneWidget);
+    expect(find.bySemanticsLabel('Pause GIF'), findsOneWidget);
+    expect(tester.widget<DButton>(toggle).tooltip, 'Pause GIF');
+
+    await tester.tap(toggle);
+    await tester.pump();
+
+    expect(tester.widget<DButton>(toggle).tooltip, 'Play GIF');
+    expect(find.byType(LightboxGallery), findsNothing);
+  });
+
   testWidgets('image is a named button without a hover overlay', (
     tester,
   ) async {

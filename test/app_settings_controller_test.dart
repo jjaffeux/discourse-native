@@ -9,6 +9,7 @@ void main() {
   test('loads once and exposes the stored settings', () async {
     final persistence = _ControlledAppSettingsPersistence(
       contentAlignment: 'left',
+      disableGifAnimations: true,
     );
     final controller = _controller(persistence);
     var notifications = 0;
@@ -24,9 +25,13 @@ void main() {
     expect(controller.loaded, isTrue);
     expect(
       controller.settings,
-      const AppSettings(contentAlignment: ContentAlignment.left),
+      const AppSettings(
+        contentAlignment: ContentAlignment.left,
+        disableGifAnimations: true,
+      ),
     );
     expect(controller.contentAlignment, ContentAlignment.left);
+    expect(controller.disableGifAnimations, isTrue);
     expect(persistence.readCount, 1);
     expect(notifications, 1);
   });
@@ -121,6 +126,18 @@ void main() {
     expect(persistence.attemptedWrites, ['right']);
   });
 
+  test('updates the GIF animation preference optimistically', () async {
+    final persistence = _ControlledAppSettingsPersistence();
+    final controller = _controller(persistence);
+
+    await controller.setDisableGifAnimations(true);
+
+    expect(controller.loaded, isTrue);
+    expect(controller.disableGifAnimations, isTrue);
+    expect(persistence.disableGifAnimations, isTrue);
+    expect(persistence.attemptedGifAnimationWrites, [true]);
+  });
+
   test('a replacement controller retains a rejected session choice', () async {
     final persistence = _ControlledAppSettingsPersistence(acceptWrites: false);
     final store = AppSettingsStore(persistence: persistence);
@@ -197,18 +214,21 @@ final class _ControlledAppSettingsPersistence
     implements AppSettingsPersistence {
   _ControlledAppSettingsPersistence({
     this.contentAlignment,
+    this.disableGifAnimations,
     this.readGate,
     this.firstWriteGate,
     this.acceptWrites = true,
   });
 
   String? contentAlignment;
+  bool? disableGifAnimations;
   final Completer<void>? readGate;
   final Completer<void>? firstWriteGate;
   final bool acceptWrites;
   final Completer<void> readStarted = Completer<void>();
   final Completer<void> firstWriteStarted = Completer<void>();
   final List<String> attemptedWrites = [];
+  final List<bool> attemptedGifAnimationWrites = [];
   int readCount = 0;
 
   @override
@@ -221,6 +241,9 @@ final class _ControlledAppSettingsPersistence
   }
 
   @override
+  Future<bool?> readDisableGifAnimations() async => disableGifAnimations;
+
+  @override
   Future<bool> writeContentAlignment(String value) async {
     attemptedWrites.add(value);
     if (attemptedWrites.length == 1) {
@@ -229,6 +252,14 @@ final class _ControlledAppSettingsPersistence
     }
     if (!acceptWrites) return false;
     contentAlignment = value;
+    return true;
+  }
+
+  @override
+  Future<bool> writeDisableGifAnimations(bool value) async {
+    attemptedGifAnimationWrites.add(value);
+    if (!acceptWrites) return false;
+    disableGifAnimations = value;
     return true;
   }
 }

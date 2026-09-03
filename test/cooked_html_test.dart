@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -60,6 +61,7 @@ Future<ShellController> pumpCookedInShell(
   FakeAuthenticator? authenticator,
   SiteImageRepository? siteImages,
   SiteLifecycle? lifecycle,
+  AppSettingsPersistence? appSettingsPersistence,
   Widget? child,
 }) async {
   installTestMediaPipeline(
@@ -76,6 +78,9 @@ Future<ShellController> pumpCookedInShell(
     updateStore: FakeUpdateStore(),
     lifecycle: siteLifecycle,
     siteImages: siteImages,
+    appSettingsStore: appSettingsPersistence == null
+        ? null
+        : AppSettingsStore(persistence: appSettingsPersistence),
   );
   addTearDown(controller.dispose);
   await controller.load();
@@ -112,6 +117,10 @@ final Uint8List onePixelPng = base64Decode(
   'BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
 );
 
+final Uint8List onePixelGif = base64Decode(
+  'R0lGODlhAQABAIAAAAAAAP///yH5BAEKAAAALAAAAAABAAEAAAIBRAAh+QQBCgAAACwAAAAAAQABAAACAUQAOw==',
+);
+
 String paragraphOf(WidgetTester tester, String within) => tester
     .widgetList<RichText>(find.byType(RichText))
     .firstWhere((widget) => widget.text.toPlainText().contains(within))
@@ -140,6 +149,72 @@ TextStyle styleOf(WidgetTester tester, String text) {
 }
 
 void main() {
+  testWidgets('GIFs honor the app default and can be controlled individually', (
+    tester,
+  ) async {
+    const siteUrl = 'https://meta.discourse.org';
+    final lifecycle = SiteLifecycle();
+    final siteImages = SiteImageRepository(
+      credentials: FakeAuthenticator(),
+      lifecycle: lifecycle,
+      client: MockClient(
+        (_) async => http.Response.bytes(
+          onePixelGif,
+          200,
+          headers: {'content-type': 'image/gif'},
+        ),
+      ),
+    );
+    final persistence = MemoryAppSettingsPersistence(
+      disableGifAnimations: true,
+    );
+
+    final controller = await pumpCookedInShell(
+      tester,
+      '',
+      lifecycle: lifecycle,
+      siteImages: siteImages,
+      appSettingsPersistence: persistence,
+      child: const Row(
+        children: [
+          SiteImage(
+            url: '/uploads/first.gif',
+            siteUrl: siteUrl,
+            width: 100,
+            height: 100,
+            gifPlaybackControls: true,
+          ),
+          SiteImage(
+            url: '/uploads/second.gif',
+            siteUrl: siteUrl,
+            width: 100,
+            height: 100,
+            gifPlaybackControls: true,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.bySemanticsLabel('Play GIF'), findsNWidgets(2));
+    var images = find.byType(Image).evaluate().toList();
+    expect(MediaQuery.of(images[0]).disableAnimations, isTrue);
+    expect(MediaQuery.of(images[1]).disableAnimations, isTrue);
+
+    await tester.tap(find.bySemanticsLabel('Play GIF').first);
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('Pause GIF'), findsOneWidget);
+    expect(find.bySemanticsLabel('Play GIF'), findsOneWidget);
+    images = find.byType(Image).evaluate().toList();
+    expect(MediaQuery.of(images[0]).disableAnimations, isFalse);
+    expect(MediaQuery.of(images[1]).disableAnimations, isTrue);
+
+    await controller.appSettings.setDisableGifAnimations(false);
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('Pause GIF'), findsNWidgets(2));
+  });
+
   testWidgets('loads a secure cooked image with the connected account', (
     tester,
   ) async {

@@ -128,6 +128,7 @@ class _Thumbnail extends StatelessWidget {
             siteUrl: siteUrl,
             fit: BoxFit.cover,
             cacheWidth: imagePhysicalPixels(context, 88),
+            gifPlaybackControls: true,
             errorBuilder: (context, error, stackTrace) {
               reportImageError(
                 error,
