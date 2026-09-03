@@ -210,6 +210,44 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
   });
 
+  testWidgets('pointer resize highlight clears when the drag ends', (
+    tester,
+  ) async {
+    final controller = _controller();
+    addTearDown(controller.dispose);
+    await _pumpPane(tester, controller: controller, dividerWidth: 1);
+
+    final handle = find.byKey(const ValueKey('shared-resize-handle'));
+    final focus = tester
+        .widget<Focus>(find.byKey(const ValueKey('shared-resize-focus')))
+        .focusNode!;
+    final gesture = await tester.startGesture(tester.getCenter(handle));
+    await gesture.moveBy(const Offset(20, 0));
+    await tester.pump();
+
+    var divider = find.descendant(
+      of: handle,
+      matching: find.byType(ColoredBox),
+    );
+    expect(focus.hasFocus, isTrue);
+    expect(tester.getSize(divider).width, 3);
+    expect(
+      tester.widget<ColoredBox>(divider).color,
+      Theme.of(tester.element(divider)).colorScheme.primary,
+    );
+
+    await gesture.up();
+    await tester.pump();
+
+    divider = find.descendant(of: handle, matching: find.byType(ColoredBox));
+    expect(focus.hasFocus, isFalse);
+    expect(tester.getSize(divider).width, 1);
+    expect(
+      tester.widget<ColoredBox>(divider).color,
+      Theme.of(tester.element(divider)).shell.divider,
+    );
+  });
+
   testWidgets('live width changes rebuild neither the frame nor pane content', (
     tester,
   ) async {
@@ -272,6 +310,7 @@ Future<void> _pumpPane(
   ResizablePaneEdge edge = ResizablePaneEdge.trailing,
   TextDirection direction = TextDirection.ltr,
   double maximumWidth = double.infinity,
+  double dividerWidth = 0,
   Widget sibling = const SizedBox.shrink(),
 }) => tester.pumpWidget(
   MaterialApp(
@@ -292,6 +331,7 @@ Future<void> _pumpPane(
                 resizeKey: 'shared',
                 semanticsLabel: 'Resize shared pane',
                 maximumWidth: maximumWidth,
+                dividerWidth: dividerWidth,
                 child: const ColoredBox(color: Colors.blue),
               ),
               sibling,
