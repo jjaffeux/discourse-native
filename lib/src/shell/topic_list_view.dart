@@ -375,6 +375,8 @@ class _TopicListViewState extends State<TopicListView> {
                         return _TopicRow(
                           key: ValueKey(topicId),
                           topicId: topicId,
+                          showCategoryBreadcrumb:
+                              controller.currentContent?.categoryId == null,
                         );
                       },
                     ),
@@ -700,9 +702,14 @@ class _FeedErrorBanner extends StatelessWidget {
 }
 
 class _TopicRow extends StatelessWidget {
-  const _TopicRow({super.key, required this.topicId});
+  const _TopicRow({
+    super.key,
+    required this.topicId,
+    required this.showCategoryBreadcrumb,
+  });
 
   final int topicId;
+  final bool showCategoryBreadcrumb;
 
   @override
   Widget build(BuildContext context) {
@@ -720,7 +727,7 @@ class _TopicRow extends StatelessWidget {
               // one frame from being torn down.
               ? const SizedBox.shrink()
               : ShellSelector<
-                  ({TopicCategory? category, String? categoryLabel})
+                  ({TopicCategory? category, TopicCategory? parent})
                 >(
                   select: (controller) => _topicCategoryPresentation(
                     controller,
@@ -730,7 +737,8 @@ class _TopicRow extends StatelessWidget {
                   builder: (context, categoryPresentation, _) => _TopicRowBody(
                     topic: topic,
                     category: categoryPresentation.category,
-                    categoryLabel: categoryPresentation.categoryLabel,
+                    parentCategory: categoryPresentation.parent,
+                    showCategoryBreadcrumb: showCategoryBreadcrumb,
                     siteUrl: siteUrl,
                     onTap: () => controller.openTopic(topic),
                   ),
@@ -749,6 +757,7 @@ class TopicListRow extends StatelessWidget {
     this.siteUrl,
     this.onTap,
     this.titleStyle,
+    this.showCategoryBreadcrumb = true,
   }) : assert(forum == null || siteUrl == null);
 
   static const double minimumHeight = 68;
@@ -760,6 +769,7 @@ class TopicListRow extends StatelessWidget {
   final VoidCallback? onTap;
 
   final TextStyle? titleStyle;
+  final bool showCategoryBreadcrumb;
 
   @override
   Widget build(BuildContext context) {
@@ -785,13 +795,14 @@ class TopicListRow extends StatelessWidget {
     DiscourseInstance? owningForum,
   ) {
     final controller = ShellScope.read(context);
-    return ShellSelector<({TopicCategory? category, String? categoryLabel})>(
+    return ShellSelector<({TopicCategory? category, TopicCategory? parent})>(
       select: (controller) =>
           _topicCategoryPresentation(controller, topic.categoryId, siteUrl),
       builder: (context, categoryPresentation, _) => _TopicRowBody(
         topic: topic,
         category: categoryPresentation.category,
-        categoryLabel: categoryPresentation.categoryLabel,
+        parentCategory: categoryPresentation.parent,
+        showCategoryBreadcrumb: showCategoryBreadcrumb,
         siteUrl: siteUrl,
         forum: owningForum,
         onTap: onTap ?? () => controller.openTopic(topic),
@@ -801,7 +812,7 @@ class TopicListRow extends StatelessWidget {
   }
 }
 
-({TopicCategory? category, String? categoryLabel}) _topicCategoryPresentation(
+({TopicCategory? category, TopicCategory? parent}) _topicCategoryPresentation(
   ShellController controller,
   int? categoryId,
   String siteUrl,
@@ -809,9 +820,10 @@ class TopicListRow extends StatelessWidget {
   final category = controller.categoryFor(categoryId, siteUrl: siteUrl);
   return (
     category: category,
-    categoryLabel: category == null
-        ? null
-        : controller.topicCategoryPathLabel(category, siteUrl: siteUrl),
+    parent: controller.categoryFor(
+      category?.parentCategoryId,
+      siteUrl: siteUrl,
+    ),
   );
 }
 
@@ -836,7 +848,8 @@ class _TopicRowBody extends StatelessWidget {
   const _TopicRowBody({
     required this.topic,
     required this.category,
-    required this.categoryLabel,
+    required this.parentCategory,
+    required this.showCategoryBreadcrumb,
     required this.siteUrl,
     required this.onTap,
     this.forum,
@@ -845,7 +858,8 @@ class _TopicRowBody extends StatelessWidget {
 
   final Topic topic;
   final TopicCategory? category;
-  final String? categoryLabel;
+  final TopicCategory? parentCategory;
+  final bool showCategoryBreadcrumb;
   final String siteUrl;
   final VoidCallback onTap;
   final DiscourseInstance? forum;
@@ -993,23 +1007,20 @@ class _TopicRowBody extends StatelessWidget {
                             ),
                           ),
                         ),
-                      if (category case final category?)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: LinkTarget(
-                            url: '/c/${category.id}',
-                            title: categoryLabel ?? category.name,
-                            siteUrl: siteUrl,
-                            child: _CategoryBadge(
+                      if (showCategoryBreadcrumb)
+                        if (category case final category?)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: _CategoryBreadcrumb(
+                              parent: parentCategory,
                               category: category,
-                              label: categoryLabel ?? category.name,
-                              onTap: () => controller.openCategory(
+                              siteUrl: siteUrl,
+                              onOpen: (category) => controller.openCategory(
                                 category,
                                 siteUrl: siteUrl,
                               ),
                             ),
                           ),
-                        ),
                       for (var index = 0; index < topic.tags.length; index++)
                         _TopicTag(
                           tag: topic.tags[index],
@@ -1092,15 +1103,76 @@ class _TopicRowBody extends StatelessWidget {
   }
 }
 
+class _CategoryBreadcrumb extends StatelessWidget {
+  const _CategoryBreadcrumb({
+    required this.parent,
+    required this.category,
+    required this.siteUrl,
+    required this.onOpen,
+  });
+
+  final TopicCategory? parent;
+  final TopicCategory category;
+  final String siteUrl;
+  final ValueChanged<TopicCategory> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final parent = this.parent;
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (parent != null) ...[
+          LinkTarget(
+            url: '/c/${parent.id}',
+            title: parent.name,
+            siteUrl: siteUrl,
+            child: _CategoryBadge(
+              key: ValueKey(('topic-row-parent-category', parent.id)),
+              category: parent,
+              label: parent.name,
+              semanticLabel: 'Parent category: ${parent.name}',
+              onTap: () => onOpen(parent),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: DIcon(
+              DIcons.chevronRight,
+              size: 11,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        LinkTarget(
+          url: '/c/${category.id}',
+          title: category.name,
+          siteUrl: siteUrl,
+          child: _CategoryBadge(
+            key: ValueKey(('topic-row-category', category.id)),
+            category: category,
+            label: category.name,
+            semanticLabel: 'Category: ${category.name}',
+            onTap: () => onOpen(category),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _CategoryBadge extends StatelessWidget {
   const _CategoryBadge({
+    super.key,
     required this.category,
     required this.label,
+    required this.semanticLabel,
     required this.onTap,
   });
 
   final TopicCategory category;
   final String label;
+  final String semanticLabel;
   final VoidCallback onTap;
 
   @override
@@ -1109,7 +1181,7 @@ class _CategoryBadge extends StatelessWidget {
 
     return InlineAction.link(
       onTap: onTap,
-      semanticLabel: 'Category: $label',
+      semanticLabel: semanticLabel,
       excludeChildSemantics: true,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 32, minHeight: 24),

@@ -24,7 +24,9 @@ import 'group_pages_coordinator.dart';
 import 'group_pages_host.dart';
 import 'group_pages_port.dart';
 import 'group_pages_shell_port.dart';
+import 'inline_action.dart';
 import 'message_inbox_page.dart';
+import 'open_link.dart';
 import 'preferences_page.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
@@ -422,64 +424,71 @@ class _ContentHeader extends StatelessWidget {
                   ),
               if (showRouteIdentity)
                 Expanded(
-                  child: Semantics(
-                    button: contentHeaderTitleAction != null,
-                    label: contentHeaderTitleAction == null
-                        ? null
-                        : 'Open ${route.title} details',
-                    child: InkWell(
-                      key: contentHeaderTitleAction == null
-                          ? null
-                          : const ValueKey('content-header-title-action'),
-                      onTap: contentHeaderTitleAction,
-                      borderRadius: BorderRadius.circular(4),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                fit: FlexFit.loose,
-                                child: route.isTopic && siteUrl != null
-                                    ? TopicTitle(
-                                        route.title,
-                                        siteUrl: siteUrl!,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.titleSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
+                  child: route.categoryId != null && siteUrl != null
+                      ? _CategoryHeaderIdentity(
+                          route: route,
+                          siteUrl: siteUrl!,
+                          trailing: contentHeaderTitleTrailing,
+                          titleAction: contentHeaderTitleAction,
+                        )
+                      : Semantics(
+                          button: contentHeaderTitleAction != null,
+                          label: contentHeaderTitleAction == null
+                              ? null
+                              : 'Open ${route.title} details',
+                          child: InkWell(
+                            key: contentHeaderTitleAction == null
+                                ? null
+                                : const ValueKey('content-header-title-action'),
+                            onTap: contentHeaderTitleAction,
+                            borderRadius: BorderRadius.circular(4),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      fit: FlexFit.loose,
+                                      child: route.isTopic && siteUrl != null
+                                          ? TopicTitle(
+                                              route.title,
+                                              siteUrl: siteUrl!,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: theme.textTheme.titleSmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                            )
+                                          : Text(
+                                              route.title,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: theme.textTheme.titleSmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                             ),
-                                      )
-                                    : Text(
-                                        route.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.titleSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                              ),
-                              ?contentHeaderTitleTrailing,
-                            ],
-                          ),
-                          if (route.isGroups && siteUrl != null)
-                            _GroupsDirectoryCount(siteUrl: siteUrl!)
-                          else if (route.subtitle case final subtitle?)
-                            Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                                    ),
+                                    ?contentHeaderTitleTrailing,
+                                  ],
+                                ),
+                                if (route.isGroups && siteUrl != null)
+                                  _GroupsDirectoryCount(siteUrl: siteUrl!)
+                                else if (route.subtitle case final subtitle?)
+                                  Text(
+                                    subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                              ],
                             ),
-                        ],
-                      ),
-                    ),
-                  ),
+                          ),
+                        ),
                 )
               else if (carriesSearch)
                 const Expanded(
@@ -516,6 +525,139 @@ class _ContentHeader extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _CategoryHeaderIdentity extends StatelessWidget {
+  const _CategoryHeaderIdentity({
+    required this.route,
+    required this.siteUrl,
+    required this.trailing,
+    required this.titleAction,
+  });
+
+  final ContentRoute route;
+  final String siteUrl;
+  final Widget? trailing;
+  final VoidCallback? titleAction;
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<TopicCategory?>(
+    select: (controller) {
+      final category = controller.categoryFor(
+        route.categoryId,
+        siteUrl: siteUrl,
+      );
+      return controller.categoryFor(
+        category?.parentCategoryId,
+        siteUrl: siteUrl,
+      );
+    },
+    builder: (context, parent, _) {
+      final controller = ShellScope.read(context);
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (parent != null)
+            LinkTarget(
+              url: '/c/${parent.id}',
+              title: parent.name,
+              siteUrl: siteUrl,
+              child: InlineAction.link(
+                key: const ValueKey('content-header-parent-category'),
+                onTap: () => controller.openCategory(parent, siteUrl: siteUrl),
+                semanticLabel: 'Parent category: ${parent.name}',
+                excludeChildSemantics: true,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 20),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: Color(parent.colorValue),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          parent.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      DIcon(
+                        DIcons.chevronRight,
+                        size: 11,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          _CategoryHeaderTitle(
+            route: route,
+            trailing: trailing,
+            titleAction: titleAction,
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _CategoryHeaderTitle extends StatelessWidget {
+  const _CategoryHeaderTitle({
+    required this.route,
+    required this.trailing,
+    this.titleAction,
+  });
+
+  final ContentRoute route;
+  final Widget? trailing;
+  final VoidCallback? titleAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final title = Row(
+      children: [
+        Flexible(
+          fit: FlexFit.loose,
+          child: Text(
+            route.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        ?trailing,
+      ],
+    );
+    if (titleAction == null) return title;
+
+    return Semantics(
+      button: true,
+      label: 'Open ${route.title} details',
+      child: InkWell(
+        key: const ValueKey('content-header-title-action'),
+        onTap: titleAction,
+        borderRadius: BorderRadius.circular(4),
+        child: title,
       ),
     );
   }

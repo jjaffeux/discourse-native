@@ -29,6 +29,7 @@ import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -1554,8 +1555,14 @@ void _registerShellNavigationTests() {
       user: freshUser,
       feeds: const {
         '/latest.json': [],
+        '/c/parent/1.json': [],
         '/c/parent/child/2.json': [
-          Topic(id: 7, title: 'A category topic', slug: 'a-category-topic'),
+          Topic(
+            id: 7,
+            title: 'A category topic',
+            slug: 'a-category-topic',
+            categoryId: 2,
+          ),
         ],
       },
       topics: {
@@ -1641,6 +1648,30 @@ void _registerShellNavigationTests() {
     expect(controller.destinationId, 'category-2');
     expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
     expect(controller.contentStack, hasLength(1));
+    final parentBreadcrumb = find.byKey(
+      const ValueKey('content-header-parent-category'),
+    );
+    expect(parentBreadcrumb, findsOneWidget);
+    expect(find.bySemanticsLabel('Parent category: Parent'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(TopicListView),
+        matching: find.bySemanticsLabel('Category: Child'),
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(parentBreadcrumb);
+    await tester.pumpAndSettle();
+
+    expect(controller.currentContent?.id, 'category-1');
+    expect(controller.currentContent?.feedPath, '/c/parent/1.json');
+    expect(controller.contentStack, hasLength(2));
+
+    expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+    await tester.pumpAndSettle();
+    expect(controller.currentContent?.id, 'category-2');
+    expect(find.text('A category topic'), findsOneWidget);
 
     await tester.tap(find.text('A category topic'));
     await tester.pumpAndSettle();

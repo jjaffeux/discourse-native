@@ -1179,21 +1179,22 @@ void _registerTopicReadingTests() {
       );
     });
 
-    testWidgets('category badges use an embedded off-page subcategory', (
+    testWidgets('topic rows link each category in an embedded breadcrumb', (
       tester,
     ) async {
       const parent = TopicCategory(
         id: 5,
         name: 'Discourse Native Application',
         color: '0088CC',
+        slug: 'discourse-native-application',
       );
       const category = TopicCategory(
         id: 6,
         name: 'Feature requests',
         color: '00AEEF',
+        slug: 'feature-requests',
         parentCategoryId: 5,
       );
-      final categoryPath = topicCategoryPathLabel(category, parent: parent);
       final api = FakeDiscourseApi(
         feeds: {
           '/latest.json': [
@@ -1204,6 +1205,8 @@ void _registerTopicReadingTests() {
               categoryId: 6,
             ),
           ],
+          '/c/discourse-native-application/5.json': const [],
+          '/c/discourse-native-application/feature-requests/6.json': const [],
         },
         categoryList: const [parent],
         feedCategoriesByPath: const {
@@ -1216,16 +1219,51 @@ void _registerTopicReadingTests() {
       expect(
         find.descendant(
           of: find.byType(TopicListView),
-          matching: find.text(categoryPath),
+          matching: find.text(parent.name),
         ),
         findsOneWidget,
       );
-      expect(find.bySemanticsLabel('Category: $categoryPath'), findsOneWidget);
-      final categoryLabel = tester.widget<Text>(find.text(categoryPath));
-      expect(categoryLabel.maxLines, isNull);
-      expect(categoryLabel.overflow, isNull);
-      expect(tester.getSize(find.text(categoryPath)).width, greaterThan(200));
+      expect(
+        find.descendant(
+          of: find.byType(TopicListView),
+          matching: find.text(category.name),
+        ),
+        findsOneWidget,
+      );
+      final parentLink = find.bySemanticsLabel(
+        'Parent category: ${parent.name}',
+      );
+      final categoryLink = find.bySemanticsLabel('Category: ${category.name}');
+      expect(parentLink, findsOneWidget);
+      expect(categoryLink, findsOneWidget);
+      expect(
+        tester.getTopRight(parentLink).dx,
+        lessThan(tester.getTopLeft(categoryLink).dx),
+      );
       expect(api.categoryIdsRequested, isEmpty);
+
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      await tester.tap(parentLink);
+      await tester.pumpAndSettle();
+
+      expect(controller.currentContent?.id, 'category-${parent.id}');
+      expect(
+        controller.currentContent?.feedPath,
+        '/c/discourse-native-application/5.json',
+      );
+
+      expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+      await tester.pumpAndSettle();
+      await tester.tap(categoryLink);
+      await tester.pumpAndSettle();
+
+      expect(controller.currentContent?.id, 'category-${category.id}');
+      expect(
+        controller.currentContent?.feedPath,
+        '/c/discourse-native-application/feature-requests/6.json',
+      );
     });
 
     testWidgets('topic tags render after the category in server order', (
