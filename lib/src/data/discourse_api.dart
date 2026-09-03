@@ -901,12 +901,14 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     required String term,
     required String apiKey,
     bool includeUncategorized = true,
+    bool includeAncestors = false,
     String? clientId,
   }) async => _site.searchCategories(
     siteUrl: siteUrl,
     term: term,
     apiKey: apiKey,
     includeUncategorized: includeUncategorized,
+    includeAncestors: includeAncestors,
     clientId: clientId,
   );
 

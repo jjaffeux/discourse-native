@@ -1758,6 +1758,14 @@ void _feedGroups() {
                   'permission': 1,
                 },
               ],
+              'ancestors': [
+                {
+                  'id': 5,
+                  'name': 'Support',
+                  'slug': 'support',
+                  'color': '112233',
+                },
+              ],
             }),
             200,
           );
@@ -1768,6 +1776,7 @@ void _feedGroups() {
         siteUrl: 'https://example.com',
         term: '  support docs  ',
         includeUncategorized: false,
+        includeAncestors: true,
         apiKey: 'key',
         clientId: 'client',
       );
@@ -1780,10 +1789,11 @@ void _feedGroups() {
         'term': 'support docs',
         'include_uncategorized': false,
         'include_subcategories': true,
+        'include_ancestors': true,
         'limit': 25,
       });
-      expect(categories.single.id, 6);
-      expect(categories.single.canCreateTopic, isTrue);
+      expect(categories.map((category) => category.id), [6, 5]);
+      expect(categories.first.canCreateTopic, isTrue);
     });
 
     test('requests page two without reading the site supplement', () async {

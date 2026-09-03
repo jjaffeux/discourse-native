@@ -2387,6 +2387,23 @@ class ShellController extends FrameSafeNotifier
   List<TopicCategory> filterCategoriesFor(String siteUrl) =>
       _categoriesBySite[siteUrl] ?? const [];
 
+  Future<List<TopicCategory>> searchFilterCategories({
+    required String siteUrl,
+    required String term,
+  }) => _filterLookup(
+    siteUrl,
+    'topics.filter.categories',
+    (apiKey, clientId) => apiKey == null
+        ? Future.value(const [])
+        : api.categories.searchCategories(
+            siteUrl: siteUrl,
+            term: term,
+            apiKey: apiKey,
+            includeAncestors: true,
+            clientId: clientId,
+          ),
+  );
+
   Future<List<TopicFilterLookupValue>> searchFilterTags({
     required String siteUrl,
     required String term,

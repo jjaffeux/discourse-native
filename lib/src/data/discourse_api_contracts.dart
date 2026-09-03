@@ -424,6 +424,7 @@ abstract interface class CategoryQueriesApi {
     required String term,
     required String apiKey,
     bool includeUncategorized = true,
+    bool includeAncestors = false,
     String? clientId,
   });
 }
