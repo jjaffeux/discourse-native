@@ -42,20 +42,28 @@ void main() {
               child: SizedBox(
                 width: 280,
                 height: 240,
-                child: ComposerBlockquoteDecoration(
-                  repaint: Listenable.merge([controller, scroll]),
-                  child: TextField(
-                    controller: controller,
-                    scrollController: scroll,
-                    style: const TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 18,
-                      height: 1.5,
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    left: ComposerBlockquoteDecoration.gutter,
+                  ),
+                  child: ComposerBlockquoteDecoration(
+                    repaint: Listenable.merge([controller, scroll]),
+                    child: TextField(
+                      controller: controller,
+                      scrollController: scroll,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 18,
+                        height: 1.5,
+                      ),
+                      decoration: null,
+                      expands: true,
+                      maxLines: null,
+                      strutStyle: const StrutStyle(forceStrutHeight: false),
+                      inputFormatters: const [
+                        ComposerBlockquoteInputFormatter(),
+                      ],
                     ),
-                    decoration: null,
-                    expands: true,
-                    maxLines: null,
-                    strutStyle: const StrutStyle(forceStrutHeight: false),
                   ),
                 ),
               ),
@@ -68,6 +76,46 @@ void main() {
 
   RenderEditable editable(WidgetTester tester) =>
       tester.state<EditableTextState>(find.byType(EditableText)).renderEditable;
+
+  testWidgets('leaving a quote restores the normal left edge', (tester) async {
+    await pumpEditor(tester);
+    final field = find.byType(TextField);
+    final editorLeft = tester
+        .getTopLeft(find.byType(ComposerBlockquoteDecoration))
+        .dx;
+
+    double caretLeft() {
+      final render = editable(tester);
+      final caret = render.getLocalRectForCaret(
+        TextPosition(offset: controller.selection.extentOffset),
+      );
+      return render.localToGlobal(caret.topLeft).dx;
+    }
+
+    await tester.enterText(field, '');
+    await tester.pump();
+    final normalLeft = caretLeft();
+    expect(normalLeft, closeTo(editorLeft, 1));
+
+    await tester.enterText(field, '> quote');
+    await tester.pump();
+    await tester.enterText(field, '> quote\n');
+    await tester.pump();
+    expect(controller.text, '> quote\n> ');
+
+    await tester.enterText(field, '> quote\n> \n');
+    await tester.pump();
+    expect(controller.text, '> quote\n');
+    expect(caretLeft(), closeTo(normalLeft, 0.01));
+    expect(caretLeft(), closeTo(editorLeft, 1));
+
+    await tester.enterText(field, '> quote\nNormal');
+    controller.selection = const TextSelection.collapsed(
+      offset: '> quote\n'.length,
+    );
+    await tester.pump();
+    expect(caretLeft(), closeTo(editorLeft, 1));
+  });
 
   testWidgets('quote background contains typed text and every wrapped line', (
     tester,

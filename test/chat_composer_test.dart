@@ -28,6 +28,7 @@ import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
 import 'package:discourse_native/src/shell/composer_blockquote.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_upload_picker.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
@@ -91,6 +92,25 @@ void main() {
       await tester.pump();
       expect(_text(tester), '> xxxx\n> ');
       expect(find.byType(ComposerBlockquoteMarker), findsNWidgets(2));
+
+      await tester.enterText(_composerField(), '> xxxx\n> \n');
+      await tester.pump();
+      expect(_text(tester), '> xxxx\n');
+      final render = tester
+          .state<EditableTextState>(
+            find.descendant(
+              of: _composerField(),
+              matching: find.byType(EditableText),
+            ),
+          )
+          .renderEditable;
+      final caret = render.getLocalRectForCaret(
+        TextPosition(offset: _text(tester).length),
+      );
+      expect(
+        render.localToGlobal(caret.topLeft).dx,
+        closeTo(tester.getTopLeft(find.byType(ComposerEditor)).dx, 1),
+      );
     });
 
     testWidgets('a draft survives drawer collapse and expansion', (

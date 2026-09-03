@@ -1320,15 +1320,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
       child: ComposerSuggestionField(
         composer: widget.composer,
         onAction: widget.onSuggestionAction,
-        field: ClipRect(
-          child: Focus(
-            onKeyEvent: _onEditorKeyEvent,
-            child: Actions(
-              actions: {PasteTextIntent: _pasteAction},
-              child: ValueListenableBuilder<TextEditingValue>(
-                valueListenable: widget.composer.text,
-                builder: (_, _, _) => ComposerBlockquoteDecoration(
-                  repaint: Listenable.merge([widget.composer.text, _scroll]),
+        field: Focus(
+          onKeyEvent: _onEditorKeyEvent,
+          child: Actions(
+            actions: {PasteTextIntent: _pasteAction},
+            child: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: widget.composer.text,
+              builder: (_, _, _) => ComposerBlockquoteDecoration(
+                repaint: Listenable.merge([widget.composer.text, _scroll]),
+                child: ClipRect(
                   child: TextField(
                     // Not decoration: a new key builds a new editable, and with it
                     // a new undo stack. It is the only way to stop undo reaching
@@ -2085,16 +2085,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                     ? IgnorePointer(
                         child: Align(
                           alignment: Alignment.topLeft,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: ComposerBlockquoteDecoration
-                                  .horizontalPadding,
-                            ),
-                            child: Text(
-                              widget.hintText,
-                              style: widget.hintStyle,
-                            ),
-                          ),
+                          child: Text(widget.hintText, style: widget.hintStyle),
                         ),
                       )
                     : const SizedBox.shrink(),
