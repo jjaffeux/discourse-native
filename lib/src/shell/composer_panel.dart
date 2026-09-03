@@ -1129,6 +1129,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
   final _blockquoteInputFormatter = ComposerBlockquoteInputFormatter();
   int? _blockquoteFieldGeneration;
   late final _ComposerPasteAction _pasteAction;
+  late final _quoteLineStartAction =
+      _ComposerQuoteLineStartAction<ExtendSelectionToLineBreakIntent>(
+        () => _editableTextState,
+      );
+  late final _quoteExpandLineStartAction =
+      _ComposerQuoteLineStartAction<ExpandSelectionToLineBreakIntent>(
+        () => _editableTextState,
+      );
 
   @override
   void initState() {
@@ -1333,7 +1341,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
         field: Focus(
           onKeyEvent: _onEditorKeyEvent,
           child: Actions(
-            actions: {PasteTextIntent: _pasteAction},
+            actions: {
+              PasteTextIntent: _pasteAction,
+              ExtendSelectionToLineBreakIntent: _quoteLineStartAction,
+              ExpandSelectionToLineBreakIntent: _quoteExpandLineStartAction,
+            },
             child: ValueListenableBuilder<TextEditingValue>(
               valueListenable: widget.composer.text,
               builder: (_, _, _) => ComposerBlockquoteDecoration(
@@ -2320,6 +2332,39 @@ final class _ComposerSelectionOverlay {
     _detach();
     anchor.dispose();
   }
+}
+
+class _ComposerQuoteLineStartAction<T extends DirectionalCaretMovementIntent>
+    extends Action<T> {
+  _ComposerQuoteLineStartAction(this._editable);
+
+  final EditableTextState? Function() _editable;
+
+  @override
+  Object? invoke(T intent) {
+    if (intent.forward) return callingAction?.invoke(intent);
+    final editable = _editable();
+    final before = editable?.widget.controller.value;
+    // Let the native action choose the visual line and selection direction.
+    final result = callingAction?.invoke(intent);
+    if (editable == null || before == null) return result;
+    final after = editable.widget.controller.value;
+    final selection = composerBlockquoteLineStartSelection(before, after);
+    if (selection != after.selection) {
+      editable.bringIntoView(selection.extent);
+      editable.userUpdateTextEditingValue(
+        after.copyWith(selection: selection),
+        SelectionChangedCause.keyboard,
+      );
+    }
+    return result;
+  }
+
+  @override
+  bool isEnabled(T intent) => callingAction?.isEnabled(intent) ?? false;
+
+  @override
+  bool consumesKey(T intent) => callingAction?.consumesKey(intent) ?? false;
 }
 
 class _ComposerPasteAction extends Action<PasteTextIntent> {
