@@ -264,6 +264,41 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
+  testWidgets('the composer keeps multiple tag removals when dismissed', (
+    tester,
+  ) async {
+    final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
+    const support = TopicTag(id: 9, name: 'support');
+    shell.visibleComposer!.setTags(const [
+      TopicTag(id: 7, name: 'design'),
+      TopicTag(id: 8, name: 'mobile'),
+      support,
+    ]);
+    await tester.pump();
+
+    await open(tester, const ValueKey('composer-add-tag'));
+    for (final name in ['design', 'mobile']) {
+      await tester.tap(find.byKey(ValueKey(('topic-tag-picker-option', name))));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(TopicTagPicker), findsOneWidget);
+    }
+
+    await tester.tapAt(const Offset(790, 10));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+
+    expect(find.byType(TopicTagPicker), findsNothing);
+    expect(shell.visibleComposer!.tags, const [support]);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('composer-tags')),
+        matching: find.text('support'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('the category picker stays a sheet on touch', (tester) async {
     await pumpComposer(tester, platform: TargetPlatform.iOS);
 
