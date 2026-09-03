@@ -9,6 +9,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'choice_menu.dart';
 import 'content_reading_lane.dart';
+import 'group_flair.dart';
 
 @immutable
 final class GroupsPageData {
@@ -214,6 +215,7 @@ class _GroupsPageState extends State<GroupsPage> {
                                 final group = data.groups[index];
                                 return _GroupDirectoryCard(
                                   key: ValueKey('group-card-${group.name}'),
+                                  siteUrl: widget.siteUrl,
                                   group: group,
                                   onTap: () => _openGroup(group),
                                 );
@@ -460,10 +462,12 @@ String _groupTypeDescription(String type) => switch (type) {
 class _GroupDirectoryCard extends StatelessWidget {
   const _GroupDirectoryCard({
     super.key,
+    required this.siteUrl,
     required this.group,
     required this.onTap,
   });
 
+  final String siteUrl;
   final Group group;
   final VoidCallback onTap;
 
@@ -486,8 +490,7 @@ class _GroupDirectoryCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    _GroupMark(group: group, size: 38),
-                    const SizedBox(width: 12),
+                    GroupFlair(siteUrl: siteUrl, group: group, size: 38),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -545,35 +548,6 @@ class _GroupDirectoryCard extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GroupMark extends StatelessWidget {
-  const _GroupMark({required this.group, required this.size});
-
-  final Group group;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: colors.primaryContainer,
-      ),
-      child: Text(
-        group.label.characters.firstOrNull?.toUpperCase() ?? 'G',
-        style: TextStyle(
-          color: colors.onPrimaryContainer,
-          fontSize: size * .45,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );
