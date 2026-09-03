@@ -155,14 +155,14 @@ class _CategoryFilterAnchor extends StatelessWidget {
       const ChoiceMenuOption<int>(
         value: 0,
         title: 'All categories',
-        description: 'Show recent topics from every category',
+        description: '',
         icon: DIcons.layerGroup,
       ),
       for (final category in categories)
         ChoiceMenuOption<int>(
           value: category.id,
           title: category.name,
-          description: 'Show topics in ${category.name}',
+          description: '',
           icon: DIcons.folder,
         ),
     ],
@@ -209,14 +209,14 @@ class _SubcategoryFilterAnchor extends StatelessWidget {
       ChoiceMenuOption<int>(
         value: 0,
         title: 'All subcategories',
-        description: 'Include every topic in ${parent.name}',
+        description: '',
         icon: DIcons.layerGroup,
       ),
       for (final category in subcategories)
         ChoiceMenuOption<int>(
           value: category.id,
           title: category.name,
-          description: 'Show topics in ${category.name}',
+          description: '',
           icon: DIcons.folder,
         ),
     ],
