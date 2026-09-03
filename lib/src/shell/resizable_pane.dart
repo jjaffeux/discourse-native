@@ -205,6 +205,7 @@ class _ResizablePaneState extends State<ResizablePane> {
 
   void _endDrag() {
     unawaited(widget.controller.flush());
+    _focus.unfocus();
   }
 
   void _resizeOnce(double widthDelta) {
