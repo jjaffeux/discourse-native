@@ -45,7 +45,7 @@ class MentionPill extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
       children: [
-        pill,
+        Flexible(child: pill),
         UserStatusMessage(
           siteUrl: siteUrl!,
           userId: reference.userId,
