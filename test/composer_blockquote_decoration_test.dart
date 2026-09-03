@@ -45,9 +45,8 @@ void main() {
                 width: 280,
                 height: 240,
                 child: Padding(
-                  padding: const EdgeInsets.only(
-                    left: ComposerBlockquoteDecoration.gutter,
-                  ),
+                  // Include the border in the capture, outside the text field.
+                  padding: const EdgeInsets.only(left: 4),
                   child: ComposerBlockquoteDecoration(
                     repaint: Listenable.merge([controller, scroll]),
                     child: TextField(
@@ -99,6 +98,16 @@ void main() {
 
     await tester.enterText(field, '> quote');
     await tester.pump();
+    final render = editable(tester);
+    final quoteTextLeft = render
+        .localToGlobal(
+          render.getLocalRectForCaret(const TextPosition(offset: 2)).topLeft,
+        )
+        .dx;
+    expect(
+      quoteTextLeft - normalLeft,
+      closeTo(ComposerBlockquoteDecoration.gutter, 0.01),
+    );
     await tester.enterText(field, '> quote\n');
     await tester.pump();
     expect(controller.text, '> quote\n> ');
@@ -108,6 +117,25 @@ void main() {
     expect(controller.text, '> quote\n');
     expect(caretLeft(), closeTo(normalLeft, 0.01));
     expect(caretLeft(), closeTo(editorLeft, 1));
+
+    final capture = await _capture(tester);
+    final quote = render
+        .getBoxesForSelection(
+          const TextSelection(baseOffset: 2, extentOffset: 7),
+        )
+        .first;
+    final quoteY = capture.boundary
+        .globalToLocal(render.localToGlobal(quote.toRect().center))
+        .dy
+        .floor();
+    final cursorX =
+        (caretLeft() - capture.boundary.localToGlobal(Offset.zero).dx).round();
+    expect(
+      capture.colorAt(cursorX - 1, quoteY),
+      AppTheme.dark.colorScheme.primary,
+    );
+    expect(capture.colorAt(cursorX, quoteY), AppTheme.dark.shell.panel);
+    expect(caretLeft(), lessThan(quoteTextLeft));
 
     await tester.enterText(field, '> quote\nNormal');
     controller.selection = const TextSelection.collapsed(

@@ -41,8 +41,9 @@ class ComposerBlockquoteMarker extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     label: 'Quote',
     child: SizedBox(
-      // Keep a measurable endpoint for the caret on an empty quote line.
-      width: 1,
+      // Indent quoted line starts with their source prefix, leaving ordinary
+      // paragraphs at the native editable's left edge.
+      width: ComposerBlockquoteDecoration.gutter,
       height: (baseStyle.fontSize ?? 14) * (baseStyle.height ?? 1.2),
     ),
   );
@@ -99,11 +100,11 @@ class _RenderComposerBlockquoteDecoration extends RenderPadding {
   Color _background;
   Color _bar;
 
-  // Quotes use the composer's existing outer margin. Keeping the gutter out of
-  // the editable's layout lets ordinary lines start at the field's left edge.
+  // Only the border extends outside the editable. A quote's text indentation
+  // belongs to its prefix, rather than an outdent of the whole quote panel.
   @override
   Rect get paintBounds => Rect.fromLTRB(
-    -ComposerBlockquoteDecoration.gutter,
+    -ComposerBlockquoteDecoration.gutter - QuotePanel.barWidth,
     0,
     size.width,
     size.height,
@@ -166,7 +167,7 @@ class _RenderComposerBlockquoteDecoration extends RenderPadding {
         }
         if (bounds == null) continue;
         var panel = Rect.fromLTRB(
-          -ComposerBlockquoteDecoration.gutter,
+          -QuotePanel.barWidth,
           bounds.top,
           size.width,
           bounds.bottom,
@@ -189,7 +190,8 @@ class _RenderComposerBlockquoteDecoration extends RenderPadding {
           background: _background,
           bar: _bar,
         );
-        // Additional quote levels share the gutter, leaving wrapped text clear.
+        // Keep every level's border outside the editable so it cannot cover
+        // text that wraps back to the native left edge.
         final step = math.min(
           6.0,
           ComposerBlockquoteDecoration.gutter / panel.depth,
@@ -197,9 +199,9 @@ class _RenderComposerBlockquoteDecoration extends RenderPadding {
         for (var level = 1; level < panel.depth; level++) {
           canvas.drawRect(
             Rect.fromLTWH(
-              offset.dx + panel.rect.left + level * step,
+              offset.dx + panel.rect.left - level * step,
               offset.dy + panel.rect.top,
-              math.min(3, step / 2),
+              math.min(QuotePanel.barWidth, step / 2),
               panel.rect.height,
             ),
             Paint()..color = _bar,

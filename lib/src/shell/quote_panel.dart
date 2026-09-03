@@ -14,7 +14,7 @@ class QuotePanel extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final Widget child;
 
-  static const double _barWidth = 3;
+  static const double barWidth = 3;
   static const Radius _leftRadius = Radius.circular(3);
   static const BorderRadius _panelRadius = BorderRadius.horizontal(
     left: _leftRadius,
@@ -34,7 +34,7 @@ class QuotePanel extends StatelessWidget {
     canvas.drawRRect(_panelRadius.toRRect(bounds), Paint()..color = background);
     canvas.drawRRect(
       _barRadius.toRRect(
-        Rect.fromLTWH(bounds.left, bounds.top, _barWidth, bounds.height),
+        Rect.fromLTWH(bounds.left, bounds.top, barWidth, bounds.height),
       ),
       Paint()..color = bar,
     );
@@ -57,7 +57,7 @@ class QuotePanel extends StatelessWidget {
             left: 0,
             top: 0,
             bottom: 0,
-            width: _barWidth,
+            width: barWidth,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: theme.colorScheme.primary,
@@ -66,7 +66,7 @@ class QuotePanel extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(left: _barWidth),
+            padding: const EdgeInsets.only(left: barWidth),
             child: Padding(padding: padding, child: child),
           ),
         ],
