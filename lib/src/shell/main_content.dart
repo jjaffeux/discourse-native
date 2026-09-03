@@ -17,6 +17,7 @@ import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
 import 'categories_page.dart';
 import 'category_notifications.dart';
+import 'category_subcategory_navigation.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
 import 'forum_tabs_bar.dart';
@@ -160,6 +161,14 @@ class _MainContentBody extends StatelessWidget {
                 registry: registry,
                 groupPages: groupPages,
               ),
+            if (!pluginOwnsChrome &&
+                !route.isTopic &&
+                route.categoryId != null &&
+                state.siteUrl != null)
+              _CategorySubcategoryNavigationHost(
+                siteUrl: state.siteUrl!,
+                selectedCategoryId: route.categoryId!,
+              ),
             Expanded(
               child: KeyedSubtree(
                 key: contentKey,
@@ -184,6 +193,27 @@ class _MainContentBody extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CategorySubcategoryNavigationHost extends StatelessWidget {
+  const _CategorySubcategoryNavigationHost({
+    required this.siteUrl,
+    required this.selectedCategoryId,
+  });
+
+  final String siteUrl;
+  final int selectedCategoryId;
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<List<TopicCategory>>(
+    select: (controller) => controller.filterCategoriesFor(siteUrl),
+    builder: (context, categories, _) => CategorySubcategoryNavigation(
+      categories: categories,
+      selectedCategoryId: selectedCategoryId,
+      onSelected: (category) =>
+          ShellScope.read(context).openCategory(category, siteUrl: siteUrl),
+    ),
+  );
 }
 
 class _ContentViewport extends StatelessWidget {

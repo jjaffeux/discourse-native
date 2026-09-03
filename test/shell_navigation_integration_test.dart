@@ -1821,6 +1821,73 @@ void _registerShellNavigationTests() {
     expect(launched, isEmpty);
   });
 
+  testWidgets('category lists expose their subcategories above the topics', (
+    tester,
+  ) async {
+    const parent = TopicCategory(
+      id: 1,
+      name: 'Discourse Native App',
+      color: '563A93',
+      slug: 'discourse-native-app',
+    );
+    const bugs = TopicCategory(
+      id: 2,
+      name: 'Bugs',
+      color: 'C54F16',
+      slug: 'bugs',
+      parentCategoryId: 1,
+      position: 1,
+    );
+    final site = instance('meta.discourse.org', title: 'Discourse Meta');
+    final api = FakeDiscourseApi(
+      feeds: const {
+        '/latest.json': [],
+        '/c/discourse-native-app/1.json': [],
+        '/c/discourse-native-app/bugs/2.json': [],
+      },
+      categoryList: const [
+        parent,
+        bugs,
+        TopicCategory(
+          id: 3,
+          name: 'Features',
+          color: '3BBF7B',
+          slug: 'features',
+          parentCategoryId: 1,
+          position: 2,
+        ),
+      ],
+    );
+
+    await pumpShell(tester, desktop, instances: [site], api: api);
+    final controller = ShellScope.read(
+      tester.element(find.byType(MainContent)),
+    );
+
+    controller.openCategory(parent);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('category-subcategory-navigation')),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('All topics, selected'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey(('subcategory-navigation', 2))));
+    await tester.pumpAndSettle();
+
+    expect(controller.currentContent?.id, 'category-2');
+    expect(
+      controller.currentContent?.feedPath,
+      '/c/discourse-native-app/bugs/2.json',
+    );
+    expect(find.bySemanticsLabel('Bugs, selected'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('category-subcategory-navigation')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('retries an incomplete category supplement on feed refresh', (
     tester,
   ) async {
