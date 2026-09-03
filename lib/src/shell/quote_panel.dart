@@ -25,6 +25,21 @@ class QuotePanel extends StatelessWidget {
     bottomLeft: _leftRadius,
   );
 
+  static void paintBackground(
+    Canvas canvas,
+    Rect bounds, {
+    required Color background,
+    required Color bar,
+  }) {
+    canvas.drawRRect(_panelRadius.toRRect(bounds), Paint()..color = background);
+    canvas.drawRRect(
+      _barRadius.toRRect(
+        Rect.fromLTWH(bounds.left, bounds.top, _barWidth, bounds.height),
+      ),
+      Paint()..color = bar,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);

@@ -1327,52 +1327,55 @@ class _ComposerEditorState extends State<ComposerEditor> {
               actions: {PasteTextIntent: _pasteAction},
               child: ValueListenableBuilder<TextEditingValue>(
                 valueListenable: widget.composer.text,
-                builder: (_, _, _) => TextField(
-                  // Not decoration: a new key builds a new editable, and with it
-                  // a new undo stack. It is the only way to stop undo reaching
-                  // back into a reply that has already been sent.
-                  key: ValueKey(widget.composer.fieldGeneration),
-                  controller: widget.composer.text,
-                  readOnly: widget.composer.discarding,
-                  scrollController: _scroll,
-                  focusNode: widget.composer.focus,
-                  autofocus: widget.autofocus,
-                  expands: widget.expands,
-                  maxLines: null,
-                  minLines: widget.expands ? null : 1,
-                  textAlignVertical: TextAlignVertical.top,
-                  keyboardType: TextInputType.multiline,
-                  textCapitalization: TextCapitalization.sentences,
-                  inputFormatters: [
-                    _selectedPillInputFormatter,
-                    _renderedEmojiInputFormatter,
-                    const ComposerImageGalleryInputFormatter(),
-                    const ComposerQuoteInputFormatter(),
-                    ...widget.composer.text.syntaxInputFormatters,
-                    const ComposerBlockquoteInputFormatter(),
-                  ],
-                  contextMenuBuilder: _contextMenu,
-                  showCursor:
-                      !widget.composer.text.selectedProjectionHidesCursor,
-                  onTapAlwaysCalled: true,
-                  onTap: _activatePointerDownPill,
-                  // TextField owns the deepest cursor region. Changing only the
-                  // editor-level hover region leaves its text cursor in front.
-                  mouseCursor: _hoveringMention || _hoveringLink
-                      ? SystemMouseCursors.click
-                      : null,
-                  style: widget.textStyle,
-                  // TextField's forced default strut discards a WidgetSpan's
-                  // intrinsic height. Let every projected component define
-                  // its paragraph line so its visual and hit-test bounds agree.
-                  strutStyle: StrutStyle.fromTextStyle(
-                    widget.textStyle ?? DefaultTextStyle.of(context).style,
-                    forceStrutHeight: false,
+                builder: (_, _, _) => ComposerBlockquoteDecoration(
+                  repaint: Listenable.merge([widget.composer.text, _scroll]),
+                  child: TextField(
+                    // Not decoration: a new key builds a new editable, and with it
+                    // a new undo stack. It is the only way to stop undo reaching
+                    // back into a reply that has already been sent.
+                    key: ValueKey(widget.composer.fieldGeneration),
+                    controller: widget.composer.text,
+                    readOnly: widget.composer.discarding,
+                    scrollController: _scroll,
+                    focusNode: widget.composer.focus,
+                    autofocus: widget.autofocus,
+                    expands: widget.expands,
+                    maxLines: null,
+                    minLines: widget.expands ? null : 1,
+                    textAlignVertical: TextAlignVertical.top,
+                    keyboardType: TextInputType.multiline,
+                    textCapitalization: TextCapitalization.sentences,
+                    inputFormatters: [
+                      _selectedPillInputFormatter,
+                      _renderedEmojiInputFormatter,
+                      const ComposerImageGalleryInputFormatter(),
+                      const ComposerQuoteInputFormatter(),
+                      ...widget.composer.text.syntaxInputFormatters,
+                      const ComposerBlockquoteInputFormatter(),
+                    ],
+                    contextMenuBuilder: _contextMenu,
+                    showCursor:
+                        !widget.composer.text.selectedProjectionHidesCursor,
+                    onTapAlwaysCalled: true,
+                    onTap: _activatePointerDownPill,
+                    // TextField owns the deepest cursor region. Changing only the
+                    // editor-level hover region leaves its text cursor in front.
+                    mouseCursor: _hoveringMention || _hoveringLink
+                        ? SystemMouseCursors.click
+                        : null,
+                    style: widget.textStyle,
+                    // TextField's forced default strut discards a WidgetSpan's
+                    // intrinsic height. Let every projected component define
+                    // its paragraph line so its visual and hit-test bounds agree.
+                    strutStyle: StrutStyle.fromTextStyle(
+                      widget.textStyle ?? DefaultTextStyle.of(context).style,
+                      forceStrutHeight: false,
+                    ),
+                    // InputDecorator only gives the editable one text line when
+                    // the TextField expands. The composer draws its hint separately
+                    // so either viewport mode fills the available editor width.
+                    decoration: null,
                   ),
-                  // InputDecorator only gives the editable one text line when
-                  // the TextField expands. The composer draws its hint separately
-                  // so either viewport mode fills the available editor width.
-                  decoration: null,
                 ),
               ),
             ),
@@ -2082,7 +2085,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
                     ? IgnorePointer(
                         child: Align(
                           alignment: Alignment.topLeft,
-                          child: Text(widget.hintText, style: widget.hintStyle),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: ComposerBlockquoteDecoration
+                                  .horizontalPadding,
+                            ),
+                            child: Text(
+                              widget.hintText,
+                              style: widget.hintStyle,
+                            ),
+                          ),
                         ),
                       )
                     : const SizedBox.shrink(),
