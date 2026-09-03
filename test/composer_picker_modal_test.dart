@@ -6,7 +6,6 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_category_path.dart';
 import 'package:discourse_native/src/shell/topic_category_picker.dart';
 import 'package:discourse_native/src/shell/topic_tag_picker.dart';
-import 'package:discourse_native/src/shell/topic_taxonomy_fields.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -85,14 +84,23 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
-  testWidgets('uses the topic sidebar taxonomy components', (tester) async {
+  testWidgets('shows compact taxonomy controls beneath the title', (
+    tester,
+  ) async {
     final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
 
-    expect(find.byType(TopicPropertyRow), findsNWidgets(2));
-    expect(find.byType(TopicCategoryValue), findsOneWidget);
-    expect(find.byType(TopicTagsValue), findsOneWidget);
     expect(find.text('Choose a category'), findsOneWidget);
-    expect(find.text('Add tag'), findsOneWidget);
+    expect(find.text('Add tags'), findsOneWidget);
+    expect(find.text('Category'), findsNothing);
+    expect(find.text('Tags'), findsNothing);
+    final title = find.widgetWithText(TextField, 'Give your topic a title');
+    final category = tester.getRect(
+      find.byKey(const ValueKey('composer-category-action')),
+    );
+    final tags = tester.getRect(find.byKey(const ValueKey('composer-add-tag')));
+    expect(category.top, greaterThan(tester.getRect(title).bottom));
+    expect(tags.center.dy, category.center.dy);
+    expect(tags.left, greaterThan(category.right));
     expect(
       tester.getSize(find.byKey(const ValueKey('composer-category-color'))),
       const Size.square(9),
@@ -106,14 +114,58 @@ void main() {
     expect(shell.visibleComposer!.categoryId, 5);
     expect(find.text('Support'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey(('composer-tag', 'design'))),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey(('composer-tag', 'mobile'))),
+      find.descendant(
+        of: find.byKey(const ValueKey('composer-tags')),
+        matching: find.text('design, mobile'),
+      ),
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('composer-add-tag')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('long taxonomy values wrap into reachable controls at 320px', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const category = TopicCategory(
+      id: 5,
+      name: 'Discourse Native App Development and Support',
+      color: '0088CC',
+      permission: 1,
+    );
+    final shell = await pumpComposer(
+      tester,
+      platform: TargetPlatform.iOS,
+      categories: const [category],
+    );
+    shell.visibleComposer!
+      ..setCategory(category.id)
+      ..setTags(const [
+        TopicTag(name: 'user-interface-improvements'),
+        TopicTag(name: 'mobile-accessibility'),
+      ]);
+    await tester.pump();
+
+    final categoryBounds = tester.getRect(
+      find.byKey(const ValueKey('composer-category-action')),
+    );
+    final tagsBounds = tester.getRect(
+      find.byKey(const ValueKey('composer-add-tag')),
+    );
+    expect(tagsBounds.top, greaterThan(categoryBounds.bottom));
+    expect(categoryBounds.right, lessThanOrEqualTo(304));
+    expect(tagsBounds.right, lessThanOrEqualTo(304));
+    expect(categoryBounds.height, greaterThanOrEqualTo(44));
+    expect(tagsBounds.height, greaterThanOrEqualTo(44));
+    expect(tester.takeException(), isNull);
+
+    await open(tester, const ValueKey('composer-add-tag'));
+    expect(find.byType(TopicTagPicker), findsOneWidget);
+    expect(find.byType(BottomSheet), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
   });
 
