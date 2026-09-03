@@ -934,6 +934,7 @@ class MarkdownEditingController extends TextEditingController {
             composing.start >= prefix.end)
           _SpanProjection(prefix.start, prefix.end, () {
             final marker = prefix.textInside(source);
+            final lineEnd = source.indexOf('\n', prefix.end);
             return [
               TextSpan(
                 text: marker.substring(0, marker.length - 1),
@@ -945,6 +946,10 @@ class MarkdownEditingController extends TextEditingController {
                 child: ComposerBlockquoteMarker(
                   baseStyle: base,
                   depth: '>'.allMatches(marker).length,
+                  range: TextRange(
+                    start: prefix.start,
+                    end: lineEnd == -1 ? source.length : lineEnd,
+                  ),
                 ),
               ),
             ];
