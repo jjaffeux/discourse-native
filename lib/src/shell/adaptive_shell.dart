@@ -63,8 +63,8 @@ typedef _ForumBoundarySnapshot = ({
 class AdaptiveShell extends StatefulWidget {
   const AdaptiveShell({super.key});
 
-  static const double railWidth = 72;
-  static const double compactRailWidth = 64;
+  static const double railWidth = 56;
+  static const double compactRailWidth = 56;
   static const double sidebarWidth = 240;
   static const double sidebarMinWidth = 200;
   static const double sidebarMaxWidth = 480;

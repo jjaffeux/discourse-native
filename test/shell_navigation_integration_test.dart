@@ -1260,7 +1260,7 @@ void _registerShellNavigationTests() {
 
     final selected = twoSites.first;
     final inactive = twoSites.last;
-    expect(targetHeight(selected), 40);
+    expect(targetHeight(selected), 32);
     expect(targetHeight(inactive), 8);
     expect(marker(inactive).duration, const Duration(milliseconds: 180));
     expect(marker(inactive).curve, Curves.easeOutCubic);
@@ -1271,14 +1271,14 @@ void _registerShellNavigationTests() {
     await gesture.moveTo(tester.getCenter(item(inactive)));
     await tester.pump();
 
-    expect(targetHeight(inactive), 20);
+    expect(targetHeight(inactive), 16);
     await tester.pump(const Duration(milliseconds: 90));
     expect(
       tester.getSize(indicator(inactive)).height,
-      allOf(greaterThan(8), lessThan(20)),
+      allOf(greaterThan(8), lessThan(16)),
     );
     await tester.pumpAndSettle();
-    expect(tester.getSize(indicator(inactive)).height, 20);
+    expect(tester.getSize(indicator(inactive)).height, 16);
 
     await gesture.moveTo(Offset.zero);
     await tester.pumpAndSettle();
@@ -1290,14 +1290,14 @@ void _registerShellNavigationTests() {
     await tester.pump();
 
     expect(targetHeight(selected), 8);
-    expect(targetHeight(inactive), 40);
+    expect(targetHeight(inactive), 32);
     await tester.pumpAndSettle();
     expect(tester.getSize(indicator(selected)).height, 8);
-    expect(tester.getSize(indicator(inactive)).height, 40);
+    expect(tester.getSize(indicator(inactive)).height, 32);
 
     await gesture.moveTo(Offset.zero);
     await tester.pumpAndSettle();
-    expect(tester.getSize(indicator(inactive)).height, 40);
+    expect(tester.getSize(indicator(inactive)).height, 32);
   });
 
   testWidgets('shows custom sidebar sections and opens their links', (
@@ -1350,7 +1350,7 @@ void _registerShellNavigationTests() {
         .first;
     expect(
       tester.getRect(projectsHeader).top - tester.getRect(moreTile).bottom,
-      closeTo(9, 0.01),
+      closeTo(7, 0.01),
     );
     final roadmapTile = find
         .ancestor(
@@ -1363,10 +1363,10 @@ void _registerShellNavigationTests() {
         .first;
     expect(
       tester.getRect(categoriesHeader).top - tester.getRect(roadmapTile).bottom,
-      closeTo(9, 0.01),
+      closeTo(7, 0.01),
     );
-    expect(tester.getSize(projectsHeader).height, closeTo(35.2, 0.01));
-    expect(tester.getSize(roadmapTile).height, closeTo(35.2, 0.01));
+    expect(tester.getSize(projectsHeader).height, closeTo(24, 0.01));
+    expect(tester.getSize(roadmapTile).height, closeTo(30, 0.01));
 
     await tester.tap(find.byTooltip('Collapse Projects'));
     await tester.pumpAndSettle();
@@ -2064,11 +2064,11 @@ void _registerShellNavigationTests() {
         .first;
     final sidebar = tester.getRect(find.byType(InstanceSidebar));
     final tile = tester.getRect(topicsTile);
-    expect(tile.top - sidebar.top - shellHeaderHeight, closeTo(16, 0.01));
-    expect(tile.left - sidebar.left, closeTo(8, 0.01));
-    expect(sidebar.right - tile.right, closeTo(8, 0.01));
-    expect(tile.height, closeTo(35.2, 0.01));
-    expect(tester.getRect(topics).left - sidebar.left, closeTo(44, 0.01));
+    expect(tile.top - sidebar.top - shellHeaderHeight, closeTo(10, 0.01));
+    expect(tile.left - sidebar.left, closeTo(6, 0.01));
+    expect(sidebar.right - tile.right, closeTo(6, 0.01));
+    expect(tile.height, closeTo(30, 0.01));
+    expect(tester.getRect(topics).left - sidebar.left, closeTo(38, 0.01));
   });
 
   testWidgets('sidebar destinations show a hand cursor and hover background', (
@@ -2572,14 +2572,14 @@ void _registerShellNavigationTests() {
 
         final indicator = find.byKey(dropIndicator);
         expect(indicator, findsOneWidget);
-        expect(tester.getSize(indicator), const Size(62, 8));
+        expect(tester.getSize(indicator), const Size(46, 8));
         expect(
           tester.getRect(indicator).center.dy,
           closeTo(targetRect.top, 0.1),
         );
         final line = find.byKey(dropIndicatorLine);
         final pin = find.byKey(dropIndicatorPin);
-        expect(tester.getSize(line), const Size(54, 2));
+        expect(tester.getSize(line), const Size(38, 2));
         expect(tester.getSize(pin), const Size.square(8));
         expect(
           tester.getRect(pin).left -

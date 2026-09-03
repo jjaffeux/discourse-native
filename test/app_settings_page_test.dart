@@ -134,7 +134,7 @@ void main() {
       expect(
         tester.getRect(find.byType(InstanceRail)).bottom -
             tester.getRect(diagnosticsButton).bottom,
-        8,
+        6,
       );
 
       var data = tester.getSemantics(settings).getSemanticsData();
@@ -151,7 +151,7 @@ void main() {
       final marker = tester.widget<AnimatedContainer>(
         find.byKey(const ValueKey('settings-rail-marker')),
       );
-      expect(marker.constraints!.minHeight, 40);
+      expect(marker.constraints!.minHeight, 32);
     } finally {
       await diagnostics.close();
       semantics.dispose();
