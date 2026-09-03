@@ -13,7 +13,6 @@ import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
-import 'choice_menu.dart';
 import 'command_menu.dart';
 import 'content_reading_lane.dart';
 import 'group/group_manage_controller.dart';
@@ -101,7 +100,6 @@ class GroupPage extends StatefulWidget {
     this.onSelectRoute,
     this.onMembershipAction,
     this.onMessageGroup,
-    this.onSwitchGroup,
     this.onDeleteGroup,
     this.onMemberFilterChanged,
     this.onMemberSortChanged,
@@ -126,7 +124,6 @@ class GroupPage extends StatefulWidget {
   final ValueChanged<GroupRoute>? onSelectRoute;
   final Future<void> Function(GroupMembershipAction action)? onMembershipAction;
   final VoidCallback? onMessageGroup;
-  final ValueChanged<String>? onSwitchGroup;
   final Future<bool> Function()? onDeleteGroup;
   final ValueChanged<String>? onMemberFilterChanged;
   final GroupMemberSortChanged? onMemberSortChanged;
@@ -188,15 +185,12 @@ class _GroupPageState extends State<GroupPage> {
         if (widget.data.loading) const LinearProgressIndicator(minHeight: 2),
         _GroupHeader(
           siteUrl: widget.siteUrl,
-          detail: detail,
           group: group,
           isAdmin: widget.data.isAdmin,
           mutating: widget.data.mutating,
           onMembershipAction: widget.onMembershipAction,
           onMessageGroup: widget.onMessageGroup,
-          onSwitchGroup: widget.onSwitchGroup,
           onDeleteGroup: widget.onDeleteGroup,
-          onSelectRoute: _select,
         ),
         _PrimaryTabs(
           route: widget.route,
@@ -352,90 +346,32 @@ final class _OwnedPluginTab {
   final PluginGroupTab tab;
 }
 
-enum _GroupHeaderCommand { settings, copyLink, delete }
-
 class _GroupHeader extends StatelessWidget {
   const _GroupHeader({
     required this.siteUrl,
-    required this.detail,
     required this.group,
     required this.isAdmin,
     required this.mutating,
     required this.onMembershipAction,
     required this.onMessageGroup,
-    required this.onSwitchGroup,
     required this.onDeleteGroup,
-    required this.onSelectRoute,
   });
 
   final String siteUrl;
-  final GroupDetail detail;
   final Group group;
   final bool isAdmin;
   final bool mutating;
   final Future<void> Function(GroupMembershipAction action)? onMembershipAction;
   final VoidCallback? onMessageGroup;
-  final ValueChanged<String>? onSwitchGroup;
   final Future<bool> Function()? onDeleteGroup;
-  final ValueChanged<GroupRoute> onSelectRoute;
 
-  List<CommandMenuOption<_GroupHeaderCommand>> get commands => [
-    if (group.canManage)
-      const CommandMenuOption(
-        value: _GroupHeaderCommand.settings,
-        label: 'Group settings',
-        icon: DIcons.gear,
-      ),
-    const CommandMenuOption(
-      value: _GroupHeaderCommand.copyLink,
-      label: 'Copy group link',
-      icon: DIcons.link,
-    ),
-    if (isAdmin && !group.automatic && onDeleteGroup != null)
-      const CommandMenuOption(
-        value: _GroupHeaderCommand.delete,
-        label: 'Delete group',
-        icon: DIcons.trashCan,
-        dividerBefore: true,
-        destructive: true,
-      ),
-  ];
-
-  Future<void> _handleCommand(
-    BuildContext context,
-    _GroupHeaderCommand command,
-  ) async {
-    switch (command) {
-      case _GroupHeaderCommand.settings:
-        onSelectRoute(
-          GroupRoute.detail(
-            group.name,
-            section: GroupRoute.manage,
-            subsection: GroupRoute.profile,
-          ),
-        );
-        break;
-      case _GroupHeaderCommand.copyLink:
-        final link = resolveSitePath(
-          siteUrl,
-          'g/${Uri.encodeComponent(group.name)}',
-        );
-        await Clipboard.setData(ClipboardData(text: link));
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Group link copied.')));
-        }
-        break;
-      case _GroupHeaderCommand.delete:
-        if (await _confirmDeleteGroup(context, group) != true) return;
-        final deleted = await onDeleteGroup?.call() ?? false;
-        if (context.mounted && !deleted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('The group could not be deleted.')),
-          );
-        }
-        break;
+  Future<void> _deleteGroup(BuildContext context) async {
+    if (await _confirmDeleteGroup(context, group) != true) return;
+    final deleted = await onDeleteGroup?.call() ?? false;
+    if (context.mounted && !deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The group could not be deleted.')),
+      );
     }
   }
 
@@ -472,60 +408,29 @@ class _GroupHeader extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _GroupAvatar(group: group, size: 54),
-                      const SizedBox(width: 14),
+                      _GroupFlair(siteUrl: siteUrl, group: group, size: 54),
                       Expanded(
-                        child: InkWell(
-                          key: const ValueKey('group-switcher'),
-                          borderRadius: BorderRadius.circular(6),
-                          onTap:
-                              detail.visibleGroupNames.length > 1 &&
-                                  onSwitchGroup != null
-                              ? () => _showGroupSwitcher(
-                                  context,
-                                  current: group.name,
-                                  names: detail.visibleGroupNames,
-                                  onSelected: onSwitchGroup!,
-                                )
-                              : null,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        group.label,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.headlineSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                      Text(
-                                        '@${group.name}',
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                              color: theme
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                group.label,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                if (detail.visibleGroupNames.length > 1) ...[
-                                  const SizedBox(width: 6),
-                                  const DIcon(DIcons.chevronDown, size: 13),
-                                ],
-                              ],
-                            ),
+                              ),
+                              Text(
+                                '@${group.name}',
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -584,18 +489,16 @@ class _GroupHeader extends StatelessWidget {
                           ),
                           onPressed: onMessageGroup,
                         ),
-                      CommandMenuAnchor<_GroupHeaderCommand>(
-                        title: 'Group actions',
-                        options: commands,
-                        onSelected: (command) =>
-                            unawaited(_handleCommand(context, command)),
-                        builder: (context, openMenu) => DButton(
-                          key: const ValueKey('group-more-actions'),
-                          icon: const DIcon(DIcons.ellipsisVertical, size: 16),
-                          label: const Text('More'),
-                          onPressed: openMenu,
+                      if (isAdmin && !group.automatic && onDeleteGroup != null)
+                        DButton(
+                          key: const ValueKey('delete-group'),
+                          icon: const DIcon(DIcons.trashCan, size: 16),
+                          label: const Text('Delete group'),
+                          variant: DButtonVariant.danger,
+                          onPressed: mutating
+                              ? null
+                              : () => unawaited(_deleteGroup(context)),
                         ),
-                      ),
                     ],
                   ),
                 ],
@@ -668,86 +571,6 @@ class _DeleteGroupDialogState extends State<_DeleteGroupDialog> {
   );
 }
 
-Future<void> _showGroupSwitcher(
-  BuildContext context, {
-  required String current,
-  required List<String> names,
-  required ValueChanged<String> onSelected,
-}) async {
-  final selected = await showShellSheet<String>(
-    context: context,
-    title: 'Switch group',
-    dialogOnDesktop: true,
-    padding: EdgeInsets.zero,
-    builder: (_) => _GroupSwitcher(current: current, names: names),
-  );
-  if (selected != null) onSelected(selected);
-}
-
-class _GroupSwitcher extends StatefulWidget {
-  const _GroupSwitcher({required this.current, required this.names});
-
-  final String current;
-  final List<String> names;
-
-  @override
-  State<_GroupSwitcher> createState() => _GroupSwitcherState();
-}
-
-class _GroupSwitcherState extends State<_GroupSwitcher> {
-  String query = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final normalized = query.trim().toLowerCase();
-    final names = widget.names
-        .where((name) => name.toLowerCase().contains(normalized))
-        .toList(growable: false);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: TextField(
-            key: const ValueKey('group-switcher-search'),
-            autofocus: true,
-            onChanged: (value) => setState(() => query = value),
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Find a group',
-            ),
-          ),
-        ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 360),
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: names.length,
-            itemBuilder: (context, index) {
-              final name = names[index];
-              return ListTile(
-                key: ValueKey('switch-group-$name'),
-                leading: CircleAvatar(
-                  child: Text(
-                    name.characters.firstOrNull?.toUpperCase() ?? 'G',
-                  ),
-                ),
-                title: Text(name),
-                trailing: name == widget.current
-                    ? const DIcon(DIcons.check, size: 15)
-                    : null,
-                onTap: name == widget.current
-                    ? null
-                    : () => Navigator.pop(context, name),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _HeaderFact extends StatelessWidget {
   const _HeaderFact({required this.icon, required this.label});
 
@@ -765,30 +588,64 @@ class _HeaderFact extends StatelessWidget {
   );
 }
 
-class _GroupAvatar extends StatelessWidget {
-  const _GroupAvatar({required this.group, required this.size});
+class _GroupFlair extends StatelessWidget {
+  const _GroupFlair({
+    required this.siteUrl,
+    required this.group,
+    required this.size,
+  });
 
+  final String siteUrl;
   final Group group;
   final double size;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      color: Theme.of(context).colorScheme.primaryContainer,
-    ),
-    child: Text(
-      group.label.characters.firstOrNull?.toUpperCase() ?? 'G',
-      style: TextStyle(
-        color: Theme.of(context).colorScheme.onPrimaryContainer,
-        fontSize: size * .42,
-        fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    final flair = group.flairUrl?.trim();
+    final imageUrl = flair != null && flair.contains('/')
+        ? resolveSitePath(siteUrl, flair)
+        : null;
+    final icon = DIcons.byName[group.flairIcon?.trim()] ?? DIcons.byName[flair];
+    if (imageUrl == null && icon == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 14),
+      child: Container(
+        key: const ValueKey('group-flair'),
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _flairColor(group.flairBackgroundColor),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: imageUrl != null
+            ? AvatarImage(
+                url: imageUrl,
+                size: size,
+                fit: BoxFit.contain,
+                fallback: const SizedBox.shrink(),
+              )
+            : DIcon(
+                icon!,
+                size: size * .7,
+                color: _flairColor(group.flairColor),
+              ),
       ),
-    ),
-  );
+    );
+  }
+
+  Color? _flairColor(String? value) {
+    var hex = value?.trim().replaceFirst('#', '');
+    if (hex == null) return null;
+    if (hex.length == 3) {
+      hex = hex.split('').map((digit) => '$digit$digit').join();
+    }
+    if (hex.length != 6) return null;
+    final parsed = int.tryParse(hex, radix: 16);
+    return parsed == null ? null : Color(0xFF000000 | parsed);
+  }
 }
 
 class _PrimaryTabs extends StatelessWidget {

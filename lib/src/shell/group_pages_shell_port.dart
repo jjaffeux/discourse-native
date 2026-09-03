@@ -303,11 +303,6 @@ final class ShellGroupPagesPort implements GroupPagesPort {
       _shell.selectGroupRoute(route, feedPath: feedPath);
 
   @override
-  void replaceWithGroup(String groupName) => _shell.replaceCurrentContent(
-    ContentRoute.group(GroupRoute.detail(groupName)),
-  );
-
-  @override
   void replaceWithDirectory() => _shell.replaceCurrentContent(
     ContentRoute.group(const GroupRoute.directory()),
   );

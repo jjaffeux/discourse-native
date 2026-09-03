@@ -134,8 +134,6 @@ abstract interface class GroupPagesCoordinatorPort {
 
   void selectRoute(GroupRoute route, {String? feedPath});
 
-  void replaceWithGroup(String groupName);
-
   void replaceWithDirectory();
 
   bool handleBack({required bool canReturnToSidebar});
@@ -322,17 +320,6 @@ final class GroupPagesCoordinator {
       route,
       feedPath: route.topicFeedPath(port.usernameFor(snapshot.owner)),
     );
-  }
-
-  void switchGroup(String groupName) {
-    final snapshot = _snapshot;
-    if (_disposed ||
-        snapshot == null ||
-        _page.kind != GroupPagesPageKind.detail ||
-        !(_port?.isCurrent(snapshot.owner) ?? false)) {
-      return;
-    }
-    _port?.replaceWithGroup(groupName);
   }
 
   void showDirectory() {

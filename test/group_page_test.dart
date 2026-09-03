@@ -3,9 +3,11 @@ import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/group_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -67,6 +69,7 @@ void main() {
     );
 
     expect(find.text('Support Team'), findsOneWidget);
+    expect(find.byKey(const ValueKey('group-flair')), findsNothing);
     expect(find.text('Sam Example'), findsOneWidget);
     expect(find.byKey(const ValueKey('group-join')), findsOneWidget);
     expect(find.byKey(const ValueKey('group-tab-requests')), findsOneWidget);
@@ -205,7 +208,6 @@ void main() {
     String? filtered;
     GroupMemberAction? memberAction;
     List<String>? addedUsernames;
-    String? switchedGroup;
     final member = GroupMember(
       id: 3,
       username: 'sam',
@@ -232,7 +234,6 @@ void main() {
           currentUserStaff: true,
           loaded: true,
         ),
-        onSwitchGroup: (name) => switchedGroup = name,
         onMemberFilterChanged: (value) => filtered = value,
         onMemberSortChanged: (_, _) {},
         onSearchUsers: (_) async => const [
@@ -259,6 +260,16 @@ void main() {
     expect(find.textContaining('Feb 16'), findsOneWidget);
     expect(find.byKey(const ValueKey('add-group-members')), findsOneWidget);
     expect(find.byKey(const ValueKey('invite-group-members')), findsOneWidget);
+    expect(find.byKey(const ValueKey('group-switcher')), findsNothing);
+    expect(find.text('Members (1)'), findsNothing);
+    final search = tester.getRect(
+      find.byKey(const ValueKey('group-member-search')),
+    );
+    for (final key in ['add-group-members', 'invite-group-members']) {
+      final action = tester.getRect(find.byKey(ValueKey(key)));
+      expect(action.center.dy, closeTo(search.center.dy, 1));
+      expect(action.left, greaterThan(search.right));
+    }
 
     await tester.enterText(
       find.byKey(const ValueKey('group-member-search')),
@@ -266,12 +277,6 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 310));
     expect(filtered, 'sam');
-
-    await tester.tap(find.byKey(const ValueKey('group-switcher')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('switch-group-design')));
-    await tester.pumpAndSettle();
-    expect(switchedGroup, 'design');
 
     await tester.tap(find.byKey(const ValueKey('add-group-members')));
     await tester.pumpAndSettle();
@@ -306,6 +311,115 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final width in [1180.0, 390.0]) {
+    testWidgets('member headers sort and reverse each column at width $width', (
+      tester,
+    ) async {
+      var order = 'last_seen_at';
+      var ascending = false;
+      final changes = <(String, bool)>[];
+      await _pump(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) => GroupPage(
+            siteUrl: 'https://meta.discourse.org',
+            route: GroupRoute.detail('support'),
+            registry: PluginRegistry.empty,
+            data: GroupPageData(
+              detail: _detail,
+              members: const GroupMembersPage(members: [_member], total: 1),
+              memberOrder: order,
+              memberAscending: ascending,
+              canInviteToForum: true,
+              loaded: true,
+            ),
+            onMemberSortChanged: (value, direction) => setState(() {
+              changes.add((value, direction));
+              order = value;
+              ascending = direction;
+            }),
+            onOpenMember: _ignoreMember,
+          ),
+        ),
+        size: Size(width, 900),
+      );
+
+      expect(find.byKey(const ValueKey('group-member-sort')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('group-member-sort-direction')),
+        findsNothing,
+      );
+      for (final (column, direction) in [
+        ('last_seen_at', true),
+        ('last_seen_at', false),
+        ('username_lower', true),
+        ('username_lower', false),
+        ('added_at', false),
+        ('added_at', true),
+        ('last_posted_at', false),
+        ('last_posted_at', true),
+      ]) {
+        final header = find.byKey(ValueKey('group-member-sort-$column'));
+        await tester.tap(header);
+        await tester.pump();
+        expect(changes.removeLast(), (column, direction));
+        expect(changes, isEmpty);
+        expect(
+          tester.getSemantics(header).value,
+          direction ? 'Sorted ascending' : 'Sorted descending',
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'header renders configured flair icons and site-relative images',
+    (tester) async {
+      for (final group in const [
+        Group(id: 9, name: 'support', flairIcon: 'star', flairColor: 'ff0000'),
+        Group(id: 9, name: 'support', flairUrl: 'star'),
+        Group(id: 9, name: 'support', flairUrl: 'uploads/group.png'),
+      ]) {
+        await _pump(
+          tester,
+          GroupPage(
+            siteUrl: 'https://meta.discourse.org/forum',
+            route: GroupRoute.detail('support'),
+            registry: PluginRegistry.empty,
+            data: GroupPageData(
+              detail: GroupDetail(group: group),
+              loaded: true,
+            ),
+            onOpenMember: _ignoreMember,
+          ),
+        );
+        final flair = find.byKey(const ValueKey('group-flair'));
+        expect(flair, findsOneWidget);
+        if (group.flairUrl == 'uploads/group.png') {
+          final avatar = tester.widget<AvatarImage>(
+            find.descendant(of: flair, matching: find.byType(AvatarImage)),
+          );
+          expect(
+            avatar.url,
+            'https://meta.discourse.org/forum/uploads/group.png',
+          );
+          expect(avatar.fit, BoxFit.contain);
+        } else {
+          final icon = tester.widget<DIcon>(
+            find.descendant(of: flair, matching: find.byType(DIcon)),
+          );
+          expect(icon.icon, DIcons.star);
+          if (group.flairColor != null) {
+            expect(icon.color, const Color(0xFFFF0000));
+          }
+        }
+        expect(find.text('S'), findsNothing);
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
   testWidgets('admin deletion requires an exact group-name confirmation', (
     tester,
   ) async {
@@ -330,8 +444,9 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byKey(const ValueKey('group-more-actions')));
-    await tester.pumpAndSettle();
+    expect(find.text('More'), findsNothing);
+    expect(find.text('Group settings'), findsNothing);
+    expect(find.text('Copy group link'), findsNothing);
     await tester.tap(find.text('Delete group'));
     await tester.pumpAndSettle();
     expect(

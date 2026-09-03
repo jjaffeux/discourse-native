@@ -217,7 +217,6 @@ class _GroupDetailView extends StatelessWidget {
           onMembershipAction: group == null
               ? null
               : (action) => _membership(context, owner, group, action),
-          onSwitchGroup: coordinator.switchGroup,
           onDeleteGroup: group == null
               ? null
               : () async {

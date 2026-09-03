@@ -143,3 +143,15 @@ String _humanizeLog(String action) {
   if (words.isEmpty) return 'Group changed';
   return '${words[0].toUpperCase()}${words.substring(1)}';
 }
+
+InputDecoration _groupSearchDecoration(String hint) => InputDecoration(
+  isDense: true,
+  hintText: hint,
+  prefixIcon: const Padding(
+    padding: EdgeInsets.symmetric(horizontal: 12),
+    child: DIcon(DIcons.magnifyingGlass, size: 18),
+  ),
+  prefixIconConstraints: const BoxConstraints(minWidth: 42, minHeight: 37),
+  contentPadding: const EdgeInsets.symmetric(vertical: 9),
+  border: const OutlineInputBorder(),
+);

@@ -304,9 +304,6 @@ final class _Port implements GroupPagesCoordinatorPort {
   }
 
   @override
-  void replaceWithGroup(String groupName) {}
-
-  @override
   void replaceWithDirectory() {}
 
   @override

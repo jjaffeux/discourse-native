@@ -117,15 +117,11 @@ class _MembersSectionState extends State<_MembersSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _MembersToolbar(
-          total: widget.page?.total ?? widget.group.userCount ?? 0,
           controller: controller.searchController,
-          order: widget.order,
-          ascending: widget.ascending,
           canManage: widget.group.canManage,
           canInvite: widget.canInviteToForum,
           mutating: widget.mutating,
           onSearch: controller.search,
-          onSortChanged: widget.onSortChanged,
           onAddMembers: widget.onAddMembers == null ? null : _addMembers,
           onInviteMembers: widget.onCreateInvite == null
               ? null
@@ -164,13 +160,20 @@ class _MembersSectionState extends State<_MembersSection> {
           builder: (context, lane) => ListView.separated(
             key: const PageStorageKey('group-members-scroll'),
             padding: lane.padding,
-            itemCount: page.members.length + extra + (desktop ? 1 : 0),
+            itemCount: page.members.length + extra + 1,
             separatorBuilder: (_, _) => desktop
                 ? Divider(height: 1, color: Theme.of(context).shell.divider)
                 : const SizedBox(height: 8),
             itemBuilder: (context, index) {
-              if (desktop && index == 0) return const _MemberTableHeader();
-              final memberIndex = desktop ? index - 1 : index;
+              if (index == 0) {
+                return _MemberTableHeader(
+                  order: widget.order,
+                  ascending: widget.ascending,
+                  desktop: desktop,
+                  onSortChanged: widget.onSortChanged,
+                );
+              }
+              final memberIndex = index - 1;
               if (memberIndex == page.members.length) {
                 return _LoadMoreRow(
                   loading: widget.loadingMore,
@@ -206,57 +209,22 @@ class _MembersSectionState extends State<_MembersSection> {
 
 class _MembersToolbar extends StatelessWidget {
   const _MembersToolbar({
-    required this.total,
     required this.controller,
-    required this.order,
-    required this.ascending,
     required this.canManage,
     required this.canInvite,
     required this.mutating,
     required this.onSearch,
-    required this.onSortChanged,
     required this.onAddMembers,
     required this.onInviteMembers,
   });
 
-  final int total;
   final TextEditingController controller;
-  final String order;
-  final bool ascending;
   final bool canManage;
   final bool canInvite;
   final bool mutating;
   final ValueChanged<String> onSearch;
-  final GroupMemberSortChanged? onSortChanged;
   final VoidCallback? onAddMembers;
   final VoidCallback? onInviteMembers;
-
-  static const options = [
-    ChoiceMenuOption(
-      value: 'username_lower',
-      title: 'Username',
-      description: 'Alphabetical member order',
-    ),
-    ChoiceMenuOption(
-      value: 'added_at',
-      title: 'Date added',
-      description: 'When members joined the group',
-    ),
-    ChoiceMenuOption(
-      value: 'last_posted_at',
-      title: 'Last post',
-      description: 'Most recently posted members',
-    ),
-    ChoiceMenuOption(
-      value: 'last_seen_at',
-      title: 'Last active',
-      description: 'Most recently seen members',
-    ),
-  ];
-
-  String get sortLabel => options
-      .firstWhere((option) => option.value == order, orElse: () => options.last)
-      .title;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -264,105 +232,53 @@ class _MembersToolbar extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 1180),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  'Members ($total)',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final search = TextField(
+              key: const ValueKey('group-member-search'),
+              controller: controller,
+              onChanged: onSearch,
+              style: Theme.of(context).textTheme.labelLarge,
+              decoration: _groupSearchDecoration('Search members'),
+            );
+            final actions = [
+              if (canManage)
+                DButton(
+                  key: const ValueKey('add-group-members'),
+                  icon: const DIcon(DIcons.userPlus, size: 16),
+                  label: const Text('Add members'),
+                  loading: mutating,
+                  onPressed: onAddMembers,
                 ),
-                if (canManage)
-                  DButton(
-                    key: const ValueKey('add-group-members'),
-                    size: DButtonSize.small,
-                    icon: const DIcon(DIcons.userPlus, size: 14),
-                    label: const Text('Add members'),
-                    loading: mutating,
-                    onPressed: onAddMembers,
-                  ),
-                if (canInvite)
-                  DButton(
-                    key: const ValueKey('invite-group-members'),
-                    size: DButtonSize.small,
-                    icon: const DIcon(DIcons.paperPlane, size: 14),
-                    label: const Text('Invite'),
-                    onPressed: onInviteMembers,
-                  ),
+              if (canInvite)
+                DButton(
+                  key: const ValueKey('invite-group-members'),
+                  icon: const DIcon(DIcons.paperPlane, size: 16),
+                  label: const Text('Invite'),
+                  onPressed: onInviteMembers,
+                ),
+            ];
+            if (actions.isEmpty) return search;
+            if (constraints.maxWidth < 600) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  search,
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 8, runSpacing: 8, children: actions),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: search),
+                for (final action in actions) ...[
+                  const SizedBox(width: 8),
+                  action,
+                ],
               ],
-            ),
-            const SizedBox(height: 10),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final search = TextField(
-                  key: const ValueKey('group-member-search'),
-                  controller: controller,
-                  onChanged: onSearch,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
-                    hintText: 'Search members',
-                    isDense: true,
-                  ),
-                );
-                final sorting = Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ChoiceMenuAnchor<String>(
-                      title: 'Sort members',
-                      value: order,
-                      options: options,
-                      onSelected: (value) =>
-                          onSortChanged?.call(value, value == 'username_lower'),
-                      enabled: onSortChanged != null,
-                      builder: (context, openMenu) => DButton(
-                        key: const ValueKey('group-member-sort'),
-                        size: DButtonSize.small,
-                        icon: const DIcon(DIcons.chevronDown, size: 13),
-                        label: Text(sortLabel),
-                        onPressed: openMenu,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    DButton.iconOnly(
-                      key: const ValueKey('group-member-sort-direction'),
-                      size: DButtonSize.small,
-                      icon: Transform.rotate(
-                        angle: ascending ? 0 : 3.141592653589793,
-                        child: const DIcon(DIcons.arrowUp, size: 14),
-                      ),
-                      tooltip: ascending ? 'Ascending' : 'Descending',
-                      onPressed: onSortChanged == null
-                          ? null
-                          : () => onSortChanged!(order, !ascending),
-                    ),
-                  ],
-                );
-                if (constraints.maxWidth < 600) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      search,
-                      const SizedBox(height: 8),
-                      Align(alignment: Alignment.centerLeft, child: sorting),
-                    ],
-                  );
-                }
-                return Row(
-                  children: [
-                    Expanded(child: search),
-                    const SizedBox(width: 10),
-                    sorting,
-                  ],
-                );
-              },
-            ),
-          ],
+            );
+          },
         ),
       ),
     ),
@@ -370,19 +286,110 @@ class _MembersToolbar extends StatelessWidget {
 }
 
 class _MemberTableHeader extends StatelessWidget {
-  const _MemberTableHeader();
+  const _MemberTableHeader({
+    required this.order,
+    required this.ascending,
+    required this.desktop,
+    required this.onSortChanged,
+  });
+
+  final String order;
+  final bool ascending;
+  final bool desktop;
+  final GroupMemberSortChanged? onSortChanged;
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    child: Row(
-      children: [
-        Expanded(flex: 5, child: Text('Member')),
-        Expanded(flex: 2, child: Text('Added')),
-        Expanded(flex: 2, child: Text('Last post')),
-        Expanded(flex: 2, child: Text('Last seen')),
-        SizedBox(width: 48),
-      ],
+  Widget build(BuildContext context) {
+    final columns = [
+      for (final (value, label) in const [
+        ('username_lower', 'Member'),
+        ('added_at', 'Added'),
+        ('last_posted_at', 'Last post'),
+        ('last_seen_at', 'Last seen'),
+      ])
+        _MemberSortHeader(
+          value: value,
+          label: label,
+          selected: order == value,
+          ascending: ascending,
+          onPressed: onSortChanged == null
+              ? null
+              : () => onSortChanged!(
+                  value,
+                  order == value ? !ascending : value == 'username_lower',
+                ),
+        ),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: desktop
+          ? Row(
+              children: [
+                Expanded(flex: 5, child: columns[0]),
+                Expanded(flex: 2, child: columns[1]),
+                Expanded(flex: 2, child: columns[2]),
+                Expanded(flex: 2, child: columns[3]),
+                const SizedBox(width: 48),
+              ],
+            )
+          : Wrap(spacing: 16, children: columns),
+    );
+  }
+}
+
+class _MemberSortHeader extends StatelessWidget {
+  const _MemberSortHeader({
+    required this.value,
+    required this.label,
+    required this.selected,
+    required this.ascending,
+    required this.onPressed,
+  });
+
+  final String value;
+  final String label;
+  final bool selected;
+  final bool ascending;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    key: ValueKey('group-member-sort-$value'),
+    header: true,
+    button: true,
+    enabled: onPressed != null,
+    value: selected
+        ? (ascending ? 'Sorted ascending' : 'Sorted descending')
+        : null,
+    child: Tooltip(
+      message: 'Sort by $label',
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+                  ),
+                ),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 6),
+                RotatedBox(
+                  quarterTurns: ascending ? 0 : 2,
+                  child: const DIcon(DIcons.arrowUp, size: 12),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     ),
   );
 }
@@ -761,10 +768,8 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
             key: const ValueKey('add-members-search'),
             autofocus: true,
             onChanged: controller.search,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              labelText: 'Username or email address',
-            ),
+            style: Theme.of(context).textTheme.labelLarge,
+            decoration: _groupSearchDecoration('Username or email address'),
           ),
           if (controller.searching) const LinearProgressIndicator(minHeight: 2),
           const SizedBox(height: 10),
