@@ -392,14 +392,28 @@ void _registerTopicReadingTests() {
         await tester.pumpAndSettle();
         expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
 
-        await tester.tap(newTopic);
-        await tester.pumpAndSettle();
-
-        expect(find.byType(ComposerPanel), findsOneWidget);
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
-        expect(shell.currentContent?.isMessages, isTrue);
-        expect(shell.visibleComposer?.target.isNewTopic, isTrue);
-        expect(shell.visibleComposer?.target.originFeedId, 'latest');
+        for (final position in [
+          tester.getCenter(
+            find.descendant(
+              of: newTopicTile,
+              matching: find.dIcon(DIcons.plus),
+            ),
+          ),
+          tester.getCenter(newTopic),
+          tester.getRect(newTopicTile).centerRight - const Offset(12, 0),
+        ]) {
+          await tester.tapAt(position, kind: PointerDeviceKind.mouse);
+          await tester.pumpAndSettle();
+
+          expect(find.byType(ComposerPanel), findsOneWidget);
+          expect(shell.currentContent?.isMessages, isTrue);
+          expect(shell.visibleComposer?.target.isNewTopic, isTrue);
+          expect(shell.visibleComposer?.target.originFeedId, 'latest');
+
+          await tester.tap(find.byTooltip('Save and close'));
+          await tester.pumpAndSettle();
+        }
       },
     );
 
@@ -452,6 +466,98 @@ void _registerTopicReadingTests() {
       await tester.pump();
       expect(find.byType(ComposerPanel), findsNothing);
     });
+
+    testWidgets('New Topic reuses categories already loaded by the sidebar', (
+      tester,
+    ) async {
+      const user = DiscourseUser(
+        id: 7,
+        username: 'joffreyj',
+        canCreateTopic: true,
+      );
+      final api = _FailingNewTopicMetadataApi(user: user);
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: user)],
+        api: api,
+        authenticator: authenticator,
+      );
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      expect(shell.topicComposerCategories('https://meta.discourse.org'), [
+        _FailingNewTopicMetadataApi.category,
+      ]);
+      final categoryRequestCount = api.categoryRequests.length;
+
+      await tester.tap(sidebarDestination('New Topic'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(api.categoryRequests, hasLength(categoryRequestCount));
+      expect(find.text('Tags'), findsOneWidget);
+    });
+
+    for (final failedMetadata in ['settings', 'categories']) {
+      testWidgets(
+        'New Topic opens after a $failedMetadata failure and retries later',
+        (tester) async {
+          const user = DiscourseUser(
+            id: 7,
+            username: 'joffreyj',
+            canCreateTopic: true,
+          );
+          final api = _FailingNewTopicMetadataApi(user: user)
+            ..failCapabilities = failedMetadata == 'settings'
+            ..failCategoryLoad = failedMetadata == 'categories';
+          final authenticator = FakeAuthenticator()
+            ..keys['https://meta.discourse.org'] = 'meta-key';
+          await pumpShell(
+            tester,
+            desktop,
+            instances: [instance('meta.discourse.org').copyWith(user: user)],
+            api: api,
+            authenticator: authenticator,
+          );
+          await tester.tap(sidebarDestination('New Topic'));
+          await tester.pumpAndSettle();
+
+          expect(find.byType(ComposerPanel), findsOneWidget);
+          expect(find.text('Category'), findsOneWidget);
+          expect(
+            find.text('Tags'),
+            failedMetadata == 'settings' ? findsNothing : findsOneWidget,
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          expect(
+            shell.topicComposerCategories('https://meta.discourse.org'),
+            failedMetadata == 'categories'
+                ? isEmpty
+                : [_FailingNewTopicMetadataApi.category],
+          );
+
+          await tester.tap(find.byTooltip('Save and close'));
+          await tester.pumpAndSettle();
+          api.failCapabilities = false;
+          api.failCategoryLoad = false;
+          await tester.tap(sidebarDestination('New Topic'));
+          await tester.pumpAndSettle();
+
+          expect(find.byType(ComposerPanel), findsOneWidget);
+          expect(find.text('Tags'), findsOneWidget);
+          expect(shell.topicComposerCategories('https://meta.discourse.org'), [
+            _FailingNewTopicMetadataApi.category,
+          ]);
+          expect(
+            api.topicComposerCapabilityRequests,
+            hasLength(failedMetadata == 'settings' ? 2 : 1),
+          );
+        },
+      );
+    }
 
     testWidgets('C leaves focused forum form controls alone', (tester) async {
       const user = DiscourseUser(
@@ -5235,6 +5341,73 @@ void _registerTopicReadingTests() {
       );
     });
   });
+}
+
+class _FailingNewTopicMetadataApi extends FakeDiscourseApi {
+  _FailingNewTopicMetadataApi({required super.user})
+    : super(
+        feeds: const {'/latest.json': []},
+        categoryList: const [category],
+        composerCapabilities: const TopicComposerCapabilities(
+          canTagTopics: true,
+        ),
+      );
+
+  static const category = TopicCategory(
+    id: 5,
+    name: 'Support',
+    color: '0088CC',
+    permission: 1,
+  );
+
+  bool failCapabilities = false;
+  bool failCategoryLoad = false;
+
+  @override
+  Future<CategoryLoadResult> loadCategories({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+    int page = 1,
+  }) async {
+    if (failCategoryLoad) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return super.loadCategories(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+      page: page,
+    );
+  }
+
+  @override
+  Future<List<TopicCategory>> categories({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+    int page = 1,
+  }) async {
+    categoryRequests.add(siteUrl);
+    throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+  }
+
+  @override
+  Future<TopicComposerCapabilities> topicComposerCapabilities({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    final capabilities = await super.topicComposerCapabilities(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    if (failCapabilities) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return capabilities;
+  }
 }
 
 double _textWidth(WidgetTester tester, Finder text) {
