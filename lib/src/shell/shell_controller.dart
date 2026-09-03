@@ -6362,13 +6362,12 @@ class ShellController extends FrameSafeNotifier
     ComposerController composer,
     int? categoryId,
   ) async {
-    final minimumRequiredTags = topicComposerCategories(composer.target.siteUrl)
-        .where((category) => category.id == categoryId)
-        .firstOrNull
-        ?.minimumRequiredTags;
+    final category = topicComposerCategories(
+      composer.target.siteUrl,
+    ).where((category) => category.id == categoryId).firstOrNull;
     composer.setCategory(
       categoryId,
-      minimumRequiredTags: minimumRequiredTags ?? 0,
+      minimumRequiredTags: category?.minimumRequiredTags ?? 0,
     );
     if (composer.tags.isEmpty) return;
     final kept = <TopicTag>[];
@@ -6398,9 +6397,7 @@ class ShellController extends FrameSafeNotifier
     }
     if (kept.length != composer.tags.length) {
       composer.setTags(kept);
-      composer.showNotice(
-        'Some tags were removed because they are not allowed in that category.',
-      );
+      composer.showTagRemovalNotice(categoryName: category?.name);
     }
   }
 

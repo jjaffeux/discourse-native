@@ -1,12 +1,14 @@
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer_tag_removal_notice.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_category_path.dart';
 import 'package:discourse_native/src/shell/topic_category_picker.dart';
 import 'package:discourse_native/src/shell/topic_tag_picker.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -46,6 +48,7 @@ void main() {
               TopicTag(id: 8, name: 'mobile'),
             ],
           ),
+          'mobile': TopicTagSearch(tags: [TopicTag(id: 8, name: 'mobile')]),
         },
       ),
       authenticator: FakeAuthenticator()
@@ -83,6 +86,66 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
   }
+
+  testWidgets(
+    'category filtering floats a dismissible notice over the editor',
+    (tester) async {
+      final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
+      final composer = shell.visibleComposer!;
+      composer.setTags(const [
+        TopicTag(id: 7, name: 'design'),
+        TopicTag(id: 8, name: 'mobile'),
+      ]);
+      await tester.pump();
+      final editorBounds = tester.getRect(find.byType(ComposerEditor));
+      final submitBounds = tester.getRect(
+        find.widgetWithText(FilledButton, 'Create topic'),
+      );
+
+      await shell.changeComposerCategory(composer, 5);
+      await tester.pump();
+
+      expect(composer.tags, const [TopicTag(id: 8, name: 'mobile')]);
+      expect(find.text('Some tags were removed'), findsOneWidget);
+      expect(find.text('They aren’t available in Support.'), findsOneWidget);
+      expect(composer.notice, isNull);
+      expect(tester.getRect(find.byType(ComposerEditor)), editorBounds);
+      expect(
+        tester.getRect(find.widgetWithText(FilledButton, 'Create topic')),
+        submitBounds,
+      );
+      final notice = find.byType(ComposerTagRemovalNotice);
+      final noticeBounds = tester.getRect(notice);
+      expect(noticeBounds.center.dx, closeTo(editorBounds.center.dx, 1));
+      expect(noticeBounds.bottom, lessThanOrEqualTo(editorBounds.bottom));
+      expect(noticeBounds.top, greaterThan(editorBounds.top));
+
+      await tester.tap(
+        find.descendant(of: notice, matching: find.byType(DButton)),
+      );
+      await tester.pump();
+
+      expect(notice, findsNothing);
+      expect(composer.tagRemovalNotice, isNull);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 2));
+    },
+  );
+
+  testWidgets('keeping every tag does not show a removal notice', (
+    tester,
+  ) async {
+    final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
+    final composer = shell.visibleComposer!;
+    composer.setTags(const [TopicTag(id: 8, name: 'mobile')]);
+
+    await shell.changeComposerCategory(composer, 5);
+    await tester.pump();
+
+    expect(composer.tags, const [TopicTag(id: 8, name: 'mobile')]);
+    expect(find.byType(ComposerTagRemovalNotice), findsNothing);
+    await tester.pump(const Duration(seconds: 2));
+  });
 
   testWidgets('shows compact taxonomy controls beneath the title', (
     tester,

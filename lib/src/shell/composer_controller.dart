@@ -523,6 +523,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         (value == _categoryId && minimumRequiredTags == _minimumRequiredTags)) {
       return;
     }
+    _clearTagRemovalNotice();
     _categoryId = value;
     _minimumRequiredTags = minimumRequiredTags;
     _onMetadataChanged();
@@ -633,6 +634,36 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (_disposed) return;
     _notice = message;
     _notify();
+  }
+
+  String? _tagRemovalNotice;
+  Timer? _tagRemovalNoticeTimer;
+
+  String? get tagRemovalNotice => _tagRemovalNotice;
+
+  void showTagRemovalNotice({String? categoryName}) {
+    if (_disposed) return;
+    _clearTagRemovalNotice();
+    _tagRemovalNotice = categoryName == null || categoryName.isEmpty
+        ? 'They aren’t available in this category.'
+        : 'They aren’t available in $categoryName.';
+    _tagRemovalNoticeTimer = Timer(
+      const Duration(seconds: 7),
+      dismissTagRemovalNotice,
+    );
+    _notify();
+  }
+
+  void dismissTagRemovalNotice() {
+    if (_disposed || _tagRemovalNotice == null) return;
+    _clearTagRemovalNotice();
+    _notify();
+  }
+
+  void _clearTagRemovalNotice() {
+    _tagRemovalNoticeTimer?.cancel();
+    _tagRemovalNoticeTimer = null;
+    _tagRemovalNotice = null;
   }
 
   final List<ComposerUploadItem> _uploads = [];
@@ -2172,6 +2203,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void beginSubmit() {
     if (_disposed) return;
+    _clearTagRemovalNotice();
     _state = ComposerState.submitting;
     _error = null;
     _notice = null;
@@ -2228,6 +2260,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void enqueued(String? message) {
     if (_disposed) return;
+    _clearTagRemovalNotice();
     draftSettled();
     _state = ComposerState.editing;
     _error = null;
@@ -2246,6 +2279,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void clearDocument() {
     if (_disposed) return;
+    _clearTagRemovalNotice();
     draftSettled();
     _state = ComposerState.editing;
     _error = null;
@@ -2264,6 +2298,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     required Iterable<ComposerUploadResult> uploads,
   }) {
     if (_disposed || _target.policy?.supportsEditing != true) return;
+    _clearTagRemovalNotice();
     draftSettled();
     _state = ComposerState.editing;
     _error = null;
@@ -2435,6 +2470,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   @override
   void dispose() {
     _disposed = true;
+    _clearTagRemovalNotice();
     _clearUploads();
     _wait?.cancel();
     _draftTimer?.cancel();

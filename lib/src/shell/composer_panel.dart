@@ -34,6 +34,7 @@ import 'composer_marks.dart';
 import 'composer_media_editing_coordinator.dart';
 import 'composer_quotes.dart';
 import 'composer_suggestions.dart';
+import 'composer_tag_removal_notice.dart';
 import 'composer_upload_picker.dart';
 import 'emoji_composer.dart';
 import 'emoji_picker.dart';
@@ -172,106 +173,163 @@ class ComposerPanel extends StatelessWidget {
                       onMove: minimized ? null : onMove,
                       onMoveEnd: onMoveEnd,
                     ),
-                    if (!minimized && target.isPrivateMessage)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
-                        child: InputDecorator(
-                          key: const ValueKey(
-                            'composer-private-message-recipients',
-                          ),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            labelText: 'To',
-                          ),
-                          child: Text(target.targetRecipients!),
-                        ),
-                      ),
-                    if (!minimized &&
-                        (target.createsTopic || target.editsTopicMetadata))
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
-                        child: TextField(
-                          controller: composer.title,
-                          readOnly: composer.discarding,
-                          textInputAction: TextInputAction.next,
-                          style: theme.textTheme.bodyMedium,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            hintText: target.isNewTopic
-                                ? 'Give your topic a title'
-                                : 'Title',
-                            filled: true,
-                            fillColor: theme.colorScheme.surfaceContainerLow,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(7),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(7),
-                              borderSide: BorderSide(
-                                color: theme.shell.divider,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (!minimized &&
-                        (target.isNewTopic ||
-                            target.editsTopicMetadata ||
-                            target.isTaxonomyEdit))
-                      _TopicTaxonomy(composer: composer),
-                    if (!minimized && !target.isTaxonomyEdit) ...[
+                    if (!minimized)
                       Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
-                          child: ComposerEditor(
-                            composer: composer,
-                            pickImages: pickImages,
-                            readClipboardImages: readClipboardImages,
-                            onSuggestionAction:
-                                ({
-                                  required context,
-                                  required composer,
-                                  required suggestion,
-                                  anchor,
-                                }) async {
-                                  if (suggestion.action !=
-                                      ComposerSuggestionAction
-                                          .openEmojiPicker) {
-                                    return;
-                                  }
-                                  await openEmojiPickerForTopicComposer(
-                                    context: context,
-                                    composer: composer,
-                                    initialQuery:
-                                        composer.autocomplete.trigger?.query ??
-                                        suggestion.value,
-                                    anchor: anchor,
-                                  );
-                                },
-                            hintText: switch (target) {
-                              _ when composer.loadingBody =>
-                                'Loading that post…',
-                              _ when target.isPrivateMessage =>
-                                'Write your message…',
-                              _ when target.isNewTopic => 'Write your topic…',
-                              _ when target.isEdit => 'Edit this post…',
-                              _ when target.replyToUsername != null =>
-                                'Reply to @${target.replyToUsername}…',
-                              _ => 'Write a reply…',
-                            },
-                            textStyle: theme.textTheme.bodyMedium,
-                            hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Column(
+                              children: [
+                                if (target.isPrivateMessage)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      2,
+                                      16,
+                                      6,
+                                    ),
+                                    child: InputDecorator(
+                                      key: const ValueKey(
+                                        'composer-private-message-recipients',
+                                      ),
+                                      decoration: const InputDecoration(
+                                        isDense: true,
+                                        labelText: 'To',
+                                      ),
+                                      child: Text(target.targetRecipients!),
+                                    ),
+                                  ),
+                                if (target.createsTopic ||
+                                    target.editsTopicMetadata)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      2,
+                                      16,
+                                      8,
+                                    ),
+                                    child: TextField(
+                                      controller: composer.title,
+                                      readOnly: composer.discarding,
+                                      textInputAction: TextInputAction.next,
+                                      style: theme.textTheme.bodyMedium,
+                                      decoration: InputDecoration(
+                                        isDense: true,
+                                        hintText: target.isNewTopic
+                                            ? 'Give your topic a title'
+                                            : 'Title',
+                                        filled: true,
+                                        fillColor: theme
+                                            .colorScheme
+                                            .surfaceContainerLow,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 10,
+                                            ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            7,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            7,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: theme.shell.divider,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                if (target.isNewTopic ||
+                                    target.editsTopicMetadata ||
+                                    target.isTaxonomyEdit)
+                                  _TopicTaxonomy(composer: composer),
+                                if (!target.isTaxonomyEdit) ...[
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        2,
+                                        16,
+                                        8,
+                                      ),
+                                      child: ComposerEditor(
+                                        composer: composer,
+                                        pickImages: pickImages,
+                                        readClipboardImages:
+                                            readClipboardImages,
+                                        onSuggestionAction:
+                                            ({
+                                              required context,
+                                              required composer,
+                                              required suggestion,
+                                              anchor,
+                                            }) async {
+                                              if (suggestion.action !=
+                                                  ComposerSuggestionAction
+                                                      .openEmojiPicker) {
+                                                return;
+                                              }
+                                              await openEmojiPickerForTopicComposer(
+                                                context: context,
+                                                composer: composer,
+                                                initialQuery:
+                                                    composer
+                                                        .autocomplete
+                                                        .trigger
+                                                        ?.query ??
+                                                    suggestion.value,
+                                                anchor: anchor,
+                                              );
+                                            },
+                                        hintText: switch (target) {
+                                          _ when composer.loadingBody =>
+                                            'Loading that post…',
+                                          _ when target.isPrivateMessage =>
+                                            'Write your message…',
+                                          _ when target.isNewTopic =>
+                                            'Write your topic…',
+                                          _ when target.isEdit =>
+                                            'Edit this post…',
+                                          _
+                                              when target.replyToUsername !=
+                                                  null =>
+                                            'Reply to @${target.replyToUsername}…',
+                                          _ => 'Write a reply…',
+                                        },
+                                        textStyle: theme.textTheme.bodyMedium,
+                                        hintStyle: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                ] else
+                                  const Spacer(),
+                              ],
                             ),
-                          ),
+                            if (composer.tagRemovalNotice case final message?)
+                              Positioned(
+                                left: 16,
+                                right: 16,
+                                bottom: 12,
+                                child: Align(
+                                  alignment: Alignment.bottomCenter,
+                                  child: ComposerTagRemovalNotice(
+                                    message: message,
+                                    onDismiss: composer.dismissTagRemovalNotice,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                    ] else if (!minimized)
-                      const Spacer(),
                     if (!minimized && composer.uploads.isNotEmpty)
                       ComposerUploadQueue(composer: composer),
                     if (!minimized)
