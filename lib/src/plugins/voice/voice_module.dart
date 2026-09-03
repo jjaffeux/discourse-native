@@ -81,6 +81,8 @@ final class VoiceModule implements PluginModule {
               .meshPrivacyWarningEnabled,
           autoStatusEnabled: (siteUrl) =>
               siteState.siteConfigFor(siteUrl).voiceSettings.autoStatusEnabled,
+          currentUsername: (siteUrl) =>
+              siteState.currentUserFor(siteUrl)?.username,
         );
         final callPort = VoiceCallControllerPort(
           controller: controller,

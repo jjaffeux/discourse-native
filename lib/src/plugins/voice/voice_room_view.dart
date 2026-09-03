@@ -83,6 +83,7 @@ class VoiceRoomView extends StatelessWidget {
               site.url,
             ),
             autoStatusAvailable: shell.autoStatusEnabledFor(site.url),
+            inviteLink: shell.inviteLinkFor(site.url, room),
           ),
         );
       },
@@ -102,6 +103,7 @@ class VoiceRoomContent extends StatefulWidget {
     required this.recordingEnabled,
     this.meshPrivacyWarningEnabled = false,
     this.autoStatusAvailable = false,
+    this.inviteLink,
     this.controllerResolver,
   });
 
@@ -114,6 +116,7 @@ class VoiceRoomContent extends StatefulWidget {
   final bool recordingEnabled;
   final bool meshPrivacyWarningEnabled;
   final bool autoStatusAvailable;
+  final String? inviteLink;
   final VoiceController Function()? controllerResolver;
 
   @override
@@ -281,6 +284,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
                     currentUserId: currentUserId,
                     recordingEnabled: recordingEnabled,
                     autoStatusAvailable: widget.autoStatusAvailable,
+                    inviteLink: widget.inviteLink,
                     controllerResolver: controllerResolver,
                   ),
           ),
@@ -628,6 +632,7 @@ class _CallControls extends StatelessWidget {
     required this.currentUserId,
     required this.recordingEnabled,
     this.autoStatusAvailable = false,
+    this.inviteLink,
     this.controllerResolver,
   });
   final VoiceController controller;
@@ -636,6 +641,7 @@ class _CallControls extends StatelessWidget {
   final int? currentUserId;
   final bool recordingEnabled;
   final bool autoStatusAvailable;
+  final String? inviteLink;
   final VoiceController Function()? controllerResolver;
 
   @override
@@ -691,6 +697,19 @@ class _CallControls extends StatelessWidget {
             selected: me?.handRaisedAt != null,
             onPressed: () =>
                 controller.requestToSpeak(raised: me?.handRaisedAt == null),
+          ),
+        if (call.room.canInvite)
+          _Control(
+            label: 'Invite people',
+            icon: DIcons.userPlus,
+            selected: false,
+            onPressed: () => _showVoiceInvite(
+              context,
+              controller,
+              siteUrl: siteUrl,
+              room: call.room,
+              inviteLink: inviteLink,
+            ),
           ),
         if (call.room.chatAvailable)
           _Control(
@@ -902,6 +921,253 @@ class _RtcTrackRendererState extends State<_RtcTrackRenderer> {
     _disposed = true;
     unawaited(_attachment.then((_) => _release()));
     super.dispose();
+  }
+}
+
+Future<void> _showVoiceInvite(
+  BuildContext context,
+  VoiceController controller, {
+  required String siteUrl,
+  required VoiceRoom room,
+  required String? inviteLink,
+}) => showDialog<void>(
+  context: context,
+  builder: (context) => _VoiceInviteDialog(
+    controller: controller,
+    siteUrl: siteUrl,
+    room: room,
+    inviteLink: inviteLink,
+  ),
+);
+
+class _VoiceInviteDialog extends StatefulWidget {
+  const _VoiceInviteDialog({
+    required this.controller,
+    required this.siteUrl,
+    required this.room,
+    required this.inviteLink,
+  });
+
+  final VoiceController controller;
+  final String siteUrl;
+  final VoiceRoom room;
+  final String? inviteLink;
+
+  @override
+  State<_VoiceInviteDialog> createState() => _VoiceInviteDialogState();
+}
+
+class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
+  final TextEditingController _username = TextEditingController();
+  List<VoiceInviteSuggestion>? _suggestions;
+  final Set<String> _invited = {};
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadSuggestions());
+  }
+
+  Future<void> _loadSuggestions() async {
+    final suggestions = await widget.controller.inviteSuggestions(
+      widget.siteUrl,
+      widget.room.id,
+    );
+    if (mounted) setState(() => _suggestions = suggestions);
+  }
+
+  Future<void> _invite(List<String> usernames) async {
+    final names = [
+      for (final name in usernames)
+        if (name.trim().isNotEmpty) name.trim().replaceFirst('@', ''),
+    ];
+    if (names.isEmpty || _sending) return;
+    setState(() => _sending = true);
+    try {
+      final result = await widget.controller.invite(
+        widget.siteUrl,
+        widget.room.id,
+        names,
+      );
+      if (!mounted) return;
+      setState(() => _invited.addAll(result.invitedUsernames));
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (result.invitedUsernames.isNotEmpty) {
+        final count = result.invitedUsernames.length;
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(count == 1 ? 'Invite sent.' : '$count invites sent.'),
+          ),
+        );
+      }
+      if (result.skippedUsernames.isNotEmpty) {
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(
+              "${result.skippedUsernames.map((name) => '@$name').join(', ')} "
+              "can't be invited because they don't have access to voice rooms.",
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            error is WriteException
+                ? error.message
+                : "Couldn't send the invite.",
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _username.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final suggestions = _suggestions;
+    final link = widget.inviteLink;
+    return AlertDialog(
+      title: Text('Invite to ${widget.room.name}'),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _username,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Invite by name',
+                        hintText: 'username',
+                      ),
+                      onSubmitted: (value) async {
+                        await _invite([value]);
+                        if (mounted) _username.clear();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  DButton(
+                    onPressed: _sending
+                        ? null
+                        : () async {
+                            await _invite([_username.text]);
+                            if (mounted) _username.clear();
+                          },
+                    icon: const DIcon(DIcons.paperPlane, size: 16),
+                    label: const Text('Send invite'),
+                    variant: DButtonVariant.primary,
+                    loading: _sending,
+                  ),
+                ],
+              ),
+              if (suggestions == null)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(child: CircularProgressIndicator.adaptive()),
+                )
+              else if (suggestions.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  "People you've shared this room with",
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                for (final suggestion in suggestions)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: ClipOval(
+                      child: SizedBox.square(
+                        dimension: 36,
+                        child: AvatarImage(
+                          url: suggestion.user.avatarUrl(
+                            widget.siteUrl,
+                            size: 72,
+                          ),
+                          size: 36,
+                          fallback: ColoredBox(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHigh,
+                          ),
+                        ),
+                      ),
+                    ),
+                    title: Text(suggestion.user.username),
+                    subtitle: Text(
+                      '${_timeTogether(suggestion.totalSeconds)} together '
+                      'recently',
+                    ),
+                    trailing: _invited.contains(suggestion.user.username)
+                        ? const Text('Invited')
+                        : DButton(
+                            onPressed: _sending
+                                ? null
+                                : () => _invite([suggestion.user.username]),
+                            label: const Text('Invite'),
+                          ),
+                  ),
+              ],
+              if (link != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Or share an invite link',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(child: SelectableText(link)),
+                    const SizedBox(width: 8),
+                    DButton(
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: link));
+                        if (context.mounted) {
+                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                            const SnackBar(
+                              content: Text('Link copied to clipboard'),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const DIcon(DIcons.copy, size: 16),
+                      label: const Text('Copy'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        DButton(
+          onPressed: () => Navigator.pop(context),
+          label: const Text('Done'),
+        ),
+      ],
+    );
+  }
+
+  static String _timeTogether(int seconds) {
+    if (seconds >= 3600) return '${(seconds / 3600).round()}h';
+    if (seconds >= 60) return '${(seconds / 60).round()}m';
+    return '${seconds}s';
   }
 }
 

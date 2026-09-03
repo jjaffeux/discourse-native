@@ -305,6 +305,46 @@ void main() {
     });
   });
 
+  group('invites', () {
+    test('parse who was invited and who was refused', () {
+      final result = VoiceInviteResult.fromJson(const {
+        'invited_usernames': ['kim', 'lee'],
+        'skipped_usernames': ['bot', 7, ''],
+      });
+
+      expect(result.invitedUsernames, ['kim', 'lee']);
+      expect(result.skippedUsernames, ['bot']);
+      expect(VoiceInviteResult.fromJson(const {}).invitedUsernames, isEmpty);
+    });
+
+    test('parse a suggestion and refuse one without an identity', () {
+      final suggestion = VoiceInviteSuggestion.fromJson(const {
+        'id': 3,
+        'username': 'kim',
+        'avatar_template': '/user_avatar/example.com/kim/{size}/3_2.png',
+        'total_seconds': 5400,
+        'last_together_at': '2026-08-08T16:00:00Z',
+      })!;
+
+      expect(
+        (
+          id: suggestion.user.id,
+          username: suggestion.user.username,
+          totalSeconds: suggestion.totalSeconds,
+          lastTogetherAt: suggestion.lastTogetherAt,
+        ),
+        (
+          id: 3,
+          username: 'kim',
+          totalSeconds: 5400,
+          lastTogetherAt: DateTime.utc(2026, 8, 8, 16),
+        ),
+      );
+      expect(VoiceInviteSuggestion.fromJson(const {'id': 3}), isNull);
+      expect(VoiceInviteSuggestion.fromJson(const {'username': 'x'}), isNull);
+    });
+  });
+
   group('participant ordering', () {
     test('normalizes rosters to username then id regardless of wire order', () {
       final participants = canonicalVoiceParticipants(const [

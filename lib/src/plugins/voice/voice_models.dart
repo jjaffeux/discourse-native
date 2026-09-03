@@ -243,6 +243,59 @@ class VoiceIncomingCall {
       '$roomId-${caller.username}-${sentAt.millisecondsSinceEpoch}';
 }
 
+/// Who an invite request reached. The server reports someone as invited
+/// whenever it accepted the request for them, whether or not it notified
+/// them — an inviter must not learn that they are muted.
+@immutable
+class VoiceInviteResult {
+  const VoiceInviteResult({
+    this.invitedUsernames = const [],
+    this.skippedUsernames = const [],
+  });
+
+  factory VoiceInviteResult.fromJson(Map<String, dynamic> json) =>
+      VoiceInviteResult(
+        invitedUsernames: _usernames(json['invited_usernames']),
+        skippedUsernames: _usernames(json['skipped_usernames']),
+      );
+
+  static List<String> _usernames(Object? value) => List.unmodifiable([
+    if (value is List)
+      for (final entry in value)
+        if (entry is String && entry.isNotEmpty) entry,
+  ]);
+
+  final List<String> invitedUsernames;
+
+  /// Named but refused: no access to voice, or unable to join this room.
+  final List<String> skippedUsernames;
+}
+
+/// Someone the user has shared a room with recently — the shortlist an
+/// invite dialog opens with.
+@immutable
+class VoiceInviteSuggestion {
+  const VoiceInviteSuggestion({
+    required this.user,
+    this.totalSeconds = 0,
+    this.lastTogetherAt,
+  });
+
+  static VoiceInviteSuggestion? fromJson(Map<String, dynamic> json) {
+    final user = VoiceParticipant.fromJson(json);
+    if (user.id <= 0 || user.username.isEmpty) return null;
+    return VoiceInviteSuggestion(
+      user: user,
+      totalSeconds: jsonInt(json['total_seconds']),
+      lastTogetherAt: _voiceDate(json['last_together_at']),
+    );
+  }
+
+  final VoiceParticipant user;
+  final int totalSeconds;
+  final DateTime? lastTogetherAt;
+}
+
 @immutable
 class VoiceRecording {
   const VoiceRecording({

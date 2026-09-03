@@ -4758,4 +4758,58 @@ void main() {
       expect(controller.room(firstSite, 9), isNull);
     });
   });
+
+  group('invites', () {
+    test('propagate the server\'s refusal and report the outcome', () async {
+      transport.responses['POST /voice/rooms/7/invites.json'] = {
+        'invited_usernames': ['kim'],
+        'skipped_usernames': ['bot'],
+      };
+
+      final result = await controller.invite(firstSite, 7, ['kim', 'bot']);
+
+      expect(result.invitedUsernames, ['kim']);
+      expect(result.skippedUsernames, ['bot']);
+      expect(transport.writes.single.body, {
+        'usernames': ['kim', 'bot'],
+      });
+
+      transport.failures['POST /voice/rooms/7/invites.json'] =
+          const WriteException(
+            WriteFailure.rateLimited,
+            statusCode: 429,
+            errors: ['Too many invites.'],
+          );
+      await expectLater(
+        controller.invite(firstSite, 7, ['lee']),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.message,
+            'message',
+            'Too many invites.',
+          ),
+        ),
+      );
+    });
+
+    test('an unavailable shortlist is an empty one', () async {
+      transport.failures['GET /voice/rooms/7/invites/suggestions.json'] =
+          const SiteLookupException(SiteLookupFailure.unreachable, 'one');
+
+      expect(await controller.inviteSuggestions(firstSite, 7), isEmpty);
+
+      transport.responses['GET /voice/rooms/7/invites/suggestions.json'] = {
+        'suggestions': [
+          {'id': 3, 'username': 'kim', 'total_seconds': 120},
+        ],
+      };
+      expect(
+        (await controller.inviteSuggestions(
+          firstSite,
+          7,
+        )).map((s) => s.user.username),
+        ['kim'],
+      );
+    });
+  });
 }

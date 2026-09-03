@@ -15,6 +15,9 @@ const voiceShellService = PluginServiceKey<VoiceShellService>(
 
 typedef VoiceRecordingEnabledReader = bool Function(String siteUrl);
 typedef VoiceSiteFlagReader = bool Function(String siteUrl);
+typedef VoiceUsernameReader = String? Function(String siteUrl);
+
+String? _noUsername(String _) => null;
 
 bool _siteDefaultOn(String _) => true;
 
@@ -26,16 +29,19 @@ final class VoiceShellService
     required VoiceRecordingEnabledReader recordingEnabled,
     VoiceSiteFlagReader meshPrivacyWarningEnabled = _siteDefaultOn,
     VoiceSiteFlagReader autoStatusEnabled = _siteDefaultOn,
+    VoiceUsernameReader currentUsername = _noUsername,
   }) : _host = host,
        _recordingEnabled = recordingEnabled,
        _meshPrivacyWarningEnabled = meshPrivacyWarningEnabled,
-       _autoStatusEnabled = autoStatusEnabled;
+       _autoStatusEnabled = autoStatusEnabled,
+       _currentUsername = currentUsername;
 
   final VoiceController controller;
   final PluginRouteNavigationHost _host;
   final VoiceRecordingEnabledReader _recordingEnabled;
   final VoiceSiteFlagReader _meshPrivacyWarningEnabled;
   final VoiceSiteFlagReader _autoStatusEnabled;
+  final VoiceUsernameReader _currentUsername;
 
   PluginRouteSite? get currentInstance => _host.currentSite;
   ContentRoute? get currentContent => _host.currentContent;
@@ -48,6 +54,16 @@ final class VoiceShellService
       _meshPrivacyWarningEnabled(siteUrl);
 
   bool autoStatusEnabledFor(String siteUrl) => _autoStatusEnabled(siteUrl);
+
+  /// The shareable invite link for [room]: the same URL the plugin's
+  /// notifications carry, so joining through it credits this user as the
+  /// inviter. Null without a signed-in username to credit.
+  String? inviteLinkFor(String siteUrl, VoiceRoom room) {
+    final username = _currentUsername(siteUrl);
+    if (username == null || username.isEmpty) return null;
+    return '$siteUrl/voice/r/${Uri.encodeComponent(room.slug)}/invited-by/'
+        '${Uri.encodeComponent(username.toLowerCase())}';
+  }
 
   /// Calls [username]: creates the call room, lands on its page, and joins.
   /// Server refusals propagate so the caller can show them.

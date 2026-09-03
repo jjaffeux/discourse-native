@@ -214,6 +214,36 @@ final class VoiceApi {
     }, clientId),
   );
 
+  Future<VoiceInviteResult> invite({
+    required String siteUrl,
+    required int roomId,
+    required String apiKey,
+    required List<String> usernames,
+    String? clientId,
+  }) async => VoiceInviteResult.fromJson(
+    await _write(siteUrl, '/voice/rooms/$roomId/invites.json', 'POST', apiKey, {
+      'usernames': usernames,
+    }, clientId),
+  );
+
+  Future<List<VoiceInviteSuggestion>> inviteSuggestions({
+    required String siteUrl,
+    required int roomId,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    final body = await _transport.pluginGetJson(
+      siteUrl: siteUrl,
+      path: '/voice/rooms/$roomId/invites/suggestions.json',
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return List.unmodifiable([
+      for (final value in jsonObjects(body['suggestions']))
+        ?VoiceInviteSuggestion.fromJson(value),
+    ]);
+  }
+
   Future<VoiceRoom> createRoom({
     required String siteUrl,
     required String apiKey,

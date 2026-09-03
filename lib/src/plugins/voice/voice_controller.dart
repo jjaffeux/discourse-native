@@ -3494,6 +3494,67 @@ final class VoiceController extends ChangeNotifier {
     );
   }
 
+  /// Invites [usernames] to the room. Refusals propagate: the server's own
+  /// message (a rate limit, no permission) is what the dialog should show.
+  Future<VoiceInviteResult> invite(
+    String siteUrl,
+    int roomId,
+    List<String> usernames,
+  ) async {
+    _userActed();
+    final siteSession = _siteSession(siteUrl);
+    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
+    final credentials = await _requestCredentials(
+      siteUrl,
+      ifCurrent: isCurrent,
+    );
+    if (credentials == null) {
+      throw const WriteException(WriteFailure.forbidden);
+    }
+    final result = await _reporter.runOperation(
+      'voice.invite',
+      () => api.invite(
+        siteUrl: siteUrl,
+        roomId: roomId,
+        apiKey: credentials.apiKey,
+        usernames: usernames,
+        clientId: credentials.clientId,
+      ),
+      correlationId: _correlationForRoom(siteUrl, roomId),
+    );
+    _record(
+      'room.invites.sent',
+      component: 'room',
+      correlationId: _correlationForRoom(siteUrl, roomId),
+      data: {
+        'roomId': roomId,
+        'invited': result.invitedUsernames.length,
+        'skipped': result.skippedUsernames.length,
+      },
+    );
+    return result;
+  }
+
+  /// Best effort: an unavailable shortlist leaves the dialog with the
+  /// username field and the link.
+  Future<List<VoiceInviteSuggestion>> inviteSuggestions(
+    String siteUrl,
+    int roomId,
+  ) => _runPublicValueOperation<List<VoiceInviteSuggestion>>(
+    () async {
+      final credentials = await _requestCredentials(siteUrl);
+      if (credentials == null) return const [];
+      return api.inviteSuggestions(
+        siteUrl: siteUrl,
+        roomId: roomId,
+        apiKey: credentials.apiKey,
+        clientId: credentials.clientId,
+      );
+    },
+    'voice.inviteSuggestions',
+    fallback: const [],
+  );
+
   Future<List<VoiceMembership>> memberships(String siteUrl, int roomId) =>
       _runPublicValueOperation<List<VoiceMembership>>(
         () => _memberships(siteUrl, roomId),

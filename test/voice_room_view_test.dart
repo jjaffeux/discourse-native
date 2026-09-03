@@ -34,6 +34,7 @@ void main() {
   _meshPrivacyTests();
   _roomSurfaceTests();
   _directCallTests();
+  _inviteTests();
 
   group('room availability and layout', () {
     testWidgets('renders unavailable and empty states without a shell', (
@@ -1522,6 +1523,98 @@ void _directCallTests() {
   });
 }
 
+void _inviteTests() {
+  group('invites', () {
+    testWidgets('the shell builds the invite link that credits the inviter', (
+      tester,
+    ) async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final room = _room(participants: const []);
+
+      expect(
+        _voiceShell(
+          harness.controller,
+          username: 'Sam',
+        ).inviteLinkFor(_siteUrl, room),
+        'https://voice.example.com/voice/r/lounge/invited-by/sam',
+      );
+      expect(
+        _voiceShell(harness.controller).inviteLinkFor(_siteUrl, room),
+        isNull,
+      );
+    });
+
+    testWidgets('invites by name and from the shortlist, and shows the link', (
+      tester,
+    ) async {
+      final room = _room(
+        canInvite: true,
+        participants: const [
+          VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+        ],
+      );
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await _join(harness, room);
+      await tester.pumpWidget(
+        _app(
+          harness.controller,
+          room: room,
+          call: harness.controller.call,
+          inviteLink: 'https://voice.example.com/voice/r/lounge/invited-by/sam',
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Invite people'));
+      await tester.pumpAndSettle();
+      expect(find.text('Invite to Lounge'), findsOneWidget);
+      expect(find.text('kim'), findsOneWidget);
+      expect(find.text('2h together recently'), findsOneWidget);
+      expect(
+        find.text('https://voice.example.com/voice/r/lounge/invited-by/sam'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Invite'));
+      await tester.pumpAndSettle();
+      expect(find.text('Invited'), findsOneWidget);
+      expect(find.text('Invite sent.'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '@lee');
+      await tester.tap(find.text('Send invite'));
+      await tester.pumpAndSettle();
+
+      final invites = harness.transport.writes
+          .where((write) => write.path.endsWith('/invites.json'))
+          .map((write) => write.body['usernames'])
+          .toList();
+      expect(invites, [
+        ['kim'],
+        ['lee'],
+      ]);
+      harness.dispose();
+    });
+
+    testWidgets('no invite control without the permission', (tester) async {
+      final room = _room(
+        participants: const [
+          VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+        ],
+      );
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await _join(harness, room);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, call: harness.controller.call),
+      );
+
+      expect(find.byTooltip('Invite people'), findsNothing);
+      harness.dispose();
+    });
+  });
+}
+
 void _meshPrivacyTests() {
   group('mesh privacy warning', () {
     VoiceRoom meshRoom() =>
@@ -1744,6 +1837,7 @@ Widget _app(
   bool followCall = false,
   bool meshPrivacyWarningEnabled = false,
   bool autoStatusAvailable = false,
+  String? inviteLink,
   VoiceController Function()? controllerResolver,
 }) => MaterialApp(
   home: Scaffold(
@@ -1761,6 +1855,7 @@ Widget _app(
           recordingEnabled: true,
           meshPrivacyWarningEnabled: meshPrivacyWarningEnabled,
           autoStatusAvailable: autoStatusAvailable,
+          inviteLink: inviteLink,
           controllerResolver: controllerResolver,
         );
       },
@@ -1774,6 +1869,7 @@ VoiceRoom _room({
   String? cookedDescription,
   int? creatorId,
   bool canManage = false,
+  bool canInvite = false,
   bool videoAllowed = false,
   bool chatAvailable = false,
   VoiceRoomType type = VoiceRoomType.open,
@@ -1792,6 +1888,7 @@ VoiceRoom _room({
   participants: participants,
   creatorId: creatorId,
   canManage: canManage,
+  canInvite: canInvite,
   videoEnabled: videoAllowed,
   videoAllowed: videoAllowed,
   chatAvailable: chatAvailable,
@@ -1815,6 +1912,7 @@ Map<String, dynamic> _joinPayload(
     'room_type': room.type.wireName,
     'creator_id': room.creatorId,
     'can_manage': room.canManage,
+    'can_invite': room.canInvite,
     'video_enabled': room.videoEnabled,
     'video_allowed': room.videoAllowed,
     'chat_available': room.chatAvailable,
@@ -1856,6 +1954,15 @@ final class _Harness {
                'POST /voice/rooms/7/state.json': const {},
                'DELETE /voice/rooms/7/kick.json': const {},
                'POST /voice/rooms/7/memberships.json': const {},
+               'POST /voice/rooms/7/invites.json': const {
+                 'invited_usernames': ['kim'],
+                 'skipped_usernames': <Object?>[],
+               },
+               'GET /voice/rooms/7/invites/suggestions.json': const {
+                 'suggestions': [
+                   {'id': 3, 'username': 'kim', 'total_seconds': 5400},
+                 ],
+               },
                'DELETE /voice/rooms/7/leave.json': const {},
                'GET /site.json': const {
                  'post_action_types': [
@@ -1894,10 +2001,12 @@ VoiceShellService _voiceShell(
   VoiceController controller, {
   PluginRouteSite? site,
   bool recordingEnabled = false,
+  String? username,
 }) => VoiceShellService(
   controller: controller,
   host: _RouteHost(site),
   recordingEnabled: (_) => recordingEnabled,
+  currentUsername: (_) => username,
 );
 
 final class _RouteHost implements PluginRouteNavigationHost {
