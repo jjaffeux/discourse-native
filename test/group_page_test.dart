@@ -209,6 +209,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final (description, error, message) in [
+    (
+      'shows core’s empty state when no categories are associated',
+      null,
+      'There are no categories associated with this group.',
+    ),
+    (
+      'shows a loading failure when the permissions request fails',
+      "Couldn't load group permissions.",
+      "Couldn't load group permissions.",
+    ),
+  ]) {
+    testWidgets('permissions $description', (tester) async {
+      await _pump(
+        tester,
+        GroupPage(
+          siteUrl: 'https://meta.discourse.org',
+          route: GroupRoute.detail('support', section: GroupRoute.permissions),
+          registry: PluginRegistry.empty,
+          data: GroupPageData(
+            detail: _detail,
+            loaded: true,
+            sectionError: error,
+          ),
+          onOpenMember: _ignoreMember,
+        ),
+      );
+
+      expect(find.text(message), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('activity, messages and requests expose their native subtabs', (
     tester,
   ) async {

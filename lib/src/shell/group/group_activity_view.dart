@@ -360,7 +360,7 @@ class _PermissionsSection extends StatelessWidget {
     if (permissions.isEmpty) {
       return const _GroupState(
         icon: DIcons.certificate,
-        title: 'This group has no category permissions.',
+        title: 'There are no categories associated with this group.',
       );
     }
     return ContentReadingLane(

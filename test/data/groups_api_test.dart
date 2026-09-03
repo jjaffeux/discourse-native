@@ -1,8 +1,10 @@
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/groups_api.dart';
-import 'package:discourse_native/src/data/plugin_transport.dart';
 import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 void main() {
   const siteUrl = 'https://forum.example';
@@ -267,29 +269,58 @@ void main() {
       );
     });
 
-    test(
-      'permissions use the bare-array transport at the compatibility path',
-      () async {
-        final transport = _RecordingTransport()
-          ..listResponse = [
-            {
-              'permission_type': 1,
-              'category': {'id': 4, 'name': 'Help', 'color': '0088CC'},
-            },
-          ];
+    test('permissions use the bare-array transport at the JSON path', () async {
+      final transport = _RecordingTransport()
+        ..listResponse = [
+          {
+            'permission_type': 1,
+            'category': {'id': 4, 'name': 'Help', 'color': '0088CC'},
+          },
+        ];
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+      final permissions = await api.permissions(
+        siteUrl: siteUrl,
+        apiKey: 'secret',
+        groupName: 'support',
+      );
+
+      expect(transport.listGets.single.path, '/g/support/permissions.json');
+      expect(permissions.single.type, GroupPermissionType.full);
+      expect(permissions.single.category.name, 'Help');
+    });
+
+    for (final (visitor, apiKey) in [
+      ('anonymous', null),
+      ('authenticated', 'secret'),
+    ]) {
+      test('empty permissions load over HTTP for $visitor visitors', () async {
+        final requests = <http.Request>[];
+        final transport = DiscourseApi(
+          client: MockClient((request) async {
+            requests.add(request);
+            // Core's check_xhr only allows JSON or AJAX GETs.
+            return http.Response(
+              request.url.path == '/g/support/permissions.json' ? '[]' : '',
+              200,
+            );
+          }),
+        );
+        addTearDown(transport.close);
         final api = GroupsApi(transport, const DiscourseModelCodec.core());
 
         final permissions = await api.permissions(
           siteUrl: siteUrl,
-          apiKey: 'secret',
+          apiKey: apiKey,
           groupName: 'support',
         );
 
-        expect(transport.listGets.single.path, '/g/support/permissions');
-        expect(permissions.single.type, GroupPermissionType.full);
-        expect(permissions.single.category.name, 'Help');
-      },
-    );
+        expect(permissions, isEmpty);
+        expect(requests.map((request) => (request.method, request.url)), [
+          ('GET', Uri.parse('$siteUrl/g/support/permissions.json')),
+        ]);
+      });
+    }
   });
 
   group('membership mutations', () {

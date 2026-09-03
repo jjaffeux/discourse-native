@@ -270,7 +270,7 @@ final class GroupsApi {
     }
     final rows = await (transport as PluginJsonListTransport).pluginGetJsonList(
       siteUrl: siteUrl,
-      path: '/g/${_groupName(groupName)}/permissions',
+      path: '/g/${_groupName(groupName)}/permissions.json',
       apiKey: apiKey,
       clientId: clientId,
     );
