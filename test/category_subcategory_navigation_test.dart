@@ -173,6 +173,18 @@ void main() {
 
     final filter = find.byKey(const ValueKey('choice-menu-filter'));
     expect(filter, findsOneWidget);
+    final filterField = tester.widget<TextField>(filter);
+    expect(filterField.autofocus, isTrue);
+    expect(filterField.decoration?.border, isA<OutlineInputBorder>());
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(of: filter, matching: find.byType(EditableText)),
+          )
+          .focusNode
+          .hasFocus,
+      isTrue,
+    );
 
     await tester.enterText(filter, 'feat');
     await tester.pump();
@@ -224,6 +236,15 @@ void main() {
 
     final filter = find.byKey(const ValueKey('choice-menu-filter'));
     expect(filter, findsOneWidget);
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(of: filter, matching: find.byType(EditableText)),
+          )
+          .focusNode
+          .hasFocus,
+      isTrue,
+    );
     await tester.enterText(filter, 'access');
     await tester.pump();
 

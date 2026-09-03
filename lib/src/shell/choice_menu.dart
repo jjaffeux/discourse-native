@@ -418,21 +418,40 @@ class _FilterableChoiceRowsState<T> extends State<_FilterableChoiceRows<T>> {
             child: TextField(
               key: const ValueKey('choice-menu-filter'),
               controller: _filterController,
-              autofocus: !widget.touch,
+              autofocus: true,
               textInputAction: TextInputAction.search,
               onChanged: _filter,
+              style: theme.textTheme.labelLarge,
               decoration: InputDecoration(
+                isDense: true,
                 hintText: filterHint,
-                prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 16),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: DIcon(DIcons.magnifyingGlass, size: 18),
+                ),
+                prefixIconConstraints: const BoxConstraints(
+                  minWidth: 42,
+                  minHeight: 37,
+                ),
                 suffixIcon: _query.isEmpty
                     ? null
                     : IconButton(
                         key: const ValueKey('choice-menu-filter-clear'),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 42),
+                        style: IconButton.styleFrom(
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                         onPressed: _clearFilter,
-                        icon: const DIcon(DIcons.xmark, size: 14),
+                        icon: const DIcon(DIcons.xmark, size: 16),
                         tooltip: 'Clear filter',
                       ),
-                isDense: true,
+                suffixIconConstraints: const BoxConstraints(
+                  minWidth: 42,
+                  minHeight: 37,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                border: const OutlineInputBorder(),
               ),
             ),
           ),
