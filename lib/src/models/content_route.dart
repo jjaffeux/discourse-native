@@ -257,11 +257,40 @@ class ContentRoute {
     if (path == null) return null;
     final uri = Uri.tryParse(path);
     if (uri == null || !uri.path.endsWith('.json')) return null;
+    final segments = uri.pathSegments;
+    if (segments.length >= 4 && segments[0] == 'tags' && segments[1] == 'c') {
+      final tagHasId = int.tryParse(_withoutJson(segments.last)) != null;
+      final categoryIndex = segments.length - (tagHasId ? 3 : 2);
+      if (categoryIndex < 2) return null;
+      return int.tryParse(segments[categoryIndex]);
+    }
     final link = ListLink.parse(
       uri.path.substring(0, uri.path.length - '.json'.length),
     );
     return link?.kind == ListKind.category ? link!.id : null;
   }
+
+  String? get tagName {
+    final path = feedPath;
+    if (path == null) return null;
+    final uri = Uri.tryParse(path);
+    if (uri == null || !uri.path.endsWith('.json')) return null;
+    final segments = uri.pathSegments;
+    if (segments.length >= 4 && segments[0] == 'tags' && segments[1] == 'c') {
+      final last = _withoutJson(segments.last);
+      return int.tryParse(last) == null ? last : segments[segments.length - 2];
+    }
+    final link = ListLink.parse(
+      uri.path.substring(0, uri.path.length - '.json'.length),
+    );
+    if (link?.kind != ListKind.tag || link!.slug.isEmpty) return null;
+    return link.slug;
+  }
+
+  bool get isTopicListFilter =>
+      TopicListMode.fromRoute(this) == TopicListMode.latest ||
+      categoryId != null ||
+      tagName != null;
 
   /// Contains presentation only, never fetched content or credentials.
   Map<String, Object?> toJson() => {
@@ -372,3 +401,7 @@ class ContentRoute {
   @override
   int get hashCode => Object.hash(id, title);
 }
+
+String _withoutJson(String segment) => segment.endsWith('.json')
+    ? segment.substring(0, segment.length - '.json'.length)
+    : segment;

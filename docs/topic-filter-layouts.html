@@ -1,0 +1,1828 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Topic filter layout studies</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #0d0f12;
+        --rail: #131417;
+        --sidebar: #1a1c20;
+        --content: #212429;
+        --content-raised: #262a30;
+        --floating: #272b32;
+        --hover: #2c3037;
+        --divider: #2b2e35;
+        --divider-strong: #3a3f48;
+        --text: #f1f3f5;
+        --text-soft: #c5c9cf;
+        --muted: #8b939f;
+        --muted-2: #676e79;
+        --blue: #099dd7;
+        --blue-strong: #18ace4;
+        --blue-soft: rgb(9 157 215 / 15%);
+        --green: #45b574;
+        --orange: #f2a45d;
+        --purple: #9f84ed;
+        --red: #ed7777;
+        --shadow: 0 18px 60px rgb(0 0 0 / 34%);
+        font-family:
+          Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--page);
+      }
+
+      body {
+        min-width: 1080px;
+        min-height: 100vh;
+        margin: 0;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 50% -18%, rgb(9 157 215 / 12%), transparent 36%),
+          var(--page);
+      }
+
+      button,
+      input {
+        color: inherit;
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      button:focus-visible,
+      summary:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--blue);
+        outline-offset: 2px;
+      }
+
+      svg {
+        display: block;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .study-header {
+        position: sticky;
+        z-index: 50;
+        top: 0;
+        display: grid;
+        grid-template-columns: minmax(210px, 1fr) auto minmax(210px, 1fr);
+        align-items: center;
+        min-height: 70px;
+        padding: 12px 24px;
+        border-bottom: 1px solid rgb(255 255 255 / 7%);
+        background: rgb(13 15 18 / 88%);
+        backdrop-filter: blur(18px);
+      }
+
+      .study-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .study-brand__mark {
+        display: grid;
+        width: 31px;
+        height: 31px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid rgb(9 157 215 / 38%);
+        border-radius: 9px;
+        color: #8fdcff;
+        background: var(--blue-soft);
+      }
+
+      .study-brand__eyebrow,
+      .study-brand__title {
+        overflow: hidden;
+        margin: 0;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .study-brand__eyebrow {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .study-brand__title {
+        margin-top: 3px;
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .experiment-switcher {
+        display: flex;
+        gap: 3px;
+        padding: 4px;
+        border: 1px solid var(--divider);
+        border-radius: 10px;
+        background: #171a1f;
+      }
+
+      .experiment-switcher button {
+        min-width: 132px;
+        padding: 9px 11px;
+        border: 0;
+        border-radius: 7px;
+        color: var(--muted);
+        background: transparent;
+        font-size: 13px;
+        transition:
+          color 140ms ease,
+          background 140ms ease,
+          box-shadow 140ms ease;
+      }
+
+      .experiment-switcher button:hover {
+        color: var(--text-soft);
+        background: rgb(255 255 255 / 4%);
+      }
+
+      .experiment-switcher button[aria-pressed="true"] {
+        color: var(--text);
+        background: var(--floating);
+        box-shadow:
+          inset 0 0 0 1px rgb(255 255 255 / 7%),
+          0 2px 7px rgb(0 0 0 / 20%);
+      }
+
+      .study-status {
+        justify-self: end;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .study-status::before {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        margin-right: 7px;
+        border-radius: 50%;
+        background: var(--green);
+        content: "";
+        vertical-align: 1px;
+      }
+
+      .study-main {
+        width: min(1500px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 26px 0 38px;
+      }
+
+      .concept-intro {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 28px;
+        align-items: end;
+        width: min(1180px, 100%);
+        min-height: 82px;
+        margin: 0 auto 20px;
+      }
+
+      .concept-intro__index {
+        display: block;
+        margin-bottom: 7px;
+        color: #65c8f2;
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .concept-intro h1 {
+        margin: 0;
+        font-size: clamp(22px, 2vw, 30px);
+        font-weight: 680;
+        letter-spacing: -0.025em;
+      }
+
+      .concept-intro p {
+        max-width: 780px;
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .concept-traits {
+        display: flex;
+        gap: 7px;
+        justify-content: flex-end;
+        padding-bottom: 2px;
+      }
+
+      .concept-traits span {
+        padding: 5px 8px;
+        border: 1px solid var(--divider);
+        border-radius: 999px;
+        color: var(--muted);
+        background: rgb(255 255 255 / 2%);
+        font-size: 10px;
+        font-weight: 650;
+      }
+
+      .app-frame {
+        overflow: hidden;
+        width: 100%;
+        height: min(760px, calc(100vh - 205px));
+        min-height: 620px;
+        border: 1px solid #30343c;
+        border-radius: 17px;
+        background: var(--content);
+        box-shadow: var(--shadow);
+      }
+
+      .window-strip {
+        display: grid;
+        grid-template-columns: 78px 1fr 78px;
+        align-items: center;
+        height: 34px;
+        border-bottom: 1px solid #25282e;
+        background: #111317;
+      }
+
+      .traffic-lights {
+        display: flex;
+        gap: 7px;
+        padding-left: 13px;
+      }
+
+      .traffic-lights i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #343840;
+      }
+
+      .window-title {
+        justify-self: center;
+        color: #656c77;
+        font-size: 10px;
+        font-weight: 600;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-columns: 62px 235px minmax(0, 1fr);
+        height: calc(100% - 34px);
+      }
+
+      .site-rail {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 8px;
+        border-right: 1px solid #24272d;
+        background: var(--rail);
+      }
+
+      .rail-site,
+      .rail-action {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border: 0;
+        border-radius: 11px;
+        color: var(--muted);
+        background: #202329;
+        font-size: 12px;
+        font-weight: 760;
+      }
+
+      .rail-site--active {
+        position: relative;
+        color: white;
+        background: var(--blue);
+      }
+
+      .rail-site--active::before {
+        position: absolute;
+        left: -9px;
+        width: 3px;
+        height: 24px;
+        border-radius: 0 3px 3px 0;
+        background: white;
+        content: "";
+      }
+
+      .rail-spacer {
+        flex: 1;
+      }
+
+      .forum-sidebar {
+        overflow: hidden;
+        border-right: 1px solid var(--divider);
+        background: var(--sidebar);
+      }
+
+      .forum-identity {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        height: 55px;
+        padding: 0 15px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .forum-identity__logo {
+        display: grid;
+        width: 25px;
+        height: 25px;
+        place-items: center;
+        border-radius: 7px;
+        color: white;
+        background: linear-gradient(145deg, #13a5df, #087caf);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .forum-identity strong {
+        overflow: hidden;
+        font-size: 13px;
+        font-weight: 650;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .sidebar-nav {
+        padding: 11px 8px;
+      }
+
+      .sidebar-heading {
+        margin: 18px 9px 6px;
+        color: var(--muted-2);
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .sidebar-link {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 35px;
+        padding: 0 10px;
+        border-radius: 7px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .sidebar-link--active {
+        color: var(--text);
+        background: var(--blue-soft);
+      }
+
+      .sidebar-link__icon {
+        display: grid;
+        width: 18px;
+        place-items: center;
+        color: var(--muted-2);
+      }
+
+      .sidebar-link--active .sidebar-link__icon {
+        color: #65c8f2;
+      }
+
+      .sidebar-link__count {
+        margin-left: auto;
+        color: var(--muted-2);
+        font-size: 11px;
+      }
+
+      .category-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        background: var(--purple);
+      }
+
+      .category-dot--green {
+        background: var(--green);
+      }
+
+      .category-dot--orange {
+        background: var(--orange);
+      }
+
+      .content-column {
+        position: relative;
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        background: var(--content);
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 55px;
+        padding: 0 13px 0 17px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .content-title {
+        display: flex;
+        min-width: 140px;
+        align-items: center;
+        gap: 9px;
+        font-size: 15px;
+        font-weight: 650;
+      }
+
+      .content-title svg {
+        color: var(--muted);
+      }
+
+      .global-search {
+        display: flex;
+        width: min(320px, 32vw);
+        height: 33px;
+        margin-left: auto;
+        align-items: center;
+        gap: 8px;
+        padding: 0 10px;
+        border: 1px solid var(--divider-strong);
+        border-radius: 7px;
+        color: var(--muted-2);
+        background: #191c20;
+        font-size: 12px;
+      }
+
+      .global-search kbd {
+        margin-left: auto;
+        padding: 1px 5px;
+        border: 1px solid var(--divider);
+        border-radius: 4px;
+        color: var(--muted-2);
+        background: #22262c;
+        font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .new-topic {
+        display: flex;
+        height: 33px;
+        align-items: center;
+        gap: 6px;
+        padding: 0 11px;
+        border: 0;
+        border-radius: 7px;
+        color: white;
+        background: #087fb0;
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .user-avatar {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border: 2px solid #3d424b;
+        border-radius: 50%;
+        color: #172027;
+        background: #dfbd84;
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .topic-tabs {
+        display: flex;
+        min-height: 48px;
+        align-items: stretch;
+        gap: 1px;
+        padding: 0 10px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .topic-tab {
+        position: relative;
+        min-width: 76px;
+        padding: 0 12px;
+        border: 0;
+        color: var(--muted);
+        background: transparent;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .topic-tab:hover {
+        color: var(--text-soft);
+        background: rgb(255 255 255 / 2%);
+      }
+
+      .topic-tab[aria-selected="true"] {
+        color: var(--blue-strong);
+      }
+
+      .topic-tab[aria-selected="true"]::after {
+        position: absolute;
+        right: 9px;
+        bottom: 0;
+        left: 9px;
+        height: 3px;
+        border-radius: 3px 3px 0 0;
+        background: var(--blue);
+        content: "";
+      }
+
+      .filter-stage {
+        position: relative;
+        z-index: 20;
+        flex: 0 0 auto;
+      }
+
+      .filter-variant {
+        display: none;
+      }
+
+      body[data-experiment="cascade"] .filter-variant--cascade,
+      body[data-experiment="summary"] .filter-variant--summary,
+      body[data-experiment="command"] .filter-variant--command,
+      body[data-experiment="drawer"] .filter-variant--drawer {
+        display: block;
+      }
+
+      .filter-bar {
+        min-height: 54px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--divider);
+        background: #1d2025;
+      }
+
+      .filter-bar--cascade {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .selector {
+        position: relative;
+      }
+
+      .selector summary {
+        display: flex;
+        height: 37px;
+        align-items: center;
+        gap: 8px;
+        padding: 0 11px;
+        border: 1px solid var(--divider-strong);
+        border-radius: 7px;
+        color: var(--text-soft);
+        background: #24282e;
+        font-size: 13px;
+        list-style: none;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .selector summary::-webkit-details-marker,
+      .unified-filter summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .selector--category summary {
+        min-width: 225px;
+      }
+
+      .selector--subcategory summary {
+        min-width: 170px;
+      }
+
+      .selector--tags summary {
+        min-width: 116px;
+      }
+
+      .selector[open] summary {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 2px rgb(9 157 215 / 10%);
+      }
+
+      .selector__value {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .selector__chevron {
+        margin-left: auto;
+        color: var(--muted);
+        transition: transform 120ms ease;
+      }
+
+      details[open] > summary .selector__chevron {
+        transform: rotate(180deg);
+      }
+
+      .selector-menu {
+        position: absolute;
+        z-index: 30;
+        top: calc(100% + 7px);
+        left: 0;
+        width: 250px;
+        padding: 7px;
+        border: 1px solid var(--divider-strong);
+        border-radius: 10px;
+        background: var(--floating);
+        box-shadow: 0 16px 42px rgb(0 0 0 / 42%);
+      }
+
+      .selector-menu--tags {
+        width: 225px;
+      }
+
+      .menu-label {
+        padding: 7px 8px 5px;
+        color: var(--muted-2);
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .menu-search {
+        width: 100%;
+        height: 32px;
+        margin-bottom: 5px;
+        padding: 0 9px;
+        border: 1px solid var(--divider-strong);
+        border-radius: 6px;
+        color: var(--text);
+        background: #1c1f24;
+        font-size: 12px;
+      }
+
+      .menu-option {
+        display: flex;
+        width: 100%;
+        min-height: 34px;
+        align-items: center;
+        gap: 9px;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 6px;
+        color: var(--text-soft);
+        background: transparent;
+        text-align: left;
+        font-size: 12px;
+      }
+
+      .menu-option:hover,
+      .menu-option[aria-selected="true"] {
+        color: var(--text);
+        background: var(--hover);
+      }
+
+      .menu-option__check {
+        margin-left: auto;
+        color: var(--blue-strong);
+      }
+
+      .filter-reset {
+        display: flex;
+        min-height: 34px;
+        margin-left: 2px;
+        align-items: center;
+        gap: 6px;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 6px;
+        color: var(--muted);
+        background: transparent;
+        font-size: 12px;
+      }
+
+      .filter-reset:hover {
+        color: var(--text-soft);
+        background: var(--hover);
+      }
+
+      .filter-bar--summary {
+        position: relative;
+        display: flex;
+        min-height: 50px;
+        align-items: center;
+        gap: 8px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+      }
+
+      .unified-filter {
+        position: relative;
+      }
+
+      .unified-filter > summary {
+        display: flex;
+        height: 36px;
+        align-items: center;
+        gap: 8px;
+        padding: 0 11px;
+        border: 1px solid var(--blue);
+        border-radius: 7px;
+        color: var(--text);
+        background: var(--blue-soft);
+        font-size: 13px;
+        list-style: none;
+        cursor: pointer;
+      }
+
+      .summary-count {
+        display: grid;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        place-items: center;
+        border-radius: 999px;
+        color: white;
+        background: #087da9;
+        font-size: 10px;
+        font-weight: 750;
+      }
+
+      .summary-chip {
+        display: flex;
+        height: 30px;
+        align-items: center;
+        gap: 6px;
+        padding: 0 8px;
+        border: 1px solid var(--divider);
+        border-radius: 999px;
+        color: var(--muted);
+        background: #23272c;
+        font-size: 11px;
+      }
+
+      .filter-popover {
+        position: absolute;
+        z-index: 30;
+        top: calc(100% + 8px);
+        left: 0;
+        width: min(690px, calc(100vw - 390px));
+        border: 1px solid var(--divider-strong);
+        border-radius: 12px;
+        background: var(--floating);
+        box-shadow: 0 20px 55px rgb(0 0 0 / 48%);
+      }
+
+      .filter-popover__header,
+      .filter-popover__footer {
+        display: flex;
+        min-height: 47px;
+        align-items: center;
+        padding: 0 13px;
+      }
+
+      .filter-popover__header {
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .filter-popover__header strong {
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .filter-popover__header span {
+        margin-left: auto;
+        color: var(--muted-2);
+        font-size: 11px;
+      }
+
+      .filter-popover__columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        min-height: 225px;
+      }
+
+      .filter-column {
+        min-width: 0;
+        padding: 10px 8px;
+        border-right: 1px solid var(--divider);
+      }
+
+      .filter-column:last-child {
+        border-right: 0;
+      }
+
+      .filter-column__title {
+        padding: 3px 8px 8px;
+        color: var(--muted-2);
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .filter-choice {
+        display: flex;
+        width: 100%;
+        min-height: 34px;
+        align-items: center;
+        gap: 8px;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 6px;
+        color: var(--muted);
+        background: transparent;
+        text-align: left;
+        font-size: 12px;
+      }
+
+      .filter-choice:hover,
+      .filter-choice--selected {
+        color: var(--text);
+        background: var(--hover);
+      }
+
+      .filter-choice--selected::after {
+        margin-left: auto;
+        color: var(--blue-strong);
+        content: "✓";
+      }
+
+      .filter-popover__footer {
+        justify-content: space-between;
+        border-top: 1px solid var(--divider);
+      }
+
+      .text-button,
+      .apply-button {
+        height: 30px;
+        padding: 0 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .text-button {
+        border: 0;
+        color: var(--muted);
+        background: transparent;
+      }
+
+      .apply-button {
+        border: 0;
+        color: white;
+        background: #087fb0;
+      }
+
+      .filter-bar--command {
+        position: relative;
+        display: flex;
+        min-height: 56px;
+        align-items: center;
+      }
+
+      .command-field {
+        display: flex;
+        width: min(740px, 88%);
+        min-height: 38px;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 7px 4px 10px;
+        border: 1px solid var(--divider-strong);
+        border-radius: 8px;
+        background: #181b20;
+      }
+
+      .command-field:focus-within {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 2px rgb(9 157 215 / 10%);
+      }
+
+      .command-field__icon {
+        flex: 0 0 auto;
+        color: var(--muted-2);
+      }
+
+      .query-token {
+        display: flex;
+        height: 26px;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 5px;
+        padding: 0 7px;
+        border: 1px solid rgb(9 157 215 / 32%);
+        border-radius: 5px;
+        color: #a9def3;
+        background: var(--blue-soft);
+        font-size: 11px;
+      }
+
+      .query-token--tag {
+        border-color: rgb(159 132 237 / 32%);
+        color: #c5b8f4;
+        background: rgb(159 132 237 / 12%);
+      }
+
+      .query-token button {
+        padding: 0;
+        border: 0;
+        color: inherit;
+        background: transparent;
+        line-height: 1;
+        opacity: 0.7;
+      }
+
+      .command-input {
+        min-width: 120px;
+        height: 27px;
+        flex: 1;
+        border: 0;
+        outline: 0;
+        color: var(--text);
+        background: transparent;
+        font-size: 12px;
+      }
+
+      .command-input::placeholder {
+        color: var(--muted-2);
+      }
+
+      .command-shortcut {
+        color: var(--muted-2);
+        font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .command-menu {
+        position: absolute;
+        z-index: 30;
+        top: calc(100% - 3px);
+        left: 14px;
+        display: none;
+        width: min(740px, calc(88% - 1px));
+        padding: 7px;
+        border: 1px solid var(--divider-strong);
+        border-radius: 9px;
+        background: var(--floating);
+        box-shadow: 0 18px 48px rgb(0 0 0 / 44%);
+      }
+
+      .filter-bar--command:focus-within .command-menu,
+      .command-menu--visible {
+        display: block;
+      }
+
+      .command-group-label {
+        padding: 7px 8px 5px;
+        color: var(--muted-2);
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .command-option {
+        display: grid;
+        width: 100%;
+        grid-template-columns: 20px 130px 1fr auto;
+        gap: 7px;
+        align-items: center;
+        min-height: 38px;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 6px;
+        color: var(--text-soft);
+        background: transparent;
+        text-align: left;
+        font-size: 12px;
+      }
+
+      .command-option:hover {
+        color: var(--text);
+        background: var(--hover);
+      }
+
+      .command-option small {
+        color: var(--muted-2);
+        font-size: 11px;
+      }
+
+      .command-option kbd {
+        color: var(--muted-2);
+        font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .filter-bar--drawer {
+        display: flex;
+        min-height: 48px;
+        align-items: center;
+        gap: 7px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+      }
+
+      .drawer-toggle {
+        display: flex;
+        height: 34px;
+        align-items: center;
+        gap: 7px;
+        padding: 0 10px;
+        border: 1px solid var(--blue);
+        border-radius: 7px;
+        color: #a9def3;
+        background: var(--blue-soft);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .drawer-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .drawer-breadcrumb strong {
+        color: var(--text-soft);
+        font-weight: 600;
+      }
+
+      .filter-drawer {
+        position: absolute;
+        z-index: 25;
+        top: 103px;
+        right: 0;
+        bottom: 0;
+        display: none;
+        width: 330px;
+        border-left: 1px solid var(--divider-strong);
+        background: #191c20;
+        box-shadow: -18px 0 36px rgb(0 0 0 / 20%);
+      }
+
+      body[data-experiment="drawer"] .filter-drawer {
+        display: flex;
+        flex-direction: column;
+      }
+
+      body[data-experiment="drawer"].drawer-closed .filter-drawer {
+        display: none;
+      }
+
+      .drawer-header {
+        display: flex;
+        min-height: 52px;
+        align-items: center;
+        padding: 0 14px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .drawer-header strong {
+        font-size: 13px;
+      }
+
+      .drawer-close {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        margin-left: auto;
+        place-items: center;
+        border: 0;
+        border-radius: 6px;
+        color: var(--muted);
+        background: transparent;
+      }
+
+      .drawer-scroll {
+        overflow: auto;
+        flex: 1;
+        padding: 12px 13px 20px;
+      }
+
+      .drawer-section {
+        padding: 10px 0 15px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .drawer-section:last-child {
+        border-bottom: 0;
+      }
+
+      .drawer-section__title {
+        display: flex;
+        margin-bottom: 8px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .drawer-section__title span {
+        margin-left: auto;
+        color: var(--muted-2);
+        font-size: 10px;
+        font-weight: 500;
+      }
+
+      .tree-row {
+        display: flex;
+        width: 100%;
+        min-height: 34px;
+        align-items: center;
+        gap: 8px;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 6px;
+        color: var(--muted);
+        background: transparent;
+        text-align: left;
+        font-size: 12px;
+      }
+
+      .tree-row--child {
+        padding-left: 27px;
+      }
+
+      .tree-row:hover,
+      .tree-row--selected {
+        color: var(--text);
+        background: var(--hover);
+      }
+
+      .tree-row--selected::after {
+        margin-left: auto;
+        color: var(--blue-strong);
+        content: "✓";
+      }
+
+      .tag-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+
+      .tag-pill {
+        padding: 6px 8px;
+        border: 1px solid var(--divider);
+        border-radius: 999px;
+        color: var(--muted);
+        background: #21252a;
+        font-size: 11px;
+      }
+
+      .tag-pill--selected {
+        border-color: rgb(159 132 237 / 42%);
+        color: #c7bbf4;
+        background: rgb(159 132 237 / 12%);
+      }
+
+      .drawer-footer {
+        display: flex;
+        min-height: 56px;
+        align-items: center;
+        gap: 8px;
+        padding: 0 13px;
+        border-top: 1px solid var(--divider);
+      }
+
+      .drawer-footer .apply-button {
+        margin-left: auto;
+      }
+
+      .topic-list {
+        overflow: auto;
+        flex: 1;
+      }
+
+      .topic-list__head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 96px 64px 68px;
+        min-height: 38px;
+        align-items: center;
+        padding: 0 18px;
+        border-bottom: 1px solid var(--divider);
+        color: var(--muted-2);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .topic-list__head span:not(:first-child) {
+        text-align: right;
+      }
+
+      .topic-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 96px 64px 68px;
+        min-height: 78px;
+        align-items: center;
+        padding: 10px 18px;
+        border-bottom: 1px solid var(--divider);
+        transition: background 120ms ease;
+      }
+
+      .topic-row:hover {
+        background: var(--hover);
+      }
+
+      .topic-row__title {
+        overflow: hidden;
+        padding-right: 22px;
+        color: var(--text-soft);
+        font-size: 14px;
+        font-weight: 590;
+        line-height: 1.35;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .topic-row__meta {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 7px;
+        color: var(--muted-2);
+        font-size: 11px;
+      }
+
+      .topic-category {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--muted);
+      }
+
+      .mini-tag {
+        padding: 2px 5px;
+        border-radius: 4px;
+        color: #b8accf;
+        background: rgb(159 132 237 / 10%);
+      }
+
+      .posters {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .poster {
+        display: grid;
+        width: 23px;
+        height: 23px;
+        margin-left: -5px;
+        place-items: center;
+        border: 2px solid var(--content);
+        border-radius: 50%;
+        color: #1a1d20;
+        background: #83adc2;
+        font-size: 7px;
+        font-weight: 800;
+      }
+
+      .poster:nth-child(2) {
+        background: #e0af87;
+      }
+
+      .poster:nth-child(3) {
+        background: #a5c990;
+      }
+
+      .topic-stat {
+        color: var(--muted);
+        font-size: 12px;
+        text-align: right;
+      }
+
+      .topic-stat--fresh {
+        color: #78c9eb;
+        font-weight: 650;
+      }
+
+      .implementation-note {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1px;
+        width: min(1180px, 100%);
+        margin: 17px auto 0;
+        overflow: hidden;
+        border: 1px solid var(--divider);
+        border-radius: 11px;
+        background: var(--divider);
+      }
+
+      .implementation-note__item {
+        min-height: 78px;
+        padding: 13px 15px;
+        background: #15181c;
+      }
+
+      .implementation-note__item span {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted-2);
+        font-size: 9px;
+        font-weight: 760;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .implementation-note__item p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.5;
+      }
+
+      @media (max-height: 850px) {
+        .study-main {
+          padding-top: 18px;
+        }
+
+        .concept-intro {
+          min-height: 68px;
+          margin-bottom: 14px;
+        }
+
+        .app-frame {
+          min-height: 580px;
+        }
+
+        .implementation-note {
+          display: none;
+        }
+      }
+
+      @media (max-width: 1260px) {
+        .experiment-switcher button {
+          min-width: 112px;
+          font-size: 12px;
+        }
+
+        .app-shell {
+          grid-template-columns: 58px 205px minmax(0, 1fr);
+        }
+
+        .summary-chip:last-of-type {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body data-experiment="cascade">
+    <header class="study-header">
+      <div class="study-brand">
+        <span class="study-brand__mark" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <path d="M4 5h16v10H9l-5 4V5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+            <path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
+        </span>
+        <div>
+          <p class="study-brand__eyebrow">Discourse Native · Topics</p>
+          <p class="study-brand__title">Category and tag filter studies</p>
+        </div>
+      </div>
+
+      <nav class="experiment-switcher" aria-label="Choose a filter experiment">
+        <button type="button" data-experiment-button="cascade" aria-pressed="true">01 · Cascade</button>
+        <button type="button" data-experiment-button="summary" aria-pressed="false">02 · Summary</button>
+        <button type="button" data-experiment-button="command" aria-pressed="false">03 · Query</button>
+        <button type="button" data-experiment-button="drawer" aria-pressed="false">04 · Inspector</button>
+      </nav>
+
+      <div class="study-status">Interactive study</div>
+    </header>
+
+    <main class="study-main">
+      <section class="concept-intro" aria-live="polite">
+        <div>
+          <span class="concept-intro__index" id="concept-index">Option 01 · closest to Discourse web</span>
+          <h1 id="concept-title">Cascading selectors</h1>
+          <p id="concept-description">
+            Category, subcategory, and tags stay visible as separate controls. This is the most literal translation of the web UI and makes the hierarchy immediately legible.
+          </p>
+        </div>
+        <div class="concept-traits" id="concept-traits" aria-label="Experiment characteristics">
+          <span>Familiar</span><span>Explicit</span><span>One extra row</span>
+        </div>
+      </section>
+
+      <section class="app-frame" aria-label="Discourse Native topics page prototype">
+        <div class="window-strip">
+          <div class="traffic-lights" aria-hidden="true"><i></i><i></i><i></i></div>
+          <span class="window-title">Discourse Native</span>
+        </div>
+
+        <div class="app-shell">
+          <aside class="site-rail" aria-label="Connected sites">
+            <button class="rail-site rail-site--active" type="button" aria-label="Discourse Meta">M</button>
+            <button class="rail-site" type="button" aria-label="Discourse">D</button>
+            <button class="rail-action" type="button" aria-label="Add site">+</button>
+            <span class="rail-spacer"></span>
+            <button class="rail-action" type="button" aria-label="Settings">•••</button>
+          </aside>
+
+          <aside class="forum-sidebar" aria-label="Forum navigation">
+            <div class="forum-identity">
+              <span class="forum-identity__logo">D</span>
+              <strong>Discourse Meta</strong>
+            </div>
+            <nav class="sidebar-nav">
+              <div class="sidebar-link sidebar-link--active"><span class="sidebar-link__icon">▤</span><span>Topics</span></div>
+              <div class="sidebar-link"><span class="sidebar-link__icon">✦</span><span>New</span><span class="sidebar-link__count">12</span></div>
+              <div class="sidebar-link"><span class="sidebar-link__icon">◔</span><span>Unread</span><span class="sidebar-link__count">4</span></div>
+              <div class="sidebar-link"><span class="sidebar-link__icon">⌕</span><span>Search</span></div>
+              <div class="sidebar-heading">Categories</div>
+              <div class="sidebar-link"><span class="sidebar-link__icon"><i class="category-dot"></i></span><span>Discourse Native App</span></div>
+              <div class="sidebar-link"><span class="sidebar-link__icon"><i class="category-dot category-dot--orange"></i></span><span>Feature</span></div>
+              <div class="sidebar-link"><span class="sidebar-link__icon"><i class="category-dot category-dot--green"></i></span><span>Support</span></div>
+              <div class="sidebar-heading">Tags</div>
+              <div class="sidebar-link"><span class="sidebar-link__icon">#</span><span>ux</span></div>
+              <div class="sidebar-link"><span class="sidebar-link__icon">#</span><span>native</span></div>
+            </nav>
+          </aside>
+
+          <section class="content-column">
+            <header class="content-header">
+              <div class="content-title">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5h14M5 10h14M5 15h9M5 20h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+                Topics
+              </div>
+              <div class="global-search" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.8" /><path d="m15.5 15.5 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+                Search this forum
+                <kbd>⌘ K</kbd>
+              </div>
+              <button class="new-topic" type="button"><span aria-hidden="true">＋</span> New topic</button>
+              <span class="user-avatar" aria-label="Signed in as Robin">RJ</span>
+            </header>
+
+            <div class="topic-tabs" role="tablist" aria-label="Topic lists">
+              <button class="topic-tab" type="button" role="tab" aria-selected="true">Recent</button>
+              <button class="topic-tab" type="button" role="tab" aria-selected="false">New (12)</button>
+              <button class="topic-tab" type="button" role="tab" aria-selected="false">Unread (4)</button>
+              <button class="topic-tab" type="button" role="tab" aria-selected="false">Top</button>
+              <button class="topic-tab" type="button" role="tab" aria-selected="false">Popular</button>
+            </div>
+
+            <div class="filter-stage">
+              <div class="filter-variant filter-variant--cascade">
+                <div class="filter-bar filter-bar--cascade">
+                  <details class="selector selector--category">
+                    <summary><i class="category-dot"></i><span class="selector__value">Discourse Native App</span><span class="selector__chevron">⌄</span></summary>
+                    <div class="selector-menu">
+                      <input class="menu-search" type="search" placeholder="Find a category" aria-label="Find a category" />
+                      <div class="menu-label">Categories</div>
+                      <button class="menu-option" type="button" data-set-selector="All categories"><span>◎</span>All categories</button>
+                      <button class="menu-option" type="button" data-set-selector="Discourse Native App" aria-selected="true"><i class="category-dot"></i>Discourse Native App<span class="menu-option__check">✓</span></button>
+                      <button class="menu-option" type="button" data-set-selector="Feature"><i class="category-dot category-dot--orange"></i>Feature</button>
+                      <button class="menu-option" type="button" data-set-selector="Support"><i class="category-dot category-dot--green"></i>Support</button>
+                    </div>
+                  </details>
+                  <details class="selector selector--subcategory">
+                    <summary><span class="selector__value">Subcategories</span><span class="selector__chevron">⌄</span></summary>
+                    <div class="selector-menu">
+                      <div class="menu-label">Under Discourse Native App</div>
+                      <button class="menu-option" type="button" data-set-selector="All subcategories">◎ All subcategories</button>
+                      <button class="menu-option" type="button" data-set-selector="Development">↳ Development</button>
+                      <button class="menu-option" type="button" data-set-selector="Design">↳ Design</button>
+                      <button class="menu-option" type="button" data-set-selector="Announcements">↳ Announcements</button>
+                    </div>
+                  </details>
+                  <details class="selector selector--tags">
+                    <summary><span class="selector__value">Tags</span><span class="selector__chevron">⌄</span></summary>
+                    <div class="selector-menu selector-menu--tags">
+                      <input class="menu-search" type="search" placeholder="Find a tag" aria-label="Find a tag" />
+                      <button class="menu-option" type="button" data-tag-choice="ux"># ux</button>
+                      <button class="menu-option" type="button" data-tag-choice="native"># native</button>
+                      <button class="menu-option" type="button" data-tag-choice="roadmap"># roadmap</button>
+                      <button class="menu-option" type="button" data-tag-choice="feedback"># feedback</button>
+                    </div>
+                  </details>
+                  <button class="filter-reset" type="button" title="Clear filters">↺ <span>Reset</span></button>
+                </div>
+              </div>
+
+              <div class="filter-variant filter-variant--summary">
+                <div class="filter-bar filter-bar--summary">
+                  <details class="unified-filter" open>
+                    <summary>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+                      Filter topics
+                      <span class="summary-count">3</span>
+                      <span class="selector__chevron">⌄</span>
+                    </summary>
+                    <div class="filter-popover">
+                      <div class="filter-popover__header"><strong>Filter topics</strong><span>Changes apply immediately</span></div>
+                      <div class="filter-popover__columns">
+                        <section class="filter-column">
+                          <div class="filter-column__title">Category</div>
+                          <button class="filter-choice" type="button">All categories</button>
+                          <button class="filter-choice filter-choice--selected" type="button"><i class="category-dot"></i>Discourse Native App</button>
+                          <button class="filter-choice" type="button"><i class="category-dot category-dot--orange"></i>Feature</button>
+                          <button class="filter-choice" type="button"><i class="category-dot category-dot--green"></i>Support</button>
+                        </section>
+                        <section class="filter-column">
+                          <div class="filter-column__title">Subcategory</div>
+                          <button class="filter-choice filter-choice--selected" type="button">All subcategories</button>
+                          <button class="filter-choice" type="button">Development</button>
+                          <button class="filter-choice" type="button">Design</button>
+                          <button class="filter-choice" type="button">Announcements</button>
+                        </section>
+                        <section class="filter-column">
+                          <div class="filter-column__title">Tags</div>
+                          <button class="filter-choice filter-choice--selected" type="button"># ux</button>
+                          <button class="filter-choice" type="button"># native</button>
+                          <button class="filter-choice filter-choice--selected" type="button"># roadmap</button>
+                          <button class="filter-choice" type="button"># feedback</button>
+                        </section>
+                      </div>
+                      <div class="filter-popover__footer"><button class="text-button" type="button">Clear all</button><button class="apply-button" type="button" data-close-details>Done</button></div>
+                    </div>
+                  </details>
+                  <span class="summary-chip"><i class="category-dot"></i> Discourse Native App</span>
+                  <span class="summary-chip"># ux +1</span>
+                </div>
+              </div>
+
+              <div class="filter-variant filter-variant--command">
+                <div class="filter-bar filter-bar--command">
+                  <div class="command-field">
+                    <svg class="command-field__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.8" /><path d="m15.5 15.5 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+                    <span class="query-token"><i class="category-dot"></i> Discourse Native App <button type="button" aria-label="Remove category filter" data-remove-token>×</button></span>
+                    <span class="query-token query-token--tag"># ux <button type="button" aria-label="Remove ux tag" data-remove-token>×</button></span>
+                    <input class="command-input" type="text" placeholder="Add category, tag, or status…" aria-label="Filter topics" />
+                    <span class="command-shortcut">⌘ F</span>
+                  </div>
+                  <div class="command-menu command-menu--visible">
+                    <div class="command-group-label">Suggested filters</div>
+                    <button class="command-option" type="button" data-add-token="category: Design"><span>▣</span><strong>Category</strong><small>Design</small><kbd>↵</kbd></button>
+                    <button class="command-option" type="button" data-add-token="tag: native"><span>#</span><strong>Tag</strong><small>native</small><kbd>↵</kbd></button>
+                    <button class="command-option" type="button" data-add-token="status: unread"><span>◔</span><strong>Status</strong><small>unread</small><kbd>↵</kbd></button>
+                    <button class="command-option" type="button" data-add-token="order: activity"><span>↕</span><strong>Order</strong><small>recent activity</small><kbd>↵</kbd></button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="filter-variant filter-variant--drawer">
+                <div class="filter-bar filter-bar--drawer">
+                  <button class="drawer-toggle" type="button" data-drawer-toggle>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+                    Filters <span class="summary-count">2</span>
+                  </button>
+                  <span class="drawer-breadcrumb"><i class="category-dot"></i><strong>Discourse Native App</strong><span>›</span><span>All subcategories</span><span>·</span><span># ux</span></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="topic-list">
+              <div class="topic-list__head"><span>Topic</span><span>Posters</span><span>Replies</span><span>Activity</span></div>
+              <article class="topic-row">
+                <div><div class="topic-row__title">Category and tag navigation for the native topic list</div><div class="topic-row__meta"><span class="topic-category"><i class="category-dot"></i>Discourse Native App</span><span class="mini-tag">ux</span><span class="mini-tag">roadmap</span></div></div>
+                <div class="posters"><span class="poster">RJ</span><span class="poster">ME</span><span class="poster">LK</span></div><div class="topic-stat topic-stat--fresh">18</div><div class="topic-stat">2m</div>
+              </article>
+              <article class="topic-row">
+                <div><div class="topic-row__title">A better compact layout for forum filters</div><div class="topic-row__meta"><span class="topic-category"><i class="category-dot"></i>Design</span><span class="mini-tag">ux</span></div></div>
+                <div class="posters"><span class="poster">AM</span><span class="poster">RJ</span></div><div class="topic-stat">7</div><div class="topic-stat">36m</div>
+              </article>
+              <article class="topic-row">
+                <div><div class="topic-row__title">How should subcategories behave when the parent changes?</div><div class="topic-row__meta"><span class="topic-category"><i class="category-dot"></i>Development</span><span class="mini-tag">native</span></div></div>
+                <div class="posters"><span class="poster">TC</span><span class="poster">LK</span></div><div class="topic-stat topic-stat--fresh">12</div><div class="topic-stat">1h</div>
+              </article>
+              <article class="topic-row">
+                <div><div class="topic-row__title">Topics filters: API paths and route persistence</div><div class="topic-row__meta"><span class="topic-category"><i class="category-dot"></i>Development</span><span class="mini-tag">roadmap</span></div></div>
+                <div class="posters"><span class="poster">ME</span><span class="poster">TC</span><span class="poster">RJ</span></div><div class="topic-stat">23</div><div class="topic-stat">3h</div>
+              </article>
+              <article class="topic-row">
+                <div><div class="topic-row__title">Keyboard navigation for dense picker menus</div><div class="topic-row__meta"><span class="topic-category"><i class="category-dot"></i>Design</span><span class="mini-tag">accessibility</span></div></div>
+                <div class="posters"><span class="poster">LK</span><span class="poster">AM</span></div><div class="topic-stat">9</div><div class="topic-stat">7h</div>
+              </article>
+              <article class="topic-row">
+                <div><div class="topic-row__title">Remembering the last-used topic scope per forum</div><div class="topic-row__meta"><span class="topic-category"><i class="category-dot"></i>Discourse Native App</span><span class="mini-tag">feedback</span></div></div>
+                <div class="posters"><span class="poster">RJ</span><span class="poster">TC</span></div><div class="topic-stat">5</div><div class="topic-stat">1d</div>
+              </article>
+            </div>
+
+            <aside class="filter-drawer" aria-label="Topic filters">
+              <div class="drawer-header"><strong>Filter topics</strong><button class="drawer-close" type="button" aria-label="Close filters" data-drawer-toggle>×</button></div>
+              <div class="drawer-scroll">
+                <section class="drawer-section">
+                  <div class="drawer-section__title">Category <span>1 selected</span></div>
+                  <button class="tree-row" type="button">◎ All categories</button>
+                  <button class="tree-row tree-row--selected" type="button"><i class="category-dot"></i>Discourse Native App</button>
+                  <button class="tree-row tree-row--child" type="button">↳ Development</button>
+                  <button class="tree-row tree-row--child" type="button">↳ Design</button>
+                  <button class="tree-row tree-row--child" type="button">↳ Announcements</button>
+                  <button class="tree-row" type="button"><i class="category-dot category-dot--orange"></i>Feature</button>
+                  <button class="tree-row" type="button"><i class="category-dot category-dot--green"></i>Support</button>
+                </section>
+                <section class="drawer-section">
+                  <div class="drawer-section__title">Tags <span>Multiple allowed</span></div>
+                  <div class="tag-grid"><button class="tag-pill tag-pill--selected" type="button"># ux</button><button class="tag-pill" type="button"># native</button><button class="tag-pill" type="button"># roadmap</button><button class="tag-pill" type="button"># feedback</button><button class="tag-pill" type="button"># accessibility</button></div>
+                </section>
+                <section class="drawer-section">
+                  <div class="drawer-section__title">Only show</div>
+                  <button class="tree-row" type="button">◔ Unread topics</button>
+                  <button class="tree-row" type="button">✦ Topics with new activity</button>
+                  <button class="tree-row" type="button">☆ Bookmarked topics</button>
+                </section>
+              </div>
+              <div class="drawer-footer"><button class="text-button" type="button">Clear all</button><button class="apply-button" type="button" data-drawer-toggle>Apply filters</button></div>
+            </aside>
+          </section>
+        </div>
+      </section>
+
+      <section class="implementation-note" aria-label="Implementation considerations">
+        <div class="implementation-note__item"><span>Implementation shape</span><p id="implementation-shape">Add a dedicated row below TopicListNavigation and compose the existing category and tag pickers.</p></div>
+        <div class="implementation-note__item"><span>Compact behavior</span><p id="compact-behavior">Keep the row horizontally scrollable; the category stays first and the reset action can collapse to an icon.</p></div>
+        <div class="implementation-note__item"><span>Main tradeoff</span><p id="main-tradeoff">Very discoverable, but permanently spends roughly 54 pixels of vertical space.</p></div>
+      </section>
+    </main>
+
+    <script>
+      const concepts = {
+        cascade: {
+          index: "Option 01 · closest to Discourse web",
+          title: "Cascading selectors",
+          description:
+            "Category, subcategory, and tags stay visible as separate controls. This is the most literal translation of the web UI and makes the hierarchy immediately legible.",
+          traits: ["Familiar", "Explicit", "One extra row"],
+          implementation:
+            "Add a dedicated row below TopicListNavigation and compose the existing category and tag pickers.",
+          compact:
+            "Keep the row horizontally scrollable; the category stays first and the reset action can collapse to an icon.",
+          tradeoff:
+            "Very discoverable, but permanently spends roughly 54 pixels of vertical space.",
+        },
+        summary: {
+          index: "Option 02 · recommended cross-platform direction",
+          title: "Filter summary + popover",
+          description:
+            "One compact entry point summarizes the active scope, then exposes category, subcategory, and tags together. It preserves topic-list height without hiding active filters.",
+          traits: ["Compact", "Scales well", "Recommended"],
+          implementation:
+            "Model one filter state object and render it through an anchored menu on desktop and a sheet on compact layouts.",
+          compact:
+            "Use the same content in a bottom sheet; keep the active category and filter count in the closed toolbar.",
+          tradeoff:
+            "Adds one click compared with separate selectors, but gives the cleanest macOS/iOS parity.",
+        },
+        command: {
+          index: "Option 03 · builds on the existing filter grammar",
+          title: "Token query bar",
+          description:
+            "A single searchable field turns choices into removable tokens. It handles categories, tags, status, and future criteria without adding more chrome.",
+          traits: ["Powerful", "Extensible", "Keyboard-first"],
+          implementation:
+            "Reuse TopicFilterInput and its async suggestions, then present accepted modifiers as structured tokens instead of plain query text.",
+          compact:
+            "Allow tokens to scroll inside the field and move the suggestion list into a full-width overlay above the keyboard.",
+          tradeoff:
+            "Excellent for frequent users, but category/subcategory hierarchy is less obvious to newcomers.",
+        },
+        drawer: {
+          index: "Option 04 · richest browsing model",
+          title: "Filter inspector",
+          description:
+            "A lightweight toolbar opens a persistent inspector with a category tree, tag chips, and room for more criteria. The list stays visible while filters change.",
+          traits: ["Browsable", "Expandable", "Desktop-rich"],
+          implementation:
+            "Add a trailing overlay panel to TopicListNavigation; keep selection staged locally and update the route/feed when applied.",
+          compact:
+            "Present the inspector as a full-height sheet on iOS and as a docked panel on wide macOS windows.",
+          tradeoff:
+            "Best for complex filtering, but the heaviest interaction and layout implementation of the four.",
+        },
+      };
+
+      const body = document.body;
+      const conceptIndex = document.querySelector("#concept-index");
+      const conceptTitle = document.querySelector("#concept-title");
+      const conceptDescription = document.querySelector("#concept-description");
+      const conceptTraits = document.querySelector("#concept-traits");
+      const implementationShape = document.querySelector("#implementation-shape");
+      const compactBehavior = document.querySelector("#compact-behavior");
+      const mainTradeoff = document.querySelector("#main-tradeoff");
+
+      document.querySelectorAll("[data-experiment-button]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const experiment = button.dataset.experimentButton;
+          const concept = concepts[experiment];
+          body.dataset.experiment = experiment;
+          document.querySelectorAll("[data-experiment-button]").forEach((candidate) => {
+            candidate.setAttribute("aria-pressed", String(candidate === button));
+          });
+          conceptIndex.textContent = concept.index;
+          conceptTitle.textContent = concept.title;
+          conceptDescription.textContent = concept.description;
+          implementationShape.textContent = concept.implementation;
+          compactBehavior.textContent = concept.compact;
+          mainTradeoff.textContent = concept.tradeoff;
+          conceptTraits.replaceChildren(
+            ...concept.traits.map((trait) => {
+              const chip = document.createElement("span");
+              chip.textContent = trait;
+              return chip;
+            }),
+          );
+        });
+      });
+
+      document.querySelectorAll(".topic-tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          document.querySelectorAll(".topic-tab").forEach((candidate) => {
+            candidate.setAttribute("aria-selected", String(candidate === tab));
+          });
+        });
+      });
+
+      document.querySelectorAll("[data-set-selector]").forEach((option) => {
+        option.addEventListener("click", () => {
+          const details = option.closest("details");
+          details.querySelector(".selector__value").textContent = option.dataset.setSelector;
+          details.removeAttribute("open");
+        });
+      });
+
+      const selectedTags = new Set();
+      document.querySelectorAll("[data-tag-choice]").forEach((option) => {
+        option.addEventListener("click", () => {
+          const tag = option.dataset.tagChoice;
+          if (selectedTags.has(tag)) selectedTags.delete(tag);
+          else selectedTags.add(tag);
+          option.setAttribute("aria-selected", String(selectedTags.has(tag)));
+          option.querySelector(".menu-option__check")?.remove();
+          if (selectedTags.has(tag)) {
+            const check = document.createElement("span");
+            check.className = "menu-option__check";
+            check.textContent = "✓";
+            option.append(check);
+          }
+          const label = option.closest("details").querySelector(".selector__value");
+          label.textContent = selectedTags.size ? `Tags (${selectedTags.size})` : "Tags";
+        });
+      });
+
+      document.querySelectorAll("[data-close-details]").forEach((button) => {
+        button.addEventListener("click", () => button.closest("details").removeAttribute("open"));
+      });
+
+      document.querySelectorAll("[data-remove-token]").forEach((button) => {
+        button.addEventListener("click", () => button.closest(".query-token").remove());
+      });
+
+      document.querySelectorAll("[data-add-token]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const field = document.querySelector(".command-field");
+          const input = field.querySelector(".command-input");
+          const token = document.createElement("span");
+          token.className = "query-token";
+          token.textContent = button.dataset.addToken;
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.textContent = "×";
+          remove.setAttribute("aria-label", `Remove ${button.dataset.addToken} filter`);
+          remove.addEventListener("click", () => token.remove());
+          token.append(" ", remove);
+          field.insertBefore(token, input);
+          input.value = "";
+          input.focus();
+        });
+      });
+
+      document.querySelectorAll("[data-drawer-toggle]").forEach((button) => {
+        button.addEventListener("click", () => body.classList.toggle("drawer-closed"));
+      });
+
+      document.querySelectorAll(".filter-choice, .tree-row, .tag-pill").forEach((button) => {
+        button.addEventListener("click", () => {
+          if (button.classList.contains("tag-pill")) {
+            button.classList.toggle("tag-pill--selected");
+            return;
+          }
+          const group = button.parentElement;
+          group.querySelectorAll(".filter-choice, .tree-row").forEach((candidate) => {
+            candidate.classList.remove("filter-choice--selected", "tree-row--selected");
+          });
+          button.classList.add(button.classList.contains("filter-choice") ? "filter-choice--selected" : "tree-row--selected");
+        });
+      });
+    </script>
+  </body>
+</html>
