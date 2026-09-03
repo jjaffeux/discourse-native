@@ -48,6 +48,43 @@ int? composerBlockquoteArrowOffset(
   return null;
 }
 
+/// Keeps a native line-start command's destination outside hidden quote syntax.
+TextSelection composerBlockquoteLineStartSelection(
+  TextEditingValue before,
+  TextEditingValue after,
+) {
+  final selection = after.selection;
+  if (before.text != after.text ||
+      !selection.isValid ||
+      selection.end > after.text.length ||
+      !before.composing.isCollapsed ||
+      !after.composing.isCollapsed) {
+    return selection;
+  }
+
+  final prefixes = composerBlockquotePrefixes(after.text);
+  int visibleOffset(int offset) {
+    for (final prefix in prefixes) {
+      if (offset >= prefix.start && offset < prefix.end) return prefix.end;
+    }
+    return offset;
+  }
+
+  // Preserve existing selection anchors, including a whole-document selection.
+  return selection.copyWith(
+    baseOffset:
+        selection.isCollapsed ||
+            selection.baseOffset != before.selection.baseOffset
+        ? visibleOffset(selection.baseOffset)
+        : selection.baseOffset,
+    extentOffset:
+        selection.isCollapsed ||
+            selection.extentOffset != before.selection.extentOffset
+        ? visibleOffset(selection.extentOffset)
+        : selection.extentOffset,
+  );
+}
+
 /// Marks an editable quote line in the projected text without painting its body.
 class ComposerBlockquoteMarker extends StatelessWidget {
   const ComposerBlockquoteMarker({

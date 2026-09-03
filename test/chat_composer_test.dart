@@ -68,6 +68,34 @@ const _gif = GifResult(
 
 void main() {
   group('draft editing, layout, and uploads', () {
+    testWidgets('line-start commands skip the hidden quote prefix', (
+      tester,
+    ) async {
+      final fixture = await _fixture(pages: const {});
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(
+        _ComposerVisibilityView(shell: fixture.shell, visible: true),
+      );
+      await tester.pumpAndSettle();
+      final editable = tester.state<EditableTextState>(
+        find.descendant(
+          of: _composerField(),
+          matching: find.byType(EditableText),
+        ),
+      );
+      for (final source in ['> words\n> next', '> words\n> ']) {
+        await tester.enterText(_composerField(), source);
+        await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+        expect(editable.widget.controller.selection.extentOffset, 10);
+        expect(_text(tester), source);
+      }
+      expect(fixture.api.chatMessagesSent, isEmpty);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
     testWidgets('horizontal arrows skip the hidden quote line prefix', (
       tester,
     ) async {

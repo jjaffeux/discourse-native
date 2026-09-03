@@ -127,6 +127,75 @@ void main() {
     });
   });
 
+  group('quote line-start selection', () {
+    for (final (before, proposed, expected) in [
+      ('> words\n> next|', '> words\n|> next', '> words\n> |next'),
+      ('> words\n> |', '> words\n|> ', '> words\n> |'),
+      ('> words|', '|> words', '> |words'),
+      ('  > > words|', '|  > > words', '  > > |words'),
+      ('> one two three|', '> one |two three', '> one |two three'),
+      ('Before\nPlain|', 'Before\n|Plain', 'Before\n|Plain'),
+      ('```\n> literal|\n```', '```\n|> literal\n```', '```\n|> literal\n```'),
+    ]) {
+      test(before, () {
+        expect(
+          composerBlockquoteLineStartSelection(
+            _value(before),
+            _value(proposed),
+          ),
+          _value(expected).selection,
+        );
+      });
+    }
+
+    test('adjusts changed endpoints without moving existing anchors', () {
+      for (final (oldBase, oldExtent, newBase, newExtent, base, extent) in [
+        (14, 14, 14, 8, 14, 10),
+        (11, 14, 8, 14, 10, 14),
+        (14, 11, 14, 8, 14, 10),
+        (0, 14, 0, 14, 0, 14),
+        (0, 14, 0, 8, 0, 10),
+      ]) {
+        final before = _value('> words\n> next|').copyWith(
+          selection: TextSelection(
+            baseOffset: oldBase,
+            extentOffset: oldExtent,
+          ),
+        );
+        final after = before.copyWith(
+          selection: TextSelection(
+            baseOffset: newBase,
+            extentOffset: newExtent,
+            isDirectional: true,
+          ),
+        );
+        expect(
+          composerBlockquoteLineStartSelection(before, after),
+          TextSelection(
+            baseOffset: base,
+            extentOffset: extent,
+            isDirectional: true,
+          ),
+        );
+      }
+    });
+
+    test('leaves composition and source edits unchanged', () {
+      final after = _value('> words\n|> next');
+      for (final before in [
+        _value(
+          '> words\n> next|',
+        ).copyWith(composing: const TextRange(start: 10, end: 14)),
+        _value('> old text|'),
+      ]) {
+        expect(
+          composerBlockquoteLineStartSelection(before, after),
+          after.selection,
+        );
+      }
+    });
+  });
+
   group('quote Backspace', () {
     for (final (before, after) in [
       ('> words\n> |', '> words|'),

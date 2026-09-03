@@ -35,6 +35,104 @@ const _longQuote =
 
 void main() {
   group('quote editing', () {
+    testWidgets('line-start commands stop at visible quote text', (
+      tester,
+    ) async {
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(tester, shell, composer);
+      final field = find.byType(TextField);
+      await tester.enterText(field, '> words\n> next');
+      await tester.pump();
+      final render = tester
+          .state<EditableTextState>(find.byType(EditableText))
+          .renderEditable;
+      final visibleStart = render.getLocalRectForCaret(
+        const TextPosition(offset: 10),
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      for (var count = 0; count < 2; count++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.pump();
+        expect(composer.text.selection.extentOffset, 10);
+        expect(
+          render.getLocalRectForCaret(composer.text.selection.extent),
+          visibleStart,
+        );
+      }
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+      expect(composer.text.selection.extentOffset, 7);
+
+      composer.text.selection = const TextSelection.collapsed(offset: 14);
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(
+        composer.text.selection,
+        const TextSelection(baseOffset: 14, extentOffset: 10),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pump();
+      expect(composer.text.text, '> words\n> ');
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(composer.text.selection.extentOffset, 10);
+      expect(find.byType(ComposerBlockquoteMarker), findsNWidgets(2));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets(
+      'line-start commands preserve wrapping and ordinary text movement',
+      (tester) async {
+        final composer = ComposerController(_target);
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpPanel(tester, shell, composer);
+        final field = find.byType(TextField);
+        await tester.enterText(field, '> ${'word ' * 80}tail');
+        await tester.pump();
+        final render = tester
+            .state<EditableTextState>(find.byType(EditableText))
+            .renderEditable;
+        final wrappedStart = render
+            .getLineAtOffset(composer.text.selection.extent)
+            .start;
+        expect(wrappedStart, greaterThan(2));
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+        expect(composer.text.selection.extentOffset, wrappedStart);
+
+        for (final (source, caret, expected) in [
+          ('Before\nPlain words', 18, 7),
+          ('```\n> literal\n```', 13, 4),
+        ]) {
+          await tester.enterText(field, source);
+          composer.text.selection = TextSelection.collapsed(offset: caret);
+          await tester.pump();
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+          await tester.pump();
+          expect(composer.text.selection.extentOffset, expected);
+          expect(composer.text.text, source);
+        }
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+
     testWidgets('moving left across a quote prefix reveals the previous line', (
       tester,
     ) async {
