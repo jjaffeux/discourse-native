@@ -182,6 +182,7 @@ class _ChatThreadSplitState extends State<_ChatThreadSplit> {
                         siteUrl: widget.siteUrl,
                         target: widget.target,
                         leading: _HeaderAction.none,
+                        showFullPageClose: false,
                         showClose: true,
                       ),
                       Expanded(
@@ -657,6 +658,7 @@ class _ChannelPaneHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = PluginUiScope.require(context, chatShellService);
     final chat = PluginUiScope.require(context, chatControllerService);
     return ValueListenableBuilder(
       valueListenable: chat.channelRef(siteUrl, channelId),
@@ -705,6 +707,8 @@ class _ChannelPaneHeader extends StatelessWidget {
                   const SizedBox(width: 4),
                 ],
                 ChatChannelSearchButton(siteUrl: siteUrl, channelId: channelId),
+                if (shell.fullPageChatActive && shell.drawerAvailable)
+                  _FullPageCloseButton(shell: shell),
                 if (ShellTitleBar.columnsCarryUserMenu) ...[
                   ChatHeaderButton(ringColor: theme.shell.content),
                   UserMenuButton(ringColor: theme.shell.content),
@@ -723,12 +727,14 @@ class _ThreadHeader extends StatelessWidget {
     required this.siteUrl,
     required this.target,
     required this.leading,
+    this.showFullPageClose = true,
     this.showClose = false,
   });
 
   final String siteUrl;
   final ChatThreadTarget target;
   final _HeaderAction leading;
+  final bool showFullPageClose;
   final bool showClose;
 
   @override
@@ -781,13 +787,10 @@ class _ThreadHeader extends StatelessWidget {
                 icon: const DIcon(DIcons.gear, size: 18),
                 variant: DButtonVariant.flat,
               ),
-            if (shell.fullPageChatActive && shell.drawerAvailable)
-              DButton.iconOnly(
-                tooltip: 'Close full-screen chat',
-                onPressed: () => unawaited(shell.openDrawerFromFullPage()),
-                icon: const DIcon(DIcons.discourseCompress, size: 18),
-                variant: DButtonVariant.flat,
-              ),
+            if (showFullPageClose &&
+                shell.fullPageChatActive &&
+                shell.drawerAvailable)
+              _FullPageCloseButton(shell: shell),
             if (showClose)
               DButton.iconOnly(
                 tooltip: 'Close thread',
@@ -799,6 +802,23 @@ class _ThreadHeader extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _FullPageCloseButton extends StatelessWidget {
+  const _FullPageCloseButton({required this.shell});
+
+  final ChatShellService shell;
+
+  @override
+  Widget build(BuildContext context) {
+    return DButton.iconOnly(
+      key: const ValueKey('chat-close-full-page'),
+      tooltip: 'Close full-screen chat',
+      onPressed: () => unawaited(shell.openDrawerFromFullPage()),
+      icon: const DIcon(DIcons.discourseCompress, size: 18),
+      variant: DButtonVariant.flat,
     );
   }
 }
