@@ -30,6 +30,78 @@ void main() {
     ),
   );
 
+  TextEditingValue backspace(TextEditingValue value) =>
+      formatter.formatEditUpdate(
+        value,
+        TextEditingValue(
+          text: value.text.replaceRange(
+            value.selection.start - 1,
+            value.selection.start,
+            '',
+          ),
+          selection: TextSelection.collapsed(offset: value.selection.start - 1),
+        ),
+      );
+
+  group('quote Backspace', () {
+    for (final (before, after) in [
+      ('> words\n> |', '> words|'),
+      ('> words\n> |continued', '> words|continued'),
+      ('> words\n> |\nAfter', '> words|\nAfter'),
+      ('> words\n> \n> |', '> words\n> |'),
+      ('> > nested\n> > |', '> > nested|'),
+      ('>> nested\n>> |', '>> nested|'),
+      ('  > words\n  > |', '  > words|'),
+      ('> words\n>\t|', '> words|'),
+      ('> |', '|'),
+      ('> |words', '|words'),
+      ('Before\n> |words', 'Before\n|words'),
+      ('> words\n\n> |', '> words\n\n|'),
+      ('> words\n|', '> words|'),
+      ('> words\n>  |', '> words\n> |'),
+      ('> words|', '> word|'),
+      ('x > |', 'x >|'),
+      ('\\> |', '\\>|'),
+      ('    > |', '    >|'),
+      ('```\n> |\n```', '```\n>|\n```'),
+      ('~~~\n> |', '~~~\n>|'),
+    ]) {
+      test(before, () {
+        expect(backspace(_value(before)), _value(after));
+      });
+    }
+
+    test('removes repeated soft breaks one at a time and resumes typing', () {
+      shift = true;
+      var value = enter(enter(_value('> words|')));
+      value = backspace(value);
+      expect(value, _value('> words\n> |'));
+      value = backspace(value);
+      expect(value, _value('> words|'));
+      value = formatter.formatEditUpdate(value, _value('> words!|'));
+      expect(value, _value('> words!|'));
+
+      shift = false;
+      final first = enter(value);
+      expect(first, _value('> words!\n> |'));
+      expect(enter(first), _value('> words!\n|'));
+    });
+
+    test('does not rewrite a selection deletion or active composition', () {
+      for (final oldValue in [
+        _value('> words\n> |').copyWith(
+          selection: const TextSelection(baseOffset: 9, extentOffset: 10),
+        ),
+        _value(
+          '> words\n> |',
+        ).copyWith(composing: const TextRange(start: 9, end: 10)),
+      ]) {
+        final proposed = _value('> words\n>|');
+        expect(formatter.formatEditUpdate(oldValue, proposed), proposed);
+      }
+    });
+  });
+
   group('quote continuation', () {
     for (final (before, after) in [
       ('> words|', '> words\n> |'),
@@ -121,7 +193,7 @@ void main() {
     test('leaves paste, deletion and IME unchanged', () {
       for (final (oldValue, proposed) in [
         (_value('> words|'), _value('> words\npasted\n|')),
-        (_value('> |'), _value('>|')),
+        (_value('> word|'), _value('> wor|')),
         (
           _value('> words|'),
           const TextEditingValue(
