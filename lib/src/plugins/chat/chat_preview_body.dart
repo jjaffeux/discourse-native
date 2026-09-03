@@ -6,6 +6,7 @@ import '../../foundation/diagnostic_errors.dart';
 import '../../shell/code_block.dart';
 import '../../shell/image_decode.dart';
 import '../../shell/inline_code.dart';
+import '../../shell/site_image.dart';
 import '../../shell/syntax.dart';
 import '../../theme/app_theme.dart';
 import 'chat_preview.dart';
@@ -146,6 +147,8 @@ class _OptimisticGif extends StatelessWidget {
     final fallback = node.title.trim().isEmpty ? node.fallbackText : node.title;
 
     return Semantics(
+      container: true,
+      explicitChildNodes: true,
       image: true,
       label: fallback,
       child: ConstrainedBox(
@@ -154,12 +157,15 @@ class _OptimisticGif extends StatelessWidget {
           color: theme.shell.floating,
           child: AspectRatio(
             aspectRatio: ratio,
-            child: Image.network(
-              node.url.toString(),
+            child: SiteImage(
               key: const ValueKey('chat-preview-gif'),
+              url: node.url.toString(),
+              siteUrl: null,
               width: double.infinity,
               fit: BoxFit.contain,
               cacheWidth: imagePhysicalPixels(context, width),
+              gifPlaybackControls: true,
+              knownAnimated: true,
               errorBuilder: (context, error, stackTrace) {
                 reportImageError(
                   error,

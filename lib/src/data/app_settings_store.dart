@@ -8,6 +8,10 @@ abstract interface class AppSettingsPersistence {
   Future<String?> readContentAlignment();
 
   Future<bool> writeContentAlignment(String value);
+
+  Future<bool?> readDisableGifAnimations();
+
+  Future<bool> writeDisableGifAnimations(bool value);
 }
 
 final class SharedPreferencesAppSettingsPersistence
@@ -26,12 +30,29 @@ final class SharedPreferencesAppSettingsPersistence
         AppSettingsStore.contentAlignmentKey,
         value,
       );
+
+  @override
+  Future<bool?> readDisableGifAnimations() async =>
+      (await SharedPreferences.getInstance()).getBool(
+        AppSettingsStore.disableGifAnimationsKey,
+      );
+
+  @override
+  Future<bool> writeDisableGifAnimations(bool value) async =>
+      (await SharedPreferences.getInstance()).setBool(
+        AppSettingsStore.disableGifAnimationsKey,
+        value,
+      );
 }
 
 final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
-  MemoryAppSettingsPersistence({this.contentAlignment});
+  MemoryAppSettingsPersistence({
+    this.contentAlignment,
+    this.disableGifAnimations,
+  });
 
   String? contentAlignment;
+  bool? disableGifAnimations;
 
   @override
   Future<String?> readContentAlignment() async => contentAlignment;
@@ -39,6 +60,15 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
   @override
   Future<bool> writeContentAlignment(String value) async {
     contentAlignment = value;
+    return true;
+  }
+
+  @override
+  Future<bool?> readDisableGifAnimations() async => disableGifAnimations;
+
+  @override
+  Future<bool> writeDisableGifAnimations(bool value) async {
+    disableGifAnimations = value;
     return true;
   }
 }
@@ -49,6 +79,9 @@ final class AppSettingsStore {
 
   static const String contentAlignmentKey =
       'discourse_native.content_alignment';
+  static const String disableGifAnimationsKey =
+      'discourse_native.disable_gif_animations';
+  static const String _operationKey = 'discourse_native.app_settings';
   static const AppSettingsPersistence _defaultPersistence =
       SharedPreferencesAppSettingsPersistence();
   static final ReadAfterWriteOperationQueue _operations =
@@ -62,38 +95,55 @@ final class AppSettingsStore {
     if (sessionSettings != null) return sessionSettings;
     final persisted = await _operations.read(
       owner: _persistence,
-      key: contentAlignmentKey,
+      key: _operationKey,
       operation: _read,
     );
     return _sessionSettings ?? persisted;
   }
 
   Future<AppSettings> _read() async {
+    var contentAlignment = ContentAlignment.center;
+    var disableGifAnimations = false;
     try {
       final stored = await _persistence.readContentAlignment();
-      return AppSettings(contentAlignment: _contentAlignmentByName(stored));
+      contentAlignment = _contentAlignmentByName(stored);
     } catch (error, stackTrace) {
       reportStorageFailure(
         error,
         stackTrace,
         'appSettings.readContentAlignment',
       );
-      return AppSettings.defaults;
     }
+    try {
+      disableGifAnimations =
+          await _persistence.readDisableGifAnimations() ?? false;
+    } catch (error, stackTrace) {
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'appSettings.readDisableGifAnimations',
+      );
+    }
+    return AppSettings(
+      contentAlignment: contentAlignment,
+      disableGifAnimations: disableGifAnimations,
+    );
   }
 
   Future<void> write(AppSettings settings) {
     _sessionSettings = settings;
     return _operations.write<void>(
       owner: _persistence,
-      key: contentAlignmentKey,
-      operation: () => _persist(settings.contentAlignment),
+      key: _operationKey,
+      operation: () => _persist(settings),
     );
   }
 
-  Future<void> _persist(ContentAlignment alignment) async {
+  Future<void> _persist(AppSettings settings) async {
     try {
-      if (!await _persistence.writeContentAlignment(alignment.name)) {
+      if (!await _persistence.writeContentAlignment(
+        settings.contentAlignment.name,
+      )) {
         throw StateError('Could not persist the app content alignment.');
       }
     } catch (error, stackTrace) {
@@ -101,6 +151,19 @@ final class AppSettingsStore {
         error,
         stackTrace,
         'appSettings.writeContentAlignment',
+      );
+    }
+    try {
+      if (!await _persistence.writeDisableGifAnimations(
+        settings.disableGifAnimations,
+      )) {
+        throw StateError('Could not persist the GIF animation preference.');
+      }
+    } catch (error, stackTrace) {
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'appSettings.writeDisableGifAnimations',
       );
     }
   }

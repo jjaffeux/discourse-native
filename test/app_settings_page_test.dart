@@ -38,6 +38,7 @@ void main() {
     );
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('Content alignment'), findsOneWidget);
+    expect(find.text('Disable GIF animations'), findsOneWidget);
     expect(
       find.textContaining('reading lane is limited to 825 px'),
       findsNothing,
@@ -58,6 +59,14 @@ void main() {
       find.byKey(const ValueKey('content-alignment-segmented-button')),
     );
     expect(segmented.selected, {ContentAlignment.left});
+
+    await tester.tap(
+      find.byKey(const ValueKey('disable-gif-animations-switch')),
+    );
+    await tester.pump();
+
+    expect(controller.appSettings.disableGifAnimations, isTrue);
+    expect(persistence.disableGifAnimations, isTrue);
   });
 
   testWidgets('the form and Back control expose useful semantics', (
@@ -74,6 +83,10 @@ void main() {
       expect(find.bySemanticsLabel('Back'), findsOneWidget);
       expect(
         find.bySemanticsLabel('Content alignment options'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(RegExp('Disable GIF animations')),
         findsOneWidget,
       );
       for (final label in ['Left', 'Center', 'Right']) {

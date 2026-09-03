@@ -22,6 +22,20 @@ void main() {
     expect(await platformStore.read(), AppSettings.defaults);
   });
 
+  test('round-trips the GIF animation preference', () async {
+    final store = AppSettingsStore();
+
+    await store.write(const AppSettings(disableGifAnimations: true));
+
+    expect(
+      (await SharedPreferences.getInstance()).getBool(
+        AppSettingsStore.disableGifAnimationsKey,
+      ),
+      isTrue,
+    );
+    expect(await store.read(), const AppSettings(disableGifAnimations: true));
+  });
+
   test('round-trips every alignment through one app-wide key', () async {
     final store = AppSettingsStore();
 
@@ -105,7 +119,12 @@ void main() {
       diagnostics.events.whereType<ErrorDiagnosticEvent>(),
       containsAll([
         _isStorageFailure('appSettings.readContentAlignment', 'StateError'),
+        _isStorageFailure('appSettings.readDisableGifAnimations', 'StateError'),
         _isStorageFailure('appSettings.writeContentAlignment', 'StateError'),
+        _isStorageFailure(
+          'appSettings.writeDisableGifAnimations',
+          'StateError',
+        ),
       ]),
     );
   });
@@ -146,6 +165,7 @@ final class _ControlledAppSettingsPersistence
   });
 
   String? contentAlignment;
+  bool? disableGifAnimations;
   final Completer<void>? firstWriteGate;
   final bool failReads;
   final bool acceptWrites;
@@ -161,6 +181,12 @@ final class _ControlledAppSettingsPersistence
   }
 
   @override
+  Future<bool?> readDisableGifAnimations() async {
+    if (failReads) throw StateError('preferences unavailable');
+    return disableGifAnimations;
+  }
+
+  @override
   Future<bool> writeContentAlignment(String value) async {
     attemptedWrites.add(value);
     if (attemptedWrites.length == 1) {
@@ -169,6 +195,13 @@ final class _ControlledAppSettingsPersistence
     }
     if (!acceptWrites) return false;
     contentAlignment = value;
+    return true;
+  }
+
+  @override
+  Future<bool> writeDisableGifAnimations(bool value) async {
+    if (!acceptWrites) return false;
+    disableGifAnimations = value;
     return true;
   }
 }

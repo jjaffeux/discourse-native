@@ -7,10 +7,15 @@ import 'byte_cache.dart';
 import 'site_lifecycle.dart';
 
 final class SiteImageBytes {
-  const SiteImageBytes(this.bytes, {required this.isSvg});
+  const SiteImageBytes(
+    this.bytes, {
+    required this.isSvg,
+    this.isAnimated = false,
+  });
 
   final Uint8List bytes;
   final bool isSvg;
+  final bool isAnimated;
 }
 
 /// Loads site-owned images with the account identity that may protect them.
@@ -165,12 +170,62 @@ final class _AuthenticatedSiteImageCache extends ByteCache<SiteImageBytes> {
   @override
   SiteImageBytes? decode(http.Response response) {
     if (response.bodyBytes.isEmpty) return null;
+    final contentType = response.headers['content-type'];
     return SiteImageBytes(
       response.bodyBytes,
       isSvg: AvatarLoader.looksLikeSvg(
         response.bodyBytes,
-        contentType: response.headers['content-type'],
+        contentType: contentType,
       ),
+      isAnimated: _looksAnimated(response.bodyBytes, contentType: contentType),
     );
   }
+}
+
+bool _looksAnimated(Uint8List bytes, {String? contentType}) {
+  if (contentType?.toLowerCase().split(';').first.trim() == 'image/gif') {
+    return true;
+  }
+  if (bytes.length >= 6 &&
+      bytes[0] == 0x47 &&
+      bytes[1] == 0x49 &&
+      bytes[2] == 0x46 &&
+      bytes[3] == 0x38 &&
+      (bytes[4] == 0x37 || bytes[4] == 0x39) &&
+      bytes[5] == 0x61) {
+    return true;
+  }
+  if (bytes.length < 21 ||
+      !_matchesAscii(bytes, 0, 'RIFF') ||
+      !_matchesAscii(bytes, 8, 'WEBP')) {
+    return false;
+  }
+
+  var offset = 12;
+  while (offset + 8 <= bytes.length) {
+    final chunk = String.fromCharCodes(bytes, offset, offset + 4);
+    final size =
+        bytes[offset + 4] |
+        (bytes[offset + 5] << 8) |
+        (bytes[offset + 6] << 16) |
+        (bytes[offset + 7] << 24);
+    final dataOffset = offset + 8;
+    if (chunk == 'ANIM' || chunk == 'ANMF') return true;
+    if (chunk == 'VP8X' &&
+        dataOffset < bytes.length &&
+        bytes[dataOffset] & 0x02 != 0) {
+      return true;
+    }
+    if (size < 0 || dataOffset + size > bytes.length) return false;
+    offset = dataOffset + size + (size.isOdd ? 1 : 0);
+  }
+  return false;
+}
+
+bool _matchesAscii(Uint8List bytes, int offset, String expected) {
+  if (offset + expected.length > bytes.length) return false;
+  for (var index = 0; index < expected.length; index++) {
+    if (bytes[offset + index] != expected.codeUnitAt(index)) return false;
+  }
+  return true;
 }

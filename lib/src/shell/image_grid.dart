@@ -334,29 +334,30 @@ class ImageGridTile extends StatelessWidget {
           final description = item.description;
 
           return Semantics(
+            container: true,
+            explicitChildNodes: true,
             image: description != null,
             label: description,
-            child: ExcludeSemantics(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: SiteImage(
-                  url: src,
-                  siteUrl: siteUrl,
-                  fit: fit,
-                  width: double.infinity,
-                  height: double.infinity,
-                  cacheWidth: cacheWidth,
-                  errorBuilder: (context, error, stackTrace) {
-                    reportImageError(
-                      error,
-                      stackTrace,
-                      operation: 'imageGrid.image',
-                    );
-                    return UnavailableImage(
-                      color: Theme.of(context).shell.placeholder,
-                    );
-                  },
-                ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: SiteImage(
+                url: src,
+                siteUrl: siteUrl,
+                fit: fit,
+                width: double.infinity,
+                height: double.infinity,
+                cacheWidth: cacheWidth,
+                gifPlaybackControls: true,
+                errorBuilder: (context, error, stackTrace) {
+                  reportImageError(
+                    error,
+                    stackTrace,
+                    operation: 'imageGrid.image',
+                  );
+                  return UnavailableImage(
+                    color: Theme.of(context).shell.placeholder,
+                  );
+                },
               ),
             ),
           );
