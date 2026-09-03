@@ -278,7 +278,11 @@ void main() {
         platform,
         LogicalKeyboardKey.keyW,
       );
-      expect(inactiveCloseTooltip.shortcut, isNull);
+      _expectPrimaryShortcut(
+        inactiveCloseTooltip.shortcut![0],
+        platform,
+        LogicalKeyboardKey.keyW,
+      );
     });
 
     testWidgets('delegate horizontal drag-and-drop reordering by ID', (

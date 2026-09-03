@@ -898,14 +898,12 @@ class _ForumTabState extends State<_ForumTab> {
                     tabId: widget.item.id,
                     label: closeLabel,
                     foreground: foreground,
-                    shortcut: widget.selected
-                        ? DShortcut(
-                            primaryShortcutForPlatform(
-                              Theme.of(context).platform,
-                              LogicalKeyboardKey.keyW,
-                            ),
-                          )
-                        : null,
+                    shortcut: DShortcut(
+                      primaryShortcutForPlatform(
+                        Theme.of(context).platform,
+                        LogicalKeyboardKey.keyW,
+                      ),
+                    ),
                     onPressed: widget.onClose,
                   ),
                 ],
