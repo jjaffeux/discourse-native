@@ -166,10 +166,6 @@ class _GroupsPageState extends State<GroupsPage> {
                         ),
                       ),
                     ),
-                    if (data.loading && data.groups.isNotEmpty)
-                      const SliverToBoxAdapter(
-                        child: LinearProgressIndicator(minHeight: 2),
-                      ),
                     if (data.error != null &&
                         (!data.pageError || data.groups.isEmpty))
                       SliverToBoxAdapter(

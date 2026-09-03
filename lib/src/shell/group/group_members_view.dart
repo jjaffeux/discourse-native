@@ -771,7 +771,6 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
             style: Theme.of(context).textTheme.labelLarge,
             decoration: _groupSearchDecoration('Username or email address'),
           ),
-          if (controller.searching) const LinearProgressIndicator(minHeight: 2),
           const SizedBox(height: 10),
           if (controller.queryIsEmail)
             CheckboxListTile(
