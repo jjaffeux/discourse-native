@@ -1266,7 +1266,7 @@ void _registerTopicReadingTests() {
       );
     });
 
-    testWidgets('topic tags render after the category in server order', (
+    testWidgets('short topic tags use the intended inline gap', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
@@ -1278,13 +1278,13 @@ void _registerTopicReadingTests() {
               slug: 'a-tagged-topic',
               categoryId: 5,
               tags: [
-                TopicTag(id: 8, name: 'design', slug: 'design'),
-                TopicTag(id: 9, name: 'accessibility', slug: 'accessibility'),
+                TopicTag(id: 8, name: 'ai', slug: 'ai'),
+                TopicTag(id: 9, name: 'in-progress', slug: 'in-progress'),
               ],
             ),
           ],
           '/c/feature/5.json': const [],
-          '/tag/design/8.json': const [],
+          '/tag/ai/8.json': const [],
         },
         categoryList: const [
           TopicCategory(
@@ -1298,17 +1298,23 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      expect(find.text('design,'), findsOneWidget);
-      expect(find.text('accessibility'), findsOneWidget);
-      expect(find.bySemanticsLabel('Tag: design'), findsOneWidget);
-      expect(find.bySemanticsLabel('Tag: accessibility'), findsOneWidget);
+      final firstTag = find.text('ai,');
+      final secondTag = find.text('in-progress');
+      expect(firstTag, findsOneWidget);
+      expect(secondTag, findsOneWidget);
+      expect(find.bySemanticsLabel('Tag: ai'), findsOneWidget);
+      expect(find.bySemanticsLabel('Tag: in-progress'), findsOneWidget);
       expect(
         tester.getSize(find.bySemanticsLabel('Category: Feature')).height,
         greaterThanOrEqualTo(24),
       );
       expect(
-        tester.getSize(find.bySemanticsLabel('Tag: design')).height,
+        tester.getSize(find.bySemanticsLabel('Tag: ai')).height,
         greaterThanOrEqualTo(24),
+      );
+      expect(
+        tester.getTopLeft(secondTag).dx - tester.getTopRight(firstTag).dx,
+        closeTo(3, 0.01),
       );
       final category = find.descendant(
         of: find.byType(TopicListView),
@@ -1316,7 +1322,7 @@ void _registerTopicReadingTests() {
       );
       expect(
         tester.getTopRight(category).dx,
-        lessThan(tester.getTopLeft(find.text('design,')).dx),
+        lessThan(tester.getTopLeft(firstTag).dx),
       );
 
       final controller = ShellScope.read(
@@ -1331,11 +1337,11 @@ void _registerTopicReadingTests() {
 
       expect(controller.handleBack(canReturnToSidebar: false), isTrue);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('design,'));
+      await tester.tap(firstTag);
       await tester.pumpAndSettle();
 
       expect(controller.currentContent?.id, 'tag-8');
-      expect(controller.currentContent?.feedPath, '/tag/design/8.json');
+      expect(controller.currentContent?.feedPath, '/tag/ai/8.json');
       expect(api.topicsOpened, isEmpty);
     });
 

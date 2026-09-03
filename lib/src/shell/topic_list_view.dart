@@ -1254,7 +1254,7 @@ class _TopicTag extends StatelessWidget {
         semanticLabel: 'Tag: ${tag.name}',
         excludeChildSemantics: true,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 24),
+          constraints: const BoxConstraints(minHeight: 24),
           child: Align(
             alignment: Alignment.centerLeft,
             widthFactor: 1,
