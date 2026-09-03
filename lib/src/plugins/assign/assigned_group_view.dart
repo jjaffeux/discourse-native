@@ -242,10 +242,6 @@ class AssignedGroupPresentationView extends StatelessWidget {
                   onQueryChanged: onQueryChanged,
                 ),
               ),
-              if (feed.loading && topics.isNotEmpty)
-                const SliverToBoxAdapter(
-                  child: LinearProgressIndicator(minHeight: 2),
-                ),
               if (feed.error case final error?)
                 SliverToBoxAdapter(
                   child: _AssignedError(message: error, onRetry: onRefresh),
