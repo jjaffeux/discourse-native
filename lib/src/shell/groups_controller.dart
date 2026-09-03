@@ -470,7 +470,11 @@ final class GroupsController extends FrameSafeNotifier {
           typeFilters: page.typeFilters,
           totalRows: page.totalRows,
           nextPage: (more ? held.nextPage : 0) + 1,
-          hasMore: page.nextPagePath != null,
+          // Discourse includes a next-page URL even after the final group.
+          hasMore:
+              page.nextPagePath != null &&
+              page.groups.isNotEmpty &&
+              rows.length < page.totalRows,
           loaded: true,
         );
       });
