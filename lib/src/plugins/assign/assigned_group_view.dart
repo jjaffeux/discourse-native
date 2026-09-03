@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
+import '../../shell/avatar_image.dart';
 import '../../shell/content_reading_lane.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -20,6 +22,9 @@ typedef AssignedGroupPresentationFactory =
       String groupName,
       String? subsection,
     );
+
+const double _assignedDesktopBreakpoint = 720;
+const double _assignedPeopleRailWidth = 220;
 
 class AssignedGroupView extends StatefulWidget {
   const AssignedGroupView({
@@ -163,248 +168,596 @@ class AssignedGroupPresentationView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final feed = state.feed;
-    final topics = state.topics;
     return ContentReadingLane(
       basePadding: const EdgeInsets.symmetric(horizontal: 16),
-      builder: (context, lane) => RefreshIndicator(
-        onRefresh: onRefresh,
-        child: CustomScrollView(
-          key: PageStorageKey(
-            'assigned-${state.groupName}-${state.filter.routeSegment(state.groupName)}',
+      builder: (context, lane) {
+        final desktop = lane.width >= _assignedDesktopBreakpoint;
+        if (!desktop) {
+          return _buildFeed(
+            horizontalPadding: 16,
+            people: _AssignedPeoplePanel(
+              key: const ValueKey('assigned-people-grid'),
+              compact: true,
+              groupName: state.groupName,
+              filter: state.filter,
+              members: state.members,
+              onSelect: onSelect,
+              onMemberSearch: onMemberSearch,
+              onLoadMoreMembers: onLoadMoreMembers,
+            ),
+          );
+        }
+
+        return Padding(
+          padding: EdgeInsets.only(
+            left: lane.padding.left,
+            right: lane.padding.right,
           ),
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: EdgeInsets.only(
-                left: lane.leftInset,
-                right: lane.rightInset,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: _assignedPeopleRailWidth,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 14, 0, 28),
+                  child: _AssignedPeoplePanel(
+                    key: const ValueKey('assigned-people-rail'),
+                    compact: false,
+                    groupName: state.groupName,
+                    filter: state.filter,
+                    members: state.members,
+                    onSelect: onSelect,
+                    onMemberSearch: onMemberSearch,
+                    onLoadMoreMembers: onLoadMoreMembers,
+                  ),
+                ),
               ),
-              sliver: SliverMainAxisGroup(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: _AssignedControls(
-                      groupName: state.groupName,
-                      filter: state.filter,
-                      query: state.query,
-                      members: state.members,
-                      onSelect: onSelect,
-                      onQueryChanged: onQueryChanged,
-                      onMemberSearch: onMemberSearch,
-                      onLoadMoreMembers: onLoadMoreMembers,
+              const SizedBox(width: 16),
+              Expanded(child: _buildFeed(horizontalPadding: 0)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFeed({required double horizontalPadding, Widget? people}) {
+    final feed = state.feed;
+    final topics = state.topics;
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: CustomScrollView(
+        key: PageStorageKey(
+          'assigned-${state.groupName}-${state.filter.routeSegment(state.groupName)}',
+        ),
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverMainAxisGroup(
+            slivers: [
+              if (people != null) SliverToBoxAdapter(child: people),
+              SliverToBoxAdapter(
+                child: _AssignedQueryControls(
+                  horizontalPadding: horizontalPadding,
+                  query: state.query,
+                  onQueryChanged: onQueryChanged,
+                ),
+              ),
+              if (feed.loading && topics.isNotEmpty)
+                const SliverToBoxAdapter(
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
+              if (feed.error case final error?)
+                SliverToBoxAdapter(
+                  child: _AssignedError(message: error, onRetry: onRefresh),
+                ),
+              if (!feed.loaded && feed.loading)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator.adaptive()),
+                )
+              else if (topics.isEmpty && feed.error == null)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _AssignedEmpty(),
+                )
+              else
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    4,
+                    horizontalPadding,
+                    28,
+                  ),
+                  sliver: SliverList.separated(
+                    itemCount: topics.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) => _AssignedTopicRow(
+                      topic: topics[index],
+                      onTap: () => onOpenTopic(topics[index]),
                     ),
                   ),
-                  if (feed.loading && topics.isNotEmpty)
-                    const SliverToBoxAdapter(
-                      child: LinearProgressIndicator(minHeight: 2),
-                    ),
-                  if (feed.error case final error?)
-                    SliverToBoxAdapter(
-                      child: _AssignedError(message: error, onRetry: onRefresh),
-                    ),
-                  if (!feed.loaded && feed.loading)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: CircularProgressIndicator.adaptive(),
-                      ),
-                    )
-                  else if (topics.isEmpty && feed.error == null)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: _AssignedEmpty(),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-                      sliver: SliverList.separated(
-                        itemCount: topics.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) => _AssignedTopicRow(
-                          topic: topics[index],
-                          onTap: () => onOpenTopic(topics[index]),
-                        ),
+                ),
+              if (feed.hasMore || feed.loadingMore)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 28),
+                    child: Center(
+                      child: DButton(
+                        key: const ValueKey('assigned-load-more-topics'),
+                        label: const Text('Load more assignments'),
+                        loading: feed.loadingMore,
+                        onPressed: feed.loadingMore ? null : onLoadMoreTopics,
                       ),
                     ),
-                  if (feed.hasMore || feed.loadingMore)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 28),
-                        child: Center(
-                          child: DButton(
-                            label: const Text('Load more assignments'),
-                            loading: feed.loadingMore,
-                            onPressed: feed.loadingMore
-                                ? null
-                                : onLoadMoreTopics,
-                          ),
-                        ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AssignedPeoplePanel extends StatefulWidget {
+  const _AssignedPeoplePanel({
+    super.key,
+    required this.compact,
+    required this.groupName,
+    required this.filter,
+    required this.members,
+    required this.onSelect,
+    required this.onMemberSearch,
+    required this.onLoadMoreMembers,
+  });
+
+  final bool compact;
+  final String groupName;
+  final AssignedGroupFilter filter;
+  final AssignedGroupMembersState members;
+  final ValueChanged<AssignedGroupFilter> onSelect;
+  final ValueChanged<String> onMemberSearch;
+  final VoidCallback onLoadMoreMembers;
+
+  @override
+  State<_AssignedPeoplePanel> createState() => _AssignedPeoplePanelState();
+}
+
+class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
+  static const int _collapsedOptionCount = 5;
+
+  bool _showSearch = false;
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final options = <_AssignedPersonOption>[
+      _AssignedPersonOption(
+        label: 'Everyone',
+        count: widget.members.assignmentCount,
+        filter: const AssignedGroupFilter.everyone(),
+        icon: DIcons.users,
+      ),
+      _AssignedPersonOption(
+        label: '@${widget.groupName}',
+        count: widget.members.groupAssignmentCount,
+        filter: const AssignedGroupFilter.directGroup(),
+        icon: DIcons.users,
+      ),
+      for (final member in widget.members.members)
+        _AssignedPersonOption(
+          label: '@${member.username}',
+          count: member.assignmentsCount,
+          filter: AssignedGroupFilter.member(member.usernameLower),
+          member: member,
+        ),
+    ];
+    final visibleOptions = _visibleOptions(options);
+
+    final header = Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 6, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Assigned to',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          DButton.iconOnly(
+            key: const ValueKey('assigned-member-search-toggle'),
+            icon: DIcon(
+              _showSearch ? DIcons.xmark : DIcons.magnifyingGlass,
+              size: 16,
+            ),
+            tooltip: _showSearch
+                ? 'Hide person search'
+                : 'Find assigned person',
+            variant: DButtonVariant.flat,
+            size: DButtonSize.small,
+            onPressed: () => setState(() => _showSearch = !_showSearch),
+          ),
+        ],
+      ),
+    );
+    final search = _showSearch
+        ? Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+            child: TextField(
+              key: const ValueKey('assigned-member-search'),
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Find assigned person',
+                prefixIcon: DIcon(DIcons.magnifyingGlass, size: 16),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              textInputAction: TextInputAction.search,
+              onSubmitted: widget.onMemberSearch,
+            ),
+          )
+        : null;
+    final loading = widget.members.loading
+        ? const LinearProgressIndicator(minHeight: 2)
+        : null;
+    final hasHiddenPeople = options.length > visibleOptions.length;
+    final showFooter =
+        hasHiddenPeople ||
+        _expanded ||
+        widget.members.hasMore ||
+        widget.members.loadingMore;
+    final footerLabel = !_expanded
+        ? 'View all people'
+        : widget.members.hasMore
+        ? 'Load more people'
+        : 'Show fewer';
+    final viewAll = showFooter
+        ? Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: theme.colorScheme.outlineVariant),
+              ),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: SizedBox(
+              width: double.infinity,
+              child: DButton(
+                key: const ValueKey('assigned-view-all-people'),
+                label: Text(footerLabel),
+                loadingLabel: const Text('Loading people…'),
+                loading: widget.members.loadingMore,
+                variant: DButtonVariant.flat,
+                onPressed: widget.members.loadingMore
+                    ? null
+                    : () {
+                        if (!_expanded) {
+                          setState(() => _expanded = true);
+                          if (widget.members.hasMore) {
+                            widget.onLoadMoreMembers();
+                          }
+                        } else if (widget.members.hasMore) {
+                          widget.onLoadMoreMembers();
+                        } else {
+                          setState(() => _expanded = false);
+                        }
+                      },
+              ),
+            ),
+          )
+        : null;
+
+    final panel = Material(
+      color: theme.colorScheme.surfaceContainerLowest,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: widget.compact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                header,
+                ?search,
+                ?loading,
+                GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: visibleOptions.length,
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 220,
+                    mainAxisExtent: 48,
+                    crossAxisSpacing: 4,
+                    mainAxisSpacing: 4,
+                  ),
+                  itemBuilder: (context, index) => _AssignedPersonButton(
+                    option: visibleOptions[index],
+                    selected: visibleOptions[index].filter == widget.filter,
+                    onTap: () => widget.onSelect(visibleOptions[index].filter),
+                  ),
+                ),
+                ?viewAll,
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                header,
+                ?search,
+                ?loading,
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
+                    itemCount: visibleOptions.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 4),
+                    itemBuilder: (context, index) => SizedBox(
+                      height: 48,
+                      child: _AssignedPersonButton(
+                        option: visibleOptions[index],
+                        selected: visibleOptions[index].filter == widget.filter,
+                        onTap: () =>
+                            widget.onSelect(visibleOptions[index].filter),
                       ),
                     ),
+                  ),
+                ),
+                ?viewAll,
+              ],
+            ),
+    );
+
+    if (!widget.compact) return panel;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+      child: panel,
+    );
+  }
+
+  List<_AssignedPersonOption> _visibleOptions(
+    List<_AssignedPersonOption> options,
+  ) {
+    if (_expanded || options.length <= _collapsedOptionCount) return options;
+    final visible = options.take(_collapsedOptionCount).toList();
+    for (final option in options.skip(_collapsedOptionCount)) {
+      if (option.filter == widget.filter) {
+        visible[visible.length - 1] = option;
+        break;
+      }
+    }
+    return visible;
+  }
+}
+
+@immutable
+class _AssignedPersonOption {
+  const _AssignedPersonOption({
+    required this.label,
+    required this.count,
+    required this.filter,
+    this.member,
+    this.icon,
+  });
+
+  final String label;
+  final int? count;
+  final AssignedGroupFilter filter;
+  final AssignedGroupMember? member;
+  final DIconData? icon;
+}
+
+class _AssignedPersonButton extends StatelessWidget {
+  const _AssignedPersonButton({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _AssignedPersonOption option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final foreground = selected
+        ? theme.shell.selectedForeground
+        : theme.colorScheme.onSurfaceVariant;
+    final count = option.count;
+    final route = switch (option.filter) {
+      AssignedGroupEveryoneFilter() => 'everyone',
+      AssignedGroupDirectFilter() => 'direct-group',
+      AssignedGroupMemberFilter(:final usernameLower) =>
+        'member-$usernameLower',
+    };
+    return Semantics(
+      key: ValueKey('assigned-person-$route'),
+      button: true,
+      selected: selected,
+      label: count == null
+          ? option.label
+          : '${option.label}, $count assignments',
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: Material(
+          color: selected ? theme.shell.selected : Colors.transparent,
+          borderRadius: BorderRadius.circular(7),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(7),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+              child: Row(
+                children: [
+                  _AssignedPersonAvatar(option: option, color: foreground),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      option.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: foreground),
+                    ),
+                  ),
+                  if (count != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '$count',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: foreground,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _AssignedControls extends StatelessWidget {
-  const _AssignedControls({
-    required this.groupName,
-    required this.filter,
-    required this.query,
-    required this.members,
-    required this.onSelect,
-    required this.onQueryChanged,
-    required this.onMemberSearch,
-    required this.onLoadMoreMembers,
-  });
+class _AssignedPersonAvatar extends StatelessWidget {
+  const _AssignedPersonAvatar({required this.option, required this.color});
 
-  final String groupName;
-  final AssignedGroupFilter filter;
-  final AssignedGroupTopicQuery query;
-  final AssignedGroupMembersState members;
-  final ValueChanged<AssignedGroupFilter> onSelect;
-  final ValueChanged<AssignedGroupTopicQuery> onQueryChanged;
-  final ValueChanged<String> onMemberSearch;
-  final VoidCallback onLoadMoreMembers;
+  final _AssignedPersonOption option;
+  final Color color;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 1000),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ChoiceChip(
-                  label: Text('Everyone (${members.assignmentCount})'),
-                  selected: filter is AssignedGroupEveryoneFilter,
-                  onSelected: (_) =>
-                      onSelect(const AssignedGroupFilter.everyone()),
-                ),
-                ChoiceChip(
-                  label: Text('@$groupName (${members.groupAssignmentCount})'),
-                  selected: filter is AssignedGroupDirectFilter,
-                  onSelected: (_) =>
-                      onSelect(const AssignedGroupFilter.directGroup()),
-                ),
-                for (final member in members.members)
-                  ChoiceChip(
-                    label: Text(
-                      '@${member.username}'
-                      '${member.assignmentsCount == null ? '' : ' (${member.assignmentsCount})'}',
-                    ),
-                    selected: switch (filter) {
-                      AssignedGroupMemberFilter(:final usernameLower) =>
-                        usernameLower == member.usernameLower,
-                      _ => false,
-                    },
-                    onSelected: (_) => onSelect(
-                      AssignedGroupFilter.member(member.usernameLower),
-                    ),
-                  ),
-              ],
-            ),
-            if (members.hasMore)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: DButton(
-                  label: const Text('More people'),
-                  onPressed: onLoadMoreMembers,
-                  variant: DButtonVariant.link,
-                  loading: members.loadingMore,
-                  loadingLabel: const Text('Loading people…'),
-                ),
-              ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 260,
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      labelText: 'Search assignments',
-                      prefixIcon: DIcon(DIcons.magnifyingGlass, size: 16),
-                      isDense: true,
-                    ),
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (value) => onQueryChanged(
-                      AssignedGroupTopicQuery(
-                        order: query.order,
-                        ascending: query.ascending,
-                        search: value.trim(),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 220,
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      labelText: 'Find assigned person',
-                      isDense: true,
-                    ),
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: onMemberSearch,
-                  ),
-                ),
-                DropdownButton<AssignedGroupOrder?>(
-                  value: query.order,
-                  hint: const Text('Default order'),
-                  onChanged: (value) => onQueryChanged(
-                    AssignedGroupTopicQuery(
-                      order: value,
-                      ascending: query.ascending,
-                      search: query.search,
-                    ),
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: AssignedGroupOrder.activity,
-                      child: Text('Activity'),
-                    ),
-                    DropdownMenuItem(
-                      value: AssignedGroupOrder.posts,
-                      child: Text('Posts'),
-                    ),
-                    DropdownMenuItem(
-                      value: AssignedGroupOrder.views,
-                      child: Text('Views'),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  tooltip: query.ascending ? 'Descending' : 'Ascending',
-                  onPressed: () => onQueryChanged(
-                    AssignedGroupTopicQuery(
-                      order: query.order,
-                      ascending: !query.ascending,
-                      search: query.search,
-                    ),
-                  ),
-                  icon: Icon(
-                    query.ascending ? Icons.arrow_upward : Icons.arrow_downward,
-                  ),
-                ),
-              ],
-            ),
-          ],
+  Widget build(BuildContext context) {
+    const size = 28.0;
+    final theme = Theme.of(context);
+    final fallback = ColoredBox(
+      color: theme.shell.mention,
+      child: Center(
+        child: DIcon(option.icon ?? DIcons.user, size: 16, color: color),
+      ),
+    );
+    return ClipOval(
+      child: SizedBox.square(
+        dimension: size,
+        child: switch (option.member) {
+          final member? => AvatarImage(
+            url: member.avatarUrl,
+            size: size,
+            fallback: fallback,
+          ),
+          null => fallback,
+        },
+      ),
+    );
+  }
+}
+
+class _AssignedQueryControls extends StatelessWidget {
+  const _AssignedQueryControls({
+    required this.horizontalPadding,
+    required this.query,
+    required this.onQueryChanged,
+  });
+
+  final double horizontalPadding;
+  final AssignedGroupTopicQuery query;
+  final ValueChanged<AssignedGroupTopicQuery> onQueryChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final search = TextField(
+      key: const ValueKey('assigned-topic-search'),
+      decoration: const InputDecoration(
+        labelText: 'Search assignments',
+        prefixIcon: DIcon(DIcons.magnifyingGlass, size: 16),
+        border: OutlineInputBorder(),
+        isDense: true,
+      ),
+      textInputAction: TextInputAction.search,
+      onSubmitted: (value) => onQueryChanged(
+        AssignedGroupTopicQuery(
+          order: query.order,
+          ascending: query.ascending,
+          search: value.trim(),
         ),
       ),
-    ),
-  );
+    );
+    final order = DropdownButtonFormField<AssignedGroupOrder?>(
+      key: ValueKey('assigned-order-${query.order?.wireName ?? 'default'}'),
+      initialValue: query.order,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        border: OutlineInputBorder(),
+        isDense: true,
+      ),
+      items: const [
+        DropdownMenuItem(value: null, child: Text('Default order')),
+        DropdownMenuItem(
+          value: AssignedGroupOrder.activity,
+          child: Text('Activity'),
+        ),
+        DropdownMenuItem(value: AssignedGroupOrder.posts, child: Text('Posts')),
+        DropdownMenuItem(value: AssignedGroupOrder.views, child: Text('Views')),
+      ],
+      onChanged: (value) => onQueryChanged(
+        AssignedGroupTopicQuery(
+          order: value,
+          ascending: query.ascending,
+          search: query.search,
+        ),
+      ),
+    );
+    final direction = IconButton(
+      tooltip: query.ascending ? 'Descending' : 'Ascending',
+      onPressed: () => onQueryChanged(
+        AssignedGroupTopicQuery(
+          order: query.order,
+          ascending: !query.ascending,
+          search: query.search,
+        ),
+      ),
+      icon: Icon(query.ascending ? Icons.arrow_upward : Icons.arrow_downward),
+    );
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        14,
+        horizontalPadding,
+        10,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 520) {
+            return Row(
+              children: [
+                Expanded(child: search),
+                const SizedBox(width: 10),
+                SizedBox(width: 170, child: order),
+                const SizedBox(width: 4),
+                direction,
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              search,
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: order),
+                  const SizedBox(width: 4),
+                  direction,
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _AssignedTopicRow extends StatelessWidget {

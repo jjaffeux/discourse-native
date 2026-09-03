@@ -160,7 +160,7 @@ void main() {
       expect(find.text('Try again'), findsNothing);
     });
 
-    testWidgets('exposes member filters, search, pagination, and semantics', (
+    testWidgets('exposes member rail, search, pagination, and semantics', (
       tester,
     ) async {
       final semantics = tester.ensureSemantics();
@@ -186,9 +186,9 @@ void main() {
       );
       await _pumpView(tester, presentation);
 
-      final memberFinder = find.widgetWithText(ChoiceChip, '@Sam (4)');
-      final memberChip = tester.widget<ChoiceChip>(memberFinder);
-      expect(memberChip.selected, isTrue);
+      final memberFinder = find.byKey(
+        const ValueKey('assigned-person-member-sam'),
+      );
       expect(
         tester
             .getSemantics(memberFinder)
@@ -198,10 +198,19 @@ void main() {
         Tristate.isTrue,
       );
       expect(find.byTooltip('Ascending'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('assigned-people-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('60 active assignments'), findsNothing);
 
-      await tester.tap(find.text('@support (2)'));
-      await tester.tap(find.text('@Sam (4)'));
-      await tester.tap(find.text('More people'));
+      await tester.tap(
+        find.byKey(const ValueKey('assigned-person-direct-group')),
+      );
+      await tester.tap(memberFinder);
+      await tester.tap(find.text('View all people'));
+      await tester.tap(find.byTooltip('Find assigned person'));
+      await tester.pump();
       await tester.enterText(
         find.widgetWithText(TextField, 'Find assigned person'),
         ' Alex ',
@@ -215,6 +224,99 @@ void main() {
       expect(presentation.loadMoreMemberCalls, 1);
       expect(presentation.memberSearches, [' Alex ']);
       semantics.dispose();
+    });
+
+    testWidgets('expands and collapses the full people list', (tester) async {
+      final presentation = _FakeAssignedGroupPresentation(
+        _state(
+          members: const AssignedGroupMembersState(
+            members: [
+              AssignedGroupMember(id: 1, username: 'One', usernameLower: 'one'),
+              AssignedGroupMember(id: 2, username: 'Two', usernameLower: 'two'),
+              AssignedGroupMember(
+                id: 3,
+                username: 'Three',
+                usernameLower: 'three',
+              ),
+              AssignedGroupMember(
+                id: 4,
+                username: 'Four',
+                usernameLower: 'four',
+              ),
+              AssignedGroupMember(
+                id: 5,
+                username: 'Five',
+                usernameLower: 'five',
+              ),
+              AssignedGroupMember(id: 6, username: 'Six', usernameLower: 'six'),
+            ],
+            assignmentCount: 21,
+            groupAssignmentCount: 2,
+            loaded: true,
+          ),
+          feed: const TopicFeed(loaded: true),
+        ),
+      );
+      await _pumpView(tester, presentation);
+
+      const lastMemberKey = ValueKey('assigned-person-member-six');
+      expect(find.byKey(lastMemberKey), findsNothing);
+      expect(find.text('View all people'), findsOneWidget);
+
+      await tester.tap(find.text('View all people'));
+      await tester.pump();
+
+      expect(find.byKey(lastMemberKey), findsOneWidget);
+      expect(find.text('Show fewer'), findsOneWidget);
+
+      await tester.tap(find.text('Show fewer'));
+      await tester.pump();
+
+      expect(find.byKey(lastMemberKey), findsNothing);
+      expect(find.text('View all people'), findsOneWidget);
+      expect(presentation.loadMoreMemberCalls, 0);
+    });
+
+    testWidgets('adapts the people rail into a compact grid', (tester) async {
+      final presentation = _FakeAssignedGroupPresentation(
+        _state(
+          members: const AssignedGroupMembersState(
+            members: [
+              AssignedGroupMember(
+                id: 7,
+                username: 'Sam',
+                usernameLower: 'sam',
+                assignmentsCount: 4,
+              ),
+            ],
+            assignmentCount: 8,
+            groupAssignmentCount: 2,
+            loaded: true,
+          ),
+          feed: const TopicFeed(loaded: true),
+        ),
+      );
+      await _pumpView(tester, presentation);
+
+      expect(
+        find.byKey(const ValueKey('assigned-people-rail')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('assigned-people-grid')), findsNothing);
+
+      await tester.binding.setSurfaceSize(const Size(600, 900));
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('assigned-people-rail')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('assigned-people-grid')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('assigned-topic-search')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('forwards topic query controls without losing query fields', (
@@ -271,7 +373,12 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('Load more assignments'),
         200,
-        scrollable: find.byType(Scrollable).first,
+        scrollable: find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
       await tester.tap(find.text('Load more assignments'));
 
@@ -290,7 +397,9 @@ void main() {
       );
       await tester.pump();
 
-      final loadMore = tester.widget<DButton>(find.byType(DButton));
+      final loadMore = tester.widget<DButton>(
+        find.byKey(const ValueKey('assigned-load-more-topics')),
+      );
       expect(loadMore.loading, isTrue);
       expect(loadMore.onPressed, isNull);
     });
