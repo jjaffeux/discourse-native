@@ -53,6 +53,25 @@ class _MembersSection extends StatefulWidget {
 
 class _MembersSectionState extends State<_MembersSection> {
   late final GroupMemberFilterController controller;
+  bool _loadMorePending = false;
+
+  bool _onScroll(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    if (notification.metrics.extentAfter >= 480) {
+      if (!widget.loadingMore) _loadMorePending = false;
+      return false;
+    }
+    final onLoadMore = widget.onLoadMore;
+    if (!_loadMorePending &&
+        widget.hasMore &&
+        !widget.loading &&
+        !widget.loadingMore &&
+        onLoadMore != null) {
+      _loadMorePending = true;
+      onLoadMore();
+    }
+    return false;
+  }
 
   @override
   void initState() {
@@ -66,6 +85,16 @@ class _MembersSectionState extends State<_MembersSection> {
   @override
   void didUpdateWidget(_MembersSection oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!widget.hasMore ||
+        oldWidget.page?.members.length != widget.page?.members.length ||
+        (oldWidget.loadingMore &&
+            !widget.loadingMore &&
+            widget.error == null) ||
+        oldWidget.filter != widget.filter ||
+        oldWidget.order != widget.order ||
+        oldWidget.ascending != widget.ascending) {
+      _loadMorePending = false;
+    }
     controller.update(
       filter: widget.filter,
       onFilterChanged: widget.onFilterChanged,
@@ -154,57 +183,77 @@ class _MembersSectionState extends State<_MembersSection> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 760;
-        final extra = widget.hasMore || widget.loadingMore ? 1 : 0;
+        final extra = widget.loadingMore ? 1 : 0;
         return ContentReadingLane(
           basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-          builder: (context, lane) => ListView.separated(
-            key: const PageStorageKey('group-members-scroll'),
-            padding: lane.padding,
-            itemCount: page.members.length + extra + 1,
-            separatorBuilder: (_, _) => desktop
-                ? Divider(height: 1, color: Theme.of(context).shell.divider)
-                : const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                return _MemberTableHeader(
-                  order: widget.order,
-                  ascending: widget.ascending,
-                  desktop: desktop,
-                  onSortChanged: widget.onSortChanged,
+          builder: (context, lane) => NotificationListener<ScrollNotification>(
+            onNotification: _onScroll,
+            child: ListView.separated(
+              key: const PageStorageKey('group-members-scroll'),
+              padding: lane.padding,
+              itemCount: page.members.length + extra + 1,
+              separatorBuilder: (_, _) => desktop
+                  ? Divider(height: 1, color: Theme.of(context).shell.divider)
+                  : const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return _MemberTableHeader(
+                    order: widget.order,
+                    ascending: widget.ascending,
+                    desktop: desktop,
+                    onSortChanged: widget.onSortChanged,
+                  );
+                }
+                final memberIndex = index - 1;
+                if (memberIndex == page.members.length) {
+                  return const _MembersLoadingMoreRow();
+                }
+                final member = page.members[memberIndex];
+                final actions = _MemberActions(
+                  member: member,
+                  group: widget.group,
+                  currentUserStaff: widget.currentUserStaff,
+                  mutating: widget.mutating,
+                  onAction: widget.onMemberAction,
                 );
-              }
-              final memberIndex = index - 1;
-              if (memberIndex == page.members.length) {
-                return _LoadMoreRow(
-                  loading: widget.loadingMore,
-                  onPressed: widget.onLoadMore,
-                );
-              }
-              final member = page.members[memberIndex];
-              final actions = _MemberActions(
-                member: member,
-                group: widget.group,
-                currentUserStaff: widget.currentUserStaff,
-                mutating: widget.mutating,
-                onAction: widget.onMemberAction,
-              );
-              return desktop
-                  ? _MemberTableRow(
-                      member: member,
-                      onTap: () => widget.onOpenMember(context, member),
-                      actions: actions,
-                    )
-                  : _MemberCard(
-                      member: member,
-                      onTap: () => widget.onOpenMember(context, member),
-                      actions: actions,
-                    );
-            },
+                return desktop
+                    ? _MemberTableRow(
+                        member: member,
+                        onTap: () => widget.onOpenMember(context, member),
+                        actions: actions,
+                      )
+                    : _MemberCard(
+                        member: member,
+                        onTap: () => widget.onOpenMember(context, member),
+                        actions: actions,
+                      );
+              },
+            ),
           ),
         );
       },
     );
   }
+}
+
+class _MembersLoadingMoreRow extends StatelessWidget {
+  const _MembersLoadingMoreRow();
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    label: 'Loading more members',
+    child: const Padding(
+      padding: EdgeInsets.all(20),
+      child: Center(
+        child: SizedBox.square(
+          key: ValueKey('group-members-loading-more'),
+          dimension: 22,
+          child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+        ),
+      ),
+    ),
+  );
 }
 
 class _MembersToolbar extends StatelessWidget {

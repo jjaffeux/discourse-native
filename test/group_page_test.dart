@@ -237,6 +237,70 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('members load the next page automatically near the list end', (
+    tester,
+  ) async {
+    final members = List.generate(
+      24,
+      (index) => GroupMember(
+        id: index + 1,
+        username: 'member${index + 1}',
+        name: 'Member ${index + 1}',
+      ),
+    );
+    late StateSetter update;
+    var loadingMore = false;
+    var loadMoreCalls = 0;
+
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return GroupPage(
+            siteUrl: 'https://meta.discourse.org',
+            route: GroupRoute.detail('support'),
+            registry: PluginRegistry.empty,
+            data: GroupPageData(
+              detail: _detail,
+              members: GroupMembersPage(members: members, total: 48),
+              loadingMore: loadingMore,
+              hasMore: true,
+              loaded: true,
+            ),
+            onOpenMember: _ignoreMember,
+            onLoadMore: () {
+              loadMoreCalls += 1;
+              update(() => loadingMore = true);
+            },
+          );
+        },
+      ),
+      size: const Size(390, 600),
+    );
+
+    const loadMoreButton = ValueKey('group-load-more');
+    const loadingIndicator = ValueKey('group-members-loading-more');
+    final membersList = find.byKey(
+      const PageStorageKey('group-members-scroll'),
+    );
+    expect(find.byKey(loadMoreButton), findsNothing);
+    expect(find.byKey(loadingIndicator), findsNothing);
+    expect(loadMoreCalls, 0);
+
+    await tester.drag(membersList, const Offset(0, -2400));
+    await tester.pump();
+
+    expect(loadMoreCalls, 1);
+    expect(find.byKey(loadMoreButton), findsNothing);
+    await tester.drag(membersList, const Offset(0, -1000));
+    await tester.pump();
+
+    expect(loadMoreCalls, 1);
+    expect(find.byKey(loadingIndicator), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final (description, error, message) in [
     (
       'shows core’s empty state when no categories are associated',
