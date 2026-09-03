@@ -324,10 +324,33 @@ class _AssignedPeoplePanel extends StatefulWidget {
 }
 
 class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
-  static const int _collapsedOptionCount = 5;
-
   bool _showSearch = false;
-  bool _expanded = false;
+  bool _loadMorePending = false;
+  late final ScrollController _peopleScrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _peopleScrollController = ScrollController()..addListener(_loadMoreAtEnd);
+  }
+
+  @override
+  void didUpdateWidget(_AssignedPeoplePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((oldWidget.members.loadingMore && !widget.members.loadingMore) ||
+        oldWidget.members.members.length != widget.members.members.length ||
+        !widget.members.hasMore) {
+      _loadMorePending = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _peopleScrollController
+      ..removeListener(_loadMoreAtEnd)
+      ..dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -353,7 +376,7 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
           member: member,
         ),
     ];
-    final visibleOptions = _visibleOptions(options);
+    _loadAllMembersOnCompactLayouts();
 
     final header = Padding(
       padding: const EdgeInsets.fromLTRB(14, 8, 6, 4),
@@ -400,53 +423,8 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
             ),
           )
         : null;
-    final loading = widget.members.loading
+    final loading = widget.members.loading || widget.members.loadingMore
         ? const LinearProgressIndicator(minHeight: 2)
-        : null;
-    final hasHiddenPeople = options.length > visibleOptions.length;
-    final showFooter =
-        hasHiddenPeople ||
-        _expanded ||
-        widget.members.hasMore ||
-        widget.members.loadingMore;
-    final footerLabel = !_expanded
-        ? 'View all people'
-        : widget.members.hasMore
-        ? 'Load more people'
-        : 'Show fewer';
-    final viewAll = showFooter
-        ? Container(
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: theme.colorScheme.outlineVariant),
-              ),
-            ),
-            padding: const EdgeInsets.all(4),
-            child: SizedBox(
-              width: double.infinity,
-              child: DButton(
-                key: const ValueKey('assigned-view-all-people'),
-                label: Text(footerLabel),
-                loadingLabel: const Text('Loading people…'),
-                loading: widget.members.loadingMore,
-                variant: DButtonVariant.flat,
-                onPressed: widget.members.loadingMore
-                    ? null
-                    : () {
-                        if (!_expanded) {
-                          setState(() => _expanded = true);
-                          if (widget.members.hasMore) {
-                            widget.onLoadMoreMembers();
-                          }
-                        } else if (widget.members.hasMore) {
-                          widget.onLoadMoreMembers();
-                        } else {
-                          setState(() => _expanded = false);
-                        }
-                      },
-              ),
-            ),
-          )
         : null;
 
     final panel = Material(
@@ -467,7 +445,7 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
                   padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: visibleOptions.length,
+                  itemCount: options.length,
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 220,
                     mainAxisExtent: 48,
@@ -475,12 +453,11 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
                     mainAxisSpacing: 4,
                   ),
                   itemBuilder: (context, index) => _AssignedPersonButton(
-                    option: visibleOptions[index],
-                    selected: visibleOptions[index].filter == widget.filter,
-                    onTap: () => widget.onSelect(visibleOptions[index].filter),
+                    option: options[index],
+                    selected: options[index].filter == widget.filter,
+                    onTap: () => widget.onSelect(options[index].filter),
                   ),
                 ),
-                ?viewAll,
               ],
             )
           : Column(
@@ -490,22 +467,26 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
                 ?search,
                 ?loading,
                 Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
-                    itemCount: visibleOptions.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 4),
-                    itemBuilder: (context, index) => SizedBox(
-                      height: 48,
-                      child: _AssignedPersonButton(
-                        option: visibleOptions[index],
-                        selected: visibleOptions[index].filter == widget.filter,
-                        onTap: () =>
-                            widget.onSelect(visibleOptions[index].filter),
+                  child: Scrollbar(
+                    key: const ValueKey('assigned-people-scrollbar'),
+                    controller: _peopleScrollController,
+                    thumbVisibility: true,
+                    child: ListView.separated(
+                      controller: _peopleScrollController,
+                      padding: const EdgeInsets.fromLTRB(6, 4, 10, 8),
+                      itemCount: options.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 4),
+                      itemBuilder: (context, index) => SizedBox(
+                        height: 48,
+                        child: _AssignedPersonButton(
+                          option: options[index],
+                          selected: options[index].filter == widget.filter,
+                          onTap: () => widget.onSelect(options[index].filter),
+                        ),
                       ),
                     ),
                   ),
                 ),
-                ?viewAll,
               ],
             ),
     );
@@ -517,18 +498,29 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
     );
   }
 
-  List<_AssignedPersonOption> _visibleOptions(
-    List<_AssignedPersonOption> options,
-  ) {
-    if (_expanded || options.length <= _collapsedOptionCount) return options;
-    final visible = options.take(_collapsedOptionCount).toList();
-    for (final option in options.skip(_collapsedOptionCount)) {
-      if (option.filter == widget.filter) {
-        visible[visible.length - 1] = option;
-        break;
-      }
+  void _loadMoreAtEnd() {
+    if (widget.compact || !_peopleScrollController.hasClients) return;
+    if (_peopleScrollController.position.extentAfter <= 80) {
+      _requestMoreMembers();
     }
-    return visible;
+  }
+
+  void _loadAllMembersOnCompactLayouts() {
+    if (!widget.compact || widget.members.pageError) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.compact) _requestMoreMembers();
+    });
+  }
+
+  void _requestMoreMembers() {
+    if (_loadMorePending ||
+        !widget.members.hasMore ||
+        widget.members.loading ||
+        widget.members.loadingMore) {
+      return;
+    }
+    _loadMorePending = true;
+    widget.onLoadMoreMembers();
   }
 }
 

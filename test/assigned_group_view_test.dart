@@ -160,9 +160,7 @@ void main() {
       expect(find.text('Try again'), findsNothing);
     });
 
-    testWidgets('exposes member rail, search, pagination, and semantics', (
-      tester,
-    ) async {
+    testWidgets('exposes member rail, search, and semantics', (tester) async {
       final semantics = tester.ensureSemantics();
       final presentation = _FakeAssignedGroupPresentation(
         _state(
@@ -208,7 +206,6 @@ void main() {
         find.byKey(const ValueKey('assigned-person-direct-group')),
       );
       await tester.tap(memberFinder);
-      await tester.tap(find.text('View all people'));
       await tester.tap(find.byTooltip('Find assigned person'));
       await tester.pump();
       await tester.enterText(
@@ -221,12 +218,14 @@ void main() {
         const AssignedGroupFilter.directGroup(),
         AssignedGroupFilter.member('sam'),
       ]);
-      expect(presentation.loadMoreMemberCalls, 1);
+      expect(find.text('View all people'), findsNothing);
       expect(presentation.memberSearches, [' Alex ']);
       semantics.dispose();
     });
 
-    testWidgets('expands and collapses the full people list', (tester) async {
+    testWidgets('scrolls through every person and loads the next page', (
+      tester,
+    ) async {
       final presentation = _FakeAssignedGroupPresentation(
         _state(
           members: const AssignedGroupMembersState(
@@ -249,32 +248,60 @@ void main() {
                 usernameLower: 'five',
               ),
               AssignedGroupMember(id: 6, username: 'Six', usernameLower: 'six'),
+              AssignedGroupMember(
+                id: 7,
+                username: 'Seven',
+                usernameLower: 'seven',
+              ),
+              AssignedGroupMember(
+                id: 8,
+                username: 'Eight',
+                usernameLower: 'eight',
+              ),
+              AssignedGroupMember(
+                id: 9,
+                username: 'Nine',
+                usernameLower: 'nine',
+              ),
+              AssignedGroupMember(
+                id: 10,
+                username: 'Ten',
+                usernameLower: 'ten',
+              ),
             ],
-            assignmentCount: 21,
+            assignmentCount: 55,
             groupAssignmentCount: 2,
+            hasMore: true,
             loaded: true,
           ),
           feed: const TopicFeed(loaded: true),
         ),
       );
       await _pumpView(tester, presentation);
-
-      const lastMemberKey = ValueKey('assigned-person-member-six');
-      expect(find.byKey(lastMemberKey), findsNothing);
-      expect(find.text('View all people'), findsOneWidget);
-
-      await tester.tap(find.text('View all people'));
+      await tester.binding.setSurfaceSize(const Size(1200, 400));
       await tester.pump();
+
+      const lastMemberKey = ValueKey('assigned-person-member-ten');
+      expect(find.byKey(lastMemberKey), findsNothing);
+      expect(
+        find.byKey(const ValueKey('assigned-people-scrollbar')),
+        findsOneWidget,
+      );
+      expect(find.text('View all people'), findsNothing);
+
+      await tester.scrollUntilVisible(
+        find.byKey(lastMemberKey),
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const ValueKey('assigned-people-rail')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
 
       expect(find.byKey(lastMemberKey), findsOneWidget);
-      expect(find.text('Show fewer'), findsOneWidget);
-
-      await tester.tap(find.text('Show fewer'));
-      await tester.pump();
-
-      expect(find.byKey(lastMemberKey), findsNothing);
-      expect(find.text('View all people'), findsOneWidget);
-      expect(presentation.loadMoreMemberCalls, 0);
+      expect(presentation.loadMoreMemberCalls, 1);
     });
 
     testWidgets('adapts the people rail into a compact grid', (tester) async {
@@ -291,6 +318,7 @@ void main() {
             ],
             assignmentCount: 8,
             groupAssignmentCount: 2,
+            hasMore: true,
             loaded: true,
           ),
           feed: const TopicFeed(loaded: true),
@@ -316,6 +344,7 @@ void main() {
         find.byKey(const ValueKey('assigned-topic-search')),
         findsOneWidget,
       );
+      expect(presentation.loadMoreMemberCalls, 1);
       expect(tester.takeException(), isNull);
     });
 
