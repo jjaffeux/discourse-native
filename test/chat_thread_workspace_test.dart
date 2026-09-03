@@ -10,6 +10,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_panel_width_store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
@@ -198,6 +199,9 @@ void main() {
       });
       final fixture = await _fixture();
       addTearDown(fixture.shell.dispose);
+      fixture.shell.pluginSession
+          .require(chatShellService)
+          .updateDrawerAvailability(true);
       final semantics = tester.ensureSemantics();
       final previousPlatform = debugDefaultTargetPlatformOverride;
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
@@ -213,6 +217,20 @@ void main() {
         expect(find.text(_threadTitle), findsOneWidget);
         expect(find.byTooltip('Thread notifications'), findsOneWidget);
         expect(find.byTooltip('Close thread'), findsOneWidget);
+        final channelPane = find.byKey(const ValueKey('chat-channel-pane'));
+        final threadPane = find.byKey(const ValueKey('chat-thread-pane'));
+        final fullPageClose = find.byKey(
+          const ValueKey('chat-close-full-page'),
+        );
+        expect(fullPageClose, findsOneWidget);
+        expect(
+          find.descendant(of: channelPane, matching: fullPageClose),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: threadPane, matching: fullPageClose),
+          findsNothing,
+        );
         _expectThreadBodyTargets(tester);
         expect(
           tester
@@ -231,8 +249,6 @@ void main() {
         expect(tester.getSize(divider).width, 9);
         final border = find.byKey(const ValueKey('chat-thread-divider-border'));
         expect(tester.getSize(border), Size(1, tester.getSize(divider).height));
-        final channelPane = find.byKey(const ValueKey('chat-channel-pane'));
-        final threadPane = find.byKey(const ValueKey('chat-thread-pane'));
         final channelStream = find.descendant(
           of: channelPane,
           matching: find.byType(SuperListView),
