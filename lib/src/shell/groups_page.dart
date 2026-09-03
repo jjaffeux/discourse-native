@@ -347,32 +347,38 @@ class _DirectoryControls extends StatelessWidget {
           )
         : null;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 600) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return FocusTraversalGroup(
+      policy: WidgetOrderTraversalPolicy(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 600) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                search,
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.spaceBetween,
+                  children: [typeFilter, ?createGroup],
+                ),
+              ],
+            );
+          }
+          return Row(
             children: [
-              search,
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.spaceBetween,
-                children: [typeFilter, ?createGroup],
-              ),
+              Expanded(child: search),
+              const SizedBox(width: 12),
+              typeFilter,
+              if (createGroup != null) ...[
+                const SizedBox(width: 8),
+                createGroup,
+              ],
             ],
           );
-        }
-        return Row(
-          children: [
-            Expanded(child: search),
-            const SizedBox(width: 12),
-            typeFilter,
-            if (createGroup != null) ...[const SizedBox(width: 8), createGroup],
-          ],
-        );
-      },
+        },
+      ),
     );
   }
 }

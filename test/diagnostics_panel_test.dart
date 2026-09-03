@@ -374,6 +374,25 @@ void main() {
   });
 
   group('timeline interactions', () {
+    testWidgets('tabs through timeline filters in form order', (tester) async {
+      await _pumpPopulatedDiagnosticsPanel(tester);
+
+      final search = find.byKey(const ValueKey('diagnostics-search'));
+      final severity = find.byKey(
+        const ValueKey('diagnostics-severity-filter'),
+      );
+      final source = find.byKey(const ValueKey('diagnostics-source-filter'));
+
+      await tester.tap(search);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(_primaryFocusIsWithin(severity), isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(_primaryFocusIsWithin(source), isTrue);
+    });
+
     testWidgets('category, severity, source, and text filters compose', (
       tester,
     ) async {
@@ -749,6 +768,20 @@ void main() {
     expect(rebuilt, isNot(contains(sidebar)));
     expect(rebuilt, isNot(contains(content)));
   });
+}
+
+bool _primaryFocusIsWithin(Finder finder) {
+  final focusedContext = FocusManager.instance.primaryFocus?.context;
+  if (focusedContext == null) return false;
+  final targets = finder.evaluate().toSet();
+  if (targets.contains(focusedContext)) return true;
+  var matches = false;
+  focusedContext.visitAncestorElements((ancestor) {
+    if (!targets.contains(ancestor)) return true;
+    matches = true;
+    return false;
+  });
+  return matches;
 }
 
 Finder _diagnosticsMenuItem(String label) =>

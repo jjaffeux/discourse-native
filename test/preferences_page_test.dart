@@ -18,6 +18,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -179,6 +180,26 @@ void main() {
   setUpAll(TimezoneEnvironment.instance.ensureDatabase);
 
   group('section navigation', () {
+    testWidgets('wide form tabs within the selected section', (tester) async {
+      final fixture = await _fixture();
+      await _pumpPage(tester, fixture, width: 1000);
+
+      final frequency = find.byKey(
+        const ValueKey(('like-notification-frequency', 1)),
+      );
+      final linkedPosts = find.byKey(const ValueKey('notify-on-linked-posts'));
+
+      await tester.tap(frequency);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(_primaryFocusIsWithin(frequency), isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(_primaryFocusIsWithin(linkedPosts), isTrue);
+    });
+
     testWidgets('compact form follows physical desktop alignment', (
       tester,
     ) async {
@@ -912,6 +933,20 @@ void main() {
       },
     );
   });
+}
+
+bool _primaryFocusIsWithin(Finder finder) {
+  final focusedContext = FocusManager.instance.primaryFocus?.context;
+  if (focusedContext == null) return false;
+  final targets = finder.evaluate().toSet();
+  if (targets.contains(focusedContext)) return true;
+  var matches = false;
+  focusedContext.visitAncestorElements((ancestor) {
+    if (!targets.contains(ancestor)) return true;
+    matches = true;
+    return false;
+  });
+  return matches;
 }
 
 final class _RecordingInstanceStore implements InstanceStore {

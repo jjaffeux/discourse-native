@@ -637,10 +637,18 @@ void main() {
       expect(action.left, greaterThan(search.right));
     }
 
-    await tester.enterText(
-      find.byKey(const ValueKey('group-member-search')),
-      'sam',
-    );
+    final memberSearch = find.byKey(const ValueKey('group-member-search'));
+    final addMembers = find.byKey(const ValueKey('add-group-members'));
+    final inviteMembers = find.byKey(const ValueKey('invite-group-members'));
+    await tester.tap(memberSearch);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(_primaryFocusIsWithin(addMembers), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(_primaryFocusIsWithin(inviteMembers), isTrue);
+
+    await tester.enterText(memberSearch, 'sam');
     await tester.pump(const Duration(milliseconds: 310));
     expect(filtered, 'sam');
 
@@ -1174,6 +1182,20 @@ final class _ExampleGroupPlugin implements SitePlugin, GroupTabPlugin {
   @override
   Listenable? groupListenable(BuildContext context, PluginGroupContext group) =>
       null;
+}
+
+bool _primaryFocusIsWithin(Finder finder) {
+  final focusedContext = FocusManager.instance.primaryFocus?.context;
+  if (focusedContext == null) return false;
+  final targets = finder.evaluate().toSet();
+  if (targets.contains(focusedContext)) return true;
+  var matches = false;
+  focusedContext.visitAncestorElements((ancestor) {
+    if (!targets.contains(ancestor)) return true;
+    matches = true;
+    return false;
+  });
+  return matches;
 }
 
 Future<void> _pump(
