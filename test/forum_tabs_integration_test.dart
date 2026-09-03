@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show AppExitResponse, AppExitType;
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/app_shortcuts.dart';
@@ -28,6 +29,9 @@ const _medium = Size(1000, 800);
 const _expanded = Size(1440, 900);
 
 void main() {
+  final binding = _ExitRecordingBinding();
+  setUp(binding.exitRequests.clear);
+
   testWidgets(
     'middle-click opens a sidebar destination in a background tab',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
@@ -261,9 +265,7 @@ void main() {
         tester.element(find.byType(MainContent)),
       );
       final originalTabId = controller.activeTabId!;
-      controller.createTab();
-      await tester.pumpAndSettle();
-      expect(controller.tabsForCurrentForum, hasLength(2));
+      expect(controller.tabsForCurrentForum, hasLength(1));
 
       unawaited(
         showDialog<void>(
@@ -291,8 +293,9 @@ void main() {
         isFalse,
       );
       await tester.pumpAndSettle();
-      expect(controller.tabsForCurrentForum, hasLength(2));
+      expect(controller.tabsForCurrentForum, hasLength(1));
       expect(find.text('Remove this forum?'), findsOneWidget);
+      expect(binding.exitRequests, isEmpty);
 
       Navigator.of(tester.element(find.text('Remove this forum?'))).pop();
       await tester.pumpAndSettle();
@@ -363,6 +366,7 @@ void main() {
         ]);
         expect(controller.activeTabId, originalTabId);
         expect(_bar(tester).selectedId, originalTabId);
+        expect(binding.exitRequests, isEmpty);
 
         expect(
           await _pressShortcut(
@@ -399,6 +403,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(controller.activeAggregateTabId, originalAggregateTabId);
+        expect(binding.exitRequests, isEmpty);
 
         expect(
           await _pressShortcut(
@@ -417,6 +422,43 @@ void main() {
         ]);
       }),
     );
+
+    for (final rootMode in [ShellRootMode.forum, ShellRootMode.aggregate]) {
+      testWidgets(
+        '${platform.name} requests app exit when closing the last ${rootMode.name} tab',
+        (tester) => _withPlatform(platform, () async {
+          await _pumpShell(tester);
+          final controller = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          if (rootMode == ShellRootMode.aggregate) {
+            controller.selectAggregate();
+            await tester.pumpAndSettle();
+          }
+          final originalTabId = _bar(tester).selectedId;
+          final modifier = platform == TargetPlatform.macOS
+              ? LogicalKeyboardKey.metaLeft
+              : LogicalKeyboardKey.controlLeft;
+
+          expect(
+            await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyW),
+            isTrue,
+          );
+          await tester.pumpAndSettle();
+
+          expect(binding.exitRequests, [
+            (type: AppExitType.cancelable, exitCode: 0),
+          ]);
+          expect(_bar(tester).selectedId, originalTabId);
+          expect(
+            rootMode == ShellRootMode.aggregate
+                ? controller.aggregateTabs.map((tab) => tab.id)
+                : controller.tabsForCurrentForum.map((tab) => tab.id),
+            [originalTabId],
+          );
+        }),
+      );
+    }
   }
 
   for (final platform in const [
@@ -891,6 +933,19 @@ Future<void> _withPlatform(
     await body();
   } finally {
     debugDefaultTargetPlatformOverride = previous;
+  }
+}
+
+class _ExitRecordingBinding extends AutomatedTestWidgetsFlutterBinding {
+  final exitRequests = <({AppExitType type, int exitCode})>[];
+
+  @override
+  Future<AppExitResponse> exitApplication(
+    AppExitType exitType, [
+    int exitCode = 0,
+  ]) {
+    exitRequests.add((type: exitType, exitCode: exitCode));
+    return super.exitApplication(exitType, exitCode);
   }
 }
 

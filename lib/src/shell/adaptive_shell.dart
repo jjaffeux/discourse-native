@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show AppExitType;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -225,6 +226,18 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   bool _closeCurrentTab(ShellController controller) {
     if (!controller.forumTabsEnabled) return false;
+    final tabCount = switch (controller.rootMode) {
+      ShellRootMode.aggregate => controller.aggregateTabs.length,
+      ShellRootMode.forum => controller.tabsForCurrentForum.length,
+      ShellRootMode.settings => 0,
+    };
+    if (tabCount == 1) {
+      unawaited(
+        ServicesBinding.instance.exitApplication(AppExitType.cancelable),
+      );
+      return true;
+    }
+
     switch (controller.rootMode) {
       case ShellRootMode.aggregate:
         controller.closeAggregateTab(controller.activeAggregateTabId);
