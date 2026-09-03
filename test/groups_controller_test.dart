@@ -135,6 +135,7 @@ void main() {
               {'id': 2, 'name': 'beta'},
             ],
             'total_rows_groups': 2,
+            'load_more_groups': '/groups?page=2',
           }),
         ]);
       final controller = _controller(transport);
@@ -146,6 +147,7 @@ void main() {
       (firstPayload['groups'] as List<Object?>).add({'id': 99, 'name': 'late'});
 
       expect(confirmed.groups.map((group) => group.id), [1]);
+      expect(confirmed.hasMore, isTrue);
       expect(
         () => confirmed.groups.add(const Group(id: 99, name: 'late')),
         throwsUnsupportedError,
@@ -161,11 +163,76 @@ void main() {
       expect(state.totalRows, 2);
       expect(state.hasMore, isFalse);
       expect(controller.presentedDirectoryState(_site), same(state));
+      await controller.loadDirectory(_instance, query, more: true);
       expect(transport.gets.map((request) => request.path), [
         '/groups.json?asc=true',
         '/groups.json?page=1&asc=true',
       ]);
       expect(transport.gets.every((request) => request.apiKey == null), isTrue);
+    },
+  );
+
+  for (final count in [0, 1]) {
+    test(
+      'directory stops when the first page contains all $count groups',
+      () async {
+        final transport = _ControlledGroupTransport()
+          ..objects.add(
+            _completed({
+              'groups': [
+                for (var i = 0; i < count; i++) {'id': i, 'name': 'group-$i'},
+              ],
+              'total_rows_groups': count,
+              'load_more_groups': '/groups?page=1',
+            }),
+          );
+        final controller = _controller(transport);
+        addTearDown(controller.dispose);
+        const query = GroupDirectoryQuery();
+
+        await controller.loadDirectory(_instance, query);
+
+        final state = controller.directoryState(_site, query);
+        expect(state.groups, hasLength(count));
+        expect(state.hasMore, isFalse);
+        await controller.loadDirectory(_instance, query, more: true);
+        expect(transport.gets, hasLength(1));
+      },
+    );
+  }
+
+  test(
+    'directory stops after an empty page even if the total is stale',
+    () async {
+      final transport = _ControlledGroupTransport()
+        ..objects.addAll([
+          _completed({
+            'groups': [
+              {'id': 1, 'name': 'alpha'},
+            ],
+            'total_rows_groups': 2,
+            'load_more_groups': '/groups?page=1',
+          }),
+          _completed({
+            'groups': <Object?>[],
+            'total_rows_groups': 2,
+            'load_more_groups': '/groups?page=2',
+          }),
+        ]);
+      final controller = _controller(transport);
+      addTearDown(controller.dispose);
+      const query = GroupDirectoryQuery();
+
+      await controller.loadDirectory(_instance, query);
+      await controller.loadDirectory(_instance, query, more: true);
+
+      final state = controller.directoryState(_site, query);
+      expect(state.groups.map((group) => group.id), [1]);
+      expect(state.hasMore, isFalse);
+      expect(state.loadingMore, isFalse);
+      expect(state.error, isNull);
+      await controller.loadDirectory(_instance, query, more: true);
+      expect(transport.gets, hasLength(2));
     },
   );
 
