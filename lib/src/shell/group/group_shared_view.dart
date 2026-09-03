@@ -8,45 +8,6 @@ final class _Subtab {
   final String label;
 }
 
-class _Subtabs extends StatelessWidget {
-  const _Subtabs({
-    required this.selected,
-    required this.options,
-    required this.onSelect,
-  });
-
-  final String selected;
-  final List<_Subtab> options;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: Theme.of(context).colorScheme.surfaceContainerLowest,
-    child: ContentReadingLaneBox(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: SingleChildScrollView(
-        key: const ValueKey('group-secondary-tabs'),
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        child: Row(
-          children: [
-            for (final option in options)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  key: ValueKey('group-subtab-${option.value}'),
-                  label: Text(option.label),
-                  selected: selected == option.value,
-                  onSelected: (_) => onSelect(option.value),
-                ),
-              ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
 class _SubsectionSidebar extends StatelessWidget {
   const _SubsectionSidebar({
     super.key,
