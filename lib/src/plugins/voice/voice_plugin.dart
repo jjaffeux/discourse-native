@@ -8,6 +8,7 @@ import 'voice_hashtag.dart';
 import 'voice_incoming_call.dart';
 import 'voice_join.dart';
 import 'voice_models.dart';
+import 'voice_notices.dart';
 import 'voice_notifications.dart';
 import 'voice_room_view.dart';
 import 'voice_services.dart';
@@ -200,6 +201,16 @@ final class VoicePlugin
       child: VoiceIncomingCallBanner(
         controller: PluginUiScope.require(context, voiceControllerService),
         shell: PluginUiScope.require(context, voiceShellService),
+      ),
+    ),
+    Positioned.fill(
+      child: IgnorePointer(
+        child: VoiceNoticeHost(
+          notices: PluginUiScope.require(
+            context,
+            voiceControllerService,
+          ).notices,
+        ),
       ),
     ),
   ];
