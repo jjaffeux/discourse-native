@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
@@ -17,6 +18,7 @@ import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
+import 'package:discourse_native/src/shell/user_status.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -652,6 +654,44 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.byType(MentionPill), findsOneWidget);
+    });
+
+    testWidgets('fit with a user status inside a narrow table cell', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await pumpCookedInShell(
+        tester,
+        '',
+        emoji: MockClient(
+          (_) async => http.Response.bytes(
+            onePixelPng,
+            200,
+            headers: {'content-type': 'image/png'},
+          ),
+        ),
+        child: const CookedHtml(
+          html: '<table style="width: 100%"><tbody><tr>'
+              '<td style="width: 40px; max-width: 40px">By '
+              '<a class="mention" href="/u/sam">@sam</a></td>'
+              '<td>A second column that also needs room</td>'
+              '</tr></tbody></table>',
+          siteUrl: 'https://meta.discourse.org',
+          mentionedUserStatuses: {
+            'sam': UserStatusReference(
+              userId: 42,
+              status: UserStatus(description: 'At lunch', emoji: 'sandwich'),
+            ),
+          },
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(MentionPill), findsOneWidget);
+      expect(find.byType(UserStatusMessage), findsOneWidget);
     });
   });
 
