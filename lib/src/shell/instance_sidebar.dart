@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_tooltip.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';
 import 'forum_search.dart';
@@ -849,17 +850,7 @@ class _SectionHeaderState extends State<_SectionHeader> {
                   ),
           ),
           if (section.onAction case final action?)
-            IconButton(
-              constraints: const BoxConstraints.tightFor(
-                width: _actionExtent,
-                height: _actionExtent,
-              ),
-              padding: EdgeInsets.zero,
-              style: iconStyle,
-              tooltip: section.actionLabel,
-              onPressed: action,
-              icon: DIcon(section.actionIcon ?? DIcons.plus, size: 15),
-            ),
+            _SectionAction(section: section, action: action, style: iconStyle),
           if (toggle != null)
             Tooltip(
               message:
@@ -890,6 +881,40 @@ class _SectionHeaderState extends State<_SectionHeader> {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _SectionAction extends StatelessWidget {
+  const _SectionAction({
+    required this.section,
+    required this.action,
+    required this.style,
+  });
+
+  final SidebarSection section;
+  final VoidCallback action;
+  final ButtonStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = IconButton(
+      constraints: const BoxConstraints.tightFor(
+        width: _SectionHeaderState._actionExtent,
+        height: _SectionHeaderState._actionExtent,
+      ),
+      padding: EdgeInsets.zero,
+      style: style,
+      onPressed: action,
+      icon: DIcon(section.actionIcon ?? DIcons.plus, size: 15),
+    );
+    final label = section.actionLabel;
+    if (label == null) return button;
+    final shortcut = section.actionShortcut;
+    return DTooltip(
+      message: label,
+      shortcut: shortcut == null ? null : DShortcut(shortcut),
+      child: button,
     );
   }
 }

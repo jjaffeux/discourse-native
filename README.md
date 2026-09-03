@@ -2470,6 +2470,10 @@ retain their native arrow-key behavior, and every shell shortcut stays idle
 while a dialog, sheet or picker is open above the shell, whether or not the
 modal's content takes focus.
 
+Command+K opens the new direct-message dialog exposed by the plus button in
+the Direct messages sidebar section. Linux and Windows use Control+K, and the
+same shortcut is shown in the button's tooltip.
+
 ### Removing a site
 
 The rail is a column of icons with nowhere to hang a button, so what can be

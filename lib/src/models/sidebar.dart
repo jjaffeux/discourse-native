@@ -126,6 +126,7 @@ class SidebarSection {
     this.collapsible = true,
     this.actionIcon,
     this.actionLabel,
+    this.actionShortcut,
     this.onAction,
   }) : assert(showHeader || !collapsible);
 
@@ -194,5 +195,6 @@ class SidebarSection {
 
   final DIconData? actionIcon;
   final String? actionLabel;
+  final SingleActivator? actionShortcut;
   final VoidCallback? onAction;
 }

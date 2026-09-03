@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../app_shortcuts.dart';
 import '../../models/composer_upload.dart';
 import '../../models/content_route.dart';
 import '../../models/forum_workspace.dart';
@@ -346,6 +347,9 @@ class ChatPlugin
           title: 'Direct messages',
           actionIcon: canCreateDirectMessage ? DIcons.plus : null,
           actionLabel: canCreateDirectMessage ? 'Start a direct message' : null,
+          actionShortcut: canCreateDirectMessage
+              ? newDirectMessageShortcutForPlatform(Theme.of(context).platform)
+              : null,
           onAction: canCreateDirectMessage
               ? () => unawaited(
                   showChatNewDirectMessageDialog(

@@ -384,6 +384,7 @@ final class PluginRegistry
         collapsible: section.collapsible,
         actionIcon: section.actionIcon,
         actionLabel: section.actionLabel,
+        actionShortcut: section.actionShortcut,
         onAction: section.onAction,
       );
 

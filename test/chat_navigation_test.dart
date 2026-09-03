@@ -26,7 +26,10 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_tooltip.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -787,6 +790,56 @@ void main() {
     });
 
     group('sidebar workflows', () {
+      testWidgets(
+        'opens a new direct message with Command+K and shows the shortcut',
+        (tester) async {
+          final previousPlatform = debugDefaultTargetPlatformOverride;
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          tester.view.physicalSize = const Size(1000, 800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+
+          try {
+            await shell.chat.loadChannels(_site);
+            await tester.pumpWidget(
+              ShellScope(
+                controller: shell,
+                child: MaterialApp(
+                  theme: AppTheme.light,
+                  home: const AdaptiveShell(),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            final tooltip = tester.widget<DTooltip>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is DTooltip &&
+                    widget.message == 'Start a direct message',
+              ),
+            );
+            final shortcut = tooltip.shortcut![0];
+            expect(shortcut.trigger, LogicalKeyboardKey.keyK);
+            expect(shortcut.meta, isTrue);
+            expect(shortcut.control, isFalse);
+            expect(shortcut.includeRepeats, isFalse);
+
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+            expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isTrue);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+            await tester.pumpAndSettle();
+
+            expect(
+              find.byKey(const ValueKey('chat-new-direct-message-dialog')),
+              findsOneWidget,
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = previousPlatform;
+          }
+        },
+      );
+
       testWidgets('show My threads, load account rows, and open a thread', (
         tester,
       ) async {

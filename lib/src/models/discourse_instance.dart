@@ -258,6 +258,7 @@ class DiscourseInstance {
             collapsible: section.collapsible,
             actionIcon: section.actionIcon,
             actionLabel: section.actionLabel,
+            actionShortcut: section.actionShortcut,
             onAction: section.onAction,
           ),
       ]);

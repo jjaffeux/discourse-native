@@ -160,6 +160,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       return false;
     }
 
+    if (_handleSidebarActionShortcut(event, keyboard, controller)) return true;
+
     if (event.logicalKey == LogicalKeyboardKey.keyF) {
       if (controller.rootMode != ShellRootMode.forum) return false;
 
@@ -249,6 +251,26 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         return false;
     }
     return true;
+  }
+
+  bool _handleSidebarActionShortcut(
+    KeyEvent event,
+    HardwareKeyboard keyboard,
+    ShellController controller,
+  ) {
+    if (controller.rootMode != ShellRootMode.forum) return false;
+
+    for (final section in PluginScope.of(
+      context,
+    ).registry.sidebarSections(context)) {
+      final shortcut = section.actionShortcut;
+      final action = section.onAction;
+      if (shortcut?.accepts(event, keyboard) == true && action != null) {
+        action();
+        return true;
+      }
+    }
+    return false;
   }
 
   bool _reopenClosedTab(ShellController controller) {

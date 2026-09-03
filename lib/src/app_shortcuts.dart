@@ -15,11 +15,24 @@ const forumSwitchShortcutKeys = [
 
 SingleActivator primaryShortcutForPlatform(
   TargetPlatform platform,
-  LogicalKeyboardKey trigger,
-) {
+  LogicalKeyboardKey trigger, {
+  bool includeRepeats = true,
+}) {
   final macOS = platform == TargetPlatform.macOS;
-  return SingleActivator(trigger, meta: macOS, control: !macOS);
+  return SingleActivator(
+    trigger,
+    meta: macOS,
+    control: !macOS,
+    includeRepeats: includeRepeats,
+  );
 }
+
+SingleActivator newDirectMessageShortcutForPlatform(TargetPlatform platform) =>
+    primaryShortcutForPlatform(
+      platform,
+      LogicalKeyboardKey.keyK,
+      includeRepeats: false,
+    );
 
 const newTopicShortcut = SingleActivator(
   LogicalKeyboardKey.keyC,
