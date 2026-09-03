@@ -56,11 +56,13 @@ class _ManageSection extends StatelessWidget {
             error: data.sectionError,
             onLoadMore: onLoadMore,
           )
-        : _GroupManageForm(
-            key: ValueKey('group-manage-form-${group.id}-$selected'),
-            group: group,
-            subsection: selected,
-            onSave: onSave,
+        : FocusTraversalGroup(
+            child: _GroupManageForm(
+              key: ValueKey('group-manage-form-${group.id}-$selected'),
+              group: group,
+              subsection: selected,
+              onSave: onSave,
+            ),
           );
 
     return LayoutBuilder(

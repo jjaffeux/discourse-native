@@ -14,6 +14,7 @@ import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _group = Group(
@@ -956,6 +957,48 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('profile form tabs through fields before the sidebar', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      GroupPage(
+        siteUrl: 'https://meta.discourse.org',
+        route: GroupRoute.detail(
+          'support',
+          section: GroupRoute.manage,
+          subsection: GroupRoute.profile,
+        ),
+        registry: PluginRegistry.empty,
+        onOpenMember: _ignoreMember,
+        data: const GroupPageData(detail: _detail, loaded: true),
+        onSaveManage: (_) async => true,
+      ),
+    );
+
+    final name = find.byKey(const ValueKey('group-field-name'));
+    final fullName = find.byKey(const ValueKey('group-field-full_name'));
+    final bio = find.byKey(const ValueKey('group-field-bio_raw'));
+
+    bool hasFocus(Finder field) => tester
+        .widget<EditableText>(
+          find.descendant(of: field, matching: find.byType(EditableText)),
+        )
+        .focusNode
+        .hasFocus;
+
+    await tester.tap(name);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+
+    expect(hasFocus(fullName), isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+
+    expect(hasFocus(bio), isTrue);
+  });
 
   testWidgets('plugin tabs and plugin-owned content render through registry', (
     tester,
