@@ -213,6 +213,21 @@ void main() {
       find.byKey(const ValueKey('topic-list-filter-reset')),
       findsOneWidget,
     );
+    final resetHeight = tester
+        .getSize(find.byKey(const ValueKey('topic-list-filter-reset')))
+        .height;
+    expect(
+      resetHeight,
+      tester
+          .getSize(find.byKey(const ValueKey('topic-list-category-filter')))
+          .height,
+    );
+    expect(
+      resetHeight,
+      tester
+          .getSize(find.byKey(const ValueKey('topic-list-tag-filter')))
+          .height,
+    );
     expect(tester.takeException(), isNull);
 
     await tester.ensureVisible(
