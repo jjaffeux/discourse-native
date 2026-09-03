@@ -7,6 +7,56 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('image is a named button without a hover overlay', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: const Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: ChatUploads(
+                siteUrl: 'https://meta.discourse.org',
+                uploads: [
+                  ChatUpload(
+                    url: '/uploads/screenshot.png',
+                    originalFilename: 'screenshot.png',
+                    kind: ChatUploadKind.image,
+                    width: 400,
+                    height: 200,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final target = find.bySemanticsLabel('Open image: screenshot.png');
+      expect(target, findsOneWidget);
+      expect(
+        tester.getSemantics(target),
+        isSemantics(
+          label: 'Open image: screenshot.png',
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+
+      final inkWell = find.descendant(
+        of: target,
+        matching: find.byType(InkWell),
+      );
+      expect(inkWell, findsOneWidget);
+      expect(tester.widget<InkWell>(inkWell).hoverColor, Colors.transparent);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('attachment is a named 44-pixel keyboard link', (tester) async {
     const launcher = MethodChannel('plugins.flutter.io/url_launcher');
     final messenger =
