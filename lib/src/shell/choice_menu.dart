@@ -665,14 +665,23 @@ class _ChoiceRow<T> extends StatefulWidget {
 class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
   bool _hovered = false;
   bool _focused = false;
+  bool _animateBackground = true;
 
   void _setHovered(bool hovered) {
     if (_hovered == hovered) return;
-    setState(() => _hovered = hovered);
+    setState(() {
+      _hovered = hovered;
+      _animateBackground = true;
+    });
   }
 
   void _setFocused(bool focused) {
-    if (_focused != focused) setState(() => _focused = focused);
+    if (_focused != focused) {
+      setState(() {
+        _focused = focused;
+        _animateBackground = false;
+      });
+    }
     if (focused) widget.onFocused();
   }
 
@@ -708,7 +717,8 @@ class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
     final iconColor = widget.selected
         ? theme.colorScheme.primary
         : theme.colorScheme.onSurfaceVariant;
-    final duration = MediaQuery.disableAnimationsOf(context)
+    final duration =
+        MediaQuery.disableAnimationsOf(context) || !_animateBackground
         ? Duration.zero
         : const Duration(milliseconds: 90);
     final radius = BorderRadius.circular(8);

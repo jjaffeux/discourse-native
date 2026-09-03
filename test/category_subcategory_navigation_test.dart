@@ -289,6 +289,12 @@ void main() {
           .hasFocus;
     }
 
+    Duration optionTransitionDuration(int categoryId) => tester
+        .widget<AnimatedContainer>(
+          find.byKey(ValueKey(('choice-menu-option-background', categoryId))),
+        )
+        .duration;
+
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pump();
     expect(optionHasFocus(3), isTrue);
@@ -296,6 +302,8 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pump();
     expect(optionHasFocus(5), isTrue);
+    expect(optionTransitionDuration(3), Duration.zero);
+    expect(optionTransitionDuration(5), Duration.zero);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pump();
