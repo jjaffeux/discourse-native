@@ -74,9 +74,11 @@ void main() {
                     members: GroupMembersPage(members: [_member], total: 1),
                     activity: GroupActivityPage(),
                     canInviteToForum: true,
+                    isAdmin: true,
                     loaded: true,
                   ),
                   onOpenMember: _ignoreMember,
+                  onDeleteGroup: () async => true,
                 );
               },
             ),
@@ -100,6 +102,12 @@ void main() {
           );
           expect(primaryTabs.left, left);
           expect(primaryTabs.width, contentWidth);
+          final join = tester.getRect(find.byKey(const ValueKey('group-join')));
+          final groupActions = tester.getRect(
+            find.byKey(const ValueKey('group-actions')),
+          );
+          expect(groupActions.right, right);
+          expect(groupActions.height, join.height);
           final search = tester.getRect(
             find.byKey(const ValueKey('group-member-search')),
           );

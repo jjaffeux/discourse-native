@@ -396,6 +396,8 @@ class _GroupHeader extends StatelessWidget {
     };
 
     final canDelete = isAdmin && !group.automatic && onDeleteGroup != null;
+    const overflowButtonSize = DButtonSize.small;
+    final actionButtonHeight = DButton.iconOnlyDimensionFor(overflowButtonSize);
 
     return Material(
       color: theme.colorScheme.surface,
@@ -405,31 +407,39 @@ class _GroupHeader extends StatelessWidget {
           builder: (context, constraints) {
             final compact = constraints.maxWidth < _groupDesktopBreakpoint;
             final actions = Wrap(
+              alignment: WrapAlignment.end,
               spacing: 8,
               runSpacing: 8,
               children: [
                 if (actionLabel != null)
-                  DButton(
-                    key: ValueKey('group-${membershipAction!.name}'),
-                    label: Text(actionLabel),
-                    icon: membershipAction == GroupMembershipAction.leave
-                        ? const DIcon(DIcons.xmark, size: 16)
-                        : const DIcon(DIcons.userPlus, size: 16),
-                    loading: mutating,
-                    variant: membershipAction == GroupMembershipAction.leave
-                        ? DButtonVariant.standard
-                        : DButtonVariant.primary,
-                    onPressed: onMembershipAction == null
-                        ? null
-                        : () =>
-                              unawaited(onMembershipAction!(membershipAction)),
+                  SizedBox(
+                    height: actionButtonHeight,
+                    child: DButton(
+                      key: ValueKey('group-${membershipAction!.name}'),
+                      label: Text(actionLabel),
+                      icon: membershipAction == GroupMembershipAction.leave
+                          ? const DIcon(DIcons.xmark, size: 16)
+                          : const DIcon(DIcons.userPlus, size: 16),
+                      loading: mutating,
+                      variant: membershipAction == GroupMembershipAction.leave
+                          ? DButtonVariant.standard
+                          : DButtonVariant.primary,
+                      onPressed: onMembershipAction == null
+                          ? null
+                          : () => unawaited(
+                              onMembershipAction!(membershipAction),
+                            ),
+                    ),
                   ),
                 if (group.messageable && onMessageGroup != null)
-                  DButton(
-                    key: const ValueKey('group-message'),
-                    icon: const DIcon(DIcons.envelope, size: 16),
-                    label: const Text('Message'),
-                    onPressed: onMessageGroup,
+                  SizedBox(
+                    height: actionButtonHeight,
+                    child: DButton(
+                      key: const ValueKey('group-message'),
+                      icon: const DIcon(DIcons.envelope, size: 16),
+                      label: const Text('Message'),
+                      onPressed: onMessageGroup,
+                    ),
                   ),
                 if (canDelete)
                   CommandMenuAnchor<_GroupHeaderAction>(
@@ -449,6 +459,7 @@ class _GroupHeader extends StatelessWidget {
                       key: const ValueKey('group-actions'),
                       icon: const DIcon(DIcons.ellipsis, size: 16),
                       tooltip: 'More group actions',
+                      size: overflowButtonSize,
                       onPressed: openMenu,
                     ),
                   ),
@@ -493,7 +504,12 @@ class _GroupHeader extends StatelessWidget {
                     ),
                     if (!compact) ...[
                       const SizedBox(width: 24),
-                      Flexible(child: actions),
+                      Expanded(
+                        child: Align(
+                          alignment: AlignmentDirectional.topEnd,
+                          child: actions,
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -521,14 +537,20 @@ class _GroupHeader extends StatelessWidget {
                 if (compact) ...[
                   const SizedBox(height: 16),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: actions),
-                      const SizedBox(width: 12),
                       Text(
                         '${group.userCount} '
                         '${group.userCount == 1 ? 'member' : 'members'}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Align(
+                          alignment: AlignmentDirectional.topEnd,
+                          child: actions,
                         ),
                       ),
                     ],
