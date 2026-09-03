@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/shell/composer_blockquote.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_quotes.dart';
@@ -32,6 +33,43 @@ const _longQuote =
 
 void main() {
   group('quote editing', () {
+    testWidgets(
+      'typing a quote continues and exits through normal text input',
+      (tester) async {
+        final composer = ComposerController(_target);
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpPanel(tester, shell, composer);
+        final field = find.byType(TextField);
+
+        await tester.enterText(field, '>');
+        await tester.pump();
+        expect(find.byType(ComposerBlockquoteMarker), findsNothing);
+        await tester.enterText(field, '> ');
+        await tester.pump();
+        expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+        await tester.enterText(field, '> xxxx');
+        await tester.pump();
+        expect(composer.raw, '> xxxx');
+
+        await tester.enterText(field, '> xxxx\n');
+        await tester.pump();
+        expect(composer.text.text, '> xxxx\n> ');
+        expect(composer.text.selection.extentOffset, '> xxxx\n> '.length);
+        expect(find.byType(ComposerBlockquoteMarker), findsNWidgets(2));
+
+        await tester.enterText(field, '> xxxx\n> \n');
+        await tester.pump();
+        expect(composer.text.text, '> xxxx\n');
+        expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+
+        await tester.enterText(field, '> xxxx\nNormal text');
+        await tester.pump();
+        expect(composer.raw, '> xxxx\nNormal text');
+      },
+    );
+
     testWidgets('projects a selected quote as a read-only post block', (
       tester,
     ) async {

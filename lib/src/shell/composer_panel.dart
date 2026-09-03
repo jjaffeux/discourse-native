@@ -22,6 +22,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'composer_autocomplete.dart';
+import 'composer_blockquote.dart';
 import 'composer_clipboard.dart';
 import 'composer_controller.dart';
 import 'composer_discard.dart';
@@ -1348,6 +1349,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                     const ComposerImageGalleryInputFormatter(),
                     const ComposerQuoteInputFormatter(),
                     ...widget.composer.text.syntaxInputFormatters,
+                    const ComposerBlockquoteInputFormatter(),
                   ],
                   contextMenuBuilder: _contextMenu,
                   showCursor:

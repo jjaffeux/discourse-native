@@ -9,6 +9,7 @@ import '../models/composer_upload.dart';
 import '../models/site_config.dart';
 import '../plugin_api/composer_syntax.dart';
 import '../plugin_api/hashtag_kind.dart';
+import 'composer_blockquote.dart';
 import 'composer_galleries.dart';
 import 'composer_image.dart';
 import 'composer_image_gallery.dart';
@@ -924,6 +925,30 @@ class MarkdownEditingController extends TextEditingController {
     }
 
     final projections = <_SpanProjection>[
+      for (final prefix in composerBlockquotePrefixes(
+        source,
+        knownCodeRanges: CodeRanges.of(runs),
+      ))
+        if (composing == null ||
+            composing.end <= prefix.start ||
+            composing.start >= prefix.end)
+          _SpanProjection(prefix.start, prefix.end, () {
+            final marker = prefix.textInside(source);
+            return [
+              TextSpan(
+                text: marker.substring(0, marker.length - 1),
+                style: _hidden,
+              ),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                style: base,
+                child: ComposerBlockquoteMarker(
+                  baseStyle: base,
+                  depth: '>'.allMatches(marker).length,
+                ),
+              ),
+            ];
+          }),
       for (final block in collapsedQuotes)
         _SpanProjection(
           block.start,

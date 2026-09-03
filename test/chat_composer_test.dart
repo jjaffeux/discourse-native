@@ -26,6 +26,7 @@ import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_contract.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
+import 'package:discourse_native/src/shell/composer_blockquote.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_upload_picker.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -66,6 +67,32 @@ const _gif = GifResult(
 
 void main() {
   group('draft editing, layout, and uploads', () {
+    testWidgets('starts an editable quote after the greater-than space', (
+      tester,
+    ) async {
+      final fixture = await _fixture(pages: const {});
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(
+        _ComposerVisibilityView(shell: fixture.shell, visible: true),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_composerField(), '>');
+      await tester.pump();
+      expect(find.byType(ComposerBlockquoteMarker), findsNothing);
+      await tester.enterText(_composerField(), '> ');
+      await tester.pump();
+      expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+      await tester.enterText(_composerField(), '> xxxx');
+      await tester.pump();
+      expect(_text(tester), '> xxxx');
+
+      await tester.enterText(_composerField(), '> xxxx\n');
+      await tester.pump();
+      expect(_text(tester), '> xxxx\n> ');
+      expect(find.byType(ComposerBlockquoteMarker), findsNWidgets(2));
+    });
+
     testWidgets('a draft survives drawer collapse and expansion', (
       tester,
     ) async {
