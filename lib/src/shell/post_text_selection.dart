@@ -8,6 +8,7 @@ import '../models/post.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'post_fast_edit.dart';
 import 'post_quote.dart';
 import 'route_aware_selection_area.dart';
 import 'shell_scope.dart';
@@ -15,11 +16,13 @@ import 'shell_scope.dart';
 class PostTextSelection extends StatefulWidget {
   const PostTextSelection({
     super.key,
+    required this.siteUrl,
     required this.post,
     required this.topicId,
     required this.child,
   });
 
+  final String siteUrl;
   final Post post;
   final int topicId;
   final Widget child;
@@ -36,7 +39,10 @@ class _PostTextSelectionState extends State<PostTextSelection> {
 
   Timer? _showTimer;
   TextSelectionToolbarAnchors? _anchors;
-  String _selectedText = '';
+  PostTextSelectionResolution _selection = const PostTextSelectionResolution(
+    markdown: '',
+    supportsFastEdit: false,
+  );
   PostQuoteSelectionResolver? _quoteResolver;
   ScrollPosition? _scroll;
 
@@ -52,8 +58,10 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   @override
   void didUpdateWidget(PostTextSelection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.post.id != widget.post.id ||
-        oldWidget.post.cooked != widget.post.cooked) {
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.post.id != widget.post.id ||
+        oldWidget.post.cooked != widget.post.cooked ||
+        oldWidget.post.isLocalized != widget.post.isLocalized) {
       _quoteResolver = null;
       _dismiss(clearSelection: true);
     }
@@ -63,10 +71,10 @@ class _PostTextSelectionState extends State<PostTextSelection> {
 
   void _selectionChanged(SelectedContent? content) {
     _showTimer?.cancel();
-    _selectedText = (_quoteResolver ??= PostQuoteSelectionResolver(
+    _selection = (_quoteResolver ??= PostQuoteSelectionResolver(
       widget.post.cooked,
-    )).contentsFor(content?.plainText ?? '');
-    if (_selectedText.isEmpty) {
+    )).resolve(content?.plainText ?? '', isLocalized: widget.post.isLocalized);
+    if (_selection.markdown.isEmpty) {
       _dismiss(clearSelection: false);
       return;
     }
@@ -77,7 +85,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   }
 
   void _showToolbar() {
-    if (!mounted || _selectedText.isEmpty) return;
+    if (!mounted || _selection.markdown.isEmpty) return;
     final area = _selectionKey.currentState;
     if (area == null) return;
 
@@ -101,6 +109,8 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     contents: _selectedText,
   );
 
+  String get _selectedText => _selection.markdown;
+
   void _insertQuote() {
     final quote = _quote;
     if (quote.isEmpty) return;
@@ -121,6 +131,25 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     );
   }
 
+  Future<void> _editSelection() async {
+    final selection = _selection;
+    if (selection.markdown.isEmpty) return;
+    final controller = ShellScope.read(context);
+    _dismiss(clearSelection: true);
+    if (!selection.supportsFastEdit) {
+      controller.openEdit(widget.post, focusText: selection.markdown);
+      return;
+    }
+    await showPostFastEditor(
+      context: context,
+      controller: controller,
+      siteUrl: widget.siteUrl,
+      topicId: widget.topicId,
+      post: widget.post,
+      selectedMarkdown: selection.markdown,
+    );
+  }
+
   @override
   void dispose() {
     _showTimer?.cancel();
@@ -129,30 +158,45 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   }
 
   @override
-  Widget build(BuildContext context) => ShellSelector<bool>(
-    select: (controller) => controller.canReplyHere,
-    builder: (context, canQuote, _) => OverlayPortal(
+  Widget build(
+    BuildContext context,
+  ) => ShellSelector<({bool canQuote, bool canEdit})>(
+    select: (controller) => (
+      canQuote: controller.canReplyHere,
+      canEdit:
+          widget.post.canEdit &&
+          controller.siteConfigFor(widget.siteUrl).fastEditEnabled,
+    ),
+    builder: (context, actions, _) => OverlayPortal(
       controller: _portal,
       overlayChildBuilder: (context) {
         final anchors = _anchors;
-        if (anchors == null || _selectedText.isEmpty) {
+        if (anchors == null || _selection.markdown.isEmpty) {
           return const SizedBox.shrink();
         }
         return _PostTextSelectionToolbar(
           anchors: anchors,
-          canQuote: canQuote,
+          canQuote: actions.canQuote,
+          canEdit: actions.canEdit,
           onQuote: _insertQuote,
+          onEdit: () => unawaited(_editSelection()),
           onCopyQuote: _copyQuote,
         );
       },
-      child: RouteAwareSelectionArea(
-        selectionAreaKey: _selectionKey,
-        // The app-owned overlay is also shown after a precise mouse drag. Keep
-        // Flutter's platform menu disabled so touch does not draw both.
-        contextMenuBuilder: (context, selectableRegionState) =>
-            const SizedBox.shrink(),
-        onSelectionChanged: _selectionChanged,
-        child: widget.child,
+      child: CallbackShortcuts(
+        bindings: {
+          if (actions.canEdit)
+            const CharacterActivator('e'): () => unawaited(_editSelection()),
+        },
+        child: RouteAwareSelectionArea(
+          selectionAreaKey: _selectionKey,
+          // The app-owned overlay is also shown after a precise mouse drag. Keep
+          // Flutter's platform menu disabled so touch does not draw both.
+          contextMenuBuilder: (context, selectableRegionState) =>
+              const SizedBox.shrink(),
+          onSelectionChanged: _selectionChanged,
+          child: widget.child,
+        ),
       ),
     ),
   );
@@ -162,13 +206,17 @@ class _PostTextSelectionToolbar extends StatelessWidget {
   const _PostTextSelectionToolbar({
     required this.anchors,
     required this.canQuote,
+    required this.canEdit,
     required this.onQuote,
+    required this.onEdit,
     required this.onCopyQuote,
   });
 
   final TextSelectionToolbarAnchors anchors;
   final bool canQuote;
+  final bool canEdit;
   final VoidCallback onQuote;
+  final VoidCallback onEdit;
   final VoidCallback onCopyQuote;
 
   @override
@@ -182,6 +230,13 @@ class _PostTextSelectionToolbar extends StatelessWidget {
               icon: DIcons.quoteLeft,
               label: 'Quote',
               onPressed: onQuote,
+            ),
+          if (canEdit)
+            (
+              key: const ValueKey('edit-selection'),
+              icon: DIcons.pencil,
+              label: 'Edit',
+              onPressed: onEdit,
             ),
           (
             key: const ValueKey('copy-quote-selection'),
