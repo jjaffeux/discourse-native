@@ -15,6 +15,7 @@ import '../../shell/composer_autocomplete.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/composer_drop.dart';
 import '../../shell/composer_link.dart';
+import '../../shell/composer_marks.dart';
 import '../../shell/composer_panel.dart';
 import '../../shell/composer_upload_picker.dart';
 import '../../shell/content_reading_lane.dart';
@@ -913,6 +914,14 @@ class _ChatComposerState extends State<ChatComposer> {
         const SingleActivator(LogicalKeyboardKey.enter): () => _send(composer),
         const SingleActivator(LogicalKeyboardKey.numpadEnter): () =>
             _send(composer),
+        const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
+            composer.toggleMark(ComposerMark.bold),
+        const SingleActivator(LogicalKeyboardKey.keyB, control: true): () =>
+            composer.toggleMark(ComposerMark.bold),
+        const SingleActivator(LogicalKeyboardKey.keyI, meta: true): () =>
+            composer.toggleMark(ComposerMark.italic),
+        const SingleActivator(LogicalKeyboardKey.keyI, control: true): () =>
+            composer.toggleMark(ComposerMark.italic),
         const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
             composer.toggleSelectedInlineCode,
         const SingleActivator(LogicalKeyboardKey.keyL, meta: true): () =>
