@@ -532,6 +532,48 @@ void main() {
       );
     });
 
+    testWidgets('Command-B and Command-I format selected chat text', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      final controller = _field(tester).controller!;
+      _field(tester).focusNode!.requestFocus();
+      await tester.pump();
+
+      for (final format in [
+        (
+          key: LogicalKeyboardKey.keyB,
+          text: '**format** me',
+          selection: const TextSelection(baseOffset: 2, extentOffset: 8),
+        ),
+        (
+          key: LogicalKeyboardKey.keyI,
+          text: '*format* me',
+          selection: const TextSelection(baseOffset: 1, extentOffset: 7),
+        ),
+      ]) {
+        controller.value = const TextEditingValue(
+          text: 'format me',
+          selection: TextSelection(baseOffset: 0, extentOffset: 6),
+        );
+
+        await _pressCommand(tester, format.key);
+
+        expect(controller.text, format.text, reason: format.key.keyLabel);
+        expect(
+          controller.selection,
+          format.selection,
+          reason: format.key.keyLabel,
+        );
+      }
+    });
+
     testWidgets('Command-L links the selected chat text', (tester) async {
       final fixture = await _fixture(
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
@@ -2013,15 +2055,16 @@ String _textWithin(WidgetTester tester, Finder field) =>
     tester.widget<TextField>(field).controller!.text;
 
 Future<void> _pressCommandE(WidgetTester tester) async {
-  await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-  await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
-  await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-  await tester.pump();
+  await _pressCommand(tester, LogicalKeyboardKey.keyE);
 }
 
 Future<void> _pressCommandL(WidgetTester tester) async {
+  await _pressCommand(tester, LogicalKeyboardKey.keyL);
+}
+
+Future<void> _pressCommand(WidgetTester tester, LogicalKeyboardKey key) async {
   await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-  await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
+  await tester.sendKeyEvent(key);
   await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
   await tester.pump();
 }
