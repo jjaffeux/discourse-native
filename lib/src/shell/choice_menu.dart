@@ -365,8 +365,7 @@ class _FilterableChoiceRows<T> extends StatefulWidget {
       _FilterableChoiceRowsState<T>();
 }
 
-class _FilterableChoiceRowsState<T>
-    extends State<_FilterableChoiceRows<T>> {
+class _FilterableChoiceRowsState<T> extends State<_FilterableChoiceRows<T>> {
   final TextEditingController _filterController = TextEditingController();
   String _query = '';
 
@@ -612,6 +611,8 @@ class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final description = widget.option.description.trim();
+    final hasDescription = description.isNotEmpty;
     final shell = theme.extension<ShellColors>();
     final surface = shell?.floating ?? theme.colorScheme.surfaceContainer;
     final selectedColor = Color.alphaBlend(
@@ -649,7 +650,7 @@ class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
       checked: widget.selected,
       button: true,
       label: widget.option.title,
-      hint: widget.option.description,
+      hint: hasDescription ? description : null,
       child: ExcludeSemantics(
         child: AnimatedContainer(
           key: ValueKey(('choice-menu-option-background', widget.option.value)),
@@ -670,7 +671,11 @@ class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
               onFocusChange: _setFocused,
               onTap: () => widget.onSelected(widget.option.value),
               child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: widget.touch ? 64 : 58),
+                constraints: BoxConstraints(
+                  minHeight: hasDescription
+                      ? (widget.touch ? 64 : 58)
+                      : (widget.touch ? 52 : 44),
+                ),
                 child: Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: widget.touch ? 12 : 10,
@@ -698,16 +703,18 @@ class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              widget.option.description,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                height: 1.3,
+                            if (hasDescription) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                description,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  height: 1.3,
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),

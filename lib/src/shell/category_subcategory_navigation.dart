@@ -214,9 +214,7 @@ class _SubcategoryOverflowButton extends StatelessWidget {
           ChoiceMenuOption<int>(
             value: category.id,
             title: category.id == parent.id ? 'All topics' : category.name,
-            description: category.id == parent.id
-                ? 'Show every topic in ${parent.name}'
-                : 'Show topics in ${category.name}',
+            description: '',
             icon: DIcons.folder,
           ),
       ],

@@ -142,6 +142,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Subcategories of Discourse Native App'), findsOneWidget);
+    expect(find.text('Show every topic in Discourse Native App'), findsNothing);
+    expect(find.text('Show topics in Bugs'), findsNothing);
     expect(
       find.byKey(const ValueKey(('choice-menu-option', 6))),
       findsOneWidget,
@@ -183,10 +185,7 @@ void main() {
       find.byKey(const ValueKey(('choice-menu-option', 3))),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const ValueKey(('choice-menu-option', 2))),
-      findsNothing,
-    );
+    expect(find.byKey(const ValueKey(('choice-menu-option', 2))), findsNothing);
 
     await tester.enterText(filter, 'missing');
     await tester.pump();
@@ -228,10 +227,7 @@ void main() {
     await tester.enterText(filter, 'access');
     await tester.pump();
 
-    expect(
-      find.byKey(const ValueKey(('choice-menu-option', 2))),
-      findsNothing,
-    );
+    expect(find.byKey(const ValueKey(('choice-menu-option', 2))), findsNothing);
 
     final accessibility = find.byKey(const ValueKey(('choice-menu-option', 6)));
     await tester.ensureVisible(accessibility);
