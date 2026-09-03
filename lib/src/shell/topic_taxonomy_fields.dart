@@ -6,16 +6,22 @@ import '../theme/d_icons.dart';
 import 'inline_action.dart';
 
 class TopicPropertyRow extends StatelessWidget {
-  const TopicPropertyRow({super.key, required this.label, required this.child});
+  const TopicPropertyRow({
+    super.key,
+    required this.label,
+    required this.child,
+    this.padding = const EdgeInsets.symmetric(vertical: 8),
+  });
 
   final String label;
   final Widget child;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: padding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
