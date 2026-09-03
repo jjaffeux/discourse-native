@@ -13,6 +13,35 @@ List<Map<String, dynamic>> fixtureList(String name) =>
             as List<dynamic>)
         .cast<Map<String, dynamic>>();
 
+const _callRoomJson = <String, Object?>{
+  'id': 9,
+  'name': '📞 sam + kim',
+  'slug': 'call-1a2b',
+  'public': false,
+  'room_type': 'open',
+  'active_participants': [
+    {'id': 1, 'username': 'sam', 'role': 'moderator'},
+  ],
+  'ringing': [
+    {
+      'user': {'id': 3, 'username': 'kim'},
+      'notified_at': 1786204800,
+    },
+    {
+      'user': {'id': 1, 'username': 'sam'},
+      'notified_at': 1786204800,
+    },
+    {
+      'user': {'id': 0, 'username': 'ghost'},
+      'notified_at': 1786204800,
+    },
+    {'user': <String, Object?>{}, 'notified_at': 1786204800},
+    {
+      'user': {'id': 4, 'username': 'undated'},
+    },
+  ],
+};
+
 void main() {
   group('room snapshots', () {
     test('parse the complete room snapshot from the pinned contract', () {
@@ -162,35 +191,8 @@ void main() {
   });
 
   group('call room ringing', () {
-    VoiceRoom callRoom({bool ephemeral = true}) => VoiceRoom.fromJson({
-      'id': 9,
-      'name': '📞 sam + kim',
-      'slug': 'call-1a2b',
-      'public': false,
-      'ephemeral': ephemeral,
-      'room_type': 'open',
-      'active_participants': [
-        {'id': 1, 'username': 'sam', 'role': 'moderator'},
-      ],
-      'ringing': [
-        {
-          'user': {'id': 3, 'username': 'kim'},
-          'notified_at': 1786204800,
-        },
-        {
-          'user': {'id': 1, 'username': 'sam'},
-          'notified_at': 1786204800,
-        },
-        {
-          'user': {'id': 0, 'username': 'ghost'},
-          'notified_at': 1786204800,
-        },
-        {'user': const <String, Object?>{}, 'notified_at': 1786204800},
-        {
-          'user': {'id': 4, 'username': 'undated'},
-        },
-      ],
-    });
+    VoiceRoom callRoom({bool ephemeral = true}) =>
+        VoiceRoom.fromJson({..._callRoomJson, 'ephemeral': ephemeral});
 
     test('keeps rung users that are absent and still within the window', () {
       final room = callRoom();

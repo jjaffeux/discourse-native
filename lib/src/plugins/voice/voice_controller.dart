@@ -25,6 +25,7 @@ enum _VoiceLeaveReason {
   kicked,
   rosterRemoval,
   credentialsMissing,
+  sessionExpired,
   systemAction,
   accountRemoval,
   sessionClose,
@@ -167,6 +168,29 @@ class VoiceCallSnapshot {
   );
 }
 
+/// A transient, user-facing message about a room the user is in or watching:
+/// a role change, a dismissed request to speak, a recording starting. Shown
+/// once and never persisted; a surface that is not showing the room may drop
+/// it.
+@immutable
+final class VoiceNotice {
+  const VoiceNotice(
+    this.message, {
+    required this.siteUrl,
+    required this.roomId,
+  });
+
+  final String message;
+  final String siteUrl;
+  final int roomId;
+}
+
+/// At most this many rooms reached by link (rather than listed in the
+/// directory) keep a live subscription per site. Direct-call rooms are the
+/// usual case: they never appear in the directory, and the server reaps them
+/// once empty, so nothing else would ever release their channel.
+const _maxLinkedRoomsPerSite = 8;
+
 typedef VoiceTrackerLookup = PluginLiveChannelHandle? Function(String siteUrl);
 typedef VoiceUserIdLookup = int? Function(String siteUrl);
 typedef VoiceCapabilityResolver = Future<bool?> Function(String siteUrl);
@@ -248,6 +272,8 @@ final class VoiceController extends ChangeNotifier {
   final Map<String, Object> _chatRequests = {};
   final Map<String, _VoiceInviteRef> _pendingInviteRefs = {};
   final Map<String, int> _roomVideoWatchers = {};
+  final StreamController<VoiceNotice> _notices =
+      StreamController<VoiceNotice>.broadcast();
   Future<void>? _joinTail;
   Future<void>? _pendingJoin;
   String? _pendingJoinKey;
@@ -288,6 +314,13 @@ final class VoiceController extends ChangeNotifier {
   bool get pushToTalkEnabled => _pushToTalkEnabled;
 
   int? currentUserIdFor(String siteUrl) => _userIdFor(siteUrl);
+
+  Stream<VoiceNotice> get notices => _notices.stream;
+
+  void _notify(String siteUrl, int roomId, String message) {
+    if (_disposed || _notices.isClosed) return;
+    _notices.add(VoiceNotice(message, siteUrl: siteUrl, roomId: roomId));
+  }
 
   void watchRoomVideo({required String siteUrl, required int roomId}) {
     if (_disposed) return;
@@ -393,12 +426,29 @@ final class VoiceController extends ChangeNotifier {
         clientId: credentials.clientId,
       );
       if (!isCurrent()) return null;
-      (_linkedRooms[siteUrl] ??= {})[room.id] = room;
+      _rememberLinkedRoom(siteUrl, room);
+      _syncSubscriptions(siteUrl);
       notifyListeners();
       return room;
     } catch (error, stackTrace) {
       if (isCurrent()) _report(error, stackTrace, 'voice.room');
       return null;
+    }
+  }
+
+  /// A room reached by link is held (and subscribed) beside the directory
+  /// so its roster and signals arrive like any listed room's. Bounded: the
+  /// oldest link goes first, but never the room of the active call.
+  void _rememberLinkedRoom(String siteUrl, VoiceRoom room) {
+    final linked = _linkedRooms[siteUrl] ??= {};
+    linked.remove(room.id);
+    linked[room.id] = room;
+    final call = _call;
+    final protectedId = call?.siteUrl == siteUrl ? call?.room.id : null;
+    for (final id in linked.keys.toList()) {
+      if (linked.length <= _maxLinkedRoomsPerSite) break;
+      if (id == room.id || id == protectedId) continue;
+      linked.remove(id);
     }
   }
 
@@ -474,7 +524,7 @@ final class VoiceController extends ChangeNotifier {
         component: 'room',
         data: {'roomCount': directory.rooms.length},
       );
-      _syncSubscriptions(siteUrl, directory);
+      _syncSubscriptions(siteUrl);
     } on SiteLookupException catch (error, stackTrace) {
       if (!isCurrent()) return;
       // Plugin absence and account refusal both mean no section for this site
@@ -536,8 +586,7 @@ final class VoiceController extends ChangeNotifier {
       _cancelTrackerSubscriptions(siteUrl);
       _attachedTrackers[siteUrl] = tracker;
     }
-    final directory = _directories[siteUrl];
-    if (directory != null) _syncSubscriptions(siteUrl, directory);
+    _syncSubscriptions(siteUrl);
   }
 
   PluginLiveChannelHandle? _trackerFor(String siteUrl) =>
@@ -552,20 +601,35 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
-  /// Brings the site's subscriptions in line with [directory]: the index and
-  /// any room without one are subscribed, rooms that left are cancelled. A
-  /// live subscription keeps its own position on the wire and is never
-  /// replaced here: re-subscribing from the snapshot cursor would replay every
-  /// message published since the load, and each replay would arrive in
+  /// Every room this controller holds for the site: the directory listing,
+  /// rooms reached by link, and the active call's room. A direct call's
+  /// ephemeral room is in none of the first two until it is linked or
+  /// joined, and the directory never lists it at all.
+  Map<int, VoiceRoom> _heldRooms(String siteUrl) => {
+    for (final room in _directories[siteUrl]?.rooms ?? const <VoiceRoom>[])
+      room.id: room,
+    for (final room in _linkedRooms[siteUrl]?.values ?? const <VoiceRoom>[])
+      room.id: room,
+    if (_call case final call? when call.siteUrl == siteUrl)
+      call.room.id: call.room,
+  };
+
+  /// Brings the site's subscriptions in line with what it holds: the index
+  /// (once a directory has loaded) and every held room without one are
+  /// subscribed, rooms no longer held are cancelled. A live subscription
+  /// keeps its own position on the wire and is never replaced here:
+  /// re-subscribing from the snapshot cursor would replay every message
+  /// published since the load, and each replay would arrive in
   /// [_onDirectoryEvent] to trigger the next. Subscriptions are replaced only
   /// with the tracker ([attachTracker]) and dropped only with the site
   /// ([forget]).
-  void _syncSubscriptions(String siteUrl, VoiceDirectory directory) {
+  void _syncSubscriptions(String siteUrl) {
     final tracker = _trackerFor(siteUrl);
     if (tracker == null) return;
     final cursors = _liveCursors.putIfAbsent(siteUrl, _VoiceLiveCursors.new);
     var changed = false;
-    if (!_directorySubscriptions.containsKey(siteUrl)) {
+    final directory = _directories[siteUrl];
+    if (directory != null && !_directorySubscriptions.containsKey(siteUrl)) {
       _directorySubscriptions[siteUrl] = tracker.subscribe(
         '/voice/rooms/index',
         (data, messageId) => _onDirectoryEvent(siteUrl, data, messageId),
@@ -574,14 +638,14 @@ final class VoiceController extends ChangeNotifier {
       changed = true;
     }
     final subscriptions = _roomSubscriptions.putIfAbsent(siteUrl, () => {});
-    final wanted = {for (final room in directory.rooms) room.id};
+    final wanted = _heldRooms(siteUrl);
     for (final id
-        in subscriptions.keys.where((id) => !wanted.contains(id)).toList()) {
+        in subscriptions.keys.where((id) => !wanted.containsKey(id)).toList()) {
       subscriptions.remove(id)?.cancel();
       cursors.dropRoom(id);
       changed = true;
     }
-    for (final room in directory.rooms) {
+    for (final room in wanted.values) {
       if (subscriptions.containsKey(room.id)) continue;
       subscriptions[room.id] = tracker.subscribe(
         '/voice/rooms/${room.id}',
@@ -595,7 +659,7 @@ final class VoiceController extends ChangeNotifier {
       'room.subscriptions.synced',
       component: 'room',
       correlationId: _correlationForSite(siteUrl),
-      data: {'roomCount': directory.rooms.length},
+      data: {'roomCount': wanted.length},
     );
   }
 
@@ -634,8 +698,10 @@ final class VoiceController extends ChangeNotifier {
         } else {
           rooms[index] = _preservePrivilegedFields(rooms[index], incoming);
         }
+        _refreshCallRoom(siteUrl, incoming);
       case 'destroyed':
         rooms.removeWhere((room) => room.id == incoming.id);
+        _linkedRooms[siteUrl]?.remove(incoming.id);
         _removeChatAssociation(siteUrl, incoming.id);
         if (_call case final call?
             when call.siteUrl == siteUrl && call.room.id == incoming.id) {
@@ -655,7 +721,7 @@ final class VoiceController extends ChangeNotifier {
       canCreateRoom: held.canCreateRoom,
       messageBusLastId: held.messageBusLastId,
     );
-    _syncSubscriptions(siteUrl, _directories[siteUrl]!);
+    _syncSubscriptions(siteUrl);
     notifyListeners();
   }
 
@@ -663,6 +729,61 @@ final class VoiceController extends ChangeNotifier {
     VoiceRoom held,
     VoiceRoom incoming,
   ) => incoming.copyWithPrivileged(held);
+
+  /// A room edited while its call is up: the call keeps its own roster and
+  /// ring state (the room channel is the authority for those) but takes the
+  /// new name, type, and capabilities. A type change re-applies the stage
+  /// speaking rule, and video that the room no longer allows stops now
+  /// rather than at the next toggle.
+  void _refreshCallRoom(String siteUrl, VoiceRoom incoming) {
+    final call = _call;
+    if (call == null ||
+        call.siteUrl != siteUrl ||
+        call.room.id != incoming.id) {
+      return;
+    }
+    final room = _preservePrivilegedFields(call.room, incoming).copyWith(
+      participants: call.room.participants,
+      ringing: call.room.ringing,
+    );
+    final userId = _userIdFor(siteUrl);
+    final couldPublishAudio =
+        userId == null ||
+        _canPublishAudio(call.room, call.room.participants, userId);
+    final canPublishAudio =
+        userId == null || _canPublishAudio(room, room.participants, userId);
+    final canPublishVideo = canPublishAudio && room.videoAllowed;
+    final stopsVideo =
+        !canPublishVideo && (call.cameraEnabled || call.screenSharing);
+    _call = call.copyWith(room: room, muted: canPublishAudio ? null : true);
+    if (canPublishAudio != couldPublishAudio) {
+      _observe(() async {
+        await _runHandled(
+          () => call.media.setAudioPublishingAllowed(canPublishAudio),
+          'voice.media.audioPublishing',
+        );
+        if (!canPublishAudio) {
+          await _runHandled(
+            () => call.media.setMuted(true),
+            'voice.media.rosterMute',
+          );
+        }
+      }, 'voice.media.roomUpdate');
+    }
+    if (stopsVideo) {
+      _record(
+        'media.video.room_disallowed',
+        component: 'media',
+        correlationId: _correlationFor(call),
+        data: {'roomId': room.id},
+      );
+      _observe(() async {
+        if (call.cameraEnabled) await setCameraEnabled(false);
+        if (call.screenSharing) await setScreenSharing(false);
+      }, 'voice.media.roomVideoDisabled');
+      _notify(siteUrl, room.id, 'Video was turned off in this room.');
+    }
+  }
 
   void _onRoomEvent(String siteUrl, int roomId, Object? data, int messageId) {
     if (_disposed) return;
@@ -725,6 +846,26 @@ final class VoiceController extends ChangeNotifier {
                 : participant,
         ]);
       }
+      if (event.userId == _userIdFor(siteUrl) &&
+          _call?.siteUrl == siteUrl &&
+          _call?.room.id == roomId) {
+        _notify(
+          siteUrl,
+          roomId,
+          event.role == VoiceRole.participant
+              ? "You've been moved to listeners."
+              : "You've been made a speaker.",
+        );
+      }
+      return;
+    }
+    if (event is VoiceHandRaiseEvent) {
+      _applyHandRaise(siteUrl, roomId, event);
+      return;
+    }
+    if (event is VoiceRingingEvent) {
+      _updateRoom(siteUrl, roomId, (room) => room.withRinging(event.entry));
+      notifyListeners();
       return;
     }
     if (event is VoiceParticipantsEvent) {
@@ -744,8 +885,65 @@ final class VoiceController extends ChangeNotifier {
         correlationId: _correlationForRoom(siteUrl, roomId),
         data: {'roomId': roomId, 'active': event.recording?.active ?? false},
       );
+      final wasRecording = room(siteUrl, roomId)?.recording?.active ?? false;
       _replaceRecording(siteUrl, roomId, event.recording);
+      // Only people in the call are told; the moderator who pressed the
+      // button watched their own control change.
+      final call = _call;
+      if (call?.siteUrl == siteUrl && call?.room.id == roomId) {
+        final recording = event.recording;
+        if (recording != null && recording.active) {
+          if (recording.startedById != _userIdFor(siteUrl)) {
+            _notify(siteUrl, roomId, 'This call is now being recorded.');
+          }
+        } else if (wasRecording) {
+          _notify(siteUrl, roomId, 'The recording has stopped.');
+        }
+      }
     }
+  }
+
+  /// The lightweight hand-raise event lands before the roster broadcast that
+  /// carries the same change, so the raise is applied to the held roster at
+  /// once. The toasts mirror the web client: a dismissed request tells its
+  /// owner, a new raise tells the room's managers.
+  void _applyHandRaise(String siteUrl, int roomId, VoiceHandRaiseEvent event) {
+    final userId = _userIdFor(siteUrl);
+    _updateRoom(siteUrl, roomId, (room) {
+      if (!room.participants.any((p) => p.id == event.userId)) return room;
+      return room.withParticipants([
+        for (final participant in room.participants)
+          participant.id == event.userId
+              ? _participantWithHandRaised(
+                  participant,
+                  event.raised ? (event.raisedAt ?? DateTime.now()) : null,
+                )
+              : participant,
+      ]);
+    });
+    // The call's copy of the room is the one serialized for this user, so
+    // it is the one that knows whether they manage it.
+    final call = _call;
+    final inCall =
+        call != null && call.siteUrl == siteUrl && call.room.id == roomId;
+    final held = inCall ? call.room : room(siteUrl, roomId);
+    if (inCall && event.userId == userId) {
+      if (!event.raised && event.reason == 'dismissed') {
+        _notify(siteUrl, roomId, 'Your request to speak was dismissed.');
+      }
+    } else if (inCall && event.raised && (held?.canManage ?? false)) {
+      final raiser = held?.participants
+          .where((participant) => participant.id == event.userId)
+          .firstOrNull;
+      if (raiser != null) {
+        _notify(
+          siteUrl,
+          roomId,
+          '${raiser.name ?? raiser.username} raised their hand to speak.',
+        );
+      }
+    }
+    notifyListeners();
   }
 
   Future<void> _handleSignalEnvelope(
@@ -872,26 +1070,62 @@ final class VoiceController extends ChangeNotifier {
     handRaisedAt: participant.handRaisedAt,
   );
 
+  static VoiceParticipant _participantWithHandRaised(
+    VoiceParticipant participant,
+    DateTime? handRaisedAt,
+  ) => VoiceParticipant(
+    id: participant.id,
+    username: participant.username,
+    role: participant.role,
+    name: participant.name,
+    avatarTemplate: participant.avatarTemplate,
+    muted: participant.muted,
+    deafened: participant.deafened,
+    videoOn: participant.videoOn,
+    screenSharing: participant.screenSharing,
+    watchingVideo: participant.watchingVideo,
+    idleState: participant.idleState,
+    handRaisedAt: handRaisedAt,
+  );
+
+  /// Applies [update] to every copy of the room this controller holds — the
+  /// directory listing, a room reached by link, and (unless [updateCall] is
+  /// off) the active call — so no surface reads a stale copy.
+  void _updateRoom(
+    String siteUrl,
+    int roomId,
+    VoiceRoom Function(VoiceRoom room) update, {
+    bool updateCall = true,
+  }) {
+    final held = _directories[siteUrl];
+    if (held != null && held.rooms.any((room) => room.id == roomId)) {
+      _directories[siteUrl] = VoiceDirectory(
+        rooms: List.unmodifiable([
+          for (final room in held.rooms)
+            room.id == roomId ? update(room) : room,
+        ]),
+        canCreateRoom: held.canCreateRoom,
+        messageBusLastId: held.messageBusLastId,
+      );
+    }
+    final linked = _linkedRooms[siteUrl];
+    final linkedRoom = linked?[roomId];
+    if (linkedRoom != null) linked![roomId] = update(linkedRoom);
+    final call = _call;
+    if (updateCall &&
+        call != null &&
+        call.siteUrl == siteUrl &&
+        call.room.id == roomId) {
+      _call = call.copyWith(room: update(call.room));
+    }
+  }
+
   void _replaceRecording(
     String siteUrl,
     int roomId,
     VoiceRecording? recording,
   ) {
-    final held = _directories[siteUrl];
-    if (held != null) {
-      _directories[siteUrl] = VoiceDirectory(
-        rooms: [
-          for (final room in held.rooms)
-            room.id == roomId ? room.withRecording(recording) : room,
-        ],
-        canCreateRoom: held.canCreateRoom,
-        messageBusLastId: held.messageBusLastId,
-      );
-    }
-    final call = _call;
-    if (call?.siteUrl == siteUrl && call?.room.id == roomId) {
-      _call = call!.copyWith(room: call.room.withRecording(recording));
-    }
+    _updateRoom(siteUrl, roomId, (room) => room.withRecording(recording));
     notifyListeners();
   }
 
@@ -900,17 +1134,12 @@ final class VoiceController extends ChangeNotifier {
     int roomId,
     List<VoiceParticipant> participants,
   ) {
-    final held = _directories[siteUrl];
-    if (held != null) {
-      _directories[siteUrl] = VoiceDirectory(
-        rooms: [
-          for (final room in held.rooms)
-            room.id == roomId ? room.withParticipants(participants) : room,
-        ],
-        canCreateRoom: held.canCreateRoom,
-        messageBusLastId: held.messageBusLastId,
-      );
-    }
+    _updateRoom(
+      siteUrl,
+      roomId,
+      (room) => room.withParticipants(participants),
+      updateCall: false,
+    );
     final call = _call;
     if (call != null && call.siteUrl == siteUrl && call.room.id == roomId) {
       final userId = _userIdFor(siteUrl);
@@ -966,30 +1195,14 @@ final class VoiceController extends ChangeNotifier {
   void _removeLocalParticipant(String siteUrl, int roomId) {
     final userId = _userIdFor(siteUrl);
     if (userId == null) return;
-
-    VoiceRoom removeParticipant(VoiceRoom room) {
-      if (room.id != roomId) return room;
-      return room.withParticipants([
+    _updateRoom(
+      siteUrl,
+      roomId,
+      (room) => room.withParticipants([
         for (final participant in room.participants)
           if (participant.id != userId) participant,
-      ]);
-    }
-
-    final directory = _directories[siteUrl];
-    if (directory != null) {
-      _directories[siteUrl] = VoiceDirectory(
-        rooms: [for (final room in directory.rooms) removeParticipant(room)],
-        canCreateRoom: directory.canCreateRoom,
-        messageBusLastId: directory.messageBusLastId,
-      );
-    }
-    final linked = _linkedRooms[siteUrl];
-    final linkedRoom = linked?[roomId];
-    if (linkedRoom != null) linked![roomId] = removeParticipant(linkedRoom);
-    final call = _call;
-    if (call != null && call.siteUrl == siteUrl && call.room.id == roomId) {
-      _call = call.copyWith(room: removeParticipant(call.room));
-    }
+      ]),
+    );
   }
 
   static bool _canPublishAudio(
@@ -1628,6 +1841,44 @@ final class VoiceController extends ChangeNotifier {
         component: 'heartbeat',
         correlationId: correlationId,
       );
+    } on WriteException catch (error, stackTrace) {
+      if (!isCurrent()) return;
+      if (_isExpulsion(error)) {
+        // The server no longer recognizes this session — it lapsed while the
+        // app was cut off, the room was deleted, or access was revoked.
+        // Every later beat would be refused the same way, and if nobody else
+        // is in the room no roster broadcast will ever prune the local
+        // user, so the call is unwound here the way the web client does.
+        _record(
+          'heartbeat.expelled',
+          component: 'heartbeat',
+          correlationId: _correlationFor(call),
+          severity: DiagnosticSeverity.warning,
+          data: {'statusCode': error.statusCode},
+        );
+        _errors[call.siteUrl] = error.errors.isNotEmpty
+            ? error.errors.join('\n')
+            : 'Your call session has expired. Rejoin the room to start a '
+                  'new one.';
+        await _leave(
+          notifyServer: error.statusCode != HttpStatus.notFound,
+          reason: _VoiceLeaveReason.sessionExpired,
+        );
+        return;
+      }
+      _recordRaw(
+        'heartbeat.failed',
+        component: 'heartbeat',
+        correlationId: _correlationFor(call),
+        severity: DiagnosticSeverity.warning,
+        message: error.toString(),
+        data: {
+          'errorType': error.runtimeType.toString(),
+          'statusCode': error.statusCode,
+          'stackTrace': stackTrace.toString(),
+        },
+      );
+      _report(error, stackTrace, 'voice.heartbeat');
     } catch (error, stackTrace) {
       if (isCurrent()) {
         _recordRaw(
@@ -1645,6 +1896,18 @@ final class VoiceController extends ChangeNotifier {
       }
     }
   }
+
+  /// A heartbeat refused with a membership-shaped status: the participant
+  /// session is gone or was never ours to keep (403), the room is gone (404),
+  /// or the call instance ended (410). Anything else is transient.
+  static bool _isExpulsion(WriteException error) => switch (error.statusCode) {
+    HttpStatus.forbidden ||
+    HttpStatus.unauthorized ||
+    HttpStatus.notFound ||
+    HttpStatus.gone => true,
+    null => error.failure == WriteFailure.forbidden,
+    _ => false,
+  };
 
   void setForeground(bool foreground) {
     if (_disposed) return;
@@ -3335,6 +3598,7 @@ final class VoiceController extends ChangeNotifier {
       _closeChatConversation(state);
     }
     _chats.clear();
+    unawaited(_notices.close());
     final subscriptionCancellation = _cancelSubscriptions();
 
     final systemActionsCancellation = _runHandled(

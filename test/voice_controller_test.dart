@@ -3755,4 +3755,492 @@ void main() {
       },
     );
   });
+
+  group('rooms reached by link', () {
+    Map<String, dynamic> callRoom({int id = 9, String slug = 'call-1a2b'}) => {
+      'id': id,
+      'name': '📞 sam + kim',
+      'slug': slug,
+      'public': false,
+      'ephemeral': true,
+      'room_type': 'open',
+      'message_bus_last_id': 12,
+      'can_manage': true,
+      'active_participants': [
+        {'id': 3, 'username': 'kim', 'role': 'moderator'},
+      ],
+      'ringing': const <Object?>[],
+    };
+
+    test(
+      'subscribes a linked call room from its cursor and applies its events',
+      () async {
+        transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
+        await controller.ensureLoaded(firstSite);
+
+        final resolved = await controller.resolveRoom(firstSite, 'call-1a2b');
+
+        expect(resolved?.ephemeral, isTrue);
+        expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
+        expect(firstTracker.lastIds['/voice/rooms/9'], 12);
+
+        firstTracker.deliver('/voice/rooms/9', {
+          'type': 'participants',
+          'participants': [
+            {'id': 3, 'username': 'kim', 'role': 'moderator'},
+            {'id': 1, 'username': 'sam', 'role': 'moderator'},
+          ],
+        });
+        expect(controller.room(firstSite, 9)?.participants.map((p) => p.id), [
+          3,
+          1,
+        ]);
+
+        firstTracker.deliver('/voice/rooms/9', {
+          'type': 'ringing',
+          'room_id': 9,
+          'user': {'id': 4, 'username': 'ann'},
+          'notified_at': 1786204800,
+        });
+        expect(
+          controller.room(firstSite, 9)?.ringing.single.user.username,
+          'ann',
+        );
+
+        firstTracker.deliver('/voice/rooms/9', {
+          'type': 'recording',
+          'room_id': 9,
+          'recording': {
+            'started_at': 1786204800,
+            'started_by': {'id': 3, 'username': 'kim'},
+          },
+        });
+        expect(controller.room(firstSite, 9)?.recording?.startedById, 3);
+
+        firstTracker.deliver('/voice/rooms/9', {
+          'type': 'hand_raise',
+          'room_id': 9,
+          'user_id': 1,
+          'raised': true,
+          'raised_at': 1786204801.5,
+          'reason': 'raised',
+        });
+        expect(
+          controller
+              .room(firstSite, 9)
+              ?.participants
+              .singleWhere((p) => p.id == 1)
+              .handRaisedAt,
+          DateTime.utc(2026, 8, 8, 16, 0, 1, 500),
+        );
+      },
+    );
+
+    test('delivers signals for a call joined through a link', () async {
+      transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
+      transport.responses['POST /voice/rooms/9/join.json'] = {
+        ...fixture('join_mesh'),
+        'room': callRoom(),
+      };
+      transport.responses['DELETE /voice/rooms/9/leave.json'] = {};
+      transport.responses['POST /voice/rooms/9/state.json'] = {};
+      await controller.ensureLoaded(firstSite);
+      final resolved = await controller.resolveRoom(firstSite, 'call-1a2b');
+
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: resolved!,
+      );
+      firstTracker.deliver('/voice/rooms/9', {
+        'type': 'signal',
+        'room_id': 9,
+        'sender_id': 3,
+        'sender': {'id': 3, 'username': 'kim'},
+        'events': [
+          {'type': 'offer', 'sdp': 'offer'},
+        ],
+      });
+      await pumpEventQueue();
+
+      final media = mediaFactory.sessions.single;
+      expect(media.signals.map((signal) => signal.$1), [3]);
+      expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
+
+      await controller.leave();
+      expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
+    });
+
+    test(
+      'bounds linked rooms per site, never evicting the active call',
+      () async {
+        transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
+        transport.responses['POST /voice/rooms/9/join.json'] = {
+          ...fixture('join_mesh'),
+          'room': callRoom(),
+        };
+        transport.responses['DELETE /voice/rooms/9/leave.json'] = {};
+        transport.responses['POST /voice/rooms/9/state.json'] = {};
+        await controller.ensureLoaded(firstSite);
+        final resolved = await controller.resolveRoom(firstSite, 'call-1a2b');
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: resolved!,
+        );
+
+        for (var id = 20; id < 30; id++) {
+          transport.responses['GET /voice/rooms/link-$id.json'] = callRoom(
+            id: id,
+            slug: 'link-$id',
+          );
+          await controller.resolveRoom(firstSite, 'link-$id');
+        }
+
+        expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
+        expect(
+          [for (var id = 20; id < 30; id++) controller.room(firstSite, id)?.id],
+          [null, null, null, 23, 24, 25, 26, 27, 28, 29],
+        );
+        expect(firstTracker.subscriberCount('/voice/rooms/22'), 0);
+        expect(firstTracker.subscriberCount('/voice/rooms/29'), 1);
+      },
+    );
+
+    test('drops a linked room the directory reports destroyed', () async {
+      transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
+      await controller.ensureLoaded(firstSite);
+      await controller.resolveRoom(firstSite, 'call-1a2b');
+
+      firstTracker.deliver('/voice/rooms/index', {
+        'type': 'destroyed',
+        'room': callRoom(),
+      });
+
+      expect(controller.room(firstSite, 9), isNull);
+      expect(firstTracker.subscriberCount('/voice/rooms/9'), 0);
+    });
+  });
+
+  group('room updates during a call', () {
+    Map<String, dynamic> openJoin({bool video = false}) {
+      final payload = fixture('join_mesh');
+      final room = payload['room'] as Map<String, dynamic>;
+      room['video_enabled'] = video;
+      room['video_allowed'] = video;
+      return payload;
+    }
+
+    test(
+      'renames and retypes the active call room and re-applies the stage rule',
+      () async {
+        transport.responses['POST /voice/rooms/7/join.json'] = openJoin();
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        expect(controller.call?.muted, isFalse);
+        final notices = <VoiceNotice>[];
+        controller.notices.listen(notices.add);
+
+        firstTracker.deliver('/voice/rooms/index', renamedRoomEvent());
+        await pumpEventQueue();
+
+        expect(controller.call?.room.name, 'Renamed Room');
+        expect(controller.call?.room.type, VoiceRoomType.stage);
+        expect(
+          controller.call?.room.participants.map(
+            (participant) => participant.id,
+          ),
+          [1],
+        );
+        expect(controller.call?.muted, isTrue);
+        expect(media.audioPublishingAllowed, isFalse);
+        expect(media.muted, isTrue);
+        expect(notices, isEmpty);
+      },
+    );
+
+    test('stops a camera the room no longer allows and says so', () async {
+      transport.responses['POST /voice/rooms/7/join.json'] = openJoin(
+        video: true,
+      );
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final media = mediaFactory.sessions.single;
+      await controller.setCameraEnabled(true);
+      expect(controller.call?.cameraEnabled, isTrue);
+      final notices = <VoiceNotice>[];
+      controller.notices.listen(notices.add);
+
+      firstTracker.deliver('/voice/rooms/index', {
+        'type': 'updated',
+        'room': {
+          ...openJoin()['room'] as Map<String, dynamic>,
+          'video_enabled': false,
+          'video_allowed': false,
+        },
+      });
+      await pumpEventQueue();
+
+      expect(controller.call?.cameraEnabled, isFalse);
+      expect(media.camera, isFalse);
+      expect(controller.call?.muted, isFalse);
+      expect(notices.map((notice) => notice.message), [
+        'Video was turned off in this room.',
+      ]);
+      final stateWrites = transport.writes
+          .where((write) => write.path.endsWith('/state.json'))
+          .toList();
+      expect(stateWrites.last.body['video'], isFalse);
+    });
+  });
+
+  group('heartbeat expulsion', () {
+    Future<void> joinRoom() async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+    }
+
+    test('leaves the call when a heartbeat is refused as expelled', () async {
+      await joinRoom();
+      transport
+          .failures['POST /voice/rooms/7/heartbeat.json'] = const WriteException(
+        WriteFailure.forbidden,
+        statusCode: 403,
+        errors: [
+          'Your call session has expired. Rejoin the room to start a new one.',
+        ],
+      );
+
+      controller.setForeground(true);
+      await pumpEventQueue();
+
+      expect(controller.call, isNull);
+      expect(
+        controller.errorFor(firstSite),
+        'Your call session has expired. Rejoin the room to start a new one.',
+      );
+      expect(
+        transport.writes.where((write) => write.path.endsWith('/leave.json')),
+        hasLength(1),
+      );
+      expect(
+        controller.room(firstSite, 7)!.participants.map((p) => p.id),
+        isNot(contains(1)),
+      );
+      expect(mediaFactory.sessions.single.disposeCount, 1);
+    });
+
+    test('unwinds locally when the room behind a heartbeat is gone', () async {
+      await joinRoom();
+      transport.failures['POST /voice/rooms/7/heartbeat.json'] =
+          const WriteException(WriteFailure.validation, statusCode: 404);
+
+      controller.setForeground(true);
+      await pumpEventQueue();
+
+      expect(controller.call, isNull);
+      expect(
+        controller.errorFor(firstSite),
+        'Your call session has expired. Rejoin the room to start a new one.',
+      );
+      expect(
+        transport.writes.where((write) => write.path.endsWith('/leave.json')),
+        isEmpty,
+      );
+    });
+
+    test('keeps the call through a transient heartbeat failure', () async {
+      await joinRoom();
+      transport.failures['POST /voice/rooms/7/heartbeat.json'] =
+          const WriteException(WriteFailure.unreachable, statusCode: 502);
+
+      controller.setForeground(true);
+      await pumpEventQueue();
+
+      expect(controller.call?.status, VoiceCallStatus.connected);
+      expect(controller.errorFor(firstSite), isNull);
+    });
+  });
+
+  group('room notices', () {
+    late List<VoiceNotice> notices;
+
+    Future<void> joinAsManager({
+      List<Map<String, Object?>> roster = const [
+        {'id': 1, 'username': 'sam', 'role': 'participant'},
+        {'id': 2, 'username': 'lee', 'role': 'participant'},
+      ],
+    }) async {
+      final payload = fixture('join_mesh');
+      final room = payload['room'] as Map<String, dynamic>;
+      room['room_type'] = 'stage';
+      room['can_manage'] = true;
+      room['active_participants'] = roster;
+      transport.responses['POST /voice/rooms/7/join.json'] = payload;
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      notices = [];
+      controller.notices.listen(notices.add);
+    }
+
+    test(
+      'applies a hand raise before the roster confirms it and tells managers',
+      () async {
+        await joinAsManager();
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 1, 'username': 'sam', 'role': 'participant'},
+            {'id': 2, 'username': 'lee', 'role': 'participant'},
+          ],
+        });
+
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'hand_raise',
+          'room_id': 7,
+          'user_id': 2,
+          'raised': true,
+          'raised_at': 1786204801.5,
+          'reason': 'raised',
+        });
+        await pumpEventQueue();
+
+        expect(
+          controller.call?.room.participants
+              .singleWhere((participant) => participant.id == 2)
+              .handRaisedAt,
+          DateTime.utc(2026, 8, 8, 16, 0, 1, 500),
+        );
+        expect(
+          controller
+              .room(firstSite, 7)
+              ?.participants
+              .singleWhere((participant) => participant.id == 2)
+              .handRaisedAt,
+          DateTime.utc(2026, 8, 8, 16, 0, 1, 500),
+        );
+        expect(notices.map((notice) => notice.message), [
+          'lee raised their hand to speak.',
+        ]);
+
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'hand_raise',
+          'room_id': 7,
+          'user_id': 2,
+          'raised': false,
+          'reason': 'dismissed',
+        });
+        await pumpEventQueue();
+        expect(
+          controller.call?.room.participants
+              .singleWhere((participant) => participant.id == 2)
+              .handRaisedAt,
+          isNull,
+        );
+        expect(notices, hasLength(1));
+
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'hand_raise',
+          'room_id': 7,
+          'user_id': 1,
+          'raised': false,
+          'reason': 'dismissed',
+        });
+        await pumpEventQueue();
+        expect(notices.last.message, 'Your request to speak was dismissed.');
+      },
+    );
+
+    test('announces own role changes only', () async {
+      await joinAsManager();
+
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'role_change',
+        'room_id': 7,
+        'user_id': 2,
+        'role': 'speaker',
+      });
+      await pumpEventQueue();
+      expect(notices, isEmpty);
+
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'role_change',
+        'room_id': 7,
+        'user_id': 1,
+        'role': 'speaker',
+      });
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'role_change',
+        'room_id': 7,
+        'user_id': 1,
+        'role': 'participant',
+      });
+      await pumpEventQueue();
+      expect(notices.map((notice) => notice.message), [
+        "You've been made a speaker.",
+        "You've been moved to listeners.",
+      ]);
+    });
+
+    test('tells participants when someone else records the call', () async {
+      await joinAsManager();
+
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'recording',
+        'room_id': 7,
+        'recording': {
+          'started_at': 1786204800,
+          'started_by': {'id': 2, 'username': 'lee'},
+        },
+      });
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'recording',
+        'room_id': 7,
+        'recording': null,
+      });
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'recording',
+        'room_id': 7,
+        'recording': {
+          'started_at': 1786204900,
+          'started_by': {'id': 1, 'username': 'sam'},
+        },
+      });
+      await pumpEventQueue();
+
+      expect(notices.map((notice) => notice.message), [
+        'This call is now being recorded.',
+        'The recording has stopped.',
+      ]);
+      expect(controller.call?.room.recording?.startedById, 1);
+    });
+
+    test('notices stop with the controller', () async {
+      await joinAsManager();
+      var done = false;
+      controller.notices.listen(null, onDone: () => done = true);
+
+      await controller.close();
+      await pumpEventQueue();
+
+      expect(done, isTrue);
+    });
+  });
 }
