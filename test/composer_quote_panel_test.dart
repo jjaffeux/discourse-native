@@ -63,6 +63,16 @@ void main() {
         await tester.pump();
         expect(composer.text.text, '> xxxx\n');
         expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+        final render = tester
+            .state<EditableTextState>(find.byType(EditableText))
+            .renderEditable;
+        final caret = render.getLocalRectForCaret(
+          TextPosition(offset: composer.text.selection.extentOffset),
+        );
+        expect(
+          render.localToGlobal(caret.topLeft).dx,
+          closeTo(tester.getTopLeft(find.byType(ComposerEditor)).dx, 1),
+        );
 
         await tester.enterText(field, '> xxxx\nNormal text');
         await tester.pump();

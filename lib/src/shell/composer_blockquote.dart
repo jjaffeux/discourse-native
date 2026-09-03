@@ -56,7 +56,7 @@ class ComposerBlockquoteDecoration extends SingleChildRenderObjectWidget {
     required super.child,
   });
 
-  static const horizontalPadding = 12.0;
+  static const gutter = 12.0;
 
   final Listenable repaint;
 
@@ -90,14 +90,24 @@ class _RenderComposerBlockquoteDecoration extends RenderPadding {
     this._background,
     this._bar,
   ) : super(
-        padding: const EdgeInsets.symmetric(
-          horizontal: ComposerBlockquoteDecoration.horizontalPadding,
+        padding: const EdgeInsets.only(
+          right: ComposerBlockquoteDecoration.gutter,
         ),
       );
 
   Listenable _repaint;
   Color _background;
   Color _bar;
+
+  // Quotes use the composer's existing outer margin. Keeping the gutter out of
+  // the editable's layout lets ordinary lines start at the field's left edge.
+  @override
+  Rect get paintBounds => Rect.fromLTRB(
+    -ComposerBlockquoteDecoration.gutter,
+    0,
+    size.width,
+    size.height,
+  );
 
   void update(Listenable repaint, Color background, Color bar) {
     if (!identical(repaint, _repaint)) {
@@ -155,7 +165,12 @@ class _RenderComposerBlockquoteDecoration extends RenderPadding {
           bounds = bounds?.expandToInclude(rect) ?? rect;
         }
         if (bounds == null) continue;
-        var panel = Rect.fromLTRB(0, bounds.top, size.width, bounds.bottom);
+        var panel = Rect.fromLTRB(
+          -ComposerBlockquoteDecoration.gutter,
+          bounds.top,
+          size.width,
+          bounds.bottom,
+        );
         if (panels.isNotEmpty &&
             panels.last.end + 1 == marker.range.start &&
             panels.last.depth == marker.depth) {
@@ -166,7 +181,7 @@ class _RenderComposerBlockquoteDecoration extends RenderPadding {
 
       final canvas = context.canvas;
       canvas.save();
-      canvas.clipRect(offset & size);
+      canvas.clipRect(paintBounds.shift(offset));
       for (final panel in panels) {
         QuotePanel.paintBackground(
           canvas,
@@ -177,12 +192,12 @@ class _RenderComposerBlockquoteDecoration extends RenderPadding {
         // Additional quote levels share the gutter, leaving wrapped text clear.
         final step = math.min(
           6.0,
-          ComposerBlockquoteDecoration.horizontalPadding / panel.depth,
+          ComposerBlockquoteDecoration.gutter / panel.depth,
         );
         for (var level = 1; level < panel.depth; level++) {
           canvas.drawRect(
             Rect.fromLTWH(
-              offset.dx + level * step,
+              offset.dx + panel.rect.left + level * step,
               offset.dy + panel.rect.top,
               math.min(3, step / 2),
               panel.rect.height,
