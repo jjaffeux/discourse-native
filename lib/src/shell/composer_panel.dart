@@ -190,14 +190,19 @@ class ComposerPanel extends StatelessWidget {
                     if (!minimized &&
                         (target.createsTopic || target.editsTopicMetadata))
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
                         child: TextField(
                           controller: composer.title,
                           readOnly: composer.discarding,
                           textInputAction: TextInputAction.next,
                           decoration: const InputDecoration(
                             isDense: true,
-                            labelText: 'Title',
+                            hintText: 'Title',
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            border: OutlineInputBorder(),
                           ),
                         ),
                       ),
@@ -879,6 +884,7 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
                     child: TopicPropertyRow(
                       key: const ValueKey('composer-category-property'),
                       label: 'Category',
+                      padding: const EdgeInsets.symmetric(vertical: 4),
                       child: TopicCategoryValue(
                         valueKey: const ValueKey('composer-category'),
                         label: category == null
@@ -903,6 +909,7 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
                     child: TopicPropertyRow(
                       key: const ValueKey('composer-tags-property'),
                       label: 'Tags',
+                      padding: const EdgeInsets.symmetric(vertical: 4),
                       child: TopicTagsValue(
                         key: const ValueKey('composer-tags'),
                         tags: composer.tags,
