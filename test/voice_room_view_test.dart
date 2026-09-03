@@ -29,6 +29,8 @@ import 'support/voice_fake_chat_conversations.dart';
 const _siteUrl = 'https://voice.example.com';
 
 void main() {
+  _meshPrivacyTests();
+
   group('room availability and layout', () {
     testWidgets('renders unavailable and empty states without a shell', (
       tester,
@@ -1259,6 +1261,143 @@ void main() {
   });
 }
 
+void _meshPrivacyTests() {
+  group('mesh privacy warning', () {
+    VoiceRoom meshRoom() =>
+        _room(expectedTransport: VoiceTransport.mesh, participants: const []);
+
+    testWidgets('a cancelled warning joins nothing', (tester) async {
+      final room = meshRoom();
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, meshPrivacyWarningEnabled: true),
+      );
+
+      await tester.tap(find.text('Join room'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Before you join this room'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(harness.controller.call, isNull);
+      expect(
+        harness.transport.writes.where((w) => w.path.endsWith('/join.json')),
+        isEmpty,
+      );
+      expect(harness.preferences.meshPrivacyWrites, isEmpty);
+    });
+
+    testWidgets('accepting joins, and "don\'t show again" is remembered', (
+      tester,
+    ) async {
+      final room = meshRoom();
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, meshPrivacyWarningEnabled: true),
+      );
+
+      await tester.tap(find.text('Join room'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("Don't show this again"));
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.widgetWithText(FilledButton, 'Join room'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(harness.controller.call, isNotNull);
+      expect(harness.preferences.meshPrivacyWrites, [true]);
+
+      await harness.controller.leave();
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, meshPrivacyWarningEnabled: true),
+      );
+      await tester.tap(find.text('Join room'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Before you join this room'), findsNothing);
+      expect(harness.controller.call, isNotNull);
+      // Disposed here, not only in a teardown: the joined call's timers
+      // must be gone before the binding checks for pending timers.
+      harness.dispose();
+    });
+
+    testWidgets(
+      'no warning when the site turned it off or the call is not mesh',
+      (tester) async {
+        final livekitRoom = _room(
+          expectedTransport: VoiceTransport.livekit,
+          participants: const [],
+        );
+        final harness = _Harness(joinRoom: livekitRoom);
+        addTearDown(harness.dispose);
+        await tester.pumpWidget(
+          _app(
+            harness.controller,
+            room: livekitRoom,
+            meshPrivacyWarningEnabled: true,
+          ),
+        );
+        await tester.tap(find.text('Join room'));
+        await tester.pumpAndSettle();
+        expect(find.text('Before you join this room'), findsNothing);
+        expect(harness.controller.call, isNotNull);
+        await harness.controller.leave();
+
+        final room = meshRoom();
+        final quiet = _Harness(joinRoom: room);
+        addTearDown(quiet.dispose);
+        await tester.pumpWidget(_app(quiet.controller, room: room));
+        await tester.tap(find.text('Join room'));
+        await tester.pumpAndSettle();
+        expect(find.text('Before you join this room'), findsNothing);
+        expect(quiet.controller.call, isNotNull);
+        harness.dispose();
+        quiet.dispose();
+      },
+    );
+  });
+
+  group('status choice', () {
+    testWidgets(
+      'media settings offer the status toggle when the site allows it',
+      (tester) async {
+        final room = _room(
+          participants: const [
+            VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+          ],
+        );
+        final harness = _Harness(joinRoom: room);
+        addTearDown(harness.dispose);
+        await _join(harness, room);
+        await tester.pumpWidget(
+          _app(
+            harness.controller,
+            room: room,
+            call: harness.controller.call,
+            autoStatusAvailable: true,
+          ),
+        );
+
+        await tester.tap(find.byTooltip('Media settings'));
+        await tester.pumpAndSettle();
+        expect(find.text('Show my status while in a call'), findsOneWidget);
+        await tester.tap(find.text('Show my status while in a call'));
+        await tester.pumpAndSettle();
+
+        expect(harness.controller.autoStatusEnabled, isFalse);
+        expect(harness.preferences.autoStatusWrites, [false]);
+        harness.dispose();
+      },
+    );
+  });
+}
+
 Future<_Harness> _pumpJoinedManagedRoom(WidgetTester tester) async {
   final activeRoom = _room(
     canManage: true,
@@ -1342,6 +1481,8 @@ Widget _app(
   required VoiceRoom? room,
   VoiceCallSnapshot? call,
   bool followCall = false,
+  bool meshPrivacyWarningEnabled = false,
+  bool autoStatusAvailable = false,
   VoiceController Function()? controllerResolver,
 }) => MaterialApp(
   home: Scaffold(
@@ -1357,6 +1498,8 @@ Widget _app(
           siteName: 'Voice',
           currentUserId: 1,
           recordingEnabled: true,
+          meshPrivacyWarningEnabled: meshPrivacyWarningEnabled,
+          autoStatusAvailable: autoStatusAvailable,
           controllerResolver: controllerResolver,
         );
       },
@@ -1372,6 +1515,7 @@ VoiceRoom _room({
   bool videoAllowed = false,
   bool chatAvailable = false,
   VoiceRoomType type = VoiceRoomType.open,
+  VoiceTransport? expectedTransport,
 }) => VoiceRoom(
   id: 7,
   name: 'Lounge',
@@ -1386,6 +1530,7 @@ VoiceRoom _room({
   videoEnabled: videoAllowed,
   videoAllowed: videoAllowed,
   chatAvailable: chatAvailable,
+  expectedTransport: expectedTransport,
 );
 
 Map<String, dynamic> _joinPayload(
@@ -1756,6 +1901,29 @@ final class _Preferences implements VoicePreferences {
   @override
   Future<void> writePushToTalk(bool enabled) async {
     pushToTalkWrites.add(enabled);
+  }
+
+  bool meshPrivacyAcknowledged = false;
+  final List<bool> meshPrivacyWrites = [];
+  bool? autoStatusEnabled;
+  final List<bool> autoStatusWrites = [];
+
+  @override
+  Future<bool> readMeshPrivacyAcknowledged() async => meshPrivacyAcknowledged;
+
+  @override
+  Future<void> writeMeshPrivacyAcknowledged(bool acknowledged) async {
+    meshPrivacyWrites.add(acknowledged);
+    meshPrivacyAcknowledged = acknowledged;
+  }
+
+  @override
+  Future<bool?> readAutoStatusEnabled() async => autoStatusEnabled;
+
+  @override
+  Future<void> writeAutoStatusEnabled(bool enabled) async {
+    autoStatusWrites.add(enabled);
+    autoStatusEnabled = enabled;
   }
 }
 

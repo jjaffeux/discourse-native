@@ -251,6 +251,7 @@ final class VoiceController extends ChangeNotifier {
     );
     _systemActions = this.systemCall.actions.listen(_onSystemAction);
     unawaited(_restoreDevicePreferences());
+    unawaited(_restoreAutoStatusPreference());
   }
 
   static VoiceIdleThresholds _defaultIdleThresholds(String _) =>
@@ -322,6 +323,7 @@ final class VoiceController extends ChangeNotifier {
   String? _audioOutputDeviceId;
   String? _cameraDeviceId;
   bool _pushToTalkEnabled = false;
+  bool _autoStatusEnabled = true;
 
   VoiceCallSnapshot? get call => _call;
   String? get activeSiteUrl => _call?.siteUrl;
@@ -332,6 +334,40 @@ final class VoiceController extends ChangeNotifier {
   String? get audioOutputDeviceId => _audioOutputDeviceId;
   String? get cameraDeviceId => _cameraDeviceId;
   bool get pushToTalkEnabled => _pushToTalkEnabled;
+
+  /// Whether joining a room sets the user's status to it (when the site
+  /// allows it). A per-device choice, like the web client's.
+  bool get autoStatusEnabled => _autoStatusEnabled;
+
+  Future<void> setAutoStatusEnabled(bool enabled) async {
+    if (_disposed) return;
+    _autoStatusEnabled = enabled;
+    notifyListeners();
+    try {
+      await _preferences.writeAutoStatusEnabled(enabled);
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'voice.preferences.autoStatus');
+    }
+  }
+
+  /// Whether this device has accepted the peer-to-peer IP exposure warning.
+  /// A failed read answers false: the warning is the safe side.
+  Future<bool> meshPrivacyAcknowledged() async {
+    try {
+      return await _preferences.readMeshPrivacyAcknowledged();
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'voice.preferences.meshPrivacy');
+      return false;
+    }
+  }
+
+  Future<void> acknowledgeMeshPrivacy() async {
+    try {
+      await _preferences.writeMeshPrivacyAcknowledged(true);
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'voice.preferences.meshPrivacy');
+    }
+  }
 
   int? currentUserIdFor(String siteUrl) => _userIdFor(siteUrl);
 
@@ -1413,6 +1449,7 @@ final class VoiceController extends ChangeNotifier {
           siteUrl: siteUrl,
           roomId: room.id,
           apiKey: apiKey,
+          skipStatus: !_autoStatusEnabled,
           invitedBy: invitedBy,
           clientId: clientId,
         );
@@ -1440,6 +1477,7 @@ final class VoiceController extends ChangeNotifier {
           siteUrl: siteUrl,
           roomId: room.id,
           apiKey: apiKey,
+          skipStatus: !_autoStatusEnabled,
           invitedBy: invitedBy,
           clientId: clientId,
         );
@@ -2340,6 +2378,19 @@ final class VoiceController extends ChangeNotifier {
         message: error.toString(),
         data: {'stackTrace': stackTrace.toString()},
       );
+      _report(error, stackTrace, 'voice.preferences.restore');
+    }
+  }
+
+  Future<void> _restoreAutoStatusPreference() async {
+    try {
+      final stored = await _preferences.readAutoStatusEnabled();
+      if (_disposed || stored == null) return;
+      _autoStatusEnabled = stored;
+      notifyListeners();
+    } catch (error, stackTrace) {
+      // Same contract as the device restore: the default stays usable and
+      // the next explicit choice persists.
       _report(error, stackTrace, 'voice.preferences.restore');
     }
   }

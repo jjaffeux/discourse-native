@@ -10,6 +10,9 @@ const voiceShellService = PluginServiceKey<VoiceShellService>(
 );
 
 typedef VoiceRecordingEnabledReader = bool Function(String siteUrl);
+typedef VoiceSiteFlagReader = bool Function(String siteUrl);
+
+bool _siteDefaultOn(String _) => true;
 
 final class VoiceShellService
     implements PluginLinkHandler, PluginSiteActivator, PluginTrackerAttachment {
@@ -17,12 +20,18 @@ final class VoiceShellService
     required this.controller,
     required PluginRouteNavigationHost host,
     required VoiceRecordingEnabledReader recordingEnabled,
+    VoiceSiteFlagReader meshPrivacyWarningEnabled = _siteDefaultOn,
+    VoiceSiteFlagReader autoStatusEnabled = _siteDefaultOn,
   }) : _host = host,
-       _recordingEnabled = recordingEnabled;
+       _recordingEnabled = recordingEnabled,
+       _meshPrivacyWarningEnabled = meshPrivacyWarningEnabled,
+       _autoStatusEnabled = autoStatusEnabled;
 
   final VoiceController controller;
   final PluginRouteNavigationHost _host;
   final VoiceRecordingEnabledReader _recordingEnabled;
+  final VoiceSiteFlagReader _meshPrivacyWarningEnabled;
+  final VoiceSiteFlagReader _autoStatusEnabled;
 
   PluginRouteSite? get currentInstance => _host.currentSite;
   ContentRoute? get currentContent => _host.currentContent;
@@ -30,6 +39,11 @@ final class VoiceShellService
   int? currentUserIdFor(String siteUrl) => controller.currentUserIdFor(siteUrl);
 
   bool recordingEnabledFor(String siteUrl) => _recordingEnabled(siteUrl);
+
+  bool meshPrivacyWarningEnabledFor(String siteUrl) =>
+      _meshPrivacyWarningEnabled(siteUrl);
+
+  bool autoStatusEnabledFor(String siteUrl) => _autoStatusEnabled(siteUrl);
 
   void openRoom({
     required String siteUrl,

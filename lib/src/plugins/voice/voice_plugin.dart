@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'voice_call_widget.dart';
 import 'voice_hashtag.dart';
+import 'voice_join.dart';
 import 'voice_models.dart';
 import 'voice_notifications.dart';
 import 'voice_room_view.dart';
@@ -87,10 +88,15 @@ final class VoicePlugin
               onTap: () async {
                 final replaceRoomPage =
                     roomIdIn(shell.currentContent?.id ?? '') != null;
-                await controller.join(
+                await joinVoiceRoom(
+                  context,
+                  controller: controller,
                   siteUrl: instance.url,
                   siteName: instance.title,
                   room: room,
+                  meshPrivacyWarningEnabled: shell.meshPrivacyWarningEnabledFor(
+                    instance.url,
+                  ),
                 );
                 final call = controller.call;
                 if (replaceRoomPage &&

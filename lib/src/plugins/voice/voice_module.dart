@@ -75,6 +75,12 @@ final class VoiceModule implements PluginModule {
           host: bindings.require(corePluginRouteNavigationPort),
           recordingEnabled: (siteUrl) =>
               siteState.siteConfigFor(siteUrl).voiceSettings.recordingEnabled,
+          meshPrivacyWarningEnabled: (siteUrl) => siteState
+              .siteConfigFor(siteUrl)
+              .voiceSettings
+              .meshPrivacyWarningEnabled,
+          autoStatusEnabled: (siteUrl) =>
+              siteState.siteConfigFor(siteUrl).voiceSettings.autoStatusEnabled,
         );
         final callPort = VoiceCallControllerPort(
           controller: controller,

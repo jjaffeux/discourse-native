@@ -26,6 +26,7 @@ final class VoiceClientConfig {
     this.afkDisconnectThresholdMinutes = 30,
     this.autoStatusEnabled = true,
     this.chatEnabled = true,
+    this.meshPrivacyWarningEnabled = true,
   });
 
   factory VoiceClientConfig.fromSettings(Map<String, dynamic> json) =>
@@ -62,6 +63,8 @@ final class VoiceClientConfig {
         ),
         autoStatusEnabled: json['voice_auto_status_enabled'] != false,
         chatEnabled: json['voice_chat_enabled'] != false,
+        meshPrivacyWarningEnabled:
+            json['voice_mesh_privacy_warning_enabled'] != false,
       );
 
   factory VoiceClientConfig.fromJson(Map<String, dynamic> json) =>
@@ -98,6 +101,7 @@ final class VoiceClientConfig {
         ),
         autoStatusEnabled: json['autoStatusEnabled'] != false,
         chatEnabled: json['chatEnabled'] != false,
+        meshPrivacyWarningEnabled: json['meshPrivacyWarningEnabled'] != false,
       );
 
   final bool enabled;
@@ -113,6 +117,10 @@ final class VoiceClientConfig {
   final bool autoStatusEnabled;
   final bool chatEnabled;
 
+  /// Whether to warn before joining a peer-to-peer room that other
+  /// participants may learn the user's IP address.
+  final bool meshPrivacyWarningEnabled;
+
   Map<String, Object?> toJson() => {
     'enabled': enabled,
     'videoEnabled': videoEnabled,
@@ -126,6 +134,7 @@ final class VoiceClientConfig {
     'afkDisconnectThresholdMinutes': afkDisconnectThresholdMinutes,
     'autoStatusEnabled': autoStatusEnabled,
     'chatEnabled': chatEnabled,
+    'meshPrivacyWarningEnabled': meshPrivacyWarningEnabled,
   };
 
   @override
@@ -142,7 +151,8 @@ final class VoiceClientConfig {
       other.afkAutoMuteThresholdMinutes == afkAutoMuteThresholdMinutes &&
       other.afkDisconnectThresholdMinutes == afkDisconnectThresholdMinutes &&
       other.autoStatusEnabled == autoStatusEnabled &&
-      other.chatEnabled == chatEnabled;
+      other.chatEnabled == chatEnabled &&
+      other.meshPrivacyWarningEnabled == meshPrivacyWarningEnabled;
 
   @override
   int get hashCode => Object.hash(
@@ -158,6 +168,7 @@ final class VoiceClientConfig {
     afkDisconnectThresholdMinutes,
     autoStatusEnabled,
     chatEnabled,
+    meshPrivacyWarningEnabled,
   );
 
   static String _quality(Object? value) => switch (jsonText(value)) {

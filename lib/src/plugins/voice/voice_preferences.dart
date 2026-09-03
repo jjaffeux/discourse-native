@@ -27,6 +27,18 @@ abstract interface class VoicePreferences {
 
   Future<void> writePushToTalk(bool enabled);
 
+  /// Whether this device has accepted the peer-to-peer IP exposure warning
+  /// ("don't show this again"). Per device, like the web client's.
+  Future<bool> readMeshPrivacyAcknowledged();
+
+  Future<void> writeMeshPrivacyAcknowledged(bool acknowledged);
+
+  /// Whether joining a room may set the user's status to it. Null when
+  /// never chosen: the site's default (on) applies.
+  Future<bool?> readAutoStatusEnabled();
+
+  Future<void> writeAutoStatusEnabled(bool enabled);
+
   Future<double?> readParticipantVolume(String siteUrl, int roomId, int userId);
 
   Future<void> writeParticipantVolume(
@@ -93,6 +105,8 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
   static const _audioOutputKey = 'voice.device.audio-output';
   static const _cameraKey = 'voice.device.camera';
   static const _pushToTalkKey = 'voice.device.push-to-talk';
+  static const _meshPrivacyAcknowledgedKey = 'voice.mesh-privacy-acknowledged';
+  static const _autoStatusKey = 'voice.auto-status-enabled';
 
   @override
   Future<VoiceDevicePreferences> readDevices() async {
@@ -134,6 +148,27 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
     _pushToTalkKey,
     () => _persistence.writeBool(_pushToTalkKey, enabled),
     'push-to-talk preference',
+  );
+
+  @override
+  Future<bool> readMeshPrivacyAcknowledged() async =>
+      await _readBool(_meshPrivacyAcknowledgedKey) ?? false;
+
+  @override
+  Future<void> writeMeshPrivacyAcknowledged(bool acknowledged) => _write(
+    _meshPrivacyAcknowledgedKey,
+    () => _persistence.writeBool(_meshPrivacyAcknowledgedKey, acknowledged),
+    'privacy acknowledgement',
+  );
+
+  @override
+  Future<bool?> readAutoStatusEnabled() => _readBool(_autoStatusKey);
+
+  @override
+  Future<void> writeAutoStatusEnabled(bool enabled) => _write(
+    _autoStatusKey,
+    () => _persistence.writeBool(_autoStatusKey, enabled),
+    'status preference',
   );
 
   Future<String?> _readString(String key) => _operations.run<String?>(

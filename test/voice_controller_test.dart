@@ -366,6 +366,29 @@ final class FakeVoicePreferences implements VoicePreferences {
     writes.add('pushToTalk:$enabled');
     if (rejectWrites) throw StateError('push-to-talk write rejected');
   }
+
+  bool meshPrivacyAcknowledged = false;
+  bool? autoStatusEnabled;
+
+  @override
+  Future<bool> readMeshPrivacyAcknowledged() async => meshPrivacyAcknowledged;
+
+  @override
+  Future<void> writeMeshPrivacyAcknowledged(bool acknowledged) async {
+    writes.add('meshPrivacy:$acknowledged');
+    if (rejectWrites) throw StateError('privacy write rejected');
+    meshPrivacyAcknowledged = acknowledged;
+  }
+
+  @override
+  Future<bool?> readAutoStatusEnabled() async => autoStatusEnabled;
+
+  @override
+  Future<void> writeAutoStatusEnabled(bool enabled) async {
+    writes.add('autoStatus:$enabled');
+    if (rejectWrites) throw StateError('status write rejected');
+    autoStatusEnabled = enabled;
+  }
 }
 
 abstract class _RequestHostBase implements PluginRequestHost {
@@ -4410,6 +4433,67 @@ void main() {
       expect(scheduler.activeTimerCount, 0);
       scheduler.advance(const Duration(hours: 1));
       expect(controller.errorFor(firstSite), isNull);
+    });
+  });
+
+  group('per-device choices', () {
+    test('a restored status choice shapes the join request', () async {
+      preferences.autoStatusEnabled = false;
+      useTransport(transport);
+      await pumpEventQueue();
+      expect(controller.autoStatusEnabled, isFalse);
+
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      final join = transport.writes.singleWhere(
+        (write) => write.path.endsWith('/join.json'),
+      );
+      expect(join.body['skip_status'], isTrue);
+    });
+
+    test('the default status choice leaves the join request alone', () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      final join = transport.writes.singleWhere(
+        (write) => write.path.endsWith('/join.json'),
+      );
+      expect(join.body['skip_status'], isNull);
+    });
+
+    test('changing the status choice persists it', () async {
+      await controller.setAutoStatusEnabled(false);
+
+      expect(controller.autoStatusEnabled, isFalse);
+      expect(preferences.writes, contains('autoStatus:false'));
+    });
+
+    test(
+      'the privacy acknowledgement is read and written per device',
+      () async {
+        expect(await controller.meshPrivacyAcknowledged(), isFalse);
+
+        await controller.acknowledgeMeshPrivacy();
+
+        expect(await controller.meshPrivacyAcknowledged(), isTrue);
+        expect(preferences.writes, contains('meshPrivacy:true'));
+      },
+    );
+
+    test('an unreadable acknowledgement keeps the warning', () async {
+      preferences.rejectVolumeReads = true;
+      preferences.meshPrivacyAcknowledged = true;
+
+      expect(await controller.meshPrivacyAcknowledged(), isTrue);
     });
   });
 }

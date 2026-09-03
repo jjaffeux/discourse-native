@@ -10,6 +10,7 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 
 import '../../theme/d_button.dart';
 import 'voice_controller.dart';
+import 'voice_join.dart';
 import 'voice_models.dart';
 import 'voice_room_editor.dart';
 import 'voice_services.dart';
@@ -76,6 +77,10 @@ class VoiceRoomView extends StatelessWidget {
             siteName: site.title,
             currentUserId: shell.currentUserIdFor(site.url),
             recordingEnabled: recordingEnabled,
+            meshPrivacyWarningEnabled: shell.meshPrivacyWarningEnabledFor(
+              site.url,
+            ),
+            autoStatusAvailable: shell.autoStatusEnabledFor(site.url),
           ),
         );
       },
@@ -93,6 +98,8 @@ class VoiceRoomContent extends StatefulWidget {
     required this.siteName,
     required this.currentUserId,
     required this.recordingEnabled,
+    this.meshPrivacyWarningEnabled = false,
+    this.autoStatusAvailable = false,
     this.controllerResolver,
   });
 
@@ -103,6 +110,8 @@ class VoiceRoomContent extends StatefulWidget {
   final String siteName;
   final int? currentUserId;
   final bool recordingEnabled;
+  final bool meshPrivacyWarningEnabled;
+  final bool autoStatusAvailable;
   final VoiceController Function()? controllerResolver;
 
   @override
@@ -232,10 +241,14 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: active == null
                 ? DButton(
-                    onPressed: () => controller.join(
+                    onPressed: () => joinVoiceRoom(
+                      context,
+                      controller: controller,
                       siteUrl: siteUrl,
                       siteName: siteName,
                       room: room,
+                      meshPrivacyWarningEnabled:
+                          widget.meshPrivacyWarningEnabled,
                     ),
                     icon: const DIcon(DIcons.microphoneLines, size: 18),
                     label: const Text('Join room'),
@@ -247,6 +260,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
                     siteUrl: siteUrl,
                     currentUserId: currentUserId,
                     recordingEnabled: recordingEnabled,
+                    autoStatusAvailable: widget.autoStatusAvailable,
                     controllerResolver: controllerResolver,
                   ),
           ),
@@ -454,6 +468,7 @@ class _CallControls extends StatelessWidget {
     required this.siteUrl,
     required this.currentUserId,
     required this.recordingEnabled,
+    this.autoStatusAvailable = false,
     this.controllerResolver,
   });
   final VoiceController controller;
@@ -461,6 +476,7 @@ class _CallControls extends StatelessWidget {
   final String siteUrl;
   final int? currentUserId;
   final bool recordingEnabled;
+  final bool autoStatusAvailable;
   final VoiceController Function()? controllerResolver;
 
   @override
@@ -549,7 +565,11 @@ class _CallControls extends StatelessWidget {
           label: 'Media settings',
           icon: DIcons.gear,
           selected: false,
-          onPressed: () => _showMediaSettings(context, controller),
+          onPressed: () => _showMediaSettings(
+            context,
+            controller,
+            autoStatusAvailable: autoStatusAvailable,
+          ),
         ),
         if (call.room.canManage)
           _Control(
@@ -773,8 +793,9 @@ Future<void> _showParticipantVolume(
 
 Future<void> _showMediaSettings(
   BuildContext context,
-  VoiceController controller,
-) async {
+  VoiceController controller, {
+  bool autoStatusAvailable = false,
+}) async {
   final devices = await controller.mediaDevices();
   if (!context.mounted) return;
   final inputs = devices
@@ -790,6 +811,7 @@ Future<void> _showMediaSettings(
   var output = _heldDevice(controller.audioOutputDeviceId, outputs);
   var camera = _heldDevice(controller.cameraDeviceId, cameras);
   var pushToTalk = controller.pushToTalkEnabled;
+  var autoStatus = controller.autoStatusEnabled;
   var testing = false;
   await showDialog<void>(
     context: context,
@@ -842,6 +864,18 @@ Future<void> _showMediaSettings(
                     onChanged: (value) async {
                       setState(() => pushToTalk = value);
                       await controller.setPushToTalkEnabled(value);
+                    },
+                  ),
+                if (autoStatusAvailable)
+                  SwitchListTile.adaptive(
+                    value: autoStatus,
+                    title: const Text('Show my status while in a call'),
+                    subtitle: const Text(
+                      'Sets your user status to the room you are in.',
+                    ),
+                    onChanged: (value) async {
+                      setState(() => autoStatus = value);
+                      await controller.setAutoStatusEnabled(value);
                     },
                   ),
                 const ListTile(
