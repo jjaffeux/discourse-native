@@ -362,13 +362,74 @@ void main() {
     );
     expect(find.text('Message feed slot'), findsOneWidget);
     expect(
-      tester
-          .widget<ChoiceChip>(
-            find.byKey(const ValueKey('group-subtab-archive')),
-          )
-          .selected,
-      isTrue,
+      find.byKey(const ValueKey('group-messages-sidebar')),
+      findsOneWidget,
     );
+    expect(find.byKey(const ValueKey('group-secondary-tabs')), findsNothing);
+  });
+
+  testWidgets('message navigation adapts and changes the active mailbox', (
+    tester,
+  ) async {
+    var route = GroupRoute.detail(
+      'support',
+      section: GroupRoute.messages,
+      subsection: GroupRoute.inbox,
+    );
+
+    Widget page() => StatefulBuilder(
+      builder: (context, setState) => GroupPage(
+        siteUrl: 'https://meta.discourse.org',
+        route: route,
+        registry: PluginRegistry.empty,
+        onOpenMember: _ignoreMember,
+        data: const GroupPageData(
+          detail: _detail,
+          canSendPrivateMessages: true,
+          loaded: true,
+        ),
+        messageFeed: Center(child: Text('${route.subsection} message feed')),
+        onSelectRoute: (selected) => setState(() => route = selected),
+      ),
+    );
+
+    await _pump(tester, page());
+
+    expect(
+      find.byKey(const ValueKey('group-messages-sidebar')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('group-messages-picker')), findsNothing);
+    expect(find.text('inbox message feed'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('group-subtab-archive')));
+    await tester.pump();
+
+    expect(route.subsection, GroupRoute.archive);
+    expect(find.text('archive message feed'), findsOneWidget);
+
+    await _pump(tester, page(), size: const Size(390, 900));
+
+    expect(find.byKey(const ValueKey('group-messages-sidebar')), findsNothing);
+    expect(find.byKey(const ValueKey('group-messages-picker')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('group-messages-current-section')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('group-messages-picker')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('group-messages-sheet-inbox')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('group-messages-sheet-inbox')));
+    await tester.pumpAndSettle();
+
+    expect(route.subsection, GroupRoute.inbox);
+    expect(find.text('inbox message feed'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('activity navigation adapts from a sidebar to a mobile sheet', (

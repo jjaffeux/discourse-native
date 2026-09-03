@@ -363,35 +363,82 @@ class _MessagesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = route.subsection ?? GroupRoute.inbox;
-    return Column(
-      children: [
-        _Subtabs(
-          selected: selected,
-          options: const [
-            _Subtab(GroupRoute.inbox, 'Inbox'),
-            _Subtab(GroupRoute.archive, 'Archive'),
-          ],
-          onSelect: (subsection) => onSelect(
-            GroupRoute.detail(
-              group.name,
-              section: GroupRoute.messages,
-              subsection: subsection,
+    const options = [
+      _Subtab(GroupRoute.inbox, 'Inbox'),
+      _Subtab(GroupRoute.archive, 'Archive'),
+    ];
+    final selected = options.any((option) => option.value == route.subsection)
+        ? route.subsection!
+        : GroupRoute.inbox;
+
+    void select(String subsection) => onSelect(
+      GroupRoute.detail(
+        group.name,
+        section: GroupRoute.messages,
+        subsection: subsection,
+      ),
+    );
+
+    final messageContent =
+        content ??
+        const _GroupState(
+          icon: DIcons.envelope,
+          title: 'Messages are not available yet.',
+        );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= _groupDesktopBreakpoint) {
+          return ContentReadingLaneBox(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 190,
+                  child: _SubsectionSidebar(
+                    key: const ValueKey('group-messages-sidebar'),
+                    title: 'Group messages',
+                    selected: selected,
+                    options: options,
+                    iconFor: _messageIcon,
+                    onSelect: select,
+                  ),
+                ),
+                VerticalDivider(
+                  width: 1,
+                  color: Theme.of(context).shell.divider,
+                ),
+                Expanded(child: messageContent),
+              ],
             ),
-          ),
-        ),
-        Expanded(
-          child:
-              content ??
-              const _GroupState(
-                icon: DIcons.envelope,
-                title: 'Messages are not available yet.',
-              ),
-        ),
-      ],
+          );
+        }
+        return Column(
+          children: [
+            _MobileSubsectionPicker(
+              key: const ValueKey('group-messages-picker'),
+              title: 'Group messages',
+              selected: selected,
+              options: options,
+              iconFor: _messageIcon,
+              sheetOptionKeyPrefix: 'group-messages-sheet',
+              currentSectionKey: 'group-messages-current-section',
+              onSelect: select,
+            ),
+            Expanded(child: messageContent),
+          ],
+        );
+      },
     );
   }
 }
+
+DIconData _messageIcon(String subsection) => switch (subsection) {
+  GroupRoute.inbox => DIcons.inbox,
+  GroupRoute.archive => DIcons.folder,
+  _ => DIcons.envelope,
+};
 
 class _PermissionsSection extends StatelessWidget {
   const _PermissionsSection({

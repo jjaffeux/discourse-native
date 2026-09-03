@@ -10,7 +10,6 @@ import 'group_page.dart';
 import 'group_pages_coordinator.dart';
 import 'group_pages_port.dart';
 import 'groups_page.dart';
-import 'message_inbox_page.dart';
 import 'topic_list_view.dart';
 
 class GroupPagesHost extends StatefulWidget {
@@ -209,7 +208,7 @@ class _GroupDetailView extends StatelessWidget {
               ? TopicListView(feed: feed)
               : null,
           messageFeed: isMessageFeed && feed != null
-              ? MessageInboxPage(feed: feed)
+              ? TopicListView(feed: feed)
               : null,
           onRefresh: () => coordinator.requestLoad(refresh: true),
           onLoadMore: () => unawaited(coordinator.loadMore()),
