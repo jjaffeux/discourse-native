@@ -20,10 +20,12 @@ void main() {
   });
   late MarkdownEditingController controller;
   late ScrollController scroll;
+  late ComposerBlockquoteInputFormatter formatter;
 
   setUp(() {
     controller = MarkdownEditingController();
     scroll = ScrollController();
+    formatter = ComposerBlockquoteInputFormatter();
   });
   tearDown(() {
     controller.dispose();
@@ -60,9 +62,7 @@ void main() {
                       expands: true,
                       maxLines: null,
                       strutStyle: const StrutStyle(forceStrutHeight: false),
-                      inputFormatters: const [
-                        ComposerBlockquoteInputFormatter(),
-                      ],
+                      inputFormatters: [formatter],
                     ),
                   ),
                 ),

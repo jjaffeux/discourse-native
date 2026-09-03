@@ -68,6 +68,43 @@ const _gif = GifResult(
 
 void main() {
   group('draft editing, layout, and uploads', () {
+    testWidgets('Enter edits a quote while Shift+Enter never exits or sends', (
+      tester,
+    ) async {
+      final fixture = await _fixture(pages: const {});
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(
+        _ComposerVisibilityView(shell: fixture.shell, visible: true),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(_composerField(), '> words');
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(_text(tester), '> words\n> ');
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+      expect(_text(tester), '> words\n> \n> \n> ');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(_text(tester), '> words\n> \n> \n> \n> ');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(_text(tester), '> words\n> \n> \n> \n');
+      expect(fixture.api.chatMessagesSent, isEmpty);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(_text(tester), isEmpty);
+      expect(fixture.api.chatMessagesSent, hasLength(1));
+    });
+
     testWidgets('starts an editable quote after the greater-than space', (
       tester,
     ) async {

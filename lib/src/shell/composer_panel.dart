@@ -1126,12 +1126,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
   (double, double)? _lastGalleryMenuPosition;
   late final TextInputFormatter _selectedPillInputFormatter;
   late final TextInputFormatter _renderedEmojiInputFormatter;
+  final _blockquoteInputFormatter = ComposerBlockquoteInputFormatter();
+  int? _blockquoteFieldGeneration;
   late final _ComposerPasteAction _pasteAction;
 
   @override
   void initState() {
     super.initState();
     _scroll = ScrollController();
+    _blockquoteFieldGeneration = widget.composer.fieldGeneration;
+    widget.composer.text.addListener(_observeBlockquoteValue);
     _media = ComposerMediaEditingCoordinator(widget.composer)
       ..addListener(_scheduleMediaLayoutRefresh);
     _selectionOverlay = _ComposerSelectionOverlay(
@@ -1165,6 +1169,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
   void didUpdateWidget(ComposerEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (identical(oldWidget.composer, widget.composer)) return;
+    oldWidget.composer.text.removeListener(_observeBlockquoteValue);
+    _blockquoteInputFormatter.reset();
+    _blockquoteFieldGeneration = widget.composer.fieldGeneration;
+    widget.composer.text.addListener(_observeBlockquoteValue);
     if (_pointerDownSyntax case final syntax?) {
       oldWidget.composer.text.releaseSyntaxPointerEdit(syntax);
     }
@@ -1198,6 +1206,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   @override
   void dispose() {
+    widget.composer.text.removeListener(_observeBlockquoteValue);
     _releasePointerDownPillCollapse();
     if (identical(widget.composer.text.imageScrollController, _scroll)) {
       widget.composer.text.imageScrollController = null;
@@ -1215,6 +1224,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   Future<void> _pasteFromContextMenu(EditableTextState state) async {
+    _blockquoteInputFormatter.reset();
     if (await _pasteClipboardImages()) {
       if (state.mounted) state.hideToolbar();
       return;
@@ -1351,7 +1361,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                       const ComposerImageGalleryInputFormatter(),
                       const ComposerQuoteInputFormatter(),
                       ...widget.composer.text.syntaxInputFormatters,
-                      const ComposerBlockquoteInputFormatter(),
+                      _blockquoteInputFormatter,
                     ],
                     contextMenuBuilder: _contextMenu,
                     showCursor:
@@ -1385,17 +1395,27 @@ class _ComposerEditorState extends State<ComposerEditor> {
     ),
   );
 
-  RenderEditable? get _renderEditable {
-    final root = _stackKey.currentContext?.findRenderObject();
+  void _observeBlockquoteValue() {
+    if (_blockquoteFieldGeneration != widget.composer.fieldGeneration) {
+      _blockquoteInputFormatter.reset();
+      _blockquoteFieldGeneration = widget.composer.fieldGeneration;
+    }
+    _blockquoteInputFormatter.observeValue(widget.composer.text.value);
+  }
+
+  RenderEditable? get _renderEditable => _editableTextState?.renderEditable;
+
+  EditableTextState? get _editableTextState {
+    final root = _stackKey.currentContext;
     if (root == null) return null;
-    final pending = <RenderObject>[root];
+    final pending = <Element>[root as Element];
     while (pending.isNotEmpty) {
-      final object = pending.removeLast();
-      if (object is RenderEditable) {
-        return object;
+      final element = pending.removeLast();
+      if (element is StatefulElement && element.state is EditableTextState) {
+        return element.state as EditableTextState;
       }
-      final children = <RenderObject>[];
-      object.visitChildren(children.add);
+      final children = <Element>[];
+      element.visitChildElements(children.add);
       for (var index = children.length - 1; index >= 0; index--) {
         pending.add(children[index]);
       }
@@ -1441,6 +1461,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _pointerDownAfterBlockSyntax != null;
 
   void _onEditorPointerDown(PointerDownEvent event) {
+    _blockquoteInputFormatter.reset();
     _gallerySelectedAtPointerDown = _media.value.selectedGallery;
     _clearKeyboardPillSelection();
     _releasePointerDownPillCollapse();
@@ -1639,6 +1660,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
     final keyboard = HardwareKeyboard.instance;
+    final isEnter =
+        event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.numpadEnter;
+    if (event is KeyDownEvent &&
+        (!isEnter ||
+            keyboard.isMetaPressed ||
+            keyboard.isControlPressed ||
+            keyboard.isAltPressed)) {
+      _blockquoteInputFormatter.reset();
+    }
     final hasCommandModifier =
         keyboard.isMetaPressed || keyboard.isControlPressed;
     final isUndoOrRedo =
@@ -1736,6 +1767,25 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
     final value = widget.composer.text.value;
     final selection = value.selection;
+    if (isEnter &&
+        !widget.composer.discarding &&
+        (keyboard.isShiftPressed || !widget.composer.autocomplete.isOpen) &&
+        !keyboard.isMetaPressed &&
+        !keyboard.isControlPressed &&
+        !keyboard.isAltPressed &&
+        value.composing.isCollapsed &&
+        _blockquoteInputFormatter.isInQuote(value)) {
+      final editable = _editableTextState;
+      if (editable == null) return KeyEventResult.ignored;
+      editable.userUpdateTextEditingValue(
+        TextEditingValue(
+          text: value.text.replaceRange(selection.start, selection.end, '\n'),
+          selection: TextSelection.collapsed(offset: selection.start + 1),
+        ),
+        SelectionChangedCause.keyboard,
+      );
+      return KeyEventResult.handled;
+    }
     if (!selection.isValid || !selection.isCollapsed) {
       return KeyEventResult.ignored;
     }

@@ -213,53 +213,79 @@ class _RenderComposerBlockquoteDecoration extends RenderPadding {
 }
 
 class ComposerBlockquoteInputFormatter extends TextInputFormatter {
-  const ComposerBlockquoteInputFormatter();
+  ComposerBlockquoteInputFormatter({this.isShiftPressed});
+
+  final bool Function()? isShiftPressed;
+  TextEditingValue? _lastPlainEnter;
+
+  void reset() => _lastPlainEnter = null;
+
+  void observeValue(TextEditingValue value) {
+    if (value != _lastPlainEnter) reset();
+  }
+
+  bool isInQuote(TextEditingValue value) => _prefixAtSelection(value) != null;
+
+  TextRange? _prefixAtSelection(TextEditingValue value) {
+    final selection = value.selection;
+    if (!selection.isValid || selection.end > value.text.length) return null;
+    final caret = selection.start;
+    final lineStart = caret == 0
+        ? 0
+        : value.text.lastIndexOf('\n', caret - 1) + 1;
+    for (final range in composerBlockquotePrefixes(value.text)) {
+      if (range.start == lineStart && range.end <= caret) return range;
+    }
+    return null;
+  }
 
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
+    final followsPlainEnter = oldValue == _lastPlainEnter;
+    reset();
     final selection = oldValue.selection;
     if (!selection.isValid ||
-        !selection.isCollapsed ||
+        selection.end > oldValue.text.length ||
         !newValue.selection.isCollapsed ||
         !newValue.composing.isCollapsed) {
       return newValue;
     }
 
-    final caret = selection.extentOffset;
-    if (caret > oldValue.text.length ||
-        newValue.selection.extentOffset != caret + 1 ||
-        newValue.text.length != oldValue.text.length + 1 ||
-        newValue.text != oldValue.text.replaceRange(caret, caret, '\n')) {
+    final caret = selection.start;
+    if (newValue.selection.extentOffset != caret + 1 ||
+        newValue.text !=
+            oldValue.text.replaceRange(caret, selection.end, '\n')) {
       return newValue;
     }
 
-    final lineStart = caret == 0
-        ? 0
-        : oldValue.text.lastIndexOf('\n', caret - 1) + 1;
-    for (final range in composerBlockquotePrefixes(oldValue.text)) {
-      if (range.start != lineStart || range.end > caret) continue;
+    final range = _prefixAtSelection(oldValue);
+    if (range != null) {
+      final shift =
+          isShiftPressed?.call() ?? HardwareKeyboard.instance.isShiftPressed;
       final lineEnd = oldValue.text.indexOf('\n', caret);
       final body = oldValue.text.substring(
         range.end,
         lineEnd == -1 ? oldValue.text.length : lineEnd,
       );
-      if (body.trim().isEmpty) {
+      if (!shift && followsPlainEnter && body.trim().isEmpty) {
         // The second Enter exits the quote without leaving an empty quote row.
         final end = lineEnd == -1 ? oldValue.text.length : lineEnd;
         return TextEditingValue(
-          text: oldValue.text.replaceRange(lineStart, end, ''),
-          selection: TextSelection.collapsed(offset: lineStart),
+          text: oldValue.text.replaceRange(range.start, end, ''),
+          selection: TextSelection.collapsed(offset: range.start),
         );
       }
 
       final prefix = range.textInside(oldValue.text);
-      return TextEditingValue(
+      final result = TextEditingValue(
         text: newValue.text.replaceRange(caret + 1, caret + 1, prefix),
         selection: TextSelection.collapsed(offset: caret + 1 + prefix.length),
       );
+      if (!shift) _lastPlainEnter = result;
+      return result;
     }
     return newValue;
   }
