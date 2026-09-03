@@ -46,7 +46,6 @@ import 'shell_scope.dart';
 import 'site_image.dart';
 import 'topic_category_picker.dart';
 import 'topic_tag_picker.dart';
-import 'topic_taxonomy_fields.dart';
 
 const double _composerPanelRadius = 22;
 const double _composerHeaderHeight = 44;
@@ -190,19 +189,32 @@ class ComposerPanel extends StatelessWidget {
                     if (!minimized &&
                         (target.createsTopic || target.editsTopicMetadata))
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
                         child: TextField(
                           controller: composer.title,
                           readOnly: composer.discarding,
                           textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(
+                          style: theme.textTheme.bodyMedium,
+                          decoration: InputDecoration(
                             isDense: true,
-                            hintText: 'Title',
-                            contentPadding: EdgeInsets.symmetric(
+                            hintText: target.isNewTopic
+                                ? 'Give your topic a title'
+                                : 'Title',
+                            filled: true,
+                            fillColor: theme.colorScheme.surfaceContainerLow,
+                            contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12,
-                              vertical: 8,
+                              vertical: 10,
                             ),
-                            border: OutlineInputBorder(),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(7),
+                              borderSide: BorderSide(
+                                color: theme.shell.divider,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -871,57 +883,77 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
         ),
         builder: (context, state, _) {
           final shell = ShellScope.read(context);
+          final theme = Theme.of(context);
           final category = state.categories
               .where((item) => item.id == composer.categoryId)
               .firstOrNull;
+          final categoryLabel = category == null
+              ? 'Choose a category'
+              : shell.topicCategoryPathLabel(
+                  category,
+                  siteUrl: composer.target.siteUrl,
+                );
+          final tagsLabel = composer.tags.isEmpty
+              ? 'Add tags'
+              : composer.tags.map((tag) => tag.name).join(', ');
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                if (!composer.target.isTagsEdit)
-                  SizedBox(
-                    key: _categoryAnchorKey,
-                    child: TopicPropertyRow(
-                      key: const ValueKey('composer-category-property'),
-                      label: 'Category',
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: TopicCategoryValue(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (!composer.target.isTagsEdit)
+                    SizedBox(
+                      key: _categoryAnchorKey,
+                      child: _ComposerTaxonomyButton(
+                        key: const ValueKey('composer-category-action'),
                         valueKey: const ValueKey('composer-category'),
-                        label: category == null
-                            ? 'Choose a category'
-                            : shell.topicCategoryPathLabel(
-                                category,
-                                siteUrl: composer.target.siteUrl,
-                              ),
-                        color: category == null
-                            ? null
-                            : Color(category.colorValue),
-                        colorKey: const ValueKey('composer-category-color'),
-                        actionKey: const ValueKey('composer-category-action'),
-                        tooltip: 'Choose category',
-                        onTap: () => _pickCategory(context, shell),
+                        label: categoryLabel,
+                        semanticLabel: 'Category: $categoryLabel',
+                        tooltip: category == null
+                            ? 'Choose category'
+                            : 'Choose category: $categoryLabel',
+                        outlined: true,
+                        leading: Container(
+                          key: const ValueKey('composer-category-color'),
+                          width: 9,
+                          height: 9,
+                          decoration: BoxDecoration(
+                            color: category == null
+                                ? theme.colorScheme.onSurfaceVariant
+                                : Color(category.colorValue),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        trailing: DIcons.chevronDown,
+                        onPressed: () => _pickCategory(context, shell),
                       ),
                     ),
-                  ),
-                if (state.capabilities.canTagTopics || composer.tags.isNotEmpty)
-                  SizedBox(
-                    key: _tagsAnchorKey,
-                    child: TopicPropertyRow(
-                      key: const ValueKey('composer-tags-property'),
-                      label: 'Tags',
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: TopicTagsValue(
-                        key: const ValueKey('composer-tags'),
-                        tags: composer.tags,
-                        tagKey: (tag) => ValueKey(('composer-tag', tag.name)),
-                        addKey: const ValueKey('composer-add-tag'),
-                        editTooltip: 'Choose tags',
-                        onTap: () =>
+                  if (state.capabilities.canTagTopics ||
+                      composer.tags.isNotEmpty)
+                    SizedBox(
+                      key: _tagsAnchorKey,
+                      child: _ComposerTaxonomyButton(
+                        key: const ValueKey('composer-add-tag'),
+                        valueKey: const ValueKey('composer-tags'),
+                        label: tagsLabel,
+                        semanticLabel: composer.tags.isEmpty
+                            ? 'Add tags'
+                            : 'Tags: $tagsLabel',
+                        tooltip: composer.tags.isEmpty
+                            ? 'Choose tags'
+                            : 'Choose tags: $tagsLabel',
+                        leading: const DIcon(DIcons.tag, size: 14),
+                        trailing: DIcons.plus,
+                        onPressed: () =>
                             _pickTags(context, shell, state.capabilities),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -978,6 +1010,79 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
     } finally {
       _showingTags = false;
     }
+  }
+}
+
+class _ComposerTaxonomyButton extends StatelessWidget {
+  const _ComposerTaxonomyButton({
+    super.key,
+    required this.valueKey,
+    required this.label,
+    required this.semanticLabel,
+    required this.tooltip,
+    required this.leading,
+    required this.trailing,
+    required this.onPressed,
+    this.outlined = false,
+  });
+
+  final Key valueKey;
+  final String label;
+  final String semanticLabel;
+  final String tooltip;
+  final Widget leading;
+  final DIconData trailing;
+  final VoidCallback onPressed;
+  final bool outlined;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Tooltip(
+      message: tooltip,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          minimumSize: Size(0, context.isTouch ? 44 : 34),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.standard,
+          foregroundColor: outlined
+              ? theme.colorScheme.onSurface
+              : theme.colorScheme.onSurfaceVariant,
+          backgroundColor: outlined
+              ? theme.colorScheme.surfaceContainerLow
+              : Colors.transparent,
+          side: outlined ? BorderSide(color: theme.shell.divider) : null,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          textStyle: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        child: Row(
+          key: valueKey,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ExcludeSemantics(child: leading),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                semanticsLabel: semanticLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            DIcon(
+              trailing,
+              size: 12,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -2910,7 +3015,7 @@ class _Header extends StatelessWidget {
                     : target.isPrivateMessage
                     ? DIcons.envelope
                     : target.isNewTopic
-                    ? DIcons.plus
+                    ? DIcons.farPenToSquare
                     : target.isEdit
                     ? DIcons.pencil
                     : DIcons.reply,
@@ -2925,6 +3030,7 @@ class _Header extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelLarge?.copyWith(
+                  fontSize: target.isNewTopic ? 15 : null,
                   fontWeight: FontWeight.w600,
                 ),
               ),
