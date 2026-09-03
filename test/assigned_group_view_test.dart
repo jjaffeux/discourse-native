@@ -100,7 +100,7 @@ void main() {
   });
 
   group('AssignedGroupView', () {
-    testWidgets('renders initial loading and in-place refreshing states', (
+    testWidgets('keeps assignments visible without a refresh indicator', (
       tester,
     ) async {
       final presentation = _FakeAssignedGroupPresentation(
@@ -123,7 +123,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
       expect(find.text(_topic.title), findsOneWidget);
     });
 
