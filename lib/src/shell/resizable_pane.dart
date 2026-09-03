@@ -220,7 +220,18 @@ class _ResizablePaneState extends State<ResizablePane> {
     };
     if (horizontalDelta == null) return KeyEventResult.ignored;
 
-    if (event is KeyDownEvent || event is KeyRepeatEvent) {
+    final isPress = event is KeyDownEvent || event is KeyRepeatEvent;
+    final keyboard = HardwareKeyboard.instance;
+    if (isPress &&
+        (keyboard.isAltPressed ||
+            keyboard.isControlPressed ||
+            keyboard.isMetaPressed ||
+            keyboard.isShiftPressed)) {
+      _focus.unfocus();
+      return KeyEventResult.ignored;
+    }
+
+    if (isPress) {
       final widthDelta = widget.edge.widthDeltaForDrag(
         horizontalDelta,
         Directionality.of(context),
