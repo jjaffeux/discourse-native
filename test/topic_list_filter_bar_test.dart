@@ -102,6 +102,8 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('topic-list-category-filter')));
     await tester.pumpAndSettle();
+    expect(find.textContaining('Show recent topics'), findsNothing);
+    expect(find.textContaining('Show topics in'), findsNothing);
     await tester.tap(find.byKey(const ValueKey(('choice-menu-option', 1))));
     await tester.pumpAndSettle();
 
@@ -124,6 +126,8 @@ void main() {
     await tester.ensureVisible(subcategoryFilter);
     await tester.tap(subcategoryFilter);
     await tester.pumpAndSettle();
+    expect(find.textContaining('Include every topic'), findsNothing);
+    expect(find.textContaining('Show topics in'), findsNothing);
     await tester.tap(find.byKey(const ValueKey(('choice-menu-option', 2))));
     await tester.pumpAndSettle();
 
