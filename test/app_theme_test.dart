@@ -461,7 +461,7 @@ void main() {
     expect(hoverColor, isNot(Colors.transparent));
   });
 
-  test('tooltips use the floating surface and readable app typography', () {
+  test('tooltips use the floating surface and compact app typography', () {
     for (final theme in [AppTheme.light, AppTheme.dark]) {
       final tooltip = theme.tooltipTheme;
       final decoration = tooltip.decoration! as BoxDecoration;
@@ -470,7 +470,7 @@ void main() {
       expect(tooltip.padding, DTooltip.defaultPadding);
       expect(tooltip.margin, DTooltip.defaultMargin);
       expect(tooltip.verticalOffset, DTooltip.defaultVerticalOffset);
-      expect(tooltip.textStyle?.fontSize, theme.textTheme.bodyMedium?.fontSize);
+      expect(tooltip.textStyle?.fontSize, theme.textTheme.bodySmall?.fontSize);
       expect(tooltip.textStyle?.color, theme.colorScheme.onSurface);
       expect(decoration.color, theme.shell.floating);
       expect(decoration.border, Border.all(color: theme.shell.divider));

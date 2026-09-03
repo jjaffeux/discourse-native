@@ -689,7 +689,7 @@ abstract final class AppTheme {
         margin: DTooltip.defaultMargin,
         verticalOffset: DTooltip.defaultVerticalOffset,
         decoration: tooltipDecoration,
-        textStyle: textTheme.bodyMedium?.copyWith(
+        textStyle: textTheme.bodySmall?.copyWith(
           color: resolvedColorScheme.onSurface,
           fontWeight: FontWeight.normal,
         ),
