@@ -664,6 +664,91 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets(
+      'keeps footer actions on one line and scrolls overflowing tools',
+      (tester) async {
+        final composer = ComposerController(
+          _newTopicTarget,
+          imageUploader:
+              (file, {required onProgress, required abortTrigger}) async =>
+                  throw StateError('The picker is not invoked by this test.'),
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpFloatingPanel(
+          tester,
+          shell,
+          composer,
+          size: const Size(440, 600),
+        );
+        await tester.pump();
+
+        final upload = tester.getCenter(
+          find.byKey(const ValueKey('composer-upload')),
+        );
+        final discard = tester.getCenter(
+          find.byKey(const ValueKey('composer-discard')),
+        );
+        final create = tester.getCenter(
+          find.widgetWithText(FilledButton, 'Create topic'),
+        );
+        expect(upload.dy, closeTo(discard.dy, 1));
+        expect(discard.dy, closeTo(create.dy, 1));
+        expect(
+          find.byKey(const ValueKey('composer-toolbar-scroll-forward')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('composer-toolbar-scroll-backward')),
+          findsNothing,
+        );
+
+        await tester.tap(
+          find.byKey(const ValueKey('composer-toolbar-scroll-forward')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('composer-toolbar-scroll-forward')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('composer-toolbar-scroll-backward')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('does not show toolbar chevrons when all tools fit', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _newTopicTarget,
+        imageUploader: (
+          file, {
+          required onProgress,
+          required abortTrigger,
+        }) async => throw StateError('The picker is not invoked by this test.'),
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpFloatingPanel(tester, shell, composer);
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('composer-toolbar-scroll-forward')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('composer-toolbar-scroll-backward')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('shows private-message fields addressed to the target group', (
       tester,
     ) async {
