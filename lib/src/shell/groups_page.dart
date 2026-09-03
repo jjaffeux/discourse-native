@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../models/group.dart';
 import '../theme/app_theme.dart';
@@ -202,15 +203,11 @@ class _GroupsPageState extends State<GroupsPage> {
                                 : width >= 620
                                 ? 2
                                 : 1;
-                            return SliverGrid.builder(
-                              itemCount: data.groups.length,
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: columns,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
-                                    mainAxisExtent: 170,
-                                  ),
+                            return SliverMasonryGrid.count(
+                              crossAxisCount: columns,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childCount: data.groups.length,
                               itemBuilder: (context, index) {
                                 final group = data.groups[index];
                                 return _GroupDirectoryCard(
@@ -486,6 +483,7 @@ class _GroupDirectoryCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -497,7 +495,7 @@ class _GroupDirectoryCard extends StatelessWidget {
                         children: [
                           Text(
                             group.label,
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w600,
@@ -517,18 +515,18 @@ class _GroupDirectoryCard extends StatelessWidget {
                     const DIcon(DIcons.chevronRight, size: 14),
                   ],
                 ),
-                const SizedBox(height: 12),
-                if (bio != null && bio.isNotEmpty)
-                  Expanded(
-                    child: Text(
-                      bio,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium,
+                if (bio != null && bio.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    bio,
+                    maxLines: 5,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
-                  )
-                else
-                  const Spacer(),
+                  ),
+                ],
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     const DIcon(DIcons.users, size: 14),
