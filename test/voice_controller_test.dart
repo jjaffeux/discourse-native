@@ -2108,6 +2108,7 @@ void main() {
         await controller.ensureLoaded(firstSite);
         expect(counting.subscribeCounts, {
           '/voice/rooms/index': 1,
+          '/voice/call-ring/1': 1,
           '/voice/rooms/7': 1,
         });
 
@@ -2120,6 +2121,7 @@ void main() {
         expect(controller.room(firstSite, 7)?.name, 'Renamed Room');
         expect(counting.subscribeCounts, {
           '/voice/rooms/index': 1,
+          '/voice/call-ring/1': 1,
           '/voice/rooms/7': 1,
         });
         expect(counting.subscriberCount('/voice/rooms/index'), 1);
@@ -2136,12 +2138,14 @@ void main() {
         await controller.ensureLoaded(firstSite);
         expect(counting.subscribeCounts, {
           '/voice/rooms/index': 1,
+          '/voice/call-ring/1': 1,
           '/voice/rooms/7': 1,
         });
 
         await controller.ensureLoaded(firstSite, force: true);
         expect(counting.subscribeCounts, {
           '/voice/rooms/index': 1,
+          '/voice/call-ring/1': 1,
           '/voice/rooms/7': 1,
         });
       },
@@ -2160,6 +2164,7 @@ void main() {
 
       expect(counting.subscribeCounts, {
         '/voice/rooms/index': 1,
+        '/voice/call-ring/1': 1,
         '/voice/rooms/7': 1,
       });
     });
@@ -4300,7 +4305,7 @@ void main() {
         preferences: preferences,
         idleThresholdsFor: (_) => thresholds,
         idleClock: scheduler.now,
-        idleTimerFactory: scheduler.createTimer,
+        timerFactory: scheduler.createTimer,
         heartbeatInterval: const Duration(days: 1),
         signalBatchDelay: Duration.zero,
       );
@@ -4531,6 +4536,226 @@ void main() {
       await controller.setParticipantRole(2, VoiceRole.speaker);
 
       expect(transport.writes, isEmpty);
+    });
+  });
+
+  group('direct calls', () {
+    late ManualScheduler scheduler;
+    final ringSentAt = DateTime.utc(2026, 8, 8, 16);
+    var now = DateTime.utc(2026, 8, 8, 16, 0, 10);
+
+    Map<String, dynamic> callRoom() => {
+      'id': 9,
+      'name': '📞 kim + sam',
+      'slug': 'call-1a2b',
+      'public': false,
+      'ephemeral': true,
+      'room_type': 'open',
+      'message_bus_last_id': 3,
+      'active_participants': [
+        {'id': 3, 'username': 'kim', 'role': 'moderator'},
+      ],
+      'ringing': [
+        {
+          'user': {'id': 1, 'username': 'sam'},
+          'notified_at': 1786204800,
+        },
+      ],
+    };
+
+    Map<String, dynamic> ring({int sentAt = 1786204800}) => {
+      'room_id': 9,
+      'room_slug': 'call-1a2b',
+      'room_name': '📞 kim + sam',
+      'caller_username': 'kim',
+      'caller_name': 'Kim',
+      'caller_avatar_template': '/user_avatar/example.com/kim/{size}/3_2.png',
+      'sent_at': sentAt,
+      'ring_seconds': 60,
+    };
+
+    setUp(() {
+      scheduler = ManualScheduler();
+      now = DateTime.utc(2026, 8, 8, 16, 0, 10);
+      controller.dispose();
+      transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
+      transport.responses['POST /voice/calls.json'] = {'room': callRoom()};
+      transport.responses['POST /voice/rooms/9/join.json'] = {
+        ...fixture('join_mesh'),
+        'room': callRoom(),
+      };
+      transport.responses['DELETE /voice/rooms/9/leave.json'] = {};
+      transport.responses['POST /voice/rooms/9/state.json'] = {};
+      controller = VoiceController(
+        api: VoiceApi(transport),
+        chatConversations: chatConversations,
+        requests: requests,
+        trackerFor: (siteUrl) => siteUrl == firstSite ? firstTracker : null,
+        userIdFor: (_) => 1,
+        onCallSiteChanged: () {},
+        mediaFactory: mediaFactory,
+        systemCall: systemCall,
+        reporter: const PluginDiagnosticsReporter.ambient(),
+        diagnostics: diagnostics,
+        preferences: preferences,
+        timerFactory: scheduler.createTimer,
+        clock: () => now,
+        heartbeatInterval: const Duration(days: 1),
+        signalBatchDelay: Duration.zero,
+      );
+    });
+
+    test(
+      'watches the per-user ring channel once the site is tracked',
+      () async {
+        await controller.ensureLoaded(firstSite);
+
+        expect(firstTracker.subscriberCount('/voice/call-ring/1'), 1);
+        expect(firstTracker.lastIds['/voice/call-ring/1'], isNull);
+
+        controller.forget(firstSite);
+        expect(firstTracker.subscriberCount('/voice/call-ring/1'), 0);
+      },
+    );
+
+    test('a ring within its window is offered until it runs out', () async {
+      await controller.ensureLoaded(firstSite);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      firstTracker.deliver('/voice/call-ring/1', ring());
+
+      final incoming = controller.incomingCall!;
+      expect(
+        (
+          roomId: incoming.roomId,
+          slug: incoming.roomSlug,
+          caller: incoming.caller.username,
+          name: incoming.caller.name,
+          sentAt: incoming.sentAt,
+          remaining: incoming.remainingAt(now),
+        ),
+        (
+          roomId: 9,
+          slug: 'call-1a2b',
+          caller: 'kim',
+          name: 'Kim',
+          sentAt: ringSentAt,
+          remaining: const Duration(seconds: 50),
+        ),
+      );
+      expect(controller.incomingCallSiteUrl, firstSite);
+      expect(notifications, 1);
+
+      scheduler.advance(const Duration(seconds: 49));
+      expect(controller.incomingCall, isNotNull);
+      scheduler.advance(const Duration(seconds: 1));
+      expect(controller.incomingCall, isNull);
+      expect(notifications, 2);
+    });
+
+    test('an expired or repeated ring is dropped', () async {
+      await controller.ensureLoaded(firstSite);
+
+      now = DateTime.utc(2026, 8, 8, 16, 1, 1);
+      firstTracker.deliver('/voice/call-ring/1', ring());
+      expect(controller.incomingCall, isNull);
+
+      now = DateTime.utc(2026, 8, 8, 16, 0, 10);
+      firstTracker.deliver('/voice/call-ring/1', ring());
+      controller.declineIncomingCall();
+      firstTracker.deliver('/voice/call-ring/1', ring());
+      expect(controller.incomingCall, isNull);
+      expect(scheduler.activeTimerCount, 0);
+
+      firstTracker.deliver('/voice/call-ring/1', ring(sentAt: 1786204815));
+      expect(
+        controller.incomingCall?.sentAt,
+        DateTime.utc(2026, 8, 8, 16, 0, 15),
+      );
+    });
+
+    test('a ring for the room the user is already in is nothing new', () async {
+      await controller.ensureLoaded(firstSite);
+      final room = await controller.resolveRoom(firstSite, 'call-1a2b');
+      await controller.join(siteUrl: firstSite, siteName: 'One', room: room!);
+
+      firstTracker.deliver('/voice/call-ring/1', ring());
+
+      expect(controller.incomingCall, isNull);
+    });
+
+    test('joining the ringing room settles the ring', () async {
+      await controller.ensureLoaded(firstSite);
+      firstTracker.deliver('/voice/call-ring/1', ring());
+      expect(controller.incomingCall, isNotNull);
+
+      final room = await controller.resolveRoom(firstSite, 'call-1a2b');
+      await controller.join(siteUrl: firstSite, siteName: 'One', room: room!);
+
+      expect(controller.incomingCall, isNull);
+      expect(scheduler.activeTimerCount, 1, reason: 'only the idle check');
+    });
+
+    test('answering resolves the call room and credits the caller', () async {
+      await controller.ensureLoaded(firstSite);
+      firstTracker.deliver('/voice/call-ring/1', ring());
+
+      final accepted = await controller.acceptIncomingCall();
+
+      expect(accepted?.siteUrl, firstSite);
+      expect(accepted?.room.id, 9);
+      expect(controller.incomingCall, isNull);
+      expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
+
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: accepted!.room,
+      );
+      final join = transport.writes.singleWhere(
+        (write) => write.path.endsWith('/join.json'),
+      );
+      expect(join.body['invited_by'], 'kim');
+      expect(await controller.acceptIncomingCall(), isNull);
+    });
+
+    test('calling someone holds and subscribes the call room', () async {
+      await controller.ensureLoaded(firstSite);
+
+      final room = await controller.callUser(firstSite, 'kim');
+
+      final request = transport.writes.singleWhere(
+        (write) => write.path == '/voice/calls.json',
+      );
+      expect(request.method, 'POST');
+      expect(request.body, {'username': 'kim'});
+      expect(room.ephemeral, isTrue);
+      expect(controller.room(firstSite, 9)?.slug, 'call-1a2b');
+      expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
+      expect(room.activeRingingAt(now).map((entry) => entry.user.username), [
+        'sam',
+      ]);
+    });
+
+    test("a refused call propagates the server's reason", () async {
+      transport.failures['POST /voice/calls.json'] = const WriteException(
+        WriteFailure.forbidden,
+        statusCode: 403,
+        errors: ['Sorry, you cannot call that user.'],
+      );
+
+      await expectLater(
+        controller.callUser(firstSite, 'kim'),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.message,
+            'message',
+            'Sorry, you cannot call that user.',
+          ),
+        ),
+      );
+      expect(controller.room(firstSite, 9), isNull);
     });
   });
 }

@@ -10,6 +10,8 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 
 import '../../theme/d_button.dart';
 import 'voice_controller.dart';
+import 'voice_icons.dart';
+import 'voice_incoming_call.dart';
 import 'voice_join.dart';
 import 'voice_models.dart';
 import 'voice_room_editor.dart';
@@ -192,55 +194,65 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
         if (recording != null && recording.active)
           _RecordingBadge(recording: recording),
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final participants = room.participants;
-              if (participants.isEmpty) {
-                return _EmptyRoom(room: room);
-              }
-              final columns = constraints.maxWidth >= 900
-                  ? 3
-                  : constraints.maxWidth >= 560
-                  ? 2
-                  : 1;
-              return GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: columns,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 16 / 10,
-                ),
-                itemCount: participants.length,
-                itemBuilder: (context, index) {
-                  final participant = participants[index];
-                  return _ParticipantTile(
-                    controller: controller,
-                    participant: participant,
-                    siteUrl: siteUrl,
-                    videoTrack: active?.media.videoTrackFor(participant.id),
-                    speaking:
-                        active?.media.speakingParticipantIds.contains(
-                          participant.id,
-                        ) ??
-                        false,
-                    canManage: active?.room.canManage ?? false,
-                    canKick:
-                        active?.room.canManage == true &&
-                        participant.id != currentUserId &&
-                        participant.id != room.creatorId,
-                    canAdjustLocally:
-                        active != null && participant.id != currentUserId,
-                    stageRoleChange: _stageRoleChange(
-                      active,
-                      participant,
-                      currentUserId,
-                    ),
-                    controllerResolver: controllerResolver,
-                  );
-                },
-              );
-            },
+          child: VoiceRingingClock(
+            active: room.ephemeral && room.ringing.isNotEmpty,
+            builder: (context, now) => LayoutBuilder(
+              builder: (context, constraints) {
+                final participants = room.participants;
+                final ringing = room.activeRingingAt(now);
+                if (participants.isEmpty && ringing.isEmpty) {
+                  return _EmptyRoom(room: room);
+                }
+                final columns = constraints.maxWidth >= 900
+                    ? 3
+                    : constraints.maxWidth >= 560
+                    ? 2
+                    : 1;
+                return GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 16 / 10,
+                  ),
+                  itemCount: participants.length + ringing.length,
+                  itemBuilder: (context, index) {
+                    if (index >= participants.length) {
+                      return _RingingTile(
+                        entry: ringing[index - participants.length],
+                        siteUrl: siteUrl,
+                      );
+                    }
+                    final participant = participants[index];
+                    return _ParticipantTile(
+                      controller: controller,
+                      participant: participant,
+                      siteUrl: siteUrl,
+                      videoTrack: active?.media.videoTrackFor(participant.id),
+                      speaking:
+                          active?.media.speakingParticipantIds.contains(
+                            participant.id,
+                          ) ??
+                          false,
+                      canManage: active?.room.canManage ?? false,
+                      canKick:
+                          active?.room.canManage == true &&
+                          participant.id != currentUserId &&
+                          participant.id != room.creatorId,
+                      canAdjustLocally:
+                          active != null && participant.id != currentUserId,
+                      stageRoleChange: _stageRoleChange(
+                        active,
+                        participant,
+                        currentUserId,
+                      ),
+                      controllerResolver: controllerResolver,
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ),
         SafeArea(
@@ -298,6 +310,63 @@ VoiceRole? _stageRoleChange(
     VoiceRole.speaker => VoiceRole.participant,
     VoiceRole.moderator => null,
   };
+}
+
+/// A tile for someone being rung who has not picked up: styled apart from
+/// participant tiles so nobody mistakes them for present.
+class _RingingTile extends StatelessWidget {
+  const _RingingTile({required this.entry, required this.siteUrl});
+  final VoiceRingingEntry entry;
+  final String siteUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final user = entry.user;
+    return Semantics(
+      label: 'Calling ${user.name ?? user.username}',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ClipOval(
+              child: SizedBox.square(
+                dimension: 56,
+                child: AvatarImage(
+                  url: user.avatarUrl(siteUrl, size: 112),
+                  size: 56,
+                  fallback: ColoredBox(
+                    color: theme.colorScheme.surfaceContainerHigh,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DIcon(
+                  VoiceIcons.phone,
+                  size: 14,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Calling ${user.name ?? user.username}…',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// The room-wide "this call is being recorded" indicator. Drawn for

@@ -180,6 +180,69 @@ class VoiceRingingEntry {
   bool isActiveAt(DateTime now) => now.isBefore(expiresAt);
 }
 
+/// A direct call ringing this user, as published on the per-user ring
+/// channel when someone invites them into an ephemeral call room. Carries
+/// its own window so a ring replayed from a message-bus backlog can be
+/// discarded once it has run out.
+@immutable
+class VoiceIncomingCall {
+  const VoiceIncomingCall({
+    required this.roomId,
+    required this.roomSlug,
+    required this.roomName,
+    required this.caller,
+    required this.sentAt,
+    this.ringDuration = voiceRingDuration,
+  });
+
+  static VoiceIncomingCall? fromJson(Map<String, dynamic> json) {
+    final roomId = jsonIntOrNull(json['room_id']);
+    final roomSlug = jsonText(json['room_slug']);
+    final callerUsername = jsonText(json['caller_username']);
+    final sentAt = _voiceDate(json['sent_at']);
+    if (roomId == null ||
+        roomId <= 0 ||
+        roomSlug == null ||
+        callerUsername == null ||
+        sentAt == null) {
+      return null;
+    }
+    final ringSeconds = jsonIntOrNull(json['ring_seconds']);
+    return VoiceIncomingCall(
+      roomId: roomId,
+      roomSlug: roomSlug,
+      roomName: jsonText(json['room_name']) ?? 'Voice call',
+      caller: VoiceParticipant(
+        id: jsonInt(json['caller_id']),
+        username: callerUsername,
+        name: jsonText(json['caller_name']),
+        avatarTemplate: jsonText(json['caller_avatar_template']),
+        role: VoiceRole.participant,
+      ),
+      sentAt: sentAt,
+      ringDuration: ringSeconds == null || ringSeconds <= 0
+          ? voiceRingDuration
+          : Duration(seconds: ringSeconds),
+    );
+  }
+
+  final int roomId;
+  final String roomSlug;
+  final String roomName;
+  final VoiceParticipant caller;
+  final DateTime sentAt;
+  final Duration ringDuration;
+
+  DateTime get expiresAt => sentAt.add(ringDuration);
+
+  Duration remainingAt(DateTime now) => expiresAt.difference(now);
+
+  /// Identifies one ring across replays: the same invite re-published from
+  /// a backlog carries the same stamp.
+  String get key =>
+      '$roomId-${caller.username}-${sentAt.millisecondsSinceEpoch}';
+}
+
 @immutable
 class VoiceRecording {
   const VoiceRecording({

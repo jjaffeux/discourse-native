@@ -225,11 +225,14 @@ final class VoiceController extends ChangeNotifier {
     VoicePreferences? preferences,
     VoiceIdleThresholdsLookup? idleThresholdsFor,
     Duration Function()? idleClock,
-    VoiceIdleTimerFactory? idleTimerFactory,
+    VoiceIdleTimerFactory? timerFactory,
+    DateTime Function()? clock,
     this.heartbeatInterval = const Duration(seconds: 10),
     this.signalBatchDelay = const Duration(milliseconds: 200),
   }) : _requests = requests,
        _idleThresholdsFor = idleThresholdsFor ?? _defaultIdleThresholds,
+       _timerFactory = timerFactory ?? Timer.new,
+       _clock = clock ?? DateTime.now,
        _userIdFor = userIdFor,
        _onCallSiteChanged = onCallSiteChanged,
        _capabilityEnabledFor = capabilityEnabledFor ?? _unknownVoiceCapability,
@@ -247,7 +250,7 @@ final class VoiceController extends ChangeNotifier {
       onAutoMute: _onIdleAutoMute,
       onDisconnect: _onIdleDisconnect,
       clock: idleClock,
-      timerFactory: idleTimerFactory ?? Timer.new,
+      timerFactory: _timerFactory,
     );
     _systemActions = this.systemCall.actions.listen(_onSystemAction);
     unawaited(_restoreDevicePreferences());
@@ -270,7 +273,13 @@ final class VoiceController extends ChangeNotifier {
   final VoiceDiagnosticsRecorder diagnostics;
   final VoicePreferences _preferences;
   final VoiceIdleThresholdsLookup _idleThresholdsFor;
+  final VoiceIdleTimerFactory _timerFactory;
+  final DateTime Function() _clock;
   late final VoiceIdleTracker _idleTracker;
+  final Map<String, PluginLiveChannelSubscription> _ringSubscriptions = {};
+  final Set<String> _handledRings = {};
+  ({String siteUrl, VoiceIncomingCall call})? _incomingCall;
+  Timer? _incomingCallExpiry;
   final Duration heartbeatInterval;
   final Duration signalBatchDelay;
   // Cancelled and awaited by the idempotent close lifecycle below.
@@ -372,6 +381,114 @@ final class VoiceController extends ChangeNotifier {
   int? currentUserIdFor(String siteUrl) => _userIdFor(siteUrl);
 
   Stream<VoiceNotice> get notices => _notices.stream;
+
+  /// The direct call ringing this user right now, if any. Cleared when it
+  /// is answered, declined, or has run out.
+  VoiceIncomingCall? get incomingCall => _incomingCall?.call;
+
+  String? get incomingCallSiteUrl => _incomingCall?.siteUrl;
+
+  /// Starts a direct call to [username] on [siteUrl]. The server answers
+  /// with the ephemeral call room, which is held beside the directory so
+  /// its roster and signals arrive; the caller then joins it like any room.
+  /// Failures surface to the caller: the server explains a refusal (a user
+  /// who cannot be called, too many calls) in its own words.
+  Future<VoiceRoom> callUser(String siteUrl, String username) async {
+    final siteSession = _siteSession(siteUrl);
+    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
+    final credentials = await _requestCredentials(
+      siteUrl,
+      ifCurrent: isCurrent,
+    );
+    if (credentials == null) {
+      throw const WriteException(WriteFailure.forbidden);
+    }
+    final room = await _reporter.runOperation(
+      'voice.call',
+      () => api.callUser(
+        siteUrl: siteUrl,
+        apiKey: credentials.apiKey,
+        username: username,
+        clientId: credentials.clientId,
+      ),
+    );
+    if (!isCurrent()) return room;
+    _record('call.direct.started', data: {..._roomDiagnosticData(room)});
+    _rememberLinkedRoom(siteUrl, room);
+    _syncSubscriptions(siteUrl);
+    notifyListeners();
+    return room;
+  }
+
+  /// Takes the ringing call: the room is resolved (and held) so the caller
+  /// can open and join it. Joining through the invite ref credits the
+  /// caller, the same as joining from the notification link.
+  Future<({String siteUrl, VoiceRoom room})?> acceptIncomingCall() async {
+    final incoming = _incomingCall;
+    if (incoming == null) return null;
+    _clearIncomingCall();
+    _record('call.ring.answered', data: {'roomId': incoming.call.roomId});
+    rememberInviteRef(
+      siteUrl: incoming.siteUrl,
+      roomSlug: incoming.call.roomSlug,
+      username: incoming.call.caller.username.toLowerCase(),
+    );
+    final room = await resolveRoom(incoming.siteUrl, incoming.call.roomSlug);
+    if (room == null) return null;
+    return (siteUrl: incoming.siteUrl, room: room);
+  }
+
+  void declineIncomingCall() {
+    final incoming = _incomingCall;
+    if (incoming == null) return;
+    _record('call.ring.declined', data: {'roomId': incoming.call.roomId});
+    _clearIncomingCall();
+    notifyListeners();
+  }
+
+  void _clearIncomingCall() {
+    _incomingCallExpiry?.cancel();
+    _incomingCallExpiry = null;
+    _incomingCall = null;
+  }
+
+  /// A ring for this user. Rings replayed from a message-bus backlog after
+  /// the app wakes are only real while still within their window; a ring
+  /// for the room the user is already in (answered from the notification)
+  /// is nothing new; and the same ring is handled once.
+  void _onRingEvent(String siteUrl, Object? data) {
+    if (_disposed || data is! Map<String, dynamic>) return;
+    final call = VoiceIncomingCall.fromJson(data);
+    if (call == null) return;
+    final now = _clock();
+    final remaining = call.remainingAt(now);
+    _record(
+      'call.ring.received',
+      data: {
+        'roomId': call.roomId,
+        'remainingMilliseconds': remaining.inMilliseconds,
+      },
+    );
+    if (remaining <= Duration.zero) return;
+    final active = _call;
+    if (active != null &&
+        active.siteUrl == siteUrl &&
+        active.room.id == call.roomId) {
+      return;
+    }
+    if (!_handledRings.add(call.key)) return;
+    if (_handledRings.length > 50) _handledRings.remove(_handledRings.first);
+    _clearIncomingCall();
+    _incomingCall = (siteUrl: siteUrl, call: call);
+    _incomingCallExpiry = _timerFactory(remaining, () {
+      _incomingCallExpiry = null;
+      if (_incomingCall?.call.key != call.key) return;
+      _record('call.ring.expired', data: {'roomId': call.roomId});
+      _incomingCall = null;
+      if (!_disposed) notifyListeners();
+    });
+    notifyListeners();
+  }
 
   void _notify(String siteUrl, int roomId, String message) {
     if (_disposed || _notices.isClosed) return;
@@ -650,6 +767,8 @@ final class VoiceController extends ChangeNotifier {
 
   void _cancelTrackerSubscriptions(String siteUrl) {
     _directorySubscriptions.remove(siteUrl)?.cancel();
+    _ringSubscriptions.remove(siteUrl)?.cancel();
+    if (_incomingCall?.siteUrl == siteUrl) _clearIncomingCall();
     for (final subscription
         in _roomSubscriptions.remove(siteUrl)?.values ??
             const <PluginLiveChannelSubscription>[]) {
@@ -690,6 +809,16 @@ final class VoiceController extends ChangeNotifier {
         '/voice/rooms/index',
         (data, messageId) => _onDirectoryEvent(siteUrl, data, messageId),
         lastId: cursors.directoryCursor(directory.messageBusLastId),
+      );
+      changed = true;
+    }
+    // Rings arrive whether or not any Voice surface is on screen, so the
+    // per-user ring channel is watched as soon as the site has a tracker.
+    final userId = _userIdFor(siteUrl);
+    if (userId != null && !_ringSubscriptions.containsKey(siteUrl)) {
+      _ringSubscriptions[siteUrl] = tracker.subscribe(
+        '/voice/call-ring/$userId',
+        (data, _) => _onRingEvent(siteUrl, data),
       );
       changed = true;
     }
@@ -1666,6 +1795,10 @@ final class VoiceController extends ChangeNotifier {
         return;
       }
       media.addListener(_mediaChanged);
+      if (_incomingCall case final incoming?
+          when incoming.siteUrl == siteUrl && incoming.call.roomId == room.id) {
+        _clearIncomingCall();
+      }
       _call = VoiceCallSnapshot(
         siteUrl: siteUrl,
         siteName: siteName,
@@ -3874,11 +4007,14 @@ final class VoiceController extends ChangeNotifier {
   Future<void> _cancelSubscriptions() {
     final subscriptions = <PluginLiveChannelSubscription>[
       ..._directorySubscriptions.values,
+      ..._ringSubscriptions.values,
       for (final siteSubscriptions in _roomSubscriptions.values)
         ...siteSubscriptions.values,
     ];
     _directorySubscriptions.clear();
+    _ringSubscriptions.clear();
     _roomSubscriptions.clear();
+    _clearIncomingCall();
     return Future.wait([
       for (final subscription in subscriptions)
         _cancelSubscription(subscription),

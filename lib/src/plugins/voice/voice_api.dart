@@ -201,6 +201,19 @@ final class VoiceApi {
     ),
   );
 
+  /// Starts a direct call: the server creates an ephemeral room holding the
+  /// caller and callee as peers and rings the callee.
+  Future<VoiceRoom> callUser({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async => _roomFromWrite(
+    await _write(siteUrl, '/voice/calls.json', 'POST', apiKey, {
+      'username': username,
+    }, clientId),
+  );
+
   Future<VoiceRoom> createRoom({
     required String siteUrl,
     required String apiKey,

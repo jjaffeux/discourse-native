@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_test.dart'
-    show PluginTestRequestHost;
+    show PluginTestRequestHost, RecordingPluginLiveChannels;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
@@ -11,6 +11,7 @@ import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
+import 'package:discourse_native/src/plugins/voice/voice_incoming_call.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
@@ -32,6 +33,7 @@ const _siteUrl = 'https://voice.example.com';
 void main() {
   _meshPrivacyTests();
   _roomSurfaceTests();
+  _directCallTests();
 
   group('room availability and layout', () {
     testWidgets('renders unavailable and empty states without a shell', (
@@ -1395,6 +1397,131 @@ void _roomSurfaceTests() {
   });
 }
 
+void _directCallTests() {
+  group('direct calls', () {
+    VoiceRoom callRoom({List<VoiceRingingEntry> ringing = const []}) =>
+        VoiceRoom(
+          id: 9,
+          name: '📞 kim + sam',
+          slug: 'call-1a2b',
+          isPublic: false,
+          ephemeral: true,
+          type: VoiceRoomType.open,
+          participants: const [
+            VoiceParticipant(id: 3, username: 'kim', role: VoiceRole.moderator),
+          ],
+          ringing: ringing,
+        );
+
+    testWidgets('a call room shows who is still being rung', (tester) async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final room = callRoom(
+        ringing: [
+          VoiceRingingEntry(
+            user: const VoiceParticipant(
+              id: 1,
+              username: 'sam',
+              role: VoiceRole.participant,
+            ),
+            notifiedAt: DateTime.now(),
+          ),
+          VoiceRingingEntry(
+            user: const VoiceParticipant(
+              id: 4,
+              username: 'old',
+              role: VoiceRole.participant,
+            ),
+            notifiedAt: DateTime.now().subtract(const Duration(minutes: 2)),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(_app(harness.controller, room: room));
+
+      expect(find.text('Calling sam…'), findsOneWidget);
+      expect(find.text('Calling old…'), findsNothing);
+      expect(find.text('kim'), findsOneWidget);
+      // The ring clock ticks on a periodic timer; unmount it before the
+      // binding checks for pending timers.
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('an incoming call can be declined or answered', (tester) async {
+      final tracker = RecordingPluginLiveChannels();
+      final room = callRoom();
+      final transport = RecordingPluginTransport(
+        responses: {
+          'GET /voice/rooms.json': const {
+            'rooms': <Object?>[],
+            'can_create_room': false,
+          },
+          'GET /voice/rooms/call-1a2b.json':
+              _joinPayload(room)['room'] as Map<String, dynamic>,
+          'POST /voice/rooms/9/join.json': _joinPayload(room),
+          'POST /voice/rooms/9/state.json': const {},
+          'DELETE /voice/rooms/9/leave.json': const {},
+        },
+      );
+      final harness = _Harness(discourseApi: transport, tracker: tracker);
+      addTearDown(harness.dispose);
+      final host = _RouteHost(
+        const PluginRouteSite(url: _siteUrl, title: 'Voice', isConnected: true),
+      );
+      final shell = VoiceShellService(
+        controller: harness.controller,
+        host: host,
+        recordingEnabled: (_) => false,
+      );
+      await harness.controller.ensureLoaded(_siteUrl);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceIncomingCallBanner(
+              controller: harness.controller,
+              shell: shell,
+            ),
+          ),
+        ),
+      );
+      Map<String, dynamic> ring(int sentAt) => {
+        'room_id': 9,
+        'room_slug': 'call-1a2b',
+        'room_name': '📞 kim + sam',
+        'caller_username': 'kim',
+        'caller_name': 'Kim',
+        'sent_at': sentAt,
+        'ring_seconds': 60,
+      };
+      final sentAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+      tracker.deliver('/voice/call-ring/1', ring(sentAt));
+      await tester.pump();
+      expect(find.text('Kim'), findsOneWidget);
+      expect(find.text('is calling you…'), findsOneWidget);
+
+      await tester.tap(find.text('Decline'));
+      await tester.pump();
+      expect(find.text('is calling you…'), findsNothing);
+      expect(harness.controller.incomingCall, isNull);
+
+      tracker.deliver('/voice/call-ring/1', ring(sentAt + 1));
+      await tester.pump();
+      await tester.tap(find.text('Answer'));
+      await tester.pumpAndSettle();
+
+      expect(host.currentContent?.id, 'voice-room-9');
+      expect(harness.controller.call?.room.id, 9);
+      final join = transport.writes.singleWhere(
+        (write) => write.path.endsWith('/join.json'),
+      );
+      expect(join.body['invited_by'], 'kim');
+      expect(find.text('is calling you…'), findsNothing);
+      harness.dispose();
+    });
+  });
+}
+
 void _meshPrivacyTests() {
   group('mesh privacy warning', () {
     VoiceRoom meshRoom() =>
@@ -1713,6 +1840,7 @@ final class _Harness {
     RecordingPluginTransport? discourseApi,
     _Preferences? preferences,
     FakeChatConversationCapability? chatConversations,
+    RecordingPluginLiveChannels? tracker,
   }) : preferences = preferences ?? _Preferences(),
        chatConversations =
            chatConversations ?? FakeChatConversationCapability(),
@@ -1743,7 +1871,7 @@ final class _Harness {
       api: VoiceApi(transport),
       chatConversations: this.chatConversations,
       requests: PluginTestRequestHost(apiKeys: const {_siteUrl: 'key'}),
-      trackerFor: (_) => null,
+      trackerFor: (_) => tracker,
       userIdFor: (_) => 1,
       onCallSiteChanged: () {},
       mediaFactory: media,

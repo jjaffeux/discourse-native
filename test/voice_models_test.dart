@@ -238,6 +238,73 @@ void main() {
     });
   });
 
+  group('incoming calls', () {
+    test('parse the ring payload with its own window', () {
+      final call = VoiceIncomingCall.fromJson(const {
+        'room_id': 9,
+        'room_slug': 'call-1a2b',
+        'room_name': '📞 kim + sam',
+        'caller_username': 'kim',
+        'caller_name': 'Kim',
+        'caller_avatar_template': '/user_avatar/example.com/kim/{size}/3_2.png',
+        'sent_at': 1786204800,
+        'ring_seconds': 45,
+      })!;
+
+      expect(
+        (
+          roomId: call.roomId,
+          slug: call.roomSlug,
+          name: call.roomName,
+          caller: call.caller.username,
+          callerName: call.caller.name,
+          avatar: call.caller.avatarTemplate,
+          sentAt: call.sentAt,
+          expiresAt: call.expiresAt,
+          key: call.key,
+        ),
+        (
+          roomId: 9,
+          slug: 'call-1a2b',
+          name: '📞 kim + sam',
+          caller: 'kim',
+          callerName: 'Kim',
+          avatar: '/user_avatar/example.com/kim/{size}/3_2.png',
+          sentAt: DateTime.utc(2026, 8, 8, 16),
+          expiresAt: DateTime.utc(2026, 8, 8, 16, 0, 45),
+          key: '9-kim-1786204800000',
+        ),
+      );
+    });
+
+    test('falls back to the default window and refuses unusable rings', () {
+      final call = VoiceIncomingCall.fromJson(const {
+        'room_id': 9,
+        'room_slug': 'call-1a2b',
+        'caller_username': 'kim',
+        'sent_at': 1786204800,
+        'ring_seconds': 0,
+      })!;
+      expect(call.ringDuration, voiceRingDuration);
+      expect(call.roomName, 'Voice call');
+
+      for (final missing in [
+        'room_id',
+        'room_slug',
+        'caller_username',
+        'sent_at',
+      ]) {
+        final json = <String, dynamic>{
+          'room_id': 9,
+          'room_slug': 'call-1a2b',
+          'caller_username': 'kim',
+          'sent_at': 1786204800,
+        }..remove(missing);
+        expect(VoiceIncomingCall.fromJson(json), isNull, reason: missing);
+      }
+    });
+  });
+
   group('participant ordering', () {
     test('normalizes rosters to username then id regardless of wire order', () {
       final participants = canonicalVoiceParticipants(const [

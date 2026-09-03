@@ -382,6 +382,28 @@ void main() {
     });
   });
 
+  group('direct calls', () {
+    test('starts a call by username', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /voice/calls.json': {'room': fixture('room')},
+      });
+
+      final room = await api.callUser(
+        siteUrl: _siteUrl,
+        apiKey: _apiKey,
+        username: 'kim',
+      );
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/voice/calls.json',
+        body: {'username': 'kim'},
+      );
+      expect(room.id, 7);
+    });
+  });
+
   group('room Chat', () {
     test('reads an existing chat session', () async {
       final (:api, :transport) = _apiWithResponses({
