@@ -1320,6 +1320,7 @@ void _registerShellNavigationTests() {
                 id: 'custom-2-20',
                 label: 'Roadmap',
                 icon: DIcons.fire,
+                badge: SidebarBadge.count(16),
                 url: '/c/roadmap/4',
               ),
             ],
@@ -1366,6 +1367,23 @@ void _registerShellNavigationTests() {
     );
     expect(tester.getSize(projectsHeader).height, closeTo(24, 0.01));
     expect(tester.getSize(roadmapTile).height, closeTo(30, 0.01));
+    final count = tester.widget<Text>(
+      find.descendant(of: roadmapTile, matching: find.text('16')),
+    );
+    expect(count.style?.fontSize, 12);
+    expect(count.style?.fontWeight, FontWeight.w500);
+
+    final sidebarRect = tester.getRect(find.byType(InstanceSidebar));
+    final projectsChevron = find.descendant(
+      of: find.byTooltip('Collapse Projects'),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is DIcon && widget.icon == DIcons.chevronDown,
+      ),
+    );
+    expect(
+      sidebarRect.right - tester.getRect(projectsChevron).center.dx,
+      closeTo(18, 0.01),
+    );
 
     await tester.tap(find.byTooltip('Collapse Projects'));
     await tester.pumpAndSettle();

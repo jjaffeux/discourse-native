@@ -139,6 +139,9 @@ abstract final class _SidebarSpacing {
   static double labelFontSize(BuildContext context) =>
       isCompact(context) ? 16 : 14;
 
+  static double countFontSize(BuildContext context) =>
+      isCompact(context) ? 14 : 12;
+
   static double prefixArtSize(BuildContext context) =>
       isCompact(context) ? 22 : 18;
 
@@ -146,6 +149,9 @@ abstract final class _SidebarSpacing {
       isCompact(context) ? 16 : 15;
 
   static double indent(BuildContext context) => isCompact(context) ? 20 : 18;
+
+  static double sectionHeaderTrailingPadding(BuildContext context) =>
+      isCompact(context) ? wrapperHorizontalPadding + rowHorizontalPadding : 6;
 
   static double sectionPadding(BuildContext context) =>
       isCompact(context) ? 0 : sectionVerticalPadding;
@@ -847,10 +853,11 @@ class _SectionHeaderState extends State<_SectionHeader> {
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal:
+      padding: EdgeInsets.only(
+        left:
             _SidebarSpacing.wrapperHorizontalPadding +
             _SidebarSpacing.rowHorizontalPadding,
+        right: _SidebarSpacing.sectionHeaderTrailingPadding(context),
       ),
       child: Row(
         children: [
@@ -1201,7 +1208,12 @@ class _DestinationTileState extends State<_DestinationTile> {
               if (badge.isVisible && !badge.dot)
                 Text(
                   '${badge.count}',
-                  style: theme.textTheme.bodySmall?.copyWith(color: foreground),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: foreground,
+                    fontSize: _SidebarSpacing.countFontSize(context),
+                    fontWeight: FontWeight.w500,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               if (!context.isTouch)
                 if (destination.hoverActionBuilder case final builder?)
