@@ -477,6 +477,7 @@ class _GroupDirectoryCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
+        mouseCursor: SystemMouseCursors.click,
         child: Semantics(
           button: true,
           label: 'Open ${group.label}',
@@ -512,7 +513,6 @@ class _GroupDirectoryCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const DIcon(DIcons.chevronRight, size: 14),
                   ],
                 ),
                 if (bio != null && bio.isNotEmpty) ...[
