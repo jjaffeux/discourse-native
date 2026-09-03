@@ -24,6 +24,30 @@ List<TextRange> composerBlockquotePrefixes(
   ];
 }
 
+/// Skips a projected quote prefix when moving between visible caret positions.
+int? composerBlockquoteArrowOffset(
+  TextEditingValue value, {
+  required bool forward,
+}) {
+  final selection = value.selection;
+  if (!selection.isValid ||
+      !selection.isCollapsed ||
+      selection.end > value.text.length ||
+      !value.composing.isCollapsed) {
+    return null;
+  }
+
+  final caret = selection.extentOffset;
+  for (final prefix in composerBlockquotePrefixes(value.text)) {
+    if (forward) {
+      if (caret >= prefix.start - 1 && caret < prefix.end) return prefix.end;
+    } else if (caret >= prefix.start && caret <= prefix.end) {
+      return prefix.start == 0 ? prefix.end : prefix.start - 1;
+    }
+  }
+  return null;
+}
+
 /// Marks an editable quote line in the projected text without painting its body.
 class ComposerBlockquoteMarker extends StatelessWidget {
   const ComposerBlockquoteMarker({

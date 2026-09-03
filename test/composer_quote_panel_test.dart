@@ -35,6 +35,91 @@ const _longQuote =
 
 void main() {
   group('quote editing', () {
+    testWidgets('moving left across a quote prefix reveals the previous line', (
+      tester,
+    ) async {
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(tester, shell, composer);
+      final field = find.byType(TextField);
+      final source = List.filled(60, '> words').join('\n');
+      await tester.enterText(field, source);
+      await tester.pumpAndSettle();
+      final render = tester
+          .state<EditableTextState>(find.byType(EditableText))
+          .renderEditable;
+      const lineStart = 30 * '> words\n'.length;
+      composer.text.selection = const TextSelection.collapsed(
+        offset: lineStart + 2,
+      );
+      await tester.pump();
+      final scroll = tester.widget<TextField>(field).scrollController!;
+      final caret = render.getLocalRectForCaret(composer.text.selection.extent);
+      scroll.jumpTo(scroll.offset + caret.top);
+      await tester.pump();
+      final oldScrollOffset = scroll.offset;
+      expect(
+        render
+            .getLocalRectForCaret(const TextPosition(offset: lineStart - 1))
+            .top,
+        lessThan(0),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+      expect(composer.text.selection.extentOffset, lineStart - 1);
+      expect(scroll.offset, lessThan(oldScrollOffset));
+      expect(
+        render.getLocalRectForCaret(composer.text.selection.extent).top,
+        greaterThanOrEqualTo(0),
+      );
+      expect(composer.text.text, source);
+    });
+
+    testWidgets('horizontal arrows skip the hidden quote line prefix', (
+      tester,
+    ) async {
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(tester, shell, composer);
+      await tester.enterText(find.byType(TextField), '> words\n> ');
+      await tester.pump();
+      final render = tester
+          .state<EditableTextState>(find.byType(EditableText))
+          .renderEditable;
+      final previousLineEnd = render.getLocalRectForCaret(
+        const TextPosition(offset: 7),
+      );
+      final emptyLineStart = render.getLocalRectForCaret(
+        const TextPosition(offset: 10),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(composer.text.selection.extentOffset, 10);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+      expect(composer.text.selection.extentOffset, 7);
+      expect(
+        render.getLocalRectForCaret(composer.text.selection.extent),
+        previousLineEnd,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(composer.text.selection.extentOffset, 10);
+      expect(
+        render.getLocalRectForCaret(composer.text.selection.extent),
+        emptyLineStart,
+      );
+      expect(composer.text.text, '> words\n> ');
+    });
+
     testWidgets('Backspace joins quoted lines without exposing the prefix', (
       tester,
     ) async {

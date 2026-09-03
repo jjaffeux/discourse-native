@@ -1807,6 +1807,21 @@ class _ComposerEditorState extends State<ComposerEditor> {
             event.logicalKey == LogicalKeyboardKey.arrowRight);
     if (isPlainHorizontalArrow) {
       final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+      final quoteOffset = composerBlockquoteArrowOffset(
+        value,
+        forward: !moveLeft,
+      );
+      if (quoteOffset != null) {
+        final editable = _editableTextState;
+        if (editable == null) return KeyEventResult.ignored;
+        final nextSelection = TextSelection.collapsed(offset: quoteOffset);
+        editable.bringIntoView(nextSelection.extent);
+        editable.userUpdateTextEditingValue(
+          value.copyWith(selection: nextSelection),
+          SelectionChangedCause.keyboard,
+        );
+        return KeyEventResult.handled;
+      }
       final emoji = moveLeft
           ? widget.composer.text.renderedEmojiEndingAt(caret)
           : widget.composer.text.renderedEmojiStartingAt(caret);

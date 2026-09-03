@@ -43,6 +43,90 @@ void main() {
         ),
       );
 
+  group('quote arrow navigation', () {
+    for (final (before, after) in [
+      ('> words\n> |', '> words|\n> '),
+      ('> words\n> |next', '> words|\n> next'),
+      ('> words\n> > |', '> words|\n> > '),
+      ('> words\n> \n> |', '> words\n> |\n> '),
+      ('Before\n> |words', 'Before|\n> words'),
+      ('> |words', '> |words'),
+      ('>| words', '> |words'),
+      ('> words\n|> next', '> words|\n> next'),
+      ('> words\n>| next', '> words|\n> next'),
+    ]) {
+      test('left from $before', () {
+        expect(
+          composerBlockquoteArrowOffset(_value(before), forward: false),
+          _value(after).selection.extentOffset,
+        );
+      });
+    }
+
+    for (final (before, after) in [
+      ('> words|\n> ', '> words\n> |'),
+      ('> words|\n> next', '> words\n> |next'),
+      ('> words|\n> > nested', '> words\n> > |nested'),
+      ('> words\n> |\n> ', '> words\n> \n> |'),
+      ('Before|\n> words', 'Before\n> |words'),
+      ('|> words', '> |words'),
+      ('>| words', '> |words'),
+    ]) {
+      test('right from $before', () {
+        expect(
+          composerBlockquoteArrowOffset(_value(before), forward: true),
+          _value(after).selection.extentOffset,
+        );
+      });
+    }
+
+    test('keeps native movement in text and literal code', () {
+      for (final source in [
+        '> wo|rds',
+        'plain|',
+        'x > |',
+        '\\> |',
+        '    > |',
+        '```\n> |\n```',
+        '~~~\n> |',
+      ]) {
+        for (final forward in [false, true]) {
+          expect(
+            composerBlockquoteArrowOffset(_value(source), forward: forward),
+            isNull,
+          );
+        }
+      }
+      for (final source in ['> |words', '> words\n> |']) {
+        expect(
+          composerBlockquoteArrowOffset(_value(source), forward: true),
+          isNull,
+        );
+      }
+    });
+
+    test('leaves selections and composition to native editing', () {
+      for (final value in [
+        _value('> words\n> |').copyWith(
+          selection: const TextSelection(baseOffset: 7, extentOffset: 10),
+        ),
+        _value(
+          '> words\n> |',
+        ).copyWith(composing: const TextRange(start: 9, end: 10)),
+        _value(
+          '> words\n> |',
+        ).copyWith(selection: const TextSelection.collapsed(offset: -1)),
+      ]) {
+        for (final forward in [false, true]) {
+          expect(
+            composerBlockquoteArrowOffset(value, forward: forward),
+            isNull,
+          );
+        }
+      }
+    });
+  });
+
   group('quote Backspace', () {
     for (final (before, after) in [
       ('> words\n> |', '> words|'),
