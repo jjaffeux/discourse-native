@@ -265,6 +265,9 @@ class _PostActionsState extends State<PostActions> {
             tooltip: post.bookmark == null
                 ? 'Bookmark this post'
                 : 'Edit this post bookmark',
+            tint: post.bookmark == null
+                ? null
+                : Theme.of(context).colorScheme.primary,
             enabled: !controller.bookmarkWriteInFlight(
               siteUrl: widget.siteUrl,
               topicId: topic.id,

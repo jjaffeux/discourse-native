@@ -784,6 +784,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                                 onPressed: bookmarkBusy
                                     ? null
                                     : () => unawaited(_bookmark()),
+                                color: widget.message.bookmark == null
+                                    ? null
+                                    : Theme.of(context).colorScheme.primary,
                                 icon: bookmarkBusy
                                     ? const SizedBox.square(
                                         dimension: 16,

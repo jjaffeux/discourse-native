@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/bookmark_ui.dart';
+import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -133,7 +134,15 @@ void main() {
     await pointer.moveTo(tester.getCenter(find.text('Post body')));
     await tester.pump();
 
-    expect(find.byTooltip('Edit this post bookmark'), findsOneWidget);
+    final action = find.byTooltip('Edit this post bookmark');
+    expect(action, findsOneWidget);
+    final toolbarButton = tester.widget<HoverActionButton>(
+      find.ancestor(of: action, matching: find.byType(HoverActionButton)),
+    );
+    expect(
+      toolbarButton.color,
+      Theme.of(tester.element(action)).colorScheme.primary,
+    );
   });
 
   testWidgets('editor prefill is local and cancel discards it', (tester) async {
