@@ -1852,7 +1852,20 @@ void _registerShellNavigationTests() {
     final api = FakeDiscourseApi(
       feeds: const {
         '/latest.json': [],
-        '/c/discourse-native-app/1.json': [],
+        '/c/discourse-native-app/1.json': [
+          Topic(
+            id: 7,
+            title: 'Parent category topic',
+            slug: 'parent-category-topic',
+            categoryId: 1,
+          ),
+          Topic(
+            id: 8,
+            title: 'Subcategory topic',
+            slug: 'subcategory-topic',
+            categoryId: 2,
+          ),
+        ],
         '/c/discourse-native-app/bugs/2.json': [],
       },
       categoryList: const [
@@ -1882,6 +1895,15 @@ void _registerShellNavigationTests() {
       findsOneWidget,
     );
     expect(find.bySemanticsLabel('All topics, selected'), findsOneWidget);
+    expect(find.bySemanticsLabel('Category: Bugs'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Category: Discourse Native App'),
+      findsNothing,
+    );
+    expect(
+      find.bySemanticsLabel('Parent category: Discourse Native App'),
+      findsNothing,
+    );
 
     await tester.tap(find.byKey(const ValueKey(('subcategory-navigation', 2))));
     await tester.pumpAndSettle();
