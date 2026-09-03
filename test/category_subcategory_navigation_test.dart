@@ -2,6 +2,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/category_subcategory_navigation.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -256,6 +257,60 @@ void main() {
     await tester.tap(accessibility);
     await tester.pumpAndSettle();
 
+    expect(selections.single.id, 6);
+  });
+
+  testWidgets('cycles through filtered results with the arrow keys', (
+    tester,
+  ) async {
+    final selections = <TopicCategory>[];
+    await pumpNavigation(
+      tester,
+      selectedCategoryId: 1,
+      onSelected: selections.add,
+      size: const Size(700, 800),
+      platform: TargetPlatform.macOS,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('subcategory-navigation-more')));
+    await tester.pumpAndSettle();
+
+    final filter = find.byKey(const ValueKey('choice-menu-filter'));
+    await tester.enterText(filter, 'a');
+    await tester.pump();
+
+    bool optionHasFocus(int categoryId) {
+      final option = find.byKey(ValueKey(('choice-menu-option', categoryId)));
+      return tester
+          .widget<InkWell>(
+            find.descendant(of: option, matching: find.byType(InkWell)),
+          )
+          .focusNode!
+          .hasFocus;
+    }
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(optionHasFocus(3), isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(optionHasFocus(5), isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(optionHasFocus(6), isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(optionHasFocus(1), isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    expect(optionHasFocus(6), isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
     expect(selections.single.id, 6);
   });
 
