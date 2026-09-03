@@ -73,9 +73,12 @@ class _ManageSection extends StatelessWidget {
               children: [
                 SizedBox(
                   width: 190,
-                  child: _ManageSidebar(
+                  child: _SubsectionSidebar(
+                    key: const ValueKey('group-manage-sidebar'),
+                    title: 'Group settings',
                     selected: selected,
                     options: options,
+                    iconFor: _manageIcon,
                     onSelect: select,
                   ),
                 ),
@@ -90,9 +93,14 @@ class _ManageSection extends StatelessWidget {
         }
         return Column(
           children: [
-            _MobileManagePicker(
+            _MobileSubsectionPicker(
+              key: const ValueKey('group-manage-picker'),
+              title: 'Group settings',
               selected: selected,
               options: options,
+              iconFor: _manageIcon,
+              sheetOptionKeyPrefix: 'group-manage-sheet',
+              currentSectionKey: 'group-manage-current-section',
               onSelect: select,
             ),
             Expanded(child: content),
@@ -101,189 +109,6 @@ class _ManageSection extends StatelessWidget {
       },
     );
   }
-}
-
-class _ManageSidebar extends StatelessWidget {
-  const _ManageSidebar({
-    required this.selected,
-    required this.options,
-    required this.onSelect,
-  });
-
-  final String selected;
-  final List<_Subtab> options;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    key: const ValueKey('group-manage-sidebar'),
-    color: Theme.of(context).colorScheme.surfaceContainerLowest,
-    child: ListView(
-      padding: const EdgeInsets.fromLTRB(10, 16, 10, 20),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-          child: Text(
-            'Group settings',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        for (final option in options)
-          _ManageNavigationItem(
-            key: ValueKey('group-subtab-${option.value}'),
-            option: option,
-            selected: selected == option.value,
-            onTap: () => onSelect(option.value),
-          ),
-      ],
-    ),
-  );
-}
-
-class _MobileManagePicker extends StatelessWidget {
-  const _MobileManagePicker({
-    required this.selected,
-    required this.options,
-    required this.onSelect,
-  });
-
-  final String selected;
-  final List<_Subtab> options;
-  final ValueChanged<String> onSelect;
-
-  Future<void> _showPicker(BuildContext context) async {
-    final choice = await showShellSheet<String>(
-      context: context,
-      title: 'Group settings',
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
-      builder: (sheetContext) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final option in options)
-            ListTile(
-              key: ValueKey('group-manage-sheet-${option.value}'),
-              minTileHeight: 48,
-              leading: DIcon(_manageIcon(option.value), size: 18),
-              title: Text(option.label),
-              trailing: selected == option.value
-                  ? const DIcon(DIcons.check, size: 16)
-                  : null,
-              selected: selected == option.value,
-              selectedColor: Theme.of(sheetContext).shell.selectedForeground,
-              selectedTileColor: Theme.of(sheetContext).shell.selected,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(7),
-              ),
-              onTap: () => Navigator.of(sheetContext).pop(option.value),
-            ),
-        ],
-      ),
-    );
-    if (choice != null && choice != selected) onSelect(choice);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final label = options
-        .firstWhere((option) => option.value == selected)
-        .label;
-    return Material(
-      key: const ValueKey('group-manage-picker'),
-      color: Theme.of(context).colorScheme.surfaceContainerLowest,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Theme.of(context).shell.divider),
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(7),
-          onTap: () => unawaited(_showPicker(context)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Group settings',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                Text(
-                  label,
-                  key: const ValueKey('group-manage-current-section'),
-                  style: TextStyle(
-                    color: Theme.of(context).shell.selectedForeground,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const DIcon(DIcons.chevronDown, size: 14),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ManageNavigationItem extends StatelessWidget {
-  const _ManageNavigationItem({
-    super.key,
-    required this.option,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final _Subtab option;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 2),
-    child: Material(
-      color: selected ? Theme.of(context).shell.selected : Colors.transparent,
-      borderRadius: BorderRadius.circular(7),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(7),
-        mouseCursor: SystemMouseCursors.click,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          child: Row(
-            children: [
-              DIcon(
-                _manageIcon(option.value),
-                size: 16,
-                color: selected
-                    ? Theme.of(context).shell.selectedForeground
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  option.label,
-                  style: TextStyle(
-                    color: selected
-                        ? Theme.of(context).shell.selectedForeground
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }
 
 DIconData _manageIcon(String subsection) => switch (subsection) {

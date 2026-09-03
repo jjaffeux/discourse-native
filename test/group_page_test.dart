@@ -136,11 +136,30 @@ void main() {
             ),
           );
           await tester.pump();
-          final secondaryTabs = tester.getRect(
+          expect(
             find.byKey(const ValueKey('group-secondary-tabs')),
+            findsNothing,
           );
-          expect(secondaryTabs.left, left);
-          expect(secondaryTabs.width, contentWidth);
+          if (width >= 720) {
+            final activitySidebar = tester.getRect(
+              find.byKey(const ValueKey('group-activity-sidebar')),
+            );
+            expect(activitySidebar.left, left);
+            expect(activitySidebar.width, 190);
+            expect(
+              find.byKey(const ValueKey('group-activity-picker')),
+              findsNothing,
+            );
+          } else {
+            expect(
+              find.byKey(const ValueKey('group-activity-sidebar')),
+              findsNothing,
+            );
+            expect(
+              find.byKey(const ValueKey('group-activity-picker')),
+              findsOneWidget,
+            );
+          }
           expect(tester.takeException(), isNull);
         }
       },
@@ -341,6 +360,78 @@ void main() {
           .selected,
       isTrue,
     );
+  });
+
+  testWidgets('activity navigation adapts from a sidebar to a mobile sheet', (
+    tester,
+  ) async {
+    var route = GroupRoute.detail(
+      'support',
+      section: GroupRoute.activity,
+      subsection: GroupRoute.posts,
+    );
+    late StateSetter update;
+
+    Widget page() => StatefulBuilder(
+      builder: (context, setState) {
+        update = setState;
+        return GroupPage(
+          siteUrl: 'https://meta.discourse.org',
+          route: route,
+          registry: PluginRegistry.empty,
+          onOpenMember: _ignoreMember,
+          data: const GroupPageData(
+            detail: _detail,
+            activity: GroupActivityPage(),
+            loaded: true,
+          ),
+          topicFeed: const Center(child: Text('Topic feed slot')),
+          onSelectRoute: (selected) => update(() => route = selected),
+        );
+      },
+    );
+
+    await _pump(tester, page());
+
+    expect(
+      find.byKey(const ValueKey('group-activity-sidebar')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('group-activity-picker')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('group-subtab-topics')));
+    await tester.pump();
+    expect(route.subsection, GroupRoute.topics);
+    expect(find.text('Topic feed slot'), findsOneWidget);
+
+    await _pump(tester, page(), size: const Size(390, 900));
+
+    expect(find.byKey(const ValueKey('group-activity-sidebar')), findsNothing);
+    expect(find.byKey(const ValueKey('group-activity-picker')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('group-activity-current-section')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('group-activity-picker')));
+    await tester.pumpAndSettle();
+    expect(find.text('Group activity'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('group-activity-sheet-posts')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('group-activity-sheet-mentions')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('group-activity-sheet-mentions')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(route.subsection, GroupRoute.mentions);
+    expect(find.text('No mentions yet.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('member parity tools expose metadata and management actions', (

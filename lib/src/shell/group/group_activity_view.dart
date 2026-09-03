@@ -40,41 +40,96 @@ class _ActivitySection extends StatelessWidget {
       if (group.canSeeMembers) const _Subtab(GroupRoute.topics, 'Topics'),
       if (mentionsEnabled) const _Subtab(GroupRoute.mentions, 'Mentions'),
     ];
-    return Column(
-      children: [
-        _Subtabs(
-          selected: selected,
-          options: options,
-          onSelect: (subsection) => onSelect(
-            GroupRoute.detail(
-              group.name,
-              section: GroupRoute.activity,
-              subsection: subsection,
-            ),
-          ),
-        ),
-        Expanded(
-          child: selected == GroupRoute.topics
-              ? topicFeed ??
-                    const _GroupState(
-                      icon: DIcons.list,
-                      title: 'Topics are not available yet.',
-                    )
-              : _ActivityRows(
-                  page: page,
-                  kind: selected == GroupRoute.mentions ? 'mentions' : 'posts',
-                  loading: loading,
-                  loadingMore: loadingMore,
-                  hasMore: hasMore,
-                  error: error,
-                  onOpenPost: onOpenPost,
-                  onLoadMore: onLoadMore,
+    if (options.isEmpty) {
+      return _activityContent(selected);
+    }
+    final selectedSubsection = options.any((option) => option.value == selected)
+        ? selected
+        : options.first.value;
+
+    void select(String subsection) => onSelect(
+      GroupRoute.detail(
+        group.name,
+        section: GroupRoute.activity,
+        subsection: subsection,
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final content = _activityContent(selectedSubsection);
+        if (constraints.maxWidth >= _groupDesktopBreakpoint) {
+          return ContentReadingLaneBox(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 190,
+                  child: _SubsectionSidebar(
+                    key: const ValueKey('group-activity-sidebar'),
+                    title: 'Group activity',
+                    selected: selectedSubsection,
+                    options: options,
+                    iconFor: _activityIcon,
+                    onSelect: select,
+                  ),
                 ),
-        ),
-      ],
+                VerticalDivider(
+                  width: 1,
+                  color: Theme.of(context).shell.divider,
+                ),
+                Expanded(child: content),
+              ],
+            ),
+          );
+        }
+        return Column(
+          children: [
+            _MobileSubsectionPicker(
+              key: const ValueKey('group-activity-picker'),
+              title: 'Group activity',
+              selected: selectedSubsection,
+              options: options,
+              iconFor: _activityIcon,
+              sheetOptionKeyPrefix: 'group-activity-sheet',
+              currentSectionKey: 'group-activity-current-section',
+              onSelect: select,
+            ),
+            Expanded(child: content),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _activityContent(String subsection) {
+    if (subsection == GroupRoute.topics) {
+      return topicFeed ??
+          const _GroupState(
+            icon: DIcons.list,
+            title: 'Topics are not available yet.',
+          );
+    }
+    return _ActivityRows(
+      page: page,
+      kind: subsection == GroupRoute.mentions ? 'mentions' : 'posts',
+      loading: loading,
+      loadingMore: loadingMore,
+      hasMore: hasMore,
+      error: error,
+      onOpenPost: onOpenPost,
+      onLoadMore: onLoadMore,
     );
   }
 }
+
+DIconData _activityIcon(String subsection) => switch (subsection) {
+  GroupRoute.posts => DIcons.comment,
+  GroupRoute.topics => DIcons.list,
+  GroupRoute.mentions => DIcons.at,
+  _ => DIcons.comment,
+};
 
 class _ActivityRows extends StatelessWidget {
   const _ActivityRows({
