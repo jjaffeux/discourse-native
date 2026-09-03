@@ -8,40 +8,45 @@ void main() {
   const siteUrl = 'https://forum.example';
 
   group('directory, member, and topic reads', () {
-    test('directory is public and preserves every query dimension', () async {
-      final transport = _RecordingTransport()
-        ..getResponse = {
-          'groups': [
-            {'id': 1, 'name': 'team+ops', 'user_count': 3},
-          ],
-          'total_rows_groups': 1,
-        };
-      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+    for (final (ascending, direction) in [(true, 'true'), (false, 'false')]) {
+      test(
+        'directory is public and preserves every query dimension for asc=$direction',
+        () async {
+          final transport = _RecordingTransport()
+            ..getResponse = {
+              'groups': [
+                {'id': 1, 'name': 'team+ops', 'user_count': 3},
+              ],
+              'total_rows_groups': 1,
+            };
+          final api = GroupsApi(transport, const DiscourseModelCodec.core());
 
-      final directory = await api.directory(
-        siteUrl: siteUrl,
-        page: 2,
-        filter: ' support ',
-        type: 'my',
-        order: 'user_count',
-        ascending: false,
-        username: 'sam',
+          final directory = await api.directory(
+            siteUrl: siteUrl,
+            page: 2,
+            filter: ' support ',
+            type: 'my',
+            order: 'user_count',
+            ascending: ascending,
+            username: 'sam',
+          );
+
+          final request = transport.gets.single;
+          final directoryUri = Uri.parse(request.path);
+          expect(directoryUri.path, '/groups.json');
+          expect(directoryUri.queryParameters, {
+            'page': '2',
+            'filter': 'support',
+            'type': 'my',
+            'order': 'user_count',
+            'asc': direction,
+            'username': 'sam',
+          });
+          expect(request.apiKey, isNull);
+          expect(directory.groups.single.name, 'team+ops');
+        },
       );
-
-      final request = transport.gets.single;
-      final directoryUri = Uri.parse(request.path);
-      expect(directoryUri.path, '/groups.json');
-      expect(directoryUri.queryParameters, {
-        'page': '2',
-        'filter': 'support',
-        'type': 'my',
-        'order': 'user_count',
-        'asc': 'false',
-        'username': 'sam',
-      });
-      expect(request.apiKey, isNull);
-      expect(directory.groups.single.name, 'team+ops');
-    });
+    }
 
     test('detail encodes the group name and decodes visible groups', () async {
       final transport = _RecordingTransport()
@@ -63,63 +68,75 @@ void main() {
       expect(detail.visibleGroupNames, ['team+ops']);
     });
 
-    test('members maps every paging, ordering, and filter query', () async {
-      final transport = _RecordingTransport()
-        ..getResponse = {
-          'members': [
-            {'id': 2, 'username': 'sam'},
-          ],
-          'owners': <Map<String, Object?>>[],
-          'meta': {'total': 1, 'limit': 25, 'offset': 50},
-        };
-      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+    for (final (ascending, direction) in [(true, 'true'), (false, 'false')]) {
+      test(
+        'members maps every paging, ordering, and filter query for asc=$direction',
+        () async {
+          final transport = _RecordingTransport()
+            ..getResponse = {
+              'members': [
+                {'id': 2, 'username': 'sam'},
+              ],
+              'owners': <Map<String, Object?>>[],
+              'meta': {'total': 1, 'limit': 25, 'offset': 50},
+            };
+          final api = GroupsApi(transport, const DiscourseModelCodec.core());
 
-      final members = await api.members(
-        siteUrl: siteUrl,
-        apiKey: 'secret',
-        groupName: 'support',
-        offset: 50,
-        limit: 25,
-        order: 'last_seen_at',
-        ascending: false,
-        filter: ' Sam ',
-        includeCustomFields: true,
+          final members = await api.members(
+            siteUrl: siteUrl,
+            apiKey: 'secret',
+            groupName: 'support',
+            offset: 50,
+            limit: 25,
+            order: 'last_seen_at',
+            ascending: ascending,
+            filter: ' Sam ',
+            includeCustomFields: true,
+          );
+
+          expect(Uri.parse(transport.gets.single.path).queryParameters, {
+            'offset': '50',
+            'limit': '25',
+            'order': 'last_seen_at',
+            'asc': direction,
+            'filter': 'Sam',
+            'include_custom_fields': 'true',
+          });
+          expect(members.members.single.username, 'sam');
+        },
       );
+    }
 
-      expect(Uri.parse(transport.gets.single.path).queryParameters, {
-        'offset': '50',
-        'limit': '25',
-        'order': 'last_seen_at',
-        'asc': 'false',
-        'filter': 'Sam',
-        'include_custom_fields': 'true',
-      });
-      expect(members.members.single.username, 'sam');
-    });
+    for (final (ascending, direction) in [(true, 'true'), (false, 'false')]) {
+      test(
+        'requesters sets its discriminator and decodes reasons for asc=$direction',
+        () async {
+          final transport = _RecordingTransport()
+            ..getResponse = {
+              'members': [
+                {'id': 3, 'username': 'lee', 'reason': 'Please'},
+              ],
+              'meta': {'total': 1, 'limit': 50, 'offset': 0},
+            };
+          final api = GroupsApi(transport, const DiscourseModelCodec.core());
 
-    test('requesters sets its discriminator and decodes reasons', () async {
-      final transport = _RecordingTransport()
-        ..getResponse = {
-          'members': [
-            {'id': 3, 'username': 'lee', 'reason': 'Please'},
-          ],
-          'meta': {'total': 1, 'limit': 50, 'offset': 0},
-        };
-      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+          final requesters = await api.requesters(
+            siteUrl: siteUrl,
+            apiKey: 'secret',
+            groupName: 'support',
+            ascending: ascending,
+          );
 
-      final requesters = await api.requesters(
-        siteUrl: siteUrl,
-        apiKey: 'secret',
-        groupName: 'support',
+          expect(Uri.parse(transport.gets.single.path).queryParameters, {
+            'requesters': 'true',
+            'offset': '0',
+            'limit': '50',
+            'asc': direction,
+          });
+          expect(requesters.requesters.single.reason, 'Please');
+        },
       );
-
-      expect(Uri.parse(transport.gets.single.path).queryParameters, {
-        'requesters': 'true',
-        'offset': '0',
-        'limit': '50',
-      });
-      expect(requesters.requesters.single.reason, 'Please');
-    });
+    }
 
     test('mentions maps its cursor and category filter exactly', () async {
       final transport = _RecordingTransport()
