@@ -81,6 +81,8 @@ class _VoiceMeshPrivacyDialogState extends State<VoiceMeshPrivacyDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
+    constraints: const BoxConstraints(maxWidth: 560),
+    scrollable: true,
     title: const Text('Before you join this room'),
     content: Column(
       mainAxisSize: MainAxisSize.min,
