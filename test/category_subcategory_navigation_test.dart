@@ -157,6 +157,56 @@ void main() {
     expect(find.byType(BottomSheet), findsNothing);
   });
 
+  testWidgets('filters subcategories in the touch overflow sheet', (
+    tester,
+  ) async {
+    await pumpNavigation(
+      tester,
+      selectedCategoryId: 1,
+      onSelected: _ignoreSelection,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('subcategory-navigation-more')));
+    await tester.pumpAndSettle();
+
+    final filter = find.byKey(const ValueKey('choice-menu-filter'));
+    expect(filter, findsOneWidget);
+
+    await tester.enterText(filter, 'feat');
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey(('choice-menu-option', 1))),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey(('choice-menu-option', 3))),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey(('choice-menu-option', 2))),
+      findsNothing,
+    );
+
+    await tester.enterText(filter, 'missing');
+    await tester.pump();
+
+    expect(find.text('No matching subcategories.'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey(('choice-menu-option', 1))),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('choice-menu-filter-clear')));
+    await tester.pump();
+
+    expect(find.text('No matching subcategories.'), findsNothing);
+    expect(
+      find.byKey(const ValueKey(('choice-menu-option', 2))),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('opens overflow as a popover with desktop input', (tester) async {
     final selections = <TopicCategory>[];
     await pumpNavigation(
@@ -172,6 +222,16 @@ void main() {
 
     expect(find.byKey(const ValueKey('choice-menu-surface')), findsOneWidget);
     expect(find.byType(BottomSheet), findsNothing);
+
+    final filter = find.byKey(const ValueKey('choice-menu-filter'));
+    expect(filter, findsOneWidget);
+    await tester.enterText(filter, 'access');
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey(('choice-menu-option', 2))),
+      findsNothing,
+    );
 
     final accessibility = find.byKey(const ValueKey(('choice-menu-option', 6)));
     await tester.ensureVisible(accessibility);

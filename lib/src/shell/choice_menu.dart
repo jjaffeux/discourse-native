@@ -38,6 +38,9 @@ class ChoiceMenuAnchor<T> extends StatefulWidget {
     required this.builder,
     this.enabled = true,
     this.showPopoverTitle = true,
+    this.filterHint,
+    this.filterEmptyMessage = 'No matching options.',
+    this.alwaysVisibleValues = const {},
   });
 
   final String title;
@@ -48,6 +51,9 @@ class ChoiceMenuAnchor<T> extends StatefulWidget {
   final bool enabled;
 
   final bool showPopoverTitle;
+  final String? filterHint;
+  final String filterEmptyMessage;
+  final Set<T> alwaysVisibleValues;
 
   @override
   State<ChoiceMenuAnchor<T>> createState() => _ChoiceMenuAnchorState<T>();
@@ -69,6 +75,9 @@ class _ChoiceMenuAnchorState<T> extends State<ChoiceMenuAnchor<T>> {
         value: widget.value,
         options: widget.options,
         showPopoverTitle: widget.showPopoverTitle,
+        filterHint: widget.filterHint,
+        filterEmptyMessage: widget.filterEmptyMessage,
+        alwaysVisibleValues: widget.alwaysVisibleValues,
       );
       if (!mounted || selected == null || selected == widget.value) return;
       widget.onSelected(selected);
@@ -91,6 +100,9 @@ Future<T?> showChoiceMenu<T>({
   required T value,
   required List<ChoiceMenuOption<T>> options,
   bool showPopoverTitle = true,
+  String? filterHint,
+  String filterEmptyMessage = 'No matching options.',
+  Set<T> alwaysVisibleValues = const {},
 }) {
   if (options.isEmpty) return Future<T?>.value();
 
@@ -99,11 +111,14 @@ Future<T?> showChoiceMenu<T>({
       context: context,
       title: title,
       padding: const EdgeInsets.all(8),
-      builder: (sheetContext) => _ChoiceRows<T>(
+      builder: (sheetContext) => _FilterableChoiceRows<T>(
         value: value,
         options: options,
         touch: true,
         onSelected: (choice) => Navigator.of(sheetContext).pop(choice),
+        filterHint: filterHint,
+        filterEmptyMessage: filterEmptyMessage,
+        alwaysVisibleValues: alwaysVisibleValues,
       ),
     );
   }
@@ -144,6 +159,9 @@ Future<T?> showChoiceMenu<T>({
             animation: animation,
             transitionAlignment: alignment,
             showTitle: showPopoverTitle,
+            filterHint: filterHint,
+            filterEmptyMessage: filterEmptyMessage,
+            alwaysVisibleValues: alwaysVisibleValues,
           ),
     ),
   );
@@ -172,6 +190,9 @@ class _ChoiceMenuPopup<T> extends StatelessWidget {
     required this.animation,
     required this.transitionAlignment,
     required this.showTitle,
+    required this.filterHint,
+    required this.filterEmptyMessage,
+    required this.alwaysVisibleValues,
   });
 
   static const double width = 336;
@@ -183,6 +204,9 @@ class _ChoiceMenuPopup<T> extends StatelessWidget {
   final Animation<double> animation;
   final Alignment transitionAlignment;
   final bool showTitle;
+  final String? filterHint;
+  final String filterEmptyMessage;
+  final Set<T> alwaysVisibleValues;
 
   @override
   Widget build(BuildContext context) => CustomSingleChildLayout(
@@ -196,6 +220,9 @@ class _ChoiceMenuPopup<T> extends StatelessWidget {
         options: options,
         onSelected: Navigator.of(context).pop,
         showTitle: showTitle,
+        filterHint: filterHint,
+        filterEmptyMessage: filterEmptyMessage,
+        alwaysVisibleValues: alwaysVisibleValues,
       ),
     ),
   );
@@ -243,6 +270,9 @@ class _ChoiceMenuSurface<T> extends StatelessWidget {
     required this.options,
     required this.onSelected,
     required this.showTitle,
+    required this.filterHint,
+    required this.filterEmptyMessage,
+    required this.alwaysVisibleValues,
   });
 
   final String title;
@@ -250,6 +280,9 @@ class _ChoiceMenuSurface<T> extends StatelessWidget {
   final List<ChoiceMenuOption<T>> options;
   final ValueChanged<T> onSelected;
   final bool showTitle;
+  final String? filterHint;
+  final String filterEmptyMessage;
+  final Set<T> alwaysVisibleValues;
 
   @override
   Widget build(BuildContext context) {
@@ -291,10 +324,13 @@ class _ChoiceMenuSurface<T> extends StatelessWidget {
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(6),
-                child: _ChoiceRows<T>(
+                child: _FilterableChoiceRows<T>(
                   value: value,
                   options: options,
                   onSelected: onSelected,
+                  filterHint: filterHint,
+                  filterEmptyMessage: filterEmptyMessage,
+                  alwaysVisibleValues: alwaysVisibleValues,
                 ),
               ),
             ),
@@ -305,18 +341,143 @@ class _ChoiceMenuSurface<T> extends StatelessWidget {
   }
 }
 
-class _ChoiceRows<T> extends StatefulWidget {
-  const _ChoiceRows({
+class _FilterableChoiceRows<T> extends StatefulWidget {
+  const _FilterableChoiceRows({
     required this.value,
     required this.options,
     required this.onSelected,
+    required this.filterHint,
+    required this.filterEmptyMessage,
+    required this.alwaysVisibleValues,
     this.touch = false,
   });
 
   final T value;
   final List<ChoiceMenuOption<T>> options;
   final ValueChanged<T> onSelected;
+  final String? filterHint;
+  final String filterEmptyMessage;
+  final Set<T> alwaysVisibleValues;
   final bool touch;
+
+  @override
+  State<_FilterableChoiceRows<T>> createState() =>
+      _FilterableChoiceRowsState<T>();
+}
+
+class _FilterableChoiceRowsState<T>
+    extends State<_FilterableChoiceRows<T>> {
+  final TextEditingController _filterController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _filterController.dispose();
+    super.dispose();
+  }
+
+  void _filter(String value) {
+    setState(() => _query = value.trim().toLowerCase());
+  }
+
+  void _clearFilter() {
+    _filterController.clear();
+    _filter('');
+  }
+
+  bool _matches(ChoiceMenuOption<T> option) =>
+      option.title.toLowerCase().contains(_query);
+
+  @override
+  Widget build(BuildContext context) {
+    final filterable = widget.filterHint != null;
+    final filtered = !filterable || _query.isEmpty
+        ? widget.options
+        : [
+            for (final option in widget.options)
+              if (widget.alwaysVisibleValues.contains(option.value) ||
+                  _matches(option))
+                option,
+          ];
+    final hasMatchingChoice =
+        !filterable ||
+        _query.isEmpty ||
+        widget.options.any(
+          (option) =>
+              !widget.alwaysVisibleValues.contains(option.value) &&
+              _matches(option),
+        );
+    final theme = Theme.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.filterHint case final filterHint?) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+            child: TextField(
+              key: const ValueKey('choice-menu-filter'),
+              controller: _filterController,
+              autofocus: !widget.touch,
+              textInputAction: TextInputAction.search,
+              onChanged: _filter,
+              decoration: InputDecoration(
+                hintText: filterHint,
+                prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 16),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        key: const ValueKey('choice-menu-filter-clear'),
+                        onPressed: _clearFilter,
+                        icon: const DIcon(DIcons.xmark, size: 14),
+                        tooltip: 'Clear filter',
+                      ),
+                isDense: true,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
+        if (filtered.isNotEmpty)
+          _ChoiceRows<T>(
+            value: widget.value,
+            options: filtered,
+            touch: widget.touch,
+            requestInitialFocus: !filterable,
+            onSelected: widget.onSelected,
+          ),
+        if (!hasMatchingChoice)
+          Padding(
+            key: const ValueKey('choice-menu-filter-empty'),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+            child: Text(
+              widget.filterEmptyMessage,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ChoiceRows<T> extends StatefulWidget {
+  const _ChoiceRows({
+    required this.value,
+    required this.options,
+    required this.onSelected,
+    this.touch = false,
+    this.requestInitialFocus = true,
+  });
+
+  final T value;
+  final List<ChoiceMenuOption<T>> options;
+  final ValueChanged<T> onSelected;
+  final bool touch;
+  final bool requestInitialFocus;
 
   @override
   State<_ChoiceRows<T>> createState() => _ChoiceRowsState<T>();
@@ -335,7 +496,9 @@ class _ChoiceRowsState<T> extends State<_ChoiceRows<T>> {
     );
     _focusedIndex = selected < 0 ? 0 : selected;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !widget.touch) _focusNodes[_focusedIndex].requestFocus();
+      if (mounted && !widget.touch && widget.requestInitialFocus) {
+        _focusNodes[_focusedIndex].requestFocus();
+      }
     });
   }
 

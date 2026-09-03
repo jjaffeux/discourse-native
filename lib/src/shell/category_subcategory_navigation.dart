@@ -223,6 +223,9 @@ class _SubcategoryOverflowButton extends StatelessWidget {
       onSelected: (categoryId) => onSelected(
         categories.firstWhere((category) => category.id == categoryId),
       ),
+      filterHint: 'Filter subcategories',
+      filterEmptyMessage: 'No matching subcategories.',
+      alwaysVisibleValues: {parent.id},
       builder: (context, openMenu) => ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 40),
         child: DButton(
