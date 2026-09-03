@@ -2144,7 +2144,8 @@ class ShellController extends FrameSafeNotifier
         tab.contentStack.length != 1) {
       return null;
     }
-    return TopicListMode.fromRoute(tab.currentContent);
+    return TopicListMode.fromRoute(tab.currentContent) ??
+        (tab.currentContent.isTopicListFilter ? TopicListMode.latest : null);
   }
 
   ({int all, int topics, int replies}) get topicListNewCounts {
@@ -2386,6 +2387,15 @@ class ShellController extends FrameSafeNotifier
 
   List<TopicCategory> filterCategoriesFor(String siteUrl) =>
       _categoriesBySite[siteUrl] ?? const [];
+
+  List<SidebarTag> topicListFilterTagsFor(String siteUrl) {
+    final byName = <String, SidebarTag>{};
+    for (final tag in _knownTagsFor(siteUrl)) {
+      if (tag.pmOnly) continue;
+      byName.putIfAbsent(tag.name.toLowerCase(), () => tag);
+    }
+    return List.unmodifiable(byName.values);
+  }
 
   Future<List<TopicCategory>> searchFilterCategories({
     required String siteUrl,
@@ -11385,6 +11395,112 @@ class ShellController extends FrameSafeNotifier
     _syncTopicChannels();
     _notify();
     await loadFeed(route.id);
+  }
+
+  void selectTopicListCategory(TopicCategory? category) {
+    final route = currentContent;
+    if (route?.isTopicListFilter != true) return;
+    _selectTopicListFilter(category: category, tagName: route!.tagName);
+  }
+
+  void selectTopicListTag(String? tagName) {
+    final route = currentContent;
+    if (route?.isTopicListFilter != true) return;
+    _selectTopicListFilter(
+      category: categoryFor(route!.categoryId),
+      tagName: tagName,
+    );
+  }
+
+  void clearTopicListFilters() {
+    if (currentContent?.isTopicListFilter != true) return;
+    _selectTopicListFilter(category: null, tagName: null);
+  }
+
+  void _selectTopicListFilter({
+    required TopicCategory? category,
+    required String? tagName,
+  }) {
+    final instance = currentInstance;
+    final tab = activeTab;
+    if (instance == null || tab == null) return;
+
+    final normalizedTag = switch (tagName?.trim()) {
+      final value? when value.isNotEmpty => value,
+      _ => null,
+    };
+    final route = _topicListFilterRoute(
+      siteUrl: instance.url,
+      category: category,
+      tagName: normalizedTag,
+    );
+    if (route.id == currentContent?.id &&
+        route.feedPath == currentContent?.feedPath) {
+      return;
+    }
+
+    _replaceActiveTab(
+      tab.copyWith(
+        rootDestinationId: 'latest',
+        contentStack: [route],
+        forwardStack: const [],
+      ),
+    );
+    _mobilePane = MobilePane.content;
+    _syncTopicChannels();
+    _notify();
+    unawaited(loadFeed(route.id));
+  }
+
+  ContentRoute _topicListFilterRoute({
+    required String siteUrl,
+    required TopicCategory? category,
+    required String? tagName,
+  }) {
+    if (category == null && tagName == null) {
+      return ContentRoute.topicList(TopicListMode.latest);
+    }
+
+    final categories = filterCategoriesFor(siteUrl);
+    final categoriesById = <int, TopicCategory>{
+      for (final item in categories) item.id: item,
+    };
+    if (category case final selected?) {
+      categoriesById[selected.id] = selected;
+    }
+    final categoryDestination = category == null
+        ? null
+        : buildCategoryDestination(category, categoriesById: categoriesById);
+    if (tagName == null) {
+      return ContentRoute.fromDestination(categoryDestination!);
+    }
+
+    final tagPath = Uri(pathSegments: ['tag', tagName]).toString();
+    final selectedCategory = category;
+    if (categoryDestination == null || selectedCategory == null) {
+      return ContentRoute(
+        id: 'topic-list-filter-$tagPath',
+        title: tagName,
+        icon: DIcons.tag,
+        feedPath: '/$tagPath.json',
+      );
+    }
+
+    final categoryFeedPath = categoryDestination.feedPath!;
+    final categoryPath = categoryFeedPath.substring(
+      0,
+      categoryFeedPath.length - '.json'.length,
+    );
+    final combinedPath = Uri(
+      pathSegments: ['tags', ...Uri.parse(categoryPath).pathSegments, tagName],
+    ).toString();
+    return ContentRoute(
+      id: 'topic-list-filter-$combinedPath',
+      title: selectedCategory.name,
+      icon: categoryDestination.icon,
+      color: categoryDestination.routeColor,
+      feedPath: '/$combinedPath.json',
+    );
   }
 
   void createTab() {

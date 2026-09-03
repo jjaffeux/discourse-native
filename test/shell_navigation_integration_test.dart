@@ -1831,7 +1831,7 @@ void _registerShellNavigationTests() {
     expect(launched, isEmpty);
   });
 
-  testWidgets('category lists expose their subcategories above the topics', (
+  testWidgets('category lists expose cascade filters above the topics', (
     tester,
   ) async {
     const parent = TopicCategory(
@@ -1890,22 +1890,26 @@ void _registerShellNavigationTests() {
     controller.openCategory(parent);
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('category-subcategory-navigation')),
-      findsOneWidget,
-    );
-    expect(find.bySemanticsLabel('All topics, selected'), findsOneWidget);
-    expect(find.bySemanticsLabel('Category: Bugs'), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-list-filter-bar')), findsOneWidget);
     expect(
       find.bySemanticsLabel('Category: Discourse Native App'),
-      findsNothing,
+      findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('topic-list-subcategory-filter')),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('Category: Bugs'), findsOneWidget);
     expect(
       find.bySemanticsLabel('Parent category: Discourse Native App'),
       findsNothing,
     );
 
-    await tester.tap(find.byKey(const ValueKey(('subcategory-navigation', 2))));
+    await tester.tap(
+      find.byKey(const ValueKey('topic-list-subcategory-filter')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey(('choice-menu-option', 2))));
     await tester.pumpAndSettle();
 
     expect(controller.currentContent?.id, 'category-2');
@@ -1913,11 +1917,8 @@ void _registerShellNavigationTests() {
       controller.currentContent?.feedPath,
       '/c/discourse-native-app/bugs/2.json',
     );
-    expect(find.bySemanticsLabel('Bugs, selected'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('category-subcategory-navigation')),
-      findsOneWidget,
-    );
+    expect(find.bySemanticsLabel('Subcategory: Bugs'), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-list-filter-bar')), findsOneWidget);
   });
 
   testWidgets('retries an incomplete category supplement on feed refresh', (

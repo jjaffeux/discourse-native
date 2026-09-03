@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
@@ -158,6 +159,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('topic-list-navigation')), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-list-filter-bar')), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-latest')), findsOneWidget);
     expect(find.text('New (1059)'), findsOneWidget);
     expect(find.text('Unread (5)'), findsOneWidget);
@@ -344,6 +346,124 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('category and tag selections preserve each other in the feed', (
+    tester,
+  ) async {
+    const parent = TopicCategory(
+      id: 21,
+      name: 'Discourse Native App',
+      color: '563A93',
+      slug: 'discourse-native-app',
+    );
+    const child = TopicCategory(
+      id: 22,
+      name: 'Design',
+      color: '3188CC',
+      slug: 'design',
+      parentCategoryId: 21,
+    );
+    const ux = SidebarTag(id: 31, name: 'UX', slug: 'ux');
+    const categoryTopic = Topic(
+      id: 30,
+      title: 'Category topic',
+      slug: 'category-topic',
+    );
+    const combinedTopic = Topic(
+      id: 31,
+      title: 'Combined topic',
+      slug: 'combined-topic',
+    );
+    final setup = await _controller(
+      categoryList: const [parent, child],
+      categorySiteTopTags: const [ux],
+      extraFeeds: const {
+        '/c/discourse-native-app/21.json': [categoryTopic],
+        '/tag/ux.json': [combinedTopic],
+        '/tags/c/discourse-native-app/21/ux.json': [combinedTopic],
+        '/tags/c/discourse-native-app/design/22/ux.json': [combinedTopic],
+        '/c/discourse-native-app/design/22.json': [categoryTopic],
+      },
+    );
+    final controller = setup.controller;
+    addTearDown(controller.dispose);
+
+    tester.view.physicalSize = const Size(800, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: MainContent(layout: ShellLayout.expanded)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    controller.selectTopicListCategory(parent);
+    await tester.pumpAndSettle();
+    expect(controller.currentContent?.categoryId, parent.id);
+    expect(controller.currentContent?.tagName, isNull);
+    expect(controller.currentTopicListMode, TopicListMode.latest);
+    expect(find.text('Category topic'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topic-list-subcategory-filter')),
+      findsOneWidget,
+    );
+
+    controller.selectTopicListTag(ux.slug);
+    await tester.pumpAndSettle();
+    expect(
+      controller.currentContent?.feedPath,
+      '/tags/c/discourse-native-app/21/ux.json',
+    );
+    expect(controller.currentContent?.categoryId, parent.id);
+    expect(controller.currentContent?.tagName, ux.slug);
+    expect(find.text('Combined topic'), findsOneWidget);
+
+    controller.selectTopicListCategory(null);
+    await tester.pumpAndSettle();
+    expect(controller.currentContent?.feedPath, '/tag/ux.json');
+    expect(controller.currentContent?.categoryId, isNull);
+    expect(controller.currentContent?.tagName, ux.slug);
+
+    controller.selectTopicListCategory(parent);
+    await tester.pumpAndSettle();
+    expect(
+      controller.currentContent?.feedPath,
+      '/tags/c/discourse-native-app/21/ux.json',
+    );
+
+    controller.selectTopicListCategory(child);
+    await tester.pumpAndSettle();
+    expect(
+      controller.currentContent?.feedPath,
+      '/tags/c/discourse-native-app/design/22/ux.json',
+    );
+    expect(controller.currentContent?.categoryId, child.id);
+    expect(controller.currentContent?.tagName, ux.slug);
+
+    controller.selectTopicListTag(null);
+    await tester.pumpAndSettle();
+    expect(
+      controller.currentContent?.feedPath,
+      '/c/discourse-native-app/design/22.json',
+    );
+    expect(controller.currentContent?.categoryId, child.id);
+    expect(controller.currentContent?.tagName, isNull);
+
+    controller.clearTopicListFilters();
+    await tester.pumpAndSettle();
+    expect(
+      controller.currentContent,
+      ContentRoute.topicList(TopicListMode.latest),
+    );
+    expect(find.text('Latest topic'), findsOneWidget);
+    expect(find.textContaining('matching topics'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('wide shell divides the sidebar from main content', (
     tester,
   ) async {
@@ -412,6 +532,9 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   DiscourseUser user = _user,
   SiteConfig config = const SiteConfig.unknown(),
   Completer<void>? trackingStateGate,
+  List<TopicCategory> categoryList = const [],
+  List<SidebarTag> categorySiteTopTags = const [],
+  Map<String, List<Topic>> extraFeeds = const {},
 }) async {
   final totals = user.unifiedNewEnabled ? _unifiedTotals : _legacyTotals;
   final site = instance(
@@ -438,7 +561,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
           notificationLevel: 2,
         ),
     ]),
-    feeds: const {
+    feeds: {
       '/latest.json': [_latestTopic],
       '/new.json': [_allNewTopic],
       '/new.json?subset=topics': [_newTopic],
@@ -447,7 +570,10 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
       '/top.json?period=yearly': [_topYearTopic],
       '/top.json?period=weekly': [_topWeekTopic],
       '/hot.json': [_popularTopic],
+      ...extraFeeds,
     },
+    categoryList: categoryList,
+    categorySiteTopTags: categorySiteTopTags,
   );
   final controller = ShellController(
     instanceStore: FakeInstanceStore([site]),
