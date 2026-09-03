@@ -2450,12 +2450,12 @@ void main() {
         await pumpEventQueue();
 
         final media = mediaFactory.sessions.single;
-        expect(media.participants.map((participant) => participant.id), [1, 2]);
+        expect(media.participants.map((participant) => participant.id), [2, 1]);
         expect(media.signals.map((signal) => signal.$2['type']), [
           'offer',
           'candidate',
         ]);
-        expect(controller.call?.room.participants.last.username, 'early');
+        expect(controller.call?.room.participants.first.username, 'early');
       },
     );
   });
@@ -3351,8 +3351,8 @@ void main() {
 
           expect(controller.call, isNull);
           expect(resolved!.participants.map((participant) => participant.id), [
-            1,
             2,
+            1,
           ]);
           await controller.join(
             siteUrl: firstSite,
@@ -3389,7 +3389,7 @@ void main() {
                   .room(siteUrl, 8)!
                   .participants
                   .map((participant) => participant.id),
-              [1, 2],
+              [2, 1],
             );
           }
 

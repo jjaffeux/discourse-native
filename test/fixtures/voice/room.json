@@ -13,8 +13,10 @@
   "message_bus_last_id": 91,
   "creator_id": 1,
   "can_manage": true,
+  "can_invite": true,
   "video_enabled": true,
   "video_allowed": true,
+  "expected_transport": "livekit",
   "chat_channel_id": 42,
   "chat_idle_minutes": 15,
   "chat_available": true,
@@ -26,11 +28,17 @@
     "user_id": 1,
     "role": 1,
     "role_name": "moderator",
-    "user": { "id": 1, "username": "sam" }
+    "user": {
+      "id": 1,
+      "username": "sam"
+    }
   },
   "recording": {
     "started_at": 1786204800.25,
-    "started_by": { "id": 1, "username": "sam" }
+    "started_by": {
+      "id": 1,
+      "username": "sam"
+    }
   },
   "active_participants": [
     {
@@ -55,5 +63,7 @@
       "unknown_future_field": "ignored"
     }
   ],
-  "unknown_optional_field": { "future": true }
+  "unknown_optional_field": {
+    "future": true
+  }
 }

@@ -595,6 +595,7 @@ void main() {
       probe('VoiceParticipant', () => VoiceParticipant.fromJson(json), json);
       probe('VoiceMembership', () => VoiceMembership.fromJson(json), json);
       probe('VoiceRecording', () => VoiceRecording.fromJson(json), json);
+      probe('VoiceRingingEntry', () => VoiceRingingEntry.fromJson(json), json);
       probe('VoiceRoom', () => VoiceRoom.fromJson(json), json);
       probe('VoiceDirectory', () => VoiceDirectory.fromJson(json), json);
       probe('VoiceIceServer', () => VoiceIceServer.fromJson(json), json);

@@ -820,7 +820,10 @@ final class VoiceController extends ChangeNotifier {
           Map<String, dynamic>.from(rawSender),
         );
         if (participant.id == senderId) {
-          final participants = [...activeCall.room.participants, participant];
+          final participants = canonicalVoiceParticipants([
+            ...activeCall.room.participants,
+            participant,
+          ]);
           final held = _directories[siteUrl];
           if (held != null) {
             _directories[siteUrl] = VoiceDirectory(
