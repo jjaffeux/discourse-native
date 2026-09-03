@@ -375,8 +375,8 @@ class _TopicListViewState extends State<TopicListView> {
                         return _TopicRow(
                           key: ValueKey(topicId),
                           topicId: topicId,
-                          showCategoryBreadcrumb:
-                              controller.currentContent?.categoryId == null,
+                          hiddenCategoryId:
+                              controller.currentContent?.categoryId,
                         );
                       },
                     ),
@@ -705,11 +705,11 @@ class _TopicRow extends StatelessWidget {
   const _TopicRow({
     super.key,
     required this.topicId,
-    required this.showCategoryBreadcrumb,
+    required this.hiddenCategoryId,
   });
 
   final int topicId;
-  final bool showCategoryBreadcrumb;
+  final int? hiddenCategoryId;
 
   @override
   Widget build(BuildContext context) {
@@ -733,12 +733,13 @@ class _TopicRow extends StatelessWidget {
                     controller,
                     topic.categoryId,
                     siteUrl,
+                    hiddenCategoryId: hiddenCategoryId,
                   ),
                   builder: (context, categoryPresentation, _) => _TopicRowBody(
                     topic: topic,
                     category: categoryPresentation.category,
                     parentCategory: categoryPresentation.parent,
-                    showCategoryBreadcrumb: showCategoryBreadcrumb,
+                    showCategoryBreadcrumb: true,
                     siteUrl: siteUrl,
                     onTap: () => controller.openTopic(topic),
                   ),
@@ -815,15 +816,18 @@ class TopicListRow extends StatelessWidget {
 ({TopicCategory? category, TopicCategory? parent}) _topicCategoryPresentation(
   ShellController controller,
   int? categoryId,
-  String siteUrl,
-) {
+  String siteUrl, {
+  int? hiddenCategoryId,
+}) {
   final category = controller.categoryFor(categoryId, siteUrl: siteUrl);
+  if (category?.id == hiddenCategoryId) {
+    return (category: null, parent: null);
+  }
   return (
     category: category,
-    parent: controller.categoryFor(
-      category?.parentCategoryId,
-      siteUrl: siteUrl,
-    ),
+    parent: category?.parentCategoryId == hiddenCategoryId
+        ? null
+        : controller.categoryFor(category?.parentCategoryId, siteUrl: siteUrl),
   );
 }
 
