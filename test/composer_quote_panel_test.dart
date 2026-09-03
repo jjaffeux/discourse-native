@@ -1,8 +1,10 @@
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_blockquote.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_quotes.dart';
+import 'package:discourse_native/src/shell/composer_triggers.dart';
 import 'package:discourse_native/src/shell/quote_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -33,6 +35,77 @@ const _longQuote =
 
 void main() {
   group('quote editing', () {
+    testWidgets(
+      'Enter accepts suggestions while Shift+Enter adds a quote line',
+      (tester) async {
+        final composer = ComposerController(
+          _target,
+          search: (
+            users: (_) async => const [
+              ComposerSuggestion(
+                kind: ComposerTriggerKind.mention,
+                value: 'sam',
+                label: 'sam',
+              ),
+            ],
+            hashtags: (_) async => const [],
+            emojis: (_) async => const [],
+          ),
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpPanel(tester, shell, composer);
+        final field = find.byType(TextField);
+
+        await tester.enterText(field, '> @sa');
+        await tester.pump(ComposerAutocomplete.debounce);
+        await tester.pumpAndSettle();
+        expect(composer.autocomplete.isOpen, isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(composer.text.text, '> @sam ');
+
+        await tester.enterText(field, '> @sa');
+        await tester.pump(ComposerAutocomplete.debounce);
+        await tester.pumpAndSettle();
+        expect(composer.autocomplete.isOpen, isTrue);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pump();
+        expect(composer.text.text, '> @sa\n> ');
+      },
+    );
+
+    testWidgets('Shift+Enter stays in a quote until two plain Enter presses', (
+      tester,
+    ) async {
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(tester, shell, composer);
+      await tester.enterText(find.byType(TextField), '> words');
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      for (var count = 1; count <= 3; count++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(composer.text.text, '> words${'\n> ' * count}');
+      }
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(composer.text.text, '> words${'\n> ' * 4}');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(composer.text.text, '> words${'\n> ' * 3}\n');
+      expect(composer.text.selection.extentOffset, composer.text.text.length);
+    });
+
     testWidgets(
       'typing a quote continues and exits through normal text input',
       (tester) async {
