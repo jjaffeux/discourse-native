@@ -146,6 +146,13 @@ void main() {
           render.localToGlobal(caret.topLeft).dx,
           closeTo(tester.getTopLeft(find.byType(ComposerEditor)).dx, 1),
         );
+        final quoteStart = render.getLocalRectForCaret(
+          const TextPosition(offset: 2),
+        );
+        expect(
+          quoteStart.left - caret.left,
+          closeTo(ComposerBlockquoteDecoration.gutter, 0.01),
+        );
 
         await tester.enterText(field, '> xxxx\nNormal text');
         await tester.pump();
