@@ -7,6 +7,7 @@ import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
+import 'package:discourse_native/src/shell/composer_blockquote.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_pills.dart';
@@ -71,7 +72,7 @@ void main() {
     for (final source in const [
       'say **hello** to @sam',
       'a :smile: and `code` and <kbd>Esc</kbd>',
-      '# Heading\n\n> quoted **bold**\n\n```ruby\nputs 1\n```',
+      '# Heading\n\n```ruby\nputs 1\n```',
       'plain',
     ]) {
       testWidgets(source.split('\n').first, (tester) async {
@@ -84,6 +85,83 @@ void main() {
         expect(controller.text, source);
       });
     }
+  });
+
+  group('editable Markdown quotes', () {
+    testWidgets('shows a quote on space and keeps body offsets editable', (
+      tester,
+    ) async {
+      await pumpField(tester, '');
+      await tester.enterText(find.byType(TextField), '>');
+      await tester.pump();
+      expect(find.byType(ComposerBlockquoteMarker), findsNothing);
+
+      await tester.enterText(find.byType(TextField), '> ');
+      await tester.pump();
+      expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+      expect(controller.selection, const TextSelection.collapsed(offset: 2));
+
+      const source = '> xxxx';
+      await tester.enterText(find.byType(TextField), source);
+      await tester.pump();
+      expect(controller.text, source);
+      expect(painted(tester).toPlainText().length, source.length);
+      final render = editable(tester).renderEditable;
+      final marker = tester.getRect(find.byType(ComposerBlockquoteMarker));
+      for (var offset = 2; offset <= source.length; offset++) {
+        final rect = render.getLocalRectForCaret(TextPosition(offset: offset));
+        final caret = render.localToGlobal(rect.center);
+        expect(caret.dx, greaterThanOrEqualTo(marker.right));
+        expect(render.getPositionForPoint(caret).offset, offset);
+      }
+
+      controller.selection = const TextSelection(
+        baseOffset: 2,
+        extentOffset: 6,
+      );
+      editable(tester).userUpdateTextEditingValue(
+        const TextEditingValue(
+          text: '> edited',
+          selection: TextSelection.collapsed(offset: 8),
+        ),
+        SelectionChangedCause.keyboard,
+      );
+      await tester.pump();
+      expect(controller.text, '> edited');
+      expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '>');
+      await tester.pump();
+      expect(find.byType(ComposerBlockquoteMarker), findsNothing);
+      expect(painted(tester).toPlainText(), '>');
+    });
+
+    testWidgets('only projects line prefixes outside code and composition', (
+      tester,
+    ) async {
+      const source =
+          'a > b\n\\> escaped\n    > indented code\n'
+          '```\n> fenced code\n```\n'
+          '> first\n> > nested';
+      await pumpField(tester, source);
+      expect(find.byType(ComposerBlockquoteMarker), findsNWidgets(2));
+      expect(controller.text, source);
+      expect(painted(tester).toPlainText().length, source.length);
+
+      await tester.showKeyboard(find.byType(TextField));
+      controller.value = const TextEditingValue(
+        text: '> ',
+        selection: TextSelection.collapsed(offset: 2),
+        composing: TextRange(start: 0, end: 2),
+      );
+      await tester.pump();
+      expect(find.byType(ComposerBlockquoteMarker), findsNothing);
+      expect(painted(tester).toPlainText(), '> ');
+
+      controller.clearComposing();
+      await tester.pump();
+      expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+    });
   });
 
   testWidgets('a tap lands on the character under it', (tester) async {
