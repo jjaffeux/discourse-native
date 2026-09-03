@@ -182,7 +182,6 @@ class _GroupPageState extends State<GroupPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.data.loading) const LinearProgressIndicator(minHeight: 2),
         _GroupHeader(
           siteUrl: widget.siteUrl,
           group: group,
