@@ -482,6 +482,13 @@ void main() {
         controller.createTab();
         await tester.pumpAndSettle();
         final lastForumTabId = controller.activeTabId!;
+        final sidebarWidth = tester.getSize(find.byType(InstanceSidebar)).width;
+        final resizeFocus = tester
+            .widget<Focus>(find.byKey(const ValueKey('sidebar-resize-focus')))
+            .focusNode!;
+        resizeFocus.requestFocus();
+        await tester.pump();
+        expect(resizeFocus.hasFocus, isTrue);
 
         expect(
           await _pressShortcut(tester, modifier, LogicalKeyboardKey.arrowRight),
@@ -490,6 +497,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(controller.activeTabId, firstForumTabId);
         expect(_bar(tester).selectedId, firstForumTabId);
+        expect(
+          tester.getSize(find.byType(InstanceSidebar)).width,
+          sidebarWidth,
+        );
+        expect(resizeFocus.hasFocus, isFalse);
 
         expect(
           await _pressShortcut(tester, modifier, LogicalKeyboardKey.arrowLeft),
@@ -498,6 +510,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(controller.activeTabId, lastForumTabId);
         expect(_bar(tester).selectedId, lastForumTabId);
+        expect(
+          tester.getSize(find.byType(InstanceSidebar)).width,
+          sidebarWidth,
+        );
 
         controller.selectAggregate();
         await tester.pumpAndSettle();
