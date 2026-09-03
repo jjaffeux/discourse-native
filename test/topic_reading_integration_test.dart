@@ -3479,18 +3479,31 @@ void _registerTopicReadingTests() {
 
         await tester.tap(addTag);
         await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey(('topic-tag-picker-option', 'design'))),
-        );
+        final picker = find.byKey(const ValueKey('topic-tag-picker-popover'));
+        for (final name in ['design', 'mobile']) {
+          await tester.tap(
+            find.byKey(ValueKey(('topic-tag-picker-option', name))),
+          );
+          await tester.pumpAndSettle();
+          expect(picker, findsOneWidget);
+          expect(api.topicTagsUpdated, hasLength(1));
+        }
+
+        await tester.tapAt(const Offset(10, 10));
         await tester.pumpAndSettle();
 
         expect(api.topicTagsUpdated, hasLength(2));
         expect(api.topicTagsUpdated.last, {
           'topicId': 7,
-          'tags': const [TopicTag(name: 'mobile')],
+          'tags': const <TopicTag>[],
         });
+        expect(picker, findsNothing);
         expect(
           find.byKey(const ValueKey(('topic-sidebar-tag', 'design'))),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey(('topic-sidebar-tag', 'mobile'))),
           findsNothing,
         );
         expect(tester.takeException(), isNull);

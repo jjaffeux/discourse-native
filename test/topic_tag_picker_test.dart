@@ -8,6 +8,116 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  const design = TopicTag(id: 7, name: 'design');
+  const mobile = TopicTag(id: 8, name: 'mobile');
+  const support = TopicTag(id: 9, name: 'support');
+
+  Finder option(String name) =>
+      find.byKey(ValueKey(('topic-tag-picker-option', name)));
+
+  Future<void> openPicker(
+    WidgetTester tester, {
+    TargetPlatform platform = TargetPlatform.macOS,
+    required ValueChanged<List<TopicTag>?> onClosed,
+  }) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark.copyWith(platform: platform),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                onClosed(
+                  await showTopicTagPicker(
+                    context: context,
+                    anchorContext: context,
+                    selectedTags: const [design, mobile],
+                    capabilities: const TopicComposerCapabilities(
+                      canTagTopics: true,
+                      maxTagsPerTopic: 2,
+                    ),
+                    search: (_) async =>
+                        const TopicTagSearch(tags: [design, mobile, support]),
+                  ),
+                );
+              },
+              child: const Text('Open tags'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open tags'));
+    await tester.pumpAndSettle();
+  }
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets(
+      'keeps ${platform.name} picker open while removing all tags and saves on dismissal',
+      (tester) async {
+        final results = <List<TopicTag>?>[];
+        await openPicker(tester, platform: platform, onClosed: results.add);
+
+        for (final tag in [design, mobile]) {
+          await tester.tap(option(tag.name));
+          await tester.pumpAndSettle();
+
+          expect(find.byType(TopicTagPicker), findsOneWidget);
+          expect(
+            tester.widget<AnchoredPickerOption>(option(tag.name)).selected,
+            isFalse,
+          );
+          expect(results, isEmpty);
+        }
+
+        await tester.tapAt(const Offset(790, 10));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(TopicTagPicker), findsNothing);
+        expect(results, [<TopicTag>[]]);
+      },
+    );
+  }
+
+  testWidgets('adding after a removal closes with the updated selection', (
+    tester,
+  ) async {
+    final results = <List<TopicTag>?>[];
+    await openPicker(tester, onClosed: results.add);
+    expect(
+      tester.widget<AnchoredPickerOption>(option(support.name)).enabled,
+      isFalse,
+    );
+
+    await tester.tap(option(design.name));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<AnchoredPickerOption>(option(support.name)).enabled,
+      isTrue,
+    );
+
+    await tester.tap(option(support.name));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TopicTagPicker), findsNothing);
+    expect(results, [
+      [mobile, support],
+    ]);
+  });
+
+  testWidgets('dismissing without changing tags returns no selection', (
+    tester,
+  ) async {
+    final results = <List<TopicTag>?>[];
+    await openPicker(tester, onClosed: results.add);
+
+    await tester.tapAt(const Offset(790, 10));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TopicTagPicker), findsNothing);
+    expect(results, [null]);
+  });
+
   testWidgets('keeps the create row mounted while search results refresh', (
     tester,
   ) async {

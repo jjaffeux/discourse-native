@@ -101,22 +101,31 @@ Future<List<TopicTag>?> showTopicTagPicker({
   required List<TopicTag> selectedTags,
   required TopicComposerCapabilities capabilities,
   required TopicTagSearchCallback search,
-}) {
-  Widget picker(BuildContext pickerContext) => TopicTagPicker(
-    selectedTags: selectedTags,
-    capabilities: capabilities,
-    search: search,
-    onSelected: Navigator.of(pickerContext).pop,
-  );
+}) async {
+  List<TopicTag>? pendingTags;
 
-  return showAnchoredPicker<List<TopicTag>>(
+  final selected = await showAnchoredPicker<List<TopicTag>>(
     context: context,
     anchorContext: anchorContext,
     title: 'Tags',
     barrierLabel: 'Dismiss tag picker',
     popoverKey: const ValueKey('topic-tag-picker-popover'),
-    builder: picker,
+    builder: (_) => StatefulBuilder(
+      builder: (pickerContext, setState) => TopicTagPicker(
+        selectedTags: pendingTags ?? selectedTags,
+        capabilities: capabilities,
+        search: search,
+        onSelected: (tags) {
+          if (tags.length < (pendingTags ?? selectedTags).length) {
+            setState(() => pendingTags = tags);
+          } else {
+            Navigator.of(pickerContext).pop(tags);
+          }
+        },
+      ),
+    ),
   );
+  return selected ?? pendingTags;
 }
 
 class TopicTagPicker extends StatefulWidget {
