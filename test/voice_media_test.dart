@@ -1079,6 +1079,79 @@ void main() {
       },
     );
 
+    test(
+      'reports speakers from inbound and local media-source levels',
+      () async {
+        final timers = <_ManualPeriodicTimer>[];
+        final peer = _FakePeerConnection();
+        final media = _meshSession(peer: peer, audioPublishingAllowed: false);
+        final changes = <Set<int>>[];
+        media.addListener(() => changes.add(media.speakingParticipantIds));
+
+        await runZoned(
+          () async {
+            await media.connect();
+            final speakingTimer = timers.singleWhere(
+              (timer) => timer.delay == const Duration(milliseconds: 250),
+            );
+
+            peer.stats = [
+              rtc.StatsReport('in-1', 'inbound-rtp', 1, {
+                'kind': 'audio',
+                'audioLevel': 0.4,
+              }),
+              rtc.StatsReport('src-1', 'media-source', 1, {
+                'kind': 'audio',
+                'audioLevel': 0.2,
+              }),
+              rtc.StatsReport('src-2', 'media-source', 1, {
+                'kind': 'video',
+                'audioLevel': 0.9,
+              }),
+            ];
+            speakingTimer.fire();
+            await _pumpEventQueue();
+            expect(media.speakingParticipantIds, {20, 10});
+
+            peer.stats = [
+              rtc.StatsReport('in-1', 'inbound-rtp', 2, {
+                'kind': 'audio',
+                'audioLevel': 0.005,
+              }),
+              rtc.StatsReport('src-1', 'media-source', 2, {
+                'mediaType': 'audio',
+                'audioLevel': 0.3,
+              }),
+            ];
+            speakingTimer.fire();
+            await _pumpEventQueue();
+            expect(media.speakingParticipantIds, {10});
+
+            await media.setMuted(true);
+            speakingTimer.fire();
+            await _pumpEventQueue();
+            expect(media.speakingParticipantIds, isEmpty);
+            expect(changes, [
+              {20, 10},
+              {10},
+              <int>{},
+            ]);
+            await media.dispose();
+          },
+          zoneSpecification: ZoneSpecification(
+            createPeriodicTimer: (self, parent, zone, duration, callback) {
+              final timer = _ManualPeriodicTimer(
+                duration,
+                (timer) => zone.runUnaryGuarded(callback, timer),
+              );
+              timers.add(timer);
+              return timer;
+            },
+          ),
+        );
+      },
+    );
+
     test('samples raw peer stats only while capture is enabled', () async {
       final diagnostics = _DiagnosticsRecorder();
       final timers = <_ManualPeriodicTimer>[];
@@ -2028,9 +2101,11 @@ final class _FakePeerConnection implements rtc.RTCPeerConnection {
     addedCandidates.add(candidate);
   }
 
+  List<rtc.StatsReport> stats = const [];
+
   @override
   Future<List<rtc.StatsReport>> getStats([rtc.MediaStreamTrack? track]) async =>
-      const [];
+      stats;
 
   @override
   Future<void> restartIce() async {}

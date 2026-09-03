@@ -6,6 +6,7 @@ import 'voice_call_port.dart';
 import 'voice_controller.dart';
 import 'voice_diagnostics.dart';
 import 'voice_diagnostics_plugin.dart';
+import 'voice_idle.dart';
 import 'voice_plugin.dart';
 import 'voice_services.dart';
 import 'voice_settings.dart';
@@ -63,6 +64,9 @@ final class VoiceModule implements PluginModule {
             corePluginPresentationPort,
           )(siteUrl))?.voiceSettings.enabled,
           onCallSiteChanged: () => retention.sync(controller.activeSiteUrl),
+          idleThresholdsFor: (siteUrl) => voiceIdleThresholds(
+            siteState.siteConfigFor(siteUrl).voiceSettings,
+          ),
           diagnostics: diagnostics ?? const NoopVoiceDiagnosticsRecorder(),
           reporter: bindings.require(pluginDiagnosticsReporterPort),
         );

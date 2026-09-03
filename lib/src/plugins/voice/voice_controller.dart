@@ -10,9 +10,11 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'voice_api.dart';
 import 'voice_callkit.dart';
 import 'voice_diagnostics.dart';
+import 'voice_idle.dart';
 import 'voice_media.dart';
 import 'voice_models.dart';
 import 'voice_preferences.dart';
+import 'voice_settings.dart';
 import 'voice_signaling.dart';
 
 enum VoiceCallStatus { joining, connected, reconnecting, leaving, failed }
@@ -26,6 +28,7 @@ enum _VoiceLeaveReason {
   rosterRemoval,
   credentialsMissing,
   sessionExpired,
+  idleDisconnect,
   systemAction,
   accountRemoval,
   sessionClose,
@@ -220,9 +223,13 @@ final class VoiceController extends ChangeNotifier {
     PluginDiagnosticsReporter reporter = const PluginDiagnosticsReporter.noop(),
     VoiceDiagnosticsRecorder? diagnostics,
     VoicePreferences? preferences,
+    VoiceIdleThresholdsLookup? idleThresholdsFor,
+    Duration Function()? idleClock,
+    VoiceIdleTimerFactory? idleTimerFactory,
     this.heartbeatInterval = const Duration(seconds: 10),
     this.signalBatchDelay = const Duration(milliseconds: 200),
   }) : _requests = requests,
+       _idleThresholdsFor = idleThresholdsFor ?? _defaultIdleThresholds,
        _userIdFor = userIdFor,
        _onCallSiteChanged = onCallSiteChanged,
        _capabilityEnabledFor = capabilityEnabledFor ?? _unknownVoiceCapability,
@@ -234,9 +241,20 @@ final class VoiceController extends ChangeNotifier {
              diagnostics: diagnostics ?? const NoopVoiceDiagnosticsRecorder(),
            ),
        _preferences = preferences ?? const SharedPreferencesVoicePreferences() {
+    _idleTracker = VoiceIdleTracker(
+      thresholds: _activeIdleThresholds,
+      onStateChanged: _onIdleStateChanged,
+      onAutoMute: _onIdleAutoMute,
+      onDisconnect: _onIdleDisconnect,
+      clock: idleClock,
+      timerFactory: idleTimerFactory ?? Timer.new,
+    );
     _systemActions = this.systemCall.actions.listen(_onSystemAction);
     unawaited(_restoreDevicePreferences());
   }
+
+  static VoiceIdleThresholds _defaultIdleThresholds(String _) =>
+      voiceIdleThresholds(const VoiceClientConfig());
 
   final VoiceApi api;
   final ChatConversationCapability chatConversations;
@@ -250,6 +268,8 @@ final class VoiceController extends ChangeNotifier {
   final PluginDiagnosticsReporter _reporter;
   final VoiceDiagnosticsRecorder diagnostics;
   final VoicePreferences _preferences;
+  final VoiceIdleThresholdsLookup _idleThresholdsFor;
+  late final VoiceIdleTracker _idleTracker;
   final Duration heartbeatInterval;
   final Duration signalBatchDelay;
   // Cancelled and awaited by the idempotent close lifecycle below.
@@ -778,8 +798,8 @@ final class VoiceController extends ChangeNotifier {
         data: {'roomId': room.id},
       );
       _observe(() async {
-        if (call.cameraEnabled) await setCameraEnabled(false);
-        if (call.screenSharing) await setScreenSharing(false);
+        if (call.cameraEnabled) await _setCameraEnabled(false);
+        if (call.screenSharing) await _setScreenSharing(false);
       }, 'voice.media.roomVideoDisabled');
       _notify(siteUrl, room.id, 'Video was turned off in this room.');
     }
@@ -1067,6 +1087,24 @@ final class VoiceController extends ChangeNotifier {
     screenSharing: participant.screenSharing,
     watchingVideo: participant.watchingVideo,
     idleState: participant.idleState,
+    handRaisedAt: participant.handRaisedAt,
+  );
+
+  static VoiceParticipant _participantWithIdleState(
+    VoiceParticipant participant,
+    VoiceIdleState idleState,
+  ) => VoiceParticipant(
+    id: participant.id,
+    username: participant.username,
+    role: participant.role,
+    name: participant.name,
+    avatarTemplate: participant.avatarTemplate,
+    muted: participant.muted,
+    deafened: participant.deafened,
+    videoOn: participant.videoOn,
+    screenSharing: participant.screenSharing,
+    watchingVideo: participant.watchingVideo,
+    idleState: idleState,
     handRaisedAt: participant.handRaisedAt,
   );
 
@@ -1687,6 +1725,7 @@ final class VoiceController extends ChangeNotifier {
       );
       if (!isCurrent()) return;
       _startHeartbeat();
+      _idleTracker.start();
       _record(
         'call.join.completed',
         correlationId: correlationId,
@@ -1909,13 +1948,113 @@ final class VoiceController extends ChangeNotifier {
     _ => false,
   };
 
+  /// Coming to the foreground is activity; going to the background is not
+  /// absence. A call continues from a pocket or behind another window, and
+  /// the server's away status dims the participant for everyone, so the
+  /// ladder in [VoiceIdleTracker] decides from elapsed silence instead. A
+  /// heartbeat goes out either way so presence is refreshed at the moment
+  /// the app can least rely on its timers.
   void setForeground(bool foreground) {
     if (_disposed) return;
-    _idleState = foreground ? VoiceIdleState.active : VoiceIdleState.afk;
+    if (foreground) _idleTracker.recordActivity();
     if (_call != null) unawaited(_requestHeartbeat());
   }
 
-  Future<void> setMuted(bool muted) => _setMuted(muted, syncSystem: true);
+  VoiceIdleThresholds _activeIdleThresholds() {
+    final call = _call;
+    if (call == null) return _defaultIdleThresholds('');
+    try {
+      return _idleThresholdsFor(call.siteUrl);
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'voice.idle.thresholds');
+      return _defaultIdleThresholds(call.siteUrl);
+    }
+  }
+
+  void _onIdleStateChanged(VoiceIdleState state, {required bool wasAutoMuted}) {
+    if (_disposed) return;
+    final call = _call;
+    if (call == null || call.status == VoiceCallStatus.leaving) return;
+    _idleState = state;
+    _record(
+      'idle.state_changed',
+      component: 'idle',
+      correlationId: _correlationFor(call),
+      data: {'state': state.name, 'wasAutoMuted': wasAutoMuted},
+    );
+    final userId = _userIdFor(call.siteUrl);
+    if (userId != null) {
+      _updateRoom(
+        call.siteUrl,
+        call.room.id,
+        (room) => room.withParticipants([
+          for (final participant in room.participants)
+            participant.id == userId
+                ? _participantWithIdleState(participant, state)
+                : participant,
+        ]),
+      );
+    }
+    if (state == VoiceIdleState.active && wasAutoMuted && call.muted) {
+      _notify(
+        call.siteUrl,
+        call.room.id,
+        'You were auto-muted after being idle. Unmute to keep talking.',
+      );
+    }
+    unawaited(_requestHeartbeat());
+    notifyListeners();
+  }
+
+  void _onIdleAutoMute() {
+    final call = _call;
+    if (_disposed || call == null || call.status == VoiceCallStatus.leaving) {
+      return;
+    }
+    _record(
+      'idle.auto_muted',
+      component: 'idle',
+      correlationId: _correlationFor(call),
+      data: {'alreadyMuted': call.muted},
+    );
+    if (!call.muted) {
+      _observe(() => _setMuted(true, syncSystem: true), 'voice.idle.autoMute');
+    }
+  }
+
+  void _onIdleDisconnect() {
+    final call = _call;
+    if (_disposed || call == null || call.status == VoiceCallStatus.leaving) {
+      return;
+    }
+    _record(
+      'idle.disconnected',
+      component: 'idle',
+      correlationId: _correlationFor(call),
+      severity: DiagnosticSeverity.warning,
+    );
+    _errors[call.siteUrl] =
+        'You were disconnected from ${call.room.name} due to inactivity.';
+    _observe(
+      () =>
+          _leave(notifyServer: true, reason: _VoiceLeaveReason.idleDisconnect),
+      'voice.idle.disconnect',
+    );
+  }
+
+  /// Every deliberate call control counts as the user being present.
+  void _userActed() {
+    if (_disposed) return;
+    _idleTracker.recordActivity();
+  }
+
+  Future<void> setMuted(bool muted) {
+    // Cleared before the activity is recorded: an unmute is the user acting
+    // on an automatic mute, not a return that needs telling about it.
+    if (!muted) _idleTracker.wasAutoMuted = false;
+    _userActed();
+    return _setMuted(muted, syncSystem: true);
+  }
 
   void dismissCallError([String? siteUrl]) {
     if (_disposed) return;
@@ -1934,14 +2073,24 @@ final class VoiceController extends ChangeNotifier {
         system: syncSystem ? () => systemCall.setMuted(muted) : null,
       );
 
-  Future<void> setDeafened(bool deafened) => _updateMediaState(
+  Future<void> setDeafened(bool deafened) {
+    _userActed();
+    return _setDeafened(deafened);
+  }
+
+  Future<void> _setDeafened(bool deafened) => _updateMediaState(
     media: (call) => call.media.setDeafened(deafened),
     update: (call) => call.copyWith(deafened: deafened),
     rollback: (current, previous) =>
         current.copyWith(deafened: previous.deafened),
   );
 
-  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) =>
+  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) {
+    _userActed();
+    return _setCameraEnabled(enabled, deviceId: deviceId);
+  }
+
+  Future<void> _setCameraEnabled(bool enabled, {String? deviceId}) =>
       _updateMediaState(
         media: (call) => call.media.setCameraEnabled(
           enabled,
@@ -2303,7 +2452,12 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
-  Future<void> setScreenSharing(bool enabled) => _updateMediaState(
+  Future<void> setScreenSharing(bool enabled) {
+    _userActed();
+    return _setScreenSharing(enabled);
+  }
+
+  Future<void> _setScreenSharing(bool enabled) => _updateMediaState(
     media: (call) => call.media.setScreenShareEnabled(enabled),
     update: (call) => call.copyWith(screenSharing: enabled),
     rollback: (current, previous) =>
@@ -2499,6 +2653,8 @@ final class VoiceController extends ChangeNotifier {
     _stateRetry?.cancel();
     _stateRetry = null;
     _stateSyncPending = false;
+    _idleTracker.stop();
+    _idleState = VoiceIdleState.active;
     final correlationId = _correlationFor(call);
     _record(
       'call.leave.started',
@@ -2829,11 +2985,13 @@ final class VoiceController extends ChangeNotifier {
       _chats['$siteUrl#$roomId']?.conversation?.loadOlder() ??
       Future<void>.value();
 
-  Future<void> sendChatMessage(String siteUrl, int roomId, String message) =>
-      _runPublicOperation(
-        () => _sendChatMessage(siteUrl, roomId, message),
-        'voice.chat.send',
-      );
+  Future<void> sendChatMessage(String siteUrl, int roomId, String message) {
+    _userActed();
+    return _runPublicOperation(
+      () => _sendChatMessage(siteUrl, roomId, message),
+      'voice.chat.send',
+    );
+  }
 
   Future<void> _sendChatMessage(
     String siteUrl,
@@ -3006,12 +3164,14 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
-  Future<void> requestToSpeak({int? userId, bool raised = true}) =>
-      _runPublicOperation(
-        () => _requestToSpeak(userId: userId, raised: raised),
-        'voice.requestToSpeak',
-        correlationId: _activeDiagnosticCorrelationId,
-      );
+  Future<void> requestToSpeak({int? userId, bool raised = true}) {
+    _userActed();
+    return _runPublicOperation(
+      () => _requestToSpeak(userId: userId, raised: raised),
+      'voice.requestToSpeak',
+      correlationId: _activeDiagnosticCorrelationId,
+    );
+  }
 
   Future<void> _requestToSpeak({int? userId, bool raised = true}) async {
     final call = _call;
@@ -3234,6 +3394,12 @@ final class VoiceController extends ChangeNotifier {
     if (_disposed) return;
     final call = _call;
     if (call != null) {
+      if (!call.muted &&
+          call.media.speakingParticipantIds.contains(
+            _userIdFor(call.siteUrl),
+          )) {
+        _idleTracker.recordVoiceActivity();
+      }
       var updated = call;
       final status = switch (call.media.connectionState) {
         VoiceMediaConnectionState.connected => VoiceCallStatus.connected,
@@ -3305,11 +3471,14 @@ final class VoiceController extends ChangeNotifier {
     );
     switch (action) {
       case VoiceSystemCallAction.mute:
+        _userActed();
         _observe(
           () => _setMuted(true, syncSystem: false),
           'voice.systemAction.mute',
         );
       case VoiceSystemCallAction.unmute:
+        _idleTracker.wasAutoMuted = false;
+        _userActed();
         _observe(
           () => _setMuted(false, syncSystem: false),
           'voice.systemAction.unmute',
@@ -3598,6 +3767,7 @@ final class VoiceController extends ChangeNotifier {
       _closeChatConversation(state);
     }
     _chats.clear();
+    _idleTracker.stop();
     unawaited(_notices.close());
     final subscriptionCancellation = _cancelSubscriptions();
 

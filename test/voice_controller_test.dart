@@ -14,6 +14,7 @@ import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
+import 'package:discourse_native/src/plugins/voice/voice_idle.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
@@ -23,6 +24,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
+import 'support/manual_scheduler.dart';
 import 'support/voice_fake_chat_conversations.dart';
 
 Map<String, dynamic> fixture(String name) =>
@@ -225,8 +227,10 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   @override
   bool get screenSharing => screen;
 
+  Set<int> speaking = const {};
+
   @override
-  Set<int> get speakingParticipantIds => const {};
+  Set<int> get speakingParticipantIds => speaking;
 
   @override
   Object? videoTrackFor(int participantId) => null;
@@ -4241,6 +4245,171 @@ void main() {
       await pumpEventQueue();
 
       expect(done, isTrue);
+    });
+  });
+
+  group('idle ladder', () {
+    late ManualScheduler scheduler;
+    late VoiceIdleThresholds thresholds;
+
+    Future<void> joinOpenRoom() async {
+      scheduler = ManualScheduler();
+      thresholds = (
+        idle: const Duration(minutes: 5),
+        afk: const Duration(minutes: 15),
+        disconnect: const Duration(minutes: 30),
+      );
+      controller.dispose();
+      transport.responses['POST /voice/rooms/7/join.json'] = fixture(
+        'join_mesh',
+      );
+      controller = VoiceController(
+        api: VoiceApi(transport),
+        chatConversations: chatConversations,
+        requests: requests,
+        trackerFor: (siteUrl) => siteUrl == firstSite ? firstTracker : null,
+        userIdFor: (_) => 1,
+        onCallSiteChanged: () {},
+        mediaFactory: mediaFactory,
+        systemCall: systemCall,
+        reporter: const PluginDiagnosticsReporter.ambient(),
+        diagnostics: diagnostics,
+        preferences: preferences,
+        idleThresholdsFor: (_) => thresholds,
+        idleClock: scheduler.now,
+        idleTimerFactory: scheduler.createTimer,
+        heartbeatInterval: const Duration(days: 1),
+        signalBatchDelay: Duration.zero,
+      );
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+    }
+
+    Iterable<Object?> heartbeatIdleStates() => transport.writes
+        .where((write) => write.path.endsWith('/heartbeat.json'))
+        .map((write) => write.body['idle_state']);
+
+    VoiceIdleState? localIdleState() => controller.call?.room.participants
+        .where((participant) => participant.id == 1)
+        .firstOrNull
+        ?.idleState;
+
+    test('going to the background is not being away', () async {
+      await joinOpenRoom();
+
+      controller.setForeground(false);
+      await pumpEventQueue();
+      scheduler.advance(const Duration(minutes: 4));
+      controller.setForeground(true);
+      await pumpEventQueue();
+
+      expect(heartbeatIdleStates(), everyElement('active'));
+      expect(controller.call?.muted, isFalse);
+      expect(localIdleState(), VoiceIdleState.active);
+    });
+
+    test(
+      'climbs to idle, mutes when away, and reports the mute on return',
+      () async {
+        await joinOpenRoom();
+        final notices = <VoiceNotice>[];
+        controller.notices.listen(notices.add);
+        final media = mediaFactory.sessions.single;
+
+        scheduler.advance(const Duration(minutes: 5, seconds: 30));
+        await pumpEventQueue();
+        expect(heartbeatIdleStates().last, 'idle');
+        expect(localIdleState(), VoiceIdleState.idle);
+        expect(controller.call?.muted, isFalse);
+
+        scheduler.advance(const Duration(minutes: 10));
+        await pumpEventQueue();
+        expect(heartbeatIdleStates().last, 'afk');
+        expect(localIdleState(), VoiceIdleState.afk);
+        expect(controller.call?.muted, isTrue);
+        expect(media.muted, isTrue);
+        expect(systemCall.systemMuted, isTrue);
+        expect(notices, isEmpty);
+
+        controller.setForeground(true);
+        await pumpEventQueue();
+        expect(heartbeatIdleStates().last, 'active');
+        expect(localIdleState(), VoiceIdleState.active);
+        expect(controller.call?.muted, isTrue);
+        expect(notices.map((notice) => notice.message), [
+          'You were auto-muted after being idle. Unmute to keep talking.',
+        ]);
+      },
+    );
+
+    test('a deliberate unmute is not reported as automatic later', () async {
+      await joinOpenRoom();
+      final notices = <VoiceNotice>[];
+      controller.notices.listen(notices.add);
+
+      scheduler.advance(const Duration(minutes: 16));
+      await pumpEventQueue();
+      expect(controller.call?.muted, isTrue);
+      await controller.setMuted(false);
+      scheduler.advance(const Duration(minutes: 16));
+      await pumpEventQueue();
+      expect(controller.call?.muted, isTrue);
+      await controller.setMuted(false);
+      await controller.setMuted(true);
+      controller.setForeground(true);
+      await pumpEventQueue();
+
+      expect(notices, isEmpty);
+    });
+
+    test('speaking keeps the participant present', () async {
+      await joinOpenRoom();
+      final media = mediaFactory.sessions.single;
+
+      for (var minute = 0; minute < 40; minute++) {
+        scheduler.advance(const Duration(minutes: 1));
+        media.speaking = const {1};
+        media.notifyListeners();
+      }
+      await pumpEventQueue();
+
+      expect(controller.call?.status, VoiceCallStatus.connected);
+      expect(controller.call?.muted, isFalse);
+      expect(heartbeatIdleStates(), everyElement('active'));
+    });
+
+    test('leaves the call after the disconnect threshold', () async {
+      await joinOpenRoom();
+
+      scheduler.advance(const Duration(minutes: 31));
+      await pumpEventQueue();
+      await pumpEventQueue();
+
+      expect(controller.call, isNull);
+      expect(
+        controller.errorFor(firstSite),
+        'You were disconnected from Conf Room 1 due to inactivity.',
+      );
+      expect(
+        transport.writes.where((write) => write.path.endsWith('/leave.json')),
+        hasLength(1),
+      );
+      expect(scheduler.activeTimerCount, 0);
+    });
+
+    test('stops the ladder with the call', () async {
+      await joinOpenRoom();
+      expect(scheduler.activeTimerCount, 1);
+
+      await controller.leave();
+
+      expect(scheduler.activeTimerCount, 0);
+      scheduler.advance(const Duration(hours: 1));
+      expect(controller.errorFor(firstSite), isNull);
     });
   });
 }
