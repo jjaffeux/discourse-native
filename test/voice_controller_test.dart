@@ -63,6 +63,8 @@ final class FakeVoiceMediaFactory implements VoiceMediaFactory {
   Completer<void>? nextConnectStarted;
   Object? nextAudioInputFailure;
   Object? nextAudioOutputFailure;
+  Future<void> Function(String)? nextAudioInputSelection;
+  Future<void> Function(String)? nextAudioOutputSelection;
   Object? nextCameraFailure;
 
   @override
@@ -84,11 +86,15 @@ final class FakeVoiceMediaFactory implements VoiceMediaFactory {
           )
           ..audioInputFailure = nextAudioInputFailure
           ..audioOutputFailure = nextAudioOutputFailure
+          ..onSelectAudioInput = nextAudioInputSelection
+          ..onSelectAudioOutput = nextAudioOutputSelection
           ..cameraFailure = nextCameraFailure;
     nextConnectGate = null;
     nextConnectStarted = null;
     nextAudioInputFailure = null;
     nextAudioOutputFailure = null;
+    nextAudioInputSelection = null;
+    nextAudioOutputSelection = null;
     nextCameraFailure = null;
     correlationIds.add(correlationId);
     diagnosticsRecorders.add(diagnostics);
@@ -200,6 +206,10 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   Completer<void>? disposeGate;
   Object? audioInputFailure;
   Object? audioOutputFailure;
+  Future<void> Function(String)? onSelectAudioInput;
+  Future<void> Function(String)? onSelectAudioOutput;
+  final List<String> audioInputSelections = [];
+  final List<String> audioOutputSelections = [];
   Object? cameraFailure;
   Completer<void>? muteGate;
   String? selectedAudioInput;
@@ -241,12 +251,16 @@ final class FakeVoiceMediaSession extends ChangeNotifier
 
   @override
   Future<void> selectAudioOutput(String deviceId) async {
+    audioOutputSelections.add(deviceId);
+    await onSelectAudioOutput?.call(deviceId);
     if (audioOutputFailure case final failure?) throw failure;
     selectedAudioOutput = deviceId;
   }
 
   @override
   Future<void> selectAudioInput(String deviceId) async {
+    audioInputSelections.add(deviceId);
+    await onSelectAudioInput?.call(deviceId);
     if (audioInputFailure case final failure?) throw failure;
     selectedAudioInput = deviceId;
   }
@@ -1337,6 +1351,140 @@ void main() {
   });
 
   group('media preferences and device selection', () {
+    for (final kind in ['audio_input', 'audio_output']) {
+      test('falls back when the saved $kind is unavailable', () async {
+        preferences.devices = const VoiceDevicePreferences(
+          audioInputDeviceId: 'saved-input',
+          audioOutputDeviceId: 'saved-output',
+        );
+        useTransport(transport);
+        if (kind == 'audio_input') {
+          mediaFactory.nextAudioInputSelection = (deviceId) async {
+            if (deviceId == 'saved-input') {
+              throw const VoiceMicrophoneException(
+                VoiceMicrophoneFailureKind.unavailable,
+              );
+            }
+          };
+        } else {
+          mediaFactory.nextAudioOutputSelection = (deviceId) async {
+            if (deviceId == 'saved-output') {
+              throw PlatformException(
+                code: 'selectAudioOutputFailed',
+                message: 'Error: deviceId not found!',
+              );
+            }
+          };
+        }
+        final room = VoiceRoom.fromJson(fixture('room'));
+
+        await controller.join(siteUrl: firstSite, siteName: 'One', room: room);
+
+        final media = mediaFactory.sessions.single;
+        expect(controller.call?.status, VoiceCallStatus.connected);
+        expect(controller.errorFor(firstSite), isNull);
+        expect(media.disposeCount, 0);
+        expect(systemCall.connectedCalls, 1);
+        expect(media.audioInputSelections, [
+          'saved-input',
+          if (kind == 'audio_input') 'default',
+        ]);
+        expect(media.audioOutputSelections, [
+          'saved-output',
+          if (kind == 'audio_output') 'default',
+        ]);
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/leave.json')),
+          isEmpty,
+        );
+        final fallback = diagnostics.records.singleWhere(
+          (record) =>
+              record.event == 'media.device_selection.succeeded' &&
+              record.data['origin'] == 'saved_join_fallback',
+        );
+        expect(fallback.data['kind'], kind);
+        expect(fallback.correlationId, mediaFactory.correlationIds.single);
+        expect(preferences.writes, isEmpty);
+
+        // A temporarily disconnected device is still preferred next time.
+        await controller.leave();
+        await controller.join(siteUrl: firstSite, siteName: 'One', room: room);
+        final nextMedia = mediaFactory.sessions.last;
+        expect(controller.call?.status, VoiceCallStatus.connected);
+        expect(nextMedia.selectedAudioInput, 'saved-input');
+        expect(nextMedia.selectedAudioOutput, 'saved-output');
+      });
+    }
+
+    for (final deviceId in ['saved-output', 'default']) {
+      test('cleans up when $deviceId and the default output fail', () async {
+        preferences.devices = VoiceDevicePreferences(
+          audioOutputDeviceId: deviceId,
+        );
+        useTransport(transport);
+        mediaFactory.nextAudioOutputFailure = PlatformException(
+          code: 'selectAudioOutputFailed',
+          message: 'Error: deviceId not found!',
+        );
+
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: VoiceRoom.fromJson(fixture('room')),
+        );
+
+        final media = mediaFactory.sessions.single;
+        expect(media.audioOutputSelections, [
+          deviceId,
+          if (deviceId != 'default') 'default',
+        ]);
+        expect(controller.call, isNull);
+        expect(controller.errorFor(firstSite), isNotNull);
+        expect(media.disposeCount, 1);
+        expect(systemCall.connectedCalls, 0);
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/leave.json')),
+          hasLength(1),
+        );
+      });
+    }
+
+    test(
+      'does not restore a default device after leaving during selection',
+      () async {
+        preferences.devices = const VoiceDevicePreferences(
+          audioOutputDeviceId: 'saved-output',
+        );
+        useTransport(transport);
+        final selectionStarted = Completer<void>();
+        final selectionGate = Completer<void>();
+        mediaFactory.nextAudioOutputSelection = (_) async {
+          selectionStarted.complete();
+          await selectionGate.future;
+          throw PlatformException(
+            code: 'selectAudioOutputFailed',
+            message: 'Error: deviceId not found!',
+          );
+        };
+
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: VoiceRoom.fromJson(fixture('room')),
+        );
+        await selectionStarted.future;
+        await controller.leave();
+        selectionGate.complete();
+        await joining;
+
+        final media = mediaFactory.sessions.single;
+        expect(media.audioOutputSelections, ['saved-output']);
+        expect(media.disposeCount, 1);
+        expect(controller.call, isNull);
+        expect(systemCall.connectedCalls, 0);
+      },
+    );
+
     test(
       'preserve live call controls when preference operations fail',
       () async {

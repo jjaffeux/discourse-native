@@ -1396,24 +1396,22 @@ final class VoiceController extends ChangeNotifier {
       );
       if (!isCurrent()) return;
       if (_audioInputDeviceId case final deviceId?) {
-        await _traceDeviceSelection(
+        await _selectSavedAudioDevice(
           kind: 'audio_input',
-          origin: 'saved_join',
           deviceId: deviceId,
-          applied: true,
           correlationId: correlationId,
-          action: () => media!.selectAudioInput(deviceId),
+          selectDevice: media.selectAudioInput,
+          isCurrent: isCurrent,
         );
         if (!isCurrent()) return;
       }
       if (_audioOutputDeviceId case final deviceId?) {
-        await _traceDeviceSelection(
+        await _selectSavedAudioDevice(
           kind: 'audio_output',
-          origin: 'saved_join',
           deviceId: deviceId,
-          applied: true,
           correlationId: correlationId,
-          action: () => media!.selectAudioOutput(deviceId),
+          selectDevice: media.selectAudioOutput,
+          isCurrent: isCurrent,
         );
         if (!isCurrent()) return;
       }
@@ -1898,6 +1896,39 @@ final class VoiceController extends ChangeNotifier {
         data: {'stackTrace': stackTrace.toString()},
       );
       _report(error, stackTrace, 'voice.preferences.restore');
+    }
+  }
+
+  Future<void> _selectSavedAudioDevice({
+    required String kind,
+    required String deviceId,
+    required String correlationId,
+    required Future<void> Function(String) selectDevice,
+    required bool Function() isCurrent,
+  }) async {
+    try {
+      await _traceDeviceSelection(
+        kind: kind,
+        origin: 'saved_join',
+        deviceId: deviceId,
+        applied: true,
+        correlationId: correlationId,
+        action: () => selectDevice(deviceId),
+      );
+    } on Exception {
+      if (!isCurrent()) return;
+      if (deviceId == 'default') rethrow;
+
+      // Saved devices may be disconnected. Explicitly restore the default so
+      // a failed microphone switch cannot leave capture using a stale device.
+      await _traceDeviceSelection(
+        kind: kind,
+        origin: 'saved_join_fallback',
+        deviceId: 'default',
+        applied: true,
+        correlationId: correlationId,
+        action: () => selectDevice('default'),
+      );
     }
   }
 
