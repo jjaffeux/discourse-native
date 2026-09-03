@@ -399,8 +399,9 @@ logical pixels. Left and Right are physical screen edges, independent of text
 direction; Center is the default. The scroll viewport itself stays full width,
 so wheel and trackpad gestures in the empty gutters continue scrolling. Topic
 and Aggregate lists, topic posts, Chat streams, and other route bodies follow
-the lane, while headers, tabs, toolbars, composers, progress chrome, split
-panes, and the pinned 344-point topic sidebar keep their existing geometry.
+the lane. Group detail headers, tabs, and member controls share that same lane;
+other headers, tabs, toolbars, composers, progress chrome, split panes, and the
+pinned 344-point topic sidebar keep their existing geometry.
 Narrow desktop windows fill their available width, and mobile and web layouts
 are unchanged. Changes apply immediately and are stored under the global
 `discourse_native.content_alignment` preference key; there is no Save action.
