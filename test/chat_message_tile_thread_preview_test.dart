@@ -1318,6 +1318,13 @@ void main() {
       final action = find.byTooltip('Edit bookmark');
       expect(action, findsOneWidget);
       expect(tester.getSize(action), HoverActionButton.size);
+      final toolbarButton = tester.widget<HoverActionButton>(
+        find.ancestor(of: action, matching: find.byType(HoverActionButton)),
+      );
+      expect(
+        toolbarButton.color,
+        Theme.of(tester.element(action)).colorScheme.primary,
+      );
 
       await tester.tap(action);
       await tester.pumpAndSettle();
