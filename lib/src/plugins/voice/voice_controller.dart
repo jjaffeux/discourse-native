@@ -960,6 +960,35 @@ final class VoiceController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _removeLocalParticipant(String siteUrl, int roomId) {
+    final userId = _userIdFor(siteUrl);
+    if (userId == null) return;
+
+    VoiceRoom removeParticipant(VoiceRoom room) {
+      if (room.id != roomId) return room;
+      return room.withParticipants([
+        for (final participant in room.participants)
+          if (participant.id != userId) participant,
+      ]);
+    }
+
+    final directory = _directories[siteUrl];
+    if (directory != null) {
+      _directories[siteUrl] = VoiceDirectory(
+        rooms: [for (final room in directory.rooms) removeParticipant(room)],
+        canCreateRoom: directory.canCreateRoom,
+        messageBusLastId: directory.messageBusLastId,
+      );
+    }
+    final linked = _linkedRooms[siteUrl];
+    final linkedRoom = linked?[roomId];
+    if (linkedRoom != null) linked![roomId] = removeParticipant(linkedRoom);
+    final call = _call;
+    if (call != null && call.siteUrl == siteUrl && call.room.id == roomId) {
+      _call = call.copyWith(room: removeParticipant(call.room));
+    }
+  }
+
   static bool _canPublishAudio(
     VoiceRoom room,
     List<VoiceParticipant> participants,
@@ -1490,6 +1519,7 @@ final class VoiceController extends ChangeNotifier {
       }
       if (isCurrent()) {
         _call = null;
+        if (serverJoinActive) _removeLocalParticipant(siteUrl, room.id);
         _errors[siteUrl] = _joinFailureMessage(error, room);
         _onCallSiteChanged();
         notifyListeners();
@@ -2199,6 +2229,8 @@ final class VoiceController extends ChangeNotifier {
     _call = clearImmediately
         ? null
         : call.copyWith(status: VoiceCallStatus.leaving);
+    // A delayed roster broadcast must not leave our avatar beside Join room.
+    _removeLocalParticipant(call.siteUrl, call.room.id);
     if (!clearImmediately && call.status != VoiceCallStatus.leaving) {
       _record(
         'call.status_changed',
