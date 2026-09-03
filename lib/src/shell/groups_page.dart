@@ -474,7 +474,7 @@ class _GroupDirectoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bio = group.plainBio ?? group.bioExcerpt;
+    final bio = (group.plainBio ?? group.bioExcerpt)?.trim();
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
@@ -518,16 +518,17 @@ class _GroupDirectoryCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Expanded(
-                  child: Text(
-                    bio?.trim().isNotEmpty == true
-                        ? bio!.trim()
-                        : 'No group description.',
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
+                if (bio != null && bio.isNotEmpty)
+                  Expanded(
+                    child: Text(
+                      bio,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  )
+                else
+                  const Spacer(),
                 Row(
                   children: [
                     const DIcon(DIcons.users, size: 14),
