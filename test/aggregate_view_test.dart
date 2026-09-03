@@ -26,6 +26,7 @@ const _secondFilterPath = '/filter.json?per_page=15&q=tag%3Aux';
 const _filterOptions = [
   TopicFilterOption(name: 'status:', priority: 1),
   TopicFilterOption(name: 'tag:', type: 'tag', priority: 2),
+  TopicFilterOption(name: 'category:', type: 'category', priority: 3),
 ];
 
 void main() {
@@ -256,6 +257,34 @@ void main() {
     expect(find.byType(TopicListRow), findsNothing);
   });
 
+  testWidgets(
+    'finds uncached subcategories and inserts their qualified paths',
+    (tester) async {
+      final fixture = await _pumpMixedAggregateView(tester);
+      final api = fixture.api;
+      final siteUrl = fixture.forumUrls.first;
+
+      await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
+      await tester.pumpAndSettle();
+      final field = find.byKey(ValueKey('aggregate-query-$siteUrl'));
+      await tester.enterText(field, 'category:bugs');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Design › Bugs'), findsOneWidget);
+      expect(find.text('Discourse Native App › Bugs'), findsOneWidget);
+      expect(api.categorySearchTerms, contains('bugs'));
+      expect(api.categorySearchIncludeAncestors, contains(true));
+
+      await tester.tap(find.text('Discourse Native App › Bugs'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(field).controller!.text,
+        'category:discourse-native-app:bugs ',
+      );
+    },
+  );
+
   testWidgets('desktop exposes aggregate tab lifecycle', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final previousPlatform = debugDefaultTargetPlatformOverride;
@@ -424,8 +453,40 @@ _pumpMixedAggregateView(WidgetTester tester) async {
       _secondFilterPath: _filterOptions,
     },
     categoryList: const [
-      TopicCategory(id: 1, name: 'Followed', color: '0088CC'),
+      TopicCategory(id: 1, name: 'Design', slug: 'design', color: 'AA00AA'),
+      TopicCategory(
+        id: 2,
+        name: 'Bugs',
+        slug: 'bugs',
+        color: 'BB00BB',
+        parentCategoryId: 1,
+      ),
     ],
+    categorySearches: const {
+      'bugs': [
+        TopicCategory(
+          id: 4,
+          name: 'Bugs',
+          slug: 'bugs',
+          color: '00AACC',
+          parentCategoryId: 3,
+        ),
+        TopicCategory(
+          id: 2,
+          name: 'Bugs',
+          slug: 'bugs',
+          color: 'BB00BB',
+          parentCategoryId: 1,
+        ),
+        TopicCategory(
+          id: 3,
+          name: 'Discourse Native App',
+          slug: 'discourse-native-app',
+          color: '0088CC',
+        ),
+        TopicCategory(id: 1, name: 'Design', slug: 'design', color: 'AA00AA'),
+      ],
+    },
   );
   await tester.pumpWidget(
     DiscourseApp(

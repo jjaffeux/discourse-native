@@ -76,6 +76,7 @@ void main() {
       TopicFilterLookup? tagGroups,
       TopicFilterLookup? users,
       TopicFilterLookup? groups,
+      TopicFilterCategoryLookup? categoryLookup,
     }) => TopicFilterSuggestions(
       options: options,
       categories: const [
@@ -86,6 +87,7 @@ void main() {
           color: '0088CC',
         ),
       ],
+      categoryLookup: categoryLookup ?? (_) async => const [],
       tags: tags ?? (_) async => const [],
       tagGroups: tagGroups ?? (_) async => const [],
       users: users ?? (_) async => const [],
@@ -165,6 +167,7 @@ void main() {
               color: '0088CC',
             ),
         ],
+        categoryLookup: (_) async => const [],
         tags: (_) async => const [],
         tagGroups: (_) async => const [],
         users: (_) async => const [],
@@ -178,6 +181,66 @@ void main() {
       final one = await subject.suggestions('category:category-11');
       expect(one.single.name, 'category:category-11');
     });
+
+    test(
+      'loads missing categories and qualifies duplicate child slugs',
+      () async {
+        const design = TopicCategory(
+          id: 1,
+          name: 'Design',
+          slug: 'design',
+          color: 'AA00AA',
+        );
+        const designBugs = TopicCategory(
+          id: 2,
+          name: 'Bugs',
+          slug: 'bugs',
+          color: 'BB00BB',
+          parentCategoryId: 1,
+        );
+        const nativeApp = TopicCategory(
+          id: 3,
+          name: 'Discourse Native App',
+          slug: 'discourse-native-app',
+          color: '0088CC',
+        );
+        const nativeBugs = TopicCategory(
+          id: 4,
+          name: 'Bugs',
+          slug: 'bugs',
+          color: '00AACC',
+          parentCategoryId: 3,
+        );
+        final lookedUp = <String>[];
+        final subject = TopicFilterSuggestions(
+          options: const [
+            TopicFilterOption(name: 'category:', type: 'category'),
+          ],
+          categories: const [design, designBugs],
+          categoryLookup: (term) async {
+            lookedUp.add(term);
+            return const [nativeBugs, nativeApp];
+          },
+          tags: (_) async => const [],
+          tagGroups: (_) async => const [],
+          users: (_) async => const [],
+          groups: (_) async => const [],
+        );
+
+        final suggestions = await subject.suggestions('category:bugs');
+
+        expect(lookedUp, ['bugs']);
+        expect(suggestions.map((item) => item.name), [
+          'category:discourse-native-app:bugs',
+          'category:design:bugs',
+        ]);
+        expect(suggestions.map((item) => item.description), [
+          'Discourse Native App › Bugs',
+          'Design › Bugs',
+        ]);
+        expect(suggestions.first.parentCategory, nativeApp);
+      },
+    );
 
     test(
       'quotes tag groups and provides local category, date, and number values',
@@ -637,7 +700,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
 
-    expect(find.text('Feature requests'), findsOneWidget);
+    expect(find.text('Product › Feature requests'), findsOneWidget);
     final badge = tester.widget<CategorySquare>(find.byType(CategorySquare));
     expect(badge.color, const Color(0xFF0088CC));
     expect(badge.parentColor, const Color(0xFFFF0000));

@@ -135,6 +135,8 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       TopicFilterSuggestions(
         options: widget.options,
         categories: widget.categories,
+        categoryLookup: (term) =>
+            shell.searchFilterCategories(siteUrl: widget.siteUrl, term: term),
         tags: (term) =>
             shell.searchFilterTags(siteUrl: widget.siteUrl, term: term),
         tagGroups: (term) =>
@@ -233,12 +235,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
               ),
               child: child!,
             ),
-            child: TextFieldTapRegion(
-              child: _SuggestionList(
-                filter: filter,
-                categories: widget.categories,
-              ),
-            ),
+            child: TextFieldTapRegion(child: _SuggestionList(filter: filter)),
           ),
           child: KeyedSubtree(
             key: _anchorKey,
@@ -290,19 +287,9 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
 }
 
 class _SuggestionList extends StatelessWidget {
-  const _SuggestionList({required this.filter, required this.categories});
+  const _SuggestionList({required this.filter});
 
   final TopicFilterController filter;
-  final List<TopicCategory> categories;
-
-  Color? _parentColor(TopicCategory category) {
-    final parentId = category.parentCategoryId;
-    if (parentId == null) return null;
-    for (final candidate in categories) {
-      if (candidate.id == parentId) return Color(candidate.colorValue);
-    }
-    return null;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -358,14 +345,21 @@ class _SuggestionList extends StatelessWidget {
                             if (suggestion.category case final category?) ...[
                               CategorySquare(
                                 color: Color(category.colorValue),
-                                parentColor: _parentColor(category),
+                                parentColor: suggestion.parentCategory == null
+                                    ? null
+                                    : Color(
+                                        suggestion.parentCategory!.colorValue,
+                                      ),
                                 size: 16,
                               ),
                               const SizedBox(width: 10),
                             ],
                             Flexible(
                               child: Text(
-                                suggestion.category?.name ?? suggestion.name,
+                                suggestion.category == null
+                                    ? suggestion.name
+                                    : suggestion.description ??
+                                          suggestion.category!.name,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),

@@ -5,8 +5,12 @@ import 'package:flutter/widgets.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
 
-typedef TopicFilterLookup =
-    Future<List<TopicFilterLookupValue>> Function(String term);
+typedef TopicFilterLookup = Future<List<TopicFilterLookupValue>> Function(
+  String term,
+);
+typedef TopicFilterCategoryLookup = Future<List<TopicCategory>> Function(
+  String term,
+);
 
 @immutable
 class TopicFilterSuggestion {
@@ -17,6 +21,7 @@ class TopicFilterSuggestion {
     this.isSuggestion = false,
     this.delimiters = const [],
     this.category,
+    this.parentCategory,
   });
 
   final String name;
@@ -25,12 +30,14 @@ class TopicFilterSuggestion {
   final bool isSuggestion;
   final List<TopicFilterModifier> delimiters;
   final TopicCategory? category;
+  final TopicCategory? parentCategory;
 }
 
 class TopicFilterSuggestions {
   const TopicFilterSuggestions({
     required this.options,
     required this.categories,
+    required this.categoryLookup,
     required this.tags,
     required this.tagGroups,
     required this.users,
@@ -41,6 +48,7 @@ class TopicFilterSuggestions {
 
   final List<TopicFilterOption> options;
   final List<TopicCategory> categories;
+  final TopicFilterCategoryLookup categoryLookup;
   final TopicFilterLookup tags;
   final TopicFilterLookup tagGroups;
   final TopicFilterLookup users;
@@ -63,6 +71,7 @@ class TopicFilterSuggestions {
           option: option!,
           segment: segment,
           categories: categories,
+          categoryLookup: categoryLookup,
           tags: tags,
           tagGroups: tagGroups,
           users: users,
@@ -362,6 +371,7 @@ class _ValueSuggester {
     required this.option,
     required this.segment,
     required this.categories,
+    required this.categoryLookup,
     required this.tags,
     required this.tagGroups,
     required this.users,
@@ -373,6 +383,7 @@ class _ValueSuggester {
   final TopicFilterOption option;
   final _FilterSegment segment;
   final List<TopicCategory> categories;
+  final TopicFilterCategoryLookup categoryLookup;
   final TopicFilterLookup tags;
   final TopicFilterLookup tagGroups;
   final TopicFilterLookup users;
@@ -408,7 +419,7 @@ class _ValueSuggester {
       '${segment.prefix}${segment.filterName}:$valuePrefix$term';
 
   Future<List<TopicFilterSuggestion>> suggestions() => switch (option.type) {
-    'category' => Future.value(_categories()),
+    'category' => _categories(),
     'tag' => _remote(tags, delimiterAware: true),
     'tag_group' => _remote(tagGroups, quote: true),
     'username' => _remote(users, delimiterAware: true),
@@ -419,29 +430,58 @@ class _ValueSuggester {
     _ => Future.value(const []),
   };
 
-  List<TopicFilterSuggestion> _categories() {
+  Future<List<TopicFilterSuggestion>> _categories() async {
     final query = searchTerm.toLowerCase();
-    final result = <TopicFilterSuggestion>[];
-    // Runs per keystroke over every site category; stop at the cap rather
-    // than build a suggestion for every match first.
+    final remote = searchTerm.isEmpty
+        ? const <TopicCategory>[]
+        : await categoryLookup(searchTerm.split(':').last);
+    final byId = <int, TopicCategory>{
+      for (final category in remote) category.id: category,
+    };
     for (final category in categories) {
+      byId.putIfAbsent(category.id, () => category);
+    }
+    final result = <TopicFilterSuggestion>[];
+    for (final category in byId.values) {
+      final path = _categoryPath(category, byId);
+      final slugPath = path.map((item) => item.slug).join(':');
+      final label = path.map((item) => item.name).join(' › ');
       if (query.isNotEmpty &&
           !category.name.toLowerCase().contains(query) &&
-          !category.slug.toLowerCase().contains(query)) {
+          !category.slug.toLowerCase().contains(query) &&
+          !slugPath.toLowerCase().contains(query) &&
+          !label.toLowerCase().contains(query)) {
         continue;
       }
       result.add(
         TopicFilterSuggestion(
-          name: _name(category.slug),
-          description: category.name,
-          term: category.slug,
+          name: _name(slugPath),
+          description: label,
+          term: slugPath,
           isSuggestion: true,
           category: category,
+          parentCategory: path.length > 1 ? path[path.length - 2] : null,
         ),
       );
       if (result.length == _maximumCategorySuggestions) break;
     }
     return result;
+  }
+
+  static List<TopicCategory> _categoryPath(
+    TopicCategory category,
+    Map<int, TopicCategory> byId,
+  ) {
+    final reversed = <TopicCategory>[];
+    final visited = <int>{};
+    TopicCategory? current = category;
+    while (current != null && visited.add(current.id)) {
+      reversed.add(current);
+      current = current.parentCategoryId == null
+          ? null
+          : byId[current.parentCategoryId!];
+    }
+    return reversed.reversed.toList(growable: false);
   }
 
   static const int _maximumCategorySuggestions = 10;

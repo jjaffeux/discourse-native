@@ -785,6 +785,7 @@ class FakeDiscourseApi
   final List<int> categoryPagesRequested = [];
   final List<List<int>> categoryIdsRequested = [];
   final List<String> categorySearchTerms = [];
+  final List<bool> categorySearchIncludeAncestors = [];
   final List<
     ({
       String siteUrl,
@@ -1887,9 +1888,11 @@ class FakeDiscourseApi
     required String term,
     required String apiKey,
     bool includeUncategorized = true,
+    bool includeAncestors = false,
     String? clientId,
   }) async {
     categorySearchTerms.add(term);
+    categorySearchIncludeAncestors.add(includeAncestors);
     return categorySearches[term] ?? const [];
   }
 

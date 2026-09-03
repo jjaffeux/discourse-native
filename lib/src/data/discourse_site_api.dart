@@ -493,6 +493,7 @@ final class DiscourseSiteApi {
     required String term,
     required String apiKey,
     bool includeUncategorized = true,
+    bool includeAncestors = false,
     String? clientId,
   }) async {
     final normalized = term.trim();
@@ -508,13 +509,19 @@ final class DiscourseSiteApi {
         'term': bounded,
         'include_uncategorized': includeUncategorized,
         'include_subcategories': true,
+        if (includeAncestors) 'include_ancestors': true,
         'limit': maximumCategorySearchResults,
       },
     );
-    return List.unmodifiable([
-      for (final category in jsonObjects(body['categories']))
-        TopicCategory.fromJson(category),
-    ]);
+    final byId = <int, TopicCategory>{};
+    for (final category in [
+      ...jsonObjects(body['categories']),
+      if (includeAncestors) ...jsonObjects(body['ancestors']),
+    ]) {
+      final parsed = TopicCategory.fromJson(category);
+      byId.putIfAbsent(parsed.id, () => parsed);
+    }
+    return List.unmodifiable(byId.values);
   }
 
   Future<void> updateCategoryNotificationLevel({
