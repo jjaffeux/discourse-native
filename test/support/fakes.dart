@@ -556,6 +556,7 @@ class FakeDiscourseApi
     this.postsById = const {},
     this.postRecommendations = const {},
     this.postGate,
+    this.updatePostGate,
     this.createPostGate,
     this.cards = const {},
     this.creation,
@@ -829,6 +830,7 @@ class FakeDiscourseApi
   final Map<int, TopicRecommendations> postRecommendations;
 
   final Completer<void>? postGate;
+  final Completer<void>? updatePostGate;
   final Completer<void>? createPostGate;
 
   final Map<String, UserCard> cards;
@@ -855,6 +857,7 @@ class FakeDiscourseApi
   final List<({String siteUrl, String username, bool hidePresence})>
   presencePreferencesUpdated = [];
   final List<List<int>> postFetches = [];
+  final List<bool> postFetchIncludesRaw = [];
 
   final List<String> feedPaths = [];
 
@@ -1790,6 +1793,7 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     postFetches.add(ids);
+    postFetchIncludesRaw.add(includeRaw);
     if (postGate != null) await postGate!.future;
     return ids.map((i) => postsById[i]).whereType<Post>().toList();
   }
@@ -2322,6 +2326,7 @@ class FakeDiscourseApi
       'raw': raw,
       'originalText': originalText,
     });
+    await updatePostGate?.future;
 
     final failure = writeFailure;
     if (failure != null) throw failure;

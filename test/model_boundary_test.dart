@@ -19,6 +19,31 @@ import 'support/bundled_plugins.dart';
 const siteUrl = 'https://meta.discourse.org';
 
 void main() {
+  test('posts retain whether the rendered body is localized', () {
+    final localized = Post.fromJson(const {
+      'id': 1,
+      'post_number': 1,
+      'username': 'sam',
+      'cooked': '<p>Bonjour</p>',
+      'is_localized': true,
+    }, siteUrl);
+    final original = Post.fromJson(const {
+      'id': 2,
+      'post_number': 2,
+      'username': 'sam',
+      'cooked': '<p>Hello</p>',
+    }, siteUrl);
+
+    expect(localized.isLocalized, isTrue);
+    expect(localized.copyWith(), localized);
+    expect(localized.copyWith(isLocalized: false), isNot(localized));
+    expect(
+      localized.copyWith(isLocalized: false).hashCode,
+      isNot(localized.hashCode),
+    );
+    expect(original.isLocalized, isFalse);
+  });
+
   test('whole-topic edit permission includes tag editing', () {
     TopicDetail detail(Map<String, Object?> permissions) => TopicDetail.parse({
       'id': 7,

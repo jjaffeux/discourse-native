@@ -65,6 +65,7 @@ Map<String, dynamic> settings({
   bool? enableAutoGridImages,
   bool? enableMarkdownLinkify,
   String? markdownLinkifyTlds,
+  bool? fastEditEnabled,
 }) => {
   'enable_emoji': ?emojiEnabled,
   'emoji_set': ?emojiSet,
@@ -111,6 +112,7 @@ Map<String, dynamic> settings({
   'enable_auto_grid_images': ?enableAutoGridImages,
   'enable_markdown_linkify': ?enableMarkdownLinkify,
   'markdown_linkify_tlds': ?markdownLinkifyTlds,
+  'enable_fast_edit': ?fastEditEnabled,
 };
 
 void main() {
@@ -128,6 +130,18 @@ void main() {
         SiteConfig.fromSettings(settings(emojiEnabled: false)).emojiEnabled,
         isFalse,
       );
+    });
+
+    test('reads and preserves the fast edit gate', () {
+      final disabled = SiteConfig.fromSettings(
+        settings(fastEditEnabled: false),
+      );
+
+      expect(disabled.fastEditEnabled, isFalse);
+      expect(SiteConfig.fromJson(disabled.toJson()).fastEditEnabled, isFalse);
+      expect(disabled.withPlugins(disabled.plugins).fastEditEnabled, isFalse);
+      expect(SiteConfig.fromSettings(const {}).fastEditEnabled, isTrue);
+      expect(SiteConfig.fromJson(const {}).fastEditEnabled, isTrue);
     });
 
     test('reads and preserves the automatic image gallery gate', () {
@@ -199,6 +213,7 @@ void main() {
       expect(unknown.emojiEnabled, isTrue);
       expect(unknown.enableAutoGridImages, isTrue);
       expect(unknown.enableMarkdownLinkify, isTrue);
+      expect(unknown.fastEditEnabled, isTrue);
       expect(
         unknown.markdownLinkifyTlds,
         SiteConfig.defaultMarkdownLinkifyTlds,

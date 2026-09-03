@@ -6529,7 +6529,7 @@ class ShellController extends FrameSafeNotifier
     composer.focus.requestFocus();
   }
 
-  void openEdit(Post post) {
+  void openEdit(Post post, {String? focusText}) {
     final instance = currentInstance;
     final route = currentContent;
     final topicId = route?.topicId;
@@ -6567,7 +6567,114 @@ class ShellController extends FrameSafeNotifier
     _composer = composer;
     _notify();
 
-    unawaited(_loadEditBody(composer, post));
+    unawaited(_loadEditBody(composer, post, focusText: focusText));
+  }
+
+  Future<String?> saveFastEdit({
+    required String siteUrl,
+    required int topicId,
+    required Post post,
+    required String selectedMarkdown,
+    required String replacement,
+  }) async {
+    final held = store.read<Post>(siteUrl, post.id);
+    if (!_fastEditContextCurrent(siteUrl, topicId, post.id) ||
+        held?.canEdit != true ||
+        !siteConfigFor(siteUrl).fastEditEnabled) {
+      return 'This post can no longer be edited.';
+    }
+    if (held!.isLocalized) {
+      return 'Open the full editor to edit localized content.';
+    }
+    if (selectedMarkdown.isEmpty) {
+      return 'The selected text could not be matched safely.';
+    }
+
+    final key = _postKey(siteUrl, post.id);
+    if (!_beginPostWrite(key)) {
+      return 'Another action on this post is still being saved.';
+    }
+    final lease = lifecycle.capture(siteUrl);
+
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent ||
+          !_fastEditContextCurrent(siteUrl, topicId, post.id)) {
+        return 'The topic changed before the edit could be saved.';
+      }
+      if (credential.failure case final failure?) return failure.message;
+
+      final fetched = await api.topicContent.posts(
+        siteUrl: siteUrl,
+        topicId: topicId,
+        ids: [post.id],
+        includeRaw: true,
+        apiKey: credential.apiKey!,
+      );
+      if (!lease.isCurrent ||
+          !_fastEditContextCurrent(siteUrl, topicId, post.id)) {
+        return 'The topic changed before the edit could be saved.';
+      }
+
+      Post? current;
+      for (final candidate in fetched) {
+        if (candidate.id == post.id) {
+          current = candidate;
+          break;
+        }
+      }
+      final raw = current?.raw;
+      if (raw == null) {
+        return 'The selected text could not be matched safely.';
+      }
+      final match = _uniqueTextMatch(raw, selectedMarkdown);
+      if (match == null) {
+        return 'The selected text could not be matched safely.';
+      }
+      final nextRaw = raw.replaceRange(match.start, match.end, replacement);
+      if (nextRaw == raw) return null;
+
+      final updated = await api.composerPersistence.updatePost(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+        postId: post.id,
+        raw: nextRaw,
+        originalText: raw,
+      );
+      if (!lease.isCurrent ||
+          !_fastEditContextCurrent(siteUrl, topicId, post.id)) {
+        return 'The topic changed before the edit could be saved.';
+      }
+      lease.commit(() {
+        _storeEditedPost(siteUrl, updated, raw: nextRaw);
+        _notify();
+      });
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(error, stackTrace, 'post.fastEdit');
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      lease.commit(() => _endPostWrite(siteUrl, post.id));
+    }
+  }
+
+  bool _fastEditContextCurrent(String siteUrl, int topicId, int postId) =>
+      !isDisposed &&
+      currentInstance?.url == siteUrl &&
+      currentContent?.topicId == topicId &&
+      currentTopic?.stream.contains(postId) == true;
+
+  static ({int start, int end})? _uniqueTextMatch(
+    String source,
+    String selected,
+  ) {
+    final start = source.indexOf(selected);
+    if (start < 0 || source.indexOf(selected, start + 1) >= 0) return null;
+    return (start: start, end: start + selected.length);
   }
 
   void openCategoryEdit() {
@@ -6943,9 +7050,13 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  Future<void> _loadEditBody(ComposerController composer, Post post) async {
+  Future<void> _loadEditBody(
+    ComposerController composer,
+    Post post, {
+    String? focusText,
+  }) async {
     if (post.raw case final raw?) {
-      composer.loadedBody(raw);
+      composer.loadedBody(raw, caretOffset: _editCaretOffset(raw, focusText));
       return;
     }
 
@@ -6974,7 +7085,10 @@ class ShellController extends FrameSafeNotifier
         if (raw == null) {
           composer.bodyLoadFailed();
         } else {
-          composer.loadedBody(raw);
+          composer.loadedBody(
+            raw,
+            caretOffset: _editCaretOffset(raw, focusText),
+          );
         }
       });
     } catch (error, stackTrace) {
@@ -6983,6 +7097,28 @@ class ShellController extends FrameSafeNotifier
       lease.commit(composer.bodyLoadFailed);
     }
   }
+
+  static int? _editCaretOffset(String raw, String? focusText) {
+    final selection = focusText?.trim();
+    if (selection == null || selection.isEmpty) return null;
+    final firstLine = selection
+        .split(RegExp(r'[\r\n]'))
+        .firstWhere((line) => line.trim().isNotEmpty, orElse: () => '')
+        .trim()
+        .replaceFirst(RegExp(r'^\*\s+'), '');
+    if (firstLine.isEmpty) return 0;
+
+    var match = raw.indexOf(firstLine);
+    if (match < 0) {
+      match = _plainQuoteCharacters(
+        raw,
+      ).indexOf(_plainQuoteCharacters(firstLine));
+    }
+    return match < 0 ? 0 : raw.lastIndexOf('\n', match - 1) + 1;
+  }
+
+  static String _plainQuoteCharacters(String value) =>
+      value.replaceAll(RegExp('[“”]'), '"').replaceAll(RegExp('[‘’]'), "'");
 
   bool topicPostSelectionEnabled(String siteUrl, int topicId) =>
       _topicPostSelections.containsKey(_topicKey(siteUrl, topicId));
@@ -9273,28 +9409,33 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    // Edit responses omit reader-specific actions and plugin state; preserve
-    // those values from the held post.
     lease.commit(() {
-      final held = store.read<Post>(target.siteUrl, updated.id);
-      store.put(
-        target.siteUrl,
-        held == null
-            ? updated
-            : updated
-                  .withLikesOf(held)
-                  .withPostActionsOf(held)
-                  .withBookmarkOf(held)
-                  .withPlugins(
-                    api.models.mergeAfterPostEdit(
-                      held: held.plugins,
-                      incoming: updated.plugins,
-                    ),
-                  ),
-      );
-
+      _storeEditedPost(target.siteUrl, updated, raw: raw);
       _closeSubmittedComposer(composer);
     });
+  }
+
+  void _storeEditedPost(String siteUrl, Post updated, {required String raw}) {
+    final held = store.read<Post>(siteUrl, updated.id);
+    final withRaw = updated.withRaw(raw);
+    // Edit responses omit reader-specific actions and plugin state; preserve
+    // those values from the held post.
+    store.put(
+      siteUrl,
+      held == null
+          ? withRaw
+          : withRaw
+                .copyWith(isLocalized: held.isLocalized)
+                .withLikesOf(held)
+                .withPostActionsOf(held)
+                .withBookmarkOf(held)
+                .withPlugins(
+                  api.models.mergeAfterPostEdit(
+                    held: held.plugins,
+                    incoming: updated.plugins,
+                  ),
+                ),
+    );
   }
 
   Future<void> _submitTagsEdit(

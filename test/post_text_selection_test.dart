@@ -1,6 +1,10 @@
+import 'dart:async';
+
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/post_quote.dart';
 import 'package:discourse_native/src/shell/post_text_selection.dart';
@@ -21,6 +25,14 @@ const _post = Post(
   postNumber: 2,
   username: 'sam',
   cooked: '<p>Read selected words here</p>',
+);
+const _editablePost = Post(
+  id: 22,
+  postNumber: 2,
+  username: 'sam',
+  cooked: '<p>Read selected words here</p>',
+  raw: 'Read selected words here',
+  canEdit: true,
 );
 const _body = 'Read selected words here';
 
@@ -136,6 +148,51 @@ void main() {
         'First **bold** thought.\n\nSecond *formatted* line.',
       );
       expect(resolver.contentsFor('missing selection'), 'missing selection');
+    });
+
+    test('marks unique plain selections as safe for fast edit', () {
+      for (final value in ['désolé', '这是一个测试', 'great 👍']) {
+        final result = PostQuoteSelectionResolver(
+          '<p>Before $value after</p>',
+        ).resolve(value);
+
+        expect(result.markdown, value);
+        expect(result.supportsFastEdit, isTrue, reason: value);
+      }
+    });
+
+    test('rejects ambiguous or structurally complex fast edits', () {
+      void rejects(String cooked, String selected, {bool localized = false}) {
+        expect(
+          PostQuoteSelectionResolver(
+            cooked,
+          ).resolve(selected, isLocalized: localized).supportsFastEdit,
+          isFalse,
+          reason: cooked,
+        );
+      }
+
+      rejects('<p>same then same</p>', 'same');
+      rejects('<p>Same then same</p>', 'Same');
+      rejects('<p>first</p><p>second</p>', 'firstsecond');
+      rejects('<p><strong>bold</strong></p>', 'bold');
+      rejects('<aside class="quote">quoted</aside>', 'quoted');
+      rejects('<aside class="onebox">preview</aside>', 'preview');
+      rejects('<span class="cooked-date">tomorrow</span>', 'tomorrow');
+      rejects('<table><tr><td>cell</td></tr></table>', 'cell');
+      rejects('<p>left | right</p>', 'left | right');
+      rejects('<p>That’s right</p>', 'That’s');
+      rejects('<p>translated</p>', 'translated', localized: true);
+    });
+
+    test('rejects oversized selections without building an input regex', () {
+      final selected = List.filled(20000, 'a').join();
+      final result = PostQuoteSelectionResolver(
+        '<p>$selected</p>',
+      ).resolve(selected);
+
+      expect(result.markdown, selected);
+      expect(result.supportsFastEdit, isFalse);
     });
   });
 
@@ -266,6 +323,181 @@ void main() {
       shell.closeComposer();
       await tester.pump();
     });
+
+    testWidgets('offers compact edit only with the setting and permission', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(postsById: const {22: _editablePost});
+      final shell = await _pumpSelection(tester, post: _editablePost, api: api);
+      addTearDown(shell.dispose);
+      await _selectWord(tester);
+
+      expect(find.byKey(const ValueKey('edit-selection')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('edit-selection')));
+      await tester.pumpAndSettle();
+
+      final input = find.byKey(const ValueKey('fast-edit-input'));
+      expect(input, findsOneWidget);
+      expect(tester.widget<TextField>(input).controller!.text, 'selected');
+
+      // The unchanged value cannot be submitted.
+      await tester.tap(find.byKey(const ValueKey('fast-edit-save')));
+      await tester.pump();
+      expect(api.updated, isEmpty);
+
+      await tester.enterText(input, 'changed');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('fast-edit-save')));
+      await tester.pumpAndSettle();
+
+      expect(input, findsNothing);
+      expect(api.postFetchIncludesRaw, [isTrue]);
+      expect(api.updated.single['raw'], 'Read changed words here');
+      expect(api.updated.single['originalText'], 'Read selected words here');
+    });
+
+    testWidgets('allows deleting a selected passage', (tester) async {
+      final api = FakeDiscourseApi(postsById: const {22: _editablePost});
+      final shell = await _pumpSelection(tester, post: _editablePost, api: api);
+      addTearDown(shell.dispose);
+      await _selectWord(tester);
+      await tester.tap(find.byKey(const ValueKey('edit-selection')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const ValueKey('fast-edit-input')), '');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('fast-edit-save')));
+      await tester.pumpAndSettle();
+
+      expect(api.updated.single['raw'], 'Read  words here');
+    });
+
+    testWidgets('keeps failed edits visible with their input', (tester) async {
+      final api = FakeDiscourseApi(
+        postsById: const {22: _editablePost},
+        writeFailure: const WriteException(WriteFailure.conflict),
+      );
+      final shell = await _pumpSelection(tester, post: _editablePost, api: api);
+      addTearDown(shell.dispose);
+      await _selectWord(tester);
+      await tester.tap(find.byKey(const ValueKey('edit-selection')));
+      await tester.pumpAndSettle();
+      final input = find.byKey(const ValueKey('fast-edit-input'));
+      await tester.enterText(input, 'my replacement');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('fast-edit-save')));
+      await tester.pumpAndSettle();
+
+      expect(input, findsOneWidget);
+      expect(
+        tester.widget<TextField>(input).controller!.text,
+        'my replacement',
+      );
+      expect(find.byKey(const ValueKey('fast-edit-error')), findsOneWidget);
+      expect(find.text('Someone else changed that first.'), findsOneWidget);
+    });
+
+    testWidgets('disables editing while a save is in flight', (tester) async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        postsById: const {22: _editablePost},
+        postGate: gate,
+      );
+      final shell = await _pumpSelection(tester, post: _editablePost, api: api);
+      addTearDown(shell.dispose);
+      await _selectWord(tester);
+      await tester.tap(find.byKey(const ValueKey('edit-selection')));
+      await tester.pumpAndSettle();
+      final input = find.byKey(const ValueKey('fast-edit-input'));
+      await tester.enterText(input, 'changed');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('fast-edit-save')));
+      await tester.pump();
+
+      expect(tester.widget<TextField>(input).enabled, isFalse);
+      expect(find.text('Saving…'), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(input, findsNothing);
+    });
+
+    testWidgets('hides edit when disabled or the post is not editable', (
+      tester,
+    ) async {
+      final disabledShell = await _pumpSelection(
+        tester,
+        post: _editablePost,
+        config: const SiteConfig(fastEditEnabled: false),
+      );
+      await _selectWord(tester);
+      expect(find.byKey(const ValueKey('edit-selection')), findsNothing);
+      disabledShell.dispose();
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      final deniedShell = await _pumpSelection(tester);
+      addTearDown(deniedShell.dispose);
+      await _selectWord(tester);
+      expect(find.byKey(const ValueKey('edit-selection')), findsNothing);
+    });
+
+    testWidgets('falls back to the full composer for formatted text', (
+      tester,
+    ) async {
+      const formattedPost = Post(
+        id: 22,
+        postNumber: 2,
+        username: 'sam',
+        cooked: '<p>Read <strong>selected</strong> words here</p>',
+        raw: 'Read **selected** words here',
+        canEdit: true,
+      );
+      final shell = await _pumpSelection(tester, post: formattedPost);
+      addTearDown(shell.dispose);
+      await _selectWord(tester);
+      await tester.tap(find.byKey(const ValueKey('edit-selection')));
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('fast-edit-input')), findsNothing);
+      expect(shell.visibleComposer?.target.isEdit, isTrue);
+      expect(shell.visibleComposer?.raw, formattedPost.raw);
+    });
+
+    testWidgets('supports E to open and Escape to cancel', (tester) async {
+      final shell = await _pumpSelection(tester, post: _editablePost);
+      addTearDown(shell.dispose);
+      await _selectWord(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('fast-edit-input')), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('fast-edit-input')), findsNothing);
+    });
+
+    testWidgets('supports Ctrl+Enter to save', (tester) async {
+      final api = FakeDiscourseApi(postsById: const {22: _editablePost});
+      final shell = await _pumpSelection(tester, post: _editablePost, api: api);
+      addTearDown(shell.dispose);
+      await _selectWord(tester);
+      await tester.tap(find.byKey(const ValueKey('edit-selection')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('fast-edit-input')),
+        'changed',
+      );
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+
+      expect(api.updated.single['raw'], 'Read changed words here');
+      expect(find.byKey(const ValueKey('fast-edit-input')), findsNothing);
+    });
   });
 
   group('quote composer integration', () {
@@ -295,8 +527,10 @@ Future<ShellController> _pumpSelection(
   WidgetTester tester, {
   Post post = _post,
   Widget child = const Text(_body),
+  FakeDiscourseApi? api,
+  SiteConfig config = const SiteConfig.unknown(),
 }) async {
-  final shell = await _shell();
+  final shell = await _shell(post: post, api: api, config: config);
   await tester.pumpWidget(
     ShellScope(
       controller: shell,
@@ -304,7 +538,12 @@ Future<ShellController> _pumpSelection(
         theme: AppTheme.dark,
         home: Scaffold(
           body: Center(
-            child: PostTextSelection(post: post, topicId: 7, child: child),
+            child: PostTextSelection(
+              siteUrl: _siteUrl,
+              post: post,
+              topicId: 7,
+              child: child,
+            ),
           ),
         ),
       ),
@@ -314,11 +553,19 @@ Future<ShellController> _pumpSelection(
   return shell;
 }
 
-Future<ShellController> _shell({FakeDraftStore? drafts}) async {
+Future<ShellController> _shell({
+  FakeDraftStore? drafts,
+  Post post = _post,
+  FakeDiscourseApi? api,
+  SiteConfig config = const SiteConfig.unknown(),
+}) async {
+  final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
   final shell = ShellController(
-    instanceStore: FakeInstanceStore([instance('meta.discourse.org')]),
-    api: FakeDiscourseApi(),
-    authenticator: FakeAuthenticator(),
+    instanceStore: FakeInstanceStore([
+      instance('meta.discourse.org').copyWith(config: config),
+    ]),
+    api: api ?? FakeDiscourseApi(),
+    authenticator: authenticator,
     drafts: drafts ?? FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
     updateStore: FakeUpdateStore(),
@@ -326,14 +573,14 @@ Future<ShellController> _shell({FakeDraftStore? drafts}) async {
   await shell.load();
   shell.store.put(
     _siteUrl,
-    const TopicDetail(
+    TopicDetail(
       id: 7,
       title: 'A topic',
-      stream: [22],
+      stream: [post.id],
       canCreatePost: true,
     ),
   );
-  shell.store.put(_siteUrl, _post);
+  shell.store.put(_siteUrl, post);
   shell.pushContent(
     ContentRoute.topic(topicId: 7, slug: 'a-topic', title: 'A topic'),
   );

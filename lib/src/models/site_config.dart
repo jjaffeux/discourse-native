@@ -39,6 +39,7 @@ class SiteConfig {
     this.contactEmail,
     this.illegalContentReportEmail,
     this.suggestWeekendsInDatePickers = true,
+    this.fastEditEnabled = true,
     this.plugins = PluginData.none,
   });
 
@@ -174,6 +175,7 @@ class SiteConfig {
       ),
       suggestWeekendsInDatePickers:
           json['suggest_weekends_in_date_pickers'] != false,
+      fastEditEnabled: json['enable_fast_edit'] != false,
       plugins: extensions.readSiteSettings(json, siteUrl),
     );
   }
@@ -239,6 +241,7 @@ class SiteConfig {
     contactEmail: _nonemptyText(json['contactEmail']),
     illegalContentReportEmail: _nonemptyText(json['illegalContentReportEmail']),
     suggestWeekendsInDatePickers: json['suggestWeekendsInDatePickers'] != false,
+    fastEditEnabled: json['fastEditEnabled'] != false,
     plugins: extensions.readStoredSiteSettings(json),
   );
 
@@ -280,6 +283,7 @@ class SiteConfig {
       'contactEmail': contactEmail,
       'illegalContentReportEmail': illegalContentReportEmail,
       'suggestWeekendsInDatePickers': suggestWeekendsInDatePickers,
+      'fastEditEnabled': fastEditEnabled,
       if (pluginJson.isNotEmpty) 'plugins': pluginJson,
     };
   }
@@ -337,6 +341,8 @@ class SiteConfig {
       illegalContentReportEmail ?? contactEmail;
 
   final bool suggestWeekendsInDatePickers;
+
+  final bool fastEditEnabled;
 
   /// Values decoded by the installed feature manifest. Core intentionally
   /// cannot name or interpret anything in this bag.
@@ -416,6 +422,7 @@ class SiteConfig {
     contactEmail: contactEmail,
     illegalContentReportEmail: illegalContentReportEmail,
     suggestWeekendsInDatePickers: suggestWeekendsInDatePickers,
+    fastEditEnabled: fastEditEnabled,
     plugins: value,
   );
 
@@ -462,6 +469,7 @@ class SiteConfig {
       other.contactEmail == contactEmail &&
       other.illegalContentReportEmail == illegalContentReportEmail &&
       other.suggestWeekendsInDatePickers == suggestWeekendsInDatePickers &&
+      other.fastEditEnabled == fastEditEnabled &&
       other.plugins == plugins;
 
   @override
@@ -499,6 +507,7 @@ class SiteConfig {
     contactEmail,
     illegalContentReportEmail,
     suggestWeekendsInDatePickers,
+    fastEditEnabled,
     plugins,
   ]);
 

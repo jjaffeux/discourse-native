@@ -3578,6 +3578,7 @@ class _PostTileState extends State<_PostTile> {
               ],
               const SizedBox(height: 10),
               PostTextSelection(
+                siteUrl: widget.siteUrl,
                 post: post,
                 topicId: widget.topic.id,
                 child: CookedHtml(

@@ -1879,15 +1879,16 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  void loadedBody(String raw) {
+  void loadedBody(String raw, {int? caretOffset}) {
     if (_disposed) return;
     _loadingBody = false;
     _missingEditBody = false;
     _originalRaw = raw.trim();
+    final offset = (caretOffset ?? raw.length).clamp(0, raw.length);
     _replaceDocument(
       TextEditingValue(
         text: raw,
-        selection: TextSelection.collapsed(offset: raw.length),
+        selection: TextSelection.collapsed(offset: offset),
       ),
     );
     _notify();

@@ -80,6 +80,7 @@ class Post with Storable<Post> {
     this.inboundLinks = const [],
     this.postActions = const [],
     this.raw,
+    this.isLocalized = false,
     this.bookmark,
     this.plugins = PluginData.none,
   });
@@ -152,6 +153,7 @@ class Post with Storable<Post> {
       ]),
       postActions: _postActionSummaries(json['actions_summary']),
       raw: jsonText(json['raw']),
+      isLocalized: json['is_localized'] == true,
       bookmark: Bookmark.fromPostJson(json),
       plugins: extensions.readPost(json, siteUrl),
     );
@@ -256,6 +258,8 @@ class Post with Storable<Post> {
 
   final String? raw;
 
+  final bool isLocalized;
+
   final Bookmark? bookmark;
 
   final PluginData plugins;
@@ -309,6 +313,7 @@ class Post with Storable<Post> {
 
   Post copyWith({
     String? raw,
+    bool? isLocalized,
     int? likeCount,
     bool? liked,
     bool? canLike,
@@ -366,6 +371,7 @@ class Post with Storable<Post> {
         ? this.postActions
         : List.unmodifiable(postActions),
     raw: raw ?? this.raw,
+    isLocalized: isLocalized ?? this.isLocalized,
     bookmark: clearBookmark ? null : (bookmark ?? this.bookmark),
     plugins: plugins ?? this.plugins,
   );
@@ -412,6 +418,7 @@ class Post with Storable<Post> {
           listEquals(other.inboundLinks, inboundLinks) &&
           listEquals(other.postActions, postActions) &&
           other.raw == raw &&
+          other.isLocalized == isLocalized &&
           other.bookmark == bookmark &&
           other.plugins == plugins;
 
@@ -455,6 +462,7 @@ class Post with Storable<Post> {
     Object.hashAll(inboundLinks),
     Object.hashAll(postActions),
     raw,
+    isLocalized,
     bookmark,
     plugins,
   ]);

@@ -31,31 +31,69 @@ String postQuoteContentsFromSelection(String cooked, String plainText) {
   return PostQuoteSelectionResolver(cooked).contentsFor(plainText);
 }
 
+final class PostTextSelectionResolution {
+  const PostTextSelectionResolution({
+    required this.markdown,
+    required this.supportsFastEdit,
+  });
+
+  final String markdown;
+  final bool supportsFastEdit;
+}
+
 final class PostQuoteSelectionResolver {
   PostQuoteSelectionResolver(String cooked)
     : _source = cooked.isEmpty ? null : _CookedSelectionSource.fromHtml(cooked);
 
+  static const int maximumFastEditSelectionLength = 10000;
+
   final _CookedSelectionSource? _source;
 
-  String contentsFor(String plainText) {
+  String contentsFor(String plainText) => resolve(plainText).markdown;
+
+  PostTextSelectionResolution resolve(
+    String plainText, {
+    bool isLocalized = false,
+  }) {
     final selected = plainText.trim();
     final source = _source;
-    if (selected.isEmpty || source == null) return selected;
-
-    final directStart = source.plainText.indexOf(selected);
-    if (directStart >= 0) {
-      return source.markdown(directStart, directStart + selected.length);
+    if (selected.isEmpty || source == null) {
+      return PostTextSelectionResolution(
+        markdown: selected,
+        supportsFastEdit: false,
+      );
     }
 
-    final compact = selected.replaceAll(_selectionLineBreaks, '');
-    final compactStart = source.plainText.indexOf(compact);
-    return compactStart < 0
-        ? selected
-        : source.markdown(compactStart, compactStart + compact.length);
+    var match = source.match(selected);
+    if (match == null) {
+      final compact = selected.replaceAll(_selectionLineBreaks, '');
+      match = source.match(compact);
+    }
+    if (match == null) {
+      return PostTextSelectionResolution(
+        markdown: selected,
+        supportsFastEdit: false,
+      );
+    }
+
+    final markdown = source.markdown(match.start, match.end);
+    return PostTextSelectionResolution(
+      markdown: markdown,
+      supportsFastEdit:
+          !isLocalized &&
+          match.unique &&
+          markdown.isNotEmpty &&
+          markdown.length <= maximumFastEditSelectionLength &&
+          !markdown.contains('|') &&
+          !markdown.contains(_selectionLineBreaks) &&
+          !_problematicFastEditCharacters.hasMatch(markdown) &&
+          source.fastEditable(match.start, match.end),
+    );
   }
 }
 
 final RegExp _selectionLineBreaks = RegExp(r'[\r\n]');
+final RegExp _problematicFastEditCharacters = RegExp('[‚‘’„“”«»‹›™±…→←↔¶]');
 
 typedef _MarkdownMark = ({String open, String close});
 
@@ -66,16 +104,22 @@ class _CookedSelectionCharacter {
     this.value,
     this.marks, [
     this.preformatted = false,
+    this.fastEditable = true,
   ]);
 
   final String value;
   final List<_MarkdownMark> marks;
   final bool preformatted;
+  final bool fastEditable;
 }
 
 class _CookedSelectionSource {
   _CookedSelectionSource(this.characters, this.breaks)
-    : plainText = characters.map((character) => character.value).join();
+    : plainText = characters.map((character) => character.value).join(),
+      foldedPlainText = characters
+          .map((character) => character.value)
+          .join()
+          .toLowerCase();
 
   factory _CookedSelectionSource.fromHtml(String cooked) {
     final characters = <_CookedSelectionCharacter>[];
@@ -91,20 +135,32 @@ class _CookedSelectionSource {
     final fragment = html.parseFragment(cooked);
     final pending =
         <
-          ({dom.Node node, List<_MarkdownMark> marks, bool exiting, bool pre})
+          ({
+            dom.Node node,
+            List<_MarkdownMark> marks,
+            bool exiting,
+            bool pre,
+            bool fastEditBlocked,
+          })
         >[];
-    void pushNodes(List<dom.Node> nodes, List<_MarkdownMark> marks, bool pre) {
+    void pushNodes(
+      List<dom.Node> nodes,
+      List<_MarkdownMark> marks,
+      bool pre,
+      bool fastEditBlocked,
+    ) {
       for (var index = nodes.length - 1; index >= 0; index--) {
         pending.add((
           node: nodes[index],
           marks: marks,
           exiting: false,
           pre: pre,
+          fastEditBlocked: fastEditBlocked,
         ));
       }
     }
 
-    pushNodes(fragment.nodes, const [], false);
+    pushNodes(fragment.nodes, const [], false, false);
     while (pending.isNotEmpty) {
       final frame = pending.removeLast();
       final node = frame.node;
@@ -118,7 +174,12 @@ class _CookedSelectionSource {
             : node.data.replaceAll(_collapsibleWhitespace, ' ');
         for (var index = 0; index < value.length; index++) {
           characters.add(
-            _CookedSelectionCharacter(value[index], frame.marks, frame.pre),
+            _CookedSelectionCharacter(
+              value[index],
+              frame.marks,
+              frame.pre,
+              !frame.fastEditBlocked && frame.marks.isEmpty,
+            ),
           );
         }
         continue;
@@ -140,8 +201,16 @@ class _CookedSelectionSource {
           ? frame.marks
           : List<_MarkdownMark>.unmodifiable([...frame.marks, mark]);
       final pre = frame.pre || node.localName == 'pre';
-      pending.add((node: node, marks: childMarks, exiting: true, pre: pre));
-      pushNodes(node.nodes, childMarks, pre);
+      final fastEditBlocked =
+          frame.fastEditBlocked || _fastEditBlockedElement(node);
+      pending.add((
+        node: node,
+        marks: childMarks,
+        exiting: true,
+        pre: pre,
+        fastEditBlocked: fastEditBlocked,
+      ));
+      pushNodes(node.nodes, childMarks, pre, fastEditBlocked);
     }
     return _CookedSelectionSource._trimmed(characters, breaks);
   }
@@ -177,6 +246,30 @@ class _CookedSelectionSource {
   final List<_CookedSelectionCharacter> characters;
   final Map<int, int> breaks;
   final String plainText;
+  final String foldedPlainText;
+
+  ({int start, int end, bool unique})? match(String selected) {
+    if (selected.isEmpty) return null;
+    final start = plainText.indexOf(selected);
+    if (start < 0) return null;
+    final foldedSelected = selected.toLowerCase();
+    final foldedStart = foldedPlainText.indexOf(foldedSelected);
+    return (
+      start: start,
+      end: start + selected.length,
+      unique:
+          foldedStart >= 0 &&
+          foldedPlainText.indexOf(foldedSelected, foldedStart + 1) < 0,
+    );
+  }
+
+  bool fastEditable(int start, int end) {
+    if (start < 0 || end <= start || end > characters.length) return false;
+    for (var offset = start; offset < end; offset++) {
+      if (!characters[offset].fastEditable) return false;
+    }
+    return true;
+  }
 
   String markdown(int start, int end) {
     if (start < 0 || end <= start || end > characters.length) return '';
@@ -239,6 +332,13 @@ bool _cookedBlockElement(dom.Element element) => const {
   'tr',
   'ul',
 }.contains(element.localName);
+
+bool _fastEditBlockedElement(dom.Element element) =>
+    element.localName == 'table' ||
+    (element.localName == 'aside' &&
+        (element.classes.contains('quote') ||
+            element.classes.contains('onebox'))) ||
+    element.classes.contains('cooked-date');
 
 _MarkdownMark? _markdownMark(dom.Element element) {
   switch (element.localName) {
