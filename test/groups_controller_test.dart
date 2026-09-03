@@ -162,8 +162,8 @@ void main() {
       expect(state.hasMore, isFalse);
       expect(controller.presentedDirectoryState(_site), same(state));
       expect(transport.gets.map((request) => request.path), [
-        '/groups.json',
-        '/groups.json?page=1',
+        '/groups.json?asc=true',
+        '/groups.json?page=1&asc=true',
       ]);
       expect(transport.gets.every((request) => request.apiKey == null), isTrue);
     },

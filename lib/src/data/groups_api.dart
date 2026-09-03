@@ -42,7 +42,7 @@ final class GroupsApi {
         'filter': ?normalizedFilter,
         'type': ?normalizedType,
         'order': ?normalizedOrder,
-        if (!ascending) 'asc': 'false',
+        'asc': '$ascending',
         'username': ?normalizedUsername,
       }),
     );
@@ -93,7 +93,7 @@ final class GroupsApi {
         'offset': '$offset',
         'limit': '$limit',
         'order': ?normalizedOrder,
-        if (!ascending) 'asc': 'false',
+        'asc': '$ascending',
         'filter': ?normalizedFilter,
         if (includeCustomFields) 'include_custom_fields': 'true',
       }),
@@ -129,7 +129,7 @@ final class GroupsApi {
         'offset': '$offset',
         'limit': '$limit',
         'order': ?normalizedOrder,
-        if (!ascending) 'asc': 'false',
+        'asc': '$ascending',
         'filter': ?normalizedFilter,
       }),
     );
