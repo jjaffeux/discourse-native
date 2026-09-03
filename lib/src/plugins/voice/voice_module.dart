@@ -6,6 +6,7 @@ import 'voice_call_port.dart';
 import 'voice_controller.dart';
 import 'voice_diagnostics.dart';
 import 'voice_diagnostics_plugin.dart';
+import 'voice_idle.dart';
 import 'voice_plugin.dart';
 import 'voice_services.dart';
 import 'voice_settings.dart';
@@ -52,7 +53,13 @@ final class VoiceModule implements PluginModule {
         final retention = _VoiceBackgroundRetention(
           bindings.require(corePluginBackgroundRetentionPort),
         );
+        final host = bindings.require(corePluginRouteNavigationPort);
+        bool meshPrivacyWarningEnabled(String siteUrl) => siteState
+            .siteConfigFor(siteUrl)
+            .voiceSettings
+            .meshPrivacyWarningEnabled;
         late final VoiceController controller;
+        late final VoiceShellService shell;
         controller = VoiceController(
           api: VoiceApi(transport),
           chatConversations: dependencies.require(chatConversationService),
@@ -63,14 +70,37 @@ final class VoiceModule implements PluginModule {
             corePluginPresentationPort,
           )(siteUrl))?.voiceSettings.enabled,
           onCallSiteChanged: () => retention.sync(controller.activeSiteUrl),
+          idleThresholdsFor: (siteUrl) => voiceIdleThresholds(
+            siteState.siteConfigFor(siteUrl).voiceSettings,
+          ),
+          siteNameFor: (siteUrl) => host.sites
+              .where((site) => site.url == siteUrl)
+              .firstOrNull
+              ?.title,
+          meshPrivacyWarningEnabledFor: meshPrivacyWarningEnabled,
+          // A call answered from the system's UI lands on its room page
+          // when the app is next in front.
+          onIncomingCallAnswered: (siteUrl, room) => shell.openRoom(
+            siteUrl: siteUrl,
+            route: ContentRoute(
+              id: VoicePlugin.routeId(room.id),
+              title: room.name,
+              icon: DIcons.microphoneLines,
+            ),
+          ),
           diagnostics: diagnostics ?? const NoopVoiceDiagnosticsRecorder(),
           reporter: bindings.require(pluginDiagnosticsReporterPort),
         );
-        final shell = VoiceShellService(
+        shell = VoiceShellService(
           controller: controller,
-          host: bindings.require(corePluginRouteNavigationPort),
+          host: host,
           recordingEnabled: (siteUrl) =>
               siteState.siteConfigFor(siteUrl).voiceSettings.recordingEnabled,
+          meshPrivacyWarningEnabled: meshPrivacyWarningEnabled,
+          autoStatusEnabled: (siteUrl) =>
+              siteState.siteConfigFor(siteUrl).voiceSettings.autoStatusEnabled,
+          currentUsername: (siteUrl) =>
+              siteState.currentUserFor(siteUrl)?.username,
         );
         final callPort = VoiceCallControllerPort(
           controller: controller,

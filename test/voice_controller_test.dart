@@ -14,6 +14,7 @@ import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
+import 'package:discourse_native/src/plugins/voice/voice_idle.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
@@ -23,6 +24,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
+import 'support/manual_scheduler.dart';
 import 'support/voice_fake_chat_conversations.dart';
 
 Map<String, dynamic> fixture(String name) =>
@@ -225,8 +227,10 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   @override
   bool get screenSharing => screen;
 
+  Set<int> speaking = const {};
+
   @override
-  Set<int> get speakingParticipantIds => const {};
+  Set<int> get speakingParticipantIds => speaking;
 
   @override
   Object? videoTrackFor(int participantId) => null;
@@ -362,6 +366,29 @@ final class FakeVoicePreferences implements VoicePreferences {
     writes.add('pushToTalk:$enabled');
     if (rejectWrites) throw StateError('push-to-talk write rejected');
   }
+
+  bool meshPrivacyAcknowledged = false;
+  bool? autoStatusEnabled;
+
+  @override
+  Future<bool> readMeshPrivacyAcknowledged() async => meshPrivacyAcknowledged;
+
+  @override
+  Future<void> writeMeshPrivacyAcknowledged(bool acknowledged) async {
+    writes.add('meshPrivacy:$acknowledged');
+    if (rejectWrites) throw StateError('privacy write rejected');
+    meshPrivacyAcknowledged = acknowledged;
+  }
+
+  @override
+  Future<bool?> readAutoStatusEnabled() async => autoStatusEnabled;
+
+  @override
+  Future<void> writeAutoStatusEnabled(bool enabled) async {
+    writes.add('autoStatus:$enabled');
+    if (rejectWrites) throw StateError('status write rejected');
+    autoStatusEnabled = enabled;
+  }
 }
 
 abstract class _RequestHostBase implements PluginRequestHost {
@@ -488,7 +515,9 @@ final class FakeVoiceSystemCall implements VoiceSystemCall {
   }
 
   @override
-  Future<void> failed() async {}
+  Future<void> failed() async {
+    failures++;
+  }
 
   @override
   Future<void> setMuted(bool muted) async => systemMuted = muted;
@@ -499,6 +528,43 @@ final class FakeVoiceSystemCall implements VoiceSystemCall {
     required String siteName,
   }) async {
     starts++;
+  }
+
+  int failures = 0;
+  bool presentsIncomingCalls = false;
+  Object? reportIncomingFailure;
+  Completer<void>? reportIncomingGate;
+  final List<({String callerName, String roomName, String handle})>
+  reportedIncomingCalls = [];
+  int incomingAnswers = 0;
+  int incomingDeclines = 0;
+  final List<VoiceIncomingCallEndReason> incomingEnds = [];
+
+  @override
+  Future<bool> reportIncomingCall({
+    required String callerName,
+    required String roomName,
+    required String handle,
+  }) async {
+    reportedIncomingCalls.add((
+      callerName: callerName,
+      roomName: roomName,
+      handle: handle,
+    ));
+    await reportIncomingGate?.future;
+    if (reportIncomingFailure case final failure?) throw failure;
+    return presentsIncomingCalls;
+  }
+
+  @override
+  Future<void> answerIncomingCall() async => incomingAnswers++;
+
+  @override
+  Future<void> declineIncomingCall() async => incomingDeclines++;
+
+  @override
+  Future<void> endIncomingCall(VoiceIncomingCallEndReason reason) async {
+    incomingEnds.add(reason);
   }
 }
 
@@ -2081,6 +2147,7 @@ void main() {
         await controller.ensureLoaded(firstSite);
         expect(counting.subscribeCounts, {
           '/voice/rooms/index': 1,
+          '/voice/call-ring/1': 1,
           '/voice/rooms/7': 1,
         });
 
@@ -2093,6 +2160,7 @@ void main() {
         expect(controller.room(firstSite, 7)?.name, 'Renamed Room');
         expect(counting.subscribeCounts, {
           '/voice/rooms/index': 1,
+          '/voice/call-ring/1': 1,
           '/voice/rooms/7': 1,
         });
         expect(counting.subscriberCount('/voice/rooms/index'), 1);
@@ -2109,12 +2177,14 @@ void main() {
         await controller.ensureLoaded(firstSite);
         expect(counting.subscribeCounts, {
           '/voice/rooms/index': 1,
+          '/voice/call-ring/1': 1,
           '/voice/rooms/7': 1,
         });
 
         await controller.ensureLoaded(firstSite, force: true);
         expect(counting.subscribeCounts, {
           '/voice/rooms/index': 1,
+          '/voice/call-ring/1': 1,
           '/voice/rooms/7': 1,
         });
       },
@@ -2133,6 +2203,7 @@ void main() {
 
       expect(counting.subscribeCounts, {
         '/voice/rooms/index': 1,
+        '/voice/call-ring/1': 1,
         '/voice/rooms/7': 1,
       });
     });
@@ -2450,12 +2521,12 @@ void main() {
         await pumpEventQueue();
 
         final media = mediaFactory.sessions.single;
-        expect(media.participants.map((participant) => participant.id), [1, 2]);
+        expect(media.participants.map((participant) => participant.id), [2, 1]);
         expect(media.signals.map((signal) => signal.$2['type']), [
           'offer',
           'candidate',
         ]);
-        expect(controller.call?.room.participants.last.username, 'early');
+        expect(controller.call?.room.participants.first.username, 'early');
       },
     );
   });
@@ -3351,8 +3422,8 @@ void main() {
 
           expect(controller.call, isNull);
           expect(resolved!.participants.map((participant) => participant.id), [
-            1,
             2,
+            1,
           ]);
           await controller.join(
             siteUrl: firstSite,
@@ -3389,7 +3460,7 @@ void main() {
                   .room(siteUrl, 8)!
                   .participants
                   .map((participant) => participant.id),
-              [1, 2],
+              [2, 1],
             );
           }
 
@@ -3754,5 +3825,1274 @@ void main() {
         expect(controller.directory(firstSite), isNull);
       },
     );
+  });
+
+  group('rooms reached by link', () {
+    Map<String, dynamic> callRoom({int id = 9, String slug = 'call-1a2b'}) => {
+      'id': id,
+      'name': '📞 sam + kim',
+      'slug': slug,
+      'public': false,
+      'ephemeral': true,
+      'room_type': 'open',
+      'message_bus_last_id': 12,
+      'can_manage': true,
+      'active_participants': [
+        {'id': 3, 'username': 'kim', 'role': 'moderator'},
+      ],
+      'ringing': const <Object?>[],
+    };
+
+    test(
+      'subscribes a linked call room from its cursor and applies its events',
+      () async {
+        transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
+        await controller.ensureLoaded(firstSite);
+
+        final resolved = await controller.resolveRoom(firstSite, 'call-1a2b');
+
+        expect(resolved?.ephemeral, isTrue);
+        expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
+        expect(firstTracker.lastIds['/voice/rooms/9'], 12);
+
+        firstTracker.deliver('/voice/rooms/9', {
+          'type': 'participants',
+          'participants': [
+            {'id': 3, 'username': 'kim', 'role': 'moderator'},
+            {'id': 1, 'username': 'sam', 'role': 'moderator'},
+          ],
+        });
+        expect(controller.room(firstSite, 9)?.participants.map((p) => p.id), [
+          3,
+          1,
+        ]);
+
+        firstTracker.deliver('/voice/rooms/9', {
+          'type': 'ringing',
+          'room_id': 9,
+          'user': {'id': 4, 'username': 'ann'},
+          'notified_at': 1786204800,
+        });
+        expect(
+          controller.room(firstSite, 9)?.ringing.single.user.username,
+          'ann',
+        );
+
+        firstTracker.deliver('/voice/rooms/9', {
+          'type': 'recording',
+          'room_id': 9,
+          'recording': {
+            'started_at': 1786204800,
+            'started_by': {'id': 3, 'username': 'kim'},
+          },
+        });
+        expect(controller.room(firstSite, 9)?.recording?.startedById, 3);
+
+        firstTracker.deliver('/voice/rooms/9', {
+          'type': 'hand_raise',
+          'room_id': 9,
+          'user_id': 1,
+          'raised': true,
+          'raised_at': 1786204801.5,
+          'reason': 'raised',
+        });
+        expect(
+          controller
+              .room(firstSite, 9)
+              ?.participants
+              .singleWhere((p) => p.id == 1)
+              .handRaisedAt,
+          DateTime.utc(2026, 8, 8, 16, 0, 1, 500),
+        );
+      },
+    );
+
+    test('delivers signals for a call joined through a link', () async {
+      transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
+      transport.responses['POST /voice/rooms/9/join.json'] = {
+        ...fixture('join_mesh'),
+        'room': callRoom(),
+      };
+      transport.responses['DELETE /voice/rooms/9/leave.json'] = {};
+      transport.responses['POST /voice/rooms/9/state.json'] = {};
+      await controller.ensureLoaded(firstSite);
+      final resolved = await controller.resolveRoom(firstSite, 'call-1a2b');
+
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: resolved!,
+      );
+      firstTracker.deliver('/voice/rooms/9', {
+        'type': 'signal',
+        'room_id': 9,
+        'sender_id': 3,
+        'sender': {'id': 3, 'username': 'kim'},
+        'events': [
+          {'type': 'offer', 'sdp': 'offer'},
+        ],
+      });
+      await pumpEventQueue();
+
+      final media = mediaFactory.sessions.single;
+      expect(media.signals.map((signal) => signal.$1), [3]);
+      expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
+
+      await controller.leave();
+      expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
+    });
+
+    test(
+      'bounds linked rooms per site, never evicting the active call',
+      () async {
+        transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
+        transport.responses['POST /voice/rooms/9/join.json'] = {
+          ...fixture('join_mesh'),
+          'room': callRoom(),
+        };
+        transport.responses['DELETE /voice/rooms/9/leave.json'] = {};
+        transport.responses['POST /voice/rooms/9/state.json'] = {};
+        await controller.ensureLoaded(firstSite);
+        final resolved = await controller.resolveRoom(firstSite, 'call-1a2b');
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: resolved!,
+        );
+
+        for (var id = 20; id < 30; id++) {
+          transport.responses['GET /voice/rooms/link-$id.json'] = callRoom(
+            id: id,
+            slug: 'link-$id',
+          );
+          await controller.resolveRoom(firstSite, 'link-$id');
+        }
+
+        expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
+        expect(
+          [for (var id = 20; id < 30; id++) controller.room(firstSite, id)?.id],
+          [null, null, null, 23, 24, 25, 26, 27, 28, 29],
+        );
+        expect(firstTracker.subscriberCount('/voice/rooms/22'), 0);
+        expect(firstTracker.subscriberCount('/voice/rooms/29'), 1);
+      },
+    );
+
+    test('drops a linked room the directory reports destroyed', () async {
+      transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
+      await controller.ensureLoaded(firstSite);
+      await controller.resolveRoom(firstSite, 'call-1a2b');
+
+      firstTracker.deliver('/voice/rooms/index', {
+        'type': 'destroyed',
+        'room': callRoom(),
+      });
+
+      expect(controller.room(firstSite, 9), isNull);
+      expect(firstTracker.subscriberCount('/voice/rooms/9'), 0);
+    });
+  });
+
+  group('room updates during a call', () {
+    Map<String, dynamic> openJoin({bool video = false}) {
+      final payload = fixture('join_mesh');
+      final room = payload['room'] as Map<String, dynamic>;
+      room['video_enabled'] = video;
+      room['video_allowed'] = video;
+      return payload;
+    }
+
+    test(
+      'renames and retypes the active call room and re-applies the stage rule',
+      () async {
+        transport.responses['POST /voice/rooms/7/join.json'] = openJoin();
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        expect(controller.call?.muted, isFalse);
+        final notices = <VoiceNotice>[];
+        controller.notices.listen(notices.add);
+
+        firstTracker.deliver('/voice/rooms/index', renamedRoomEvent());
+        await pumpEventQueue();
+
+        expect(controller.call?.room.name, 'Renamed Room');
+        expect(controller.call?.room.type, VoiceRoomType.stage);
+        expect(
+          controller.call?.room.participants.map(
+            (participant) => participant.id,
+          ),
+          [1],
+        );
+        expect(controller.call?.muted, isTrue);
+        expect(media.audioPublishingAllowed, isFalse);
+        expect(media.muted, isTrue);
+        expect(notices, isEmpty);
+      },
+    );
+
+    test('stops a camera the room no longer allows and says so', () async {
+      transport.responses['POST /voice/rooms/7/join.json'] = openJoin(
+        video: true,
+      );
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final media = mediaFactory.sessions.single;
+      await controller.setCameraEnabled(true);
+      expect(controller.call?.cameraEnabled, isTrue);
+      final notices = <VoiceNotice>[];
+      controller.notices.listen(notices.add);
+
+      firstTracker.deliver('/voice/rooms/index', {
+        'type': 'updated',
+        'room': {
+          ...openJoin()['room'] as Map<String, dynamic>,
+          'video_enabled': false,
+          'video_allowed': false,
+        },
+      });
+      await pumpEventQueue();
+
+      expect(controller.call?.cameraEnabled, isFalse);
+      expect(media.camera, isFalse);
+      expect(controller.call?.muted, isFalse);
+      expect(notices.map((notice) => notice.message), [
+        'Video was turned off in this room.',
+      ]);
+      final stateWrites = transport.writes
+          .where((write) => write.path.endsWith('/state.json'))
+          .toList();
+      expect(stateWrites.last.body['video'], isFalse);
+    });
+  });
+
+  group('heartbeat expulsion', () {
+    Future<void> joinRoom() async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+    }
+
+    test('leaves the call when a heartbeat is refused as expelled', () async {
+      await joinRoom();
+      transport
+          .failures['POST /voice/rooms/7/heartbeat.json'] = const WriteException(
+        WriteFailure.forbidden,
+        statusCode: 403,
+        errors: [
+          'Your call session has expired. Rejoin the room to start a new one.',
+        ],
+      );
+
+      controller.setForeground(true);
+      await pumpEventQueue();
+
+      expect(controller.call, isNull);
+      expect(
+        controller.errorFor(firstSite),
+        'Your call session has expired. Rejoin the room to start a new one.',
+      );
+      expect(
+        transport.writes.where((write) => write.path.endsWith('/leave.json')),
+        hasLength(1),
+      );
+      expect(
+        controller.room(firstSite, 7)!.participants.map((p) => p.id),
+        isNot(contains(1)),
+      );
+      expect(mediaFactory.sessions.single.disposeCount, 1);
+    });
+
+    test('unwinds locally when the room behind a heartbeat is gone', () async {
+      await joinRoom();
+      transport.failures['POST /voice/rooms/7/heartbeat.json'] =
+          const WriteException(WriteFailure.validation, statusCode: 404);
+
+      controller.setForeground(true);
+      await pumpEventQueue();
+
+      expect(controller.call, isNull);
+      expect(
+        controller.errorFor(firstSite),
+        'Your call session has expired. Rejoin the room to start a new one.',
+      );
+      expect(
+        transport.writes.where((write) => write.path.endsWith('/leave.json')),
+        isEmpty,
+      );
+    });
+
+    test('keeps the call through a transient heartbeat failure', () async {
+      await joinRoom();
+      transport.failures['POST /voice/rooms/7/heartbeat.json'] =
+          const WriteException(WriteFailure.unreachable, statusCode: 502);
+
+      controller.setForeground(true);
+      await pumpEventQueue();
+
+      expect(controller.call?.status, VoiceCallStatus.connected);
+      expect(controller.errorFor(firstSite), isNull);
+    });
+  });
+
+  group('room notices', () {
+    late List<VoiceNotice> notices;
+
+    Future<void> joinAsManager({
+      List<Map<String, Object?>> roster = const [
+        {'id': 1, 'username': 'sam', 'role': 'participant'},
+        {'id': 2, 'username': 'lee', 'role': 'participant'},
+      ],
+    }) async {
+      final payload = fixture('join_mesh');
+      final room = payload['room'] as Map<String, dynamic>;
+      room['room_type'] = 'stage';
+      room['can_manage'] = true;
+      room['active_participants'] = roster;
+      transport.responses['POST /voice/rooms/7/join.json'] = payload;
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      notices = [];
+      controller.notices.listen(notices.add);
+    }
+
+    test(
+      'applies a hand raise before the roster confirms it and tells managers',
+      () async {
+        await joinAsManager();
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 1, 'username': 'sam', 'role': 'participant'},
+            {'id': 2, 'username': 'lee', 'role': 'participant'},
+          ],
+        });
+
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'hand_raise',
+          'room_id': 7,
+          'user_id': 2,
+          'raised': true,
+          'raised_at': 1786204801.5,
+          'reason': 'raised',
+        });
+        await pumpEventQueue();
+
+        expect(
+          controller.call?.room.participants
+              .singleWhere((participant) => participant.id == 2)
+              .handRaisedAt,
+          DateTime.utc(2026, 8, 8, 16, 0, 1, 500),
+        );
+        expect(
+          controller
+              .room(firstSite, 7)
+              ?.participants
+              .singleWhere((participant) => participant.id == 2)
+              .handRaisedAt,
+          DateTime.utc(2026, 8, 8, 16, 0, 1, 500),
+        );
+        expect(notices.map((notice) => notice.message), [
+          'lee raised their hand to speak.',
+        ]);
+
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'hand_raise',
+          'room_id': 7,
+          'user_id': 2,
+          'raised': false,
+          'reason': 'dismissed',
+        });
+        await pumpEventQueue();
+        expect(
+          controller.call?.room.participants
+              .singleWhere((participant) => participant.id == 2)
+              .handRaisedAt,
+          isNull,
+        );
+        expect(notices, hasLength(1));
+
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'hand_raise',
+          'room_id': 7,
+          'user_id': 1,
+          'raised': false,
+          'reason': 'dismissed',
+        });
+        await pumpEventQueue();
+        expect(notices.last.message, 'Your request to speak was dismissed.');
+      },
+    );
+
+    test('announces own role changes only', () async {
+      await joinAsManager();
+
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'role_change',
+        'room_id': 7,
+        'user_id': 2,
+        'role': 'speaker',
+      });
+      await pumpEventQueue();
+      expect(notices, isEmpty);
+
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'role_change',
+        'room_id': 7,
+        'user_id': 1,
+        'role': 'speaker',
+      });
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'role_change',
+        'room_id': 7,
+        'user_id': 1,
+        'role': 'participant',
+      });
+      await pumpEventQueue();
+      expect(notices.map((notice) => notice.message), [
+        "You've been made a speaker.",
+        "You've been moved to listeners.",
+      ]);
+    });
+
+    test('tells participants when someone else records the call', () async {
+      await joinAsManager();
+
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'recording',
+        'room_id': 7,
+        'recording': {
+          'started_at': 1786204800,
+          'started_by': {'id': 2, 'username': 'lee'},
+        },
+      });
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'recording',
+        'room_id': 7,
+        'recording': null,
+      });
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'recording',
+        'room_id': 7,
+        'recording': {
+          'started_at': 1786204900,
+          'started_by': {'id': 1, 'username': 'sam'},
+        },
+      });
+      await pumpEventQueue();
+
+      expect(notices.map((notice) => notice.message), [
+        'This call is now being recorded.',
+        'The recording has stopped.',
+      ]);
+      expect(controller.call?.room.recording?.startedById, 1);
+    });
+
+    test('notices stop with the controller', () async {
+      await joinAsManager();
+      var done = false;
+      controller.notices.listen(null, onDone: () => done = true);
+
+      await controller.close();
+      await pumpEventQueue();
+
+      expect(done, isTrue);
+    });
+  });
+
+  group('idle ladder', () {
+    late ManualScheduler scheduler;
+    late VoiceIdleThresholds thresholds;
+
+    Future<void> joinOpenRoom() async {
+      scheduler = ManualScheduler();
+      thresholds = (
+        idle: const Duration(minutes: 5),
+        afk: const Duration(minutes: 15),
+        disconnect: const Duration(minutes: 30),
+      );
+      controller.dispose();
+      systemCall = FakeVoiceSystemCall();
+      mediaFactory = FakeVoiceMediaFactory();
+      transport.responses['POST /voice/rooms/7/join.json'] = fixture(
+        'join_mesh',
+      );
+      controller = VoiceController(
+        api: VoiceApi(transport),
+        chatConversations: chatConversations,
+        requests: requests,
+        trackerFor: (siteUrl) => siteUrl == firstSite ? firstTracker : null,
+        userIdFor: (_) => 1,
+        onCallSiteChanged: () {},
+        mediaFactory: mediaFactory,
+        systemCall: systemCall,
+        reporter: const PluginDiagnosticsReporter.ambient(),
+        diagnostics: diagnostics,
+        preferences: preferences,
+        idleThresholdsFor: (_) => thresholds,
+        idleClock: scheduler.now,
+        timerFactory: scheduler.createTimer,
+        heartbeatInterval: const Duration(days: 1),
+        signalBatchDelay: Duration.zero,
+      );
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+    }
+
+    Iterable<Object?> heartbeatIdleStates() => transport.writes
+        .where((write) => write.path.endsWith('/heartbeat.json'))
+        .map((write) => write.body['idle_state']);
+
+    VoiceIdleState? localIdleState() => controller.call?.room.participants
+        .where((participant) => participant.id == 1)
+        .firstOrNull
+        ?.idleState;
+
+    test('going to the background is not being away', () async {
+      await joinOpenRoom();
+
+      controller.setForeground(false);
+      await pumpEventQueue();
+      scheduler.advance(const Duration(minutes: 4));
+      controller.setForeground(true);
+      await pumpEventQueue();
+
+      expect(heartbeatIdleStates(), everyElement('active'));
+      expect(controller.call?.muted, isFalse);
+      expect(localIdleState(), VoiceIdleState.active);
+    });
+
+    test(
+      'climbs to idle, mutes when away, and reports the mute on return',
+      () async {
+        await joinOpenRoom();
+        final notices = <VoiceNotice>[];
+        controller.notices.listen(notices.add);
+        final media = mediaFactory.sessions.single;
+
+        scheduler.advance(const Duration(minutes: 5, seconds: 30));
+        await pumpEventQueue();
+        expect(heartbeatIdleStates().last, 'idle');
+        expect(localIdleState(), VoiceIdleState.idle);
+        expect(controller.call?.muted, isFalse);
+
+        scheduler.advance(const Duration(minutes: 10));
+        await pumpEventQueue();
+        expect(heartbeatIdleStates().last, 'afk');
+        expect(localIdleState(), VoiceIdleState.afk);
+        expect(controller.call?.muted, isTrue);
+        expect(media.muted, isTrue);
+        expect(systemCall.systemMuted, isTrue);
+        expect(notices, isEmpty);
+
+        controller.setForeground(true);
+        await pumpEventQueue();
+        expect(heartbeatIdleStates().last, 'active');
+        expect(localIdleState(), VoiceIdleState.active);
+        expect(controller.call?.muted, isTrue);
+        expect(notices.map((notice) => notice.message), [
+          'You were auto-muted after being idle. Unmute to keep talking.',
+        ]);
+      },
+    );
+
+    test('a deliberate unmute is not reported as automatic later', () async {
+      await joinOpenRoom();
+      final notices = <VoiceNotice>[];
+      controller.notices.listen(notices.add);
+
+      scheduler.advance(const Duration(minutes: 16));
+      await pumpEventQueue();
+      expect(controller.call?.muted, isTrue);
+      await controller.setMuted(false);
+      scheduler.advance(const Duration(minutes: 16));
+      await pumpEventQueue();
+      expect(controller.call?.muted, isTrue);
+      await controller.setMuted(false);
+      await controller.setMuted(true);
+      controller.setForeground(true);
+      await pumpEventQueue();
+
+      expect(notices, isEmpty);
+    });
+
+    test('speaking keeps the participant present', () async {
+      await joinOpenRoom();
+      final media = mediaFactory.sessions.single;
+
+      for (var minute = 0; minute < 40; minute++) {
+        scheduler.advance(const Duration(minutes: 1));
+        media.speaking = const {1};
+        media.notifyListeners();
+      }
+      await pumpEventQueue();
+
+      expect(controller.call?.status, VoiceCallStatus.connected);
+      expect(controller.call?.muted, isFalse);
+      expect(heartbeatIdleStates(), everyElement('active'));
+    });
+
+    test('leaves the call after the disconnect threshold', () async {
+      await joinOpenRoom();
+
+      scheduler.advance(const Duration(minutes: 31));
+      await pumpEventQueue();
+      await pumpEventQueue();
+
+      expect(controller.call, isNull);
+      expect(
+        controller.errorFor(firstSite),
+        'You were disconnected from Conf Room 1 due to inactivity.',
+      );
+      expect(
+        transport.writes.where((write) => write.path.endsWith('/leave.json')),
+        hasLength(1),
+      );
+      expect(scheduler.activeTimerCount, 0);
+    });
+
+    test('stops the ladder with the call', () async {
+      await joinOpenRoom();
+      expect(scheduler.activeTimerCount, 1);
+
+      await controller.leave();
+
+      expect(scheduler.activeTimerCount, 0);
+      scheduler.advance(const Duration(hours: 1));
+      expect(controller.errorFor(firstSite), isNull);
+    });
+  });
+
+  group('per-device choices', () {
+    test('a restored status choice shapes the join request', () async {
+      preferences.autoStatusEnabled = false;
+      useTransport(transport);
+      await pumpEventQueue();
+      expect(controller.autoStatusEnabled, isFalse);
+
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      final join = transport.writes.singleWhere(
+        (write) => write.path.endsWith('/join.json'),
+      );
+      expect(join.body['skip_status'], isTrue);
+    });
+
+    test('the default status choice leaves the join request alone', () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      final join = transport.writes.singleWhere(
+        (write) => write.path.endsWith('/join.json'),
+      );
+      expect(join.body['skip_status'], isNull);
+    });
+
+    test('changing the status choice persists it', () async {
+      await controller.setAutoStatusEnabled(false);
+
+      expect(controller.autoStatusEnabled, isFalse);
+      expect(preferences.writes, contains('autoStatus:false'));
+    });
+
+    test(
+      'the privacy acknowledgement is read and written per device',
+      () async {
+        expect(await controller.meshPrivacyAcknowledged(), isFalse);
+
+        await controller.acknowledgeMeshPrivacy();
+
+        expect(await controller.meshPrivacyAcknowledged(), isTrue);
+        expect(preferences.writes, contains('meshPrivacy:true'));
+      },
+    );
+
+    test('an unreadable acknowledgement keeps the warning', () async {
+      preferences.rejectVolumeReads = true;
+      preferences.meshPrivacyAcknowledged = true;
+
+      expect(await controller.meshPrivacyAcknowledged(), isTrue);
+    });
+  });
+
+  group('stage role changes', () {
+    test('write a membership for the active room', () async {
+      transport.responses['POST /voice/rooms/7/memberships.json'] = {};
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      await controller.setParticipantRole(2, VoiceRole.speaker);
+      await controller.setParticipantRole(2, VoiceRole.participant);
+
+      final writes = transport.writes
+          .where((write) => write.path.endsWith('/memberships.json'))
+          .toList();
+      expect(writes.map((write) => write.method), ['POST', 'POST']);
+      // The transport drops null fields before sending; the fake records the
+      // request as built.
+      expect(
+        writes.map(
+          (write) => {...write.body}..removeWhere((_, value) => value == null),
+        ),
+        [
+          {'user_id': 2, 'role': 'speaker'},
+          {'user_id': 2, 'role': 'participant'},
+        ],
+      );
+    });
+
+    test('do nothing outside a call', () async {
+      await controller.setParticipantRole(2, VoiceRole.speaker);
+
+      expect(transport.writes, isEmpty);
+    });
+  });
+
+  group('direct calls', () {
+    late ManualScheduler scheduler;
+    final ringSentAt = DateTime.utc(2026, 8, 8, 16);
+    var now = DateTime.utc(2026, 8, 8, 16, 0, 10);
+    var meshPrivacyWarning = false;
+    final answeredRooms = <({String siteUrl, int roomId})>[];
+
+    Map<String, dynamic> callRoom() => {
+      'id': 9,
+      'name': '📞 kim + sam',
+      'slug': 'call-1a2b',
+      'public': false,
+      'ephemeral': true,
+      'room_type': 'open',
+      'message_bus_last_id': 3,
+      'active_participants': [
+        {'id': 3, 'username': 'kim', 'role': 'moderator'},
+      ],
+      'ringing': [
+        {
+          'user': {'id': 1, 'username': 'sam'},
+          'notified_at': 1786204800,
+        },
+      ],
+    };
+
+    Map<String, dynamic> ring({int sentAt = 1786204800}) => {
+      'room_id': 9,
+      'room_slug': 'call-1a2b',
+      'room_name': '📞 kim + sam',
+      'caller_username': 'kim',
+      'caller_name': 'Kim',
+      'caller_avatar_template': '/user_avatar/example.com/kim/{size}/3_2.png',
+      'sent_at': sentAt,
+      'ring_seconds': 60,
+    };
+
+    setUp(() {
+      scheduler = ManualScheduler();
+      now = DateTime.utc(2026, 8, 8, 16, 0, 10);
+      meshPrivacyWarning = false;
+      answeredRooms.clear();
+      controller.dispose();
+      // Disposing the controller disposed the fakes it owned.
+      systemCall = FakeVoiceSystemCall();
+      mediaFactory = FakeVoiceMediaFactory();
+      transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
+      transport.responses['POST /voice/calls.json'] = {'room': callRoom()};
+      transport.responses['POST /voice/rooms/9/join.json'] = {
+        ...fixture('join_mesh'),
+        'room': callRoom(),
+      };
+      transport.responses['DELETE /voice/rooms/9/leave.json'] = {};
+      transport.responses['POST /voice/rooms/9/state.json'] = {};
+      controller = VoiceController(
+        api: VoiceApi(transport),
+        chatConversations: chatConversations,
+        requests: requests,
+        trackerFor: (siteUrl) => siteUrl == firstSite ? firstTracker : null,
+        userIdFor: (_) => 1,
+        onCallSiteChanged: () {},
+        mediaFactory: mediaFactory,
+        systemCall: systemCall,
+        reporter: const PluginDiagnosticsReporter.ambient(),
+        diagnostics: diagnostics,
+        preferences: preferences,
+        timerFactory: scheduler.createTimer,
+        clock: () => now,
+        siteNameFor: (_) => 'One',
+        meshPrivacyWarningEnabledFor: (_) => meshPrivacyWarning,
+        onIncomingCallAnswered: (siteUrl, room) =>
+            answeredRooms.add((siteUrl: siteUrl, roomId: room.id)),
+        heartbeatInterval: const Duration(days: 1),
+        signalBatchDelay: Duration.zero,
+      );
+    });
+
+    test(
+      'watches the per-user ring channel once the site is tracked',
+      () async {
+        await controller.ensureLoaded(firstSite);
+
+        expect(firstTracker.subscriberCount('/voice/call-ring/1'), 1);
+        expect(firstTracker.lastIds['/voice/call-ring/1'], isNull);
+
+        controller.forget(firstSite);
+        expect(firstTracker.subscriberCount('/voice/call-ring/1'), 0);
+      },
+    );
+
+    test('a ring within its window is offered until it runs out', () async {
+      await controller.ensureLoaded(firstSite);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      firstTracker.deliver('/voice/call-ring/1', ring());
+
+      final incoming = controller.incomingCall!;
+      expect(
+        (
+          roomId: incoming.roomId,
+          slug: incoming.roomSlug,
+          caller: incoming.caller.username,
+          name: incoming.caller.name,
+          sentAt: incoming.sentAt,
+          remaining: incoming.remainingAt(now),
+        ),
+        (
+          roomId: 9,
+          slug: 'call-1a2b',
+          caller: 'kim',
+          name: 'Kim',
+          sentAt: ringSentAt,
+          remaining: const Duration(seconds: 50),
+        ),
+      );
+      expect(controller.incomingCallSiteUrl, firstSite);
+      expect(notifications, 1);
+
+      scheduler.advance(const Duration(seconds: 49));
+      expect(controller.incomingCall, isNotNull);
+      scheduler.advance(const Duration(seconds: 1));
+      expect(controller.incomingCall, isNull);
+      expect(notifications, 2);
+    });
+
+    test('an expired or repeated ring is dropped', () async {
+      await controller.ensureLoaded(firstSite);
+
+      now = DateTime.utc(2026, 8, 8, 16, 1, 1);
+      firstTracker.deliver('/voice/call-ring/1', ring());
+      expect(controller.incomingCall, isNull);
+
+      now = DateTime.utc(2026, 8, 8, 16, 0, 10);
+      firstTracker.deliver('/voice/call-ring/1', ring());
+      controller.declineIncomingCall();
+      firstTracker.deliver('/voice/call-ring/1', ring());
+      expect(controller.incomingCall, isNull);
+      expect(scheduler.activeTimerCount, 0);
+
+      firstTracker.deliver('/voice/call-ring/1', ring(sentAt: 1786204815));
+      expect(
+        controller.incomingCall?.sentAt,
+        DateTime.utc(2026, 8, 8, 16, 0, 15),
+      );
+    });
+
+    test('a ring for the room the user is already in is nothing new', () async {
+      await controller.ensureLoaded(firstSite);
+      final room = await controller.resolveRoom(firstSite, 'call-1a2b');
+      await controller.join(siteUrl: firstSite, siteName: 'One', room: room!);
+
+      firstTracker.deliver('/voice/call-ring/1', ring());
+
+      expect(controller.incomingCall, isNull);
+    });
+
+    test('joining the ringing room settles the ring', () async {
+      await controller.ensureLoaded(firstSite);
+      firstTracker.deliver('/voice/call-ring/1', ring());
+      expect(controller.incomingCall, isNotNull);
+
+      final room = await controller.resolveRoom(firstSite, 'call-1a2b');
+      await controller.join(siteUrl: firstSite, siteName: 'One', room: room!);
+
+      expect(controller.incomingCall, isNull);
+      expect(scheduler.activeTimerCount, 1, reason: 'only the idle check');
+    });
+
+    test('answering resolves the call room and credits the caller', () async {
+      await controller.ensureLoaded(firstSite);
+      firstTracker.deliver('/voice/call-ring/1', ring());
+
+      final accepted = await controller.acceptIncomingCall();
+
+      expect(accepted?.siteUrl, firstSite);
+      expect(accepted?.room.id, 9);
+      expect(controller.incomingCall, isNull);
+      expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
+
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: accepted!.room,
+      );
+      final join = transport.writes.singleWhere(
+        (write) => write.path.endsWith('/join.json'),
+      );
+      expect(join.body['invited_by'], 'kim');
+      expect(await controller.acceptIncomingCall(), isNull);
+    });
+
+    test('calling someone holds and subscribes the call room', () async {
+      await controller.ensureLoaded(firstSite);
+
+      final room = await controller.callUser(firstSite, 'kim');
+
+      final request = transport.writes.singleWhere(
+        (write) => write.path == '/voice/calls.json',
+      );
+      expect(request.method, 'POST');
+      expect(request.body, {'username': 'kim'});
+      expect(room.ephemeral, isTrue);
+      expect(controller.room(firstSite, 9)?.slug, 'call-1a2b');
+      expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
+      expect(room.activeRingingAt(now).map((entry) => entry.user.username), [
+        'sam',
+      ]);
+    });
+
+    test("a refused call propagates the server's reason", () async {
+      transport.failures['POST /voice/calls.json'] = const WriteException(
+        WriteFailure.forbidden,
+        statusCode: 403,
+        errors: ['Sorry, you cannot call that user.'],
+      );
+
+      await expectLater(
+        controller.callUser(firstSite, 'kim'),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.message,
+            'message',
+            'Sorry, you cannot call that user.',
+          ),
+        ),
+      );
+      expect(controller.room(firstSite, 9), isNull);
+    });
+
+    group('through the system call UI', () {
+      test("a ring is offered to the system with the caller's name", () async {
+        await controller.ensureLoaded(firstSite);
+
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        expect(systemCall.reportedIncomingCalls, [
+          (callerName: 'Kim', roomName: '📞 kim + sam', handle: 'kim'),
+        ]);
+        expect(controller.incomingCallHandledBySystem, isFalse);
+        expect(controller.incomingCall, isNotNull);
+      });
+
+      test("the app's own banner yields to a system presentation", () async {
+        systemCall.presentsIncomingCalls = true;
+        await controller.ensureLoaded(firstSite);
+        var notifications = 0;
+        controller.addListener(() => notifications++);
+
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        expect(controller.incomingCallHandledBySystem, isFalse);
+        await pumpEventQueue();
+
+        expect(controller.incomingCallHandledBySystem, isTrue);
+        expect(notifications, 2);
+
+        scheduler.advance(const Duration(seconds: 50));
+        expect(controller.incomingCall, isNull);
+        expect(systemCall.incomingEnds, [
+          VoiceIncomingCallEndReason.unanswered,
+        ]);
+      });
+
+      test("a system refusal keeps the app's banner", () async {
+        systemCall.reportIncomingFailure = StateError('CallKit unavailable');
+        await controller.ensureLoaded(firstSite);
+
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        expect(controller.incomingCall, isNotNull);
+        expect(controller.incomingCallHandledBySystem, isFalse);
+      });
+
+      test('a ring that ends before the system answers is withdrawn', () async {
+        systemCall
+          ..presentsIncomingCalls = true
+          ..reportIncomingGate = Completer<void>();
+        await controller.ensureLoaded(firstSite);
+
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        controller.declineIncomingCall();
+        systemCall.reportIncomingGate!.complete();
+        await pumpEventQueue();
+
+        expect(controller.incomingCallHandledBySystem, isFalse);
+        expect(systemCall.incomingDeclines, 0);
+        expect(systemCall.incomingEnds, [
+          VoiceIncomingCallEndReason.unanswered,
+        ]);
+      });
+
+      test('declining in the app declines the system call', () async {
+        systemCall.presentsIncomingCalls = true;
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        controller.declineIncomingCall();
+        await pumpEventQueue();
+
+        expect(controller.incomingCall, isNull);
+        expect(systemCall.incomingDeclines, 1);
+        expect(systemCall.incomingEnds, isEmpty);
+      });
+
+      test('a decline from the system is not echoed back', () async {
+        systemCall.presentsIncomingCalls = true;
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        systemCall.send(VoiceSystemCallAction.decline);
+        await pumpEventQueue();
+
+        expect(controller.incomingCall, isNull);
+        expect(systemCall.incomingDeclines, 0);
+        expect(systemCall.incomingEnds, isEmpty);
+      });
+
+      test('answering in the app answers the system call first', () async {
+        systemCall.presentsIncomingCalls = true;
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        final accepted = await controller.acceptIncomingCall();
+
+        expect(accepted?.room.id, 9);
+        expect(systemCall.incomingAnswers, 1);
+        expect(systemCall.incomingEnds, isEmpty);
+      });
+
+      test('an answer from the system joins the call directly', () async {
+        systemCall.presentsIncomingCalls = true;
+        meshPrivacyWarning = true;
+        transport.responses['GET /voice/rooms/call-1a2b.json'] = {
+          ...callRoom(),
+          'expected_transport': 'mesh',
+        };
+        await controller.ensureLoaded(firstSite);
+        final notices = <VoiceNotice>[];
+        controller.notices.listen(notices.add);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        systemCall.send(VoiceSystemCallAction.answer);
+        await pumpEventQueue();
+        await pumpEventQueue();
+
+        expect(controller.call?.room.id, 9);
+        expect(controller.call?.siteName, 'One');
+        expect(answeredRooms, [(siteUrl: firstSite, roomId: 9)]);
+        expect(systemCall.incomingAnswers, 0);
+        expect(systemCall.starts, 1);
+        expect(systemCall.incomingEnds, isEmpty);
+        final join = transport.writes.singleWhere(
+          (write) => write.path.endsWith('/join.json'),
+        );
+        expect(join.body['invited_by'], 'kim');
+        expect(notices.map((notice) => notice.message), [
+          'This call connects participants directly, so other participants '
+              'may be able to see your IP address.',
+        ]);
+      });
+
+      test(
+        'a system answer with nothing ringing fails the system call',
+        () async {
+          await controller.ensureLoaded(firstSite);
+
+          systemCall.send(VoiceSystemCallAction.answer);
+          await pumpEventQueue();
+
+          expect(systemCall.failures, 1);
+          expect(controller.call, isNull);
+        },
+      );
+
+      test('joining the ringing room another way tells the system', () async {
+        systemCall.presentsIncomingCalls = true;
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        final room = await controller.resolveRoom(firstSite, 'call-1a2b');
+        await controller.join(siteUrl: firstSite, siteName: 'One', room: room!);
+
+        expect(controller.incomingCall, isNull);
+        expect(systemCall.incomingEnds, [
+          VoiceIncomingCallEndReason.answeredElsewhere,
+        ]);
+      });
+    });
+  });
+
+  group('invites', () {
+    test('propagate the server\'s refusal and report the outcome', () async {
+      transport.responses['POST /voice/rooms/7/invites.json'] = {
+        'invited_usernames': ['kim'],
+        'skipped_usernames': ['bot'],
+      };
+
+      final result = await controller.invite(firstSite, 7, ['kim', 'bot']);
+
+      expect(result.invitedUsernames, ['kim']);
+      expect(result.skippedUsernames, ['bot']);
+      expect(transport.writes.single.body, {
+        'usernames': ['kim', 'bot'],
+      });
+
+      transport.failures['POST /voice/rooms/7/invites.json'] =
+          const WriteException(
+            WriteFailure.rateLimited,
+            statusCode: 429,
+            errors: ['Too many invites.'],
+          );
+      await expectLater(
+        controller.invite(firstSite, 7, ['lee']),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.message,
+            'message',
+            'Too many invites.',
+          ),
+        ),
+      );
+    });
+
+    test('an unavailable shortlist is an empty one', () async {
+      transport.failures['GET /voice/rooms/7/invites/suggestions.json'] =
+          const SiteLookupException(SiteLookupFailure.unreachable, 'one');
+
+      expect(await controller.inviteSuggestions(firstSite, 7), isEmpty);
+
+      transport.responses['GET /voice/rooms/7/invites/suggestions.json'] = {
+        'suggestions': [
+          {'id': 3, 'username': 'kim', 'total_seconds': 120},
+        ],
+      };
+      expect(
+        (await controller.inviteSuggestions(
+          firstSite,
+          7,
+        )).map((s) => s.user.username),
+        ['kim'],
+      );
+    });
+  });
+
+  group('room Chat live session', () {
+    test('follows the thread the server rolls the session over to', () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.openChat(firstSite, 7);
+      expect(firstTracker.subscriberCount('/voice/rooms/7/chat'), 1);
+      expect(controller.chat(firstSite, 7)?.session.threadId, 99);
+      final readsBefore = transport.reads
+          .where((read) => read.path.endsWith('/chat_session.json'))
+          .length;
+
+      transport.responses['GET /voice/rooms/7/chat_session.json'] = {
+        'channel_id': 42,
+        'thread_id': 100,
+      };
+      firstTracker.deliver('/voice/rooms/7/chat', {'type': 'updated'});
+      await pumpEventQueue();
+
+      expect(controller.chat(firstSite, 7)?.session.threadId, 100);
+      expect(
+        transport.reads
+            .where((read) => read.path.endsWith('/chat_session.json'))
+            .length,
+        readsBefore + 1,
+      );
+      expect(
+        chatConversations.opened.map((key) => key.threadId),
+        containsAll([99, 100]),
+      );
+      expect(controller.chat(firstSite, 7)?.loading, isFalse);
+
+      firstTracker.deliver('/voice/rooms/7/chat', {'type': 'noise'});
+      await pumpEventQueue();
+      expect(
+        transport.reads
+            .where((read) => read.path.endsWith('/chat_session.json'))
+            .length,
+        readsBefore + 1,
+      );
+    });
+
+    test('stops watching when the panel closes', () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.openChat(firstSite, 7);
+
+      controller.closeChat(firstSite, 7);
+
+      expect(firstTracker.subscriberCount('/voice/rooms/7/chat'), 0);
+      final readsBefore = transport.reads.length;
+      firstTracker.deliver('/voice/rooms/7/chat', {'type': 'updated'});
+      await pumpEventQueue();
+      expect(transport.reads.length, readsBefore);
+    });
+
+    test('moves the watch to a replacement tracker', () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.openChat(firstSite, 7);
+      final replacement = tracker(firstSite);
+
+      controller.attachTracker(firstSite, replacement);
+
+      expect(firstTracker.subscriberCount('/voice/rooms/7/chat'), 0);
+      expect(replacement.subscriberCount('/voice/rooms/7/chat'), 1);
+    });
   });
 }

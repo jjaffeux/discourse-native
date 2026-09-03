@@ -81,6 +81,29 @@ void main() {
     expect(persistence.doubleReads, 1);
   });
 
+  test(
+    'privacy acknowledgement and status choice round-trip per device',
+    () async {
+      final persistence = _MemoryPersistence();
+      final preferences = SharedPreferencesVoicePreferences(
+        persistence: persistence,
+      );
+
+      expect(await preferences.readMeshPrivacyAcknowledged(), isFalse);
+      expect(await preferences.readAutoStatusEnabled(), isNull);
+
+      await preferences.writeMeshPrivacyAcknowledged(true);
+      await preferences.writeAutoStatusEnabled(false);
+
+      expect(await preferences.readMeshPrivacyAcknowledged(), isTrue);
+      expect(await preferences.readAutoStatusEnabled(), isFalse);
+      expect(persistence.values, {
+        'voice.mesh-privacy-acknowledged': true,
+        'voice.auto-status-enabled': false,
+      });
+    },
+  );
+
   test('a rejected write keeps the existing error contract', () async {
     final persistence = _ControlledPersistence(acceptBoolWrites: false);
     final preferences = SharedPreferencesVoicePreferences(
@@ -171,6 +194,37 @@ final class _ControlledPersistence implements VoicePreferencesPersistence {
     firstDoubleWriteStarted.complete();
     await finishFirstDoubleWrite.future;
     doubles[key] = value;
+    return true;
+  }
+}
+
+final class _MemoryPersistence implements VoicePreferencesPersistence {
+  final Map<String, Object> values = {};
+
+  @override
+  Future<bool?> readBool(String key) async => values[key] as bool?;
+
+  @override
+  Future<double?> readDouble(String key) async => values[key] as double?;
+
+  @override
+  Future<String?> readString(String key) async => values[key] as String?;
+
+  @override
+  Future<bool> writeBool(String key, bool value) async {
+    values[key] = value;
+    return true;
+  }
+
+  @override
+  Future<bool> writeDouble(String key, double value) async {
+    values[key] = value;
+    return true;
+  }
+
+  @override
+  Future<bool> writeString(String key, String value) async {
+    values[key] = value;
     return true;
   }
 }

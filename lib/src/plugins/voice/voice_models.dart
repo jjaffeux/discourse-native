@@ -151,12 +151,158 @@ class VoiceMembership {
   final VoiceParticipant? user;
 }
 
+/// How long a direct call rings before giving up. Mirrors the server's
+/// `Voice::RoomInviter::RING_SECONDS`; ring payloads carry their own
+/// `ring_seconds`, so this is the fallback and the cap for local timers.
+const voiceRingDuration = Duration(seconds: 60);
+
+/// Someone an ephemeral call room is still reaching out to: rung, and stamped
+/// with when the ring went out so a client can stop showing them once it has
+/// run out.
+@immutable
+class VoiceRingingEntry {
+  const VoiceRingingEntry({required this.user, required this.notifiedAt});
+
+  static VoiceRingingEntry? fromJson(Map<String, dynamic> json) {
+    final user = jsonObject(json['user']);
+    final notifiedAt = _voiceDate(json['notified_at']);
+    if (user.isEmpty || notifiedAt == null) return null;
+    final participant = VoiceParticipant.fromJson(user);
+    if (participant.id <= 0) return null;
+    return VoiceRingingEntry(user: participant, notifiedAt: notifiedAt);
+  }
+
+  final VoiceParticipant user;
+  final DateTime notifiedAt;
+
+  DateTime get expiresAt => notifiedAt.add(voiceRingDuration);
+
+  bool isActiveAt(DateTime now) => now.isBefore(expiresAt);
+}
+
+/// A direct call ringing this user, as published on the per-user ring
+/// channel when someone invites them into an ephemeral call room. Carries
+/// its own window so a ring replayed from a message-bus backlog can be
+/// discarded once it has run out.
+@immutable
+class VoiceIncomingCall {
+  const VoiceIncomingCall({
+    required this.roomId,
+    required this.roomSlug,
+    required this.roomName,
+    required this.caller,
+    required this.sentAt,
+    this.ringDuration = voiceRingDuration,
+  });
+
+  static VoiceIncomingCall? fromJson(Map<String, dynamic> json) {
+    final roomId = jsonIntOrNull(json['room_id']);
+    final roomSlug = jsonText(json['room_slug']);
+    final callerUsername = jsonText(json['caller_username']);
+    final sentAt = _voiceDate(json['sent_at']);
+    if (roomId == null ||
+        roomId <= 0 ||
+        roomSlug == null ||
+        callerUsername == null ||
+        sentAt == null) {
+      return null;
+    }
+    final ringSeconds = jsonIntOrNull(json['ring_seconds']);
+    return VoiceIncomingCall(
+      roomId: roomId,
+      roomSlug: roomSlug,
+      roomName: jsonText(json['room_name']) ?? 'Voice call',
+      caller: VoiceParticipant(
+        id: jsonInt(json['caller_id']),
+        username: callerUsername,
+        name: jsonText(json['caller_name']),
+        avatarTemplate: jsonText(json['caller_avatar_template']),
+        role: VoiceRole.participant,
+      ),
+      sentAt: sentAt,
+      ringDuration: ringSeconds == null || ringSeconds <= 0
+          ? voiceRingDuration
+          : Duration(seconds: ringSeconds),
+    );
+  }
+
+  final int roomId;
+  final String roomSlug;
+  final String roomName;
+  final VoiceParticipant caller;
+  final DateTime sentAt;
+  final Duration ringDuration;
+
+  DateTime get expiresAt => sentAt.add(ringDuration);
+
+  Duration remainingAt(DateTime now) => expiresAt.difference(now);
+
+  /// Identifies one ring across replays: the same invite re-published from
+  /// a backlog carries the same stamp.
+  String get key =>
+      '$roomId-${caller.username}-${sentAt.millisecondsSinceEpoch}';
+}
+
+/// Who an invite request reached. The server reports someone as invited
+/// whenever it accepted the request for them, whether or not it notified
+/// them — an inviter must not learn that they are muted.
+@immutable
+class VoiceInviteResult {
+  const VoiceInviteResult({
+    this.invitedUsernames = const [],
+    this.skippedUsernames = const [],
+  });
+
+  factory VoiceInviteResult.fromJson(Map<String, dynamic> json) =>
+      VoiceInviteResult(
+        invitedUsernames: _usernames(json['invited_usernames']),
+        skippedUsernames: _usernames(json['skipped_usernames']),
+      );
+
+  static List<String> _usernames(Object? value) => List.unmodifiable([
+    if (value is List)
+      for (final entry in value)
+        if (entry is String && entry.isNotEmpty) entry,
+  ]);
+
+  final List<String> invitedUsernames;
+
+  /// Named but refused: no access to voice, or unable to join this room.
+  final List<String> skippedUsernames;
+}
+
+/// Someone the user has shared a room with recently — the shortlist an
+/// invite dialog opens with.
+@immutable
+class VoiceInviteSuggestion {
+  const VoiceInviteSuggestion({
+    required this.user,
+    this.totalSeconds = 0,
+    this.lastTogetherAt,
+  });
+
+  static VoiceInviteSuggestion? fromJson(Map<String, dynamic> json) {
+    final user = VoiceParticipant.fromJson(json);
+    if (user.id <= 0 || user.username.isEmpty) return null;
+    return VoiceInviteSuggestion(
+      user: user,
+      totalSeconds: jsonInt(json['total_seconds']),
+      lastTogetherAt: _voiceDate(json['last_together_at']),
+    );
+  }
+
+  final VoiceParticipant user;
+  final int totalSeconds;
+  final DateTime? lastTogetherAt;
+}
+
 @immutable
 class VoiceRecording {
   const VoiceRecording({
     required this.active,
     this.startedAt,
     this.startedById,
+    this.startedByUsername,
   });
 
   factory VoiceRecording.fromJson(Map<String, dynamic> json) => VoiceRecording(
@@ -167,11 +313,13 @@ class VoiceRecording {
     startedById:
         jsonIntOrNull(json['started_by_id']) ??
         jsonIntOrNull(jsonObject(json['started_by'])['id']),
+    startedByUsername: jsonText(jsonObject(json['started_by'])['username']),
   );
 
   final bool active;
   final DateTime? startedAt;
   final int? startedById;
+  final String? startedByUsername;
 }
 
 @immutable
@@ -200,6 +348,10 @@ class VoiceRoom {
     this.maxQualityProfile = VoiceQualityProfile.maximum,
     this.membership,
     this.recording,
+    this.descriptionExcerpt,
+    this.canInvite = false,
+    this.expectedTransport,
+    this.ringing = const [],
   });
 
   factory VoiceRoom.fromJson(Map<String, dynamic> json) => VoiceRoom(
@@ -208,18 +360,25 @@ class VoiceRoom {
     slug: jsonText(json['slug']) ?? '',
     description: jsonText(json['description']),
     cookedDescription: jsonText(json['cooked_description']),
+    descriptionExcerpt: jsonText(json['description_excerpt']),
     isPublic: json['public'] == true,
     ephemeral: json['ephemeral'] == true,
     type: VoiceRoomType.parse(json['room_type']),
     maxParticipants: jsonIntOrNull(json['max_participants']),
     memberCount: jsonInt(json['member_count']),
     messageBusLastId: jsonIntOrNull(json['message_bus_last_id']),
-    participants: List.unmodifiable([
+    participants: canonicalVoiceParticipants([
       for (final entry in jsonObjects(json['active_participants']))
         VoiceParticipant.fromJson(entry),
     ]),
     creatorId: jsonIntOrNull(json['creator_id']),
     canManage: json['can_manage'] == true,
+    canInvite: json['can_invite'] == true,
+    expectedTransport: VoiceTransport.parse(json['expected_transport']),
+    ringing: List.unmodifiable([
+      for (final entry in jsonObjects(json['ringing']))
+        ?VoiceRingingEntry.fromJson(entry),
+    ]),
     videoEnabled: json['video_enabled'] == true,
     videoAllowed: json['video_allowed'] == true,
     chatAvailable: json['chat_available'] == true,
@@ -260,6 +419,28 @@ class VoiceRoom {
   final VoiceQualityProfile maxQualityProfile;
   final VoiceMembership? membership;
   final VoiceRecording? recording;
+  final String? descriptionExcerpt;
+  final bool canInvite;
+
+  /// The server's best guess at the transport a join would resolve to right
+  /// now; the pin set at join stays authoritative. Only used to warn about a
+  /// peer-to-peer room's IP exposure before joining.
+  final VoiceTransport? expectedTransport;
+
+  /// Only ephemeral call rooms carry this. Entries are never pruned here: the
+  /// display filters out people already present and rings that have run out.
+  final List<VoiceRingingEntry> ringing;
+
+  /// People this call is still reaching out to at [now]: rung, not present,
+  /// and within the ring window.
+  List<VoiceRingingEntry> activeRingingAt(DateTime now) {
+    if (!ephemeral || ringing.isEmpty) return const [];
+    final present = {for (final participant in participants) participant.id};
+    return List.unmodifiable([
+      for (final entry in ringing)
+        if (!present.contains(entry.user.id) && entry.isActiveAt(now)) entry,
+    ]);
+  }
 
   VoiceRoom copyWith({
     int? messageBusLastId,
@@ -272,6 +453,7 @@ class VoiceRoom {
     VoiceMembership? membership,
     VoiceRecording? recording,
     bool clearRecording = false,
+    List<VoiceRingingEntry>? ringing,
   }) => VoiceRoom(
     id: id,
     name: name,
@@ -296,13 +478,44 @@ class VoiceRoom {
     maxQualityProfile: maxQualityProfile,
     membership: membership ?? this.membership,
     recording: clearRecording ? null : (recording ?? this.recording),
+    descriptionExcerpt: descriptionExcerpt,
+    canInvite: canInvite,
+    expectedTransport: expectedTransport,
+    ringing: ringing ?? this.ringing,
   );
 
   VoiceRoom withParticipants(List<VoiceParticipant> value) =>
-      copyWith(participants: List.unmodifiable(value));
+      copyWith(participants: canonicalVoiceParticipants(value));
 
   VoiceRoom withRecording(VoiceRecording? value) =>
       copyWith(recording: value, clearRecording: value == null);
+
+  /// Records that someone started ringing [entry]'s user. A repeat ring for
+  /// the same user replaces their entry, restarting the ring window.
+  VoiceRoom withRinging(VoiceRingingEntry entry) => copyWith(
+    ringing: List.unmodifiable([
+      for (final held in ringing)
+        if (held.user.id != entry.user.id) held,
+      entry,
+    ]),
+  );
+}
+
+/// Participant broadcasts arrive in arbitrary database order, so every list
+/// that reaches the UI is normalized to one canonical order — otherwise
+/// sidebar rows and tiles reshuffle on each broadcast. Mirrors the web
+/// client's `sortParticipants`: username, then id.
+List<VoiceParticipant> canonicalVoiceParticipants(
+  Iterable<VoiceParticipant> participants,
+) {
+  final sorted = participants.toList()
+    ..sort((a, b) {
+      final byName = a.username.toLowerCase().compareTo(
+        b.username.toLowerCase(),
+      );
+      return byName != 0 ? byName : a.id.compareTo(b.id);
+    });
+  return List.unmodifiable(sorted);
 }
 
 @immutable
@@ -489,7 +702,7 @@ sealed class VoiceRoomEvent {
   static VoiceRoomEvent? fromJson(Map<String, dynamic> json) =>
       switch (jsonText(json['type'])) {
         'participants' => VoiceParticipantsEvent(
-          List.unmodifiable([
+          canonicalVoiceParticipants([
             for (final participant in jsonObjects(json['participants']))
               VoiceParticipant.fromJson(participant),
           ]),
@@ -502,8 +715,13 @@ sealed class VoiceRoomEvent {
         'hand_raise' => VoiceHandRaiseEvent(
           userId: jsonInt(json['user_id']),
           raised: json['raised'] == true,
+          raisedAt: _voiceDate(json['raised_at']),
           reason: jsonText(json['reason']),
         ),
+        'ringing' => switch (VoiceRingingEntry.fromJson(json)) {
+          final entry? => VoiceRingingEvent(entry),
+          null => null,
+        },
         'recording' => VoiceRecordingEvent(
           recording: jsonObject(json['recording']).isEmpty
               ? null
@@ -532,11 +750,24 @@ final class VoiceHandRaiseEvent extends VoiceRoomEvent {
   const VoiceHandRaiseEvent({
     required this.userId,
     required this.raised,
+    this.raisedAt,
     this.reason,
   });
   final int userId;
   final bool raised;
+
+  /// Queue position is first-come: the server stamps a raise with when it was
+  /// first recorded, so a client can order the queue without a roster.
+  final DateTime? raisedAt;
+
+  /// `raised`, `withdrawn` (own hand lowered) or `dismissed` (by a manager).
   final String? reason;
+}
+
+/// Someone in an ephemeral call room started ringing a user.
+final class VoiceRingingEvent extends VoiceRoomEvent {
+  const VoiceRingingEvent(this.entry);
+  final VoiceRingingEntry entry;
 }
 
 final class VoiceRecordingEvent extends VoiceRoomEvent {

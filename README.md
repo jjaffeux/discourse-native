@@ -1695,6 +1695,79 @@ title back.
 Thread notification settings expose core's Normal, Tracking and Watching
 levels; Muted remains out of scope.
 
+### Voice
+
+Voice mirrors the core `plugins/voice` client: the rooms directory
+(`/voice/rooms.json`), one MessageBus channel per room, the directory
+channel, and — for direct calls — the per-user ring channel. The contract is
+the plugin's serializers and broadcasters, not the web UI, and the places
+where the two clients had to agree are the ones worth stating.
+
+**Every room the controller holds is subscribed.** The directory lists only
+persistent rooms; an ephemeral call room is reached by link or by calling
+someone, and lives in `_linkedRooms` (eight per site, the active call's room
+never evicted). `_syncSubscriptions` walks the directory, the linked rooms,
+and the active call together, so a call answered from a notification gets
+its roster, its signals, and its kick like any listed room. Every copy of a
+room — directory, link, and call — is updated through `_updateRoom`; a
+surface reading a stale copy was the bug that motivated it.
+
+**The roster is the authority for participants; the directory is the
+authority for the room.** A `participants` broadcast replaces the roster in
+canonical order (username, then id, as the web client sorts it) and
+re-applies the stage speaking rule. A directory `updated` event replaces the
+room's name, type, and capabilities on the active call while keeping the
+call's own roster and ring state, and stops video the room no longer allows.
+The lightweight `hand_raise` and `ringing` events land at once rather than
+waiting for the roster that follows them.
+
+**A refused heartbeat unwinds the call.** The participant session lasts two
+presence TTLs; once the app has been cut off longer than that, every later
+heartbeat is refused, and a participant alone in a room has no roster
+broadcast to prune them. A 403, 404, or 410 leaves locally and shows the
+server's reason on the room, as the web client's `onExpelled` does.
+
+**Idleness is decided from silence, not from the background.** A phone in a
+pocket mid-call is the ordinary case, and the server's away status dims the
+participant for everyone. `VoiceIdleTracker` climbs idle → away with an
+automatic mute → disconnect from the site's thresholds, counting the app
+coming to the foreground, any deliberate call control, and the local user
+speaking as presence; mesh sessions read the local level from the sending
+side's `media-source` stats. The clock and timer are injectable so the
+ladder is driven deterministically in tests.
+
+**A peer-to-peer join asks first.** Mesh rooms expose participants' IP
+addresses to each other; when the site has the warning on and the server's
+`expected_transport` predicts mesh, every join surface goes through
+`joinVoiceRoom`, which shows the warning once per device unless it was
+acknowledged. Cancelling touches no join state.
+
+**Direct calls.** The user card's Call button appears when the site says the
+viewer may call that user (`voice_can_call`, serializer presence as the
+gate). A ring is offered only within its window, once, and not for the room
+the user is already in; answering joins through the invite ref so the caller
+is credited.
+
+On iOS the ring is also handed to CallKit, so the phone rings with the
+system ringtone and on the lock screen, and the answer or decline comes back
+as a system action. The app's own banner steps aside while the system rings
+and returns when the system declines to (another call up, CallKit refusing).
+Answering from the system UI joins directly — there is no app surface to ask
+on behind the lock screen — so a peer-to-peer privacy warning the site would
+have shown before the join is said afterwards. Joining the ringing room some
+other way ends the system's ring as answered elsewhere, and an expired ring
+as unanswered. The bridge holds one CallKit call: a join that follows a
+system answer reuses it rather than placing an outgoing call. The reach is
+the app's: rings arrive over MessageBus, so a phone whose app iOS has
+already suspended is still reached by the plugin's push notification, not
+by CallKit — that would take a VoIP push the server does not send.
+
+Invites, the recording banner everyone sees, stage role changes from the
+participant tile, the auto-status choice, the chat session following the
+server's rollover, and the notices `VoiceNoticeHost` shows as snackbars all
+follow the same rule: the plugin's own endpoints and broadcasts decide, and
+the native UI only draws what they say.
+
 ### GIFs
 
 The GIF plugin's picker authors a remote image; it is not an upload or a native

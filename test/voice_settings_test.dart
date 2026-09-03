@@ -21,6 +21,7 @@ void main() {
       'voice_afk_disconnect_threshold_minutes': 37,
       'voice_auto_status_enabled': false,
       'voice_chat_enabled': false,
+      'voice_mesh_privacy_warning_enabled': false,
     }, extensions: _registry);
 
     expect(
@@ -38,6 +39,7 @@ void main() {
         afkDisconnectThresholdMinutes: 37,
         autoStatusEnabled: false,
         chatEnabled: false,
+        meshPrivacyWarningEnabled: false,
       ),
     );
   });
@@ -58,6 +60,7 @@ void main() {
           'afkDisconnectThresholdMinutes': 38,
           'autoStatusEnabled': false,
           'chatEnabled': false,
+          'meshPrivacyWarningEnabled': false,
         },
       },
     }, extensions: _registry);
@@ -78,6 +81,7 @@ void main() {
         'afkDisconnectThresholdMinutes': 38,
         'autoStatusEnabled': false,
         'chatEnabled': false,
+        'meshPrivacyWarningEnabled': false,
       },
     });
     expect(SiteConfig.fromJson(stored, extensions: _registry), config);
@@ -132,6 +136,7 @@ void main() {
         'afkDisconnectThresholdMinutes': 34,
         'autoStatusEnabled': true,
         'chatEnabled': false,
+        'meshPrivacyWarningEnabled': true,
       },
     });
   });

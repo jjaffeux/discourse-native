@@ -4,6 +4,12 @@ This package is the native ownership boundary for the always-bundled Voice
 room integration. It contains the iOS CallKit adapter and the reviewed
 `flutter_webrtc` fork used by the application's media transports.
 
+The CallKit adapter places outgoing calls for room joins and presents
+incoming direct calls the Dart side reports from the plugin's ring channel;
+answer, decline, mute, and end actions taken in the system UI flow back over
+the same method channel. It holds one system call at a time, and a join that
+follows a system answer reuses that call instead of placing another.
+
 The Dart module, UI, controllers, diagnostics, and media integrations live in
 `../../lib/src/plugins/voice` and are part of every application manifest.
 The main package depends on this bridge, so every iOS app graph registers

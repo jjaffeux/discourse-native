@@ -382,6 +382,81 @@ void main() {
     });
   });
 
+  group('direct calls', () {
+    test('starts a call by username', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /voice/calls.json': {'room': fixture('room')},
+      });
+
+      final room = await api.callUser(
+        siteUrl: _siteUrl,
+        apiKey: _apiKey,
+        username: 'kim',
+      );
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/voice/calls.json',
+        body: {'username': 'kim'},
+      );
+      expect(room.id, 7);
+    });
+  });
+
+  group('invites', () {
+    test('sends invites and reads the outcome', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'POST /voice/rooms/7/invites.json': {
+          'invited_usernames': ['kim'],
+          'skipped_usernames': ['bot'],
+        },
+      });
+
+      final result = await api.invite(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+        usernames: ['kim', 'bot'],
+      );
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'POST',
+        path: '/voice/rooms/7/invites.json',
+        body: {
+          'usernames': ['kim', 'bot'],
+        },
+      );
+      expect(result.invitedUsernames, ['kim']);
+      expect(result.skippedUsernames, ['bot']);
+    });
+
+    test('reads invite suggestions', () async {
+      final (:api, :transport) = _apiWithResponses({
+        'GET /voice/rooms/7/invites/suggestions.json': {
+          'suggestions': [
+            {'id': 3, 'username': 'kim', 'total_seconds': 90},
+            {'username': 'nameless'},
+          ],
+        },
+      });
+
+      final suggestions = await api.inviteSuggestions(
+        siteUrl: _siteUrl,
+        roomId: _roomId,
+        apiKey: _apiKey,
+      );
+
+      _expectRequest(
+        transport.requests.single,
+        method: 'GET',
+        path: '/voice/rooms/7/invites/suggestions.json',
+      );
+      expect(suggestions.map((s) => s.user.username), ['kim']);
+    });
+  });
+
   group('room Chat', () {
     test('reads an existing chat session', () async {
       final (:api, :transport) = _apiWithResponses({

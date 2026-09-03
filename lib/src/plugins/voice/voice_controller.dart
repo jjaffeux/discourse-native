@@ -10,9 +10,11 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'voice_api.dart';
 import 'voice_callkit.dart';
 import 'voice_diagnostics.dart';
+import 'voice_idle.dart';
 import 'voice_media.dart';
 import 'voice_models.dart';
 import 'voice_preferences.dart';
+import 'voice_settings.dart';
 import 'voice_signaling.dart';
 
 enum VoiceCallStatus { joining, connected, reconnecting, leaving, failed }
@@ -25,6 +27,8 @@ enum _VoiceLeaveReason {
   kicked,
   rosterRemoval,
   credentialsMissing,
+  sessionExpired,
+  idleDisconnect,
   systemAction,
   accountRemoval,
   sessionClose,
@@ -112,6 +116,11 @@ final class _VoiceChatAssociation {
   VoiceChatSession session;
   ChatConversation? conversation;
   VoidCallback? conversationListener;
+
+  /// The room's chat channel, watched while the panel is open: the server
+  /// publishes a content-free "updated" there when the session's thread
+  /// changes (someone's first message opened it, or it rolled over).
+  PluginLiveChannelSubscription? liveUpdates;
   bool visible = false;
   bool loading = false;
   bool sending = false;
@@ -167,7 +176,34 @@ class VoiceCallSnapshot {
   );
 }
 
+/// A transient, user-facing message about a room the user is in or watching:
+/// a role change, a dismissed request to speak, a recording starting. Shown
+/// once and never persisted; a surface that is not showing the room may drop
+/// it.
+@immutable
+final class VoiceNotice {
+  const VoiceNotice(
+    this.message, {
+    required this.siteUrl,
+    required this.roomId,
+  });
+
+  final String message;
+  final String siteUrl;
+  final int roomId;
+}
+
+/// At most this many rooms reached by link (rather than listed in the
+/// directory) keep a live subscription per site. Direct-call rooms are the
+/// usual case: they never appear in the directory, and the server reaps them
+/// once empty, so nothing else would ever release their channel.
+const _maxLinkedRoomsPerSite = 8;
+
 typedef VoiceTrackerLookup = PluginLiveChannelHandle? Function(String siteUrl);
+typedef VoiceSiteFlagReader = bool Function(String siteUrl);
+typedef VoiceSiteNameLookup = String? Function(String siteUrl);
+typedef VoiceIncomingCallAnswered =
+    void Function(String siteUrl, VoiceRoom room);
 typedef VoiceUserIdLookup = int? Function(String siteUrl);
 typedef VoiceCapabilityResolver = Future<bool?> Function(String siteUrl);
 typedef _VoiceRequestCredentials = ({String apiKey, String clientId});
@@ -196,9 +232,22 @@ final class VoiceController extends ChangeNotifier {
     PluginDiagnosticsReporter reporter = const PluginDiagnosticsReporter.noop(),
     VoiceDiagnosticsRecorder? diagnostics,
     VoicePreferences? preferences,
+    VoiceIdleThresholdsLookup? idleThresholdsFor,
+    Duration Function()? idleClock,
+    VoiceIdleTimerFactory? timerFactory,
+    DateTime Function()? clock,
+    VoiceSiteNameLookup? siteNameFor,
+    VoiceSiteFlagReader? meshPrivacyWarningEnabledFor,
+    VoiceIncomingCallAnswered? onIncomingCallAnswered,
     this.heartbeatInterval = const Duration(seconds: 10),
     this.signalBatchDelay = const Duration(milliseconds: 200),
   }) : _requests = requests,
+       _idleThresholdsFor = idleThresholdsFor ?? _defaultIdleThresholds,
+       _timerFactory = timerFactory ?? Timer.new,
+       _clock = clock ?? DateTime.now,
+       _siteNameFor = siteNameFor,
+       _meshPrivacyWarningEnabledFor = meshPrivacyWarningEnabledFor,
+       _onIncomingCallAnswered = onIncomingCallAnswered,
        _userIdFor = userIdFor,
        _onCallSiteChanged = onCallSiteChanged,
        _capabilityEnabledFor = capabilityEnabledFor ?? _unknownVoiceCapability,
@@ -210,9 +259,21 @@ final class VoiceController extends ChangeNotifier {
              diagnostics: diagnostics ?? const NoopVoiceDiagnosticsRecorder(),
            ),
        _preferences = preferences ?? const SharedPreferencesVoicePreferences() {
+    _idleTracker = VoiceIdleTracker(
+      thresholds: _activeIdleThresholds,
+      onStateChanged: _onIdleStateChanged,
+      onAutoMute: _onIdleAutoMute,
+      onDisconnect: _onIdleDisconnect,
+      clock: idleClock,
+      timerFactory: _timerFactory,
+    );
     _systemActions = this.systemCall.actions.listen(_onSystemAction);
     unawaited(_restoreDevicePreferences());
+    unawaited(_restoreAutoStatusPreference());
   }
+
+  static VoiceIdleThresholds _defaultIdleThresholds(String _) =>
+      voiceIdleThresholds(const VoiceClientConfig());
 
   final VoiceApi api;
   final ChatConversationCapability chatConversations;
@@ -226,6 +287,18 @@ final class VoiceController extends ChangeNotifier {
   final PluginDiagnosticsReporter _reporter;
   final VoiceDiagnosticsRecorder diagnostics;
   final VoicePreferences _preferences;
+  final VoiceIdleThresholdsLookup _idleThresholdsFor;
+  final VoiceIdleTimerFactory _timerFactory;
+  final DateTime Function() _clock;
+  final VoiceSiteNameLookup? _siteNameFor;
+  final VoiceSiteFlagReader? _meshPrivacyWarningEnabledFor;
+  final VoiceIncomingCallAnswered? _onIncomingCallAnswered;
+  late final VoiceIdleTracker _idleTracker;
+  final Map<String, PluginLiveChannelSubscription> _ringSubscriptions = {};
+  final Set<String> _handledRings = {};
+  ({String siteUrl, VoiceIncomingCall call})? _incomingCall;
+  Timer? _incomingCallExpiry;
+  bool _incomingCallSystemPresented = false;
   final Duration heartbeatInterval;
   final Duration signalBatchDelay;
   // Cancelled and awaited by the idempotent close lifecycle below.
@@ -248,6 +321,8 @@ final class VoiceController extends ChangeNotifier {
   final Map<String, Object> _chatRequests = {};
   final Map<String, _VoiceInviteRef> _pendingInviteRefs = {};
   final Map<String, int> _roomVideoWatchers = {};
+  final StreamController<VoiceNotice> _notices =
+      StreamController<VoiceNotice>.broadcast();
   Future<void>? _joinTail;
   Future<void>? _pendingJoin;
   String? _pendingJoinKey;
@@ -276,6 +351,7 @@ final class VoiceController extends ChangeNotifier {
   String? _audioOutputDeviceId;
   String? _cameraDeviceId;
   bool _pushToTalkEnabled = false;
+  bool _autoStatusEnabled = true;
 
   VoiceCallSnapshot? get call => _call;
   String? get activeSiteUrl => _call?.siteUrl;
@@ -287,7 +363,274 @@ final class VoiceController extends ChangeNotifier {
   String? get cameraDeviceId => _cameraDeviceId;
   bool get pushToTalkEnabled => _pushToTalkEnabled;
 
+  /// Whether joining a room sets the user's status to it (when the site
+  /// allows it). A per-device choice, like the web client's.
+  bool get autoStatusEnabled => _autoStatusEnabled;
+
+  Future<void> setAutoStatusEnabled(bool enabled) async {
+    if (_disposed) return;
+    _autoStatusEnabled = enabled;
+    notifyListeners();
+    try {
+      await _preferences.writeAutoStatusEnabled(enabled);
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'voice.preferences.autoStatus');
+    }
+  }
+
+  /// Whether this device has accepted the peer-to-peer IP exposure warning.
+  /// A failed read answers false: the warning is the safe side.
+  Future<bool> meshPrivacyAcknowledged() async {
+    try {
+      return await _preferences.readMeshPrivacyAcknowledged();
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'voice.preferences.meshPrivacy');
+      return false;
+    }
+  }
+
+  Future<void> acknowledgeMeshPrivacy() async {
+    try {
+      await _preferences.writeMeshPrivacyAcknowledged(true);
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'voice.preferences.meshPrivacy');
+    }
+  }
+
   int? currentUserIdFor(String siteUrl) => _userIdFor(siteUrl);
+
+  Stream<VoiceNotice> get notices => _notices.stream;
+
+  /// The direct call ringing this user right now, if any. Cleared when it
+  /// is answered, declined, or has run out.
+  VoiceIncomingCall? get incomingCall => _incomingCall?.call;
+
+  String? get incomingCallSiteUrl => _incomingCall?.siteUrl;
+
+  /// The system (CallKit) is ringing for [incomingCall], so the app's own
+  /// banner would only duplicate it; the answer arrives as a system action.
+  bool get incomingCallHandledBySystem =>
+      _incomingCall != null && _incomingCallSystemPresented;
+
+  /// Starts a direct call to [username] on [siteUrl]. The server answers
+  /// with the ephemeral call room, which is held beside the directory so
+  /// its roster and signals arrive; the caller then joins it like any room.
+  /// Failures surface to the caller: the server explains a refusal (a user
+  /// who cannot be called, too many calls) in its own words.
+  Future<VoiceRoom> callUser(String siteUrl, String username) async {
+    final siteSession = _siteSession(siteUrl);
+    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
+    final credentials = await _requestCredentials(
+      siteUrl,
+      ifCurrent: isCurrent,
+    );
+    if (credentials == null) {
+      throw const WriteException(WriteFailure.forbidden);
+    }
+    final room = await _reporter.runOperation(
+      'voice.call',
+      () => api.callUser(
+        siteUrl: siteUrl,
+        apiKey: credentials.apiKey,
+        username: username,
+        clientId: credentials.clientId,
+      ),
+    );
+    if (!isCurrent()) return room;
+    _record('call.direct.started', data: {..._roomDiagnosticData(room)});
+    _rememberLinkedRoom(siteUrl, room);
+    _syncSubscriptions(siteUrl);
+    notifyListeners();
+    return room;
+  }
+
+  /// Takes the ringing call: the room is resolved (and held) so the caller
+  /// can open and join it. Joining through the invite ref credits the
+  /// caller, the same as joining from the notification link.
+  Future<({String siteUrl, VoiceRoom room})?> acceptIncomingCall({
+    bool fromSystem = false,
+  }) async {
+    final incoming = _incomingCall;
+    if (incoming == null) return null;
+    final presented = _incomingCallSystemPresented;
+    _clearIncomingCall();
+    _record(
+      'call.ring.answered',
+      data: {'roomId': incoming.call.roomId, 'fromSystem': fromSystem},
+    );
+    if (presented && !fromSystem) {
+      // The system is still ringing; its call becomes the active one so the
+      // join below does not place a second call.
+      await _runHandled(
+        systemCall.answerIncomingCall,
+        'voice.systemCall.answerIncoming',
+      );
+    }
+    rememberInviteRef(
+      siteUrl: incoming.siteUrl,
+      roomSlug: incoming.call.roomSlug,
+      username: incoming.call.caller.username.toLowerCase(),
+    );
+    final room = await resolveRoom(incoming.siteUrl, incoming.call.roomSlug);
+    if (room == null) return null;
+    return (siteUrl: incoming.siteUrl, room: room);
+  }
+
+  void declineIncomingCall({bool fromSystem = false}) {
+    final incoming = _incomingCall;
+    if (incoming == null) return;
+    final presented = _incomingCallSystemPresented;
+    _record(
+      'call.ring.declined',
+      data: {'roomId': incoming.call.roomId, 'fromSystem': fromSystem},
+    );
+    _clearIncomingCall();
+    if (presented && !fromSystem) {
+      _observe(
+        systemCall.declineIncomingCall,
+        'voice.systemCall.declineIncoming',
+      );
+    }
+    notifyListeners();
+  }
+
+  /// Forgets the ring locally. [tellSystem] ends the system's presentation
+  /// with that reason when it was ringing too; the answer and decline paths
+  /// settle the system call themselves.
+  void _clearIncomingCall({VoiceIncomingCallEndReason? tellSystem}) {
+    _incomingCallExpiry?.cancel();
+    _incomingCallExpiry = null;
+    _incomingCall = null;
+    final presented = _incomingCallSystemPresented;
+    _incomingCallSystemPresented = false;
+    if (presented && tellSystem != null) {
+      _observe(
+        () => systemCall.endIncomingCall(tellSystem),
+        'voice.systemCall.endIncoming',
+      );
+    }
+  }
+
+  /// A ring the system may present too: the phone rings with the system
+  /// ringtone and on the lock screen, and answering or declining there
+  /// comes back as a system action. When the system declines to (no
+  /// system call UI on this platform, a call already up, the ring already
+  /// over), the app's own banner stays.
+  Future<void> _presentIncomingCall(
+    String siteUrl,
+    VoiceIncomingCall call,
+  ) async {
+    final caller = call.caller;
+    final presented = await _runHandledValue(
+      () => systemCall.reportIncomingCall(
+        callerName: caller.name ?? caller.username,
+        roomName: call.roomName,
+        handle: caller.username,
+      ),
+      'voice.systemCall.reportIncoming',
+      fallback: false,
+    );
+    if (_disposed) return;
+    final current = _incomingCall;
+    if (current == null ||
+        current.siteUrl != siteUrl ||
+        current.call.key != call.key) {
+      // The ring ended (or was replaced) while the system was being asked.
+      if (presented) {
+        _observe(
+          () =>
+              systemCall.endIncomingCall(VoiceIncomingCallEndReason.unanswered),
+          'voice.systemCall.endIncoming',
+        );
+      }
+      return;
+    }
+    _record(
+      'call.ring.system_presentation',
+      data: {'roomId': call.roomId, 'presented': presented},
+    );
+    if (presented != _incomingCallSystemPresented) {
+      _incomingCallSystemPresented = presented;
+      notifyListeners();
+    }
+  }
+
+  /// The user answered from the system's call UI. There is no app surface
+  /// to ask anything on (the app may be behind the lock screen), so the
+  /// join proceeds directly; a peer-to-peer privacy warning the site would
+  /// have shown before a join is said afterwards instead.
+  Future<void> _answerFromSystem() async {
+    final accepted = await acceptIncomingCall(fromSystem: true);
+    if (accepted == null) {
+      _record(
+        'call.ring.system_answer.unresolved',
+        severity: DiagnosticSeverity.warning,
+      );
+      await _runHandled(systemCall.failed, 'voice.systemCall.failed');
+      return;
+    }
+    final (:siteUrl, :room) = accepted;
+    _onIncomingCallAnswered?.call(siteUrl, room);
+    if ((_meshPrivacyWarningEnabledFor?.call(siteUrl) ?? false) &&
+        room.expectedTransport == VoiceTransport.mesh &&
+        !await meshPrivacyAcknowledged()) {
+      _notify(
+        siteUrl,
+        room.id,
+        'This call connects participants directly, so other participants '
+        'may be able to see your IP address.',
+      );
+    }
+    await join(
+      siteUrl: siteUrl,
+      siteName: _siteNameFor?.call(siteUrl) ?? siteUrl,
+      room: room,
+    );
+  }
+
+  /// A ring for this user. Rings replayed from a message-bus backlog after
+  /// the app wakes are only real while still within their window; a ring
+  /// for the room the user is already in (answered from the notification)
+  /// is nothing new; and the same ring is handled once.
+  void _onRingEvent(String siteUrl, Object? data) {
+    if (_disposed || data is! Map<String, dynamic>) return;
+    final call = VoiceIncomingCall.fromJson(data);
+    if (call == null) return;
+    final now = _clock();
+    final remaining = call.remainingAt(now);
+    _record(
+      'call.ring.received',
+      data: {
+        'roomId': call.roomId,
+        'remainingMilliseconds': remaining.inMilliseconds,
+      },
+    );
+    if (remaining <= Duration.zero) return;
+    final active = _call;
+    if (active != null &&
+        active.siteUrl == siteUrl &&
+        active.room.id == call.roomId) {
+      return;
+    }
+    if (!_handledRings.add(call.key)) return;
+    if (_handledRings.length > 50) _handledRings.remove(_handledRings.first);
+    _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
+    _incomingCall = (siteUrl: siteUrl, call: call);
+    _incomingCallExpiry = _timerFactory(remaining, () {
+      _incomingCallExpiry = null;
+      if (_incomingCall?.call.key != call.key) return;
+      _record('call.ring.expired', data: {'roomId': call.roomId});
+      _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
+      if (!_disposed) notifyListeners();
+    });
+    notifyListeners();
+    unawaited(_presentIncomingCall(siteUrl, call));
+  }
+
+  void _notify(String siteUrl, int roomId, String message) {
+    if (_disposed || _notices.isClosed) return;
+    _notices.add(VoiceNotice(message, siteUrl: siteUrl, roomId: roomId));
+  }
 
   void watchRoomVideo({required String siteUrl, required int roomId}) {
     if (_disposed) return;
@@ -393,12 +736,29 @@ final class VoiceController extends ChangeNotifier {
         clientId: credentials.clientId,
       );
       if (!isCurrent()) return null;
-      (_linkedRooms[siteUrl] ??= {})[room.id] = room;
+      _rememberLinkedRoom(siteUrl, room);
+      _syncSubscriptions(siteUrl);
       notifyListeners();
       return room;
     } catch (error, stackTrace) {
       if (isCurrent()) _report(error, stackTrace, 'voice.room');
       return null;
+    }
+  }
+
+  /// A room reached by link is held (and subscribed) beside the directory
+  /// so its roster and signals arrive like any listed room's. Bounded: the
+  /// oldest link goes first, but never the room of the active call.
+  void _rememberLinkedRoom(String siteUrl, VoiceRoom room) {
+    final linked = _linkedRooms[siteUrl] ??= {};
+    linked.remove(room.id);
+    linked[room.id] = room;
+    final call = _call;
+    final protectedId = call?.siteUrl == siteUrl ? call?.room.id : null;
+    for (final id in linked.keys.toList()) {
+      if (linked.length <= _maxLinkedRoomsPerSite) break;
+      if (id == room.id || id == protectedId) continue;
+      linked.remove(id);
     }
   }
 
@@ -474,7 +834,7 @@ final class VoiceController extends ChangeNotifier {
         component: 'room',
         data: {'roomCount': directory.rooms.length},
       );
-      _syncSubscriptions(siteUrl, directory);
+      _syncSubscriptions(siteUrl);
     } on SiteLookupException catch (error, stackTrace) {
       if (!isCurrent()) return;
       // Plugin absence and account refusal both mean no section for this site
@@ -536,8 +896,7 @@ final class VoiceController extends ChangeNotifier {
       _cancelTrackerSubscriptions(siteUrl);
       _attachedTrackers[siteUrl] = tracker;
     }
-    final directory = _directories[siteUrl];
-    if (directory != null) _syncSubscriptions(siteUrl, directory);
+    _syncSubscriptions(siteUrl);
   }
 
   PluginLiveChannelHandle? _trackerFor(String siteUrl) =>
@@ -545,6 +904,13 @@ final class VoiceController extends ChangeNotifier {
 
   void _cancelTrackerSubscriptions(String siteUrl) {
     _directorySubscriptions.remove(siteUrl)?.cancel();
+    _ringSubscriptions.remove(siteUrl)?.cancel();
+    for (final entry in _chats.entries) {
+      if (entry.key.startsWith('$siteUrl#')) _unwatchChatUpdates(entry.value);
+    }
+    if (_incomingCall?.siteUrl == siteUrl) {
+      _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
+    }
     for (final subscription
         in _roomSubscriptions.remove(siteUrl)?.values ??
             const <PluginLiveChannelSubscription>[]) {
@@ -552,20 +918,35 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
-  /// Brings the site's subscriptions in line with [directory]: the index and
-  /// any room without one are subscribed, rooms that left are cancelled. A
-  /// live subscription keeps its own position on the wire and is never
-  /// replaced here: re-subscribing from the snapshot cursor would replay every
-  /// message published since the load, and each replay would arrive in
+  /// Every room this controller holds for the site: the directory listing,
+  /// rooms reached by link, and the active call's room. A direct call's
+  /// ephemeral room is in none of the first two until it is linked or
+  /// joined, and the directory never lists it at all.
+  Map<int, VoiceRoom> _heldRooms(String siteUrl) => {
+    for (final room in _directories[siteUrl]?.rooms ?? const <VoiceRoom>[])
+      room.id: room,
+    for (final room in _linkedRooms[siteUrl]?.values ?? const <VoiceRoom>[])
+      room.id: room,
+    if (_call case final call? when call.siteUrl == siteUrl)
+      call.room.id: call.room,
+  };
+
+  /// Brings the site's subscriptions in line with what it holds: the index
+  /// (once a directory has loaded) and every held room without one are
+  /// subscribed, rooms no longer held are cancelled. A live subscription
+  /// keeps its own position on the wire and is never replaced here:
+  /// re-subscribing from the snapshot cursor would replay every message
+  /// published since the load, and each replay would arrive in
   /// [_onDirectoryEvent] to trigger the next. Subscriptions are replaced only
   /// with the tracker ([attachTracker]) and dropped only with the site
   /// ([forget]).
-  void _syncSubscriptions(String siteUrl, VoiceDirectory directory) {
+  void _syncSubscriptions(String siteUrl) {
     final tracker = _trackerFor(siteUrl);
     if (tracker == null) return;
     final cursors = _liveCursors.putIfAbsent(siteUrl, _VoiceLiveCursors.new);
     var changed = false;
-    if (!_directorySubscriptions.containsKey(siteUrl)) {
+    final directory = _directories[siteUrl];
+    if (directory != null && !_directorySubscriptions.containsKey(siteUrl)) {
       _directorySubscriptions[siteUrl] = tracker.subscribe(
         '/voice/rooms/index',
         (data, messageId) => _onDirectoryEvent(siteUrl, data, messageId),
@@ -573,15 +954,25 @@ final class VoiceController extends ChangeNotifier {
       );
       changed = true;
     }
+    // Rings arrive whether or not any Voice surface is on screen, so the
+    // per-user ring channel is watched as soon as the site has a tracker.
+    final userId = _userIdFor(siteUrl);
+    if (userId != null && !_ringSubscriptions.containsKey(siteUrl)) {
+      _ringSubscriptions[siteUrl] = tracker.subscribe(
+        '/voice/call-ring/$userId',
+        (data, _) => _onRingEvent(siteUrl, data),
+      );
+      changed = true;
+    }
     final subscriptions = _roomSubscriptions.putIfAbsent(siteUrl, () => {});
-    final wanted = {for (final room in directory.rooms) room.id};
+    final wanted = _heldRooms(siteUrl);
     for (final id
-        in subscriptions.keys.where((id) => !wanted.contains(id)).toList()) {
+        in subscriptions.keys.where((id) => !wanted.containsKey(id)).toList()) {
       subscriptions.remove(id)?.cancel();
       cursors.dropRoom(id);
       changed = true;
     }
-    for (final room in directory.rooms) {
+    for (final room in wanted.values) {
       if (subscriptions.containsKey(room.id)) continue;
       subscriptions[room.id] = tracker.subscribe(
         '/voice/rooms/${room.id}',
@@ -590,12 +981,18 @@ final class VoiceController extends ChangeNotifier {
       );
       changed = true;
     }
+    for (final entry in _chats.entries) {
+      if (!entry.key.startsWith('$siteUrl#') || !entry.value.visible) continue;
+      final roomId = int.tryParse(entry.key.substring(siteUrl.length + 1));
+      if (roomId == null) continue;
+      _watchChatUpdates(siteUrl, roomId, entry.key, entry.value);
+    }
     if (!changed) return;
     _record(
       'room.subscriptions.synced',
       component: 'room',
       correlationId: _correlationForSite(siteUrl),
-      data: {'roomCount': directory.rooms.length},
+      data: {'roomCount': wanted.length},
     );
   }
 
@@ -634,8 +1031,10 @@ final class VoiceController extends ChangeNotifier {
         } else {
           rooms[index] = _preservePrivilegedFields(rooms[index], incoming);
         }
+        _refreshCallRoom(siteUrl, incoming);
       case 'destroyed':
         rooms.removeWhere((room) => room.id == incoming.id);
+        _linkedRooms[siteUrl]?.remove(incoming.id);
         _removeChatAssociation(siteUrl, incoming.id);
         if (_call case final call?
             when call.siteUrl == siteUrl && call.room.id == incoming.id) {
@@ -655,7 +1054,7 @@ final class VoiceController extends ChangeNotifier {
       canCreateRoom: held.canCreateRoom,
       messageBusLastId: held.messageBusLastId,
     );
-    _syncSubscriptions(siteUrl, _directories[siteUrl]!);
+    _syncSubscriptions(siteUrl);
     notifyListeners();
   }
 
@@ -663,6 +1062,61 @@ final class VoiceController extends ChangeNotifier {
     VoiceRoom held,
     VoiceRoom incoming,
   ) => incoming.copyWithPrivileged(held);
+
+  /// A room edited while its call is up: the call keeps its own roster and
+  /// ring state (the room channel is the authority for those) but takes the
+  /// new name, type, and capabilities. A type change re-applies the stage
+  /// speaking rule, and video that the room no longer allows stops now
+  /// rather than at the next toggle.
+  void _refreshCallRoom(String siteUrl, VoiceRoom incoming) {
+    final call = _call;
+    if (call == null ||
+        call.siteUrl != siteUrl ||
+        call.room.id != incoming.id) {
+      return;
+    }
+    final room = _preservePrivilegedFields(call.room, incoming).copyWith(
+      participants: call.room.participants,
+      ringing: call.room.ringing,
+    );
+    final userId = _userIdFor(siteUrl);
+    final couldPublishAudio =
+        userId == null ||
+        _canPublishAudio(call.room, call.room.participants, userId);
+    final canPublishAudio =
+        userId == null || _canPublishAudio(room, room.participants, userId);
+    final canPublishVideo = canPublishAudio && room.videoAllowed;
+    final stopsVideo =
+        !canPublishVideo && (call.cameraEnabled || call.screenSharing);
+    _call = call.copyWith(room: room, muted: canPublishAudio ? null : true);
+    if (canPublishAudio != couldPublishAudio) {
+      _observe(() async {
+        await _runHandled(
+          () => call.media.setAudioPublishingAllowed(canPublishAudio),
+          'voice.media.audioPublishing',
+        );
+        if (!canPublishAudio) {
+          await _runHandled(
+            () => call.media.setMuted(true),
+            'voice.media.rosterMute',
+          );
+        }
+      }, 'voice.media.roomUpdate');
+    }
+    if (stopsVideo) {
+      _record(
+        'media.video.room_disallowed',
+        component: 'media',
+        correlationId: _correlationFor(call),
+        data: {'roomId': room.id},
+      );
+      _observe(() async {
+        if (call.cameraEnabled) await _setCameraEnabled(false);
+        if (call.screenSharing) await _setScreenSharing(false);
+      }, 'voice.media.roomVideoDisabled');
+      _notify(siteUrl, room.id, 'Video was turned off in this room.');
+    }
+  }
 
   void _onRoomEvent(String siteUrl, int roomId, Object? data, int messageId) {
     if (_disposed) return;
@@ -725,6 +1179,26 @@ final class VoiceController extends ChangeNotifier {
                 : participant,
         ]);
       }
+      if (event.userId == _userIdFor(siteUrl) &&
+          _call?.siteUrl == siteUrl &&
+          _call?.room.id == roomId) {
+        _notify(
+          siteUrl,
+          roomId,
+          event.role == VoiceRole.participant
+              ? "You've been moved to listeners."
+              : "You've been made a speaker.",
+        );
+      }
+      return;
+    }
+    if (event is VoiceHandRaiseEvent) {
+      _applyHandRaise(siteUrl, roomId, event);
+      return;
+    }
+    if (event is VoiceRingingEvent) {
+      _updateRoom(siteUrl, roomId, (room) => room.withRinging(event.entry));
+      notifyListeners();
       return;
     }
     if (event is VoiceParticipantsEvent) {
@@ -744,8 +1218,65 @@ final class VoiceController extends ChangeNotifier {
         correlationId: _correlationForRoom(siteUrl, roomId),
         data: {'roomId': roomId, 'active': event.recording?.active ?? false},
       );
+      final wasRecording = room(siteUrl, roomId)?.recording?.active ?? false;
       _replaceRecording(siteUrl, roomId, event.recording);
+      // Only people in the call are told; the moderator who pressed the
+      // button watched their own control change.
+      final call = _call;
+      if (call?.siteUrl == siteUrl && call?.room.id == roomId) {
+        final recording = event.recording;
+        if (recording != null && recording.active) {
+          if (recording.startedById != _userIdFor(siteUrl)) {
+            _notify(siteUrl, roomId, 'This call is now being recorded.');
+          }
+        } else if (wasRecording) {
+          _notify(siteUrl, roomId, 'The recording has stopped.');
+        }
+      }
     }
+  }
+
+  /// The lightweight hand-raise event lands before the roster broadcast that
+  /// carries the same change, so the raise is applied to the held roster at
+  /// once. The toasts mirror the web client: a dismissed request tells its
+  /// owner, a new raise tells the room's managers.
+  void _applyHandRaise(String siteUrl, int roomId, VoiceHandRaiseEvent event) {
+    final userId = _userIdFor(siteUrl);
+    _updateRoom(siteUrl, roomId, (room) {
+      if (!room.participants.any((p) => p.id == event.userId)) return room;
+      return room.withParticipants([
+        for (final participant in room.participants)
+          participant.id == event.userId
+              ? _participantWithHandRaised(
+                  participant,
+                  event.raised ? (event.raisedAt ?? DateTime.now()) : null,
+                )
+              : participant,
+      ]);
+    });
+    // The call's copy of the room is the one serialized for this user, so
+    // it is the one that knows whether they manage it.
+    final call = _call;
+    final inCall =
+        call != null && call.siteUrl == siteUrl && call.room.id == roomId;
+    final held = inCall ? call.room : room(siteUrl, roomId);
+    if (inCall && event.userId == userId) {
+      if (!event.raised && event.reason == 'dismissed') {
+        _notify(siteUrl, roomId, 'Your request to speak was dismissed.');
+      }
+    } else if (inCall && event.raised && (held?.canManage ?? false)) {
+      final raiser = held?.participants
+          .where((participant) => participant.id == event.userId)
+          .firstOrNull;
+      if (raiser != null) {
+        _notify(
+          siteUrl,
+          roomId,
+          '${raiser.name ?? raiser.username} raised their hand to speak.',
+        );
+      }
+    }
+    notifyListeners();
   }
 
   Future<void> _handleSignalEnvelope(
@@ -820,7 +1351,10 @@ final class VoiceController extends ChangeNotifier {
           Map<String, dynamic>.from(rawSender),
         );
         if (participant.id == senderId) {
-          final participants = [...activeCall.room.participants, participant];
+          final participants = canonicalVoiceParticipants([
+            ...activeCall.room.participants,
+            participant,
+          ]);
           final held = _directories[siteUrl];
           if (held != null) {
             _directories[siteUrl] = VoiceDirectory(
@@ -869,26 +1403,80 @@ final class VoiceController extends ChangeNotifier {
     handRaisedAt: participant.handRaisedAt,
   );
 
+  static VoiceParticipant _participantWithIdleState(
+    VoiceParticipant participant,
+    VoiceIdleState idleState,
+  ) => VoiceParticipant(
+    id: participant.id,
+    username: participant.username,
+    role: participant.role,
+    name: participant.name,
+    avatarTemplate: participant.avatarTemplate,
+    muted: participant.muted,
+    deafened: participant.deafened,
+    videoOn: participant.videoOn,
+    screenSharing: participant.screenSharing,
+    watchingVideo: participant.watchingVideo,
+    idleState: idleState,
+    handRaisedAt: participant.handRaisedAt,
+  );
+
+  static VoiceParticipant _participantWithHandRaised(
+    VoiceParticipant participant,
+    DateTime? handRaisedAt,
+  ) => VoiceParticipant(
+    id: participant.id,
+    username: participant.username,
+    role: participant.role,
+    name: participant.name,
+    avatarTemplate: participant.avatarTemplate,
+    muted: participant.muted,
+    deafened: participant.deafened,
+    videoOn: participant.videoOn,
+    screenSharing: participant.screenSharing,
+    watchingVideo: participant.watchingVideo,
+    idleState: participant.idleState,
+    handRaisedAt: handRaisedAt,
+  );
+
+  /// Applies [update] to every copy of the room this controller holds — the
+  /// directory listing, a room reached by link, and (unless [updateCall] is
+  /// off) the active call — so no surface reads a stale copy.
+  void _updateRoom(
+    String siteUrl,
+    int roomId,
+    VoiceRoom Function(VoiceRoom room) update, {
+    bool updateCall = true,
+  }) {
+    final held = _directories[siteUrl];
+    if (held != null && held.rooms.any((room) => room.id == roomId)) {
+      _directories[siteUrl] = VoiceDirectory(
+        rooms: List.unmodifiable([
+          for (final room in held.rooms)
+            room.id == roomId ? update(room) : room,
+        ]),
+        canCreateRoom: held.canCreateRoom,
+        messageBusLastId: held.messageBusLastId,
+      );
+    }
+    final linked = _linkedRooms[siteUrl];
+    final linkedRoom = linked?[roomId];
+    if (linkedRoom != null) linked![roomId] = update(linkedRoom);
+    final call = _call;
+    if (updateCall &&
+        call != null &&
+        call.siteUrl == siteUrl &&
+        call.room.id == roomId) {
+      _call = call.copyWith(room: update(call.room));
+    }
+  }
+
   void _replaceRecording(
     String siteUrl,
     int roomId,
     VoiceRecording? recording,
   ) {
-    final held = _directories[siteUrl];
-    if (held != null) {
-      _directories[siteUrl] = VoiceDirectory(
-        rooms: [
-          for (final room in held.rooms)
-            room.id == roomId ? room.withRecording(recording) : room,
-        ],
-        canCreateRoom: held.canCreateRoom,
-        messageBusLastId: held.messageBusLastId,
-      );
-    }
-    final call = _call;
-    if (call?.siteUrl == siteUrl && call?.room.id == roomId) {
-      _call = call!.copyWith(room: call.room.withRecording(recording));
-    }
+    _updateRoom(siteUrl, roomId, (room) => room.withRecording(recording));
     notifyListeners();
   }
 
@@ -897,17 +1485,12 @@ final class VoiceController extends ChangeNotifier {
     int roomId,
     List<VoiceParticipant> participants,
   ) {
-    final held = _directories[siteUrl];
-    if (held != null) {
-      _directories[siteUrl] = VoiceDirectory(
-        rooms: [
-          for (final room in held.rooms)
-            room.id == roomId ? room.withParticipants(participants) : room,
-        ],
-        canCreateRoom: held.canCreateRoom,
-        messageBusLastId: held.messageBusLastId,
-      );
-    }
+    _updateRoom(
+      siteUrl,
+      roomId,
+      (room) => room.withParticipants(participants),
+      updateCall: false,
+    );
     final call = _call;
     if (call != null && call.siteUrl == siteUrl && call.room.id == roomId) {
       final userId = _userIdFor(siteUrl);
@@ -963,30 +1546,14 @@ final class VoiceController extends ChangeNotifier {
   void _removeLocalParticipant(String siteUrl, int roomId) {
     final userId = _userIdFor(siteUrl);
     if (userId == null) return;
-
-    VoiceRoom removeParticipant(VoiceRoom room) {
-      if (room.id != roomId) return room;
-      return room.withParticipants([
+    _updateRoom(
+      siteUrl,
+      roomId,
+      (room) => room.withParticipants([
         for (final participant in room.participants)
           if (participant.id != userId) participant,
-      ]);
-    }
-
-    final directory = _directories[siteUrl];
-    if (directory != null) {
-      _directories[siteUrl] = VoiceDirectory(
-        rooms: [for (final room in directory.rooms) removeParticipant(room)],
-        canCreateRoom: directory.canCreateRoom,
-        messageBusLastId: directory.messageBusLastId,
-      );
-    }
-    final linked = _linkedRooms[siteUrl];
-    final linkedRoom = linked?[roomId];
-    if (linkedRoom != null) linked![roomId] = removeParticipant(linkedRoom);
-    final call = _call;
-    if (call != null && call.siteUrl == siteUrl && call.room.id == roomId) {
-      _call = call.copyWith(room: removeParticipant(call.room));
-    }
+      ]),
+    );
   }
 
   static bool _canPublishAudio(
@@ -1159,6 +1726,7 @@ final class VoiceController extends ChangeNotifier {
           siteUrl: siteUrl,
           roomId: room.id,
           apiKey: apiKey,
+          skipStatus: !_autoStatusEnabled,
           invitedBy: invitedBy,
           clientId: clientId,
         );
@@ -1186,6 +1754,7 @@ final class VoiceController extends ChangeNotifier {
           siteUrl: siteUrl,
           roomId: room.id,
           apiKey: apiKey,
+          skipStatus: !_autoStatusEnabled,
           invitedBy: invitedBy,
           clientId: clientId,
         );
@@ -1374,6 +1943,12 @@ final class VoiceController extends ChangeNotifier {
         return;
       }
       media.addListener(_mediaChanged);
+      if (_incomingCall case final incoming?
+          when incoming.siteUrl == siteUrl && incoming.call.roomId == room.id) {
+        _clearIncomingCall(
+          tellSystem: VoiceIncomingCallEndReason.answeredElsewhere,
+        );
+      }
       _call = VoiceCallSnapshot(
         siteUrl: siteUrl,
         siteName: siteName,
@@ -1471,6 +2046,7 @@ final class VoiceController extends ChangeNotifier {
       );
       if (!isCurrent()) return;
       _startHeartbeat();
+      _idleTracker.start();
       _record(
         'call.join.completed',
         correlationId: correlationId,
@@ -1625,6 +2201,44 @@ final class VoiceController extends ChangeNotifier {
         component: 'heartbeat',
         correlationId: correlationId,
       );
+    } on WriteException catch (error, stackTrace) {
+      if (!isCurrent()) return;
+      if (_isExpulsion(error)) {
+        // The server no longer recognizes this session — it lapsed while the
+        // app was cut off, the room was deleted, or access was revoked.
+        // Every later beat would be refused the same way, and if nobody else
+        // is in the room no roster broadcast will ever prune the local
+        // user, so the call is unwound here the way the web client does.
+        _record(
+          'heartbeat.expelled',
+          component: 'heartbeat',
+          correlationId: _correlationFor(call),
+          severity: DiagnosticSeverity.warning,
+          data: {'statusCode': error.statusCode},
+        );
+        _errors[call.siteUrl] = error.errors.isNotEmpty
+            ? error.errors.join('\n')
+            : 'Your call session has expired. Rejoin the room to start a '
+                  'new one.';
+        await _leave(
+          notifyServer: error.statusCode != HttpStatus.notFound,
+          reason: _VoiceLeaveReason.sessionExpired,
+        );
+        return;
+      }
+      _recordRaw(
+        'heartbeat.failed',
+        component: 'heartbeat',
+        correlationId: _correlationFor(call),
+        severity: DiagnosticSeverity.warning,
+        message: error.toString(),
+        data: {
+          'errorType': error.runtimeType.toString(),
+          'statusCode': error.statusCode,
+          'stackTrace': stackTrace.toString(),
+        },
+      );
+      _report(error, stackTrace, 'voice.heartbeat');
     } catch (error, stackTrace) {
       if (isCurrent()) {
         _recordRaw(
@@ -1643,13 +2257,125 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
+  /// A heartbeat refused with a membership-shaped status: the participant
+  /// session is gone or was never ours to keep (403), the room is gone (404),
+  /// or the call instance ended (410). Anything else is transient.
+  static bool _isExpulsion(WriteException error) => switch (error.statusCode) {
+    HttpStatus.forbidden ||
+    HttpStatus.unauthorized ||
+    HttpStatus.notFound ||
+    HttpStatus.gone => true,
+    null => error.failure == WriteFailure.forbidden,
+    _ => false,
+  };
+
+  /// Coming to the foreground is activity; going to the background is not
+  /// absence. A call continues from a pocket or behind another window, and
+  /// the server's away status dims the participant for everyone, so the
+  /// ladder in [VoiceIdleTracker] decides from elapsed silence instead. A
+  /// heartbeat goes out either way so presence is refreshed at the moment
+  /// the app can least rely on its timers.
   void setForeground(bool foreground) {
     if (_disposed) return;
-    _idleState = foreground ? VoiceIdleState.active : VoiceIdleState.afk;
+    if (foreground) _idleTracker.recordActivity();
     if (_call != null) unawaited(_requestHeartbeat());
   }
 
-  Future<void> setMuted(bool muted) => _setMuted(muted, syncSystem: true);
+  VoiceIdleThresholds _activeIdleThresholds() {
+    final call = _call;
+    if (call == null) return _defaultIdleThresholds('');
+    try {
+      return _idleThresholdsFor(call.siteUrl);
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'voice.idle.thresholds');
+      return _defaultIdleThresholds(call.siteUrl);
+    }
+  }
+
+  void _onIdleStateChanged(VoiceIdleState state, {required bool wasAutoMuted}) {
+    if (_disposed) return;
+    final call = _call;
+    if (call == null || call.status == VoiceCallStatus.leaving) return;
+    _idleState = state;
+    _record(
+      'idle.state_changed',
+      component: 'idle',
+      correlationId: _correlationFor(call),
+      data: {'state': state.name, 'wasAutoMuted': wasAutoMuted},
+    );
+    final userId = _userIdFor(call.siteUrl);
+    if (userId != null) {
+      _updateRoom(
+        call.siteUrl,
+        call.room.id,
+        (room) => room.withParticipants([
+          for (final participant in room.participants)
+            participant.id == userId
+                ? _participantWithIdleState(participant, state)
+                : participant,
+        ]),
+      );
+    }
+    if (state == VoiceIdleState.active && wasAutoMuted && call.muted) {
+      _notify(
+        call.siteUrl,
+        call.room.id,
+        'You were auto-muted after being idle. Unmute to keep talking.',
+      );
+    }
+    unawaited(_requestHeartbeat());
+    notifyListeners();
+  }
+
+  void _onIdleAutoMute() {
+    final call = _call;
+    if (_disposed || call == null || call.status == VoiceCallStatus.leaving) {
+      return;
+    }
+    _record(
+      'idle.auto_muted',
+      component: 'idle',
+      correlationId: _correlationFor(call),
+      data: {'alreadyMuted': call.muted},
+    );
+    if (!call.muted) {
+      _observe(() => _setMuted(true, syncSystem: true), 'voice.idle.autoMute');
+    }
+  }
+
+  void _onIdleDisconnect() {
+    final call = _call;
+    if (_disposed || call == null || call.status == VoiceCallStatus.leaving) {
+      return;
+    }
+    _record(
+      'idle.disconnected',
+      component: 'idle',
+      correlationId: _correlationFor(call),
+      severity: DiagnosticSeverity.warning,
+    );
+    _errors[call.siteUrl] =
+        'You were disconnected from ${call.room.name} due to inactivity.';
+    _observe(
+      () =>
+          _leave(notifyServer: true, reason: _VoiceLeaveReason.idleDisconnect),
+      'voice.idle.disconnect',
+    );
+  }
+
+  /// Every deliberate call control counts as the user being present.
+  void _userActed() {
+    if (_disposed) return;
+    _idleTracker.recordActivity();
+  }
+
+  Future<void> setMuted(bool muted) {
+    // Cleared before the activity is recorded: an unmute is the user acting
+    // on an automatic mute, not a return that needs telling about it.
+    if (!muted) _idleTracker.wasAutoMuted = false;
+    _userActed();
+    return _setMuted(muted, syncSystem: true);
+  }
 
   void dismissCallError([String? siteUrl]) {
     if (_disposed) return;
@@ -1668,14 +2394,24 @@ final class VoiceController extends ChangeNotifier {
         system: syncSystem ? () => systemCall.setMuted(muted) : null,
       );
 
-  Future<void> setDeafened(bool deafened) => _updateMediaState(
+  Future<void> setDeafened(bool deafened) {
+    _userActed();
+    return _setDeafened(deafened);
+  }
+
+  Future<void> _setDeafened(bool deafened) => _updateMediaState(
     media: (call) => call.media.setDeafened(deafened),
     update: (call) => call.copyWith(deafened: deafened),
     rollback: (current, previous) =>
         current.copyWith(deafened: previous.deafened),
   );
 
-  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) =>
+  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) {
+    _userActed();
+    return _setCameraEnabled(enabled, deviceId: deviceId);
+  }
+
+  Future<void> _setCameraEnabled(bool enabled, {String? deviceId}) =>
       _updateMediaState(
         media: (call) => call.media.setCameraEnabled(
           enabled,
@@ -1929,6 +2665,19 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
+  Future<void> _restoreAutoStatusPreference() async {
+    try {
+      final stored = await _preferences.readAutoStatusEnabled();
+      if (_disposed || stored == null) return;
+      _autoStatusEnabled = stored;
+      notifyListeners();
+    } catch (error, stackTrace) {
+      // Same contract as the device restore: the default stays usable and
+      // the next explicit choice persists.
+      _report(error, stackTrace, 'voice.preferences.restore');
+    }
+  }
+
   Future<void> _selectSavedAudioDevice({
     required String kind,
     required String deviceId,
@@ -2037,7 +2786,12 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
-  Future<void> setScreenSharing(bool enabled) => _updateMediaState(
+  Future<void> setScreenSharing(bool enabled) {
+    _userActed();
+    return _setScreenSharing(enabled);
+  }
+
+  Future<void> _setScreenSharing(bool enabled) => _updateMediaState(
     media: (call) => call.media.setScreenShareEnabled(enabled),
     update: (call) => call.copyWith(screenSharing: enabled),
     rollback: (current, previous) =>
@@ -2233,6 +2987,8 @@ final class VoiceController extends ChangeNotifier {
     _stateRetry?.cancel();
     _stateRetry = null;
     _stateSyncPending = false;
+    _idleTracker.stop();
+    _idleState = VoiceIdleState.active;
     final correlationId = _correlationFor(call);
     _record(
       'call.leave.started',
@@ -2508,6 +3264,7 @@ final class VoiceController extends ChangeNotifier {
     state
       ..visible = false
       ..loading = false;
+    _unwatchChatUpdates(state);
     _closeChatConversation(state);
     if (!_disposed) notifyListeners();
   }
@@ -2544,6 +3301,10 @@ final class VoiceController extends ChangeNotifier {
       );
       if (!isCurrent()) return;
       state.session = session;
+      // Watched only once the session has been read: a change published
+      // before that is reflected in the read itself, and a panel whose site
+      // was forgotten mid-read must not leave a subscription behind.
+      _watchChatUpdates(siteUrl, roomId, key, state);
       final conversation = _bindChatConversation(siteUrl, key, state);
       if (conversation != null) await conversation.refresh(force: force);
     } catch (error, stackTrace) {
@@ -2559,15 +3320,91 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
+  void _watchChatUpdates(
+    String siteUrl,
+    int roomId,
+    String key,
+    _VoiceChatAssociation state,
+  ) {
+    if (state.liveUpdates != null) return;
+    final tracker = _trackerFor(siteUrl);
+    if (tracker == null) return;
+    state.liveUpdates = tracker.subscribe('/voice/rooms/$roomId/chat', (
+      data,
+      _,
+    ) {
+      if (_disposed || !state.visible || !identical(_chats[key], state)) {
+        return;
+      }
+      if (data is Map && data['type'] == 'updated') {
+        _observe(
+          () => _refreshChatSession(siteUrl, roomId),
+          'voice.chat.refresh',
+        );
+      }
+    });
+  }
+
+  void _unwatchChatUpdates(_VoiceChatAssociation state) {
+    state.liveUpdates?.cancel();
+    state.liveUpdates = null;
+  }
+
+  /// The panel is open and the server said the session changed: re-read it
+  /// through the chat_session endpoint (which re-checks this user's access)
+  /// and follow the thread it names now. Deliberately not [_openChat]: no
+  /// loading state, so the panel does not blink on every rollover.
+  Future<void> _refreshChatSession(String siteUrl, int roomId) async {
+    final key = '$siteUrl#$roomId';
+    final state = _chats[key];
+    if (state == null || !state.visible) return;
+    final siteSession = _siteSession(siteUrl);
+    final request = Object();
+    _chatRequests[key] = request;
+    bool isCurrent() =>
+        _isCurrentSiteSession(siteUrl, siteSession) &&
+        identical(_chatRequests[key], request) &&
+        identical(_chats[key], state) &&
+        state.visible;
+    try {
+      final credentials = await _requestCredentials(
+        siteUrl,
+        ifCurrent: isCurrent,
+      );
+      if (credentials == null) return;
+      final session = await api.chatSession(
+        siteUrl: siteUrl,
+        roomId: roomId,
+        apiKey: credentials.apiKey,
+      );
+      if (!isCurrent()) return;
+      final changed =
+          session.channelId != state.session.channelId ||
+          session.threadId != state.session.threadId;
+      state.session = session;
+      final conversation = _bindChatConversation(siteUrl, key, state);
+      if (conversation != null && changed) {
+        await conversation.refresh(force: true);
+      }
+      if (isCurrent()) notifyListeners();
+    } catch (error, stackTrace) {
+      if (isCurrent()) _report(error, stackTrace, 'voice.chat.refresh');
+    } finally {
+      if (identical(_chatRequests[key], request)) _chatRequests.remove(key);
+    }
+  }
+
   Future<void> loadOlderChat(String siteUrl, int roomId) =>
       _chats['$siteUrl#$roomId']?.conversation?.loadOlder() ??
       Future<void>.value();
 
-  Future<void> sendChatMessage(String siteUrl, int roomId, String message) =>
-      _runPublicOperation(
-        () => _sendChatMessage(siteUrl, roomId, message),
-        'voice.chat.send',
-      );
+  Future<void> sendChatMessage(String siteUrl, int roomId, String message) {
+    _userActed();
+    return _runPublicOperation(
+      () => _sendChatMessage(siteUrl, roomId, message),
+      'voice.chat.send',
+    );
+  }
 
   Future<void> _sendChatMessage(
     String siteUrl,
@@ -2723,7 +3560,10 @@ final class VoiceController extends ChangeNotifier {
     final key = '$siteUrl#$roomId';
     _chatRequests.remove(key);
     final state = _chats.remove(key);
-    if (state != null) _closeChatConversation(state);
+    if (state != null) {
+      _unwatchChatUpdates(state);
+      _closeChatConversation(state);
+    }
   }
 
   void _pruneChatAssociations(String siteUrl, Set<int> roomIds) {
@@ -2736,16 +3576,21 @@ final class VoiceController extends ChangeNotifier {
       if (roomId != null && roomIds.contains(roomId)) continue;
       _chatRequests.remove(key);
       final state = _chats.remove(key);
-      if (state != null) _closeChatConversation(state);
+      if (state != null) {
+        _unwatchChatUpdates(state);
+        _closeChatConversation(state);
+      }
     }
   }
 
-  Future<void> requestToSpeak({int? userId, bool raised = true}) =>
-      _runPublicOperation(
-        () => _requestToSpeak(userId: userId, raised: raised),
-        'voice.requestToSpeak',
-        correlationId: _activeDiagnosticCorrelationId,
-      );
+  Future<void> requestToSpeak({int? userId, bool raised = true}) {
+    _userActed();
+    return _runPublicOperation(
+      () => _requestToSpeak(userId: userId, raised: raised),
+      'voice.requestToSpeak',
+      correlationId: _activeDiagnosticCorrelationId,
+    );
+  }
 
   Future<void> _requestToSpeak({int? userId, bool raised = true}) async {
     final call = _call;
@@ -2764,6 +3609,39 @@ final class VoiceController extends ChangeNotifier {
       userId: userId,
       raised: raised,
       participantSessionId: _participantSessions[call.media]?.id,
+    );
+  }
+
+  /// Makes [userId] a speaker or moves them back to the listeners of the
+  /// active stage room. A membership write: the server re-broadcasts the
+  /// roster with the new role, and a promoted listener's raised hand is
+  /// lowered by it.
+  Future<void> setParticipantRole(int userId, VoiceRole role) {
+    _userActed();
+    return _runPublicOperation(
+      () => _setParticipantRole(userId, role),
+      'voice.setParticipantRole',
+      correlationId: _activeDiagnosticCorrelationId,
+    );
+  }
+
+  Future<void> _setParticipantRole(int userId, VoiceRole role) async {
+    final call = _call;
+    if (call == null) return;
+    final siteSession = _siteSession(call.siteUrl);
+    bool isCurrent() => _isCurrentCall(call, siteSession);
+    final credentials = await _requestCredentials(
+      call.siteUrl,
+      ifCurrent: isCurrent,
+    );
+    if (credentials == null) return;
+    await api.addMembership(
+      siteUrl: call.siteUrl,
+      roomId: call.room.id,
+      apiKey: credentials.apiKey,
+      userId: userId,
+      role: role,
+      clientId: credentials.clientId,
     );
   }
 
@@ -2850,6 +3728,67 @@ final class VoiceController extends ChangeNotifier {
       active: active,
     );
   }
+
+  /// Invites [usernames] to the room. Refusals propagate: the server's own
+  /// message (a rate limit, no permission) is what the dialog should show.
+  Future<VoiceInviteResult> invite(
+    String siteUrl,
+    int roomId,
+    List<String> usernames,
+  ) async {
+    _userActed();
+    final siteSession = _siteSession(siteUrl);
+    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
+    final credentials = await _requestCredentials(
+      siteUrl,
+      ifCurrent: isCurrent,
+    );
+    if (credentials == null) {
+      throw const WriteException(WriteFailure.forbidden);
+    }
+    final result = await _reporter.runOperation(
+      'voice.invite',
+      () => api.invite(
+        siteUrl: siteUrl,
+        roomId: roomId,
+        apiKey: credentials.apiKey,
+        usernames: usernames,
+        clientId: credentials.clientId,
+      ),
+      correlationId: _correlationForRoom(siteUrl, roomId),
+    );
+    _record(
+      'room.invites.sent',
+      component: 'room',
+      correlationId: _correlationForRoom(siteUrl, roomId),
+      data: {
+        'roomId': roomId,
+        'invited': result.invitedUsernames.length,
+        'skipped': result.skippedUsernames.length,
+      },
+    );
+    return result;
+  }
+
+  /// Best effort: an unavailable shortlist leaves the dialog with the
+  /// username field and the link.
+  Future<List<VoiceInviteSuggestion>> inviteSuggestions(
+    String siteUrl,
+    int roomId,
+  ) => _runPublicValueOperation<List<VoiceInviteSuggestion>>(
+    () async {
+      final credentials = await _requestCredentials(siteUrl);
+      if (credentials == null) return const [];
+      return api.inviteSuggestions(
+        siteUrl: siteUrl,
+        roomId: roomId,
+        apiKey: credentials.apiKey,
+        clientId: credentials.clientId,
+      );
+    },
+    'voice.inviteSuggestions',
+    fallback: const [],
+  );
 
   Future<List<VoiceMembership>> memberships(String siteUrl, int roomId) =>
       _runPublicValueOperation<List<VoiceMembership>>(
@@ -2968,6 +3907,12 @@ final class VoiceController extends ChangeNotifier {
     if (_disposed) return;
     final call = _call;
     if (call != null) {
+      if (!call.muted &&
+          call.media.speakingParticipantIds.contains(
+            _userIdFor(call.siteUrl),
+          )) {
+        _idleTracker.recordVoiceActivity();
+      }
       var updated = call;
       final status = switch (call.media.connectionState) {
         VoiceMediaConnectionState.connected => VoiceCallStatus.connected,
@@ -3039,11 +3984,14 @@ final class VoiceController extends ChangeNotifier {
     );
     switch (action) {
       case VoiceSystemCallAction.mute:
+        _userActed();
         _observe(
           () => _setMuted(true, syncSystem: false),
           'voice.systemAction.mute',
         );
       case VoiceSystemCallAction.unmute:
+        _idleTracker.wasAutoMuted = false;
+        _userActed();
         _observe(
           () => _setMuted(false, syncSystem: false),
           'voice.systemAction.unmute',
@@ -3056,6 +4004,10 @@ final class VoiceController extends ChangeNotifier {
           ),
           'voice.systemAction.end',
         );
+      case VoiceSystemCallAction.answer:
+        _observe(_answerFromSystem, 'voice.systemAction.answer');
+      case VoiceSystemCallAction.decline:
+        declineIncomingCall(fromSystem: true);
     }
   }
 
@@ -3085,6 +4037,7 @@ final class VoiceController extends ChangeNotifier {
       return true;
     });
     for (final state in forgottenChats) {
+      _unwatchChatUpdates(state);
       _closeChatConversation(state);
     }
     _cancelTrackerSubscriptions(siteUrl);
@@ -3271,6 +4224,19 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
+  Future<T> _runHandledValue<T>(
+    Future<T> Function() action,
+    String operation, {
+    required T fallback,
+  }) async {
+    try {
+      return await action();
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, operation);
+      return fallback;
+    }
+  }
+
   Future<void> _runPublicOperation(
     Future<void> Function() action,
     String operation, {
@@ -3329,9 +4295,12 @@ final class VoiceController extends ChangeNotifier {
     _pendingInviteRefs.clear();
     _attachedTrackers.clear();
     for (final state in _chats.values) {
+      _unwatchChatUpdates(state);
       _closeChatConversation(state);
     }
     _chats.clear();
+    _idleTracker.stop();
+    unawaited(_notices.close());
     final subscriptionCancellation = _cancelSubscriptions();
 
     final systemActionsCancellation = _runHandled(
@@ -3353,11 +4322,14 @@ final class VoiceController extends ChangeNotifier {
   Future<void> _cancelSubscriptions() {
     final subscriptions = <PluginLiveChannelSubscription>[
       ..._directorySubscriptions.values,
+      ..._ringSubscriptions.values,
       for (final siteSubscriptions in _roomSubscriptions.values)
         ...siteSubscriptions.values,
     ];
     _directorySubscriptions.clear();
+    _ringSubscriptions.clear();
     _roomSubscriptions.clear();
+    _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     return Future.wait([
       for (final subscription in subscriptions)
         _cancelSubscription(subscription),

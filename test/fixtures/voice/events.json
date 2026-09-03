@@ -3,21 +3,68 @@
     "type": "participants",
     "room_id": 7,
     "participants": [
-      { "id": 1, "username": "sam", "role": "moderator" },
-      { "id": 2, "username": "lee", "role": "participant", "hand_raised_at": 1786204801.5 }
+      {
+        "id": 1,
+        "username": "sam",
+        "role": "moderator"
+      },
+      {
+        "id": 2,
+        "username": "lee",
+        "role": "participant",
+        "hand_raised_at": 1786204801.5
+      }
     ]
   },
-  { "type": "kicked", "room_id": 7 },
-  { "type": "role_change", "room_id": 7, "user_id": 2, "role": "speaker" },
-  { "type": "hand_raise", "room_id": 7, "user_id": 2, "raised": false, "reason": "dismissed" },
+  {
+    "type": "kicked",
+    "room_id": 7
+  },
+  {
+    "type": "role_change",
+    "room_id": 7,
+    "user_id": 2,
+    "role": "speaker"
+  },
+  {
+    "type": "hand_raise",
+    "room_id": 7,
+    "user_id": 2,
+    "raised": false,
+    "reason": "dismissed",
+    "raised_at": 1786204801.5
+  },
   {
     "type": "recording",
     "room_id": 7,
     "recording": {
       "started_at": 1786204800.25,
-      "started_by": { "id": 1, "username": "sam" }
+      "started_by": {
+        "id": 1,
+        "username": "sam"
+      }
     }
   },
-  { "type": "recording", "room_id": 7, "recording": null },
-  { "type": "future_event", "room_id": 7, "payload": { "ignored": true } }
+  {
+    "type": "recording",
+    "room_id": 7,
+    "recording": null
+  },
+  {
+    "type": "ringing",
+    "room_id": 7,
+    "user": {
+      "id": 3,
+      "username": "kim",
+      "avatar_template": "/user_avatar/example.com/kim/{size}/3_2.png"
+    },
+    "notified_at": 1786204810
+  },
+  {
+    "type": "future_event",
+    "room_id": 7,
+    "payload": {
+      "ignored": true
+    }
+  }
 ]

@@ -1,7 +1,11 @@
 // ignore_for_file: prefer_initializing_formals
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:flutter/widgets.dart';
+
 import 'voice_controller.dart';
+import 'voice_join.dart';
+import 'voice_models.dart';
 import 'voice_services.dart';
 
 const voiceShellService = PluginServiceKey<VoiceShellService>(
@@ -10,6 +14,11 @@ const voiceShellService = PluginServiceKey<VoiceShellService>(
 );
 
 typedef VoiceRecordingEnabledReader = bool Function(String siteUrl);
+typedef VoiceUsernameReader = String? Function(String siteUrl);
+
+String? _noUsername(String _) => null;
+
+bool _siteDefaultOn(String _) => true;
 
 final class VoiceShellService
     implements PluginLinkHandler, PluginSiteActivator, PluginTrackerAttachment {
@@ -17,12 +26,21 @@ final class VoiceShellService
     required this.controller,
     required PluginRouteNavigationHost host,
     required VoiceRecordingEnabledReader recordingEnabled,
+    VoiceSiteFlagReader meshPrivacyWarningEnabled = _siteDefaultOn,
+    VoiceSiteFlagReader autoStatusEnabled = _siteDefaultOn,
+    VoiceUsernameReader currentUsername = _noUsername,
   }) : _host = host,
-       _recordingEnabled = recordingEnabled;
+       _recordingEnabled = recordingEnabled,
+       _meshPrivacyWarningEnabled = meshPrivacyWarningEnabled,
+       _autoStatusEnabled = autoStatusEnabled,
+       _currentUsername = currentUsername;
 
   final VoiceController controller;
   final PluginRouteNavigationHost _host;
   final VoiceRecordingEnabledReader _recordingEnabled;
+  final VoiceSiteFlagReader _meshPrivacyWarningEnabled;
+  final VoiceSiteFlagReader _autoStatusEnabled;
+  final VoiceUsernameReader _currentUsername;
 
   PluginRouteSite? get currentInstance => _host.currentSite;
   ContentRoute? get currentContent => _host.currentContent;
@@ -30,6 +48,66 @@ final class VoiceShellService
   int? currentUserIdFor(String siteUrl) => controller.currentUserIdFor(siteUrl);
 
   bool recordingEnabledFor(String siteUrl) => _recordingEnabled(siteUrl);
+
+  bool meshPrivacyWarningEnabledFor(String siteUrl) =>
+      _meshPrivacyWarningEnabled(siteUrl);
+
+  bool autoStatusEnabledFor(String siteUrl) => _autoStatusEnabled(siteUrl);
+
+  /// The shareable invite link for [room]: the same URL the plugin's
+  /// notifications carry, so joining through it credits this user as the
+  /// inviter. Null without a signed-in username to credit.
+  String? inviteLinkFor(String siteUrl, VoiceRoom room) {
+    final username = _currentUsername(siteUrl);
+    if (username == null || username.isEmpty) return null;
+    return '$siteUrl/voice/r/${Uri.encodeComponent(room.slug)}/invited-by/'
+        '${Uri.encodeComponent(username.toLowerCase())}';
+  }
+
+  /// Calls [username]: creates the call room, lands on its page, and joins.
+  /// Server refusals propagate so the caller can show them.
+  Future<void> callUser(
+    BuildContext context, {
+    required String siteUrl,
+    required String username,
+  }) async {
+    final room = await controller.callUser(siteUrl, username);
+    if (!context.mounted) return;
+    await _openAndJoin(context, siteUrl: siteUrl, room: room);
+  }
+
+  /// Answers the ringing call: opens its room page and joins it.
+  Future<void> answerIncomingCall(BuildContext context) async {
+    final accepted = await controller.acceptIncomingCall();
+    if (accepted == null || !context.mounted) return;
+    await _openAndJoin(context, siteUrl: accepted.siteUrl, room: accepted.room);
+  }
+
+  Future<void> _openAndJoin(
+    BuildContext context, {
+    required String siteUrl,
+    required VoiceRoom room,
+  }) async {
+    final siteName =
+        _host.sites.where((site) => site.url == siteUrl).firstOrNull?.title ??
+        siteUrl;
+    openRoom(
+      siteUrl: siteUrl,
+      route: ContentRoute(
+        id: 'voice-room-${room.id}',
+        title: room.name,
+        icon: DIcons.microphoneLines,
+      ),
+    );
+    await joinVoiceRoom(
+      context,
+      controller: controller,
+      siteUrl: siteUrl,
+      siteName: siteName,
+      room: room,
+      meshPrivacyWarningEnabled: meshPrivacyWarningEnabledFor(siteUrl),
+    );
+  }
 
   void openRoom({
     required String siteUrl,

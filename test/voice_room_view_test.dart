@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_test.dart'
-    show PluginTestRequestHost;
+    show PluginTestRequestHost, RecordingPluginLiveChannels;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
@@ -11,6 +11,7 @@ import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
+import 'package:discourse_native/src/plugins/voice/voice_incoming_call.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
@@ -23,12 +24,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 // ignore: implementation_imports
 import 'package:flutter_webrtc/src/native/media_stream_track_impl.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 
 import 'support/voice_fake_chat_conversations.dart';
 
 const _siteUrl = 'https://voice.example.com';
 
 void main() {
+  _meshPrivacyTests();
+  _roomSurfaceTests();
+  _directCallTests();
+  _inviteTests();
+
   group('room availability and layout', () {
     testWidgets('renders unavailable and empty states without a shell', (
       tester,
@@ -1259,6 +1266,551 @@ void main() {
   });
 }
 
+void _roomSurfaceTests() {
+  group('room surface', () {
+    testWidgets('everyone sees that a call is being recorded', (tester) async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final room = _room(
+        participants: const [
+          VoiceParticipant(id: 2, username: 'lee', role: VoiceRole.moderator),
+        ],
+        recording: const VoiceRecording(
+          active: true,
+          startedById: 2,
+          startedByUsername: 'lee',
+        ),
+      );
+
+      await tester.pumpWidget(_app(harness.controller, room: room));
+
+      expect(find.text('Recording'), findsOneWidget);
+      expect(find.byTooltip('Recording started by @lee'), findsOneWidget);
+      expect(find.text('Join room'), findsOneWidget);
+    });
+
+    testWidgets('an empty room shows its cooked description', (tester) async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final room = _room(
+        participants: const [],
+        description: 'A **calm** place',
+        cookedDescription: '<p>A <strong>calm</strong> place</p>',
+      );
+
+      await tester.pumpWidget(_app(harness.controller, room: room));
+      await tester.pumpAndSettle();
+
+      expect(find.text('A **calm** place'), findsNothing);
+      expect(find.byType(HtmlWidget), findsOneWidget);
+      expect(find.text('A calm place', findRichText: true), findsOneWidget);
+    });
+
+    testWidgets('a manager promotes and demotes stage participants', (
+      tester,
+    ) async {
+      final room = _room(
+        type: VoiceRoomType.stage,
+        canManage: true,
+        creatorId: 1,
+        participants: [
+          const VoiceParticipant(
+            id: 1,
+            username: 'sam',
+            role: VoiceRole.moderator,
+          ),
+          VoiceParticipant(
+            id: 2,
+            username: 'lee',
+            role: VoiceRole.participant,
+            handRaisedAt: DateTime.utc(2026),
+          ),
+          const VoiceParticipant(
+            id: 3,
+            username: 'kim',
+            role: VoiceRole.speaker,
+          ),
+        ],
+      );
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await _join(harness, room);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, call: harness.controller.call),
+      );
+
+      // The joined room is drawn in canonical order (kim, lee, sam) and the
+      // local user has no menu, so the first menu is kim's, the second lee's.
+      await tester.tap(find.byTooltip('Participant actions').at(0));
+      await tester.pumpAndSettle();
+      expect(find.text('Move to listeners'), findsOneWidget);
+      expect(find.text('Make speaker'), findsNothing);
+      await tester.tap(find.text('Move to listeners'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Participant actions').at(1));
+      await tester.pumpAndSettle();
+      expect(find.text('Make speaker'), findsOneWidget);
+      await tester.tap(find.text('Make speaker'));
+      await tester.pumpAndSettle();
+
+      final writes = harness.transport.writes
+          .where((write) => write.path.endsWith('/memberships.json'))
+          .toList();
+      expect(writes.map((write) => write.method), ['POST', 'POST']);
+      expect(
+        writes.map(
+          (write) => {...write.body}..removeWhere((_, value) => value == null),
+        ),
+        [
+          {'user_id': 3, 'role': 'participant'},
+          {'user_id': 2, 'role': 'speaker'},
+        ],
+      );
+      harness.dispose();
+    });
+
+    testWidgets('open rooms offer no role changes', (tester) async {
+      final room = _room(
+        canManage: true,
+        creatorId: 1,
+        participants: const [
+          VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+          VoiceParticipant(id: 2, username: 'lee', role: VoiceRole.participant),
+        ],
+      );
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await _join(harness, room);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, call: harness.controller.call),
+      );
+
+      await tester.tap(find.byTooltip('Participant actions'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Make speaker'), findsNothing);
+      expect(find.text('Move to listeners'), findsNothing);
+      await tester.tapAt(Offset.zero);
+      await tester.pumpAndSettle();
+      harness.dispose();
+    });
+  });
+}
+
+void _directCallTests() {
+  group('direct calls', () {
+    VoiceRoom callRoom({List<VoiceRingingEntry> ringing = const []}) =>
+        VoiceRoom(
+          id: 9,
+          name: '📞 kim + sam',
+          slug: 'call-1a2b',
+          isPublic: false,
+          ephemeral: true,
+          type: VoiceRoomType.open,
+          participants: const [
+            VoiceParticipant(id: 3, username: 'kim', role: VoiceRole.moderator),
+          ],
+          ringing: ringing,
+        );
+
+    testWidgets('a call room shows who is still being rung', (tester) async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final room = callRoom(
+        ringing: [
+          VoiceRingingEntry(
+            user: const VoiceParticipant(
+              id: 1,
+              username: 'sam',
+              role: VoiceRole.participant,
+            ),
+            notifiedAt: DateTime.now(),
+          ),
+          VoiceRingingEntry(
+            user: const VoiceParticipant(
+              id: 4,
+              username: 'old',
+              role: VoiceRole.participant,
+            ),
+            notifiedAt: DateTime.now().subtract(const Duration(minutes: 2)),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(_app(harness.controller, room: room));
+
+      expect(find.text('Calling sam…'), findsOneWidget);
+      expect(find.text('Calling old…'), findsNothing);
+      expect(find.text('kim'), findsOneWidget);
+      // The ring clock ticks on a periodic timer; unmount it before the
+      // binding checks for pending timers.
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('an incoming call can be declined or answered', (tester) async {
+      final tracker = RecordingPluginLiveChannels();
+      final room = callRoom();
+      final transport = RecordingPluginTransport(
+        responses: {
+          'GET /voice/rooms.json': const {
+            'rooms': <Object?>[],
+            'can_create_room': false,
+          },
+          'GET /voice/rooms/call-1a2b.json':
+              _joinPayload(room)['room'] as Map<String, dynamic>,
+          'POST /voice/rooms/9/join.json': _joinPayload(room),
+          'POST /voice/rooms/9/state.json': const {},
+          'DELETE /voice/rooms/9/leave.json': const {},
+        },
+      );
+      final harness = _Harness(discourseApi: transport, tracker: tracker);
+      addTearDown(harness.dispose);
+      final host = _RouteHost(
+        const PluginRouteSite(url: _siteUrl, title: 'Voice', isConnected: true),
+      );
+      final shell = VoiceShellService(
+        controller: harness.controller,
+        host: host,
+        recordingEnabled: (_) => false,
+      );
+      await harness.controller.ensureLoaded(_siteUrl);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceIncomingCallBanner(
+              controller: harness.controller,
+              shell: shell,
+            ),
+          ),
+        ),
+      );
+      Map<String, dynamic> ring(int sentAt) => {
+        'room_id': 9,
+        'room_slug': 'call-1a2b',
+        'room_name': '📞 kim + sam',
+        'caller_username': 'kim',
+        'caller_name': 'Kim',
+        'sent_at': sentAt,
+        'ring_seconds': 60,
+      };
+      final sentAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+      tracker.deliver('/voice/call-ring/1', ring(sentAt));
+      await tester.pump();
+      expect(find.text('Kim'), findsOneWidget);
+      expect(find.text('is calling you…'), findsOneWidget);
+
+      await tester.tap(find.text('Decline'));
+      await tester.pump();
+      expect(find.text('is calling you…'), findsNothing);
+      expect(harness.controller.incomingCall, isNull);
+
+      tracker.deliver('/voice/call-ring/1', ring(sentAt + 1));
+      await tester.pump();
+      await tester.tap(find.text('Answer'));
+      await tester.pumpAndSettle();
+
+      expect(host.currentContent?.id, 'voice-room-9');
+      expect(harness.controller.call?.room.id, 9);
+      final join = transport.writes.singleWhere(
+        (write) => write.path.endsWith('/join.json'),
+      );
+      expect(join.body['invited_by'], 'kim');
+      expect(find.text('is calling you…'), findsNothing);
+      harness.dispose();
+    });
+
+    testWidgets('the banner stays out of the way while the system rings', (
+      tester,
+    ) async {
+      final tracker = RecordingPluginLiveChannels();
+      final transport = RecordingPluginTransport(
+        responses: {
+          'GET /voice/rooms.json': const {
+            'rooms': <Object?>[],
+            'can_create_room': false,
+          },
+        },
+      );
+      final harness = _Harness(
+        discourseApi: transport,
+        tracker: tracker,
+        systemCall: _SystemCall(presentsIncomingCalls: true),
+      );
+      addTearDown(harness.dispose);
+      final shell = VoiceShellService(
+        controller: harness.controller,
+        host: _RouteHost(
+          const PluginRouteSite(
+            url: _siteUrl,
+            title: 'Voice',
+            isConnected: true,
+          ),
+        ),
+        recordingEnabled: (_) => false,
+      );
+      await harness.controller.ensureLoaded(_siteUrl);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceIncomingCallBanner(
+              controller: harness.controller,
+              shell: shell,
+            ),
+          ),
+        ),
+      );
+
+      tracker.deliver('/voice/call-ring/1', {
+        'room_id': 9,
+        'room_slug': 'call-1a2b',
+        'room_name': '📞 kim + sam',
+        'caller_username': 'kim',
+        'caller_name': 'Kim',
+        'sent_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        'ring_seconds': 60,
+      });
+      await tester.pump();
+      await tester.pump();
+
+      expect(harness.controller.incomingCallHandledBySystem, isTrue);
+      expect(find.text('is calling you…'), findsNothing);
+      harness.controller.declineIncomingCall();
+      await tester.pump();
+    });
+  });
+}
+
+void _inviteTests() {
+  group('invites', () {
+    testWidgets('the shell builds the invite link that credits the inviter', (
+      tester,
+    ) async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final room = _room(participants: const []);
+
+      expect(
+        _voiceShell(
+          harness.controller,
+          username: 'Sam',
+        ).inviteLinkFor(_siteUrl, room),
+        'https://voice.example.com/voice/r/lounge/invited-by/sam',
+      );
+      expect(
+        _voiceShell(harness.controller).inviteLinkFor(_siteUrl, room),
+        isNull,
+      );
+    });
+
+    testWidgets('invites by name and from the shortlist, and shows the link', (
+      tester,
+    ) async {
+      final room = _room(
+        canInvite: true,
+        participants: const [
+          VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+        ],
+      );
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await _join(harness, room);
+      await tester.pumpWidget(
+        _app(
+          harness.controller,
+          room: room,
+          call: harness.controller.call,
+          inviteLink: 'https://voice.example.com/voice/r/lounge/invited-by/sam',
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Invite people'));
+      await tester.pumpAndSettle();
+      expect(find.text('Invite to Lounge'), findsOneWidget);
+      expect(find.text('kim'), findsOneWidget);
+      expect(find.text('2h together recently'), findsOneWidget);
+      expect(
+        find.text('https://voice.example.com/voice/r/lounge/invited-by/sam'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Invite'));
+      await tester.pumpAndSettle();
+      expect(find.text('Invited'), findsOneWidget);
+      expect(find.text('Invite sent.'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '@lee');
+      await tester.tap(find.text('Send invite'));
+      await tester.pumpAndSettle();
+
+      final invites = harness.transport.writes
+          .where((write) => write.path.endsWith('/invites.json'))
+          .map((write) => write.body['usernames'])
+          .toList();
+      expect(invites, [
+        ['kim'],
+        ['lee'],
+      ]);
+      harness.dispose();
+    });
+
+    testWidgets('no invite control without the permission', (tester) async {
+      final room = _room(
+        participants: const [
+          VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+        ],
+      );
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await _join(harness, room);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, call: harness.controller.call),
+      );
+
+      expect(find.byTooltip('Invite people'), findsNothing);
+      harness.dispose();
+    });
+  });
+}
+
+void _meshPrivacyTests() {
+  group('mesh privacy warning', () {
+    VoiceRoom meshRoom() =>
+        _room(expectedTransport: VoiceTransport.mesh, participants: const []);
+
+    testWidgets('a cancelled warning joins nothing', (tester) async {
+      final room = meshRoom();
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, meshPrivacyWarningEnabled: true),
+      );
+
+      await tester.tap(find.text('Join room'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Before you join this room'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(harness.controller.call, isNull);
+      expect(
+        harness.transport.writes.where((w) => w.path.endsWith('/join.json')),
+        isEmpty,
+      );
+      expect(harness.preferences.meshPrivacyWrites, isEmpty);
+    });
+
+    testWidgets('accepting joins, and "don\'t show again" is remembered', (
+      tester,
+    ) async {
+      final room = meshRoom();
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, meshPrivacyWarningEnabled: true),
+      );
+
+      await tester.tap(find.text('Join room'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("Don't show this again"));
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.widgetWithText(FilledButton, 'Join room'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(harness.controller.call, isNotNull);
+      expect(harness.preferences.meshPrivacyWrites, [true]);
+
+      await harness.controller.leave();
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, meshPrivacyWarningEnabled: true),
+      );
+      await tester.tap(find.text('Join room'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Before you join this room'), findsNothing);
+      expect(harness.controller.call, isNotNull);
+      // Disposed here, not only in a teardown: the joined call's timers
+      // must be gone before the binding checks for pending timers.
+      harness.dispose();
+    });
+
+    testWidgets(
+      'no warning when the site turned it off or the call is not mesh',
+      (tester) async {
+        final livekitRoom = _room(
+          expectedTransport: VoiceTransport.livekit,
+          participants: const [],
+        );
+        final harness = _Harness(joinRoom: livekitRoom);
+        addTearDown(harness.dispose);
+        await tester.pumpWidget(
+          _app(
+            harness.controller,
+            room: livekitRoom,
+            meshPrivacyWarningEnabled: true,
+          ),
+        );
+        await tester.tap(find.text('Join room'));
+        await tester.pumpAndSettle();
+        expect(find.text('Before you join this room'), findsNothing);
+        expect(harness.controller.call, isNotNull);
+        await harness.controller.leave();
+
+        final room = meshRoom();
+        final quiet = _Harness(joinRoom: room);
+        addTearDown(quiet.dispose);
+        await tester.pumpWidget(_app(quiet.controller, room: room));
+        await tester.tap(find.text('Join room'));
+        await tester.pumpAndSettle();
+        expect(find.text('Before you join this room'), findsNothing);
+        expect(quiet.controller.call, isNotNull);
+        harness.dispose();
+        quiet.dispose();
+      },
+    );
+  });
+
+  group('status choice', () {
+    testWidgets(
+      'media settings offer the status toggle when the site allows it',
+      (tester) async {
+        final room = _room(
+          participants: const [
+            VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+          ],
+        );
+        final harness = _Harness(joinRoom: room);
+        addTearDown(harness.dispose);
+        await _join(harness, room);
+        await tester.pumpWidget(
+          _app(
+            harness.controller,
+            room: room,
+            call: harness.controller.call,
+            autoStatusAvailable: true,
+          ),
+        );
+
+        await tester.tap(find.byTooltip('Media settings'));
+        await tester.pumpAndSettle();
+        expect(find.text('Show my status while in a call'), findsOneWidget);
+        await tester.tap(find.text('Show my status while in a call'));
+        await tester.pumpAndSettle();
+
+        expect(harness.controller.autoStatusEnabled, isFalse);
+        expect(harness.preferences.autoStatusWrites, [false]);
+        harness.dispose();
+      },
+    );
+  });
+}
+
 Future<_Harness> _pumpJoinedManagedRoom(WidgetTester tester) async {
   final activeRoom = _room(
     canManage: true,
@@ -1342,6 +1894,9 @@ Widget _app(
   required VoiceRoom? room,
   VoiceCallSnapshot? call,
   bool followCall = false,
+  bool meshPrivacyWarningEnabled = false,
+  bool autoStatusAvailable = false,
+  String? inviteLink,
   VoiceController Function()? controllerResolver,
 }) => MaterialApp(
   home: Scaffold(
@@ -1357,6 +1912,9 @@ Widget _app(
           siteName: 'Voice',
           currentUserId: 1,
           recordingEnabled: true,
+          meshPrivacyWarningEnabled: meshPrivacyWarningEnabled,
+          autoStatusAvailable: autoStatusAvailable,
+          inviteLink: inviteLink,
           controllerResolver: controllerResolver,
         );
       },
@@ -1367,25 +1925,33 @@ Widget _app(
 VoiceRoom _room({
   required List<VoiceParticipant> participants,
   String? description,
+  String? cookedDescription,
   int? creatorId,
   bool canManage = false,
+  bool canInvite = false,
   bool videoAllowed = false,
   bool chatAvailable = false,
   VoiceRoomType type = VoiceRoomType.open,
+  VoiceTransport? expectedTransport,
+  VoiceRecording? recording,
 }) => VoiceRoom(
   id: 7,
   name: 'Lounge',
   slug: 'lounge',
   description: description,
+  cookedDescription: cookedDescription,
+  recording: recording,
   isPublic: true,
   ephemeral: false,
   type: type,
   participants: participants,
   creatorId: creatorId,
   canManage: canManage,
+  canInvite: canInvite,
   videoEnabled: videoAllowed,
   videoAllowed: videoAllowed,
   chatAvailable: chatAvailable,
+  expectedTransport: expectedTransport,
 );
 
 Map<String, dynamic> _joinPayload(
@@ -1405,6 +1971,7 @@ Map<String, dynamic> _joinPayload(
     'room_type': room.type.wireName,
     'creator_id': room.creatorId,
     'can_manage': room.canManage,
+    'can_invite': room.canInvite,
     'video_enabled': room.videoEnabled,
     'video_allowed': room.videoAllowed,
     'chat_available': room.chatAvailable,
@@ -1430,6 +1997,8 @@ final class _Harness {
     RecordingPluginTransport? discourseApi,
     _Preferences? preferences,
     FakeChatConversationCapability? chatConversations,
+    RecordingPluginLiveChannels? tracker,
+    _SystemCall? systemCall,
   }) : preferences = preferences ?? _Preferences(),
        chatConversations =
            chatConversations ?? FakeChatConversationCapability(),
@@ -1444,6 +2013,16 @@ final class _Harness {
                  ),
                'POST /voice/rooms/7/state.json': const {},
                'DELETE /voice/rooms/7/kick.json': const {},
+               'POST /voice/rooms/7/memberships.json': const {},
+               'POST /voice/rooms/7/invites.json': const {
+                 'invited_usernames': ['kim'],
+                 'skipped_usernames': <Object?>[],
+               },
+               'GET /voice/rooms/7/invites/suggestions.json': const {
+                 'suggestions': [
+                   {'id': 3, 'username': 'kim', 'total_seconds': 5400},
+                 ],
+               },
                'DELETE /voice/rooms/7/leave.json': const {},
                'GET /site.json': const {
                  'post_action_types': [
@@ -1459,11 +2038,11 @@ final class _Harness {
       api: VoiceApi(transport),
       chatConversations: this.chatConversations,
       requests: PluginTestRequestHost(apiKeys: const {_siteUrl: 'key'}),
-      trackerFor: (_) => null,
+      trackerFor: (_) => tracker,
       userIdFor: (_) => 1,
       onCallSiteChanged: () {},
       mediaFactory: media,
-      systemCall: _SystemCall(),
+      systemCall: systemCall ?? _SystemCall(),
       preferences: this.preferences,
       heartbeatInterval: const Duration(days: 1),
     );
@@ -1482,10 +2061,12 @@ VoiceShellService _voiceShell(
   VoiceController controller, {
   PluginRouteSite? site,
   bool recordingEnabled = false,
+  String? username,
 }) => VoiceShellService(
   controller: controller,
   host: _RouteHost(site),
   recordingEnabled: (_) => recordingEnabled,
+  currentUsername: (_) => username,
 );
 
 final class _RouteHost implements PluginRouteNavigationHost {
@@ -1757,14 +2338,54 @@ final class _Preferences implements VoicePreferences {
   Future<void> writePushToTalk(bool enabled) async {
     pushToTalkWrites.add(enabled);
   }
+
+  bool meshPrivacyAcknowledged = false;
+  final List<bool> meshPrivacyWrites = [];
+  bool? autoStatusEnabled;
+  final List<bool> autoStatusWrites = [];
+
+  @override
+  Future<bool> readMeshPrivacyAcknowledged() async => meshPrivacyAcknowledged;
+
+  @override
+  Future<void> writeMeshPrivacyAcknowledged(bool acknowledged) async {
+    meshPrivacyWrites.add(acknowledged);
+    meshPrivacyAcknowledged = acknowledged;
+  }
+
+  @override
+  Future<bool?> readAutoStatusEnabled() async => autoStatusEnabled;
+
+  @override
+  Future<void> writeAutoStatusEnabled(bool enabled) async {
+    autoStatusWrites.add(enabled);
+    autoStatusEnabled = enabled;
+  }
 }
 
 final class _SystemCall implements VoiceSystemCall {
+  _SystemCall({this.presentsIncomingCalls = false});
+
+  final bool presentsIncomingCalls;
   final StreamController<VoiceSystemCallAction> _actions =
       StreamController.broadcast();
 
+  void send(VoiceSystemCallAction action) => _actions.add(action);
+
   @override
   Stream<VoiceSystemCallAction> get actions => _actions.stream;
+  @override
+  Future<bool> reportIncomingCall({
+    required String callerName,
+    required String roomName,
+    required String handle,
+  }) async => presentsIncomingCalls;
+  @override
+  Future<void> answerIncomingCall() async {}
+  @override
+  Future<void> declineIncomingCall() async {}
+  @override
+  Future<void> endIncomingCall(VoiceIncomingCallEndReason reason) async {}
   @override
   Future<void> connected() async {}
   @override

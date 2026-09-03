@@ -201,6 +201,49 @@ final class VoiceApi {
     ),
   );
 
+  /// Starts a direct call: the server creates an ephemeral room holding the
+  /// caller and callee as peers and rings the callee.
+  Future<VoiceRoom> callUser({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async => _roomFromWrite(
+    await _write(siteUrl, '/voice/calls.json', 'POST', apiKey, {
+      'username': username,
+    }, clientId),
+  );
+
+  Future<VoiceInviteResult> invite({
+    required String siteUrl,
+    required int roomId,
+    required String apiKey,
+    required List<String> usernames,
+    String? clientId,
+  }) async => VoiceInviteResult.fromJson(
+    await _write(siteUrl, '/voice/rooms/$roomId/invites.json', 'POST', apiKey, {
+      'usernames': usernames,
+    }, clientId),
+  );
+
+  Future<List<VoiceInviteSuggestion>> inviteSuggestions({
+    required String siteUrl,
+    required int roomId,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    final body = await _transport.pluginGetJson(
+      siteUrl: siteUrl,
+      path: '/voice/rooms/$roomId/invites/suggestions.json',
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return List.unmodifiable([
+      for (final value in jsonObjects(body['suggestions']))
+        ?VoiceInviteSuggestion.fromJson(value),
+    ]);
+  }
+
   Future<VoiceRoom> createRoom({
     required String siteUrl,
     required String apiKey,

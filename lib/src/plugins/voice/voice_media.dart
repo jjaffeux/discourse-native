@@ -724,16 +724,23 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
           continue;
         }
         if (!identical(_peers[entry.key], entry.value)) continue;
-        final audible = reports.any((report) {
-          if (report.type != 'inbound-rtp') return false;
+        var audible = false;
+        var localAudible = false;
+        for (final report in reports) {
           final values = report.values;
           if (values['kind'] != 'audio' && values['mediaType'] != 'audio') {
-            return false;
+            continue;
           }
           final level = values['audioLevel'];
-          return level is num && level > 0.01;
-        });
+          if (level is! num || level <= 0.01) continue;
+          if (report.type == 'inbound-rtp') audible = true;
+          // The local microphone's level rides the sending side's
+          // `media-source` report, so the local user gets a speaking
+          // indicator too and the idle ladder can hear them talking.
+          if (report.type == 'media-source') localAudible = true;
+        }
         if (audible) next.add(entry.key);
+        if (localAudible && !_muted) next.add(localUserId);
       }
       if (!_closing && !disposed && !setEquals(next, _speaking)) {
         _speaking = Set.unmodifiable(next);

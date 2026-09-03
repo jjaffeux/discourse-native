@@ -10,6 +10,9 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 
 import '../../theme/d_button.dart';
 import 'voice_controller.dart';
+import 'voice_icons.dart';
+import 'voice_incoming_call.dart';
+import 'voice_join.dart';
 import 'voice_models.dart';
 import 'voice_room_editor.dart';
 import 'voice_services.dart';
@@ -76,6 +79,11 @@ class VoiceRoomView extends StatelessWidget {
             siteName: site.title,
             currentUserId: shell.currentUserIdFor(site.url),
             recordingEnabled: recordingEnabled,
+            meshPrivacyWarningEnabled: shell.meshPrivacyWarningEnabledFor(
+              site.url,
+            ),
+            autoStatusAvailable: shell.autoStatusEnabledFor(site.url),
+            inviteLink: shell.inviteLinkFor(site.url, room),
           ),
         );
       },
@@ -93,6 +101,9 @@ class VoiceRoomContent extends StatefulWidget {
     required this.siteName,
     required this.currentUserId,
     required this.recordingEnabled,
+    this.meshPrivacyWarningEnabled = false,
+    this.autoStatusAvailable = false,
+    this.inviteLink,
     this.controllerResolver,
   });
 
@@ -103,6 +114,9 @@ class VoiceRoomContent extends StatefulWidget {
   final String siteName;
   final int? currentUserId;
   final bool recordingEnabled;
+  final bool meshPrivacyWarningEnabled;
+  final bool autoStatusAvailable;
+  final String? inviteLink;
   final VoiceController Function()? controllerResolver;
 
   @override
@@ -166,6 +180,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
     final recordingEnabled = widget.recordingEnabled;
     final controllerResolver = widget.controllerResolver;
     final error = active?.error ?? controller.errorFor(siteUrl);
+    final recording = room.recording;
     return Column(
       children: [
         if (error != null)
@@ -179,51 +194,68 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
               ),
             ],
           ),
+        if (recording != null && recording.active)
+          _RecordingBadge(recording: recording),
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final participants = room.participants;
-              if (participants.isEmpty) {
-                return _EmptyRoom(room: room);
-              }
-              final columns = constraints.maxWidth >= 900
-                  ? 3
-                  : constraints.maxWidth >= 560
-                  ? 2
-                  : 1;
-              return GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: columns,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 16 / 10,
-                ),
-                itemCount: participants.length,
-                itemBuilder: (context, index) {
-                  final participant = participants[index];
-                  return _ParticipantTile(
-                    controller: controller,
-                    participant: participant,
-                    siteUrl: siteUrl,
-                    videoTrack: active?.media.videoTrackFor(participant.id),
-                    speaking:
-                        active?.media.speakingParticipantIds.contains(
-                          participant.id,
-                        ) ??
-                        false,
-                    canManage: active?.room.canManage ?? false,
-                    canKick:
-                        active?.room.canManage == true &&
-                        participant.id != currentUserId &&
-                        participant.id != room.creatorId,
-                    canAdjustLocally:
-                        active != null && participant.id != currentUserId,
-                    controllerResolver: controllerResolver,
-                  );
-                },
-              );
-            },
+          child: VoiceRingingClock(
+            active: room.ephemeral && room.ringing.isNotEmpty,
+            builder: (context, now) => LayoutBuilder(
+              builder: (context, constraints) {
+                final participants = room.participants;
+                final ringing = room.activeRingingAt(now);
+                if (participants.isEmpty && ringing.isEmpty) {
+                  return _EmptyRoom(room: room);
+                }
+                final columns = constraints.maxWidth >= 900
+                    ? 3
+                    : constraints.maxWidth >= 560
+                    ? 2
+                    : 1;
+                return GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 16 / 10,
+                  ),
+                  itemCount: participants.length + ringing.length,
+                  itemBuilder: (context, index) {
+                    if (index >= participants.length) {
+                      return _RingingTile(
+                        entry: ringing[index - participants.length],
+                        siteUrl: siteUrl,
+                      );
+                    }
+                    final participant = participants[index];
+                    return _ParticipantTile(
+                      controller: controller,
+                      participant: participant,
+                      siteUrl: siteUrl,
+                      videoTrack: active?.media.videoTrackFor(participant.id),
+                      speaking:
+                          active?.media.speakingParticipantIds.contains(
+                            participant.id,
+                          ) ??
+                          false,
+                      canManage: active?.room.canManage ?? false,
+                      canKick:
+                          active?.room.canManage == true &&
+                          participant.id != currentUserId &&
+                          participant.id != room.creatorId,
+                      canAdjustLocally:
+                          active != null && participant.id != currentUserId,
+                      stageRoleChange: _stageRoleChange(
+                        active,
+                        participant,
+                        currentUserId,
+                      ),
+                      controllerResolver: controllerResolver,
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ),
         SafeArea(
@@ -232,10 +264,14 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: active == null
                 ? DButton(
-                    onPressed: () => controller.join(
+                    onPressed: () => joinVoiceRoom(
+                      context,
+                      controller: controller,
                       siteUrl: siteUrl,
                       siteName: siteName,
                       room: room,
+                      meshPrivacyWarningEnabled:
+                          widget.meshPrivacyWarningEnabled,
                     ),
                     icon: const DIcon(DIcons.microphoneLines, size: 18),
                     label: const Text('Join room'),
@@ -247,11 +283,127 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
                     siteUrl: siteUrl,
                     currentUserId: currentUserId,
                     recordingEnabled: recordingEnabled,
+                    autoStatusAvailable: widget.autoStatusAvailable,
+                    inviteLink: widget.inviteLink,
                     controllerResolver: controllerResolver,
                   ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The role a manager may move [participant] to from the tile menu, in a
+/// stage room: listeners become speakers (which also approves a raised
+/// hand), speakers go back to the listeners. Moderators and the local user
+/// are managed elsewhere.
+VoiceRole? _stageRoleChange(
+  VoiceCallSnapshot? call,
+  VoiceParticipant participant,
+  int? currentUserId,
+) {
+  if (call == null ||
+      !call.room.canManage ||
+      call.room.type != VoiceRoomType.stage ||
+      participant.id == currentUserId) {
+    return null;
+  }
+  return switch (participant.role) {
+    VoiceRole.participant => VoiceRole.speaker,
+    VoiceRole.speaker => VoiceRole.participant,
+    VoiceRole.moderator => null,
+  };
+}
+
+/// A tile for someone being rung who has not picked up: styled apart from
+/// participant tiles so nobody mistakes them for present.
+class _RingingTile extends StatelessWidget {
+  const _RingingTile({required this.entry, required this.siteUrl});
+  final VoiceRingingEntry entry;
+  final String siteUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final user = entry.user;
+    return Semantics(
+      label: 'Calling ${user.name ?? user.username}',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ClipOval(
+              child: SizedBox.square(
+                dimension: 56,
+                child: AvatarImage(
+                  url: user.avatarUrl(siteUrl, size: 112),
+                  size: 56,
+                  fallback: ColoredBox(
+                    color: theme.colorScheme.surfaceContainerHigh,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DIcon(
+                  VoiceIcons.phone,
+                  size: 14,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Calling ${user.name ?? user.username}…',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The room-wide "this call is being recorded" indicator. Drawn for
+/// everyone looking at the room, not only for whoever can stop it.
+class _RecordingBadge extends StatelessWidget {
+  const _RecordingBadge({required this.recording});
+  final VoiceRecording recording;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final startedBy = recording.startedByUsername;
+    return Tooltip(
+      message: startedBy == null
+          ? 'This call is being recorded'
+          : 'Recording started by @$startedBy',
+      child: Container(
+        width: double.infinity,
+        color: theme.colorScheme.errorContainer,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            DIcon(DIcons.circle, size: 12, color: theme.colorScheme.error),
+            const SizedBox(width: 8),
+            Text(
+              'Recording',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onErrorContainer,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -268,7 +420,15 @@ class _EmptyRoom extends StatelessWidget {
         const DIcon(DIcons.microphoneLines, size: 52),
         const SizedBox(height: 12),
         Text('Nobody is in ${room.name} yet.'),
-        if (room.description case final description?) ...[
+        // The site cooks the description like a post; the raw markdown is
+        // only what the editor shows.
+        if (room.cookedDescription case final cooked?) ...[
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: HtmlWidget(cooked),
+          ),
+        ] else if (room.description case final description?) ...[
           const SizedBox(height: 8),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
@@ -290,6 +450,7 @@ class _ParticipantTile extends StatelessWidget {
     required this.canManage,
     required this.canKick,
     required this.canAdjustLocally,
+    this.stageRoleChange,
     this.controllerResolver,
   });
 
@@ -301,6 +462,7 @@ class _ParticipantTile extends StatelessWidget {
   final bool canManage;
   final bool canKick;
   final bool canAdjustLocally;
+  final VoiceRole? stageRoleChange;
   final VoiceController Function()? controllerResolver;
 
   @override
@@ -396,6 +558,12 @@ class _ParticipantTile extends StatelessWidget {
                           raised: false,
                         );
                       }
+                      if (action == 'role' && stageRoleChange != null) {
+                        await controller.setParticipantRole(
+                          participant.id,
+                          stageRoleChange!,
+                        );
+                      }
                       if (action == 'volume' && context.mounted) {
                         await _showParticipantVolume(
                           context,
@@ -421,6 +589,15 @@ class _ParticipantTile extends StatelessWidget {
                         value: 'flag',
                         child: Text('Notify moderators'),
                       ),
+                      if (stageRoleChange case final role?)
+                        PopupMenuItem(
+                          value: 'role',
+                          child: Text(
+                            role == VoiceRole.speaker
+                                ? 'Make speaker'
+                                : 'Move to listeners',
+                          ),
+                        ),
                       if (canManage && participant.handRaisedAt != null)
                         const PopupMenuItem(
                           value: 'dismiss',
@@ -454,6 +631,8 @@ class _CallControls extends StatelessWidget {
     required this.siteUrl,
     required this.currentUserId,
     required this.recordingEnabled,
+    this.autoStatusAvailable = false,
+    this.inviteLink,
     this.controllerResolver,
   });
   final VoiceController controller;
@@ -461,6 +640,8 @@ class _CallControls extends StatelessWidget {
   final String siteUrl;
   final int? currentUserId;
   final bool recordingEnabled;
+  final bool autoStatusAvailable;
+  final String? inviteLink;
   final VoiceController Function()? controllerResolver;
 
   @override
@@ -517,6 +698,19 @@ class _CallControls extends StatelessWidget {
             onPressed: () =>
                 controller.requestToSpeak(raised: me?.handRaisedAt == null),
           ),
+        if (call.room.canInvite)
+          _Control(
+            label: 'Invite people',
+            icon: DIcons.userPlus,
+            selected: false,
+            onPressed: () => _showVoiceInvite(
+              context,
+              controller,
+              siteUrl: siteUrl,
+              room: call.room,
+              inviteLink: inviteLink,
+            ),
+          ),
         if (call.room.chatAvailable)
           _Control(
             label: 'Room chat',
@@ -549,7 +743,11 @@ class _CallControls extends StatelessWidget {
           label: 'Media settings',
           icon: DIcons.gear,
           selected: false,
-          onPressed: () => _showMediaSettings(context, controller),
+          onPressed: () => _showMediaSettings(
+            context,
+            controller,
+            autoStatusAvailable: autoStatusAvailable,
+          ),
         ),
         if (call.room.canManage)
           _Control(
@@ -726,6 +924,253 @@ class _RtcTrackRendererState extends State<_RtcTrackRenderer> {
   }
 }
 
+Future<void> _showVoiceInvite(
+  BuildContext context,
+  VoiceController controller, {
+  required String siteUrl,
+  required VoiceRoom room,
+  required String? inviteLink,
+}) => showDialog<void>(
+  context: context,
+  builder: (context) => _VoiceInviteDialog(
+    controller: controller,
+    siteUrl: siteUrl,
+    room: room,
+    inviteLink: inviteLink,
+  ),
+);
+
+class _VoiceInviteDialog extends StatefulWidget {
+  const _VoiceInviteDialog({
+    required this.controller,
+    required this.siteUrl,
+    required this.room,
+    required this.inviteLink,
+  });
+
+  final VoiceController controller;
+  final String siteUrl;
+  final VoiceRoom room;
+  final String? inviteLink;
+
+  @override
+  State<_VoiceInviteDialog> createState() => _VoiceInviteDialogState();
+}
+
+class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
+  final TextEditingController _username = TextEditingController();
+  List<VoiceInviteSuggestion>? _suggestions;
+  final Set<String> _invited = {};
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadSuggestions());
+  }
+
+  Future<void> _loadSuggestions() async {
+    final suggestions = await widget.controller.inviteSuggestions(
+      widget.siteUrl,
+      widget.room.id,
+    );
+    if (mounted) setState(() => _suggestions = suggestions);
+  }
+
+  Future<void> _invite(List<String> usernames) async {
+    final names = [
+      for (final name in usernames)
+        if (name.trim().isNotEmpty) name.trim().replaceFirst('@', ''),
+    ];
+    if (names.isEmpty || _sending) return;
+    setState(() => _sending = true);
+    try {
+      final result = await widget.controller.invite(
+        widget.siteUrl,
+        widget.room.id,
+        names,
+      );
+      if (!mounted) return;
+      setState(() => _invited.addAll(result.invitedUsernames));
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (result.invitedUsernames.isNotEmpty) {
+        final count = result.invitedUsernames.length;
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(count == 1 ? 'Invite sent.' : '$count invites sent.'),
+          ),
+        );
+      }
+      if (result.skippedUsernames.isNotEmpty) {
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(
+              "${result.skippedUsernames.map((name) => '@$name').join(', ')} "
+              "can't be invited because they don't have access to voice rooms.",
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            error is WriteException
+                ? error.message
+                : "Couldn't send the invite.",
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _username.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final suggestions = _suggestions;
+    final link = widget.inviteLink;
+    return AlertDialog(
+      title: Text('Invite to ${widget.room.name}'),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _username,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Invite by name',
+                        hintText: 'username',
+                      ),
+                      onSubmitted: (value) async {
+                        await _invite([value]);
+                        if (mounted) _username.clear();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  DButton(
+                    onPressed: _sending
+                        ? null
+                        : () async {
+                            await _invite([_username.text]);
+                            if (mounted) _username.clear();
+                          },
+                    icon: const DIcon(DIcons.paperPlane, size: 16),
+                    label: const Text('Send invite'),
+                    variant: DButtonVariant.primary,
+                    loading: _sending,
+                  ),
+                ],
+              ),
+              if (suggestions == null)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(child: CircularProgressIndicator.adaptive()),
+                )
+              else if (suggestions.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  "People you've shared this room with",
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                for (final suggestion in suggestions)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: ClipOval(
+                      child: SizedBox.square(
+                        dimension: 36,
+                        child: AvatarImage(
+                          url: suggestion.user.avatarUrl(
+                            widget.siteUrl,
+                            size: 72,
+                          ),
+                          size: 36,
+                          fallback: ColoredBox(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHigh,
+                          ),
+                        ),
+                      ),
+                    ),
+                    title: Text(suggestion.user.username),
+                    subtitle: Text(
+                      '${_timeTogether(suggestion.totalSeconds)} together '
+                      'recently',
+                    ),
+                    trailing: _invited.contains(suggestion.user.username)
+                        ? const Text('Invited')
+                        : DButton(
+                            onPressed: _sending
+                                ? null
+                                : () => _invite([suggestion.user.username]),
+                            label: const Text('Invite'),
+                          ),
+                  ),
+              ],
+              if (link != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Or share an invite link',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(child: SelectableText(link)),
+                    const SizedBox(width: 8),
+                    DButton(
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: link));
+                        if (context.mounted) {
+                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                            const SnackBar(
+                              content: Text('Link copied to clipboard'),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const DIcon(DIcons.copy, size: 16),
+                      label: const Text('Copy'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        DButton(
+          onPressed: () => Navigator.pop(context),
+          label: const Text('Done'),
+        ),
+      ],
+    );
+  }
+
+  static String _timeTogether(int seconds) {
+    if (seconds >= 3600) return '${(seconds / 3600).round()}h';
+    if (seconds >= 60) return '${(seconds / 60).round()}m';
+    return '${seconds}s';
+  }
+}
+
 Future<void> _showParticipantVolume(
   BuildContext context,
   VoiceController controller,
@@ -773,8 +1218,9 @@ Future<void> _showParticipantVolume(
 
 Future<void> _showMediaSettings(
   BuildContext context,
-  VoiceController controller,
-) async {
+  VoiceController controller, {
+  bool autoStatusAvailable = false,
+}) async {
   final devices = await controller.mediaDevices();
   if (!context.mounted) return;
   final inputs = devices
@@ -790,6 +1236,7 @@ Future<void> _showMediaSettings(
   var output = _heldDevice(controller.audioOutputDeviceId, outputs);
   var camera = _heldDevice(controller.cameraDeviceId, cameras);
   var pushToTalk = controller.pushToTalkEnabled;
+  var autoStatus = controller.autoStatusEnabled;
   var testing = false;
   await showDialog<void>(
     context: context,
@@ -842,6 +1289,18 @@ Future<void> _showMediaSettings(
                     onChanged: (value) async {
                       setState(() => pushToTalk = value);
                       await controller.setPushToTalkEnabled(value);
+                    },
+                  ),
+                if (autoStatusAvailable)
+                  SwitchListTile.adaptive(
+                    value: autoStatus,
+                    title: const Text('Show my status while in a call'),
+                    subtitle: const Text(
+                      'Sets your user status to the room you are in.',
+                    ),
+                    onChanged: (value) async {
+                      setState(() => autoStatus = value);
+                      await controller.setAutoStatusEnabled(value);
                     },
                   ),
                 const ListTile(
