@@ -91,7 +91,7 @@ class _TooltipSurface extends StatelessWidget {
     final tooltip = TooltipTheme.of(context);
     final textStyle =
         tooltip.textStyle ??
-        theme.textTheme.bodyMedium?.copyWith(
+        theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onInverseSurface,
         );
     final decoration =

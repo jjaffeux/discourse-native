@@ -208,6 +208,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
 
+    final message = find.text('Reply to this topic');
+    expect(
+      DefaultTextStyle.of(tester.element(message)).style.fontSize,
+      AppTheme.dark.textTheme.bodySmall?.fontSize,
+    );
     expect(find.byType(DKbd), findsNWidgets(2));
     expect(find.text('⇧'), findsOneWidget);
     expect(find.text('R'), findsOneWidget);
