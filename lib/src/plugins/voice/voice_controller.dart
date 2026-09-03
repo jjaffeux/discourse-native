@@ -200,6 +200,10 @@ final class VoiceNotice {
 const _maxLinkedRoomsPerSite = 8;
 
 typedef VoiceTrackerLookup = PluginLiveChannelHandle? Function(String siteUrl);
+typedef VoiceSiteFlagReader = bool Function(String siteUrl);
+typedef VoiceSiteNameLookup = String? Function(String siteUrl);
+typedef VoiceIncomingCallAnswered =
+    void Function(String siteUrl, VoiceRoom room);
 typedef VoiceUserIdLookup = int? Function(String siteUrl);
 typedef VoiceCapabilityResolver = Future<bool?> Function(String siteUrl);
 typedef _VoiceRequestCredentials = ({String apiKey, String clientId});
@@ -232,12 +236,18 @@ final class VoiceController extends ChangeNotifier {
     Duration Function()? idleClock,
     VoiceIdleTimerFactory? timerFactory,
     DateTime Function()? clock,
+    VoiceSiteNameLookup? siteNameFor,
+    VoiceSiteFlagReader? meshPrivacyWarningEnabledFor,
+    VoiceIncomingCallAnswered? onIncomingCallAnswered,
     this.heartbeatInterval = const Duration(seconds: 10),
     this.signalBatchDelay = const Duration(milliseconds: 200),
   }) : _requests = requests,
        _idleThresholdsFor = idleThresholdsFor ?? _defaultIdleThresholds,
        _timerFactory = timerFactory ?? Timer.new,
        _clock = clock ?? DateTime.now,
+       _siteNameFor = siteNameFor,
+       _meshPrivacyWarningEnabledFor = meshPrivacyWarningEnabledFor,
+       _onIncomingCallAnswered = onIncomingCallAnswered,
        _userIdFor = userIdFor,
        _onCallSiteChanged = onCallSiteChanged,
        _capabilityEnabledFor = capabilityEnabledFor ?? _unknownVoiceCapability,
@@ -280,11 +290,15 @@ final class VoiceController extends ChangeNotifier {
   final VoiceIdleThresholdsLookup _idleThresholdsFor;
   final VoiceIdleTimerFactory _timerFactory;
   final DateTime Function() _clock;
+  final VoiceSiteNameLookup? _siteNameFor;
+  final VoiceSiteFlagReader? _meshPrivacyWarningEnabledFor;
+  final VoiceIncomingCallAnswered? _onIncomingCallAnswered;
   late final VoiceIdleTracker _idleTracker;
   final Map<String, PluginLiveChannelSubscription> _ringSubscriptions = {};
   final Set<String> _handledRings = {};
   ({String siteUrl, VoiceIncomingCall call})? _incomingCall;
   Timer? _incomingCallExpiry;
+  bool _incomingCallSystemPresented = false;
   final Duration heartbeatInterval;
   final Duration signalBatchDelay;
   // Cancelled and awaited by the idempotent close lifecycle below.
@@ -393,6 +407,11 @@ final class VoiceController extends ChangeNotifier {
 
   String? get incomingCallSiteUrl => _incomingCall?.siteUrl;
 
+  /// The system (CallKit) is ringing for [incomingCall], so the app's own
+  /// banner would only duplicate it; the answer arrives as a system action.
+  bool get incomingCallHandledBySystem =>
+      _incomingCall != null && _incomingCallSystemPresented;
+
   /// Starts a direct call to [username] on [siteUrl]. The server answers
   /// with the ephemeral call room, which is held beside the directory so
   /// its roster and signals arrive; the caller then joins it like any room.
@@ -428,11 +447,25 @@ final class VoiceController extends ChangeNotifier {
   /// Takes the ringing call: the room is resolved (and held) so the caller
   /// can open and join it. Joining through the invite ref credits the
   /// caller, the same as joining from the notification link.
-  Future<({String siteUrl, VoiceRoom room})?> acceptIncomingCall() async {
+  Future<({String siteUrl, VoiceRoom room})?> acceptIncomingCall({
+    bool fromSystem = false,
+  }) async {
     final incoming = _incomingCall;
     if (incoming == null) return null;
+    final presented = _incomingCallSystemPresented;
     _clearIncomingCall();
-    _record('call.ring.answered', data: {'roomId': incoming.call.roomId});
+    _record(
+      'call.ring.answered',
+      data: {'roomId': incoming.call.roomId, 'fromSystem': fromSystem},
+    );
+    if (presented && !fromSystem) {
+      // The system is still ringing; its call becomes the active one so the
+      // join below does not place a second call.
+      await _runHandled(
+        systemCall.answerIncomingCall,
+        'voice.systemCall.answerIncoming',
+      );
+    }
     rememberInviteRef(
       siteUrl: incoming.siteUrl,
       roomSlug: incoming.call.roomSlug,
@@ -443,18 +476,116 @@ final class VoiceController extends ChangeNotifier {
     return (siteUrl: incoming.siteUrl, room: room);
   }
 
-  void declineIncomingCall() {
+  void declineIncomingCall({bool fromSystem = false}) {
     final incoming = _incomingCall;
     if (incoming == null) return;
-    _record('call.ring.declined', data: {'roomId': incoming.call.roomId});
+    final presented = _incomingCallSystemPresented;
+    _record(
+      'call.ring.declined',
+      data: {'roomId': incoming.call.roomId, 'fromSystem': fromSystem},
+    );
     _clearIncomingCall();
+    if (presented && !fromSystem) {
+      _observe(
+        systemCall.declineIncomingCall,
+        'voice.systemCall.declineIncoming',
+      );
+    }
     notifyListeners();
   }
 
-  void _clearIncomingCall() {
+  /// Forgets the ring locally. [tellSystem] ends the system's presentation
+  /// with that reason when it was ringing too; the answer and decline paths
+  /// settle the system call themselves.
+  void _clearIncomingCall({VoiceIncomingCallEndReason? tellSystem}) {
     _incomingCallExpiry?.cancel();
     _incomingCallExpiry = null;
     _incomingCall = null;
+    final presented = _incomingCallSystemPresented;
+    _incomingCallSystemPresented = false;
+    if (presented && tellSystem != null) {
+      _observe(
+        () => systemCall.endIncomingCall(tellSystem),
+        'voice.systemCall.endIncoming',
+      );
+    }
+  }
+
+  /// A ring the system may present too: the phone rings with the system
+  /// ringtone and on the lock screen, and answering or declining there
+  /// comes back as a system action. When the system declines to (no
+  /// system call UI on this platform, a call already up, the ring already
+  /// over), the app's own banner stays.
+  Future<void> _presentIncomingCall(
+    String siteUrl,
+    VoiceIncomingCall call,
+  ) async {
+    final caller = call.caller;
+    final presented = await _runHandledValue(
+      () => systemCall.reportIncomingCall(
+        callerName: caller.name ?? caller.username,
+        roomName: call.roomName,
+        handle: caller.username,
+      ),
+      'voice.systemCall.reportIncoming',
+      fallback: false,
+    );
+    if (_disposed) return;
+    final current = _incomingCall;
+    if (current == null ||
+        current.siteUrl != siteUrl ||
+        current.call.key != call.key) {
+      // The ring ended (or was replaced) while the system was being asked.
+      if (presented) {
+        _observe(
+          () =>
+              systemCall.endIncomingCall(VoiceIncomingCallEndReason.unanswered),
+          'voice.systemCall.endIncoming',
+        );
+      }
+      return;
+    }
+    _record(
+      'call.ring.system_presentation',
+      data: {'roomId': call.roomId, 'presented': presented},
+    );
+    if (presented != _incomingCallSystemPresented) {
+      _incomingCallSystemPresented = presented;
+      notifyListeners();
+    }
+  }
+
+  /// The user answered from the system's call UI. There is no app surface
+  /// to ask anything on (the app may be behind the lock screen), so the
+  /// join proceeds directly; a peer-to-peer privacy warning the site would
+  /// have shown before a join is said afterwards instead.
+  Future<void> _answerFromSystem() async {
+    final accepted = await acceptIncomingCall(fromSystem: true);
+    if (accepted == null) {
+      _record(
+        'call.ring.system_answer.unresolved',
+        severity: DiagnosticSeverity.warning,
+      );
+      await _runHandled(systemCall.failed, 'voice.systemCall.failed');
+      return;
+    }
+    final (:siteUrl, :room) = accepted;
+    _onIncomingCallAnswered?.call(siteUrl, room);
+    if ((_meshPrivacyWarningEnabledFor?.call(siteUrl) ?? false) &&
+        room.expectedTransport == VoiceTransport.mesh &&
+        !await meshPrivacyAcknowledged()) {
+      _notify(
+        siteUrl,
+        room.id,
+        'This call connects participants directly, so other participants '
+        'may be able to see your IP address.',
+      );
+    }
+    await join(
+      siteUrl: siteUrl,
+      siteName: _siteNameFor?.call(siteUrl) ?? siteUrl,
+      room: room,
+    );
   }
 
   /// A ring for this user. Rings replayed from a message-bus backlog after
@@ -483,16 +614,17 @@ final class VoiceController extends ChangeNotifier {
     }
     if (!_handledRings.add(call.key)) return;
     if (_handledRings.length > 50) _handledRings.remove(_handledRings.first);
-    _clearIncomingCall();
+    _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     _incomingCall = (siteUrl: siteUrl, call: call);
     _incomingCallExpiry = _timerFactory(remaining, () {
       _incomingCallExpiry = null;
       if (_incomingCall?.call.key != call.key) return;
       _record('call.ring.expired', data: {'roomId': call.roomId});
-      _incomingCall = null;
+      _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
       if (!_disposed) notifyListeners();
     });
     notifyListeners();
+    unawaited(_presentIncomingCall(siteUrl, call));
   }
 
   void _notify(String siteUrl, int roomId, String message) {
@@ -776,7 +908,9 @@ final class VoiceController extends ChangeNotifier {
     for (final entry in _chats.entries) {
       if (entry.key.startsWith('$siteUrl#')) _unwatchChatUpdates(entry.value);
     }
-    if (_incomingCall?.siteUrl == siteUrl) _clearIncomingCall();
+    if (_incomingCall?.siteUrl == siteUrl) {
+      _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
+    }
     for (final subscription
         in _roomSubscriptions.remove(siteUrl)?.values ??
             const <PluginLiveChannelSubscription>[]) {
@@ -1811,7 +1945,9 @@ final class VoiceController extends ChangeNotifier {
       media.addListener(_mediaChanged);
       if (_incomingCall case final incoming?
           when incoming.siteUrl == siteUrl && incoming.call.roomId == room.id) {
-        _clearIncomingCall();
+        _clearIncomingCall(
+          tellSystem: VoiceIncomingCallEndReason.answeredElsewhere,
+        );
       }
       _call = VoiceCallSnapshot(
         siteUrl: siteUrl,
@@ -3868,6 +4004,10 @@ final class VoiceController extends ChangeNotifier {
           ),
           'voice.systemAction.end',
         );
+      case VoiceSystemCallAction.answer:
+        _observe(_answerFromSystem, 'voice.systemAction.answer');
+      case VoiceSystemCallAction.decline:
+        declineIncomingCall(fromSystem: true);
     }
   }
 
@@ -4084,6 +4224,19 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
+  Future<T> _runHandledValue<T>(
+    Future<T> Function() action,
+    String operation, {
+    required T fallback,
+  }) async {
+    try {
+      return await action();
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, operation);
+      return fallback;
+    }
+  }
+
   Future<void> _runPublicOperation(
     Future<void> Function() action,
     String operation, {
@@ -4176,7 +4329,7 @@ final class VoiceController extends ChangeNotifier {
     _directorySubscriptions.clear();
     _ringSubscriptions.clear();
     _roomSubscriptions.clear();
-    _clearIncomingCall();
+    _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     return Future.wait([
       for (final subscription in subscriptions)
         _cancelSubscription(subscription),

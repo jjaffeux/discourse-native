@@ -9,7 +9,25 @@ import 'package:livekit_client/livekit_client.dart';
 
 import 'voice_diagnostics.dart';
 
-enum VoiceSystemCallAction { mute, unmute, end }
+/// `answer` and `decline` are the user acting on a ring the system
+/// presented; the others concern the active call.
+enum VoiceSystemCallAction { mute, unmute, end, answer, decline }
+
+/// Why a ring the system was presenting ended without the user acting on
+/// it there.
+enum VoiceIncomingCallEndReason {
+  /// The ring ran out.
+  unanswered,
+
+  /// The user joined the call some other way (a notification link, the
+  /// app's own banner) while the system was still ringing.
+  answeredElsewhere;
+
+  String get wireName => switch (this) {
+    VoiceIncomingCallEndReason.unanswered => 'unanswered',
+    VoiceIncomingCallEndReason.answeredElsewhere => 'answered_elsewhere',
+  };
+}
 
 abstract interface class VoiceSystemCall {
   Stream<VoiceSystemCallAction> get actions;
@@ -18,6 +36,26 @@ abstract interface class VoiceSystemCall {
   Future<void> failed();
   Future<void> setMuted(bool muted);
   Future<void> end();
+
+  /// Asks the system to ring for a direct call. Answers whether it will:
+  /// false on platforms without a system call UI, while another call is
+  /// up, or when the system refused, so the caller shows its own ring.
+  Future<bool> reportIncomingCall({
+    required String callerName,
+    required String roomName,
+    required String handle,
+  });
+
+  /// The user answered the ring from the app's own UI while the system was
+  /// presenting it; the system call becomes the active one.
+  Future<void> answerIncomingCall();
+
+  /// The user declined from the app's own UI.
+  Future<void> declineIncomingCall();
+
+  /// The ring ended without the user acting on the system's presentation.
+  Future<void> endIncomingCall(VoiceIncomingCallEndReason reason);
+
   Future<void> dispose();
 }
 
@@ -228,6 +266,8 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
       'mute' => VoiceSystemCallAction.mute,
       'unmute' => VoiceSystemCallAction.unmute,
       'end' => VoiceSystemCallAction.end,
+      'answer' => VoiceSystemCallAction.answer,
+      'decline' => VoiceSystemCallAction.decline,
       _ => null,
     };
     if (action != null && !_actions.isClosed) {
@@ -270,15 +310,21 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
     if (key == 'errorCode' && value is num) return value;
     if (key == 'action' &&
         value is String &&
-        const {'start', 'mute', 'end', 'unknown'}.contains(value)) {
+        const {'start', 'answer', 'mute', 'end', 'unknown'}.contains(value)) {
       return value;
     }
     if (key == 'reason' &&
         value is String &&
         const {
           'no_active_call',
+          'no_incoming_call',
           'already_in_state',
+          'already_ringing',
+          'call_active',
+          'incoming_call',
           'stale_call',
+          'unanswered',
+          'answered_elsewhere',
         }.contains(value)) {
       return value;
     }
@@ -351,6 +397,64 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
 
   @override
   Future<void> end() => _invoke('end');
+
+  @override
+  Future<bool> reportIncomingCall({
+    required String callerName,
+    required String roomName,
+    required String handle,
+  }) async {
+    if (!Platform.isIOS) {
+      _record(
+        'callkit.command.skipped',
+        data: {'method': 'reportIncomingCall'},
+      );
+      return false;
+    }
+    _record('callkit.command.started', data: {'method': 'reportIncomingCall'});
+    try {
+      await _awaitReady();
+      final presented = await _channel.invokeMethod<bool>(
+        'reportIncomingCall',
+        {'callerName': callerName, 'roomName': roomName, 'handle': handle},
+      );
+      _record(
+        'callkit.command.completed',
+        data: {'method': 'reportIncomingCall', 'presented': presented == true},
+      );
+      return presented == true;
+    } catch (error, stackTrace) {
+      // Not presenting is a fallback, not a failure: the app rings itself.
+      _record(
+        'callkit.command.failed',
+        severity: DiagnosticSeverity.warning,
+        data: {
+          'method': 'reportIncomingCall',
+          'errorType': error.runtimeType.toString(),
+        },
+      );
+      _recordRaw(
+        'callkit.command.failure_detail',
+        severity: DiagnosticSeverity.warning,
+        message: error.toString(),
+        data: {
+          'method': 'reportIncomingCall',
+          'stackTrace': stackTrace.toString(),
+        },
+      );
+      return false;
+    }
+  }
+
+  @override
+  Future<void> answerIncomingCall() => _invoke('answerIncomingCall');
+
+  @override
+  Future<void> declineIncomingCall() => _invoke('declineIncomingCall');
+
+  @override
+  Future<void> endIncomingCall(VoiceIncomingCallEndReason reason) =>
+      _invoke('endIncomingCall', {'reason': reason.wireName});
 
   @override
   Future<void> dispose() {

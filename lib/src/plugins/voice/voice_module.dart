@@ -53,7 +53,13 @@ final class VoiceModule implements PluginModule {
         final retention = _VoiceBackgroundRetention(
           bindings.require(corePluginBackgroundRetentionPort),
         );
+        final host = bindings.require(corePluginRouteNavigationPort);
+        bool meshPrivacyWarningEnabled(String siteUrl) => siteState
+            .siteConfigFor(siteUrl)
+            .voiceSettings
+            .meshPrivacyWarningEnabled;
         late final VoiceController controller;
+        late final VoiceShellService shell;
         controller = VoiceController(
           api: VoiceApi(transport),
           chatConversations: dependencies.require(chatConversationService),
@@ -67,18 +73,30 @@ final class VoiceModule implements PluginModule {
           idleThresholdsFor: (siteUrl) => voiceIdleThresholds(
             siteState.siteConfigFor(siteUrl).voiceSettings,
           ),
+          siteNameFor: (siteUrl) => host.sites
+              .where((site) => site.url == siteUrl)
+              .firstOrNull
+              ?.title,
+          meshPrivacyWarningEnabledFor: meshPrivacyWarningEnabled,
+          // A call answered from the system's UI lands on its room page
+          // when the app is next in front.
+          onIncomingCallAnswered: (siteUrl, room) => shell.openRoom(
+            siteUrl: siteUrl,
+            route: ContentRoute(
+              id: VoicePlugin.routeId(room.id),
+              title: room.name,
+              icon: DIcons.microphoneLines,
+            ),
+          ),
           diagnostics: diagnostics ?? const NoopVoiceDiagnosticsRecorder(),
           reporter: bindings.require(pluginDiagnosticsReporterPort),
         );
-        final shell = VoiceShellService(
+        shell = VoiceShellService(
           controller: controller,
-          host: bindings.require(corePluginRouteNavigationPort),
+          host: host,
           recordingEnabled: (siteUrl) =>
               siteState.siteConfigFor(siteUrl).voiceSettings.recordingEnabled,
-          meshPrivacyWarningEnabled: (siteUrl) => siteState
-              .siteConfigFor(siteUrl)
-              .voiceSettings
-              .meshPrivacyWarningEnabled,
+          meshPrivacyWarningEnabled: meshPrivacyWarningEnabled,
           autoStatusEnabled: (siteUrl) =>
               siteState.siteConfigFor(siteUrl).voiceSettings.autoStatusEnabled,
           currentUsername: (siteUrl) =>

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
@@ -139,6 +140,47 @@ void main() {
       );
     },
   );
+
+  test('system answer and decline arrive as call actions', () async {
+    final systemCall = NativeVoiceSystemCall(
+      installMethodCallHandlerForTesting: true,
+    );
+    addTearDown(systemCall.dispose);
+    final actions = <VoiceSystemCallAction>[];
+    systemCall.actions.listen(actions.add);
+
+    await systemCall.handleNativeMethodCall(const MethodCall('answer'));
+    await systemCall.handleNativeMethodCall(const MethodCall('decline'));
+    await systemCall.handleNativeMethodCall(const MethodCall('end'));
+    await pumpEventQueue();
+
+    expect(actions, [
+      VoiceSystemCallAction.answer,
+      VoiceSystemCallAction.decline,
+      VoiceSystemCallAction.end,
+    ]);
+  });
+
+  test('a ring is not presented where there is no system call UI', () async {
+    final diagnostics = _DiagnosticsRecorder();
+    final systemCall = NativeVoiceSystemCall(diagnostics: diagnostics);
+    addTearDown(systemCall.dispose);
+
+    expect(
+      await systemCall.reportIncomingCall(
+        callerName: 'Kim',
+        roomName: 'Call',
+        handle: 'kim',
+      ),
+      isFalse,
+    );
+    expect(
+      diagnostics.records
+          .singleWhere((record) => record.event == 'callkit.command.skipped')
+          .data,
+      {'method': 'reportIncomingCall'},
+    );
+  }, skip: Platform.isIOS ? 'exercises the non-iOS fallback' : false);
 
   test('a delayed old dispose cannot clear the new CallKit handler', () async {
     final oldDiagnostics = _DiagnosticsRecorder();

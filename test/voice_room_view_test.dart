@@ -1520,6 +1520,65 @@ void _directCallTests() {
       expect(find.text('is calling you…'), findsNothing);
       harness.dispose();
     });
+
+    testWidgets('the banner stays out of the way while the system rings', (
+      tester,
+    ) async {
+      final tracker = RecordingPluginLiveChannels();
+      final transport = RecordingPluginTransport(
+        responses: {
+          'GET /voice/rooms.json': const {
+            'rooms': <Object?>[],
+            'can_create_room': false,
+          },
+        },
+      );
+      final harness = _Harness(
+        discourseApi: transport,
+        tracker: tracker,
+        systemCall: _SystemCall(presentsIncomingCalls: true),
+      );
+      addTearDown(harness.dispose);
+      final shell = VoiceShellService(
+        controller: harness.controller,
+        host: _RouteHost(
+          const PluginRouteSite(
+            url: _siteUrl,
+            title: 'Voice',
+            isConnected: true,
+          ),
+        ),
+        recordingEnabled: (_) => false,
+      );
+      await harness.controller.ensureLoaded(_siteUrl);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceIncomingCallBanner(
+              controller: harness.controller,
+              shell: shell,
+            ),
+          ),
+        ),
+      );
+
+      tracker.deliver('/voice/call-ring/1', {
+        'room_id': 9,
+        'room_slug': 'call-1a2b',
+        'room_name': '📞 kim + sam',
+        'caller_username': 'kim',
+        'caller_name': 'Kim',
+        'sent_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        'ring_seconds': 60,
+      });
+      await tester.pump();
+      await tester.pump();
+
+      expect(harness.controller.incomingCallHandledBySystem, isTrue);
+      expect(find.text('is calling you…'), findsNothing);
+      harness.controller.declineIncomingCall();
+      await tester.pump();
+    });
   });
 }
 
@@ -1939,6 +1998,7 @@ final class _Harness {
     _Preferences? preferences,
     FakeChatConversationCapability? chatConversations,
     RecordingPluginLiveChannels? tracker,
+    _SystemCall? systemCall,
   }) : preferences = preferences ?? _Preferences(),
        chatConversations =
            chatConversations ?? FakeChatConversationCapability(),
@@ -1982,7 +2042,7 @@ final class _Harness {
       userIdFor: (_) => 1,
       onCallSiteChanged: () {},
       mediaFactory: media,
-      systemCall: _SystemCall(),
+      systemCall: systemCall ?? _SystemCall(),
       preferences: this.preferences,
       heartbeatInterval: const Duration(days: 1),
     );
@@ -2304,11 +2364,28 @@ final class _Preferences implements VoicePreferences {
 }
 
 final class _SystemCall implements VoiceSystemCall {
+  _SystemCall({this.presentsIncomingCalls = false});
+
+  final bool presentsIncomingCalls;
   final StreamController<VoiceSystemCallAction> _actions =
       StreamController.broadcast();
 
+  void send(VoiceSystemCallAction action) => _actions.add(action);
+
   @override
   Stream<VoiceSystemCallAction> get actions => _actions.stream;
+  @override
+  Future<bool> reportIncomingCall({
+    required String callerName,
+    required String roomName,
+    required String handle,
+  }) async => presentsIncomingCalls;
+  @override
+  Future<void> answerIncomingCall() async {}
+  @override
+  Future<void> declineIncomingCall() async {}
+  @override
+  Future<void> endIncomingCall(VoiceIncomingCallEndReason reason) async {}
   @override
   Future<void> connected() async {}
   @override

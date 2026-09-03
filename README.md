@@ -1745,9 +1745,21 @@ acknowledged. Cancelling touches no join state.
 viewer may call that user (`voice_can_call`, serializer presence as the
 gate). A ring is offered only within its window, once, and not for the room
 the user is already in; answering joins through the invite ref so the caller
-is credited. CallKit's incoming-call presentation is not wired: the bridge
-reports outgoing calls only, so a ring while the app is closed still arrives
-as the plugin's push notification.
+is credited.
+
+On iOS the ring is also handed to CallKit, so the phone rings with the
+system ringtone and on the lock screen, and the answer or decline comes back
+as a system action. The app's own banner steps aside while the system rings
+and returns when the system declines to (another call up, CallKit refusing).
+Answering from the system UI joins directly — there is no app surface to ask
+on behind the lock screen — so a peer-to-peer privacy warning the site would
+have shown before the join is said afterwards. Joining the ringing room some
+other way ends the system's ring as answered elsewhere, and an expired ring
+as unanswered. The bridge holds one CallKit call: a join that follows a
+system answer reuses it rather than placing an outgoing call. The reach is
+the app's: rings arrive over MessageBus, so a phone whose app iOS has
+already suspended is still reached by the plugin's push notification, not
+by CallKit — that would take a VoIP push the server does not send.
 
 Invites, the recording banner everyone sees, stage role changes from the
 participant tile, the auto-status choice, the chat session following the

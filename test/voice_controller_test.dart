@@ -515,7 +515,9 @@ final class FakeVoiceSystemCall implements VoiceSystemCall {
   }
 
   @override
-  Future<void> failed() async {}
+  Future<void> failed() async {
+    failures++;
+  }
 
   @override
   Future<void> setMuted(bool muted) async => systemMuted = muted;
@@ -526,6 +528,43 @@ final class FakeVoiceSystemCall implements VoiceSystemCall {
     required String siteName,
   }) async {
     starts++;
+  }
+
+  int failures = 0;
+  bool presentsIncomingCalls = false;
+  Object? reportIncomingFailure;
+  Completer<void>? reportIncomingGate;
+  final List<({String callerName, String roomName, String handle})>
+  reportedIncomingCalls = [];
+  int incomingAnswers = 0;
+  int incomingDeclines = 0;
+  final List<VoiceIncomingCallEndReason> incomingEnds = [];
+
+  @override
+  Future<bool> reportIncomingCall({
+    required String callerName,
+    required String roomName,
+    required String handle,
+  }) async {
+    reportedIncomingCalls.add((
+      callerName: callerName,
+      roomName: roomName,
+      handle: handle,
+    ));
+    await reportIncomingGate?.future;
+    if (reportIncomingFailure case final failure?) throw failure;
+    return presentsIncomingCalls;
+  }
+
+  @override
+  Future<void> answerIncomingCall() async => incomingAnswers++;
+
+  @override
+  Future<void> declineIncomingCall() async => incomingDeclines++;
+
+  @override
+  Future<void> endIncomingCall(VoiceIncomingCallEndReason reason) async {
+    incomingEnds.add(reason);
   }
 }
 
@@ -4288,6 +4327,8 @@ void main() {
         disconnect: const Duration(minutes: 30),
       );
       controller.dispose();
+      systemCall = FakeVoiceSystemCall();
+      mediaFactory = FakeVoiceMediaFactory();
       transport.responses['POST /voice/rooms/7/join.json'] = fixture(
         'join_mesh',
       );
@@ -4543,6 +4584,8 @@ void main() {
     late ManualScheduler scheduler;
     final ringSentAt = DateTime.utc(2026, 8, 8, 16);
     var now = DateTime.utc(2026, 8, 8, 16, 0, 10);
+    var meshPrivacyWarning = false;
+    final answeredRooms = <({String siteUrl, int roomId})>[];
 
     Map<String, dynamic> callRoom() => {
       'id': 9,
@@ -4577,7 +4620,12 @@ void main() {
     setUp(() {
       scheduler = ManualScheduler();
       now = DateTime.utc(2026, 8, 8, 16, 0, 10);
+      meshPrivacyWarning = false;
+      answeredRooms.clear();
       controller.dispose();
+      // Disposing the controller disposed the fakes it owned.
+      systemCall = FakeVoiceSystemCall();
+      mediaFactory = FakeVoiceMediaFactory();
       transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
       transport.responses['POST /voice/calls.json'] = {'room': callRoom()};
       transport.responses['POST /voice/rooms/9/join.json'] = {
@@ -4600,6 +4648,10 @@ void main() {
         preferences: preferences,
         timerFactory: scheduler.createTimer,
         clock: () => now,
+        siteNameFor: (_) => 'One',
+        meshPrivacyWarningEnabledFor: (_) => meshPrivacyWarning,
+        onIncomingCallAnswered: (siteUrl, room) =>
+            answeredRooms.add((siteUrl: siteUrl, roomId: room.id)),
         heartbeatInterval: const Duration(days: 1),
         signalBatchDelay: Duration.zero,
       );
@@ -4756,6 +4808,172 @@ void main() {
         ),
       );
       expect(controller.room(firstSite, 9), isNull);
+    });
+
+    group('through the system call UI', () {
+      test("a ring is offered to the system with the caller's name", () async {
+        await controller.ensureLoaded(firstSite);
+
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        expect(systemCall.reportedIncomingCalls, [
+          (callerName: 'Kim', roomName: '📞 kim + sam', handle: 'kim'),
+        ]);
+        expect(controller.incomingCallHandledBySystem, isFalse);
+        expect(controller.incomingCall, isNotNull);
+      });
+
+      test("the app's own banner yields to a system presentation", () async {
+        systemCall.presentsIncomingCalls = true;
+        await controller.ensureLoaded(firstSite);
+        var notifications = 0;
+        controller.addListener(() => notifications++);
+
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        expect(controller.incomingCallHandledBySystem, isFalse);
+        await pumpEventQueue();
+
+        expect(controller.incomingCallHandledBySystem, isTrue);
+        expect(notifications, 2);
+
+        scheduler.advance(const Duration(seconds: 50));
+        expect(controller.incomingCall, isNull);
+        expect(systemCall.incomingEnds, [
+          VoiceIncomingCallEndReason.unanswered,
+        ]);
+      });
+
+      test("a system refusal keeps the app's banner", () async {
+        systemCall.reportIncomingFailure = StateError('CallKit unavailable');
+        await controller.ensureLoaded(firstSite);
+
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        expect(controller.incomingCall, isNotNull);
+        expect(controller.incomingCallHandledBySystem, isFalse);
+      });
+
+      test('a ring that ends before the system answers is withdrawn', () async {
+        systemCall
+          ..presentsIncomingCalls = true
+          ..reportIncomingGate = Completer<void>();
+        await controller.ensureLoaded(firstSite);
+
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        controller.declineIncomingCall();
+        systemCall.reportIncomingGate!.complete();
+        await pumpEventQueue();
+
+        expect(controller.incomingCallHandledBySystem, isFalse);
+        expect(systemCall.incomingDeclines, 0);
+        expect(systemCall.incomingEnds, [
+          VoiceIncomingCallEndReason.unanswered,
+        ]);
+      });
+
+      test('declining in the app declines the system call', () async {
+        systemCall.presentsIncomingCalls = true;
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        controller.declineIncomingCall();
+        await pumpEventQueue();
+
+        expect(controller.incomingCall, isNull);
+        expect(systemCall.incomingDeclines, 1);
+        expect(systemCall.incomingEnds, isEmpty);
+      });
+
+      test('a decline from the system is not echoed back', () async {
+        systemCall.presentsIncomingCalls = true;
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        systemCall.send(VoiceSystemCallAction.decline);
+        await pumpEventQueue();
+
+        expect(controller.incomingCall, isNull);
+        expect(systemCall.incomingDeclines, 0);
+        expect(systemCall.incomingEnds, isEmpty);
+      });
+
+      test('answering in the app answers the system call first', () async {
+        systemCall.presentsIncomingCalls = true;
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        final accepted = await controller.acceptIncomingCall();
+
+        expect(accepted?.room.id, 9);
+        expect(systemCall.incomingAnswers, 1);
+        expect(systemCall.incomingEnds, isEmpty);
+      });
+
+      test('an answer from the system joins the call directly', () async {
+        systemCall.presentsIncomingCalls = true;
+        meshPrivacyWarning = true;
+        transport.responses['GET /voice/rooms/call-1a2b.json'] = {
+          ...callRoom(),
+          'expected_transport': 'mesh',
+        };
+        await controller.ensureLoaded(firstSite);
+        final notices = <VoiceNotice>[];
+        controller.notices.listen(notices.add);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        systemCall.send(VoiceSystemCallAction.answer);
+        await pumpEventQueue();
+        await pumpEventQueue();
+
+        expect(controller.call?.room.id, 9);
+        expect(controller.call?.siteName, 'One');
+        expect(answeredRooms, [(siteUrl: firstSite, roomId: 9)]);
+        expect(systemCall.incomingAnswers, 0);
+        expect(systemCall.starts, 1);
+        expect(systemCall.incomingEnds, isEmpty);
+        final join = transport.writes.singleWhere(
+          (write) => write.path.endsWith('/join.json'),
+        );
+        expect(join.body['invited_by'], 'kim');
+        expect(notices.map((notice) => notice.message), [
+          'This call connects participants directly, so other participants '
+              'may be able to see your IP address.',
+        ]);
+      });
+
+      test(
+        'a system answer with nothing ringing fails the system call',
+        () async {
+          await controller.ensureLoaded(firstSite);
+
+          systemCall.send(VoiceSystemCallAction.answer);
+          await pumpEventQueue();
+
+          expect(systemCall.failures, 1);
+          expect(controller.call, isNull);
+        },
+      );
+
+      test('joining the ringing room another way tells the system', () async {
+        systemCall.presentsIncomingCalls = true;
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+
+        final room = await controller.resolveRoom(firstSite, 'call-1a2b');
+        await controller.join(siteUrl: firstSite, siteName: 'One', room: room!);
+
+        expect(controller.incomingCall, isNull);
+        expect(systemCall.incomingEnds, [
+          VoiceIncomingCallEndReason.answeredElsewhere,
+        ]);
+      });
     });
   });
 

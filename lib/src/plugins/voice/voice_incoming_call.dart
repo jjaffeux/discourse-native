@@ -46,7 +46,11 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
     builder: (context, _) {
       final call = widget.controller.incomingCall;
       final siteUrl = widget.controller.incomingCallSiteUrl;
-      if (call == null || siteUrl == null) return const SizedBox.shrink();
+      if (call == null ||
+          siteUrl == null ||
+          widget.controller.incomingCallHandledBySystem) {
+        return const SizedBox.shrink();
+      }
       final theme = Theme.of(context);
       final caller = call.caller;
       return SafeArea(

@@ -14,7 +14,6 @@ const voiceShellService = PluginServiceKey<VoiceShellService>(
 );
 
 typedef VoiceRecordingEnabledReader = bool Function(String siteUrl);
-typedef VoiceSiteFlagReader = bool Function(String siteUrl);
 typedef VoiceUsernameReader = String? Function(String siteUrl);
 
 String? _noUsername(String _) => null;

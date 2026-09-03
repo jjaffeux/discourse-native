@@ -23,8 +23,10 @@ public final class DiscourseVoicePlugin: NSObject, FlutterPlugin {
 
 final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
   typealias TransactionRequester = (CXAction, @escaping (Error?) -> Void) -> Void
+  typealias IncomingCallReporter = (UUID, CXCallUpdate, @escaping (Error?) -> Void) -> Void
 
   private let requestTransaction: TransactionRequester
+  private let reportIncomingCall: IncomingCallReporter
   private let reportOutgoingCallStarted: (UUID) -> Void
   private let reportOutgoingCallConnected: (UUID) -> Void
   private let reportCallEnded: (UUID, CXCallEndedReason) -> Void
@@ -32,6 +34,14 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
   private let emitDiagnosticEvent: (String, [String: Any]) -> Void
   private let configureAudioSession: () throws -> Void
   private var activeCall: UUID?
+  /// The call CallKit is ringing (or has answered) for this user. Dart's
+  /// `start` reuses it instead of placing a second, outgoing call, and
+  /// `connected` must not report it as an outgoing call that connected.
+  private var incomingCall: UUID?
+  private var incomingAnswered = false
+  /// Set when Dart answered from its own UI: CallKit's answer action then
+  /// confirms a choice Dart already acted on, and must not be echoed back.
+  private var answerRequestedLocally = false
   private var muted = false
   private var pendingEndResults: [UUID: [FlutterResult]] = [:]
 
@@ -51,6 +61,9 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
     self.init(
       requestTransaction: { action, completion in
         controller.request(CXTransaction(action: action), completion: completion)
+      },
+      reportIncomingCall: { uuid, update, completion in
+        provider.reportNewIncomingCall(with: uuid, update: update, completion: completion)
       },
       reportOutgoingCallStarted: { uuid in
         provider.reportOutgoingCall(with: uuid, startedConnectingAt: Date())
@@ -89,6 +102,7 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
 
   init(
     requestTransaction: @escaping TransactionRequester,
+    reportIncomingCall: @escaping IncomingCallReporter = { _, _, completion in completion(nil) },
     reportOutgoingCallStarted: @escaping (UUID) -> Void = { _ in },
     reportOutgoingCallConnected: @escaping (UUID) -> Void = { _ in },
     reportCallEnded: @escaping (UUID, CXCallEndedReason) -> Void = { _, _ in },
@@ -97,6 +111,7 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
     configureAudioSession: @escaping () throws -> Void = {}
   ) {
     self.requestTransaction = requestTransaction
+    self.reportIncomingCall = reportIncomingCall
     self.reportOutgoingCallStarted = reportOutgoingCallStarted
     self.reportOutgoingCallConnected = reportOutgoingCallConnected
     self.reportCallEnded = reportCallEnded
@@ -109,6 +124,15 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "start":
+      // Joining the call CallKit is already ringing (or has answered):
+      // the system call exists, so there is nothing to place.
+      if let uuid = incomingCall {
+        activeCall = uuid
+        muted = false
+        emitDiagnostic("callkit.start.reused_incoming")
+        result(nil)
+        return
+      }
       let arguments = call.arguments as? [String: Any]
       let roomName = arguments?["roomName"] as? String ?? "Voice room"
       let uuid = UUID()
@@ -123,14 +147,63 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
       request(action, result: result)
     case "connected":
       if let uuid = activeCall {
-        reportOutgoingCallConnected(uuid)
-        emitDiagnostic("callkit.connected.reported")
+        if uuid == incomingCall {
+          // An answered incoming call is connected from CallKit's point of
+          // view once its answer action was fulfilled.
+          emitDiagnostic("callkit.connected.skipped", data: ["reason": "incoming_call"])
+        } else {
+          reportOutgoingCallConnected(uuid)
+          emitDiagnostic("callkit.connected.reported")
+        }
       } else {
         emitDiagnostic(
           "callkit.connected.skipped",
           data: ["reason": "no_active_call"]
         )
       }
+      result(nil)
+    case "reportIncomingCall":
+      handleReportIncomingCall(call.arguments as? [String: Any], result: result)
+    case "answerIncomingCall":
+      guard let uuid = incomingCall, !incomingAnswered else {
+        emitDiagnostic(
+          "callkit.answer.skipped",
+          data: ["reason": incomingCall == nil ? "no_incoming_call" : "already_in_state"]
+        )
+        result(nil)
+        return
+      }
+      answerRequestedLocally = true
+      request(CXAnswerCallAction(call: uuid), result: result)
+    case "declineIncomingCall":
+      guard let uuid = incomingCall, !incomingAnswered else {
+        emitDiagnostic(
+          "callkit.decline.skipped",
+          data: ["reason": incomingCall == nil ? "no_incoming_call" : "already_in_state"]
+        )
+        result(nil)
+        return
+      }
+      requestEnd(call: uuid, result: result)
+    case "endIncomingCall":
+      guard let uuid = incomingCall, !incomingAnswered else {
+        emitDiagnostic(
+          "callkit.incoming_end.skipped",
+          data: ["reason": incomingCall == nil ? "no_incoming_call" : "already_in_state"]
+        )
+        result(nil)
+        return
+      }
+      let arguments = call.arguments as? [String: Any]
+      let reason = arguments?["reason"] as? String ?? "unanswered"
+      let ended: CXCallEndedReason = reason == "answered_elsewhere" ? .answeredElsewhere : .unanswered
+      reportCallEnded(uuid, ended)
+      clearIncomingCall()
+      if activeCall == uuid {
+        activeCall = nil
+        muted = false
+      }
+      emitDiagnostic("callkit.incoming_end.reported", data: ["reason": reason])
       result(nil)
     case "failed":
       emitDiagnostic("callkit.failed.reported")
@@ -166,6 +239,60 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  /// Rings the user through the system: the phone rings with the system
+  /// ringtone, on the lock screen too, and the answer arrives as a provider
+  /// action. Answers `false` when the system would not present it (a call
+  /// already up, Do Not Disturb filtering, CallKit unavailable) so Dart
+  /// can fall back to its own banner.
+  private func handleReportIncomingCall(
+    _ arguments: [String: Any]?,
+    result: @escaping FlutterResult
+  ) {
+    guard incomingCall == nil, activeCall == nil else {
+      emitDiagnostic(
+        "callkit.incoming.skipped",
+        data: ["reason": incomingCall == nil ? "call_active" : "already_ringing"]
+      )
+      result(false)
+      return
+    }
+    let callerName = arguments?["callerName"] as? String ?? "Voice call"
+    let handle = arguments?["handle"] as? String ?? callerName
+    let uuid = UUID()
+    let update = CXCallUpdate()
+    update.remoteHandle = CXHandle(type: .generic, value: handle)
+    update.localizedCallerName = callerName
+    update.hasVideo = false
+    update.supportsDTMF = false
+    update.supportsHolding = false
+    update.supportsGrouping = false
+    update.supportsUngrouping = false
+    incomingCall = uuid
+    incomingAnswered = false
+    answerRequestedLocally = false
+    emitDiagnostic("callkit.incoming.requested")
+    reportIncomingCall(uuid, update) { error in
+      DispatchQueue.main.async {
+        if let error {
+          if self.incomingCall == uuid {
+            self.clearIncomingCall()
+          }
+          self.emitDiagnostic("callkit.incoming.failed", data: self.errorData(error))
+          result(false)
+        } else {
+          self.emitDiagnostic("callkit.incoming.presented")
+          result(true)
+        }
+      }
+    }
+  }
+
+  private func clearIncomingCall() {
+    incomingCall = nil
+    incomingAnswered = false
+    answerRequestedLocally = false
   }
 
   private func request(_ action: CXAction, result: @escaping FlutterResult) {
@@ -262,6 +389,9 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
     reportCallEnded(uuid, reason)
     activeCall = nil
     muted = false
+    if incomingCall == uuid {
+      clearIncomingCall()
+    }
   }
 
   func providerDidReset(_ provider: CXProvider) {
@@ -269,11 +399,51 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
   }
 
   func handleProviderReset() {
+    let unansweredIncoming = incomingCall != nil && !incomingAnswered
     activeCall = nil
     muted = false
+    clearIncomingCall()
     completeAllPendingEnds()
     emitDiagnostic("callkit.provider.reset")
-    emitMethod("end")
+    emitMethod(unansweredIncoming ? "decline" : "end")
+  }
+
+  func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+    handleAnswerAction(action)
+  }
+
+  func handleAnswerAction(_ action: CXAnswerCallAction) {
+    guard incomingCall == action.callUUID, !incomingAnswered else {
+      action.fail()
+      emitDiagnostic(
+        "callkit.provider.answer.skipped",
+        data: ["reason": incomingCall == action.callUUID ? "already_in_state" : "stale_call"]
+      )
+      return
+    }
+    do {
+      try configureAudioSession()
+      incomingAnswered = true
+      activeCall = action.callUUID
+      muted = false
+      action.fulfill()
+      emitDiagnostic("callkit.provider.answer.fulfilled")
+      if answerRequestedLocally {
+        // Dart is already joining; telling it again would join twice.
+        answerRequestedLocally = false
+      } else {
+        emitMethod("answer")
+      }
+    } catch {
+      clearIncomingCall()
+      if activeCall == action.callUUID {
+        activeCall = nil
+        muted = false
+      }
+      action.fail()
+      emitDiagnostic("callkit.provider.answer.failed", data: errorData(error))
+      emitMethod("decline")
+    }
   }
 
   func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
@@ -332,9 +502,21 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
   }
 
   func handleEndAction(_ action: CXEndCallAction) {
-    if activeCall == action.callUUID {
+    if incomingCall == action.callUUID, !incomingAnswered {
+      // Ending a call that was never answered is declining it.
+      clearIncomingCall()
+      if activeCall == action.callUUID {
+        activeCall = nil
+        muted = false
+      }
+      emitMethod("decline")
+      emitDiagnostic("callkit.provider.decline.fulfilled")
+    } else if activeCall == action.callUUID {
       activeCall = nil
       muted = false
+      if incomingCall == action.callUUID {
+        clearIncomingCall()
+      }
       emitMethod("end")
       emitDiagnostic("callkit.provider.end.fulfilled")
     } else {
@@ -365,6 +547,8 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
     switch action {
     case is CXStartCallAction:
       return "start"
+    case is CXAnswerCallAction:
+      return "answer"
     case is CXSetMutedCallAction:
       return "mute"
     case is CXEndCallAction:

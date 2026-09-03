@@ -251,6 +251,204 @@ final class VoiceCallKitCoordinatorTests: XCTestCase {
     XCTAssertEqual(mute.callUUID, secondStart.callUUID)
   }
 
+  func testIncomingCallIsPresentedAnsweredAndReusedByStart() {
+    let transactions = TransactionRecorder()
+    let incoming = IncomingCallRecorder()
+    var emittedMethods: [String] = []
+    var configuredAudio = 0
+    var connectedCalls: [UUID] = []
+    let coordinator = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request,
+      reportIncomingCall: incoming.report,
+      reportOutgoingCallConnected: { connectedCalls.append($0) },
+      emitMethod: { emittedMethods.append($0) },
+      configureAudioSession: { configuredAudio += 1 }
+    )
+
+    let presented = invoke(
+      coordinator,
+      method: "reportIncomingCall",
+      arguments: ["callerName": "Kim", "roomName": "Call", "handle": "kim"]
+    )
+
+    XCTAssertEqual(presented as? Bool, true)
+    let reported = tryUnwrap(incoming.reported.first)
+    XCTAssertEqual(reported.update.localizedCallerName, "Kim")
+    XCTAssertEqual(reported.update.remoteHandle?.value, "kim")
+    XCTAssertEqual(reported.update.hasVideo, false)
+
+    coordinator.handleAnswerAction(CXAnswerCallAction(call: reported.uuid))
+
+    XCTAssertEqual(configuredAudio, 1)
+    XCTAssertEqual(emittedMethods, ["answer"])
+
+    // Dart joins the room: the system call already exists.
+    XCTAssertNil(invoke(coordinator, method: "start", arguments: ["roomName": "Call"]))
+    XCTAssertTrue(transactions.actions.isEmpty)
+    XCTAssertNil(invoke(coordinator, method: "connected"))
+    XCTAssertTrue(connectedCalls.isEmpty)
+
+    XCTAssertNil(
+      invoke(coordinator, method: "setMuted", arguments: ["muted": true])
+    )
+    let mute = tryUnwrap(transactions.actions.last as? CXSetMutedCallAction)
+    XCTAssertEqual(mute.callUUID, reported.uuid)
+
+    let endCompleted = expectation(description: "end completed")
+    coordinator.handle(FlutterMethodCall(methodName: "end", arguments: nil)) { _ in
+      endCompleted.fulfill()
+    }
+    let end = tryUnwrap(transactions.actions.last as? CXEndCallAction)
+    XCTAssertEqual(end.callUUID, reported.uuid)
+    coordinator.handleEndAction(end)
+    wait(for: [endCompleted], timeout: 1)
+
+    XCTAssertEqual(emittedMethods, ["answer", "end"])
+    // With the incoming call gone, a start places an outgoing call again.
+    XCTAssertNil(invoke(coordinator, method: "start"))
+    XCTAssertTrue(transactions.actions.last is CXStartCallAction)
+  }
+
+  func testEndingAnUnansweredIncomingCallDeclinesIt() {
+    let transactions = TransactionRecorder()
+    let incoming = IncomingCallRecorder()
+    var emittedMethods: [String] = []
+    let coordinator = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request,
+      reportIncomingCall: incoming.report,
+      emitMethod: { emittedMethods.append($0) }
+    )
+    XCTAssertEqual(invoke(coordinator, method: "reportIncomingCall") as? Bool, true)
+    let uuid = tryUnwrap(incoming.reported.first).uuid
+
+    coordinator.handleEndAction(CXEndCallAction(call: uuid))
+
+    XCTAssertEqual(emittedMethods, ["decline"])
+    XCTAssertNil(invoke(coordinator, method: "start"))
+    XCTAssertTrue(transactions.actions.last is CXStartCallAction)
+  }
+
+  func testLocalAnswerRequestsTheAnswerActionWithoutEchoingIt() {
+    let transactions = TransactionRecorder()
+    let incoming = IncomingCallRecorder()
+    var emittedMethods: [String] = []
+    let coordinator = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request,
+      reportIncomingCall: incoming.report,
+      emitMethod: { emittedMethods.append($0) }
+    )
+    XCTAssertEqual(invoke(coordinator, method: "reportIncomingCall") as? Bool, true)
+    let uuid = tryUnwrap(incoming.reported.first).uuid
+
+    XCTAssertNil(invoke(coordinator, method: "answerIncomingCall"))
+
+    let answer = tryUnwrap(transactions.actions.last as? CXAnswerCallAction)
+    XCTAssertEqual(answer.callUUID, uuid)
+    coordinator.handleAnswerAction(answer)
+    XCTAssertTrue(emittedMethods.isEmpty)
+
+    XCTAssertNil(invoke(coordinator, method: "start"))
+    XCTAssertEqual(transactions.actions.count, 1)
+    XCTAssertNil(invoke(coordinator, method: "answerIncomingCall"))
+    XCTAssertEqual(transactions.actions.count, 1)
+  }
+
+  func testLocalDeclineEndsTheIncomingCallThroughCallKit() {
+    let transactions = TransactionRecorder()
+    let incoming = IncomingCallRecorder()
+    var emittedMethods: [String] = []
+    let coordinator = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request,
+      reportIncomingCall: incoming.report,
+      emitMethod: { emittedMethods.append($0) }
+    )
+    XCTAssertEqual(invoke(coordinator, method: "reportIncomingCall") as? Bool, true)
+    let uuid = tryUnwrap(incoming.reported.first).uuid
+
+    let declined = expectation(description: "decline completed")
+    coordinator.handle(
+      FlutterMethodCall(methodName: "declineIncomingCall", arguments: nil)
+    ) { result in
+      XCTAssertNil(result)
+      declined.fulfill()
+    }
+    let end = tryUnwrap(transactions.actions.last as? CXEndCallAction)
+    XCTAssertEqual(end.callUUID, uuid)
+    coordinator.handleEndAction(end)
+    wait(for: [declined], timeout: 1)
+
+    XCTAssertEqual(emittedMethods, ["decline"])
+  }
+
+  func testAnUnansweredRingIsReportedEnded() {
+    let transactions = TransactionRecorder()
+    let incoming = IncomingCallRecorder()
+    var ended: [(UUID, CXCallEndedReason)] = []
+    let coordinator = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request,
+      reportIncomingCall: incoming.report,
+      reportCallEnded: { ended.append(($0, $1)) }
+    )
+    XCTAssertEqual(invoke(coordinator, method: "reportIncomingCall") as? Bool, true)
+    let uuid = tryUnwrap(incoming.reported.first).uuid
+
+    XCTAssertNil(
+      invoke(
+        coordinator,
+        method: "endIncomingCall",
+        arguments: ["reason": "answered_elsewhere"]
+      )
+    )
+
+    XCTAssertEqual(ended.count, 1)
+    XCTAssertEqual(ended.first?.0, uuid)
+    XCTAssertEqual(ended.first?.1, .answeredElsewhere)
+    XCTAssertNil(invoke(coordinator, method: "endIncomingCall"))
+    XCTAssertEqual(ended.count, 1)
+    XCTAssertNil(invoke(coordinator, method: "start"))
+    XCTAssertTrue(transactions.actions.last is CXStartCallAction)
+  }
+
+  func testIncomingCallIsRefusedWhileACallIsUpOrWhenCallKitFails() {
+    let transactions = TransactionRecorder()
+    let incoming = IncomingCallRecorder()
+    let coordinator = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request,
+      reportIncomingCall: incoming.report
+    )
+
+    XCTAssertNil(invoke(coordinator, method: "start"))
+    XCTAssertEqual(invoke(coordinator, method: "reportIncomingCall") as? Bool, false)
+    XCTAssertTrue(incoming.reported.isEmpty)
+
+    let fresh = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request,
+      reportIncomingCall: incoming.report
+    )
+    incoming.error = NSError(domain: "RunnerTests", code: 3)
+    XCTAssertEqual(invoke(fresh, method: "reportIncomingCall") as? Bool, false)
+    incoming.error = nil
+    XCTAssertEqual(invoke(fresh, method: "reportIncomingCall") as? Bool, true)
+    XCTAssertEqual(incoming.reported.count, 1)
+  }
+
+  func testProviderResetDuringARingDeclinesIt() {
+    let transactions = TransactionRecorder()
+    let incoming = IncomingCallRecorder()
+    var emittedMethods: [String] = []
+    let coordinator = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request,
+      reportIncomingCall: incoming.report,
+      emitMethod: { emittedMethods.append($0) }
+    )
+    XCTAssertEqual(invoke(coordinator, method: "reportIncomingCall") as? Bool, true)
+
+    coordinator.handleProviderReset()
+
+    XCTAssertEqual(emittedMethods, ["decline"])
+    XCTAssertNil(invoke(coordinator, method: "endIncomingCall"))
+  }
+
   private func invoke(
     _ coordinator: VoiceCallKitCoordinator,
     method: String,
@@ -287,6 +485,22 @@ private final class TransactionRecorder {
 
   func request(_ action: CXAction, completion: @escaping (Error?) -> Void) {
     actions.append(action)
+    completion(error)
+  }
+}
+
+private final class IncomingCallRecorder {
+  var reported: [(uuid: UUID, update: CXCallUpdate)] = []
+  var error: Error?
+
+  func report(
+    _ uuid: UUID,
+    _ update: CXCallUpdate,
+    completion: @escaping (Error?) -> Void
+  ) {
+    if error == nil {
+      reported.append((uuid: uuid, update: update))
+    }
     completion(error)
   }
 }
