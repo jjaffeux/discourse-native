@@ -257,6 +257,32 @@ class ComposerBlockquoteInputFormatter extends TextInputFormatter {
     }
 
     final caret = selection.start;
+    if (selection.isCollapsed &&
+        oldValue.composing.isCollapsed &&
+        caret > 0 &&
+        newValue.selection.extentOffset == caret - 1 &&
+        newValue.text == oldValue.text.replaceRange(caret - 1, caret, '')) {
+      final range = _prefixAtSelection(oldValue);
+      if (range != null && caret == range.end) {
+        // The prefix is hidden in the editor. Backspace at the visible line
+        // start joins the preceding quote line instead of exposing a bare >.
+        final joinsPreviousQuote =
+            range.start > 0 &&
+            _prefixAtSelection(
+                  oldValue.copyWith(
+                    selection: TextSelection.collapsed(offset: range.start - 1),
+                  ),
+                ) !=
+                null;
+        final start = joinsPreviousQuote ? range.start - 1 : range.start;
+        return TextEditingValue(
+          text: oldValue.text.replaceRange(start, range.end, ''),
+          selection: TextSelection.collapsed(offset: start),
+        );
+      }
+      return newValue;
+    }
+
     if (newValue.selection.extentOffset != caret + 1 ||
         newValue.text !=
             oldValue.text.replaceRange(caret, selection.end, '\n')) {

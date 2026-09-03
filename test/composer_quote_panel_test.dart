@@ -35,6 +35,49 @@ const _longQuote =
 
 void main() {
   group('quote editing', () {
+    testWidgets('Backspace joins quoted lines without exposing the prefix', (
+      tester,
+    ) async {
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(tester, shell, composer);
+      final field = find.byType(TextField);
+      await tester.enterText(field, '> words');
+      await tester.pump();
+      final render = tester
+          .state<EditableTextState>(find.byType(EditableText))
+          .renderEditable;
+      final originalCaret = render.getLocalRectForCaret(
+        const TextPosition(offset: 7),
+      );
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+      expect(composer.text.text, '> words\n> \n> ');
+
+      for (final expected in ['> words\n> ', '> words']) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+        await tester.pump();
+        expect(composer.text.text, expected);
+        expect(composer.text.selection.extentOffset, expected.length);
+      }
+      expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+      expect(
+        render.getLocalRectForCaret(composer.text.selection.extent),
+        originalCaret,
+      );
+
+      await tester.enterText(field, '> words!');
+      await tester.pump();
+      expect(composer.raw, '> words!');
+      expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+    });
+
     testWidgets(
       'Enter accepts suggestions while Shift+Enter adds a quote line',
       (tester) async {

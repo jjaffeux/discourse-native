@@ -68,6 +68,38 @@ const _gif = GifResult(
 
 void main() {
   group('draft editing, layout, and uploads', () {
+    testWidgets('Backspace removes the empty quoted line and keeps editing', (
+      tester,
+    ) async {
+      final fixture = await _fixture(pages: const {});
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(
+        _ComposerVisibilityView(shell: fixture.shell, visible: true),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(_composerField(), '> words');
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(_text(tester), '> words\n> ');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pump();
+      expect(_text(tester), '> words');
+      expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+      final editable = tester.state<EditableTextState>(
+        find.descendant(
+          of: _composerField(),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(editable.widget.controller.selection.extentOffset, 7);
+      await tester.enterText(_composerField(), '> words!');
+      await tester.pump();
+      expect(_text(tester), '> words!');
+      expect(fixture.api.chatMessagesSent, isEmpty);
+    });
+
     testWidgets('Enter edits a quote while Shift+Enter never exits or sends', (
       tester,
     ) async {
