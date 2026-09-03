@@ -22,22 +22,26 @@ class _Subtabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: Theme.of(context).colorScheme.surfaceContainerLowest,
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-      child: Row(
-        children: [
-          for (final option in options)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                key: ValueKey('group-subtab-${option.value}'),
-                label: Text(option.label),
-                selected: selected == option.value,
-                onSelected: (_) => onSelect(option.value),
+    child: ContentReadingLaneBox(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SingleChildScrollView(
+        key: const ValueKey('group-secondary-tabs'),
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(
+          children: [
+            for (final option in options)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  key: ValueKey('group-subtab-${option.value}'),
+                  label: Text(option.label),
+                  selected: selected == option.value,
+                  onSelected: (_) => onSelect(option.value),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     ),
   );
@@ -71,7 +75,7 @@ class _InlineError extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: Theme.of(context).colorScheme.errorContainer,
-    child: Padding(
+    child: ContentReadingLaneBox(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
       child: Row(
         children: [
@@ -99,7 +103,7 @@ class _GroupState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
+    child: ContentReadingLaneBox(
       padding: const EdgeInsets.all(30),
       child: Column(
         mainAxisSize: MainAxisSize.min,

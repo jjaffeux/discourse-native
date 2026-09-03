@@ -1,9 +1,13 @@
+import 'package:discourse_native/src/data/app_settings_store.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/group_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
@@ -40,6 +44,110 @@ const _member = GroupMember(
 void _ignoreMember(BuildContext context, GroupMember member) {}
 
 void main() {
+  for (final (width, contentWidth) in [
+    (1400.0, 825.0),
+    (700.0, 668.0),
+    (390.0, 358.0),
+  ]) {
+    testWidgets(
+      'group header, tabs, and member controls share the content lane at width $width',
+      (tester) async {
+        final settings = AppSettingsController(
+          store: AppSettingsStore(persistence: MemoryAppSettingsPersistence()),
+        );
+        addTearDown(settings.dispose);
+        var route = GroupRoute.detail('support');
+        late StateSetter update;
+        await _pump(
+          tester,
+          ContentAlignmentScope(
+            controller: settings,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return GroupPage(
+                  siteUrl: 'https://meta.discourse.org',
+                  route: route,
+                  registry: PluginRegistry.empty,
+                  data: const GroupPageData(
+                    detail: _detail,
+                    members: GroupMembersPage(members: [_member], total: 1),
+                    activity: GroupActivityPage(),
+                    canInviteToForum: true,
+                    loaded: true,
+                  ),
+                  onOpenMember: _ignoreMember,
+                );
+              },
+            ),
+          ),
+          size: Size(width, 900),
+        );
+
+        for (final alignment in ContentAlignment.values) {
+          await settings.setContentAlignment(alignment);
+          update(() => route = GroupRoute.detail('support'));
+          await tester.pump();
+          final left = switch (alignment) {
+            ContentAlignment.left => 16.0,
+            ContentAlignment.center => (width - contentWidth) / 2,
+            ContentAlignment.right => width - 16 - contentWidth,
+          };
+          final right = left + contentWidth;
+          expect(tester.getTopLeft(find.text('Support Team')).dx, left);
+          final primaryTabs = tester.getRect(
+            find.byKey(const ValueKey('group-primary-tabs')),
+          );
+          expect(primaryTabs.left, left);
+          expect(primaryTabs.width, contentWidth);
+          final search = tester.getRect(
+            find.byKey(const ValueKey('group-member-search')),
+          );
+          final invite = tester.getRect(
+            find.byKey(const ValueKey('invite-group-members')),
+          );
+          expect(search.left, left);
+          if (contentWidth >= 600) {
+            expect(invite.right, right);
+            expect(invite.center.dy, search.center.dy);
+          } else {
+            expect(search.width, contentWidth);
+            expect(invite.right, lessThanOrEqualTo(right));
+          }
+          expect(
+            tester
+                .getSize(
+                  find.byKey(const PageStorageKey('group-members-scroll')),
+                )
+                .width,
+            width,
+          );
+          if (width >= 760) {
+            final divider = tester.getRect(find.byType(Divider).first);
+            expect(divider.left, left);
+            expect(divider.width, contentWidth);
+          }
+
+          update(
+            () => route = GroupRoute.detail(
+              'support',
+              section: GroupRoute.activity,
+              subsection: GroupRoute.posts,
+            ),
+          );
+          await tester.pump();
+          final secondaryTabs = tester.getRect(
+            find.byKey(const ValueKey('group-secondary-tabs')),
+          );
+          expect(secondaryTabs.left, left);
+          expect(secondaryTabs.width, contentWidth);
+          expect(tester.takeException(), isNull);
+        }
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
   testWidgets('header actions and capability-gated primary tabs are native', (
     tester,
   ) async {

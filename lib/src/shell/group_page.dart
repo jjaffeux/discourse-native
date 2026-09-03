@@ -395,115 +395,100 @@ class _GroupHeader extends StatelessWidget {
 
     return Material(
       color: theme.colorScheme.surface,
-      child: Padding(
+      child: ContentReadingLaneBox(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1180),
-            child: LayoutBuilder(
-              builder: (context, constraints) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _GroupFlair(siteUrl: siteUrl, group: group, size: 54),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                group.label,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              Text(
-                                '@${group.name}',
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _GroupFlair(siteUrl: siteUrl, group: group, size: 54),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          group.label,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  if (group.plainBio case final bio?
-                      when bio.trim().isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(bio, style: theme.textTheme.bodyMedium),
-                  ],
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 4,
-                    children: [
-                      if (group.isGroupOwner)
-                        const _HeaderFact(
-                          icon: DIcons.certificate,
-                          label: 'Owner',
-                        )
-                      else if (group.isGroupUser)
-                        const _HeaderFact(icon: DIcons.check, label: 'Member'),
-                      if (group.isPrivate)
-                        const _HeaderFact(icon: DIcons.lock, label: 'Private'),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if (actionLabel != null)
-                        DButton(
-                          key: ValueKey('group-${membershipAction!.name}'),
-                          label: Text(actionLabel),
-                          icon: membershipAction == GroupMembershipAction.leave
-                              ? const DIcon(DIcons.xmark, size: 16)
-                              : const DIcon(DIcons.userPlus, size: 16),
-                          loading: mutating,
-                          variant:
-                              membershipAction == GroupMembershipAction.leave
-                              ? DButtonVariant.standard
-                              : DButtonVariant.primary,
-                          onPressed: onMembershipAction == null
-                              ? null
-                              : () => unawaited(
-                                  onMembershipAction!(membershipAction),
-                                ),
-                        ),
-                      if (group.messageable && onMessageGroup != null)
-                        DButton(
-                          key: const ValueKey('group-message'),
-                          icon: const DIcon(DIcons.envelope, size: 16),
-                          label: Text(
-                            constraints.maxWidth < 360 ? 'Message' : 'Message',
+                        Text(
+                          '@${group.name}',
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
-                          onPressed: onMessageGroup,
                         ),
-                      if (isAdmin && !group.automatic && onDeleteGroup != null)
-                        DButton(
-                          key: const ValueKey('delete-group'),
-                          icon: const DIcon(DIcons.trashCan, size: 16),
-                          label: const Text('Delete group'),
-                          variant: DButtonVariant.danger,
-                          onPressed: mutating
-                              ? null
-                              : () => unawaited(_deleteGroup(context)),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
+            if (group.plainBio case final bio? when bio.trim().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(bio, style: theme.textTheme.bodyMedium),
+            ],
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                if (group.isGroupOwner)
+                  const _HeaderFact(icon: DIcons.certificate, label: 'Owner')
+                else if (group.isGroupUser)
+                  const _HeaderFact(icon: DIcons.check, label: 'Member'),
+                if (group.isPrivate)
+                  const _HeaderFact(icon: DIcons.lock, label: 'Private'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (actionLabel != null)
+                  DButton(
+                    key: ValueKey('group-${membershipAction!.name}'),
+                    label: Text(actionLabel),
+                    icon: membershipAction == GroupMembershipAction.leave
+                        ? const DIcon(DIcons.xmark, size: 16)
+                        : const DIcon(DIcons.userPlus, size: 16),
+                    loading: mutating,
+                    variant: membershipAction == GroupMembershipAction.leave
+                        ? DButtonVariant.standard
+                        : DButtonVariant.primary,
+                    onPressed: onMembershipAction == null
+                        ? null
+                        : () =>
+                              unawaited(onMembershipAction!(membershipAction)),
+                  ),
+                if (group.messageable && onMessageGroup != null)
+                  DButton(
+                    key: const ValueKey('group-message'),
+                    icon: const DIcon(DIcons.envelope, size: 16),
+                    label: const Text('Message'),
+                    onPressed: onMessageGroup,
+                  ),
+                if (isAdmin && !group.automatic && onDeleteGroup != null)
+                  DButton(
+                    key: const ValueKey('delete-group'),
+                    icon: const DIcon(DIcons.trashCan, size: 16),
+                    label: const Text('Delete group'),
+                    variant: DButtonVariant.danger,
+                    onPressed: mutating
+                        ? null
+                        : () => unawaited(_deleteGroup(context)),
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -714,45 +699,53 @@ class _PrimaryTabs extends StatelessWidget {
             bottom: BorderSide(color: Theme.of(context).shell.divider),
           ),
         ),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
-              for (final tab in tabs)
-                _TabButton(
-                  key: ValueKey('group-tab-${tab.section}'),
-                  selected: !route.isPlugin && route.section == tab.section,
-                  label: tab.label,
-                  icon: tab.icon,
-                  count: tab.count,
-                  onTap: () => onSelect(
-                    GroupRoute.detail(
-                      group.name,
-                      section: tab.section,
-                      subsection: _defaultSubsection(tab.section, group, data),
+        child: ContentReadingLaneBox(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: SingleChildScrollView(
+            key: const ValueKey('group-primary-tabs'),
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                for (final tab in tabs)
+                  _TabButton(
+                    key: ValueKey('group-tab-${tab.section}'),
+                    selected: !route.isPlugin && route.section == tab.section,
+                    label: tab.label,
+                    icon: tab.icon,
+                    count: tab.count,
+                    onTap: () => onSelect(
+                      GroupRoute.detail(
+                        group.name,
+                        section: tab.section,
+                        subsection: _defaultSubsection(
+                          tab.section,
+                          group,
+                          data,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              for (final owned in pluginTabs)
-                _TabButton(
-                  key: ValueKey('group-plugin-tab-${owned.tab.section}'),
-                  selected:
-                      route.isPlugin &&
-                      route.pluginOwner == owned.owner &&
-                      route.section == owned.tab.section,
-                  label: owned.tab.label,
-                  icon: owned.tab.icon,
-                  count: owned.tab.count,
-                  onTap: () => onSelect(
-                    GroupRoute.plugin(
-                      groupName: group.name,
-                      owner: owned.owner,
-                      section: owned.tab.section,
+                for (final owned in pluginTabs)
+                  _TabButton(
+                    key: ValueKey('group-plugin-tab-${owned.tab.section}'),
+                    selected:
+                        route.isPlugin &&
+                        route.pluginOwner == owned.owner &&
+                        route.section == owned.tab.section,
+                    label: owned.tab.label,
+                    icon: owned.tab.icon,
+                    count: owned.tab.count,
+                    onTap: () => onSelect(
+                      GroupRoute.plugin(
+                        groupName: group.name,
+                        owner: owned.owner,
+                        section: owned.tab.section,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
