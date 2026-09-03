@@ -129,73 +129,76 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-        child: Column(
-          children: [
-            TextField(
-              key: const ValueKey('chat-browse-filter'),
-              controller: _filterController,
-              decoration: const InputDecoration(
-                labelText: 'Find a channel',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-                isDense: true,
+      FocusTraversalGroup(
+        policy: WidgetOrderTraversalPolicy(),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+          child: Column(
+            children: [
+              TextField(
+                key: const ValueKey('chat-browse-filter'),
+                controller: _filterController,
+                decoration: const InputDecoration(
+                  labelText: 'Find a channel',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<ChatChannelBrowseStatus>(
-                    key: const ValueKey('chat-browse-status'),
-                    initialValue: _status,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Status',
-                      border: OutlineInputBorder(),
-                      isDense: true,
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<ChatChannelBrowseStatus>(
+                      key: const ValueKey('chat-browse-status'),
+                      initialValue: _status,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Status',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        for (final status in ChatChannelBrowseStatus.values)
+                          DropdownMenuItem(
+                            value: status,
+                            child: Text(_statusLabel(status)),
+                          ),
+                      ],
+                      onChanged: (status) {
+                        if (status == null || status == _status) return;
+                        setState(() => _status = status);
+                        unawaited(_load(reset: true));
+                      },
                     ),
-                    items: [
-                      for (final status in ChatChannelBrowseStatus.values)
-                        DropdownMenuItem(
-                          value: status,
-                          child: Text(_statusLabel(status)),
-                        ),
-                    ],
-                    onChanged: (status) {
-                      if (status == null || status == _status) return;
-                      setState(() => _status = status);
-                      unawaited(_load(reset: true));
-                    },
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DropdownButtonFormField<ChatChannelJoinedFilter>(
-                    key: const ValueKey('chat-browse-joined'),
-                    initialValue: _joined,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Membership',
-                      border: OutlineInputBorder(),
-                      isDense: true,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<ChatChannelJoinedFilter>(
+                      key: const ValueKey('chat-browse-joined'),
+                      initialValue: _joined,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Membership',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        for (final joined in ChatChannelJoinedFilter.values)
+                          DropdownMenuItem(
+                            value: joined,
+                            child: Text(_joinedLabel(joined)),
+                          ),
+                      ],
+                      onChanged: (joined) {
+                        if (joined != null) setState(() => _joined = joined);
+                      },
                     ),
-                    items: [
-                      for (final joined in ChatChannelJoinedFilter.values)
-                        DropdownMenuItem(
-                          value: joined,
-                          child: Text(_joinedLabel(joined)),
-                        ),
-                    ],
-                    onChanged: (joined) {
-                      if (joined != null) setState(() => _joined = joined);
-                    },
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
       Expanded(child: _buildResults(context)),

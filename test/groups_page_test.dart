@@ -4,6 +4,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _support = Group(
@@ -220,6 +221,20 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(
+      _primaryFocusIsWithin(find.byKey(const ValueKey('groups-type-filter'))),
+      isTrue,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(
+      _primaryFocusIsWithin(find.byKey(const ValueKey('create-group'))),
+      isTrue,
+    );
+
     await tester.enterText(
       find.byKey(const ValueKey('groups-search')),
       '  support  ',
@@ -408,6 +423,20 @@ void main() {
     expect(find.byType(CustomScrollView), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+bool _primaryFocusIsWithin(Finder finder) {
+  final focusedContext = FocusManager.instance.primaryFocus?.context;
+  if (focusedContext == null) return false;
+  final targets = finder.evaluate().toSet();
+  if (targets.contains(focusedContext)) return true;
+  var matches = false;
+  focusedContext.visitAncestorElements((ancestor) {
+    if (!targets.contains(ancestor)) return true;
+    matches = true;
+    return false;
+  });
+  return matches;
 }
 
 Future<void> _pump(

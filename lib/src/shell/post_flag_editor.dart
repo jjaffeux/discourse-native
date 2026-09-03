@@ -230,6 +230,7 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
           const SingleActivator(LogicalKeyboardKey.enter, meta: true): _submit,
         },
         child: FocusTraversalGroup(
+          policy: WidgetOrderTraversalPolicy(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -12,6 +12,7 @@ import 'package:discourse_native/src/plugins/assign/assigned_group_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _siteUrl = 'https://forum.example.com';
@@ -382,6 +383,30 @@ void main() {
       ]);
     });
 
+    testWidgets('tabs through assignment controls before leaving the toolbar', (
+      tester,
+    ) async {
+      final presentation = _FakeAssignedGroupPresentation(
+        _state(feed: const TopicFeed(loaded: true)),
+      );
+      await _pumpView(tester, presentation);
+
+      final search = find.byKey(const ValueKey('assigned-topic-search'));
+      final order = find.byKey(const ValueKey('assigned-order-default'));
+      final direction = find.byTooltip('Ascending');
+
+      await tester.tap(search);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+
+      expect(_primaryFocusIsWithin(order), isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+
+      expect(_primaryFocusIsWithin(direction), isTrue);
+    });
+
     testWidgets('opens topics and requests the next assignment page', (
       tester,
     ) async {
@@ -506,6 +531,20 @@ Future<void> _pumpFactoryView(
     ),
   );
   await tester.pump();
+}
+
+bool _primaryFocusIsWithin(Finder finder) {
+  final focusedContext = FocusManager.instance.primaryFocus?.context;
+  if (focusedContext == null) return false;
+  final targets = finder.evaluate().toSet();
+  if (targets.contains(focusedContext)) return true;
+  var matches = false;
+  focusedContext.visitAncestorElements((ancestor) {
+    if (!targets.contains(ancestor)) return true;
+    matches = true;
+    return false;
+  });
+  return matches;
 }
 
 final class _FakeAssignedGroupPresentation extends ChangeNotifier

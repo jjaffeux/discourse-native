@@ -203,102 +203,105 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-          child: Column(
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<DiagnosticsKindFilter>(
-                  key: const ValueKey('diagnostics-kind-filter'),
-                  segments: const [
-                    ButtonSegment(
-                      value: DiagnosticsKindFilter.all,
-                      label: Text('All'),
+        FocusTraversalGroup(
+          policy: WidgetOrderTraversalPolicy(),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            child: Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<DiagnosticsKindFilter>(
+                    key: const ValueKey('diagnostics-kind-filter'),
+                    segments: const [
+                      ButtonSegment(
+                        value: DiagnosticsKindFilter.all,
+                        label: Text('All'),
+                      ),
+                      ButtonSegment(
+                        value: DiagnosticsKindFilter.requests,
+                        label: Text('Requests'),
+                      ),
+                      ButtonSegment(
+                        value: DiagnosticsKindFilter.errors,
+                        label: Text('Errors'),
+                      ),
+                    ],
+                    selected: {panelState.kindFilter},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (selection) {
+                      widget.controller.setKindFilter(selection.first);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  key: const ValueKey('diagnostics-search'),
+                  controller: _search,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Search diagnostics',
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: DIcon(DIcons.magnifyingGlass, size: 18),
                     ),
-                    ButtonSegment(
-                      value: DiagnosticsKindFilter.requests,
-                      label: Text('Requests'),
+                    suffixIcon: panelState.query.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            onPressed: () {
+                              _search.clear();
+                              widget.controller.setQuery('');
+                            },
+                            icon: const DIcon(DIcons.xmark, size: 16),
+                          ),
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: widget.controller.setQuery,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _MultiSelectMenu(
+                        key: const ValueKey('diagnostics-severity-filter'),
+                        label: 'Severity',
+                        values: DiagnosticSeverity.values
+                            .map((severity) => severity.name)
+                            .toList(),
+                        selected: panelState.severities
+                            .map((severity) => severity.name)
+                            .toSet(),
+                        onToggle: (value) {
+                          final severity = DiagnosticSeverity.values.byName(
+                            value,
+                          );
+                          final selected = Set<DiagnosticSeverity>.of(
+                            panelState.severities,
+                          );
+                          _toggleSet(selected, severity);
+                          widget.controller.setSeverities(selected);
+                        },
+                      ),
                     ),
-                    ButtonSegment(
-                      value: DiagnosticsKindFilter.errors,
-                      label: Text('Errors'),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _MultiSelectMenu(
+                        key: const ValueKey('diagnostics-source-filter'),
+                        label: 'Source',
+                        values: sources,
+                        selected: panelState.sources,
+                        onToggle: (value) {
+                          final selected = Set<String>.of(panelState.sources);
+                          _toggleSet(selected, value);
+                          widget.controller.setSources(selected);
+                        },
+                      ),
                     ),
                   ],
-                  selected: {panelState.kindFilter},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (selection) {
-                    widget.controller.setKindFilter(selection.first);
-                  },
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                key: const ValueKey('diagnostics-search'),
-                controller: _search,
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: 'Search diagnostics',
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: DIcon(DIcons.magnifyingGlass, size: 18),
-                  ),
-                  suffixIcon: panelState.query.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Clear search',
-                          onPressed: () {
-                            _search.clear();
-                            widget.controller.setQuery('');
-                          },
-                          icon: const DIcon(DIcons.xmark, size: 16),
-                        ),
-                  border: const OutlineInputBorder(),
-                ),
-                onChanged: widget.controller.setQuery,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _MultiSelectMenu(
-                      key: const ValueKey('diagnostics-severity-filter'),
-                      label: 'Severity',
-                      values: DiagnosticSeverity.values
-                          .map((severity) => severity.name)
-                          .toList(),
-                      selected: panelState.severities
-                          .map((severity) => severity.name)
-                          .toSet(),
-                      onToggle: (value) {
-                        final severity = DiagnosticSeverity.values.byName(
-                          value,
-                        );
-                        final selected = Set<DiagnosticSeverity>.of(
-                          panelState.severities,
-                        );
-                        _toggleSet(selected, severity);
-                        widget.controller.setSeverities(selected);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _MultiSelectMenu(
-                      key: const ValueKey('diagnostics-source-filter'),
-                      label: 'Source',
-                      values: sources,
-                      selected: panelState.sources,
-                      onToggle: (value) {
-                        final selected = Set<String>.of(panelState.sources);
-                        _toggleSet(selected, value);
-                        widget.controller.setSources(selected);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         Expanded(

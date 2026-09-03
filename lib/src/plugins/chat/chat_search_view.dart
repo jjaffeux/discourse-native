@@ -225,62 +225,65 @@ class _SearchControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: theme.dividerColor)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              key: const ValueKey('chat-search-field'),
-              controller: controller,
-              focusNode: focusNode,
-              autofocus: true,
-              textInputAction: TextInputAction.search,
-              onChanged: onChanged,
-              decoration: InputDecoration(
-                hintText: 'Search messages',
-                prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 18),
-                suffixIcon: state.query.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: onClear,
-                        icon: const DIcon(DIcons.xmark, size: 16),
-                        tooltip: 'Clear search',
-                      ),
-                border: const OutlineInputBorder(),
-                isDense: true,
+    return FocusTraversalGroup(
+      policy: WidgetOrderTraversalPolicy(),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: theme.dividerColor)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                key: const ValueKey('chat-search-field'),
+                controller: controller,
+                focusNode: focusNode,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                onChanged: onChanged,
+                decoration: InputDecoration(
+                  hintText: 'Search messages',
+                  prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 18),
+                  suffixIcon: state.query.isEmpty
+                      ? null
+                      : IconButton(
+                          onPressed: onClear,
+                          icon: const DIcon(DIcons.xmark, size: 16),
+                          tooltip: 'Clear search',
+                        ),
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          ChoiceMenuAnchor<ChatSearchSort>(
-            title: 'Sort search results',
-            value: state.sort,
-            options: _sortOptions,
-            onSelected: onSort,
-            builder: (context, openMenu) {
-              final label = _sortLabel(state.sort);
-              return DButton(
-                key: const ValueKey('chat-search-sort'),
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(label),
-                    const SizedBox(width: 8),
-                    const DIcon(DIcons.chevronDown, size: 12),
-                  ],
-                ),
-                tooltip: 'Sort search results',
-                semanticLabel: 'Sort search results by $label',
-                variant: DButtonVariant.flat,
-                onPressed: openMenu,
-              );
-            },
-          ),
-        ],
+            const SizedBox(width: 8),
+            ChoiceMenuAnchor<ChatSearchSort>(
+              title: 'Sort search results',
+              value: state.sort,
+              options: _sortOptions,
+              onSelected: onSort,
+              builder: (context, openMenu) {
+                final label = _sortLabel(state.sort);
+                return DButton(
+                  key: const ValueKey('chat-search-sort'),
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(label),
+                      const SizedBox(width: 8),
+                      const DIcon(DIcons.chevronDown, size: 12),
+                    ],
+                  ),
+                  tooltip: 'Sort search results',
+                  semanticLabel: 'Sort search results by $label',
+                  variant: DButtonVariant.flat,
+                  onPressed: openMenu,
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -151,98 +151,101 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
     final busy =
         state.phase == ChatSearchPhase.waiting ||
         state.phase == ChatSearchPhase.loading;
-    return Container(
-      key: const ValueKey('chat-channel-search-bar'),
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        border: Border(bottom: BorderSide(color: theme.dividerColor)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  key: const ValueKey('chat-channel-search-field'),
-                  controller: _query,
-                  autofocus: true,
-                  onChanged: (value) => _search.setScopedQuery(
-                    widget.siteUrl,
-                    widget.channelId,
-                    value,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Search this channel',
-                    prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 17),
-                    suffixIcon: _query.text.isEmpty
-                        ? null
-                        : IconButton(
-                            onPressed: _clear,
-                            icon: const DIcon(DIcons.xmark, size: 15),
-                            tooltip: 'Clear search',
-                          ),
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-              ),
-              if (busy) ...[
-                const SizedBox(width: 10),
-                const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                ),
-              ],
-              if (state.hits.isNotEmpty) ...[
-                const SizedBox(width: 10),
-                Text('${state.selectedIndex + 1} / ${state.hits.length}'),
-                if (state.hits.length > 1) ...[
-                  IconButton(
-                    onPressed: () => _search.selectPrevious(
-                      widget.siteUrl,
-                      widget.channelId,
-                    ),
-                    icon: const RotatedBox(
-                      quarterTurns: 2,
-                      child: DIcon(DIcons.chevronDown, size: 16),
-                    ),
-                    tooltip: 'Previous result',
-                  ),
-                  IconButton(
-                    onPressed: () =>
-                        _search.selectNext(widget.siteUrl, widget.channelId),
-                    icon: const DIcon(DIcons.chevronDown, size: 16),
-                    tooltip: 'Next result',
-                  ),
-                ],
-              ],
-              DButton(
-                label: const Text('Done'),
-                onPressed: _close,
-                variant: DButtonVariant.link,
-              ),
-            ],
-          ),
-          if (state.phase == ChatSearchPhase.empty)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text('No messages found in this channel.'),
-            )
-          else if (state.error case final error?)
+    return FocusTraversalGroup(
+      policy: WidgetOrderTraversalPolicy(),
+      child: Container(
+        key: const ValueKey('chat-channel-search-bar'),
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          border: Border(bottom: BorderSide(color: theme.dividerColor)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Row(
               children: [
-                Expanded(child: Text(error)),
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('chat-channel-search-field'),
+                    controller: _query,
+                    autofocus: true,
+                    onChanged: (value) => _search.setScopedQuery(
+                      widget.siteUrl,
+                      widget.channelId,
+                      value,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Search this channel',
+                      prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 17),
+                      suffixIcon: _query.text.isEmpty
+                          ? null
+                          : IconButton(
+                              onPressed: _clear,
+                              icon: const DIcon(DIcons.xmark, size: 15),
+                              tooltip: 'Clear search',
+                            ),
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                if (busy) ...[
+                  const SizedBox(width: 10),
+                  const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                  ),
+                ],
+                if (state.hits.isNotEmpty) ...[
+                  const SizedBox(width: 10),
+                  Text('${state.selectedIndex + 1} / ${state.hits.length}'),
+                  if (state.hits.length > 1) ...[
+                    IconButton(
+                      onPressed: () => _search.selectPrevious(
+                        widget.siteUrl,
+                        widget.channelId,
+                      ),
+                      icon: const RotatedBox(
+                        quarterTurns: 2,
+                        child: DIcon(DIcons.chevronDown, size: 16),
+                      ),
+                      tooltip: 'Previous result',
+                    ),
+                    IconButton(
+                      onPressed: () =>
+                          _search.selectNext(widget.siteUrl, widget.channelId),
+                      icon: const DIcon(DIcons.chevronDown, size: 16),
+                      tooltip: 'Next result',
+                    ),
+                  ],
+                ],
                 DButton(
-                  label: const Text('Try again'),
-                  onPressed: () =>
-                      _search.retryScoped(widget.siteUrl, widget.channelId),
+                  label: const Text('Done'),
+                  onPressed: _close,
                   variant: DButtonVariant.link,
                 ),
               ],
             ),
-        ],
+            if (state.phase == ChatSearchPhase.empty)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text('No messages found in this channel.'),
+              )
+            else if (state.error case final error?)
+              Row(
+                children: [
+                  Expanded(child: Text(error)),
+                  DButton(
+                    label: const Text('Try again'),
+                    onPressed: () =>
+                        _search.retryScoped(widget.siteUrl, widget.channelId),
+                    variant: DButtonVariant.link,
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }

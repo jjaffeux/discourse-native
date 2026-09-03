@@ -227,52 +227,58 @@ class _MembersToolbar extends StatelessWidget {
   final VoidCallback? onInviteMembers;
 
   @override
-  Widget build(BuildContext context) => ContentReadingLaneBox(
-    padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        final search = TextField(
-          key: const ValueKey('group-member-search'),
-          controller: controller,
-          onChanged: onSearch,
-          style: Theme.of(context).textTheme.labelLarge,
-          decoration: _groupSearchDecoration('Search members'),
-        );
-        final actions = [
-          if (canManage)
-            DButton(
-              key: const ValueKey('add-group-members'),
-              icon: const DIcon(DIcons.userPlus, size: 16),
-              label: const Text('Add members'),
-              loading: mutating,
-              onPressed: onAddMembers,
-            ),
-          if (canInvite)
-            DButton(
-              key: const ValueKey('invite-group-members'),
-              icon: const DIcon(DIcons.paperPlane, size: 16),
-              label: const Text('Invite'),
-              onPressed: onInviteMembers,
-            ),
-        ];
-        if (actions.isEmpty) return search;
-        if (constraints.maxWidth < 600) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) => FocusTraversalGroup(
+    policy: WidgetOrderTraversalPolicy(),
+    child: ContentReadingLaneBox(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final search = TextField(
+            key: const ValueKey('group-member-search'),
+            controller: controller,
+            onChanged: onSearch,
+            style: Theme.of(context).textTheme.labelLarge,
+            decoration: _groupSearchDecoration('Search members'),
+          );
+          final actions = [
+            if (canManage)
+              DButton(
+                key: const ValueKey('add-group-members'),
+                icon: const DIcon(DIcons.userPlus, size: 16),
+                label: const Text('Add members'),
+                loading: mutating,
+                onPressed: onAddMembers,
+              ),
+            if (canInvite)
+              DButton(
+                key: const ValueKey('invite-group-members'),
+                icon: const DIcon(DIcons.paperPlane, size: 16),
+                label: const Text('Invite'),
+                onPressed: onInviteMembers,
+              ),
+          ];
+          if (actions.isEmpty) return search;
+          if (constraints.maxWidth < 600) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                search,
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 8, children: actions),
+              ],
+            );
+          }
+          return Row(
             children: [
-              search,
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 8, children: actions),
+              Expanded(child: search),
+              for (final action in actions) ...[
+                const SizedBox(width: 8),
+                action,
+              ],
             ],
           );
-        }
-        return Row(
-          children: [
-            Expanded(child: search),
-            for (final action in actions) ...[const SizedBox(width: 8), action],
-          ],
-        );
-      },
+        },
+      ),
     ),
   );
 }

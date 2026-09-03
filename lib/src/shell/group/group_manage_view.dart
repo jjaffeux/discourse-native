@@ -57,6 +57,7 @@ class _ManageSection extends StatelessWidget {
             onLoadMore: onLoadMore,
           )
         : FocusTraversalGroup(
+            policy: WidgetOrderTraversalPolicy(),
             child: _GroupManageForm(
               key: ValueKey('group-manage-form-${group.id}-$selected'),
               group: group,

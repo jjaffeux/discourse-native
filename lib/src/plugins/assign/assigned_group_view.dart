@@ -708,41 +708,44 @@ class _AssignedQueryControls extends StatelessWidget {
       icon: Icon(query.ascending ? Icons.arrow_upward : Icons.arrow_downward),
     );
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        horizontalPadding,
-        14,
-        horizontalPadding,
-        10,
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth >= 520) {
-            return Row(
-              children: [
-                Expanded(child: search),
-                const SizedBox(width: 10),
-                SizedBox(width: 170, child: order),
-                const SizedBox(width: 4),
-                direction,
-              ],
-            );
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              search,
-              const SizedBox(height: 10),
-              Row(
+    return FocusTraversalGroup(
+      policy: WidgetOrderTraversalPolicy(),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          14,
+          horizontalPadding,
+          10,
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= 520) {
+              return Row(
                 children: [
-                  Expanded(child: order),
+                  Expanded(child: search),
+                  const SizedBox(width: 10),
+                  SizedBox(width: 170, child: order),
                   const SizedBox(width: 4),
                   direction,
                 ],
-              ),
-            ],
-          );
-        },
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                search,
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: order),
+                    const SizedBox(width: 4),
+                    direction,
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

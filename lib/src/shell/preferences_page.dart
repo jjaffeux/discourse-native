@@ -241,76 +241,83 @@ class _PreferencesPageState extends State<PreferencesPage> {
     final canSave =
         instance?.isConnected == true && editable && dirty && !state.saving;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _StatusAnnouncement(state: state, pluginSections: pluginSections),
-        if (state.error != null || state.loading || state.savedSection != null)
-          const SizedBox(height: 16),
-        switch (section) {
-          PreferenceSection.profile => _ProfileForm(
-            timezone: _timezone,
-            timezoneFocus: _timezoneFocus,
-            selectedTimezone: draft.timezone,
-            timezoneNames: _timezoneNames,
-            timezoneEntries: _timezoneEntries,
-            deviceTimezone: TimezoneEnvironment.instance.deviceTimezone,
-            enabled: editable,
-            onTimezoneChanged: (timezone) => shell.preferences.edit(
-              widget.siteUrl,
-              PreferenceSection.profile,
-              (current) => current.copyWith(timezone: timezone),
+    return FocusTraversalGroup(
+      policy: WidgetOrderTraversalPolicy(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _StatusAnnouncement(state: state, pluginSections: pluginSections),
+          if (state.error != null ||
+              state.loading ||
+              state.savedSection != null)
+            const SizedBox(height: 16),
+          switch (section) {
+            PreferenceSection.profile => _ProfileForm(
+              timezone: _timezone,
+              timezoneFocus: _timezoneFocus,
+              selectedTimezone: draft.timezone,
+              timezoneNames: _timezoneNames,
+              timezoneEntries: _timezoneEntries,
+              deviceTimezone: TimezoneEnvironment.instance.deviceTimezone,
+              enabled: editable,
+              onTimezoneChanged: (timezone) => shell.preferences.edit(
+                widget.siteUrl,
+                PreferenceSection.profile,
+                (current) => current.copyWith(timezone: timezone),
+              ),
+              onUseDeviceTimezone: _useDeviceTimezone,
             ),
-            onUseDeviceTimezone: _useDeviceTimezone,
-          ),
-          PreferenceSection.notifications => _NotificationsForm(
-            preferences: draft,
-            enabled: editable,
-            onChanged: (change) => shell.preferences.edit(
-              widget.siteUrl,
-              PreferenceSection.notifications,
-              change,
+            PreferenceSection.notifications => _NotificationsForm(
+              preferences: draft,
+              enabled: editable,
+              onChanged: (change) => shell.preferences.edit(
+                widget.siteUrl,
+                PreferenceSection.notifications,
+                change,
+              ),
+            ),
+            PreferenceSection.tracking => _TrackingForm(
+              preferences: draft,
+              enabled: editable && draft.canChangeTrackingPreferences,
+              onChanged: (change) => shell.preferences.edit(
+                widget.siteUrl,
+                PreferenceSection.tracking,
+                change,
+              ),
+            ),
+            PreferenceSection.interface => _InterfaceForm(
+              preferences: draft,
+              enabled: editable,
+              onBookmarkChanged: (preference) => shell.preferences.edit(
+                widget.siteUrl,
+                PreferenceSection.interface,
+                (current) =>
+                    current.copyWith(bookmarkAutoDeletePreference: preference),
+              ),
+            ),
+            PreferenceSection.chat =>
+              _pluginSection(PreferenceSection.chat, pluginSections)?.content ??
+                  const SizedBox.shrink(),
+          },
+          const SizedBox(height: 24),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: DButton(
+              key: ValueKey('preferences-save-${section.name}'),
+              label: const Text('Save changes'),
+              semanticLabel: state.saving
+                  ? 'Saving preferences'
+                  : 'Save ${_sectionTitle(section, pluginSections)} preferences',
+              onPressed: canSave
+                  ? () => _save(shell, instance!, section)
+                  : null,
+              loading: state.saving,
+              loadingLabel: const Text('Saving changes…'),
+              variant: DButtonVariant.primary,
             ),
           ),
-          PreferenceSection.tracking => _TrackingForm(
-            preferences: draft,
-            enabled: editable && draft.canChangeTrackingPreferences,
-            onChanged: (change) => shell.preferences.edit(
-              widget.siteUrl,
-              PreferenceSection.tracking,
-              change,
-            ),
-          ),
-          PreferenceSection.interface => _InterfaceForm(
-            preferences: draft,
-            enabled: editable,
-            onBookmarkChanged: (preference) => shell.preferences.edit(
-              widget.siteUrl,
-              PreferenceSection.interface,
-              (current) =>
-                  current.copyWith(bookmarkAutoDeletePreference: preference),
-            ),
-          ),
-          PreferenceSection.chat =>
-            _pluginSection(PreferenceSection.chat, pluginSections)?.content ??
-                const SizedBox.shrink(),
-        },
-        const SizedBox(height: 24),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: DButton(
-            key: ValueKey('preferences-save-${section.name}'),
-            label: const Text('Save changes'),
-            semanticLabel: state.saving
-                ? 'Saving preferences'
-                : 'Save ${_sectionTitle(section, pluginSections)} preferences',
-            onPressed: canSave ? () => _save(shell, instance!, section) : null,
-            loading: state.saving,
-            loadingLabel: const Text('Saving changes…'),
-            variant: DButtonVariant.primary,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

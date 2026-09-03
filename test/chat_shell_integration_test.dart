@@ -52,6 +52,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -2942,6 +2943,23 @@ void _registerChatShellTests() {
         }
       });
 
+      testWidgets('tabs from global search to its sort control', (
+        tester,
+      ) async {
+        await pumpChat(tester, config: chatConfig(searchEnabled: true));
+
+        await tester.tap(sidebarDestination('Search'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-search-field')));
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+
+        expect(
+          _primaryFocusIsWithin(find.byKey(const ValueKey('chat-search-sort'))),
+          isTrue,
+        );
+      });
+
       testWidgets('toggles the inline search bar from a channel header', (
         tester,
       ) async {
@@ -2966,6 +2984,16 @@ void _registerChatShellTests() {
         expect(
           find.byKey(const ValueKey('chat-channel-search-field')),
           findsOneWidget,
+        );
+
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-search-field')),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          _primaryFocusIsWithin(find.widgetWithText(DButton, 'Done')),
+          isTrue,
         );
       });
 
@@ -3440,6 +3468,34 @@ void _registerChatShellTests() {
         ]);
         expect(sidebarDestination('Support'), findsOneWidget);
         expect(find.byKey(const ValueKey('chat-unfollow-10')), findsOneWidget);
+      });
+
+      testWidgets('tabs through the browse channel filters in order', (
+        tester,
+      ) async {
+        await pumpChat(tester);
+
+        await tester.tap(sidebarDestination('Browse channels'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-browse-filter')));
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+
+        expect(
+          _primaryFocusIsWithin(
+            find.byKey(const ValueKey('chat-browse-status')),
+          ),
+          isTrue,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          _primaryFocusIsWithin(
+            find.byKey(const ValueKey('chat-browse-joined')),
+          ),
+          isTrue,
+        );
       });
 
       testWidgets('reorders direct messages when a new message arrives', (
@@ -5687,6 +5743,20 @@ void _registerChatShellTests() {
       });
     });
   });
+}
+
+bool _primaryFocusIsWithin(Finder finder) {
+  final focusedContext = FocusManager.instance.primaryFocus?.context;
+  if (focusedContext == null) return false;
+  final targets = finder.evaluate().toSet();
+  if (targets.contains(focusedContext)) return true;
+  var matches = false;
+  focusedContext.visitAncestorElements((ancestor) {
+    if (!targets.contains(ancestor)) return true;
+    matches = true;
+    return false;
+  });
+  return matches;
 }
 
 final class _PanePolicyModule implements PluginModule {
