@@ -588,7 +588,10 @@ void main() {
     expect(find.text('More'), findsNothing);
     expect(find.text('Group settings'), findsNothing);
     expect(find.text('Copy group link'), findsNothing);
-    await tester.tap(find.text('Delete group'));
+    expect(find.text('Delete group'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('group-actions')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('delete-group')));
     await tester.pumpAndSettle();
     expect(
       tester
@@ -660,6 +663,89 @@ void main() {
 
     expect(saved?.subsection, GroupRoute.tags);
     expect(saved?.values['watching_tags'], ['flutter', 'native']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('manage navigation adapts from a sidebar to a mobile sheet', (
+    tester,
+  ) async {
+    var route = GroupRoute.detail(
+      'support',
+      section: GroupRoute.manage,
+      subsection: GroupRoute.tags,
+    );
+    late StateSetter update;
+
+    Widget page() => StatefulBuilder(
+      builder: (context, setState) {
+        update = setState;
+        return GroupPage(
+          siteUrl: 'https://meta.discourse.org',
+          route: route,
+          registry: PluginRegistry.empty,
+          onOpenMember: _ignoreMember,
+          data: const GroupPageData(
+            detail: _detail,
+            taggingEnabled: true,
+            loaded: true,
+          ),
+          onSelectRoute: (selected) => update(() => route = selected),
+          onSaveManage: (_) async => true,
+        );
+      },
+    );
+
+    await _pump(tester, page());
+
+    expect(find.byKey(const ValueKey('group-manage-sidebar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('group-manage-picker')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('group-subtab-profile')));
+    await tester.pump();
+    expect(route.subsection, GroupRoute.profile);
+
+    await _pump(tester, page(), size: const Size(390, 900));
+
+    expect(find.byKey(const ValueKey('group-manage-sidebar')), findsNothing);
+    expect(find.byKey(const ValueKey('group-manage-picker')), findsOneWidget);
+    expect(find.text('2 members'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('group-tab-members')),
+        matching: find.byType(DIcon),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('group-tab-members')),
+        matching: find.text('2'),
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('group-manage-picker')));
+    await tester.pumpAndSettle();
+    expect(find.text('Group settings'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('group-manage-sheet-membership')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('group-manage-sheet-profile')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('group-manage-sheet-membership')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(route.subsection, GroupRoute.membership);
+    expect(
+      find.byKey(const ValueKey('group-manage-current-section')),
+      findsOneWidget,
+    );
+    expect(find.text('Membership'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 

@@ -29,6 +29,8 @@ part 'group/group_manage_view.dart';
 part 'group/group_members_view.dart';
 part 'group/group_shared_view.dart';
 
+const double _groupDesktopBreakpoint = 720;
+
 @immutable
 final class GroupPageData {
   const GroupPageData({
@@ -387,69 +389,22 @@ class _GroupHeader extends StatelessWidget {
         ? GroupMembershipAction.request
         : null;
     final actionLabel = switch (membershipAction) {
-      GroupMembershipAction.join => 'Join',
-      GroupMembershipAction.leave => 'Leave',
+      GroupMembershipAction.join => 'Join group',
+      GroupMembershipAction.leave => 'Leave group',
       GroupMembershipAction.request => 'Request to join',
       null => null,
     };
 
+    final canDelete = isAdmin && !group.automatic && onDeleteGroup != null;
+
     return Material(
       color: theme.colorScheme.surface,
       child: ContentReadingLaneBox(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GroupFlair(siteUrl: siteUrl, group: group, size: 54),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          group.label,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          '@${group.name}',
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (group.plainBio case final bio? when bio.trim().isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(bio, style: theme.textTheme.bodyMedium),
-            ],
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 12,
-              runSpacing: 4,
-              children: [
-                if (group.isGroupOwner)
-                  const _HeaderFact(icon: DIcons.certificate, label: 'Owner')
-                else if (group.isGroupUser)
-                  const _HeaderFact(icon: DIcons.check, label: 'Member'),
-                if (group.isPrivate)
-                  const _HeaderFact(icon: DIcons.lock, label: 'Private'),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
+        padding: const EdgeInsets.fromLTRB(16, 22, 16, 18),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < _groupDesktopBreakpoint;
+            final actions = Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
@@ -476,24 +431,119 @@ class _GroupHeader extends StatelessWidget {
                     label: const Text('Message'),
                     onPressed: onMessageGroup,
                   ),
-                if (isAdmin && !group.automatic && onDeleteGroup != null)
-                  DButton(
-                    key: const ValueKey('delete-group'),
-                    icon: const DIcon(DIcons.trashCan, size: 16),
-                    label: const Text('Delete group'),
-                    variant: DButtonVariant.danger,
-                    onPressed: mutating
-                        ? null
-                        : () => unawaited(_deleteGroup(context)),
+                if (canDelete)
+                  CommandMenuAnchor<_GroupHeaderAction>(
+                    title: 'Group actions',
+                    enabled: !mutating,
+                    options: const [
+                      CommandMenuOption(
+                        value: _GroupHeaderAction.delete,
+                        label: 'Delete group',
+                        icon: DIcons.trashCan,
+                        key: ValueKey('delete-group'),
+                        destructive: true,
+                      ),
+                    ],
+                    onSelected: (_) => unawaited(_deleteGroup(context)),
+                    builder: (context, openMenu) => DButton.iconOnly(
+                      key: const ValueKey('group-actions'),
+                      icon: const DIcon(DIcons.ellipsis, size: 16),
+                      tooltip: 'More group actions',
+                      onPressed: openMenu,
+                    ),
                   ),
               ],
-            ),
-          ],
+            );
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GroupFlair(
+                      siteUrl: siteUrl,
+                      group: group,
+                      size: compact ? 46 : 54,
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              group.label,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              '@${group.name}',
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (!compact) ...[
+                      const SizedBox(width: 24),
+                      Flexible(child: actions),
+                    ],
+                  ],
+                ),
+                if (group.plainBio case final bio?
+                    when bio.trim().isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(bio, style: theme.textTheme.bodyMedium),
+                ],
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    if (group.isGroupOwner)
+                      const _HeaderFact(
+                        icon: DIcons.certificate,
+                        label: 'Owner',
+                      )
+                    else if (group.isGroupUser)
+                      const _HeaderFact(icon: DIcons.check, label: 'Member'),
+                    if (group.isPrivate)
+                      const _HeaderFact(icon: DIcons.lock, label: 'Private'),
+                  ],
+                ),
+                if (compact) ...[
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(child: actions),
+                      const SizedBox(width: 12),
+                      Text(
+                        '${group.userCount} '
+                        '${group.userCount == 1 ? 'member' : 'members'}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            );
+          },
         ),
       ),
     );
   }
 }
+
+enum _GroupHeaderAction { delete }
 
 Future<bool?> _confirmDeleteGroup(BuildContext context, Group group) {
   return showDialog<bool>(
@@ -633,61 +683,69 @@ class _PrimaryTabs extends StatelessWidget {
 
     return Material(
       color: Theme.of(context).colorScheme.surface,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Theme.of(context).shell.divider),
-          ),
-        ),
-        child: ContentReadingLaneBox(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: SingleChildScrollView(
-            key: const ValueKey('group-primary-tabs'),
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                for (final tab in tabs)
-                  _TabButton(
-                    key: ValueKey('group-tab-${tab.section}'),
-                    selected: !route.isPlugin && route.section == tab.section,
-                    label: tab.label,
-                    icon: tab.icon,
-                    count: tab.count,
-                    onTap: () => onSelect(
-                      GroupRoute.detail(
-                        group.name,
-                        section: tab.section,
-                        subsection: _defaultSubsection(
-                          tab.section,
-                          group,
-                          data,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < _groupDesktopBreakpoint;
+          return Container(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Theme.of(context).shell.divider),
+              ),
+            ),
+            child: ContentReadingLaneBox(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SingleChildScrollView(
+                key: const ValueKey('group-primary-tabs'),
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    for (final tab in tabs)
+                      _TabButton(
+                        key: ValueKey('group-tab-${tab.section}'),
+                        selected:
+                            !route.isPlugin && route.section == tab.section,
+                        label: tab.label,
+                        icon: tab.icon,
+                        count: tab.count,
+                        compact: compact,
+                        onTap: () => onSelect(
+                          GroupRoute.detail(
+                            group.name,
+                            section: tab.section,
+                            subsection: _defaultSubsection(
+                              tab.section,
+                              group,
+                              data,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                for (final owned in pluginTabs)
-                  _TabButton(
-                    key: ValueKey('group-plugin-tab-${owned.tab.section}'),
-                    selected:
-                        route.isPlugin &&
-                        route.pluginOwner == owned.owner &&
-                        route.section == owned.tab.section,
-                    label: owned.tab.label,
-                    icon: owned.tab.icon,
-                    count: owned.tab.count,
-                    onTap: () => onSelect(
-                      GroupRoute.plugin(
-                        groupName: group.name,
-                        owner: owned.owner,
-                        section: owned.tab.section,
+                    for (final owned in pluginTabs)
+                      _TabButton(
+                        key: ValueKey('group-plugin-tab-${owned.tab.section}'),
+                        selected:
+                            route.isPlugin &&
+                            route.pluginOwner == owned.owner &&
+                            route.section == owned.tab.section,
+                        label: owned.tab.label,
+                        icon: owned.tab.icon,
+                        count: owned.tab.count,
+                        compact: compact,
+                        onTap: () => onSelect(
+                          GroupRoute.plugin(
+                            groupName: group.name,
+                            owner: owned.owner,
+                            section: owned.tab.section,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-              ],
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -728,6 +786,7 @@ class _TabButton extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onTap,
+    required this.compact,
     this.count,
   });
 
@@ -736,6 +795,7 @@ class _TabButton extends StatelessWidget {
   final DIconData icon;
   final int? count;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -750,10 +810,12 @@ class _TabButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
           child: Row(
             children: [
-              DIcon(icon, size: 14),
-              const SizedBox(width: 7),
+              if (!compact) ...[
+                DIcon(icon, size: 14),
+                const SizedBox(width: 7),
+              ],
               Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-              if (count case final count?) ...[
+              if (!compact && count != null) ...[
                 const SizedBox(width: 6),
                 Text('$count', style: Theme.of(context).textTheme.labelSmall),
               ],

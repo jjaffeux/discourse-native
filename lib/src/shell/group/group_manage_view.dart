@@ -40,39 +40,262 @@ class _ManageSection extends StatelessWidget {
         ? route.subsection!
         : GroupRoute.profile;
 
-    return Column(
-      children: [
-        _Subtabs(
-          selected: selected,
-          options: options,
-          onSelect: (subsection) => onSelect(
-            GroupRoute.detail(
-              group.name,
-              section: GroupRoute.manage,
-              subsection: subsection,
-            ),
-          ),
-        ),
-        Expanded(
-          child: selected == GroupRoute.logs
-              ? _GroupLogs(
-                  page: data.logs,
-                  loading: data.sectionLoading,
-                  loadingMore: data.loadingMore,
-                  error: data.sectionError,
-                  onLoadMore: onLoadMore,
-                )
-              : _GroupManageForm(
-                  key: ValueKey('group-manage-form-${group.id}-$selected'),
-                  group: group,
-                  subsection: selected,
-                  onSave: onSave,
+    void select(String subsection) => onSelect(
+      GroupRoute.detail(
+        group.name,
+        section: GroupRoute.manage,
+        subsection: subsection,
+      ),
+    );
+
+    final content = selected == GroupRoute.logs
+        ? _GroupLogs(
+            page: data.logs,
+            loading: data.sectionLoading,
+            loadingMore: data.loadingMore,
+            error: data.sectionError,
+            onLoadMore: onLoadMore,
+          )
+        : _GroupManageForm(
+            key: ValueKey('group-manage-form-${group.id}-$selected'),
+            group: group,
+            subsection: selected,
+            onSave: onSave,
+          );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= _groupDesktopBreakpoint) {
+          return ContentReadingLaneBox(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 190,
+                  child: _ManageSidebar(
+                    selected: selected,
+                    options: options,
+                    onSelect: select,
+                  ),
                 ),
-        ),
-      ],
+                VerticalDivider(
+                  width: 1,
+                  color: Theme.of(context).shell.divider,
+                ),
+                Expanded(child: content),
+              ],
+            ),
+          );
+        }
+        return Column(
+          children: [
+            _MobileManagePicker(
+              selected: selected,
+              options: options,
+              onSelect: select,
+            ),
+            Expanded(child: content),
+          ],
+        );
+      },
     );
   }
 }
+
+class _ManageSidebar extends StatelessWidget {
+  const _ManageSidebar({
+    required this.selected,
+    required this.options,
+    required this.onSelect,
+  });
+
+  final String selected;
+  final List<_Subtab> options;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    key: const ValueKey('group-manage-sidebar'),
+    color: Theme.of(context).colorScheme.surfaceContainerLowest,
+    child: ListView(
+      padding: const EdgeInsets.fromLTRB(10, 16, 10, 20),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+          child: Text(
+            'Group settings',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        for (final option in options)
+          _ManageNavigationItem(
+            key: ValueKey('group-subtab-${option.value}'),
+            option: option,
+            selected: selected == option.value,
+            onTap: () => onSelect(option.value),
+          ),
+      ],
+    ),
+  );
+}
+
+class _MobileManagePicker extends StatelessWidget {
+  const _MobileManagePicker({
+    required this.selected,
+    required this.options,
+    required this.onSelect,
+  });
+
+  final String selected;
+  final List<_Subtab> options;
+  final ValueChanged<String> onSelect;
+
+  Future<void> _showPicker(BuildContext context) async {
+    final choice = await showShellSheet<String>(
+      context: context,
+      title: 'Group settings',
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final option in options)
+            ListTile(
+              key: ValueKey('group-manage-sheet-${option.value}'),
+              minTileHeight: 48,
+              leading: DIcon(_manageIcon(option.value), size: 18),
+              title: Text(option.label),
+              trailing: selected == option.value
+                  ? const DIcon(DIcons.check, size: 16)
+                  : null,
+              selected: selected == option.value,
+              selectedColor: Theme.of(sheetContext).shell.selectedForeground,
+              selectedTileColor: Theme.of(sheetContext).shell.selected,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(7),
+              ),
+              onTap: () => Navigator.of(sheetContext).pop(option.value),
+            ),
+        ],
+      ),
+    );
+    if (choice != null && choice != selected) onSelect(choice);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = options
+        .firstWhere((option) => option.value == selected)
+        .label;
+    return Material(
+      key: const ValueKey('group-manage-picker'),
+      color: Theme.of(context).colorScheme.surfaceContainerLowest,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Theme.of(context).shell.divider),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(7),
+          onTap: () => unawaited(_showPicker(context)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Group settings',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                Text(
+                  label,
+                  key: const ValueKey('group-manage-current-section'),
+                  style: TextStyle(
+                    color: Theme.of(context).shell.selectedForeground,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const DIcon(DIcons.chevronDown, size: 14),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ManageNavigationItem extends StatelessWidget {
+  const _ManageNavigationItem({
+    super.key,
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _Subtab option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Material(
+      color: selected ? Theme.of(context).shell.selected : Colors.transparent,
+      borderRadius: BorderRadius.circular(7),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(7),
+        mouseCursor: SystemMouseCursors.click,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            children: [
+              DIcon(
+                _manageIcon(option.value),
+                size: 16,
+                color: selected
+                    ? Theme.of(context).shell.selectedForeground
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  option.label,
+                  style: TextStyle(
+                    color: selected
+                        ? Theme.of(context).shell.selectedForeground
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+DIconData _manageIcon(String subsection) => switch (subsection) {
+  GroupRoute.profile => DIcons.user,
+  GroupRoute.membership => DIcons.users,
+  GroupRoute.interaction => DIcons.comments,
+  GroupRoute.email => DIcons.envelope,
+  GroupRoute.categories => DIcons.folder,
+  GroupRoute.tags => DIcons.tag,
+  GroupRoute.logs => DIcons.farClock,
+  _ => DIcons.gear,
+};
 
 class _GroupManageForm extends StatefulWidget {
   const _GroupManageForm({
@@ -504,50 +727,74 @@ class _GroupLogs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    late final Widget body;
     if (page == null) {
-      if (error != null) {
-        return _GroupState(icon: DIcons.triangleExclamation, title: error!);
-      }
-      return const Center(child: CircularProgressIndicator.adaptive());
-    }
-    if (page!.logs.isEmpty && !loading) {
-      return const _GroupState(
+      body = error != null
+          ? _GroupState(icon: DIcons.triangleExclamation, title: error!)
+          : const Center(child: CircularProgressIndicator.adaptive());
+    } else if (page!.logs.isEmpty && !loading) {
+      body = const _GroupState(
         icon: DIcons.farClock,
         title: 'No group changes have been recorded.',
       );
-    }
-    return ContentReadingLane(
-      basePadding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
-      builder: (context, lane) => ListView.separated(
-        key: const PageStorageKey('group-logs-scroll'),
-        padding: lane.padding,
-        itemCount: page!.logs.length + (!page!.allLoaded ? 1 : 0),
-        separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          if (index == page!.logs.length) {
-            return _LoadMoreRow(loading: loadingMore, onPressed: onLoadMore);
-          }
-          final log = page!.logs[index];
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: ListTile(
-                leading: const DIcon(DIcons.farClock, size: 17),
-                title: Text(_humanizeLog(log.action)),
-                subtitle: Text(
-                  [
-                    if (log.actingUser case final user?) '@${user.username}',
-                    if (log.targetUser case final user?) '→ @${user.username}',
-                    ?log.subject,
-                    if (log.previousValue != null || log.newValue != null)
-                      '${log.previousValue ?? '—'} → ${log.newValue ?? '—'}',
-                  ].join('  '),
+    } else {
+      body = ContentReadingLane(
+        basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+        builder: (context, lane) => ListView.separated(
+          key: const PageStorageKey('group-logs-scroll'),
+          padding: lane.padding,
+          itemCount: page!.logs.length + (!page!.allLoaded ? 1 : 0),
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            if (index == page!.logs.length) {
+              return _LoadMoreRow(loading: loadingMore, onPressed: onLoadMore);
+            }
+            final log = page!.logs[index];
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: ListTile(
+                  leading: const DIcon(DIcons.farClock, size: 17),
+                  title: Text(_humanizeLog(log.action)),
+                  subtitle: Text(
+                    [
+                      if (log.actingUser case final user?) '@${user.username}',
+                      if (log.targetUser case final user?)
+                        '→ @${user.username}',
+                      ?log.subject,
+                      if (log.previousValue != null || log.newValue != null)
+                        '${log.previousValue ?? '—'} → ${log.newValue ?? '—'}',
+                    ].join('  '),
+                  ),
                 ),
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ContentReadingLaneBox(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Logs', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 4),
+              Text(
+                'Membership and settings changes for this group.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(child: body),
+      ],
     );
   }
 }
