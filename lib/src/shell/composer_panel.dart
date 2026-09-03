@@ -3207,41 +3207,190 @@ class _Toolbar extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-      child: Wrap(
-        children: [
-          if (uploadsEnabled)
-            _ComposerUploadButton(composer: composer, pickImages: pickImages),
-          if (emojiEnabled)
-            EmojiPickerAnchor(
-              child: Builder(
-                builder: (buttonContext) => IconButton(
-                  key: const ValueKey('composer-emoji-picker'),
-                  onPressed: composer.loadingBody
-                      ? null
-                      : () => unawaited(
-                          openEmojiPickerForTopicComposer(
-                            context: buttonContext,
-                            composer: composer,
-                          ),
+    return _ComposerToolbarOverflow(
+      children: [
+        const SizedBox(width: 10),
+        if (uploadsEnabled)
+          _ComposerUploadButton(composer: composer, pickImages: pickImages),
+        if (emojiEnabled)
+          EmojiPickerAnchor(
+            child: Builder(
+              builder: (buttonContext) => IconButton(
+                key: const ValueKey('composer-emoji-picker'),
+                onPressed: composer.loadingBody
+                    ? null
+                    : () => unawaited(
+                        openEmojiPickerForTopicComposer(
+                          context: buttonContext,
+                          composer: composer,
                         ),
-                  icon: const DIcon(DIcons.discourseEmojis, size: 18),
-                  tooltip: 'Add emoji',
-                  visualDensity: VisualDensity.compact,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                      ),
+                icon: const DIcon(DIcons.discourseEmojis, size: 18),
+                tooltip: 'Add emoji',
+                visualDensity: VisualDensity.compact,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-          for (final action in actions)
-            IconButton(
-              onPressed: action.onInvoke,
-              icon: DIcon(action.icon, size: 18),
-              tooltip: action.label,
-              visualDensity: VisualDensity.compact,
-              color: theme.colorScheme.onSurfaceVariant,
+          ),
+        for (final action in actions)
+          IconButton(
+            onPressed: action.onInvoke,
+            icon: DIcon(action.icon, size: 18),
+            tooltip: action.label,
+            visualDensity: VisualDensity.compact,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        const SizedBox(width: 10),
+      ],
+    );
+  }
+}
+
+class _ComposerToolbarOverflow extends StatefulWidget {
+  const _ComposerToolbarOverflow({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  State<_ComposerToolbarOverflow> createState() =>
+      _ComposerToolbarOverflowState();
+}
+
+class _ComposerToolbarOverflowState extends State<_ComposerToolbarOverflow> {
+  final ScrollController _controller = ScrollController();
+  bool _canScrollBackward = false;
+  bool _canScrollForward = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_updateOverflow);
+  }
+
+  @override
+  void dispose() {
+    _controller
+      ..removeListener(_updateOverflow)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _scheduleOverflowUpdate() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateOverflow());
+  }
+
+  void _updateOverflow() {
+    if (!mounted || !_controller.hasClients) return;
+    final position = _controller.position;
+    if (!position.hasContentDimensions) return;
+    final canScrollBackward = position.pixels > position.minScrollExtent + 2;
+    final canScrollForward = position.pixels < position.maxScrollExtent - 2;
+    if (_canScrollBackward == canScrollBackward &&
+        _canScrollForward == canScrollForward) {
+      return;
+    }
+    setState(() {
+      _canScrollBackward = canScrollBackward;
+      _canScrollForward = canScrollForward;
+    });
+  }
+
+  Future<void> _scrollByViewport(double direction) async {
+    if (!_controller.hasClients) return;
+    final position = _controller.position;
+    final target = (position.pixels + direction * position.viewportDimension)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    await _controller.animateTo(
+      target,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _scheduleOverflowUpdate();
+    final textDirection = Directionality.of(context);
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        SingleChildScrollView(
+          key: const ValueKey('composer-toolbar-scroll'),
+          controller: _controller,
+          scrollDirection: Axis.horizontal,
+          child: Row(mainAxisSize: MainAxisSize.min, children: widget.children),
+        ),
+        if (_canScrollBackward)
+          PositionedDirectional(
+            start: 0,
+            top: 0,
+            bottom: 0,
+            child: _ComposerToolbarScrollButton(
+              key: const ValueKey('composer-toolbar-scroll-backward'),
+              forward: false,
+              textDirection: textDirection,
+              onPressed: () => unawaited(_scrollByViewport(-1)),
             ),
-        ],
+          ),
+        if (_canScrollForward)
+          PositionedDirectional(
+            end: 0,
+            top: 0,
+            bottom: 0,
+            child: _ComposerToolbarScrollButton(
+              key: const ValueKey('composer-toolbar-scroll-forward'),
+              forward: true,
+              textDirection: textDirection,
+              onPressed: () => unawaited(_scrollByViewport(1)),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ComposerToolbarScrollButton extends StatelessWidget {
+  const _ComposerToolbarScrollButton({
+    super.key,
+    required this.forward,
+    required this.textDirection,
+    required this.onPressed,
+  });
+
+  final bool forward;
+  final TextDirection textDirection;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final pointsRight = forward == (textDirection == TextDirection.ltr);
+    final fadeColor = theme.shell.content;
+
+    return Container(
+      width: 38,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: pointsRight ? Alignment.centerLeft : Alignment.centerRight,
+          end: pointsRight ? Alignment.centerRight : Alignment.centerLeft,
+          colors: [fadeColor.withValues(alpha: 0), fadeColor, fadeColor],
+          stops: const [0, 0.55, 1],
+        ),
+      ),
+      alignment: pointsRight ? Alignment.centerRight : Alignment.centerLeft,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: DIcon(
+          pointsRight ? DIcons.chevronRight : DIcons.chevronLeft,
+          size: 13,
+        ),
+        tooltip: forward
+            ? 'Show more composer tools'
+            : 'Show previous composer tools',
+        visualDensity: VisualDensity.compact,
+        color: theme.colorScheme.onSurfaceVariant,
       ),
     );
   }
@@ -3515,8 +3664,6 @@ class _Footer extends StatelessWidget {
   final String discardLabel;
   final VoidCallback onDiscard;
 
-  static const double _stackedBreakpoint = 400;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -3542,54 +3689,37 @@ class _Footer extends StatelessWidget {
           : Text(label),
     );
 
+    final controls = Row(
+      children: [
+        if (!composer.target.isTaxonomyEdit)
+          Expanded(
+            child: _Toolbar(composer: composer, pickImages: pickImages),
+          )
+        else
+          const Spacer(),
+        DButton(
+          key: const ValueKey('composer-discard'),
+          label: Text(discardLabel),
+          onPressed: busy ? null : onDiscard,
+          variant: DButtonVariant.transparent,
+        ),
+        const SizedBox(width: 8),
+        submit,
+      ],
+    );
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 0, 14, 10),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final toolbar = _Toolbar(composer: composer, pickImages: pickImages);
-          final statusAndSubmit = Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (message != null) ...[status, const SizedBox(height: 4)],
-              Align(
-                alignment: Alignment.centerRight,
-                child: Wrap(
-                  alignment: WrapAlignment.end,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    DButton(
-                      key: const ValueKey('composer-discard'),
-                      label: Text(discardLabel),
-                      onPressed: busy ? null : onDiscard,
-                      variant: DButtonVariant.transparent,
-                    ),
-                    submit,
-                  ],
-                ),
-              ),
-            ],
-          );
-          final stacked =
-              !composer.target.isTaxonomyEdit &&
-              constraints.maxWidth < _stackedBreakpoint;
-          return Flex(
-            direction: stacked ? Axis.vertical : Axis.horizontal,
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: stacked
-                ? CrossAxisAlignment.stretch
-                : CrossAxisAlignment.center,
-            children: [
-              if (!composer.target.isTaxonomyEdit) toolbar,
-              if (stacked)
-                statusAndSubmit
-              else
-                Expanded(child: statusAndSubmit),
-            ],
-          );
-        },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (message != null) ...[
+            Align(alignment: Alignment.centerRight, child: status),
+            const SizedBox(height: 4),
+          ],
+          controls,
+        ],
       ),
     );
   }
