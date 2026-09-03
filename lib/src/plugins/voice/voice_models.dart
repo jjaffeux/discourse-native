@@ -186,6 +186,7 @@ class VoiceRecording {
     required this.active,
     this.startedAt,
     this.startedById,
+    this.startedByUsername,
   });
 
   factory VoiceRecording.fromJson(Map<String, dynamic> json) => VoiceRecording(
@@ -196,11 +197,13 @@ class VoiceRecording {
     startedById:
         jsonIntOrNull(json['started_by_id']) ??
         jsonIntOrNull(jsonObject(json['started_by'])['id']),
+    startedByUsername: jsonText(jsonObject(json['started_by'])['username']),
   );
 
   final bool active;
   final DateTime? startedAt;
   final int? startedById;
+  final String? startedByUsername;
 }
 
 @immutable

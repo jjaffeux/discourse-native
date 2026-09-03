@@ -4496,4 +4496,41 @@ void main() {
       expect(await controller.meshPrivacyAcknowledged(), isTrue);
     });
   });
+
+  group('stage role changes', () {
+    test('write a membership for the active room', () async {
+      transport.responses['POST /voice/rooms/7/memberships.json'] = {};
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      await controller.setParticipantRole(2, VoiceRole.speaker);
+      await controller.setParticipantRole(2, VoiceRole.participant);
+
+      final writes = transport.writes
+          .where((write) => write.path.endsWith('/memberships.json'))
+          .toList();
+      expect(writes.map((write) => write.method), ['POST', 'POST']);
+      // The transport drops null fields before sending; the fake records the
+      // request as built.
+      expect(
+        writes.map(
+          (write) => {...write.body}..removeWhere((_, value) => value == null),
+        ),
+        [
+          {'user_id': 2, 'role': 'speaker'},
+          {'user_id': 2, 'role': 'participant'},
+        ],
+      );
+    });
+
+    test('do nothing outside a call', () async {
+      await controller.setParticipantRole(2, VoiceRole.speaker);
+
+      expect(transport.writes, isEmpty);
+    });
+  });
 }

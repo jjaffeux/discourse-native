@@ -63,6 +63,21 @@ void main() {
     },
   );
 
+  testWidgets('shows a recording light while the call is recorded', (
+    tester,
+  ) async {
+    final port = FakeVoiceCallPort(state: _state());
+    addTearDown(port.close);
+    await _pump(tester, port);
+    expect(find.byTooltip('Recording'), findsNothing);
+
+    port.replaceState(_state(recording: true));
+    await tester.pump();
+
+    expect(find.byTooltip('Recording'), findsOneWidget);
+    expect(find.text('Planning'), findsOneWidget);
+  });
+
   testWidgets('renders the port-owned local video preview', (tester) async {
     final port = FakeVoiceCallPort(
       state: _state(
@@ -184,6 +199,7 @@ VoiceCallPortState _state({
   VoiceCallPresentationStatus status = VoiceCallPresentationStatus.connected,
   String roomName = 'Planning',
   bool muted = false,
+  bool recording = false,
   Widget? preview,
 }) => VoiceCallPortState(
   supported: true,
@@ -193,6 +209,7 @@ VoiceCallPortState _state({
     participantCount: 2,
     status: status,
     muted: muted,
+    recording: recording,
     localVideoPreview: preview,
     failureMessage: status == VoiceCallPresentationStatus.failed
         ? 'The media connection could not be restored.'

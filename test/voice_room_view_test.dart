@@ -23,6 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 // ignore: implementation_imports
 import 'package:flutter_webrtc/src/native/media_stream_track_impl.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 
 import 'support/voice_fake_chat_conversations.dart';
 
@@ -30,6 +31,7 @@ const _siteUrl = 'https://voice.example.com';
 
 void main() {
   _meshPrivacyTests();
+  _roomSurfaceTests();
 
   group('room availability and layout', () {
     testWidgets('renders unavailable and empty states without a shell', (
@@ -1261,6 +1263,138 @@ void main() {
   });
 }
 
+void _roomSurfaceTests() {
+  group('room surface', () {
+    testWidgets('everyone sees that a call is being recorded', (tester) async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final room = _room(
+        participants: const [
+          VoiceParticipant(id: 2, username: 'lee', role: VoiceRole.moderator),
+        ],
+        recording: const VoiceRecording(
+          active: true,
+          startedById: 2,
+          startedByUsername: 'lee',
+        ),
+      );
+
+      await tester.pumpWidget(_app(harness.controller, room: room));
+
+      expect(find.text('Recording'), findsOneWidget);
+      expect(find.byTooltip('Recording started by @lee'), findsOneWidget);
+      expect(find.text('Join room'), findsOneWidget);
+    });
+
+    testWidgets('an empty room shows its cooked description', (tester) async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final room = _room(
+        participants: const [],
+        description: 'A **calm** place',
+        cookedDescription: '<p>A <strong>calm</strong> place</p>',
+      );
+
+      await tester.pumpWidget(_app(harness.controller, room: room));
+      await tester.pumpAndSettle();
+
+      expect(find.text('A **calm** place'), findsNothing);
+      expect(find.byType(HtmlWidget), findsOneWidget);
+      expect(find.text('A calm place', findRichText: true), findsOneWidget);
+    });
+
+    testWidgets('a manager promotes and demotes stage participants', (
+      tester,
+    ) async {
+      final room = _room(
+        type: VoiceRoomType.stage,
+        canManage: true,
+        creatorId: 1,
+        participants: [
+          const VoiceParticipant(
+            id: 1,
+            username: 'sam',
+            role: VoiceRole.moderator,
+          ),
+          VoiceParticipant(
+            id: 2,
+            username: 'lee',
+            role: VoiceRole.participant,
+            handRaisedAt: DateTime.utc(2026),
+          ),
+          const VoiceParticipant(
+            id: 3,
+            username: 'kim',
+            role: VoiceRole.speaker,
+          ),
+        ],
+      );
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await _join(harness, room);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, call: harness.controller.call),
+      );
+
+      // The joined room is drawn in canonical order (kim, lee, sam) and the
+      // local user has no menu, so the first menu is kim's, the second lee's.
+      await tester.tap(find.byTooltip('Participant actions').at(0));
+      await tester.pumpAndSettle();
+      expect(find.text('Move to listeners'), findsOneWidget);
+      expect(find.text('Make speaker'), findsNothing);
+      await tester.tap(find.text('Move to listeners'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Participant actions').at(1));
+      await tester.pumpAndSettle();
+      expect(find.text('Make speaker'), findsOneWidget);
+      await tester.tap(find.text('Make speaker'));
+      await tester.pumpAndSettle();
+
+      final writes = harness.transport.writes
+          .where((write) => write.path.endsWith('/memberships.json'))
+          .toList();
+      expect(writes.map((write) => write.method), ['POST', 'POST']);
+      expect(
+        writes.map(
+          (write) => {...write.body}..removeWhere((_, value) => value == null),
+        ),
+        [
+          {'user_id': 3, 'role': 'participant'},
+          {'user_id': 2, 'role': 'speaker'},
+        ],
+      );
+      harness.dispose();
+    });
+
+    testWidgets('open rooms offer no role changes', (tester) async {
+      final room = _room(
+        canManage: true,
+        creatorId: 1,
+        participants: const [
+          VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+          VoiceParticipant(id: 2, username: 'lee', role: VoiceRole.participant),
+        ],
+      );
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await _join(harness, room);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, call: harness.controller.call),
+      );
+
+      await tester.tap(find.byTooltip('Participant actions'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Make speaker'), findsNothing);
+      expect(find.text('Move to listeners'), findsNothing);
+      await tester.tapAt(Offset.zero);
+      await tester.pumpAndSettle();
+      harness.dispose();
+    });
+  });
+}
+
 void _meshPrivacyTests() {
   group('mesh privacy warning', () {
     VoiceRoom meshRoom() =>
@@ -1510,17 +1644,21 @@ Widget _app(
 VoiceRoom _room({
   required List<VoiceParticipant> participants,
   String? description,
+  String? cookedDescription,
   int? creatorId,
   bool canManage = false,
   bool videoAllowed = false,
   bool chatAvailable = false,
   VoiceRoomType type = VoiceRoomType.open,
   VoiceTransport? expectedTransport,
+  VoiceRecording? recording,
 }) => VoiceRoom(
   id: 7,
   name: 'Lounge',
   slug: 'lounge',
   description: description,
+  cookedDescription: cookedDescription,
+  recording: recording,
   isPublic: true,
   ephemeral: false,
   type: type,
@@ -1589,6 +1727,7 @@ final class _Harness {
                  ),
                'POST /voice/rooms/7/state.json': const {},
                'DELETE /voice/rooms/7/kick.json': const {},
+               'POST /voice/rooms/7/memberships.json': const {},
                'DELETE /voice/rooms/7/leave.json': const {},
                'GET /site.json': const {
                  'post_action_types': [

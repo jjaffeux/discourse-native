@@ -18,6 +18,7 @@ final class VoiceCallPresentation {
     required this.participantCount,
     required this.status,
     required this.muted,
+    this.recording = false,
     this.localVideoPreview,
     this.failureMessage,
   });
@@ -27,6 +28,10 @@ final class VoiceCallPresentation {
   final int participantCount;
   final VoiceCallPresentationStatus status;
   final bool muted;
+
+  /// The call is being recorded server-side. Shown wherever the call is,
+  /// so nobody can be in a recorded call without seeing it.
+  final bool recording;
   final Widget? localVideoPreview;
   final String? failureMessage;
 
@@ -36,6 +41,7 @@ final class VoiceCallPresentation {
     int? participantCount,
     VoiceCallPresentationStatus? status,
     bool? muted,
+    bool? recording,
     Widget? localVideoPreview,
     String? failureMessage,
     bool clearLocalVideoPreview = false,
@@ -46,6 +52,7 @@ final class VoiceCallPresentation {
     participantCount: participantCount ?? this.participantCount,
     status: status ?? this.status,
     muted: muted ?? this.muted,
+    recording: recording ?? this.recording,
     localVideoPreview: clearLocalVideoPreview
         ? null
         : localVideoPreview ?? this.localVideoPreview,

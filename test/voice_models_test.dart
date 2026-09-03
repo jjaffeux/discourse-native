@@ -179,11 +179,13 @@ void main() {
         (
           active: room.recording?.active,
           startedById: room.recording?.startedById,
+          startedByUsername: room.recording?.startedByUsername,
           startedAt: room.recording?.startedAt,
         ),
         (
           active: true,
           startedById: 1,
+          startedByUsername: 'sam',
           startedAt: DateTime.utc(2026, 8, 8, 16, 0, 0, 250),
         ),
       );

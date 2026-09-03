@@ -175,6 +175,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
     final recordingEnabled = widget.recordingEnabled;
     final controllerResolver = widget.controllerResolver;
     final error = active?.error ?? controller.errorFor(siteUrl);
+    final recording = room.recording;
     return Column(
       children: [
         if (error != null)
@@ -188,6 +189,8 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
               ),
             ],
           ),
+        if (recording != null && recording.active)
+          _RecordingBadge(recording: recording),
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -228,6 +231,11 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
                         participant.id != room.creatorId,
                     canAdjustLocally:
                         active != null && participant.id != currentUserId,
+                    stageRoleChange: _stageRoleChange(
+                      active,
+                      participant,
+                      currentUserId,
+                    ),
                     controllerResolver: controllerResolver,
                   );
                 },
@@ -270,6 +278,63 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
   }
 }
 
+/// The role a manager may move [participant] to from the tile menu, in a
+/// stage room: listeners become speakers (which also approves a raised
+/// hand), speakers go back to the listeners. Moderators and the local user
+/// are managed elsewhere.
+VoiceRole? _stageRoleChange(
+  VoiceCallSnapshot? call,
+  VoiceParticipant participant,
+  int? currentUserId,
+) {
+  if (call == null ||
+      !call.room.canManage ||
+      call.room.type != VoiceRoomType.stage ||
+      participant.id == currentUserId) {
+    return null;
+  }
+  return switch (participant.role) {
+    VoiceRole.participant => VoiceRole.speaker,
+    VoiceRole.speaker => VoiceRole.participant,
+    VoiceRole.moderator => null,
+  };
+}
+
+/// The room-wide "this call is being recorded" indicator. Drawn for
+/// everyone looking at the room, not only for whoever can stop it.
+class _RecordingBadge extends StatelessWidget {
+  const _RecordingBadge({required this.recording});
+  final VoiceRecording recording;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final startedBy = recording.startedByUsername;
+    return Tooltip(
+      message: startedBy == null
+          ? 'This call is being recorded'
+          : 'Recording started by @$startedBy',
+      child: Container(
+        width: double.infinity,
+        color: theme.colorScheme.errorContainer,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            DIcon(DIcons.circle, size: 12, color: theme.colorScheme.error),
+            const SizedBox(width: 8),
+            Text(
+              'Recording',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onErrorContainer,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyRoom extends StatelessWidget {
   const _EmptyRoom({required this.room});
   final VoiceRoom room;
@@ -282,7 +347,15 @@ class _EmptyRoom extends StatelessWidget {
         const DIcon(DIcons.microphoneLines, size: 52),
         const SizedBox(height: 12),
         Text('Nobody is in ${room.name} yet.'),
-        if (room.description case final description?) ...[
+        // The site cooks the description like a post; the raw markdown is
+        // only what the editor shows.
+        if (room.cookedDescription case final cooked?) ...[
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: HtmlWidget(cooked),
+          ),
+        ] else if (room.description case final description?) ...[
           const SizedBox(height: 8),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
@@ -304,6 +377,7 @@ class _ParticipantTile extends StatelessWidget {
     required this.canManage,
     required this.canKick,
     required this.canAdjustLocally,
+    this.stageRoleChange,
     this.controllerResolver,
   });
 
@@ -315,6 +389,7 @@ class _ParticipantTile extends StatelessWidget {
   final bool canManage;
   final bool canKick;
   final bool canAdjustLocally;
+  final VoiceRole? stageRoleChange;
   final VoiceController Function()? controllerResolver;
 
   @override
@@ -410,6 +485,12 @@ class _ParticipantTile extends StatelessWidget {
                           raised: false,
                         );
                       }
+                      if (action == 'role' && stageRoleChange != null) {
+                        await controller.setParticipantRole(
+                          participant.id,
+                          stageRoleChange!,
+                        );
+                      }
                       if (action == 'volume' && context.mounted) {
                         await _showParticipantVolume(
                           context,
@@ -435,6 +516,15 @@ class _ParticipantTile extends StatelessWidget {
                         value: 'flag',
                         child: Text('Notify moderators'),
                       ),
+                      if (stageRoleChange case final role?)
+                        PopupMenuItem(
+                          value: 'role',
+                          child: Text(
+                            role == VoiceRole.speaker
+                                ? 'Make speaker'
+                                : 'Move to listeners',
+                          ),
+                        ),
                       if (canManage && participant.handRaisedAt != null)
                         const PopupMenuItem(
                           value: 'dismiss',

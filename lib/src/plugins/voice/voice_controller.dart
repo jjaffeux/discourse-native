@@ -3244,6 +3244,39 @@ final class VoiceController extends ChangeNotifier {
     );
   }
 
+  /// Makes [userId] a speaker or moves them back to the listeners of the
+  /// active stage room. A membership write: the server re-broadcasts the
+  /// roster with the new role, and a promoted listener's raised hand is
+  /// lowered by it.
+  Future<void> setParticipantRole(int userId, VoiceRole role) {
+    _userActed();
+    return _runPublicOperation(
+      () => _setParticipantRole(userId, role),
+      'voice.setParticipantRole',
+      correlationId: _activeDiagnosticCorrelationId,
+    );
+  }
+
+  Future<void> _setParticipantRole(int userId, VoiceRole role) async {
+    final call = _call;
+    if (call == null) return;
+    final siteSession = _siteSession(call.siteUrl);
+    bool isCurrent() => _isCurrentCall(call, siteSession);
+    final credentials = await _requestCredentials(
+      call.siteUrl,
+      ifCurrent: isCurrent,
+    );
+    if (credentials == null) return;
+    await api.addMembership(
+      siteUrl: call.siteUrl,
+      roomId: call.room.id,
+      apiKey: credentials.apiKey,
+      userId: userId,
+      role: role,
+      clientId: credentials.clientId,
+    );
+  }
+
   Future<void> kick(int userId) => _runPublicOperation(
     () => _kick(userId),
     'voice.kick',
