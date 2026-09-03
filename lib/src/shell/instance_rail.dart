@@ -48,7 +48,7 @@ class InstanceRail extends StatelessWidget {
                   if (state.loadStatus == InstanceLoadStatus.ready &&
                       state.instances.isNotEmpty) ...[
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(0, 12, 0, 6),
+                      padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
                       child: _AggregateRailButton(
                         selected: state.rootMode == ShellRootMode.aggregate,
                         shortcutKey: controller.forumTabsEnabled
@@ -58,7 +58,7 @@ class InstanceRail extends StatelessWidget {
                       ),
                     ),
                     SizedBox(
-                      width: 32,
+                      width: 28,
                       child: Divider(
                         height: 1,
                         color: theme.shell.railForeground.withValues(
@@ -122,9 +122,15 @@ class InstanceRail extends StatelessWidget {
   }
 }
 
-const double _railListPadding = 12;
-const double _railItemExtent = 52;
-const double _railAvatarSize = 44;
+const double _railListPadding = 8;
+const double _railItemExtent = 44;
+const double _railControlExtent = 44;
+const double _railVisualSize = 36;
+const double _railIconSize = 18;
+const double _railSelectedMarkerHeight = 32;
+const double _railHoveredMarkerHeight = 16;
+const double _railIdleMarkerHeight = 8;
+const double _railAvatarSize = _railVisualSize;
 const double _railSourceOpacity = 0.3;
 const double _railInsertionHorizontalInset = 5;
 const double _railInsertionPinSize = 8;
@@ -411,7 +417,7 @@ class _InstanceRailListState extends State<_InstanceRailList> {
               data: instance.url,
               enabled: _draggedUrl == null || _draggedUrl == instance.url,
               feedback: Transform.translate(
-                offset: const Offset(-22, -56),
+                offset: const Offset(-18, -48),
                 child: feedback,
               ),
               onDragStarted: () => _startDrag(
@@ -437,7 +443,7 @@ class _InstanceRailListState extends State<_InstanceRailList> {
           : 0,
       dragAnchorStrategy: pointerDragAnchorStrategy,
       feedback: Transform.translate(
-        offset: const Offset(-22, -22),
+        offset: const Offset(-18, -18),
         child: feedback,
       ),
       onDragStarted: () =>
@@ -833,7 +839,9 @@ class _AggregateRailButtonState extends State<_AggregateRailButton> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final foreground = theme.shell.railForeground;
-    final markerHeight = widget.selected ? 40.0 : (_hovered ? 20.0 : 8.0);
+    final markerHeight = widget.selected
+        ? _railSelectedMarkerHeight
+        : (_hovered ? _railHoveredMarkerHeight : _railIdleMarkerHeight);
 
     return Stack(
       alignment: Alignment.centerLeft,
@@ -866,24 +874,30 @@ class _AggregateRailButtonState extends State<_AggregateRailButton> {
               key: const ValueKey('aggregate-rail-button'),
               onTap: widget.onTap,
               onHover: (hovered) => setState(() => _hovered = hovered),
-              borderRadius: BorderRadius.circular(16),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: widget.selected
-                      ? foreground
-                      : foreground.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(
-                    widget.selected || _hovered ? 16 : 22,
+              borderRadius: BorderRadius.circular(_railControlExtent / 2),
+              child: SizedBox.square(
+                dimension: _railControlExtent,
+                child: Center(
+                  child: AnimatedContainer(
+                    key: const ValueKey('aggregate-rail-visual'),
+                    duration: const Duration(milliseconds: 180),
+                    width: _railVisualSize,
+                    height: _railVisualSize,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: widget.selected
+                          ? foreground
+                          : foreground.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(
+                        widget.selected || _hovered ? 12 : 18,
+                      ),
+                    ),
+                    child: DIcon(
+                      DIcons.house,
+                      size: _railIconSize,
+                      color: widget.selected ? theme.shell.rail : foreground,
+                    ),
                   ),
-                ),
-                child: DIcon(
-                  DIcons.house,
-                  size: 20,
-                  color: widget.selected ? theme.shell.rail : foreground,
                 ),
               ),
             ),
@@ -907,19 +921,24 @@ class _RailLoadFailure extends StatelessWidget {
         child: InkWell(
           key: const ValueKey('instance-load-retry-rail'),
           onTap: ShellScope.read(context).load,
-          borderRadius: BorderRadius.circular(22),
-          child: Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.error.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: DIcon(
-              DIcons.arrowsRotate,
-              size: 20,
-              color: theme.colorScheme.error,
+          borderRadius: BorderRadius.circular(_railControlExtent / 2),
+          child: SizedBox.square(
+            dimension: _railControlExtent,
+            child: Center(
+              child: Container(
+                width: _railVisualSize,
+                height: _railVisualSize,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.error.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(_railVisualSize / 2),
+                ),
+                child: DIcon(
+                  DIcons.arrowsRotate,
+                  size: _railIconSize,
+                  color: theme.colorScheme.error,
+                ),
+              ),
             ),
           ),
         ),
@@ -946,17 +965,17 @@ class _RailFooter extends StatelessWidget {
       children: [
         if (siteActionsAvailable) ...[
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 4),
+            padding: EdgeInsets.symmetric(vertical: 2),
             child: Center(child: _AddInstanceButton()),
           ),
           if (updates.isSupported)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 4),
+              padding: EdgeInsets.symmetric(vertical: 2),
               child: Center(child: _UpdateButton()),
             ),
         ],
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(vertical: 2),
           child: Center(
             child: _SettingsButton(
               selected: settingsSelected,
@@ -966,7 +985,7 @@ class _RailFooter extends StatelessWidget {
         ),
         if (DiagnosticsScope.maybeRead(context) != null)
           const Padding(
-            padding: EdgeInsets.fromLTRB(0, 4, 0, 8),
+            padding: EdgeInsets.fromLTRB(0, 2, 0, 6),
             child: Center(child: _DiagnosticsButton()),
           ),
       ],
@@ -991,7 +1010,9 @@ class _SettingsButtonState extends State<_SettingsButton> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final foreground = theme.shell.railForeground;
-    final markerHeight = widget.selected ? 40.0 : (_hovered ? 20.0 : 8.0);
+    final markerHeight = widget.selected
+        ? _railSelectedMarkerHeight
+        : (_hovered ? _railHoveredMarkerHeight : _railIdleMarkerHeight);
 
     return Semantics(
       button: true,
@@ -1020,24 +1041,29 @@ class _SettingsButtonState extends State<_SettingsButton> {
                 key: const ValueKey('settings-rail-button'),
                 onTap: widget.onTap,
                 onHover: (hovered) => setState(() => _hovered = hovered),
-                borderRadius: BorderRadius.circular(16),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: widget.selected
-                        ? foreground
-                        : foreground.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(
-                      widget.selected || _hovered ? 16 : 22,
+                borderRadius: BorderRadius.circular(_railControlExtent / 2),
+                child: SizedBox.square(
+                  dimension: _railControlExtent,
+                  child: Center(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: _railVisualSize,
+                      height: _railVisualSize,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: widget.selected
+                            ? foreground
+                            : foreground.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(
+                          widget.selected || _hovered ? 12 : 18,
+                        ),
+                      ),
+                      child: DIcon(
+                        DIcons.gear,
+                        size: _railIconSize,
+                        color: widget.selected ? theme.shell.rail : foreground,
+                      ),
                     ),
-                  ),
-                  child: DIcon(
-                    DIcons.gear,
-                    size: 20,
-                    color: widget.selected ? theme.shell.rail : foreground,
                   ),
                 ),
               ),
@@ -1088,68 +1114,75 @@ class _DiagnosticsButton extends StatelessWidget {
             child: InkWell(
               key: const ValueKey('diagnostics-rail-button'),
               onTap: diagnostics.togglePanel,
-              borderRadius: BorderRadius.circular(22),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  AnimatedContainer(
-                    width: 44,
-                    height: 44,
-                    duration: const Duration(milliseconds: 180),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: open
-                          ? theme.colorScheme.primary.withValues(alpha: 0.16)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(open ? 14 : 22),
-                    ),
-                    child: DIcon(
-                      DIcons.bug,
-                      size: 20,
-                      color: open
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  if (unseen > 0)
-                    Positioned(
-                      right: -4,
-                      bottom: -4,
-                      // The parent announces the exact unseen count. Keep the
-                      // visually capped badge from adding a contradictory
-                      // second number to the accessible label.
-                      child: ExcludeSemantics(
-                        child: _CountBadge(
-                          key: const ValueKey('diagnostics-rail-badge'),
-                          count: unseen,
-                          background: theme.colorScheme.error,
-                          foreground: theme.colorScheme.onError,
+              borderRadius: BorderRadius.circular(_railControlExtent / 2),
+              child: SizedBox.square(
+                dimension: _railControlExtent,
+                child: Center(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      AnimatedContainer(
+                        width: _railVisualSize,
+                        height: _railVisualSize,
+                        duration: const Duration(milliseconds: 180),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: open
+                              ? theme.colorScheme.primary.withValues(
+                                  alpha: 0.16,
+                                )
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(open ? 12 : 18),
+                        ),
+                        child: DIcon(
+                          DIcons.bug,
+                          size: _railIconSize,
+                          color: open
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    ),
-                  if (recordingLabels.isNotEmpty)
-                    Positioned(
-                      key: const ValueKey(
-                        'plugin-diagnostics-recording-indicator',
-                      ),
-                      right: -3,
-                      top: -3,
-                      child: ExcludeSemantics(
-                        child: Container(
-                          width: 11,
-                          height: 11,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.error,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: theme.shell.rail,
-                              width: 2,
+                      if (unseen > 0)
+                        Positioned(
+                          right: -4,
+                          bottom: -4,
+                          // The parent announces the exact unseen count. Keep the
+                          // visually capped badge from adding a contradictory
+                          // second number to the accessible label.
+                          child: ExcludeSemantics(
+                            child: _CountBadge(
+                              key: const ValueKey('diagnostics-rail-badge'),
+                              count: unseen,
+                              background: theme.colorScheme.error,
+                              foreground: theme.colorScheme.onError,
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                ],
+                      if (recordingLabels.isNotEmpty)
+                        Positioned(
+                          key: const ValueKey(
+                            'plugin-diagnostics-recording-indicator',
+                          ),
+                          right: -3,
+                          top: -3,
+                          child: ExcludeSemantics(
+                            child: Container(
+                              width: 11,
+                              height: 11,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.error,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: theme.shell.rail,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -1210,47 +1243,55 @@ class _UpdateButton extends StatelessWidget {
           message: tooltip,
           child: InkWell(
             onTap: () => showUpdateSheet(context),
-            borderRadius: BorderRadius.circular(22),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: filled
-                        ? color.withValues(alpha: 0.14)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: updates.status == UpdateStatus.downloading
-                      ? SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            value: updates.progress,
-                            strokeWidth: 2,
-                            color: theme.colorScheme.primary,
-                          ),
-                        )
-                      : DIcon(icon, size: 20, color: color),
-                ),
-                if (wants)
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: Container(
-                      width: 12,
-                      height: 12,
+            borderRadius: BorderRadius.circular(_railControlExtent / 2),
+            child: SizedBox.square(
+              dimension: _railControlExtent,
+              child: Center(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: _railVisualSize,
+                      height: _railVisualSize,
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: theme.shell.rail, width: 2),
+                        color: filled
+                            ? color.withValues(alpha: 0.14)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(18),
                       ),
+                      child: updates.status == UpdateStatus.downloading
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                value: updates.progress,
+                                strokeWidth: 2,
+                                color: theme.colorScheme.primary,
+                              ),
+                            )
+                          : DIcon(icon, size: _railIconSize, color: color),
                     ),
-                  ),
-              ],
+                    if (wants)
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: theme.shell.rail,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
         );
@@ -1301,7 +1342,7 @@ class _RailDragFeedback extends StatelessWidget {
     return Material(
       type: MaterialType.transparency,
       child: SizedBox.square(
-        dimension: 44,
+        dimension: _railVisualSize,
         child: _InstanceAvatar(
           instance: instance,
           foreground: foreground,
@@ -1377,68 +1418,72 @@ class _RailItemState extends State<_RailItem> {
       // readable, then fall back safely for custom colour schemes.
       preferred: [palette?.secondary, theme.colorScheme.surface],
     );
-    final indicatorHeight = widget.selected ? 40.0 : (_hovered ? 20.0 : 8.0);
+    final indicatorHeight = widget.selected
+        ? _railSelectedMarkerHeight
+        : (_hovered ? _railHoveredMarkerHeight : _railIdleMarkerHeight);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Stack(
-        alignment: Alignment.centerLeft,
-        children: [
-          AnimatedContainer(
-            key: ValueKey('instance-rail-marker-${widget.instance.url}'),
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            width: 4,
-            height: indicatorHeight,
-            decoration: BoxDecoration(
-              color: theme.shell.railForeground,
-              borderRadius: const BorderRadius.horizontal(
-                right: Radius.circular(4),
-              ),
+    return Stack(
+      alignment: Alignment.centerLeft,
+      children: [
+        AnimatedContainer(
+          key: ValueKey('instance-rail-marker-${widget.instance.url}'),
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          width: 4,
+          height: indicatorHeight,
+          decoration: BoxDecoration(
+            color: theme.shell.railForeground,
+            borderRadius: const BorderRadius.horizontal(
+              right: Radius.circular(4),
             ),
           ),
-          Center(
-            child: _RailTooltip(
-              instance: widget.instance,
-              accent: accent,
-              shortcutKey: widget.shortcutKey,
-              child: InkWell(
-                onTap: widget.onTap,
-                onHover: _handleHover,
-                mouseCursor: context.isTouch ? null : SystemMouseCursors.grab,
-                borderRadius: BorderRadius.circular(16),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    SizedBox.square(
-                      dimension: 44,
-                      child: _InstanceAvatar(
-                        instance: widget.instance,
-                        foreground: avatarForeground,
-                        background: avatarBackground,
-                        selected: widget.selected,
-                      ),
-                    ),
-                    if (widget.badgeCount > 0)
-                      Positioned(
-                        right: -2,
-                        bottom: -2,
-                        child: _CountBadge(
-                          key: ValueKey(
-                            'instance-rail-badge-${widget.instance.url}',
-                          ),
-                          count: widget.badgeCount,
-                          background: badgeBackground,
-                          foreground: badgeForeground,
+        ),
+        Center(
+          child: _RailTooltip(
+            instance: widget.instance,
+            accent: accent,
+            shortcutKey: widget.shortcutKey,
+            child: InkWell(
+              onTap: widget.onTap,
+              onHover: _handleHover,
+              mouseCursor: context.isTouch ? null : SystemMouseCursors.grab,
+              borderRadius: BorderRadius.circular(_railControlExtent / 2),
+              child: SizedBox.square(
+                dimension: _railControlExtent,
+                child: Center(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      SizedBox.square(
+                        dimension: _railVisualSize,
+                        child: _InstanceAvatar(
+                          instance: widget.instance,
+                          foreground: avatarForeground,
+                          background: avatarBackground,
+                          selected: widget.selected,
                         ),
                       ),
-                  ],
+                      if (widget.badgeCount > 0)
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: _CountBadge(
+                            key: ValueKey(
+                              'instance-rail-badge-${widget.instance.url}',
+                            ),
+                            count: widget.badgeCount,
+                            background: badgeBackground,
+                            foreground: badgeForeground,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -1786,7 +1831,7 @@ class _InstanceAvatar extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(selected ? 14 : 22),
+        borderRadius: BorderRadius.circular(selected ? 12 : 18),
       ),
       clipBehavior: Clip.antiAlias,
       child: Center(
@@ -1804,7 +1849,7 @@ class _InstanceAvatar extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: AvatarImage(
         url: instance.iconUrl,
-        size: 44,
+        size: _railVisualSize,
         fit: BoxFit.contain,
         fallback: monogram,
       ),
@@ -1838,19 +1883,24 @@ class _AddInstanceButton extends StatelessWidget {
       message: 'Add a Discourse site',
       child: InkWell(
         onTap: () => showAddInstanceSheet(context),
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
-          width: 44,
-          height: 44,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: theme.shell.railForeground.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: DIcon(
-            DIcons.plus,
-            size: 22,
-            color: theme.shell.railForeground,
+        borderRadius: BorderRadius.circular(_railControlExtent / 2),
+        child: SizedBox.square(
+          dimension: _railControlExtent,
+          child: Center(
+            child: Container(
+              width: _railVisualSize,
+              height: _railVisualSize,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: theme.shell.railForeground.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: DIcon(
+                DIcons.plus,
+                size: 20,
+                color: theme.shell.railForeground,
+              ),
+            ),
           ),
         ),
       ),

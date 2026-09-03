@@ -3626,10 +3626,10 @@ void _registerChatShellTests() {
             ),
             findsOneWidget,
           );
-          // Core leaves one pixel around each side of a round avatar inside its
-          // 24-pixel prefix slot.
+          // The compact desktop sidebar leaves one pixel around each side of a
+          // round avatar inside its 20-pixel prefix slot.
           final size = tester.getSize(avatar);
-          expect(size, const Size.square(22));
+          expect(size, const Size.square(18));
         },
       );
 
@@ -3647,7 +3647,7 @@ void _registerChatShellTests() {
           matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
         );
         expect(ring, findsOneWidget);
-        expect(tester.getSize(ring), const Size.square(22));
+        expect(tester.getSize(ring), const Size.square(18));
 
         final tracker = FakeSiteTracker.built.single;
         tracker.deliverPluginMessage('/presence/chat/online', {

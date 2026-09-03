@@ -8,6 +8,8 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +22,48 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets('uses compact desktop navigation metrics', (tester) async {
+    final controller = await _controller();
+    await _pumpShell(tester, controller, const Size(1200, 800));
+
+    expect(tester.getSize(find.byType(InstanceRail)).width, 56);
+
+    final aggregateButton = find.byKey(const ValueKey('aggregate-rail-button'));
+    expect(tester.getSize(aggregateButton), const Size.square(44));
+    expect(
+      tester.getSize(find.byKey(const ValueKey('aggregate-rail-visual'))),
+      const Size.square(36),
+    );
+    expect(
+      tester
+          .widget<DIcon>(
+            find.descendant(
+              of: aggregateButton,
+              matching: find.byWidgetPredicate(
+                (widget) => widget is DIcon && widget.icon == DIcons.house,
+              ),
+            ),
+          )
+          .size,
+      18,
+    );
+
+    final topics = find.descendant(
+      of: find.byType(InstanceSidebar),
+      matching: find.text('Topics'),
+    );
+    expect(topics, findsOneWidget);
+    expect(tester.widget<Text>(topics).style?.fontSize, 14);
+    expect(
+      tester
+          .getSize(
+            find.ancestor(of: topics, matching: find.byType(InkWell)).first,
+          )
+          .height,
+      30,
+    );
   });
 
   testWidgets('resizes once for every forum and restores after reload', (
@@ -109,7 +153,7 @@ void main() {
     final controller = await _controller();
     await _pumpShell(tester, controller, const Size(768, 800));
 
-    expect(_sidebarWidth(tester), 376);
+    expect(_sidebarWidth(tester), 392);
     expect(
       (await SharedPreferences.getInstance()).getDouble(
         SidebarWidthStore.storageKey,

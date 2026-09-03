@@ -115,22 +115,37 @@ const SidebarDestination _moreDestination = SidebarDestination(
 
 abstract final class _SidebarSpacing {
   static const double compactBreakpoint = 640;
-  static const double wrapperVerticalPadding = 16;
-  static const double wrapperHorizontalPadding = 8;
-  static const double sectionVerticalPadding = 4;
-  static const double rowHorizontalPadding = 4;
-  static const double rowGap = 2;
-  static const double prefixWidth = 24;
-  static const double prefixGap = 8;
-  static const double desktopRowHeight = 35.2;
+  static const double wrapperVerticalPadding = 10;
+  static const double wrapperHorizontalPadding = 6;
+  static const double sectionVerticalPadding = 3;
+  static const double rowHorizontalPadding = 6;
+  static const double rowGap = 1;
+  static const double prefixWidth = 20;
+  static const double prefixGap = 6;
+  static const double desktopRowHeight = 30;
   static const double compactRowHeight = 38.4;
-  static const double sectionHeaderFontSize = 12.1264;
+  static const double desktopSectionHeaderHeight = 24;
+  static const double sectionHeaderFontSize = 11;
 
   static bool isCompact(BuildContext context) =>
       MediaQuery.sizeOf(context).width <= compactBreakpoint;
 
   static double rowHeight(BuildContext context) =>
       isCompact(context) ? compactRowHeight : desktopRowHeight;
+
+  static double sectionHeaderHeight(BuildContext context) =>
+      isCompact(context) ? compactRowHeight : desktopSectionHeaderHeight;
+
+  static double labelFontSize(BuildContext context) =>
+      isCompact(context) ? 16 : 14;
+
+  static double prefixArtSize(BuildContext context) =>
+      isCompact(context) ? 22 : 18;
+
+  static double prefixIconSize(BuildContext context) =>
+      isCompact(context) ? 16 : 15;
+
+  static double indent(BuildContext context) => isCompact(context) ? 20 : 18;
 
   static double sectionPadding(BuildContext context) =>
       isCompact(context) ? 0 : sectionVerticalPadding;
@@ -434,7 +449,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
           child: DButton(
             key: const ValueKey('sidebar-panel-switch-main'),
             label: const Text('Forum'),
-            icon: const DIcon(DIcons.shuffle, size: 16),
+            icon: const DIcon(DIcons.shuffle, size: 14),
             onPressed: active!.panel.onClose,
             size: DButtonSize.small,
             alignment: Alignment.centerLeft,
@@ -446,7 +461,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
             child: DButton(
               key: ValueKey('sidebar-panel-switch-${candidate.owner.value}'),
               label: Text(candidate.panel.label),
-              icon: DIcon(candidate.panel.icon, size: 16),
+              icon: DIcon(candidate.panel.icon, size: 14),
               onPressed: candidate.panel.onOpen,
               size: DButtonSize.small,
               alignment: Alignment.centerLeft,
@@ -457,7 +472,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
 
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.shell.divider)),
       ),
@@ -506,7 +521,7 @@ class _SidebarHeader extends StatelessWidget {
       ),
       child: Container(
         height: shellHeaderHeight,
-        padding: EdgeInsets.only(left: 16, right: showUserMenu ? 8 : 16),
+        padding: EdgeInsets.only(left: 12, right: showUserMenu ? 8 : 12),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: theme.shell.divider)),
         ),
@@ -524,7 +539,7 @@ class _SidebarHeader extends StatelessWidget {
             ),
             DIcon(
               DIcons.chevronDown,
-              size: 20,
+              size: 16,
               color: theme.colorScheme.onSurfaceVariant,
             ),
             if (showUserMenu) ...[
@@ -622,6 +637,7 @@ class _SectionState extends State<_Section> {
   Widget build(BuildContext context) {
     final section = widget.section;
     final rowHeight = _SidebarSpacing.rowHeight(context);
+    final sectionHeaderHeight = _SidebarSpacing.sectionHeaderHeight(context);
     final sectionPadding = _SidebarSpacing.sectionPadding(context);
     final sectionRows = !section.collapsible || !_collapsed
         ? <SidebarDestination>[
@@ -679,7 +695,7 @@ class _SectionState extends State<_Section> {
                   section: section,
                   collapsed: _collapsed,
                   onToggle: section.collapsible ? _toggle : null,
-                  rowHeight: rowHeight,
+                  rowHeight: sectionHeaderHeight,
                 )
               : const SizedBox.shrink(),
         ),
@@ -995,19 +1011,20 @@ class _DestinationTileState extends State<_DestinationTile> {
 
   Widget _prefixArt(BuildContext context, Color foreground) {
     final theme = Theme.of(context);
+    final artSize = _SidebarSpacing.prefixArtSize(context);
 
     if (destination.prefixBuilder case final builder?) {
-      return builder(context, 22);
+      return builder(context, artSize);
     }
 
     if (destination.avatarUrl case final url?) {
       return ClipOval(
         child: SizedBox(
-          width: 22,
-          height: 22,
+          width: artSize,
+          height: artSize,
           child: AvatarImage(
             url: url,
-            size: 22,
+            size: artSize,
             fallback: ColoredBox(color: theme.shell.floating),
           ),
         ),
@@ -1020,7 +1037,7 @@ class _DestinationTileState extends State<_DestinationTile> {
       if (siteUrl != null) {
         return EmojiImage(
           url: controller.emojiUrlFor(siteUrl, emoji),
-          size: 16,
+          size: _SidebarSpacing.prefixIconSize(context),
           alt: ':$emoji:',
           style: theme.textTheme.labelSmall,
         );
@@ -1031,8 +1048,8 @@ class _DestinationTileState extends State<_DestinationTile> {
       final parentColor = destination.parentColor;
       return Container(
         key: ValueKey('sidebar-prefix-${destination.id}'),
-        width: 12,
-        height: 12,
+        width: _SidebarSpacing.isCompact(context) ? 12 : 10,
+        height: _SidebarSpacing.isCompact(context) ? 12 : 10,
         decoration: BoxDecoration(
           color: parentColor == null ? color : null,
           gradient: parentColor == null
@@ -1048,7 +1065,7 @@ class _DestinationTileState extends State<_DestinationTile> {
 
     return DIcon(
       destination.icon,
-      size: 16,
+      size: _SidebarSpacing.prefixIconSize(context),
       color: destination.iconColor ?? foreground,
     );
   }
@@ -1087,7 +1104,8 @@ class _DestinationTileState extends State<_DestinationTile> {
     final tile = Padding(
       padding: EdgeInsets.only(
         left:
-            _SidebarSpacing.wrapperHorizontalPadding + destination.indent * 20,
+            _SidebarSpacing.wrapperHorizontalPadding +
+            destination.indent * _SidebarSpacing.indent(context),
         right: _SidebarSpacing.wrapperHorizontalPadding,
         bottom: widget.gapAfter,
       ),
@@ -1101,7 +1119,7 @@ class _DestinationTileState extends State<_DestinationTile> {
               }
             : null,
         onHover: destination.enabled ? _setHovered : null,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(6),
         child: Container(
           height: widget.rowHeight,
           padding: const EdgeInsets.symmetric(
@@ -1113,7 +1131,7 @@ class _DestinationTileState extends State<_DestinationTile> {
                 : selected
                 ? theme.shell.selected
                 : null,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
             children: [
@@ -1133,7 +1151,7 @@ class _DestinationTileState extends State<_DestinationTile> {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: foreground,
-                          fontSize: 16,
+                          fontSize: _SidebarSpacing.labelFontSize(context),
                           fontWeight: selected
                               ? FontWeight.w600
                               : FontWeight.w400,
