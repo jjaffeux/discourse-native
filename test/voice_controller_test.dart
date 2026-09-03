@@ -3322,6 +3322,158 @@ void main() {
   });
 
   group('call teardown', () {
+    for (final source in ['directory', 'room link']) {
+      test(
+        'removes the local participant from the $source before leave completes',
+        () async {
+          final room = fixture('room');
+          final otherRoom = {...room, 'id': 8, 'slug': 'other-room'};
+          final controlled = _ControlledVoiceTransport(
+            responses: {
+              ...transport.responses,
+              'GET /voice/rooms.json': {
+                'rooms': [if (source == 'directory') room, otherRoom],
+              },
+              'GET /voice/rooms/conf-room-1.json': room,
+              'POST /voice/rooms/7/join.json': {
+                ...fixture('join_mesh'),
+                'room': room,
+              },
+            },
+          )..heldPluginWritePaths.add('/voice/rooms/7/leave.json');
+          useTransport(controlled);
+          await controller.ensureLoaded(firstSite);
+          await controller.ensureLoaded(secondSite);
+          final resolved = await controller.resolveRoom(
+            firstSite,
+            'conf-room-1',
+          );
+
+          expect(controller.call, isNull);
+          expect(resolved!.participants.map((participant) => participant.id), [
+            1,
+            2,
+          ]);
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: resolved,
+          );
+
+          final leaving = controller.leave();
+          addTearDown(() async {
+            for (final write in controlled.pendingPluginWrites) {
+              if (!write.response.isCompleted) write.response.complete({});
+            }
+            await leaving;
+          });
+          await controlled.waitForPendingPluginWrites(1);
+
+          expect(controller.call?.status, VoiceCallStatus.leaving);
+          expect(
+            controller.call!.room.participants.map(
+              (participant) => participant.id,
+            ),
+            [2],
+          );
+          expect(
+            controller
+                .room(firstSite, 7)!
+                .participants
+                .map((participant) => participant.id),
+            [2],
+          );
+          for (final siteUrl in [firstSite, secondSite]) {
+            expect(
+              controller
+                  .room(siteUrl, 8)!
+                  .participants
+                  .map((participant) => participant.id),
+              [1, 2],
+            );
+          }
+
+          controlled.pendingPluginWrites.single.response.complete({});
+          await leaving;
+
+          expect(controller.call, isNull);
+          expect(
+            controller
+                .room(firstSite, 7)!
+                .participants
+                .map((participant) => participant.id),
+            [2],
+          );
+        },
+      );
+    }
+
+    test('removes the local participant after media fails to join', () async {
+      await controller.ensureLoaded(firstSite);
+      final connectGate = Completer<void>();
+      final connectStarted = Completer<void>();
+      mediaFactory.nextConnectGate = connectGate;
+      mediaFactory.nextConnectStarted = connectStarted;
+
+      final joining = controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      addTearDown(() async {
+        if (!connectGate.isCompleted) connectGate.complete();
+        await joining;
+      });
+      await connectStarted.future;
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'participants',
+        'participants': [
+          {'id': 1, 'username': 'sam', 'role': 'participant'},
+          {'id': 2, 'username': 'lee', 'role': 'participant'},
+        ],
+      });
+
+      connectGate.completeError(StateError('media connection failed'));
+      await joining;
+
+      expect(controller.call, isNull);
+      expect(
+        controller
+            .room(firstSite, 7)!
+            .participants
+            .map((participant) => participant.id),
+        [2],
+      );
+      expect(
+        transport.writes.where((write) => write.path.endsWith('/leave.json')),
+        hasLength(1),
+      );
+    });
+
+    test('preserves server presence when the join request fails', () async {
+      final controlled = _ControlledVoiceTransport(
+        responses: {...transport.responses},
+      );
+      useTransport(controlled);
+      await controller.ensureLoaded(firstSite);
+      controlled.operationFailure = StateError('server unavailable');
+
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+
+      expect(controller.call, isNull);
+      expect(
+        controller
+            .room(firstSite, 7)!
+            .participants
+            .map((participant) => participant.id),
+        [1],
+      );
+    });
+
     test(
       'ends the local call when another client removes it from the roster',
       () async {
