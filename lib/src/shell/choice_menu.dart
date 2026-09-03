@@ -367,12 +367,43 @@ class _FilterableChoiceRows<T> extends StatefulWidget {
 
 class _FilterableChoiceRowsState<T> extends State<_FilterableChoiceRows<T>> {
   final TextEditingController _filterController = TextEditingController();
+  final GlobalKey<_ChoiceRowsState<T>> _choiceRowsKey = GlobalKey();
+  late final FocusNode _filterFocusNode;
   String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _filterFocusNode = FocusNode(
+      debugLabel: 'choice menu filter',
+      onKeyEvent: _handleFilterKeyEvent,
+    );
+  }
 
   @override
   void dispose() {
     _filterController.dispose();
+    _filterFocusNode.dispose();
     super.dispose();
+  }
+
+  KeyEventResult _handleFilterKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _moveFromFilter(1);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _moveFromFilter(-1);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      Navigator.of(context).maybePop();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   void _filter(String value) {
@@ -382,6 +413,10 @@ class _FilterableChoiceRowsState<T> extends State<_FilterableChoiceRows<T>> {
   void _clearFilter() {
     _filterController.clear();
     _filter('');
+  }
+
+  void _moveFromFilter(int delta) {
+    _choiceRowsKey.currentState?._move(delta);
   }
 
   bool _matches(ChoiceMenuOption<T> option) =>
@@ -418,6 +453,7 @@ class _FilterableChoiceRowsState<T> extends State<_FilterableChoiceRows<T>> {
             child: TextField(
               key: const ValueKey('choice-menu-filter'),
               controller: _filterController,
+              focusNode: _filterFocusNode,
               autofocus: true,
               textInputAction: TextInputAction.search,
               onChanged: _filter,
@@ -459,6 +495,7 @@ class _FilterableChoiceRowsState<T> extends State<_FilterableChoiceRows<T>> {
         ],
         if (filtered.isNotEmpty)
           _ChoiceRows<T>(
+            key: _choiceRowsKey,
             value: widget.value,
             options: filtered,
             touch: widget.touch,
@@ -484,6 +521,7 @@ class _FilterableChoiceRowsState<T> extends State<_FilterableChoiceRows<T>> {
 
 class _ChoiceRows<T> extends StatefulWidget {
   const _ChoiceRows({
+    super.key,
     required this.value,
     required this.options,
     required this.onSelected,
@@ -545,13 +583,24 @@ class _ChoiceRowsState<T> extends State<_ChoiceRows<T>> {
   }
 
   void _move(int delta) {
-    _focusedIndex = (_focusedIndex + delta) % _focusNodes.length;
-    _focusNodes[_focusedIndex].requestFocus();
+    _focusAt(
+      (_focusedIndex + delta) % _focusNodes.length,
+      alignmentPolicy: delta > 0
+          ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
+          : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+    );
   }
 
-  void _focusAt(int index) {
+  void _focusAt(
+    int index, {
+    ScrollPositionAlignmentPolicy alignmentPolicy =
+        ScrollPositionAlignmentPolicy.explicit,
+  }) {
     _focusedIndex = index;
-    _focusNodes[index].requestFocus();
+    FocusTraversalPolicy.defaultTraversalRequestFocusCallback(
+      _focusNodes[index],
+      alignmentPolicy: alignmentPolicy,
+    );
   }
 
   @override
