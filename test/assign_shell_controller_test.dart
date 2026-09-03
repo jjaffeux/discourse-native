@@ -103,6 +103,33 @@ void main() {
       expect(await shell.openPluginUrl('/g/support/assigned/support'), isFalse);
       expect(api.feedPaths, isNot(contains(assignedPath)));
     });
+
+    test('loads a topic selected from the assigned group', () async {
+      final api = FakeDiscourseApi(
+        user: _assignUser(canAssignGlobally: true),
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {7: topicPayload(id: 7, title: 'Assigned topic')},
+        siteConfigs: const {_site: SiteConfig.unknown()},
+      );
+      final shell = await _loadListShell(
+        api,
+        user: _assignUser(canAssignGlobally: true),
+      );
+      addTearDown(shell.dispose);
+
+      final navigation = shell.pluginSession.require(
+        assignGroupNavigationService,
+      );
+      navigation.openTopic(
+        const Topic(id: 7, title: 'Assigned topic', slug: 'assigned-topic'),
+      );
+      await pumpEventQueue();
+
+      expect(shell.currentContent?.topicId, 7);
+      expect(shell.currentContent?.slug, 'assigned-topic');
+      expect(api.topicsOpened, [7]);
+      expect(shell.currentTopic?.id, 7);
+    });
   });
 
   group('assignment writes', () {
