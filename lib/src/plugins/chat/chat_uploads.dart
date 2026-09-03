@@ -142,7 +142,11 @@ class _Image extends StatelessWidget {
           ),
           child: Material(
             color: _placeholder ?? theme.shell.floating,
-            child: InkWell(onTap: open, child: picture),
+            child: InkWell(
+              hoverColor: Colors.transparent,
+              onTap: open,
+              child: picture,
+            ),
           ),
         ),
       ),
