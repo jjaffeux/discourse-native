@@ -749,6 +749,22 @@ void main() {
       expect(paragraphOf(tester, 'for more'), isNot(contains('bug')));
     });
 
+    testWidgets('tapping a category pill opens its topic list', (tester) async {
+      final controller = await pumpCookedInShell(
+        tester,
+        category,
+        api: withCategories(const [
+          TopicCategory(id: 5, name: 'Bug', color: '0088CC', slug: 'bug'),
+        ]),
+      );
+
+      await tester.tap(find.byType(HashtagPill));
+      await tester.pumpAndSettle();
+
+      expect(controller.currentContent?.id, 'list-/c/bug/5.json');
+      expect(controller.currentContent?.feedPath, '/c/bug/5.json');
+    });
+
     testWidgets('a subcategory square is split, parent on the left', (
       tester,
     ) async {
