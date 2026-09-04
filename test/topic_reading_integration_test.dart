@@ -3093,7 +3093,7 @@ void _registerTopicReadingTests() {
         );
         expect(
           tester.getSize(find.bySemanticsLabel('Tag: ${tag.name}')).height,
-          greaterThanOrEqualTo(32),
+          greaterThanOrEqualTo(24),
         );
         expect(
           tester.getSize(

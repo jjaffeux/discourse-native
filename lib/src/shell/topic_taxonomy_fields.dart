@@ -215,8 +215,8 @@ class TopicTagsValue extends StatelessWidget {
     }
 
     return Wrap(
-      spacing: 6,
-      runSpacing: 6,
+      spacing: 4,
+      runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final tag in tags)
@@ -270,11 +270,11 @@ class _TopicTagPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final shape = StadiumBorder(
-      side: BorderSide(color: theme.colorScheme.outlineVariant),
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(5),
     );
     final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 180),
         child: Text(
@@ -290,7 +290,7 @@ class _TopicTagPill extends StatelessWidget {
     );
     final pill = Material(
       key: pillKey,
-      color: theme.colorScheme.surfaceContainerHigh,
+      color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
       shape: shape,
       clipBehavior: Clip.antiAlias,
       child: onTap == null || isLink
@@ -308,9 +308,9 @@ class _TopicTagPill extends StatelessWidget {
             onTap: onTap!,
             semanticLabel: semanticLabel,
             excludeChildSemantics: true,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(5),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
               child: Align(widthFactor: 1, heightFactor: 1, child: pill),
             ),
           )
