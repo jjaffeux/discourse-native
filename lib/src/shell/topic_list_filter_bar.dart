@@ -148,45 +148,53 @@ class _CategoryFilterAnchor extends StatelessWidget {
   final ValueChanged<TopicCategory?> onSelected;
 
   @override
-  Widget build(BuildContext context) => ChoiceMenuAnchor<int>(
-    title: 'Categories',
-    showPopoverTitle: false,
-    value: selected?.id ?? 0,
-    options: [
-      const ChoiceMenuOption<int>(
-        value: 0,
-        title: 'All categories',
-        description: '',
-        icon: DIcons.layerGroup,
-      ),
-      for (final category in categories)
+  Widget build(BuildContext context) {
+    final optionTextStyle = Theme.of(context).textTheme.bodySmall;
+    return ChoiceMenuAnchor<int>(
+      title: 'Categories',
+      showPopoverTitle: false,
+      value: selected?.id ?? 0,
+      options: [
         ChoiceMenuOption<int>(
-          value: category.id,
-          title: category.name,
+          value: 0,
+          title: 'All categories',
           description: '',
-          icon: DIcons.folder,
+          icon: DIcons.layerGroup,
+          titleStyle: optionTextStyle,
         ),
-    ],
-    filterHint: 'Filter categories',
-    filterEmptyMessage: 'No matching categories.',
-    alwaysVisibleValues: const {0},
-    onSelected: (categoryId) => onSelected(
-      categoryId == 0
-          ? null
-          : categories.firstWhere((category) => category.id == categoryId),
-    ),
-    builder: (context, openMenu) => _FilterButton(
-      key: const ValueKey('topic-list-category-filter'),
-      label: selected?.name ?? 'All categories',
-      color: selected == null ? null : Color(selected!.colorValue),
-      semanticLabel: selected == null
-          ? 'Filter by category'
-          : 'Category: ${selected!.name}',
-      onPressed: openMenu,
-      minimumWidth: 150,
-      maximumWidth: 260,
-    ),
-  );
+        for (final category in categories)
+          ChoiceMenuOption<int>(
+            value: category.id,
+            title: category.name,
+            description: '',
+            leading: _ColorSquare(
+              key: ValueKey(('topic-list-category-indicator', category.id)),
+              color: Color(category.colorValue),
+            ),
+            titleStyle: optionTextStyle,
+          ),
+      ],
+      filterHint: 'Filter categories',
+      filterEmptyMessage: 'No matching categories.',
+      alwaysVisibleValues: const {0},
+      onSelected: (categoryId) => onSelected(
+        categoryId == 0
+            ? null
+            : categories.firstWhere((category) => category.id == categoryId),
+      ),
+      builder: (context, openMenu) => _FilterButton(
+        key: const ValueKey('topic-list-category-filter'),
+        label: selected?.name ?? 'All categories',
+        color: selected == null ? null : Color(selected!.colorValue),
+        semanticLabel: selected == null
+            ? 'Filter by category'
+            : 'Category: ${selected!.name}',
+        onPressed: openMenu,
+        minimumWidth: 150,
+        maximumWidth: 260,
+      ),
+    );
+  }
 }
 
 class _SubcategoryFilterAnchor extends StatelessWidget {
@@ -203,44 +211,52 @@ class _SubcategoryFilterAnchor extends StatelessWidget {
   final ValueChanged<TopicCategory> onSelected;
 
   @override
-  Widget build(BuildContext context) => ChoiceMenuAnchor<int>(
-    title: 'Subcategories of ${parent.name}',
-    value: selected?.id ?? 0,
-    options: [
-      ChoiceMenuOption<int>(
-        value: 0,
-        title: 'All subcategories',
-        description: '',
-        icon: DIcons.layerGroup,
-      ),
-      for (final category in subcategories)
+  Widget build(BuildContext context) {
+    final optionTextStyle = Theme.of(context).textTheme.bodySmall;
+    return ChoiceMenuAnchor<int>(
+      title: 'Subcategories of ${parent.name}',
+      value: selected?.id ?? 0,
+      options: [
         ChoiceMenuOption<int>(
-          value: category.id,
-          title: category.name,
+          value: 0,
+          title: 'All subcategories',
           description: '',
-          icon: DIcons.folder,
+          icon: DIcons.layerGroup,
+          titleStyle: optionTextStyle,
         ),
-    ],
-    filterHint: 'Filter subcategories',
-    filterEmptyMessage: 'No matching subcategories.',
-    alwaysVisibleValues: const {0},
-    onSelected: (categoryId) => onSelected(
-      categoryId == 0
-          ? parent
-          : subcategories.firstWhere((category) => category.id == categoryId),
-    ),
-    builder: (context, openMenu) => _FilterButton(
-      key: const ValueKey('topic-list-subcategory-filter'),
-      label: selected?.name ?? 'Subcategories',
-      color: selected == null ? null : Color(selected!.colorValue),
-      semanticLabel: selected == null
-          ? 'Filter by subcategory of ${parent.name}'
-          : 'Subcategory: ${selected!.name}',
-      onPressed: openMenu,
-      minimumWidth: 140,
-      maximumWidth: 230,
-    ),
-  );
+        for (final category in subcategories)
+          ChoiceMenuOption<int>(
+            value: category.id,
+            title: category.name,
+            description: '',
+            leading: _ColorSquare(
+              key: ValueKey(('topic-list-category-indicator', category.id)),
+              color: Color(category.colorValue),
+            ),
+            titleStyle: optionTextStyle,
+          ),
+      ],
+      filterHint: 'Filter subcategories',
+      filterEmptyMessage: 'No matching subcategories.',
+      alwaysVisibleValues: const {0},
+      onSelected: (categoryId) => onSelected(
+        categoryId == 0
+            ? parent
+            : subcategories.firstWhere((category) => category.id == categoryId),
+      ),
+      builder: (context, openMenu) => _FilterButton(
+        key: const ValueKey('topic-list-subcategory-filter'),
+        label: selected?.name ?? 'Subcategories',
+        color: selected == null ? null : Color(selected!.colorValue),
+        semanticLabel: selected == null
+            ? 'Filter by subcategory of ${parent.name}'
+            : 'Subcategory: ${selected!.name}',
+        onPressed: openMenu,
+        minimumWidth: 140,
+        maximumWidth: 230,
+      ),
+    );
+  }
 }
 
 class _TagFilterAnchor extends StatefulWidget {
@@ -361,7 +377,7 @@ class _FilterButton extends StatelessWidget {
 }
 
 class _ColorSquare extends StatelessWidget {
-  const _ColorSquare({required this.color});
+  const _ColorSquare({super.key, required this.color});
 
   final Color color;
 

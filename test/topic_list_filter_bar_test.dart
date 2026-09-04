@@ -3,6 +3,8 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -108,6 +110,85 @@ void main() {
     expect(find.byKey(const ValueKey('choice-menu-surface')), findsOneWidget);
     expect(find.text('All categories'), findsNWidgets(2));
     expect(find.text('Categories'), findsNothing);
+  });
+
+  testWidgets('uses colored category indicators and tag-sized labels', (
+    tester,
+  ) async {
+    await pumpBar(tester, platform: TargetPlatform.macOS);
+
+    await tester.tap(find.byKey(const ValueKey('topic-list-category-filter')));
+    await tester.pumpAndSettle();
+
+    final parentIndicator = find.byKey(
+      const ValueKey(('topic-list-category-indicator', 1)),
+    );
+    final otherIndicator = find.byKey(
+      const ValueKey(('topic-list-category-indicator', 3)),
+    );
+    expect(parentIndicator, findsOneWidget);
+    expect(otherIndicator, findsOneWidget);
+    expect(
+      tester
+          .widget<Container>(
+            find.descendant(
+              of: parentIndicator,
+              matching: find.byType(Container),
+            ),
+          )
+          .decoration,
+      isA<BoxDecoration>().having(
+        (decoration) => decoration.color,
+        'color',
+        const Color(0xFF563A93),
+      ),
+    );
+    expect(
+      tester
+          .widget<Container>(
+            find.descendant(
+              of: otherIndicator,
+              matching: find.byType(Container),
+            ),
+          )
+          .decoration,
+      isA<BoxDecoration>().having(
+        (decoration) => decoration.color,
+        'color',
+        const Color(0xFF3BBF7B),
+      ),
+    );
+
+    final categorySurface = find.byKey(const ValueKey('choice-menu-surface'));
+    expect(
+      find.descendant(
+        of: categorySurface,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.folder,
+        ),
+      ),
+      findsNothing,
+    );
+
+    final categoryTextStyle = tester.widget<Text>(find.text('Support')).style!;
+    Navigator.of(tester.element(categorySurface)).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
+    await tester.pumpAndSettle();
+    final tagTextStyle = tester
+        .widget<ListTile>(
+          find.ancestor(
+            of: find.text('User experience'),
+            matching: find.byType(ListTile),
+          ),
+        )
+        .titleTextStyle!;
+
+    expect(categoryTextStyle.fontSize, tagTextStyle.fontSize);
+    expect(categoryTextStyle.color, tagTextStyle.color);
+    expect(categoryTextStyle.fontWeight, tagTextStyle.fontWeight);
+    expect(categoryTextStyle.fontWeight, FontWeight.normal);
   });
 
   testWidgets('selects a category and one of its subcategories', (
