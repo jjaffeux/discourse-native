@@ -150,6 +150,7 @@ class _CategoryFilterAnchor extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ChoiceMenuAnchor<int>(
     title: 'Categories',
+    showPopoverTitle: false,
     value: selected?.id ?? 0,
     options: [
       const ChoiceMenuOption<int>(
@@ -176,7 +177,7 @@ class _CategoryFilterAnchor extends StatelessWidget {
     ),
     builder: (context, openMenu) => _FilterButton(
       key: const ValueKey('topic-list-category-filter'),
-      label: selected?.name ?? 'Categories',
+      label: selected?.name ?? 'All categories',
       color: selected == null ? null : Color(selected!.colorValue),
       semanticLabel: selected == null
           ? 'Filter by category'
