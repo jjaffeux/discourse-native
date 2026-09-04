@@ -112,7 +112,7 @@ void main() {
     expect(find.text('Categories'), findsNothing);
   });
 
-  testWidgets('uses colored category indicators and tag-sized labels', (
+  testWidgets('uses compact, spaced rows and category indicators', (
     tester,
   ) async {
     await pumpBar(tester, platform: TargetPlatform.macOS);
@@ -170,25 +170,44 @@ void main() {
       findsNothing,
     );
 
+    final firstCategoryRow = find.byKey(
+      const ValueKey(('choice-menu-option-background', 1)),
+    );
+    final secondCategoryRow = find.byKey(
+      const ValueKey(('choice-menu-option-background', 3)),
+    );
+    final categorySingleRowHeight = tester.getSize(secondCategoryRow).height;
+    expect(categorySingleRowHeight, 32);
+    expect(
+      tester.getTopLeft(secondCategoryRow).dy -
+          tester.getBottomLeft(firstCategoryRow).dy,
+      4,
+    );
+
     final categoryTextStyle = tester.widget<Text>(find.text('Support')).style!;
     Navigator.of(tester.element(categorySurface)).pop();
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
     await tester.pumpAndSettle();
-    final tagTextStyle = tester
-        .widget<ListTile>(
-          find.ancestor(
-            of: find.text('User experience'),
-            matching: find.byType(ListTile),
-          ),
-        )
-        .titleTextStyle!;
+    final tagTile = find.ancestor(
+      of: find.text('User experience'),
+      matching: find.byType(ListTile),
+    );
+    final tagTextStyle = tester.widget<ListTile>(tagTile).titleTextStyle!;
+    final allTagsRow = find.byKey(const ValueKey('topic-list-tag-filter-all'));
+    final firstTagRow = find.byKey(
+      const ValueKey(('topic-list-tag-filter-option', 'ux')),
+    );
 
     expect(categoryTextStyle.fontSize, tagTextStyle.fontSize);
     expect(categoryTextStyle.color, tagTextStyle.color);
     expect(categoryTextStyle.fontWeight, tagTextStyle.fontWeight);
     expect(categoryTextStyle.fontWeight, FontWeight.normal);
+    expect(
+      tester.getTopLeft(firstTagRow).dy - tester.getBottomLeft(allTagsRow).dy,
+      4,
+    );
     Navigator.of(
       tester.element(
         find.byKey(const ValueKey('topic-list-tag-filter-popover')),
@@ -246,6 +265,18 @@ void main() {
     expect(subcategoryTextStyle.fontSize, tagTextStyle.fontSize);
     expect(subcategoryTextStyle.color, tagTextStyle.color);
     expect(subcategoryTextStyle.fontWeight, tagTextStyle.fontWeight);
+    final allSubcategoriesRow = find.byKey(
+      const ValueKey(('choice-menu-option-background', 0)),
+    );
+    final childRow = find.byKey(
+      const ValueKey(('choice-menu-option-background', 2)),
+    );
+    expect(tester.getSize(childRow).height, categorySingleRowHeight);
+    expect(
+      tester.getTopLeft(childRow).dy -
+          tester.getBottomLeft(allSubcategoriesRow).dy,
+      4,
+    );
   });
 
   testWidgets('selects a category and one of its subcategories', (

@@ -161,6 +161,7 @@ class _CategoryFilterAnchor extends StatelessWidget {
           description: '',
           icon: DIcons.layerGroup,
           titleStyle: optionTextStyle,
+          compact: true,
         ),
         for (final category in categories)
           ChoiceMenuOption<int>(
@@ -172,6 +173,7 @@ class _CategoryFilterAnchor extends StatelessWidget {
               color: Color(category.colorValue),
             ),
             titleStyle: optionTextStyle,
+            compact: true,
           ),
       ],
       filterHint: 'Filter categories',
@@ -224,6 +226,7 @@ class _SubcategoryFilterAnchor extends StatelessWidget {
           description: '',
           icon: DIcons.layerGroup,
           titleStyle: optionTextStyle,
+          compact: true,
         ),
         for (final category in subcategories)
           ChoiceMenuOption<int>(
@@ -235,6 +238,7 @@ class _SubcategoryFilterAnchor extends StatelessWidget {
               color: Color(category.colorValue),
             ),
             titleStyle: optionTextStyle,
+            compact: true,
           ),
       ],
       filterHint: 'Filter subcategories',
@@ -506,7 +510,8 @@ class _TagFilterPickerState extends State<_TagFilterPicker> {
         if (_loading)
           const AnchoredPickerProgress()
         else ...[
-          for (final tag in _results)
+          for (final tag in _results) ...[
+            const SizedBox(height: 4),
             AnchoredPickerOption(
               key: ValueKey(('topic-list-tag-filter-option', tag.value)),
               selected: _sameTag(tag, widget.selectedTagName),
@@ -515,6 +520,7 @@ class _TagFilterPickerState extends State<_TagFilterPicker> {
               title: Text(tag.label),
               onTap: () => widget.onSelected(tag.value),
             ),
+          ],
           if (_results.isEmpty)
             AnchoredPickerMessage(
               _query.text.trim().isEmpty
