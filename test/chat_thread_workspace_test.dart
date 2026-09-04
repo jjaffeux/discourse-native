@@ -171,25 +171,26 @@ void main() {
     );
   }
 
-  testWidgets('Settings releases and restores the active thread view', (
-    tester,
-  ) async {
-    final fixture = await _fixture();
-    addTearDown(fixture.shell.dispose);
-    await _pumpWorkspace(tester, fixture.shell, width: 1000);
+  testWidgets(
+    'the Settings modal releases and restores the active thread view',
+    (tester) async {
+      final fixture = await _fixture();
+      addTearDown(fixture.shell.dispose);
+      await _pumpWorkspace(tester, fixture.shell, width: 1000);
 
-    final tracker = FakeSiteTracker.built.singleWhere(
-      (tracker) => tracker.siteUrl == _siteUrl,
-    );
-    const threadChannel = '/chat/9/thread/3';
-    expect(tracker.pluginChannelCallbacks[threadChannel], isNotEmpty);
+      final tracker = FakeSiteTracker.built.singleWhere(
+        (tracker) => tracker.siteUrl == _siteUrl,
+      );
+      const threadChannel = '/chat/9/thread/3';
+      expect(tracker.pluginChannelCallbacks[threadChannel], isNotEmpty);
 
-    fixture.shell.selectSettings();
-    expect(tracker.pluginChannelCallbacks[threadChannel], isEmpty);
+      expect(fixture.shell.openAppSettingsModal(), isTrue);
+      expect(tracker.pluginChannelCallbacks[threadChannel], isEmpty);
 
-    expect(fixture.shell.handleBack(), isTrue);
-    expect(tracker.pluginChannelCallbacks[threadChannel], isNotEmpty);
-  });
+      fixture.shell.closeAppSettingsModal();
+      expect(tracker.pluginChannelCallbacks[threadChannel], isNotEmpty);
+    },
+  );
 
   testWidgets(
     'expanded thread route shows channel and thread panes at 1440 logical pixels',

@@ -10,86 +10,104 @@ import '../theme/d_icons.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 
-class AppSettingsPage extends StatelessWidget {
-  const AppSettingsPage({super.key});
+Future<void> showAppSettingsModal(BuildContext context) async {
+  final shell = ShellScope.read(context);
+  if (!shell.openAppSettingsModal()) return;
+
+  try {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final neutralTheme =
+            MediaQuery.platformBrightnessOf(dialogContext) == Brightness.dark
+            ? AppTheme.dark
+            : AppTheme.light;
+
+        return Theme(
+          data: neutralTheme,
+          child: const Dialog(
+            key: ValueKey('app-settings-modal'),
+            insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            clipBehavior: Clip.antiAlias,
+            constraints: BoxConstraints(maxWidth: 768, maxHeight: 720),
+            child: AppSettingsModal(),
+          ),
+        );
+      },
+    );
+  } finally {
+    shell.closeAppSettingsModal();
+  }
+}
+
+class AppSettingsModal extends StatelessWidget {
+  const AppSettingsModal({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final appSettings = ShellScope.identityOf(context).appSettings;
 
-    return Material(
-      color: theme.shell.content,
-      child: SafeArea(
-        left: false,
-        child: Column(
-          children: [
-            const _SettingsHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                key: const ValueKey('app-settings-scroll-view'),
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 48),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    key: const ValueKey('app-settings-form'),
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: ListenableBuilder(
-                      listenable: appSettings,
-                      builder: (context, _) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _ContentAlignmentSetting(
-                            alignment: appSettings.contentAlignment,
-                            onChanged: (alignment) => unawaited(
-                              appSettings.setContentAlignment(alignment),
-                            ),
-                          ),
-                          const SizedBox(height: 36),
-                          _TextSizeSetting(
-                            scale: appSettings.textScale,
-                            onDecrease: appSettings.textScale.index == 0
-                                ? null
-                                : () => unawaited(
-                                    appSettings.decreaseTextScale(),
-                                  ),
-                            onIncrease:
-                                appSettings.textScale.index ==
-                                    AppTextScale.values.length - 1
-                                ? null
-                                : () => unawaited(
-                                    appSettings.increaseTextScale(),
-                                  ),
-                            onReset:
-                                appSettings.textScale == AppTextScale.percent100
-                                ? null
-                                : () => unawaited(appSettings.resetTextScale()),
-                          ),
-                          const SizedBox(height: 36),
-                          SwitchListTile.adaptive(
-                            key: const ValueKey(
-                              'disable-gif-animations-switch',
-                            ),
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Disable GIF animations'),
-                            subtitle: const Text(
-                              'Pause GIFs by default in posts and chat messages.',
-                            ),
-                            value: appSettings.disableGifAnimations,
-                            onChanged: (disabled) => unawaited(
-                              appSettings.setDisableGifAnimations(disabled),
-                            ),
-                          ),
-                        ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _SettingsHeader(),
+        Flexible(
+          child: SingleChildScrollView(
+            key: const ValueKey('app-settings-scroll-view'),
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 48),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                key: const ValueKey('app-settings-form'),
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: ListenableBuilder(
+                  listenable: appSettings,
+                  builder: (context, _) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ContentAlignmentSetting(
+                        alignment: appSettings.contentAlignment,
+                        onChanged: (alignment) => unawaited(
+                          appSettings.setContentAlignment(alignment),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 36),
+                      _TextSizeSetting(
+                        scale: appSettings.textScale,
+                        onDecrease: appSettings.textScale.index == 0
+                            ? null
+                            : () => unawaited(appSettings.decreaseTextScale()),
+                        onIncrease:
+                            appSettings.textScale.index ==
+                                AppTextScale.values.length - 1
+                            ? null
+                            : () => unawaited(appSettings.increaseTextScale()),
+                        onReset:
+                            appSettings.textScale == AppTextScale.percent100
+                            ? null
+                            : () => unawaited(appSettings.resetTextScale()),
+                      ),
+                      const SizedBox(height: 36),
+                      SwitchListTile.adaptive(
+                        key: const ValueKey('disable-gif-animations-switch'),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Disable GIF animations'),
+                        subtitle: const Text(
+                          'Pause GIFs by default in posts and chat messages.',
+                        ),
+                        value: appSettings.disableGifAnimations,
+                        onChanged: (disabled) => unawaited(
+                          appSettings.setDisableGifAnimations(disabled),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -110,25 +128,27 @@ class _SettingsHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          DButton.iconOnly(
-            key: const ValueKey('app-settings-back'),
-            onPressed: () =>
-                ShellScope.read(context).handleBack(canReturnToSidebar: false),
-            icon: const DIcon(DIcons.arrowLeft, size: 20),
-            tooltip: 'Back',
-            semanticLabel: 'Back',
-            variant: DButtonVariant.flat,
-          ),
-          const SizedBox(width: 4),
-          Semantics(
-            header: true,
-            child: Text(
-              'Settings',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(
+                'Settings',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
+          DButton.iconOnly(
+            key: const ValueKey('app-settings-close'),
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const DIcon(DIcons.xmark, size: 20),
+            tooltip: 'Close',
+            semanticLabel: 'Close settings',
+            variant: DButtonVariant.flat,
+          ),
+          const SizedBox(width: 4),
         ],
       ),
     );

@@ -1051,36 +1051,37 @@ void main() {
       },
     );
 
-    testWidgets('opening Settings synchronously pauses a pending dwell', (
-      tester,
-    ) async {
-      final api = _ChatApi(
-        openPages: {
-          firstSite: [_messagesPage(1, 1)],
-        },
-      );
-      final controller = await _controller(api, sites: const [firstSite]);
-      addTearDown(controller.dispose);
-      controller.chatRecords.put(firstSite, _channel(lastRead: 0));
+    testWidgets(
+      'opening the Settings modal synchronously pauses a pending dwell',
+      (tester) async {
+        final api = _ChatApi(
+          openPages: {
+            firstSite: [_messagesPage(1, 1)],
+          },
+        );
+        final controller = await _controller(api, sites: const [firstSite]);
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(firstSite, _channel(lastRead: 0));
 
-      await tester.pumpWidget(_TestView(controller: controller));
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(api.chatReadsMarked, isEmpty);
+        await tester.pumpWidget(_TestView(controller: controller));
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(api.chatReadsMarked, isEmpty);
 
-      controller.selectSettings();
-      await tester.pump(const Duration(seconds: 2));
-      expect(api.chatReadsMarked, isEmpty);
+        expect(controller.openAppSettingsModal(), isTrue);
+        await tester.pump(const Duration(seconds: 2));
+        expect(api.chatReadsMarked, isEmpty);
 
-      expect(controller.handleBack(), isTrue);
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(api.chatReadsMarked, isEmpty);
-      await tester.pump(const Duration(milliseconds: 600));
-      expect(api.chatReadsMarked, [(channelId: 9, messageId: 1)]);
-    });
+        controller.closeAppSettingsModal();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(api.chatReadsMarked, isEmpty);
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(api.chatReadsMarked, [(channelId: 9, messageId: 1)]);
+      },
+    );
 
-    testWidgets('opening Settings releases and restores the channel view', (
+    testWidgets('the Settings modal releases and restores the channel view', (
       tester,
     ) async {
       final api = _ChatApi(
@@ -1100,10 +1101,10 @@ void main() {
       );
       expect(tracker.pluginChannelCallbacks['/chat/9'], isNotEmpty);
 
-      controller.selectSettings();
+      expect(controller.openAppSettingsModal(), isTrue);
       expect(tracker.pluginChannelCallbacks['/chat/9'], isEmpty);
 
-      expect(controller.handleBack(), isTrue);
+      controller.closeAppSettingsModal();
       await tester.pump();
       expect(tracker.pluginChannelCallbacks['/chat/9'], isNotEmpty);
     });

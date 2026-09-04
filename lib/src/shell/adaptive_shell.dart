@@ -17,7 +17,6 @@ import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'aggregate_view.dart';
-import 'app_settings_page.dart';
 import 'composer_controller.dart';
 import 'composer_panel.dart';
 import 'diagnostics_panel.dart';
@@ -57,7 +56,6 @@ typedef _ForumBoundarySnapshot = ({
   bool connecting,
   bool retrying,
   String? error,
-  bool settings,
 });
 
 class AdaptiveShell extends StatefulWidget {
@@ -220,8 +218,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       case ShellRootMode.forum:
         if (!controller.canCreateTab) return false;
         controller.createTab();
-      case ShellRootMode.settings:
-        return false;
     }
     return true;
   }
@@ -231,7 +227,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     final tabCount = switch (controller.rootMode) {
       ShellRootMode.aggregate => controller.aggregateTabs.length,
       ShellRootMode.forum => controller.tabsForCurrentForum.length,
-      ShellRootMode.settings => 0,
     };
     if (tabCount == 1) {
       unawaited(
@@ -247,8 +242,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         final activeTabId = controller.activeTabId;
         if (activeTabId == null) return false;
         controller.closeTab(activeTabId);
-      case ShellRootMode.settings:
-        return false;
     }
     return true;
   }
@@ -278,7 +271,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     return switch (controller.rootMode) {
       ShellRootMode.aggregate => controller.reopenClosedAggregateTab(),
       ShellRootMode.forum => controller.reopenClosedTab(),
-      ShellRootMode.settings => false,
     };
   }
 
@@ -294,7 +286,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         controller.tabsForCurrentForum.map((tab) => tab.id).toList(),
         controller.activeTabId,
       ),
-      ShellRootMode.settings => (const <String>[], null),
     };
     if (tabs.length < 2 || activeTabId == null) return false;
 
@@ -306,8 +297,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         controller.selectAggregateTab(targetId);
       case ShellRootMode.forum:
         controller.selectTab(targetId);
-      case ShellRootMode.settings:
-        return false;
     }
     return true;
   }
@@ -382,7 +371,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           connecting: privateForum && controller.connecting,
           retrying: unavailableForum && controller.retryingCurrentForum,
           error: privateForum ? controller.connectError : null,
-          settings: controller.rootMode == ShellRootMode.settings,
         );
       },
       builder: (context, boundary, _) {
@@ -410,7 +398,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
         final diagnostics = DiagnosticsScope.maybeRead(context);
         if (diagnostics == null) {
-          return _buildScaffold(null, false, settings: boundary.settings);
+          return _buildScaffold(null, false);
         }
 
         // Panel visibility is the only diagnostics-controller state that
@@ -419,8 +407,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         // sidebar, topic list, or chat stream.
         return ValueListenableBuilder<bool>(
           valueListenable: diagnostics.panelListenable,
-          builder: (context, open, _) =>
-              _buildScaffold(diagnostics, open, settings: boundary.settings),
+          builder: (context, open, _) => _buildScaffold(diagnostics, open),
         );
       },
     );
@@ -428,9 +415,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   Widget _buildScaffold(
     DiagnosticsController? diagnostics,
-    bool diagnosticsOpen, {
-    required bool settings,
-  }) {
+    bool diagnosticsOpen,
+  ) {
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -455,7 +441,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           );
 
           if (diagnostics == null) return framedShell(shell);
-          final showDiagnostics = diagnosticsOpen && !settings;
+          final showDiagnostics = diagnosticsOpen;
           final panel = DiagnosticsPanel(
             controller: diagnostics,
             plugins: DiagnosticsScope.pluginsOf(context),
@@ -846,68 +832,61 @@ class _CompactShell extends StatelessWidget {
                       bool hasInstances,
                       MobilePane pane,
                       ShellRootMode rootMode,
-                      bool settings,
                     })
                   >(
                     select: (controller) => (
                       loadStatus: controller.loadStatus,
                       hasInstances: controller.hasInstances,
-                      pane: controller.settingsUnderlayMobilePane,
-                      rootMode: controller.settingsUnderlayRootMode,
-                      settings: controller.rootMode == ShellRootMode.settings,
+                      pane: controller.mobilePane,
+                      rootMode: controller.rootMode,
                     ),
-                    builder: (context, state, _) => _SettingsStack(
-                      settings: state.settings,
-                      underlay: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: _slide,
-                        child: switch ((
-                          state.loadStatus,
-                          state.hasInstances,
-                          state.pane,
-                          state.rootMode,
-                        )) {
-                          (InstanceLoadStatus.loading, _, _, _) =>
-                            const _ShellLoadProgress(),
-                          (InstanceLoadStatus.failed, _, _, _) =>
-                            const _ShellLoadFailure(),
-                          (InstanceLoadStatus.ready, false, _, _) =>
-                            const EmptyState(key: ValueKey(MobilePane.sidebar)),
-                          (
-                            InstanceLoadStatus.ready,
-                            true,
-                            _,
-                            ShellRootMode.aggregate,
-                          ) =>
-                            const AggregateView(
-                              key: ValueKey(ShellRootMode.aggregate),
-                            ),
-                          (
-                            InstanceLoadStatus.ready,
-                            true,
-                            MobilePane.sidebar,
-                            ShellRootMode.forum,
-                          ) =>
-                            InstanceSidebar(
-                              key: const ValueKey(MobilePane.sidebar),
-                              showUserMenu: ShellTitleBar.columnsCarryUserMenu,
-                            ),
-                          (
-                            InstanceLoadStatus.ready,
-                            true,
-                            MobilePane.content,
-                            ShellRootMode.forum,
-                          ) =>
-                            const MainContent(
-                              key: ValueKey(MobilePane.content),
-                              layout: ShellLayout.compact,
-                            ),
-                          (_, _, _, ShellRootMode.settings) =>
-                            const SizedBox.shrink(),
-                        },
-                      ),
+                    builder: (context, state, _) => AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: _slide,
+                      child: switch ((
+                        state.loadStatus,
+                        state.hasInstances,
+                        state.pane,
+                        state.rootMode,
+                      )) {
+                        (InstanceLoadStatus.loading, _, _, _) =>
+                          const _ShellLoadProgress(),
+                        (InstanceLoadStatus.failed, _, _, _) =>
+                          const _ShellLoadFailure(),
+                        (InstanceLoadStatus.ready, false, _, _) =>
+                          const EmptyState(key: ValueKey(MobilePane.sidebar)),
+                        (
+                          InstanceLoadStatus.ready,
+                          true,
+                          _,
+                          ShellRootMode.aggregate,
+                        ) =>
+                          const AggregateView(
+                            key: ValueKey(ShellRootMode.aggregate),
+                          ),
+                        (
+                          InstanceLoadStatus.ready,
+                          true,
+                          MobilePane.sidebar,
+                          ShellRootMode.forum,
+                        ) =>
+                          InstanceSidebar(
+                            key: const ValueKey(MobilePane.sidebar),
+                            showUserMenu: ShellTitleBar.columnsCarryUserMenu,
+                          ),
+                        (
+                          InstanceLoadStatus.ready,
+                          true,
+                          MobilePane.content,
+                          ShellRootMode.forum,
+                        ) =>
+                          const MainContent(
+                            key: ValueKey(MobilePane.content),
+                            layout: ShellLayout.compact,
+                          ),
+                      },
                     ),
                   ),
             ),
@@ -920,8 +899,7 @@ class _CompactShell extends StatelessWidget {
   static Widget _slide(Widget child, Animation<double> animation) {
     final fromRight =
         child.key == const ValueKey(MobilePane.content) ||
-        child.key == const ValueKey(ShellRootMode.aggregate) ||
-        child.key == const ValueKey(ShellRootMode.settings);
+        child.key == const ValueKey(ShellRootMode.aggregate);
     return FadeTransition(
       opacity: animation,
       child: SlideTransition(
@@ -933,26 +911,6 @@ class _CompactShell extends StatelessWidget {
       ),
     );
   }
-}
-
-class _SettingsStack extends StatelessWidget {
-  const _SettingsStack({required this.settings, required this.underlay});
-
-  final bool settings;
-  final Widget underlay;
-
-  @override
-  Widget build(BuildContext context) => Stack(
-    fit: StackFit.expand,
-    children: [
-      Visibility(visible: !settings, maintainState: true, child: underlay),
-      Visibility(
-        visible: settings,
-        maintainState: true,
-        child: const AppSettingsPage(key: ValueKey(ShellRootMode.settings)),
-      ),
-    ],
-  );
 }
 
 class _WideShell extends StatelessWidget {
@@ -985,44 +943,38 @@ class _WideShell extends StatelessWidget {
                         InstanceLoadStatus loadStatus,
                         bool hasInstances,
                         ShellRootMode rootMode,
-                        bool settings,
                       })
                     >(
                       select: (controller) => (
                         loadStatus: controller.loadStatus,
                         hasInstances: controller.hasInstances,
-                        rootMode: controller.settingsUnderlayRootMode,
-                        settings: controller.rootMode == ShellRootMode.settings,
+                        rootMode: controller.rootMode,
                       ),
-                      builder: (context, state, _) => _SettingsStack(
-                        settings: state.settings,
-                        underlay: switch (state.loadStatus) {
-                          InstanceLoadStatus.loading =>
-                            const _ShellLoadProgress(),
-                          InstanceLoadStatus.failed =>
-                            const _ShellLoadFailure(),
-                          InstanceLoadStatus.ready
-                              when state.hasInstances &&
-                                  state.rootMode == ShellRootMode.aggregate =>
-                            const AggregateView(),
-                          InstanceLoadStatus.ready when state.hasInstances =>
-                            Row(
-                              children: [
-                                ResizablePane(
-                                  controller: sidebarWidth,
-                                  edge: ResizablePaneEdge.trailing,
-                                  resizeKey: 'sidebar',
-                                  semanticsLabel: 'Resize sidebar',
-                                  maximumWidth: windowMaximum,
-                                  dividerWidth: 1,
-                                  child: const InstanceSidebar(),
-                                ),
-                                Expanded(child: MainContent(layout: layout)),
-                              ],
+                      builder: (context, state, _) => switch (state
+                          .loadStatus) {
+                        InstanceLoadStatus.loading =>
+                          const _ShellLoadProgress(),
+                        InstanceLoadStatus.failed => const _ShellLoadFailure(),
+                        InstanceLoadStatus.ready
+                            when state.hasInstances &&
+                                state.rootMode == ShellRootMode.aggregate =>
+                          const AggregateView(),
+                        InstanceLoadStatus.ready when state.hasInstances => Row(
+                          children: [
+                            ResizablePane(
+                              controller: sidebarWidth,
+                              edge: ResizablePaneEdge.trailing,
+                              resizeKey: 'sidebar',
+                              semanticsLabel: 'Resize sidebar',
+                              maximumWidth: windowMaximum,
+                              dividerWidth: 1,
+                              child: const InstanceSidebar(),
                             ),
-                          InstanceLoadStatus.ready => const EmptyState(),
-                        },
-                      ),
+                            Expanded(child: MainContent(layout: layout)),
+                          ],
+                        ),
+                        InstanceLoadStatus.ready => const EmptyState(),
+                      },
                     ),
               ),
             ),

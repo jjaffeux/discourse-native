@@ -619,11 +619,6 @@ class _MouseNavigationRegion extends StatelessWidget {
     }
 
     final controller = ShellScope.read(context);
-    if (backPressed && controller.rootMode == ShellRootMode.settings) {
-      controller.handleBack(canReturnToSidebar: false);
-      return;
-    }
-
     final diagnostics = DiagnosticsScope.maybeRead(context);
     if (diagnostics?.isPanelOpen ?? false) {
       if (backPressed) diagnostics!.closePanel();
@@ -653,9 +648,8 @@ final class _AppThemeSelection {
   const _AppThemeSelection(this.siteUrl, this.appearance);
 
   factory _AppThemeSelection.from(ShellController controller) {
-    // App-owned surfaces do not inherit whichever forum happened to be
-    // selected last. The empty selection also rebuilds MaterialApp when the
-    // root changes even though the underlying instance stays unchanged.
+    // Aggregate is app-owned and does not inherit whichever forum happened to
+    // be selected last. Settings applies its neutral theme inside its modal.
     if (controller.rootMode != ShellRootMode.forum) {
       return const _AppThemeSelection(null, null);
     }

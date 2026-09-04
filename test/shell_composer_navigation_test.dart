@@ -85,15 +85,15 @@ void main() {
     expect(shell.visibleComposer, same(composer));
   });
 
-  test('preserves the composer while Settings is open and restores it', () {
+  test('preserves the composer while the Settings modal is open', () {
     final composer = shell.visibleComposer!;
     composer.text.text = 'Keep this app settings draft';
 
-    shell.selectSettings();
+    expect(shell.openAppSettingsModal(), isTrue);
 
-    expect(shell.rootMode, ShellRootMode.settings);
+    expect(shell.rootMode, ShellRootMode.forum);
     expect(shell.visibleComposer, isNull);
-    expect(shell.handleBack(), isTrue);
+    shell.closeAppSettingsModal();
     expect(shell.rootMode, ShellRootMode.forum);
     expect(shell.visibleComposer, same(composer));
     expect(shell.visibleComposer?.raw, 'Keep this app settings draft');

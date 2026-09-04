@@ -699,7 +699,7 @@ void main() {
     }
   });
 
-  testWidgets('Settings temporarily replaces a docked diagnostics panel', (
+  testWidgets('Settings opens above a docked diagnostics panel', (
     tester,
   ) async {
     final diagnostics = await _controller();
@@ -715,8 +715,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(AppSettingsPage), findsOneWidget);
-    expect(find.byKey(const ValueKey('diagnostics-docked-slot')), findsNothing);
+    expect(find.byType(AppSettingsModal), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('diagnostics-docked-slot')),
+      findsOneWidget,
+    );
     expect(diagnostics.isPanelOpen, isTrue);
 
     await tester.tap(
@@ -726,7 +729,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(AppSettingsPage), findsNothing);
+    expect(find.byType(AppSettingsModal), findsNothing);
     expect(
       find.byKey(const ValueKey('diagnostics-docked-slot')),
       findsOneWidget,

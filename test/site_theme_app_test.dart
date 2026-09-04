@@ -80,7 +80,7 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      _controller(tester).selectSettings();
+      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.text('200%'), findsOneWidget);
@@ -199,7 +199,7 @@ void main() {
   });
 
   group('active theme selection', () {
-    testWidgets('uses the neutral app palette for Settings', (tester) async {
+    testWidgets('uses the neutral app palette inside Settings', (tester) async {
       final forumAppearance = siteAppearance(
         accent: const Color(0xFFAA2200),
         alternateAccent: const Color(0xFF00AACC),
@@ -215,21 +215,20 @@ void main() {
       await _pumpApp(tester, store: store, api: FakeDiscourseApi());
       final controller = _controller(tester);
 
-      controller.selectSettings();
-      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
+      await tester.pumpAndSettle();
 
-      expect(_materialApp(tester).themeMode, ThemeMode.system);
+      expect(controller.rootMode, ShellRootMode.forum);
+      expect(_materialApp(tester).themeMode, ThemeMode.dark);
       expect(
-        _materialApp(tester).theme?.colorScheme.primary,
+        Theme.of(
+          tester.element(find.byKey(const ValueKey('app-settings-form'))),
+        ).colorScheme.primary,
         AppTheme.light.colorScheme.primary,
       );
-      expect(
-        _materialApp(tester).darkTheme?.colorScheme.primary,
-        AppTheme.dark.colorScheme.primary,
-      );
 
-      expect(controller.handleBack(), isTrue);
-      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
+      await tester.pumpAndSettle();
 
       expect(_materialApp(tester).themeMode, ThemeMode.dark);
       expect(

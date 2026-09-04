@@ -1138,13 +1138,14 @@ void _registerShellNavigationTests() {
       },
     );
 
-    testWidgets('mouse Back exits app Settings', (tester) async {
+    testWidgets('mouse Back closes the app Settings modal', (tester) async {
       await pumpShell(tester, desktop);
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
 
       await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
       await tester.pumpAndSettle();
-      expect(shell.rootMode, ShellRootMode.settings);
+      expect(shell.rootMode, ShellRootMode.forum);
+      expect(shell.appSettingsModalOpen, isTrue);
 
       await tester.tap(
         find.byKey(const ValueKey('app-settings-form')),
@@ -1154,6 +1155,7 @@ void _registerShellNavigationTests() {
       await tester.pumpAndSettle();
 
       expect(shell.rootMode, ShellRootMode.forum);
+      expect(shell.appSettingsModalOpen, isFalse);
       expect(find.byType(MainContent), findsOneWidget);
     });
 

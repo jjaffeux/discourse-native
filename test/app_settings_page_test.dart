@@ -1,5 +1,3 @@
-import 'dart:ui' show Tristate;
-
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -24,7 +22,6 @@ void main() {
     final controller = _controller(appSettingsPersistence: persistence);
     addTearDown(controller.dispose);
     await controller.appSettings.load();
-    controller.selectSettings();
 
     await _pumpPage(tester, controller, size: const Size(1100, 700));
 
@@ -85,7 +82,7 @@ void main() {
     expect(persistence.disableGifAnimations, isTrue);
   });
 
-  testWidgets('the form and Back control expose useful semantics', (
+  testWidgets('the form and Close control expose useful semantics', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
@@ -93,10 +90,9 @@ void main() {
     addTearDown(controller.dispose);
     try {
       await controller.appSettings.load();
-      controller.selectSettings();
       await _pumpPage(tester, controller);
 
-      expect(find.bySemanticsLabel('Back'), findsOneWidget);
+      expect(find.bySemanticsLabel('Close settings'), findsOneWidget);
       expect(
         find.bySemanticsLabel('Content alignment options'),
         findsOneWidget,
@@ -112,9 +108,11 @@ void main() {
         expect(find.bySemanticsLabel(label), findsOneWidget);
       }
 
-      await tester.tap(find.byKey(const ValueKey('app-settings-back')));
-      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
+      await tester.pumpAndSettle();
 
+      expect(find.byType(AppSettingsModal), findsNothing);
+      expect(controller.appSettingsModalOpen, isFalse);
       expect(controller.rootMode, ShellRootMode.forum);
     } finally {
       semantics.dispose();
@@ -156,21 +154,23 @@ void main() {
         6,
       );
 
-      var data = tester.getSemantics(settings).getSemanticsData();
+      final data = tester.getSemantics(settings).getSemanticsData();
       expect(data.label, 'Settings');
       expect(data.flagsCollection.isButton, isTrue);
-      expect(data.flagsCollection.isSelected, Tristate.isFalse);
 
       await tester.tap(settings);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      expect(controller.rootMode, ShellRootMode.settings);
-      data = tester.getSemantics(settings).getSemanticsData();
-      expect(data.flagsCollection.isSelected, Tristate.isTrue);
+      expect(controller.rootMode, ShellRootMode.forum);
+      expect(controller.appSettingsModalOpen, isTrue);
+      expect(find.byType(AppSettingsModal), findsOneWidget);
       final marker = tester.widget<AnimatedContainer>(
         find.byKey(const ValueKey('settings-rail-marker')),
       );
-      expect(marker.constraints!.minHeight, 32);
+      expect(marker.constraints!.minHeight, 8);
+
+      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
+      await tester.pumpAndSettle();
     } finally {
       await diagnostics.close();
       semantics.dispose();
@@ -219,11 +219,20 @@ Future<void> _pumpPage(
       controller: controller,
       child: MaterialApp(
         theme: AppTheme.light,
-        home: const Scaffold(body: AppSettingsPage()),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              key: const ValueKey('open-app-settings'),
+              onPressed: () => showAppSettingsModal(context),
+              child: const Text('Open settings'),
+            ),
+          ),
+        ),
       ),
     ),
   );
-  await tester.pump();
+  await tester.tap(find.byKey(const ValueKey('open-app-settings')));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpRail(
