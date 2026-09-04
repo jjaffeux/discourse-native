@@ -3330,7 +3330,7 @@ class _ComposerToolbarOverflowState extends State<_ComposerToolbarOverflow> {
     final textDirection = Directionality.of(context);
 
     return Stack(
-      alignment: Alignment.center,
+      alignment: AlignmentDirectional.centerStart,
       children: [
         SingleChildScrollView(
           key: const ValueKey('composer-toolbar-scroll'),

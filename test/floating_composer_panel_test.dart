@@ -749,6 +749,30 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('left aligns the toolbar when all tools fit', (tester) async {
+      final composer = ComposerController(
+        _newTopicTarget,
+        imageUploader: (
+          file, {
+          required onProgress,
+          required abortTrigger,
+        }) async => throw StateError('The picker is not invoked by this test.'),
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpFloatingPanel(tester, shell, composer);
+      await tester.pump();
+
+      final panel = tester.getRect(find.byType(ComposerPanel));
+      final toolbar = tester.getRect(
+        find.byKey(const ValueKey('composer-toolbar-scroll')),
+      );
+
+      expect(toolbar.left, closeTo(panel.left + 8, 1));
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('shows private-message fields addressed to the target group', (
       tester,
     ) async {
