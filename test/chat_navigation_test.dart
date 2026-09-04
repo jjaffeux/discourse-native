@@ -10,6 +10,7 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
@@ -74,6 +75,34 @@ ChatThread _thread(int channelId, int threadId) {
     ),
   );
 }
+
+const ChatThread _myThread = ChatThread(
+  id: 3,
+  channelId: 9,
+  status: 'open',
+  replyCount: 4,
+  title: 'Support thread',
+  tracking: ChatTracking(unreadCount: 2),
+  preview: ChatThreadPreview(
+    threadId: 3,
+    replyCount: 4,
+    lastReplyId: 44,
+    lastReplyExcerpt: 'Latest answer',
+    lastReplyUser: ChatMessageAuthor(id: 3, username: 'lee', name: 'Lee'),
+    participantCount: 3,
+    participantUsers: [
+      ChatMessageAuthor(id: 2, username: 'sam', name: 'Sam'),
+      ChatMessageAuthor(id: 3, username: 'lee', name: 'Lee'),
+      ChatMessageAuthor(id: 4, username: 'kris', name: 'Kris'),
+    ],
+  ),
+  originalMessage: ChatThreadOriginalMessage(
+    id: 40,
+    channelId: 9,
+    author: ChatMessageAuthor(id: 2, username: 'sam', name: 'Sam'),
+    excerpt: 'Can someone check this?',
+  ),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -170,25 +199,7 @@ void main() {
         FakeDiscourseApi.chatThreadKey(12, 7): _thread(12, 7),
       },
       chatThreadPagesByOffset: {
-        0: ChatThreadPage(
-          threads: const [
-            ChatThread(
-              id: 3,
-              channelId: 9,
-              status: 'open',
-              replyCount: 4,
-              title: 'Support thread',
-              tracking: ChatTracking(unreadCount: 2),
-              originalMessage: ChatThreadOriginalMessage(
-                id: 40,
-                channelId: 9,
-                author: ChatMessageAuthor(id: 2, username: 'sam'),
-                excerpt: 'Can someone check this?',
-              ),
-            ),
-          ],
-          channels: [_channel(9)],
-        ),
+        0: ChatThreadPage(threads: const [_myThread], channels: [_channel(9)]),
       },
       chatChannelThreadPagesByKey: {
         FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
@@ -906,6 +917,16 @@ void main() {
           find.byKey(const ValueKey('chat-my-thread-unread-3')),
           findsOneWidget,
         );
+        expect(
+          find.byKey(const ValueKey('chat-my-thread-preview-3')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('chat-my-thread-participants-3')),
+          findsOneWidget,
+        );
+        expect(find.text('Latest answer'), findsOneWidget);
+        expect(find.text('4 replies'), findsOneWidget);
 
         await tester.tap(find.byKey(const ValueKey('chat-my-thread-3')));
         await tester.pump();
@@ -916,6 +937,45 @@ void main() {
         ]);
         expect(shell.handleBack(), isTrue);
         expect(shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
+      });
+
+      testWidgets('adapt a nested My threads row to a narrow pane', (
+        tester,
+      ) async {
+        await shell.chat.loadChannels(_site);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 320,
+                    child: PluginUiScope.own(
+                      chatPluginId,
+                      const ChatThreadListRow(
+                        siteUrl: _site,
+                        thread: _myThread,
+                        nestedPreview: true,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          find.byKey(const ValueKey('chat-my-thread-preview-3')),
+          findsOneWidget,
+        );
+        expect(find.text('Latest answer'), findsOneWidget);
+        expect(find.text('4 replies'), findsOneWidget);
+        expect(tester.takeException(), isNull);
       });
 
       testWidgets('open new and existing direct messages from search', (
