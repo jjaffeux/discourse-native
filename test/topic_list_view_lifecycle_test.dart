@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
+import 'package:discourse_native/src/shell/app_text_scale.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/list_boundary_shortcuts.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -173,6 +176,60 @@ void main() {
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('zoomed desktop rows leave room for scaled activity text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const ui.Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      final topic = Topic(
+        id: 8,
+        title: 'A zoomed topic',
+        slug: 'a-zoomed-topic',
+        replyCount: 5,
+        views: 309,
+        bumpedAt: DateTime.now().subtract(const Duration(days: 4)),
+        posterAvatars: const ['', '', ''],
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([sites.first]),
+        api: FakeDiscourseApi(
+          feeds: {
+            '/latest.json': [topic],
+          },
+        ),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      await controller.appSettings.setTextScale(AppTextScale.percent125);
+      controller.store.put(sites.first.url, topic);
+
+      await tester.pumpWidget(
+        _TestList(
+          controller: controller,
+          feed: const TopicFeed(topicIds: [8], loaded: true),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('topic-ledger-activity-8')))
+            .width,
+        150,
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
   });
 
   testWidgets('failed first load retries once from the empty state', (
@@ -717,11 +774,18 @@ final class _TestList extends StatelessWidget {
   final TopicFeed feed;
 
   @override
-  Widget build(BuildContext context) => ShellScope(
-    controller: controller,
-    child: MaterialApp(
-      theme: AppTheme.light,
-      home: Scaffold(body: TopicListView(feed: feed)),
+  Widget build(BuildContext context) => ContentAlignmentScope(
+    controller: controller.appSettings,
+    child: ShellScope(
+      controller: controller,
+      child: MaterialApp(
+        theme: AppTheme.light,
+        builder: (context, child) => AppTextScaleRegion(
+          controller: controller.appSettings,
+          child: child!,
+        ),
+        home: Scaffold(body: TopicListView(feed: feed)),
+      ),
     ),
   );
 }

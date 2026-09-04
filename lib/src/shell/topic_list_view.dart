@@ -409,6 +409,9 @@ class _TopicLedgerLayout {
   static const double participantsWidth = 82;
   static const double activityWidth = 120;
 
+  static double activityWidthOf(BuildContext context) =>
+      activityWidth * ContentAlignmentScope.appTextScaleFactorOf(context);
+
   final bool showParticipants;
   final bool showActivity;
 }
@@ -541,9 +544,9 @@ class _TopicListSkeletonRow extends StatelessWidget {
               ],
               if (layout.showActivity) ...[
                 const SizedBox(width: _TopicLedgerLayout.gap),
-                const SizedBox(
-                  width: _TopicLedgerLayout.activityWidth,
-                  child: Row(
+                SizedBox(
+                  width: _TopicLedgerLayout.activityWidthOf(context),
+                  child: const Row(
                     children: [
                       LoadingSkeletonBlock(width: 22, height: 8),
                       SizedBox(width: 8),
@@ -979,7 +982,7 @@ class _TopicRowBody extends StatelessWidget {
                   const SizedBox(width: _TopicLedgerLayout.gap),
                   SizedBox(
                     key: ValueKey('topic-ledger-activity-${topic.id}'),
-                    width: _TopicLedgerLayout.activityWidth,
+                    width: _TopicLedgerLayout.activityWidthOf(context),
                     child: _TopicActivity(topic: topic),
                   ),
                 ],
