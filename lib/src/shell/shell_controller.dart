@@ -2145,13 +2145,15 @@ class ShellController extends FrameSafeNotifier
 
   TopicListMode? get currentTopicListMode {
     final tab = activeTab;
-    if (tab == null ||
-        tab.rootDestinationId != 'latest' ||
-        tab.contentStack.length != 1) {
+    if (tab == null) return null;
+
+    final route = tab.currentContent;
+    if (route.categoryId != null) return TopicListMode.latest;
+    if (tab.rootDestinationId != 'latest' || tab.contentStack.length != 1) {
       return null;
     }
-    return TopicListMode.fromRoute(tab.currentContent) ??
-        (tab.currentContent.isTopicListFilter ? TopicListMode.latest : null);
+    return TopicListMode.fromRoute(route) ??
+        (route.isTopicListFilter ? TopicListMode.latest : null);
   }
 
   ({int all, int topics, int replies}) get topicListNewCounts {

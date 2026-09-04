@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/models/category_sidebar.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
@@ -448,6 +449,68 @@ void main() {
     );
     expect(find.text('Latest topic'), findsOneWidget);
     expect(find.textContaining('matching topics'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('primary tabs stay visible on category and subcategory routes', (
+    tester,
+  ) async {
+    const parent = TopicCategory(
+      id: 21,
+      name: 'Discourse Native App',
+      color: '563A93',
+      slug: 'discourse-native-app',
+    );
+    const child = TopicCategory(
+      id: 22,
+      name: 'Design',
+      color: '3188CC',
+      slug: 'design',
+      parentCategoryId: 21,
+    );
+    const categories = [parent, child];
+    final categoriesById = {
+      for (final category in categories) category.id: category,
+    };
+    final setup = await _controller(
+      categoryList: categories,
+      extraFeeds: const {
+        '/c/discourse-native-app/21.json': [],
+        '/c/discourse-native-app/design/22.json': [],
+      },
+    );
+    final controller = setup.controller;
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: MainContent(layout: ShellLayout.expanded)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final category in categories) {
+      controller.selectDestination(
+        buildCategoryDestination(category, categoriesById: categoriesById),
+      );
+      await tester.pumpAndSettle();
+
+      expect(controller.currentContent?.categoryId, category.id);
+      expect(controller.currentTopicListMode, TopicListMode.latest);
+      expect(
+        find.byKey(const ValueKey('topic-list-primary-row')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('topic-list-latest')), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-list-new')), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-list-top')), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-list-popular')), findsOneWidget);
+    }
+
     expect(tester.takeException(), isNull);
   });
 
