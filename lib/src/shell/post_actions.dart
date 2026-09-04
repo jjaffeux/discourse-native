@@ -204,6 +204,22 @@ class _PostActionsState extends State<PostActions> {
     final topic = controller.currentTopic;
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
+    if (post.isSmallAction || registry.isSmallAction(post)) {
+      return (
+        actions: [
+          if (post.canDelete)
+            PostAction(
+              icon: DIcons.trashCan,
+              placement: PostActionPlacement.overflow,
+              label: 'Delete',
+              tooltip: 'Delete this topic action',
+              destructive: true,
+              onInvoke: () => _report(controller, controller.deletePost(post)),
+            ),
+        ],
+        rebuildOn: null,
+      );
+    }
     final instance = controller.currentInstance;
     final contribution = registry.postMenu(
       context,

@@ -413,7 +413,7 @@ void _registerTopicModerationTests() {
       id: 7,
       title: 'A real topic',
       posts: [post],
-      stream: const [1],
+      stream: [post.id],
       postsCount: 1,
       canCreatePost: true,
     );
@@ -458,6 +458,55 @@ void _registerTopicModerationTests() {
       expect(find.byTooltip('Reply to this post'), findsOneWidget);
       expect(find.byTooltip('Edit this post'), findsNothing);
       expect(find.byTooltip('Delete this post'), findsNothing);
+    });
+
+    testWidgets('a guardian-authorized topic action can be deleted', (
+      tester,
+    ) async {
+      const action = Post(
+        id: 2,
+        postNumber: 2,
+        username: 'joffreyj',
+        cooked: '',
+        postType: Post.smallActionPostType,
+        actionCode: 'pinned.enabled',
+        canDelete: true,
+      );
+      final api = await openTopic(tester, post: action);
+
+      await hoverPost(tester, body: 'joffreyj pinned this topic');
+
+      expect(find.byTooltip('Delete this topic action'), findsOneWidget);
+      expect(find.byTooltip('Reply to this post'), findsNothing);
+      expect(find.byTooltip('Bookmark this post'), findsNothing);
+      expect(
+        find.byTooltip('Copy a link to this post to clipboard'),
+        findsNothing,
+      );
+
+      await tester.tap(find.byTooltip('Delete this topic action'));
+      await tester.pumpAndSettle();
+
+      expect(api.deleted, [2]);
+      expect(renderedText('joffreyj pinned this topic'), findsNothing);
+    });
+
+    testWidgets('a topic action without permission has no delete control', (
+      tester,
+    ) async {
+      const action = Post(
+        id: 2,
+        postNumber: 2,
+        username: 'joffreyj',
+        cooked: '',
+        postType: Post.smallActionPostType,
+        actionCode: 'pinned.enabled',
+      );
+      await openTopic(tester, post: action);
+
+      await hoverPost(tester, body: 'joffreyj pinned this topic');
+
+      expect(find.byTooltip('Delete this topic action'), findsNothing);
     });
 
     testWidgets('editing a post sends the markdown, not the HTML', (

@@ -3431,8 +3431,14 @@ class _StoredPost extends StatelessWidget {
         if (post == null) return const SizedBox.shrink();
         final registry =
             PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-        final content = post.isSmallAction || registry.isSmallAction(post)
-            ? SmallActionTile(post: post, siteUrl: siteUrl)
+        final isSmallAction =
+            post.isSmallAction || registry.isSmallAction(post);
+        final content = isSmallAction
+            ? PostActions(
+                siteUrl: siteUrl,
+                post: post,
+                child: SmallActionTile(post: post, siteUrl: siteUrl),
+              )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
