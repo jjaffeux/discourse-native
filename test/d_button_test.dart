@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_tooltip.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -52,9 +53,7 @@ void main() {
     }
   });
 
-  testWidgets('icon-only buttons stay square and follow the site radius', (
-    tester,
-  ) async {
+  testWidgets('flat icon buttons inset their visual surface', (tester) async {
     for (final (radius, size) in [
       (0.0, DButtonSize.small),
       (13.0, DButtonSize.regular),
@@ -85,12 +84,19 @@ void main() {
       );
 
       final rendered = find.byType(FilledButton);
+      final surface = find.descendant(
+        of: rendered,
+        matching: find.byType(Material),
+      );
       final style = tester.widget<FilledButton>(rendered).style!;
       final shape = style.shape!.resolve({WidgetState.hovered});
+      final targetDimension = DButton.iconOnlyDimensionFor(size);
 
+      expect(tester.getSize(rendered), Size.square(targetDimension));
+      expect(surface, findsOneWidget);
       expect(
-        tester.getSize(rendered),
-        Size.square(DButton.iconOnlyDimensionFor(size)),
+        tester.getSize(surface),
+        Size.square(targetDimension - DButton.flatSurfacePadding * 2),
       );
       expect(shape, isA<RoundedRectangleBorder>());
       expect(
@@ -102,6 +108,50 @@ void main() {
         theme.shell.hover,
       );
     }
+  });
+
+  testWidgets('flat icon button padding remains interactive', (tester) async {
+    var presses = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Center(
+            child: DButton.iconOnly(
+              tooltip: 'Action',
+              onPressed: () => presses++,
+              variant: DButtonVariant.flat,
+              icon: const Icon(Icons.add),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final rendered = find.byType(FilledButton);
+    final surface = find.descendant(
+      of: rendered,
+      matching: find.byType(Material),
+    );
+    final targetRect = tester.getRect(rendered);
+    final surfaceRect = tester.getRect(surface);
+    final paddedPoint = Offset(targetRect.left + 1, targetRect.center.dy);
+    final theme = Theme.of(tester.element(rendered));
+
+    expect(surfaceRect.contains(paddedPoint), isFalse);
+    expect(tester.widget<Material>(surface).color, Colors.transparent);
+
+    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(pointer.removePointer);
+    await pointer.addPointer();
+    await pointer.moveTo(paddedPoint);
+    await tester.pump();
+
+    expect(tester.widget<Material>(surface).color, theme.shell.hover);
+
+    await tester.tapAt(paddedPoint);
+    await tester.pump();
+    expect(presses, 1);
   });
 
   testWidgets('buttons can override the radius for joined controls', (

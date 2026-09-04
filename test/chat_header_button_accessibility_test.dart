@@ -8,6 +8,7 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,6 +28,19 @@ void main() {
       final button = find.byKey(ChatHeaderButton.buttonKey);
       expect(button, findsOneWidget);
       expect(find.byTooltip('Chat, unread messages'), findsOneWidget);
+      expect(tester.widget<DButton>(button).variant, DButtonVariant.flat);
+      expect(
+        tester.getSize(button),
+        const Size.square(DButton.minimumDimension),
+      );
+      expect(
+        tester.getSize(
+          find.descendant(of: button, matching: find.byType(Material)),
+        ),
+        const Size.square(
+          DButton.minimumDimension - DButton.flatSurfacePadding * 2,
+        ),
+      );
       expect(
         tester.getSemantics(button),
         isSemantics(
