@@ -2801,6 +2801,10 @@ class _TopicPropertiesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
     final category = controller.categoryFor(topic.categoryId, siteUrl: siteUrl);
+    final parentCategory = controller.categoryFor(
+      category?.parentCategoryId,
+      siteUrl: siteUrl,
+    );
     final propertiesRebuildOn = registry.topicPropertiesRebuildOn(
       context,
       siteUrl,
@@ -2847,6 +2851,7 @@ class _TopicPropertiesCard extends StatelessWidget {
                                 siteUrl: siteUrl,
                               ),
                         category: category,
+                        parentCategory: parentCategory,
                         siteUrl: siteUrl,
                         color: category == null
                             ? route?.color
@@ -2856,6 +2861,9 @@ class _TopicPropertiesCard extends StatelessWidget {
                         ),
                         actionKey: const ValueKey(
                           'topic-sidebar-category-action',
+                        ),
+                        parentActionKey: const ValueKey(
+                          'topic-sidebar-parent-category-action',
                         ),
                         editActionKey: const ValueKey(
                           'topic-sidebar-category-edit-action',
@@ -2868,6 +2876,12 @@ class _TopicPropertiesCard extends StatelessWidget {
                             ? null
                             : () => controller.openCategory(
                                 category,
+                                siteUrl: siteUrl,
+                              ),
+                        onParentNavigate: parentCategory == null
+                            ? null
+                            : () => controller.openCategory(
+                                parentCategory,
                                 siteUrl: siteUrl,
                               ),
                         onEdit: openMenu,

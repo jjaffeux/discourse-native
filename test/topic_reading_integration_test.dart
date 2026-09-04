@@ -3191,6 +3191,7 @@ void _registerTopicReadingTests() {
           user: reader,
           feeds: {
             '/latest.json': listed,
+            '/c/trust-and-safety/4.json': const [],
             '/c/trust-and-safety/security/5.json': const [],
             '/topics/private-messages-tags/reader/'
                     'security%20%2F%20fix.json':
@@ -3234,13 +3235,35 @@ void _registerTopicReadingTests() {
         expect(
           find.descendant(
             of: find.byKey(const ValueKey('topic-sidebar-category')),
-            matching: find.text(categoryPath),
+            matching: find.text(parent.name),
           ),
           findsOneWidget,
         );
         expect(
-          find.bySemanticsLabel('Category: $categoryPath'),
+          find.descendant(
+            of: find.byKey(const ValueKey('topic-sidebar-category')),
+            matching: find.text(category.name),
+          ),
           findsOneWidget,
+        );
+        expect(find.text(categoryPath), findsNothing);
+        expect(
+          find.bySemanticsLabel('Parent category: ${parent.name}'),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel('Category: ${category.name}'),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .getSize(
+                find.byKey(
+                  const ValueKey('topic-sidebar-parent-category-action'),
+                ),
+              )
+              .height,
+          greaterThanOrEqualTo(32),
         );
         expect(
           tester
@@ -3268,7 +3291,26 @@ void _registerTopicReadingTests() {
         final controller = ShellScope.read(
           tester.element(find.byType(TopicView)),
         );
-        await tester.tap(find.byKey(const ValueKey('topic-sidebar-category')));
+        await tester.tap(
+          find.byKey(const ValueKey('topic-sidebar-parent-category-action')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(controller.currentContent?.id, 'category-4');
+        expect(
+          controller.currentContent?.feedPath,
+          '/c/trust-and-safety/4.json',
+        );
+        expect(
+          find.byKey(const ValueKey('topic-category-picker-popover')),
+          findsNothing,
+        );
+
+        expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('topic-sidebar-category-action')),
+        );
         await tester.pumpAndSettle();
 
         expect(controller.currentContent?.id, 'category-5');
@@ -3496,10 +3538,18 @@ void _registerTopicReadingTests() {
           expect(
             find.descendant(
               of: categoryProperty,
-              matching: find.text(supportDocsPath),
+              matching: find.text(support.name),
             ),
             findsOneWidget,
           );
+          expect(
+            find.descendant(
+              of: categoryProperty,
+              matching: find.text(supportDocs.name),
+            ),
+            findsOneWidget,
+          );
+          expect(find.text(supportDocsPath), findsNothing);
           expect(picker, findsNothing);
           expect(find.byType(ComposerPanel), findsNothing);
           expect(tester.takeException(), isNull);

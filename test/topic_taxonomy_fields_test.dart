@@ -58,7 +58,7 @@ void main() {
     expect(editIconRect.center.dy, categoryLabelRect.center.dy);
   });
 
-  testWidgets('a long category path wraps instead of ellipsizing', (
+  testWidgets('parent and subcategory are separate wrapping links', (
     tester,
   ) async {
     const parent = TopicCategory(
@@ -73,6 +73,7 @@ void main() {
       parentCategoryId: 5,
     );
     final categoryPath = topicCategoryPathLabel(child, parent: parent);
+    TopicCategory? selected;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -85,7 +86,12 @@ void main() {
               child: TopicCategoryValue(
                 label: categoryPath,
                 color: const Color(0xFFFF6600),
-                onNavigate: () {},
+                category: child,
+                parentCategory: parent,
+                parentActionKey: const ValueKey('parent-category-action'),
+                actionKey: const ValueKey('category-action'),
+                onParentNavigate: () => selected = parent,
+                onNavigate: () => selected = child,
                 onEdit: () {},
               ),
             ),
@@ -94,10 +100,25 @@ void main() {
       ),
     );
 
-    final label = find.text(categoryPath);
-    expect(label, findsOneWidget);
-    expect(tester.widget<Text>(label).maxLines, isNull);
-    expect(tester.getSize(label).height, greaterThan(20));
+    final parentLink = find.bySemanticsLabel('Parent category: ${parent.name}');
+    final categoryLink = find.bySemanticsLabel('Category: ${child.name}');
+    expect(find.text(categoryPath), findsNothing);
+    expect(find.text(parent.name), findsOneWidget);
+    expect(find.text(child.name), findsOneWidget);
+    expect(parentLink, findsOneWidget);
+    expect(categoryLink, findsOneWidget);
+    expect(tester.getSize(parentLink).height, greaterThanOrEqualTo(32));
+    expect(tester.getSize(categoryLink).height, greaterThanOrEqualTo(32));
+    expect(
+      tester.getTopLeft(categoryLink).dy,
+      greaterThanOrEqualTo(tester.getBottomLeft(parentLink).dy),
+    );
+
+    await tester.tap(parentLink);
+    expect(selected, parent);
+
+    await tester.tap(categoryLink);
+    expect(selected, child);
     expect(tester.takeException(), isNull);
   });
 
