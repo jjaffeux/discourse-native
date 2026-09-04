@@ -2,6 +2,8 @@ import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/src/data/sidebar_width_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
@@ -95,6 +97,83 @@ void main() {
       },
     );
   }
+
+  testWidgets('scaled sidebar section titles reflow around their controls', (
+    tester,
+  ) async {
+    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Meta',
+    ).copyWith(user: me);
+    final authenticator = FakeAuthenticator()..keys[site.url] = 'api-key';
+    final controller = await _controller(
+      store: FakeInstanceStore([site]),
+      api: FakeDiscourseApi(
+        customSidebarSectionsBySite: {
+          site.url: [
+            SidebarSection(
+              id: 'lead-calls',
+              title: 'Teach Lead Calls',
+              destinations: const [],
+              actionLabel: 'Add lead call',
+              onAction: () {},
+            ),
+            SidebarSection(
+              id: 'utils',
+              title: 'Utils',
+              destinations: const [],
+              actionLabel: 'Add utility',
+              onAction: () {},
+            ),
+          ],
+        },
+      ),
+      authenticator: authenticator,
+    );
+    await controller.appSettings.setTextScale(AppTextScale.percent200);
+    await _pumpShell(tester, controller, const Size(1200, 1200));
+
+    final longTitle = find.text('TEACH LEAD CALLS');
+    final shortTitle = find.text('UTILS');
+    final longHeader = find
+        .ancestor(of: longTitle, matching: find.byType(InkWell))
+        .first;
+    final shortHeader = find
+        .ancestor(of: shortTitle, matching: find.byType(InkWell))
+        .first;
+    final longTitleRect = tester.getRect(longTitle);
+    final shortTitleRect = tester.getRect(shortTitle);
+    final longHeaderRect = tester.getRect(longHeader);
+    final shortHeaderRect = tester.getRect(shortHeader);
+
+    expect(longHeaderRect.height, greaterThan(shortHeaderRect.height));
+    expect(longTitleRect.top, greaterThanOrEqualTo(longHeaderRect.top));
+    expect(longTitleRect.bottom, lessThanOrEqualTo(longHeaderRect.bottom));
+    expect(shortHeaderRect.top, greaterThan(longHeaderRect.bottom));
+    expect(
+      longTitleRect.top - longHeaderRect.top,
+      closeTo(shortTitleRect.top - shortHeaderRect.top, 0.25),
+    );
+    expect(
+      longHeaderRect.bottom - longTitleRect.bottom,
+      closeTo(shortHeaderRect.bottom - shortTitleRect.bottom, 0.25),
+    );
+
+    final actionRect = tester.getRect(find.byTooltip('Add lead call'));
+    final chevronRect = tester.getRect(
+      find.byTooltip('Collapse Teach Lead Calls'),
+    );
+    expect(longTitleRect.right, lessThanOrEqualTo(actionRect.left));
+    expect(
+      actionRect.center.dy,
+      inInclusiveRange(longHeaderRect.top, longHeaderRect.bottom),
+    );
+    expect(
+      chevronRect.center.dy,
+      inInclusiveRange(longHeaderRect.top, longHeaderRect.bottom),
+    );
+  });
 
   testWidgets('resizes once for every forum and restores after reload', (
     tester,
@@ -236,14 +315,20 @@ void main() {
 double _sidebarWidth(WidgetTester tester) =>
     tester.getSize(find.byType(InstanceSidebar)).width;
 
-Future<ShellController> _controller() async {
+Future<ShellController> _controller({
+  FakeInstanceStore? store,
+  FakeDiscourseApi? api,
+  FakeAuthenticator? authenticator,
+}) async {
   final controller = ShellController(
-    instanceStore: FakeInstanceStore([
-      instance('meta.discourse.org', title: 'Meta'),
-      instance('discuss.example.com', title: 'Discuss'),
-    ]),
-    api: FakeDiscourseApi(),
-    authenticator: FakeAuthenticator(),
+    instanceStore:
+        store ??
+        FakeInstanceStore([
+          instance('meta.discourse.org', title: 'Meta'),
+          instance('discuss.example.com', title: 'Discuss'),
+        ]),
+    api: api ?? FakeDiscourseApi(),
+    authenticator: authenticator ?? FakeAuthenticator(),
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
     updateStore: FakeUpdateStore(),
