@@ -62,33 +62,40 @@ class TopicCategoryValue extends StatelessWidget {
     required this.label,
     required this.color,
     this.category,
+    this.parentCategory,
     this.siteUrl,
     this.valueKey,
     this.colorKey,
     this.actionKey,
+    this.parentActionKey,
     this.editActionKey,
     this.editIconKey,
     this.saving = false,
     this.onTap,
     this.onNavigate,
+    this.onParentNavigate,
     this.onEdit,
     this.tooltip = 'Edit topic category',
     this.navigationTooltip,
     this.editTooltip = 'Edit topic category',
-  }) : assert(onTap == null || onNavigate == null);
+  }) : assert(onTap == null || onNavigate == null),
+       assert(parentCategory != null || onParentNavigate == null);
 
   final String label;
   final Color? color;
   final TopicCategory? category;
+  final TopicCategory? parentCategory;
   final String? siteUrl;
   final Key? valueKey;
   final Key? colorKey;
   final Key? actionKey;
+  final Key? parentActionKey;
   final Key? editActionKey;
   final Key? editIconKey;
   final bool saving;
   final VoidCallback? onTap;
   final VoidCallback? onNavigate;
+  final VoidCallback? onParentNavigate;
   final VoidCallback? onEdit;
   final String tooltip;
   final String? navigationTooltip;
@@ -97,74 +104,114 @@ class TopicCategoryValue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final category = this.category;
     final usesLargeCategoryArt =
         category?.styleType == 'icon' ||
         (category?.styleType == 'emoji' &&
             category?.emoji != null &&
             siteUrl != null);
-    final categoryValue = Row(
+    final labelStyle = theme.textTheme.labelMedium?.copyWith(
+      color: theme.colorScheme.onSurface,
+      fontWeight: FontWeight.w500,
+    );
+    final categoryArt = category == null
+        ? Container(
+            key: colorKey,
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(
+              color: color ?? theme.colorScheme.outline,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          )
+        : CategoryIcon(
+            key: colorKey,
+            category: category,
+            siteUrl: siteUrl,
+            size: 13,
+            squareSize: 9,
+          );
+
+    Widget categoryValue(String valueLabel) => Row(
       key: valueKey,
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: EdgeInsets.only(top: usesLargeCategoryArt ? 2 : 4),
-          child: category == null
-              ? Container(
-                  key: colorKey,
-                  width: 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    color: color ?? theme.colorScheme.outline,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                )
-              : CategoryIcon(
-                  key: colorKey,
-                  category: category!,
-                  siteUrl: siteUrl,
-                  size: 13,
-                  squareSize: 9,
-                ),
+          child: categoryArt,
         ),
         const SizedBox(width: 7),
-        Flexible(
-          child: Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
+        Flexible(child: Text(valueLabel, style: labelStyle)),
       ],
     );
 
-    Widget value = categoryValue;
+    Widget value = categoryValue(label);
     if (onNavigate case final onNavigate?) {
-      final message = navigationTooltip ?? 'Open category $label';
-      value = Tooltip(
-        message: message,
-        child: InlineAction.link(
-          key: actionKey,
-          onTap: onNavigate,
-          semanticLabel: 'Category: $label',
-          excludeChildSemantics: true,
-          borderRadius: BorderRadius.circular(5),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              widthFactor: 1,
-              heightFactor: 1,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: categoryValue,
+      final parentCategory = this.parentCategory;
+      final onParentNavigate = this.onParentNavigate;
+      if (category != null &&
+          parentCategory != null &&
+          onParentNavigate != null) {
+        value = Row(
+          key: valueKey,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: 32, child: Center(child: categoryArt)),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 0,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _TopicCategoryNavigationLink(
+                    actionKey: parentActionKey,
+                    label: parentCategory.name,
+                    semanticLabel: 'Parent category: ${parentCategory.name}',
+                    tooltip: 'Open category ${parentCategory.name}',
+                    onTap: onParentNavigate,
+                    showChevron: true,
+                  ),
+                  _TopicCategoryNavigationLink(
+                    actionKey: actionKey,
+                    label: category.name,
+                    semanticLabel: 'Category: ${category.name}',
+                    tooltip:
+                        navigationTooltip ?? 'Open category ${category.name}',
+                    onTap: onNavigate,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      } else {
+        final message = navigationTooltip ?? 'Open category $label';
+        value = Tooltip(
+          message: message,
+          child: InlineAction.link(
+            key: actionKey,
+            onTap: onNavigate,
+            semanticLabel: 'Category: $label',
+            excludeChildSemantics: true,
+            borderRadius: BorderRadius.circular(5),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                widthFactor: 1,
+                heightFactor: 1,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: categoryValue(label),
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
+      }
     } else if (onTap case final onTap?) {
       value = Tooltip(
         message: tooltip,
@@ -174,7 +221,7 @@ class TopicCategoryValue extends StatelessWidget {
           borderRadius: BorderRadius.circular(5),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 3),
-            child: categoryValue,
+            child: categoryValue(label),
           ),
         ),
       );
@@ -199,6 +246,64 @@ class TopicCategoryValue extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _TopicCategoryNavigationLink extends StatelessWidget {
+  const _TopicCategoryNavigationLink({
+    required this.actionKey,
+    required this.label,
+    required this.semanticLabel,
+    required this.tooltip,
+    required this.onTap,
+    this.showChevron = false,
+  });
+
+  final Key? actionKey;
+  final String label;
+  final String semanticLabel;
+  final String tooltip;
+  final VoidCallback onTap;
+  final bool showChevron;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Tooltip(
+      message: tooltip,
+      child: InlineAction.link(
+        key: actionKey,
+        onTap: onTap,
+        semanticLabel: semanticLabel,
+        excludeChildSemantics: true,
+        borderRadius: BorderRadius.circular(5),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  label,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (showChevron) ...[
+                const SizedBox(width: 4),
+                DIcon(
+                  DIcons.chevronRight,
+                  size: 11,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
