@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -19,6 +20,8 @@ const int voiceDiagnosticsDecodedTailBytes = 10 * 1024 * 1024;
 const int _voiceDiagnosticsActiveCaptureLimit = 4;
 const int _voiceReportSnapshotFlushBytes = 256 * 1024;
 const int _voiceReportSnapshotReadBytes = 64 * 1024;
+const int _voiceDiagnosticsDecodeBatchBytes = 1024 * 1024;
+const int _voiceDiagnosticsDecodeBatchLines = 1024;
 const Duration _voiceReportSnapshotStaleAge = Duration(days: 1);
 
 final Random _voiceReportSnapshotRandom = Random.secure();
@@ -714,9 +717,8 @@ final class FileVoiceDiagnosticsPersistence
     for (var index = _segmentCount - 1; index >= 0; index -= 1) {
       final segment = segmentFile(index);
       if (!await segment.exists()) continue;
-      await for (final line in _boundedJsonLines(segment)) {
-        if (line == null) continue;
-        var decoded = _decodeRecordLine(line);
+      await for (final line in _decodedPersistenceLines(segment)) {
+        var decoded = line.record;
         if (decoded == null ||
             !_acceptIdentity(decoded.record, highWater) ||
             !decoded.record.timestampUtc.isAfter(cutoff)) {
@@ -795,40 +797,50 @@ final class FileVoiceDiagnosticsPersistence
     _latestTimestampUtc = scan.latestTimestampUtc;
   }
 
-  _DecodedRecordLine? _decodeRecordLine(String line) {
-    try {
-      final decoded = jsonDecode(line);
-      if (decoded is! Map ||
-          decoded['version'] != voiceDiagnosticsFormatVersion ||
-          decoded['record'] != 'event' ||
-          (decoded['origin'] != null && decoded['origin'] != 'deep')) {
-        return null;
-      }
-      final parsed = VoiceDiagnosticRecord.fromJson(
-        decoded['event'],
-        homeDirectory: homeDirectory,
-      );
-      if (parsed == null) return null;
-      return _encodeRecordLine(parsed);
-    } on Object {
-      return null;
-    }
-  }
+  int get _maximumRecordBytes => min(
+    voiceDiagnosticsMaximumRecordBytes,
+    _segmentBytes - _metadataLineBytes,
+  );
 
-  _DecodedRecordLine _encodeRecordLine(VoiceDiagnosticRecord input) {
-    final record = fitVoiceDiagnosticRecord(
-      input,
-      maximumBytes: min(
-        voiceDiagnosticsMaximumRecordBytes,
-        _segmentBytes - _metadataLineBytes,
-      ),
+  _DecodedRecordLine _encodeRecordLine(VoiceDiagnosticRecord input) =>
+      _encodeVoiceDiagnosticRecordLine(
+        input,
+        maximumRecordBytes: _maximumRecordBytes,
+      );
+
+  /// Async file reads still run JSON parsing, redaction, and canonical encoding
+  /// on their caller's isolate. Keep transfer overhead bounded while moving
+  /// that CPU work off the UI isolate.
+  Stream<_DecodedPersistenceLine> _decodedPersistenceLines(File input) async* {
+    var batch = <String?>[];
+    var batchBytes = 0;
+    await for (final line in _boundedJsonLines(input)) {
+      batch.add(line);
+      batchBytes += line?.length ?? 0;
+      if (batch.length < _voiceDiagnosticsDecodeBatchLines &&
+          batchBytes < _voiceDiagnosticsDecodeBatchBytes) {
+        continue;
+      }
+      final decoded = await _decodePersistenceLinesOffIsolate(
+        batch,
+        homeDirectory: homeDirectory,
+        maximumRecordBytes: _maximumRecordBytes,
+      );
+      for (final result in decoded) {
+        yield result;
+      }
+      batch = <String?>[];
+      batchBytes = 0;
+    }
+    if (batch.isEmpty) return;
+    final decoded = await _decodePersistenceLinesOffIsolate(
+      batch,
+      homeDirectory: homeDirectory,
+      maximumRecordBytes: _maximumRecordBytes,
     );
-    final canonical = jsonEncode(voiceDiagnosticLine(record));
-    return _DecodedRecordLine(
-      record: record,
-      line: canonical,
-      bytes: utf8.encode(canonical).length + 1,
-    );
+    for (final result in decoded) {
+      yield result;
+    }
   }
 
   _DecodedRecordLine _clampTimestamp(
@@ -910,28 +922,22 @@ final class FileVoiceDiagnosticsPersistence
       final segmentLength = await segment.length();
       physicalBytes += segmentLength;
       if (segmentLength > _segmentBytes) needsCompaction = true;
-      await for (final line in _boundedJsonLines(segment)) {
-        if (line == null) {
+      await for (final line in _decodedPersistenceLines(segment)) {
+        if (line.kind == _PersistenceLineKind.invalid) {
           scanDropped += 1;
           needsCompaction = true;
           continue;
         }
-        if (line.trim().isEmpty) continue;
-        if (_looksLikeStateLine(line)) {
-          final metadata = _decodeStateLine(line);
-          if (metadata == null) {
-            scanDropped += 1;
-            needsCompaction = true;
-          } else {
-            droppedRecords = metadata.droppedRecords;
-            truncated |= metadata.truncated;
-            activeCaptureId = metadata.activeCaptureId;
-            activeCaptureStartedAtUtc = metadata.activeCaptureStartedAtUtc;
-            activeCaptures = Map.of(metadata.activeCaptures);
-          }
+        if (line.kind == _PersistenceLineKind.empty) continue;
+        if (line.metadata case final metadata?) {
+          droppedRecords = metadata.droppedRecords;
+          truncated |= metadata.truncated;
+          activeCaptureId = metadata.activeCaptureId;
+          activeCaptureStartedAtUtc = metadata.activeCaptureStartedAtUtc;
+          activeCaptures = Map.of(metadata.activeCaptures);
           continue;
         }
-        var decoded = _decodeRecordLine(line);
+        var decoded = line.record;
         if (decoded == null || !_acceptIdentity(decoded.record, highWater)) {
           scanDropped += 1;
           needsCompaction = true;
@@ -943,7 +949,7 @@ final class FileVoiceDiagnosticsPersistence
           continue;
         }
         decoded = _clampTimestamp(decoded, latestTimestampUtc);
-        if (decoded.line != line) needsCompaction = true;
+        if (decoded.line != line.source) needsCompaction = true;
         final record = decoded.record;
         final bytes = decoded.bytes;
         retainedBytes += bytes;
@@ -1122,9 +1128,8 @@ final class FileVoiceDiagnosticsPersistence
       for (var index = _segmentCount - 1; index >= 0; index -= 1) {
         final segment = segmentFile(index);
         if (!await segment.exists()) continue;
-        await for (final line in _boundedJsonLines(segment)) {
-          if (line == null || _looksLikeStateLine(line)) continue;
-          var decoded = _decodeRecordLine(line);
+        await for (final line in _decodedPersistenceLines(segment)) {
+          var decoded = line.record;
           if (decoded == null ||
               !_acceptIdentity(decoded.record, highWater) ||
               !decoded.record.timestampUtc.isAfter(cutoff)) {
@@ -1579,6 +1584,142 @@ final class _DecodedRecordLine {
   final VoiceDiagnosticRecord record;
   final String line;
   final int bytes;
+}
+
+enum _PersistenceLineKind { empty, invalid, metadata, record }
+
+final class _DecodedPersistenceLine {
+  const _DecodedPersistenceLine({
+    required this.kind,
+    required this.source,
+    this.metadata,
+    this.record,
+  });
+
+  final _PersistenceLineKind kind;
+  final String? source;
+  final _FileMetadata? metadata;
+  final _DecodedRecordLine? record;
+}
+
+final class _DecodePersistenceLinesRequest {
+  const _DecodePersistenceLinesRequest({
+    required this.lines,
+    required this.homeDirectory,
+    required this.maximumRecordBytes,
+  });
+
+  final List<String?> lines;
+  final String? homeDirectory;
+  final int maximumRecordBytes;
+}
+
+Future<List<_DecodedPersistenceLine>> _decodePersistenceLinesOffIsolate(
+  List<String?> lines, {
+  required String? homeDirectory,
+  required int maximumRecordBytes,
+}) {
+  final request = _DecodePersistenceLinesRequest(
+    lines: List<String?>.of(lines),
+    homeDirectory: homeDirectory,
+    maximumRecordBytes: maximumRecordBytes,
+  );
+  return Isolate.run(() => _decodePersistenceLines(request));
+}
+
+List<_DecodedPersistenceLine> _decodePersistenceLines(
+  _DecodePersistenceLinesRequest request,
+) => [
+  for (final line in request.lines)
+    _decodePersistenceLine(
+      line,
+      homeDirectory: request.homeDirectory,
+      maximumRecordBytes: request.maximumRecordBytes,
+    ),
+];
+
+_DecodedPersistenceLine _decodePersistenceLine(
+  String? line, {
+  required String? homeDirectory,
+  required int maximumRecordBytes,
+}) {
+  if (line == null) {
+    return const _DecodedPersistenceLine(
+      kind: _PersistenceLineKind.invalid,
+      source: null,
+    );
+  }
+  if (line.trim().isEmpty) {
+    return _DecodedPersistenceLine(
+      kind: _PersistenceLineKind.empty,
+      source: line,
+    );
+  }
+  if (_looksLikeStateLine(line)) {
+    final metadata = _decodeStateLine(line);
+    return _DecodedPersistenceLine(
+      kind: metadata == null
+          ? _PersistenceLineKind.invalid
+          : _PersistenceLineKind.metadata,
+      source: line,
+      metadata: metadata,
+    );
+  }
+  final record = _decodeVoiceDiagnosticRecordLine(
+    line,
+    homeDirectory: homeDirectory,
+    maximumRecordBytes: maximumRecordBytes,
+  );
+  return _DecodedPersistenceLine(
+    kind: record == null
+        ? _PersistenceLineKind.invalid
+        : _PersistenceLineKind.record,
+    source: line,
+    record: record,
+  );
+}
+
+_DecodedRecordLine? _decodeVoiceDiagnosticRecordLine(
+  String line, {
+  required String? homeDirectory,
+  required int maximumRecordBytes,
+}) {
+  try {
+    final decoded = jsonDecode(line);
+    if (decoded is! Map ||
+        decoded['version'] != voiceDiagnosticsFormatVersion ||
+        decoded['record'] != 'event' ||
+        (decoded['origin'] != null && decoded['origin'] != 'deep')) {
+      return null;
+    }
+    final parsed = VoiceDiagnosticRecord.fromJson(
+      decoded['event'],
+      homeDirectory: homeDirectory,
+    );
+    if (parsed == null) return null;
+    return _encodeVoiceDiagnosticRecordLine(
+      parsed,
+      maximumRecordBytes: maximumRecordBytes,
+    );
+  } on Object {
+    return null;
+  }
+}
+
+_DecodedRecordLine _encodeVoiceDiagnosticRecordLine(
+  VoiceDiagnosticRecord input, {
+  required int maximumRecordBytes,
+}) {
+  final record = fitVoiceDiagnosticRecord(
+    input,
+    maximumBytes: maximumRecordBytes,
+  );
+  final canonical = jsonEncode(voiceDiagnosticLine(record));
+  return _DecodedRecordLine(
+    record: record,
+    line: canonical,
+    bytes: utf8.encode(canonical).length + 1,
+  );
 }
 
 final class _VoiceReportSnapshot {

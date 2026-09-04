@@ -19,15 +19,18 @@ final class VoiceDiagnosticsPlugin extends PluginAppLifecycle
   VoiceDiagnosticsPlugin({
     VoiceDiagnosticsController? controller,
     VoiceReportExporter? exporter,
+    Future<VoiceDiagnosticsPersistence> Function()? persistenceFactory,
   }) : this._(
          controller,
          exporter ?? NativeVoiceReportExporter(),
+         persistenceFactory: persistenceFactory,
          ownsController: false,
        );
 
   VoiceDiagnosticsPlugin._(
     this._controller,
     this._exporter, {
+    this._persistenceFactory,
     required this._ownsController,
   }) {
     _controller?.captureEnabledListenable.addListener(_notifyStatusChanged);
@@ -35,6 +38,7 @@ final class VoiceDiagnosticsPlugin extends PluginAppLifecycle
 
   VoiceDiagnosticsController? _controller;
   final VoiceReportExporter _exporter;
+  final Future<VoiceDiagnosticsPersistence> Function()? _persistenceFactory;
   bool _ownsController;
   final _DiagnosticsStatusListenable _diagnosticsStatus =
       _DiagnosticsStatusListenable();
@@ -60,21 +64,15 @@ final class VoiceDiagnosticsPlugin extends PluginAppLifecycle
       isDiagnosticsRecording ? 'Voice capture recording' : null;
 
   @override
-  Future<void> startPhase(
-    PluginStartupPhase phase,
-    PluginHostBindings bindings,
-  ) async {
+  void startPhase(PluginStartupPhase phase, PluginHostBindings bindings) {
     if (phase != PluginStartupPhase.bootstrap) return;
     final reporter = bindings.require(pluginDiagnosticsReporterPort);
     if (_controller != null || _closed) return;
-    final controller = await VoiceDiagnosticsController.create(
+    final controller = VoiceDiagnosticsController.createDeferred(
       reporter: reporter,
+      persistenceFactory: _persistenceFactory,
       sdkLogBridges: [NativeVoiceDiagnosticsSdkLogBridge()],
     );
-    if (_closed) {
-      await controller.close();
-      return;
-    }
     _ownsController = true;
     _replaceController(controller);
   }
