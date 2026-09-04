@@ -4047,13 +4047,68 @@ void _registerChatShellTests() {
         final identity = find.byKey(
           const ValueKey('chat-channel-summary-identity'),
         );
+        final summary = find.byKey(const ValueKey('chat-channel-summary'));
         final edit = find.byKey(const ValueKey('chat-channel-edit-details'));
+        final settingsTab = find.byKey(
+          const ValueKey('chat-channel-info-settings-tab'),
+        );
+        final summaryTitle = find.descendant(
+          of: summary,
+          matching: find.text('Bugs'),
+        );
+        final settingsLabel = find.descendant(
+          of: settingsTab,
+          matching: find.text('Settings'),
+        );
+        final theme = Theme.of(tester.element(summary));
         expect(
           tester.getTopLeft(edit).dy,
           greaterThanOrEqualTo(tester.getBottomLeft(identity).dy),
         );
+        expect(tester.getSize(settingsTab).height, 58);
+        expect(
+          tester.widget<Text>(settingsLabel).style?.fontSize,
+          theme.textTheme.titleSmall?.fontSize,
+        );
+        expect(
+          tester.widget<Text>(settingsLabel).style?.fontWeight,
+          FontWeight.w500,
+        );
+        expect(
+          tester.widget<Text>(summaryTitle).style?.fontSize,
+          theme.textTheme.titleLarge?.fontSize,
+        );
+        expect(
+          tester.widget<Text>(summaryTitle).style?.fontWeight,
+          FontWeight.w500,
+        );
         expect(find.text('Your notifications'), findsOneWidget);
         expect(find.text('Conversation'), findsOneWidget);
+        expect(
+          tester
+              .widget<Text>(find.text('Your notifications'))
+              .style
+              ?.fontWeight,
+          FontWeight.w500,
+        );
+        expect(
+          tester.widget<Text>(find.text('Mute channel')).style?.fontWeight,
+          FontWeight.w500,
+        );
+        expect(
+          tester
+              .widget<Text>(
+                find.text(
+                  'Hide unread indicators and stop channel notifications.',
+                ),
+              )
+              .style
+              ?.fontSize,
+          theme.textTheme.bodyMedium?.fontSize,
+        );
+        expect(find.text('Only affects you'), findsNothing);
+        expect(find.text('Shared setting'), findsNothing);
+        expect(find.text('Staff'), findsNothing);
         expect(tester.takeException(), isNull);
       });
 
@@ -4115,7 +4170,7 @@ void _registerChatShellTests() {
           findsNothing,
         );
         expect(find.text('Your notifications'), findsOneWidget);
-        expect(find.text('Only affects you'), findsOneWidget);
+        expect(find.text('Only affects you'), findsNothing);
         expect(find.text('Message history'), findsOneWidget);
         expect(find.text('Members (2)'), findsOneWidget);
         expect(find.text('Sam'), findsNothing);
@@ -4409,9 +4464,9 @@ void _registerChatShellTests() {
           const ValueKey('chat-channel-threading-switch'),
         );
         expect(find.text('Conversation'), findsOneWidget);
-        expect(find.text('Shared setting'), findsOneWidget);
+        expect(find.text('Shared setting'), findsNothing);
         expect(find.text('Channel management'), findsOneWidget);
-        expect(find.text('Staff'), findsOneWidget);
+        expect(find.text('Staff'), findsNothing);
         expect(find.text('Leave this channel'), findsOneWidget);
         expect(threadingSwitch, findsOneWidget);
         expect(tester.widget<Switch>(threadingSwitch).value, isFalse);
