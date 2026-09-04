@@ -38,8 +38,6 @@ const _newTopic = Topic(id: 3, title: 'New topic only', slug: 'new-topic-only');
 
 const _newReply = Topic(id: 4, title: 'New reply only', slug: 'new-reply-only');
 
-const _unreadTopic = Topic(id: 5, title: 'Unread topic', slug: 'unread-topic');
-
 const _topYearTopic = Topic(id: 6, title: 'Top this year', slug: 'top-year');
 
 const _topWeekTopic = Topic(id: 7, title: 'Top this week', slug: 'top-week');
@@ -162,7 +160,8 @@ void main() {
     expect(find.byKey(const ValueKey('topic-list-filter-bar')), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-latest')), findsOneWidget);
     expect(find.text('New (1059)'), findsOneWidget);
-    expect(find.text('Unread (5)'), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-list-unread')), findsNothing);
+    expect(find.text('Unread (5)'), findsNothing);
     expect(find.text('Top'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
     expect(find.text('Latest topic'), findsOneWidget);
@@ -175,13 +174,6 @@ void main() {
     expect(latestText.style?.fontWeight, newText.style?.fontWeight);
     expect(latestText.overflow, TextOverflow.visible);
     expect(newText.overflow, TextOverflow.visible);
-
-    await tester.ensureVisible(find.byKey(const ValueKey('topic-list-unread')));
-    await tester.tap(find.byKey(const ValueKey('topic-list-unread')));
-    await tester.pumpAndSettle();
-
-    expect(controller.currentTopicListMode, TopicListMode.unread);
-    expect(find.text('Unread topic'), findsOneWidget);
 
     await tester.ensureVisible(find.byKey(const ValueKey('topic-list-new')));
 
@@ -221,7 +213,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('New (1060)'), findsOneWidget);
-    expect(find.text('Unread (6)'), findsOneWidget);
+    expect(find.text('Unread (6)'), findsNothing);
     expect(find.text('All (1060)'), findsOneWidget);
     expect(find.text('Topics (1054)'), findsOneWidget);
     expect(find.text('Replies (6)'), findsOneWidget);
@@ -268,7 +260,6 @@ void main() {
       api.feedPaths,
       containsAllInOrder(const [
         '/latest.json',
-        '/unread.json',
         '/new.json',
         '/new.json?subset=topics',
         '/new.json?subset=replies',
@@ -319,13 +310,9 @@ void main() {
     final popular = tester.getRect(
       find.byKey(const ValueKey('topic-list-popular')),
     );
-    final unread = tester.getRect(
-      find.byKey(const ValueKey('topic-list-unread')),
-    );
     final top = tester.getRect(find.byKey(const ValueKey('topic-list-top')));
     final recentLabel = tester.getRect(find.text('Recent'));
     final newLabel = tester.getRect(find.text('New (1059)'));
-    final unreadLabel = tester.getRect(find.text('Unread (5)'));
     final topLabel = tester.getRect(find.text('Top'));
     final popularLabel = tester.getRect(find.text('Popular'));
 
@@ -333,12 +320,11 @@ void main() {
     expect(row.right, 800);
     expect(recent.left, 8);
     expect(newTopics.left, recent.right);
-    expect(unread.left, newTopics.right);
-    expect(top.left, unread.right);
+    expect(top.left, newTopics.right);
     expect(popular.left, top.right);
     expect(popular.right, lessThan(row.right - 76));
-    final tabs = [recent, newTopics, unread, top, popular];
-    final labels = [recentLabel, newLabel, unreadLabel, topLabel, popularLabel];
+    final tabs = [recent, newTopics, top, popular];
+    final labels = [recentLabel, newLabel, topLabel, popularLabel];
     for (var index = 0; index < tabs.length; index++) {
       expect(tabs[index].center.dx, closeTo(labels[index].center.dx, 0.1));
       expect(tabs[index].width, lessThanOrEqualTo(labels[index].width + 24));
@@ -566,7 +552,6 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
       '/new.json': [_allNewTopic],
       '/new.json?subset=topics': [_newTopic],
       '/new.json?subset=replies': [_newReply],
-      '/unread.json': [_unreadTopic],
       '/top.json?period=yearly': [_topYearTopic],
       '/top.json?period=weekly': [_topWeekTopic],
       '/hot.json': [_popularTopic],

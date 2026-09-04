@@ -134,16 +134,6 @@ class _TopicListNavigationControls extends StatelessWidget {
                   ),
                 ),
                 _TopicListTabItem(
-                  controlKey: const ValueKey('topic-list-unread'),
-                  label: 'Unread',
-                  count: state.replyCount,
-                  textStyle: primaryTextStyle,
-                  selected: mode == TopicListMode.unread,
-                  onTap: () => unawaited(
-                    controller.selectTopicListMode(TopicListMode.unread),
-                  ),
-                ),
-                _TopicListTabItem(
                   controlKey: const ValueKey('topic-list-top'),
                   label: 'Top',
                   textStyle: primaryTextStyle,
