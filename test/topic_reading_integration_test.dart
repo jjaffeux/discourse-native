@@ -1274,6 +1274,45 @@ void _registerTopicReadingTests() {
         tester.getTopRight(parentLink).dx,
         lessThan(tester.getTopLeft(categoryLink).dx),
       );
+      final row = minimumHeightAncestors(
+        find.text('Off-page child topic'),
+        TopicListRow.minimumHeight,
+      );
+      final parentLabel = find.descendant(
+        of: row,
+        matching: find.text(parent.name),
+      );
+      final categoryLabel = find.descendant(
+        of: row,
+        matching: find.text(category.name),
+      );
+      final parentSwatch = find.descendant(
+        of: row,
+        matching: find.byKey(
+          ValueKey(('topic-row-category-swatch', parent.id)),
+        ),
+      );
+      final categorySwatch = find.descendant(
+        of: row,
+        matching: find.byKey(
+          ValueKey(('topic-row-category-swatch', category.id)),
+        ),
+      );
+      final chevron = find.descendant(
+        of: row,
+        matching: find.byKey(
+          ValueKey(('topic-row-category-chevron', parent.id, category.id)),
+        ),
+      );
+      final metadataCenter = tester.getCenter(parentLabel).dy;
+      for (final element in [
+        categoryLabel,
+        parentSwatch,
+        categorySwatch,
+        chevron,
+      ]) {
+        expect(tester.getCenter(element).dy, closeTo(metadataCenter, 0.01));
+      }
       expect(api.categoryIdsRequested, isEmpty);
 
       final controller = ShellScope.read(

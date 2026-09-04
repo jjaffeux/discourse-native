@@ -1211,13 +1211,22 @@ class _TopicCopy extends StatelessWidget {
             if (forum case final forum?)
               Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: Text(
-                  forum.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
+                child: ConstrainedBox(
+                  key: ValueKey(('topic-row-forum', forum.url)),
+                  constraints: const BoxConstraints(minHeight: 24),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    widthFactor: 1,
+                    heightFactor: 1,
+                    child: Text(
+                      forum.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1368,10 +1377,21 @@ class _CategoryBreadcrumb extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: DIcon(
-              DIcons.chevronRight,
-              size: 11,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            child: SizedBox(
+              key: ValueKey((
+                'topic-row-category-chevron',
+                parent.id,
+                category.id,
+              )),
+              width: 11,
+              height: 24,
+              child: Center(
+                child: DIcon(
+                  DIcons.chevronRight,
+                  size: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
           ),
         ],
@@ -1422,17 +1442,15 @@ class _CategoryBadge extends StatelessWidget {
           heightFactor: 1,
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Container(
-                  width: 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    color: Color(category.colorValue),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+              Container(
+                key: ValueKey(('topic-row-category-swatch', category.id)),
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: Color(category.colorValue),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
               const SizedBox(width: 5),
@@ -1483,6 +1501,7 @@ class _TopicTag extends StatelessWidget {
             color: theme.shell.mention,
             borderRadius: BorderRadius.circular(5),
           ),
+          alignment: Alignment.center,
           child: Text(
             tag.name,
             maxLines: 1,
@@ -1520,6 +1539,7 @@ class _TopicTagOverflow extends StatelessWidget {
             color: theme.shell.mention,
             borderRadius: BorderRadius.circular(5),
           ),
+          alignment: Alignment.center,
           child: Text(
             '+$count',
             style: theme.textTheme.labelMedium?.copyWith(
