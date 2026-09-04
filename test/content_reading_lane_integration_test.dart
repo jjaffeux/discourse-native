@@ -93,7 +93,7 @@ void main() {
   );
 
   testWidgets(
-    'TopicView keeps its full-width header, pinned 344px sidebar, and lane',
+    'TopicView gives its pinned sidebar a structural column beside the lane',
     (tester) async {
       await _withDesktop(tester, const Size(1400, 800), () async {
         final site = instance('one.example');
@@ -139,10 +139,10 @@ void main() {
         final sidebar = find.byKey(const ValueKey('topic-sidebar-panel'));
         final list = find.byType(SuperListView);
         final post = find.byKey(const ValueKey(1));
-        expect(tester.getSize(header).width, 1400);
+        expect(tester.getSize(header).width, 1056);
         expect(tester.getSize(sidebar).width, 344);
         expect(tester.getTopLeft(sidebar).dx, closeTo(1056, 0.001));
-        expect(tester.getSize(list).width, 1400);
+        expect(tester.getSize(list).width, 1056);
         expect(tester.getSize(post).width, closeTo(825, 0.001));
 
         final scroll = tester.widget<SuperListView>(list).controller!;
@@ -180,7 +180,7 @@ void main() {
           findsOneWidget,
         );
         expect(tester.getSize(sidebar).width, 344);
-        expect(tester.getSize(header).width, 984);
+        expect(tester.getSize(header).width, 640);
       });
     },
   );
