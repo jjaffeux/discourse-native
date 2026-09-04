@@ -2409,7 +2409,7 @@ class _TopicViewHeader extends StatelessWidget {
             DButton.iconOnly(
               onPressed: () =>
                   controller.handleBack(canReturnToSidebar: canReturnToSidebar),
-              icon: const DIcon(DIcons.arrowLeft, size: 20),
+              icon: const DIcon(DIcons.arrowLeft, size: 16),
               tooltip: 'Back',
               variant: DButtonVariant.flat,
               size: DButtonSize.small,

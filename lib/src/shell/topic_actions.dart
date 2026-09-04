@@ -384,10 +384,10 @@ class TopicStatusButton extends StatelessWidget {
           size: DButtonSize.small,
           icon: busy
               ? const SizedBox.square(
-                  dimension: 18,
+                  dimension: 16,
                   child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
-              : const DIcon(DIcons.ellipsis, size: 18),
+              : const DIcon(DIcons.ellipsis, size: 16),
         ),
       ),
     );

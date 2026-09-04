@@ -2525,12 +2525,21 @@ void _registerTopicReadingTests() {
         final bookmark = find.byKey(const ValueKey('topic-bookmark-button'));
         final share = find.byKey(const ValueKey('topic-share-button'));
         final more = find.byKey(const ValueKey('topic-status-button'));
+        final backIcon = find.descendant(
+          of: header,
+          matching: find.dIcon(DIcons.arrowLeft),
+        );
+        final moreIcon = find.descendant(
+          of: more,
+          matching: find.dIcon(DIcons.ellipsis),
+        );
         expect(header, findsOneWidget);
         expect(title, findsOneWidget);
         expect(
           find.descendant(of: header, matching: find.byTooltip('Back')),
           findsOneWidget,
         );
+        expect(tester.getSize(backIcon), const Size.square(16));
         final titleWidget = tester.widget<TopicTitle>(title);
         expect(titleWidget.maxLines, 1);
         expect(titleWidget.overflow, TextOverflow.ellipsis);
@@ -2650,10 +2659,8 @@ void _registerTopicReadingTests() {
           replyRect.right,
           lessThan(tester.getRect(progressButton).left),
         );
-        expect(
-          find.descendant(of: more, matching: find.dIcon(DIcons.ellipsis)),
-          findsOneWidget,
-        );
+        expect(moreIcon, findsOneWidget);
+        expect(tester.getSize(moreIcon), const Size.square(16));
         expect(properties, findsOneWidget);
         expect(
           find.descendant(of: properties, matching: find.text('Announcements')),
