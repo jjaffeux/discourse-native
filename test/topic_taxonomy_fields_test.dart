@@ -167,4 +167,42 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Tag: ${tags.last.name}'));
     expect(selected, tags.last);
   });
+
+  testWidgets('topic tag edit button wraps with the final tag', (tester) async {
+    const tags = [
+      TopicTag(name: 'data-explorer'),
+      TopicTag(name: 'workflows'),
+      TopicTag(name: 'ask'),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 220,
+              child: TopicTagsValue(
+                tags: tags,
+                onEdit: () {},
+                tagKey: (tag) => ValueKey(tag.name),
+                addKey: const ValueKey('edit-tags'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final firstTag = tester.getRect(
+      find.byKey(const ValueKey('data-explorer')),
+    );
+    final finalTag = tester.getRect(find.byKey(const ValueKey('ask')));
+    final editButton = tester.getRect(find.byKey(const ValueKey('edit-tags')));
+
+    expect(finalTag.center.dy, editButton.center.dy);
+    expect(finalTag.top, greaterThan(firstTag.top));
+    expect(tester.takeException(), isNull);
+  });
 }
