@@ -1,0 +1,1289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My threads — second layout study</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --backdrop: #111214;
+        --toolbar: #17181a;
+        --page: #202020;
+        --surface: #282828;
+        --surface-hover: #2d2e30;
+        --surface-strong: #313235;
+        --line: #343537;
+        --line-strong: #45474a;
+        --text: #e7e7e7;
+        --text-soft: #cfcfd1;
+        --muted: #96979a;
+        --muted-soft: #74767a;
+        --blue: #079bd3;
+        --blue-bright: #27b7eb;
+        --blue-soft: rgb(7 155 211 / 14%);
+        --shadow: 0 28px 90px rgb(0 0 0 / 42%);
+        font-family:
+          Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-width: 320px;
+        min-height: 100%;
+        margin: 0;
+        background: var(--backdrop);
+      }
+
+      body {
+        color: var(--text);
+      }
+
+      button {
+        color: inherit;
+        font: inherit;
+      }
+
+      button,
+      [tabindex="0"] {
+        cursor: pointer;
+      }
+
+      button:focus-visible,
+      [tabindex="0"]:focus-visible {
+        outline: 2px solid var(--blue-bright);
+        outline-offset: 2px;
+      }
+
+      svg {
+        display: block;
+      }
+
+      .icon-sprite {
+        position: absolute;
+        overflow: hidden;
+        width: 0;
+        height: 0;
+      }
+
+      .icon {
+        width: 1em;
+        height: 1em;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+      }
+
+      .prototype-bar {
+        position: relative;
+        z-index: 20;
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+        align-items: center;
+        min-height: 60px;
+        padding: 8px 18px;
+        border-bottom: 1px solid #2b2c2f;
+        background: var(--toolbar);
+      }
+
+      .prototype-title {
+        min-width: 0;
+      }
+
+      .prototype-title span,
+      .prototype-title strong {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .prototype-title span {
+        color: var(--muted-soft);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .prototype-title strong {
+        margin-top: 3px;
+        color: var(--text-soft);
+        font-size: 0.875rem;
+        font-weight: 650;
+      }
+
+      .layout-switcher,
+      .width-switcher {
+        display: flex;
+        gap: 3px;
+        padding: 4px;
+        border: 1px solid #333538;
+        border-radius: 10px;
+        background: #121315;
+      }
+
+      .layout-switcher button,
+      .width-switcher button {
+        border: 0;
+        border-radius: 7px;
+        color: var(--muted);
+        background: transparent;
+        cursor: pointer;
+        transition:
+          color 130ms ease,
+          background 130ms ease,
+          box-shadow 130ms ease;
+      }
+
+      .layout-switcher button {
+        min-width: 126px;
+        padding: 9px 12px;
+        font-size: 0.8125rem;
+      }
+
+      .width-switcher {
+        justify-self: end;
+      }
+
+      .width-switcher button {
+        padding: 7px 10px;
+        font-size: 0.75rem;
+      }
+
+      .layout-switcher button:hover,
+      .width-switcher button:hover {
+        color: var(--text-soft);
+        background: rgb(255 255 255 / 4%);
+      }
+
+      .layout-switcher button[aria-pressed="true"],
+      .width-switcher button[aria-pressed="true"] {
+        color: #fff;
+        background: #292b2e;
+        box-shadow:
+          inset 0 0 0 1px rgb(255 255 255 / 7%),
+          0 2px 8px rgb(0 0 0 / 24%);
+      }
+
+      .page-stage {
+        display: flex;
+        min-height: calc(100vh - 60px);
+        justify-content: center;
+        background:
+          radial-gradient(circle at 50% 0, rgb(7 155 211 / 7%), transparent 35%),
+          var(--backdrop);
+      }
+
+      .app-page {
+        width: 100%;
+        min-width: 0;
+        height: calc(100vh - 60px);
+        overflow: hidden;
+        background: var(--page);
+        transition:
+          width 200ms ease,
+          box-shadow 200ms ease;
+      }
+
+      body[data-width="compact"] .app-page {
+        width: min(590px, 100%);
+        border-right: 1px solid var(--line);
+        border-left: 1px solid var(--line);
+        box-shadow: var(--shadow);
+      }
+
+      .app-header {
+        height: 78px;
+        border-bottom: 1px solid var(--line);
+        background: rgb(32 32 32 / 96%);
+      }
+
+      .app-header__inner {
+        display: flex;
+        width: min(1180px, calc(100% - 48px));
+        height: 100%;
+        align-items: center;
+        justify-content: space-between;
+        margin: 0 auto;
+      }
+
+      .app-title {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        margin: 0;
+        color: #ececee;
+        font-size: 1.375rem;
+        font-weight: 740;
+        letter-spacing: -0.018em;
+      }
+
+      .app-title .icon {
+        width: 23px;
+        height: 23px;
+        color: #a7a8aa;
+      }
+
+      .app-action {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border: 0;
+        border-radius: 9px;
+        color: #98999c;
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .app-action:hover {
+        color: #dadadd;
+        background: var(--surface);
+      }
+
+      .app-action .icon {
+        width: 19px;
+        height: 19px;
+      }
+
+      .threads-scroll {
+        height: calc(100% - 78px);
+        overflow: auto;
+        scrollbar-color: #4e5054 transparent;
+        scrollbar-width: thin;
+      }
+
+      .threads-list {
+        width: min(1120px, calc(100% - 48px));
+        margin: 0 auto;
+        padding: 12px 0 40px;
+      }
+
+      .thread {
+        position: relative;
+        min-width: 0;
+        color: inherit;
+      }
+
+      .thread__marker {
+        color: var(--muted-soft);
+      }
+
+      .thread__marker .icon {
+        width: 18px;
+        height: 18px;
+      }
+
+      .thread__origin,
+      .reply__copy {
+        min-width: 0;
+      }
+
+      .thread__channel {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 0.9375rem;
+        font-weight: 520;
+        line-height: 1.25;
+      }
+
+      .channel-glyph {
+        display: grid;
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 5px;
+        color: #d7d7d8;
+        background: #bd3551;
+        font-size: 0.6875rem;
+        font-weight: 800;
+      }
+
+      .channel-glyph--project {
+        color: #231a0f;
+        background: #e9a95f;
+      }
+
+      .thread__title {
+        overflow: hidden;
+        margin: 5px 0 0;
+        color: var(--text-soft);
+        font-size: 1.375rem;
+        font-weight: 480;
+        letter-spacing: -0.018em;
+        line-height: 1.28;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .thread--unread .thread__title {
+        color: #f2f2f3;
+        font-weight: 690;
+      }
+
+      .reply {
+        min-width: 0;
+      }
+
+      .avatar {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        flex: 0 0 auto;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 50%;
+        background: #47494e;
+        box-shadow:
+          inset 0 0 0 1px rgb(255 255 255 / 14%),
+          0 1px 2px rgb(0 0 0 / 26%);
+        font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+        font-size: 1.55rem;
+        line-height: 1;
+      }
+
+      .avatar--small {
+        width: 31px;
+        height: 31px;
+        font-size: 1.05rem;
+      }
+
+      .avatar--sam {
+        background: #cae8fa;
+      }
+
+      .avatar--jj {
+        background: #315e62;
+      }
+
+      .avatar--markdoerr {
+        background: #f3f1e8;
+      }
+
+      .avatar--cat {
+        background: #e93d48;
+      }
+
+      .avatar--duck {
+        background: #6c7d45;
+      }
+
+      .avatar--bas {
+        background: #f4f0df;
+      }
+
+      .avatar--ann {
+        background: #b65c47;
+      }
+
+      .avatar--martin {
+        background: #dfd3fc;
+      }
+
+      .avatar--mark {
+        background: #dedede;
+      }
+
+      .reply__meta {
+        display: flex;
+        gap: 7px;
+        align-items: baseline;
+        min-width: 0;
+        color: var(--muted);
+        font-size: 0.8125rem;
+      }
+
+      .reply__meta strong {
+        overflow: hidden;
+        color: var(--text-soft);
+        font-size: 1rem;
+        font-weight: 720;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .reply__text {
+        overflow: hidden;
+        margin: 4px 0 0;
+        color: var(--text-soft);
+        font-size: 1.0625rem;
+        line-height: 1.35;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .thread__activity {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 13px;
+        min-width: max-content;
+      }
+
+      .reply-count {
+        color: var(--blue);
+        font-size: 0.9375rem;
+        white-space: nowrap;
+      }
+
+      .participants {
+        display: flex;
+        justify-content: flex-end;
+        padding-left: 9px;
+      }
+
+      .participants .avatar {
+        margin-left: -9px;
+        border: 2px solid var(--surface);
+      }
+
+      .unread-dot {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--blue);
+        box-shadow: 0 0 0 4px var(--blue-soft);
+      }
+
+      .thread:not(.thread--unread) .unread-dot {
+        display: none;
+      }
+
+      /* A — the web screenshot, translated almost literally. */
+      body[data-layout="web"] .thread {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        padding: 22px 8px 28px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      body[data-layout="web"] .thread:hover {
+        background: rgb(255 255 255 / 1.5%);
+      }
+
+      body[data-layout="web"] .thread__marker {
+        grid-column: 1;
+        grid-row: 1;
+        padding-top: 1px;
+      }
+
+      body[data-layout="web"] .thread__channel .channel-icon {
+        display: none;
+      }
+
+      body[data-layout="web"] .thread__origin {
+        grid-column: 2;
+        min-width: 0;
+      }
+
+      body[data-layout="web"] .reply {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: 42px minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        min-width: 0;
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 11px;
+        background: var(--surface);
+        transition: background 130ms ease;
+      }
+
+      body[data-layout="web"] .thread:hover .reply {
+        background: var(--surface-hover);
+      }
+
+      body[data-layout="web"] .unread-dot {
+        top: 26px;
+        right: 13px;
+      }
+
+      /* B — explicit vertical connection between thread origin and reply. */
+      body[data-layout="rail"] .threads-list {
+        width: min(1040px, calc(100% - 48px));
+        padding-top: 18px;
+      }
+
+      body[data-layout="rail"] .thread {
+        display: grid;
+        grid-template-columns: 52px minmax(0, 1fr);
+        padding: 20px 10px 24px;
+      }
+
+      body[data-layout="rail"] .thread::after {
+        position: absolute;
+        bottom: 0;
+        left: 52px;
+        width: calc(100% - 52px);
+        height: 1px;
+        background: var(--line);
+        content: "";
+      }
+
+      body[data-layout="rail"] .thread__marker {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        width: 34px;
+        height: 34px;
+        grid-column: 1;
+        grid-row: 1;
+        place-items: center;
+        border: 1px solid var(--line-strong);
+        border-radius: 50%;
+        background: var(--page);
+      }
+
+      body[data-layout="rail"] .thread__marker::after {
+        position: absolute;
+        z-index: -1;
+        top: 33px;
+        left: 16px;
+        width: 1px;
+        height: 46px;
+        background: var(--line-strong);
+        content: "";
+      }
+
+      body[data-layout="rail"] .thread__origin {
+        grid-column: 2;
+      }
+
+      body[data-layout="rail"] .thread__channel {
+        color: var(--blue);
+        font-size: 0.875rem;
+      }
+
+      body[data-layout="rail"] .thread__channel .channel-icon {
+        display: none;
+      }
+
+      body[data-layout="rail"] .thread__title {
+        margin-top: 4px;
+        font-size: 1.25rem;
+      }
+
+      body[data-layout="rail"] .reply {
+        position: relative;
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: 52px minmax(0, 1fr) auto;
+        gap: 0 12px;
+        align-items: center;
+        min-width: 0;
+        margin-top: 14px;
+        padding: 10px 12px 10px 0;
+      }
+
+      body[data-layout="rail"] .reply::before {
+        position: absolute;
+        z-index: 0;
+        inset: 0 0 0 52px;
+        border-radius: 10px;
+        background: var(--surface);
+        content: "";
+      }
+
+      body[data-layout="rail"] .reply > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      body[data-layout="rail"] .reply > .avatar {
+        width: 34px;
+        height: 34px;
+        justify-self: start;
+        font-size: 1.2rem;
+      }
+
+      body[data-layout="rail"] .reply__meta,
+      body[data-layout="rail"] .reply__text {
+        display: inline;
+        font-size: 0.9375rem;
+      }
+
+      body[data-layout="rail"] .reply__meta::after {
+        color: var(--muted-soft);
+        content: " · ";
+      }
+
+      body[data-layout="rail"] .reply__meta span {
+        display: none;
+      }
+
+      body[data-layout="rail"] .reply__text {
+        margin: 0;
+        color: #b3b4b7;
+      }
+
+      body[data-layout="rail"] .unread-dot {
+        top: 31px;
+        right: 5px;
+      }
+
+      /* C — the same hierarchy compressed into a conventional feed. */
+      body[data-layout="compact"] .threads-list {
+        width: min(1040px, calc(100% - 48px));
+        padding-top: 4px;
+      }
+
+      body[data-layout="compact"] .thread {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr) auto;
+        gap: 0 10px;
+        align-items: center;
+        padding: 15px 10px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      body[data-layout="compact"] .thread:hover {
+        background: rgb(255 255 255 / 2%);
+      }
+
+      body[data-layout="compact"] .thread__marker {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        align-self: start;
+        padding-top: 3px;
+      }
+
+      body[data-layout="compact"] .thread__channel .channel-icon {
+        display: none;
+      }
+
+      body[data-layout="compact"] .thread__origin {
+        grid-column: 2 / 4;
+      }
+
+      body[data-layout="compact"] .thread__channel {
+        color: var(--blue);
+        font-size: 0.8125rem;
+      }
+
+      body[data-layout="compact"] .thread__title {
+        margin-top: 3px;
+        padding-right: 180px;
+        font-size: 1.0625rem;
+      }
+
+      body[data-layout="compact"] .reply {
+        display: grid;
+        grid-column: 2 / 4;
+        grid-template-columns: 30px minmax(0, 1fr) auto;
+        gap: 9px;
+        align-items: center;
+        min-width: 0;
+        margin-top: 8px;
+      }
+
+      body[data-layout="compact"] .reply > .avatar {
+        width: 30px;
+        height: 30px;
+        font-size: 1.05rem;
+      }
+
+      body[data-layout="compact"] .reply__meta,
+      body[data-layout="compact"] .reply__text {
+        display: inline;
+        font-size: 0.875rem;
+      }
+
+      body[data-layout="compact"] .reply__meta::after {
+        color: var(--muted-soft);
+        content: ": ";
+      }
+
+      body[data-layout="compact"] .reply__meta span {
+        display: none;
+      }
+
+      body[data-layout="compact"] .reply__text {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      body[data-layout="compact"] .thread__activity {
+        gap: 10px;
+      }
+
+      body[data-layout="compact"] .participants .avatar {
+        width: 27px;
+        height: 27px;
+        font-size: 0.9rem;
+      }
+
+      body[data-layout="compact"] .reply-count {
+        font-size: 0.8125rem;
+      }
+
+      body[data-layout="compact"] .unread-dot {
+        top: 23px;
+        right: 10px;
+      }
+
+      /* D — each thread becomes one complete, softly bounded object. */
+      body[data-layout="cards"] .threads-list {
+        width: min(1060px, calc(100% - 48px));
+        padding-top: 18px;
+      }
+
+      body[data-layout="cards"] .thread {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 0 10px;
+        margin-bottom: 12px;
+        padding: 18px 18px 16px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #242426;
+        transition:
+          border-color 130ms ease,
+          background 130ms ease,
+          transform 130ms ease;
+      }
+
+      body[data-layout="cards"] .thread:hover {
+        border-color: var(--line-strong);
+        background: #28282a;
+        transform: translateY(-1px);
+      }
+
+      body[data-layout="cards"] .thread--unread {
+        border-left: 3px solid var(--blue);
+        padding-left: 16px;
+      }
+
+      body[data-layout="cards"] .thread__marker {
+        grid-column: 1;
+        grid-row: 1;
+        padding-top: 1px;
+      }
+
+      body[data-layout="cards"] .thread__channel .channel-icon {
+        display: none;
+      }
+
+      body[data-layout="cards"] .thread__origin {
+        grid-column: 2;
+      }
+
+      body[data-layout="cards"] .thread__channel {
+        color: var(--blue);
+        font-size: 0.8125rem;
+      }
+
+      body[data-layout="cards"] .thread__title {
+        margin-top: 4px;
+        font-size: 1.1875rem;
+      }
+
+      body[data-layout="cards"] .reply {
+        display: grid;
+        grid-column: 2;
+        grid-template-columns: 34px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        min-width: 0;
+        margin-top: 14px;
+        padding-top: 13px;
+        border-top: 1px solid var(--line);
+      }
+
+      body[data-layout="cards"] .reply > .avatar {
+        width: 34px;
+        height: 34px;
+        font-size: 1.2rem;
+      }
+
+      body[data-layout="cards"] .reply__meta,
+      body[data-layout="cards"] .reply__text {
+        display: inline;
+        font-size: 0.875rem;
+      }
+
+      body[data-layout="cards"] .reply__meta::after {
+        color: var(--muted-soft);
+        content: " · ";
+      }
+
+      body[data-layout="cards"] .reply__meta span {
+        display: none;
+      }
+
+      body[data-layout="cards"] .reply__text {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      body[data-layout="cards"] .participants .avatar {
+        width: 28px;
+        height: 28px;
+        border-color: #242426;
+        font-size: 0.95rem;
+      }
+
+      body[data-layout="cards"] .reply-count {
+        font-size: 0.8125rem;
+      }
+
+      body[data-layout="cards"] .unread-dot {
+        top: 22px;
+        right: 18px;
+      }
+
+      /* Narrow pane preview keeps the identity of each direction. */
+      body[data-width="compact"] .app-header {
+        height: 68px;
+      }
+
+      body[data-width="compact"] .app-header__inner,
+      body[data-width="compact"] .threads-list {
+        width: calc(100% - 28px);
+      }
+
+      body[data-width="compact"] .app-title {
+        font-size: 1.1875rem;
+      }
+
+      body[data-width="compact"] .threads-scroll {
+        height: calc(100% - 68px);
+      }
+
+      body[data-width="compact"] .thread {
+        grid-template-columns: 22px minmax(0, 1fr);
+        gap: 0 8px;
+        padding: 15px 4px 17px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        border-left: 0;
+        border-radius: 0;
+        background: transparent;
+        transform: none;
+      }
+
+      body[data-width="compact"] .thread::after,
+      body[data-width="compact"] .thread__marker::after {
+        display: none;
+      }
+
+      body[data-width="compact"] .thread__marker {
+        display: block;
+        width: auto;
+        height: auto;
+        grid-column: 1;
+        grid-row: 1;
+        padding-top: 1px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+      }
+
+      body[data-width="compact"] .thread__origin {
+        grid-column: 2;
+      }
+
+      body[data-width="compact"] .thread__channel {
+        color: var(--blue);
+        font-size: 0.75rem;
+      }
+
+      body[data-width="compact"] .thread__title {
+        margin-top: 3px;
+        padding-right: 14px;
+        font-size: 1rem;
+      }
+
+      body[data-width="compact"] .reply {
+        display: grid;
+        grid-column: 2;
+        grid-template-columns: 30px minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+        min-width: 0;
+        margin-top: 9px;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+      }
+
+      body[data-width="compact"] .reply::before {
+        display: none;
+      }
+
+      body[data-width="compact"] .reply > .avatar {
+        width: 30px;
+        height: 30px;
+        font-size: 1.05rem;
+      }
+
+      body[data-width="compact"] .reply__meta,
+      body[data-width="compact"] .reply__text {
+        display: inline;
+        font-size: 0.8125rem;
+      }
+
+      body[data-width="compact"] .reply__meta::after {
+        color: var(--muted-soft);
+        content: ": ";
+      }
+
+      body[data-width="compact"] .reply__meta span {
+        display: none;
+      }
+
+      body[data-width="compact"] .reply__text {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      body[data-width="compact"] .participants {
+        display: none;
+      }
+
+      body[data-width="compact"] .reply-count {
+        padding: 3px 6px;
+        border-radius: 999px;
+        background: var(--blue-soft);
+        font-size: 0.6875rem;
+      }
+
+      body[data-width="compact"] .unread-dot {
+        top: 20px;
+        right: 5px;
+      }
+
+      @media (max-width: 1080px) {
+        .prototype-bar {
+          grid-template-columns: 1fr auto;
+        }
+
+        .layout-switcher {
+          grid-row: 2;
+          grid-column: 1 / -1;
+          justify-self: center;
+          margin-top: 8px;
+        }
+
+        .width-switcher {
+          grid-column: 2;
+        }
+
+        .page-stage {
+          min-height: calc(100vh - 112px);
+        }
+
+        .app-page {
+          height: calc(100vh - 112px);
+        }
+      }
+
+      @media (max-width: 690px) {
+        .prototype-bar {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 9px;
+          padding: 10px;
+        }
+
+        .prototype-title {
+          flex: 1 1 180px;
+        }
+
+        .width-switcher {
+          flex: 0 0 auto;
+        }
+
+        .layout-switcher {
+          order: 3;
+          width: 100%;
+          overflow-x: auto;
+          justify-content: flex-start;
+          margin: 0;
+        }
+
+        .layout-switcher button {
+          min-width: 116px;
+        }
+
+        .page-stage,
+        .app-page {
+          min-height: 700px;
+          height: calc(100vh - 122px);
+        }
+
+        .app-header__inner,
+        .threads-list {
+          width: calc(100% - 24px);
+        }
+      }
+    </style>
+  </head>
+  <body data-layout="web" data-width="wide">
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="icon-comments" viewBox="0 0 24 24">
+        <path d="M7.5 16.5H5l-2.5 2v-5A7.5 7.5 0 0 1 10 6h2a7.5 7.5 0 0 1 7.5 7.5v5l-2.5-2h-2.5" />
+        <path d="M7 11h8M7 14h5" />
+      </symbol>
+      <symbol id="icon-bubble" viewBox="0 0 24 24">
+        <path d="M4 5.5h16v11H9l-5 3v-14Z" />
+      </symbol>
+      <symbol id="icon-expand" viewBox="0 0 24 24">
+        <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
+        <path d="m3 8 6-6M21 8l-6-6M3 16l6 6M21 16l-6 6" />
+      </symbol>
+    </svg>
+
+    <header class="prototype-bar">
+      <div class="prototype-title" aria-live="polite">
+        <span>My threads · new directions</span>
+        <strong id="layout-description">A near-literal translation of the browser UI</strong>
+      </div>
+
+      <nav class="layout-switcher" aria-label="Choose a layout">
+        <button type="button" aria-pressed="true" data-layout-button="web">A · Web nested</button>
+        <button type="button" aria-pressed="false" data-layout-button="rail">B · Reply rail</button>
+        <button type="button" aria-pressed="false" data-layout-button="compact">C · Tight stack</button>
+        <button type="button" aria-pressed="false" data-layout-button="cards">D · Thread cards</button>
+      </nav>
+
+      <div class="width-switcher" aria-label="Preview width">
+        <button type="button" aria-pressed="true" data-width-button="wide">Wide</button>
+        <button type="button" aria-pressed="false" data-width-button="compact">Narrow</button>
+      </div>
+    </header>
+
+    <main class="page-stage">
+      <section class="app-page" aria-label="My threads mockup">
+        <header class="app-header">
+          <div class="app-header__inner">
+            <h1 class="app-title">
+              <svg class="icon"><use href="#icon-comments"></use></svg>
+              My threads
+            </h1>
+            <button class="app-action" type="button" aria-label="Expand My threads">
+              <svg class="icon"><use href="#icon-expand"></use></svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="threads-scroll">
+          <div class="threads-list">
+            <article class="thread thread--unread" tabindex="0" aria-label="Open unread thread Term-llm widgets explained">
+              <div class="thread__marker"><svg class="icon"><use href="#icon-bubble"></use></svg></div>
+              <div class="thread__origin">
+                <div class="thread__channel"><span class="channel-icon"></span>dev</div>
+                <h2 class="thread__title">Term-llm widgets explained: what they are and how they're made</h2>
+              </div>
+              <div class="reply">
+                <div class="avatar avatar--sam" aria-hidden="true">👨🏻</div>
+                <div class="reply__copy">
+                  <div class="reply__meta"><strong>Sam Saffron</strong><span>4d</span></div>
+                  <p class="reply__text">so it makes it really easy to carry personal software which usually tends to be more...</p>
+                </div>
+                <div class="thread__activity">
+                  <span class="reply-count">14 replies</span>
+                  <div class="participants" aria-label="Three participants">
+                    <span class="avatar avatar--small avatar--cat">🐈‍⬛</span>
+                    <span class="avatar avatar--small avatar--jj">🧔🏻</span>
+                    <span class="avatar avatar--small avatar--sam">👨🏻</span>
+                  </div>
+                </div>
+              </div>
+              <span class="unread-dot" aria-label="Unread"></span>
+            </article>
+
+            <article class="thread thread--unread" tabindex="0" aria-label="Open unread thread Concern about losing ChatGPT app history">
+              <div class="thread__marker"><svg class="icon"><use href="#icon-bubble"></use></svg></div>
+              <div class="thread__origin">
+                <div class="thread__channel"><span class="channel-icon"></span>dev</div>
+                <h2 class="thread__title">Concern about losing ChatGPT app history when switching accounts</h2>
+              </div>
+              <div class="reply">
+                <div class="avatar avatar--jj" aria-hidden="true">🧔🏻</div>
+                <div class="reply__copy">
+                  <div class="reply__meta"><strong>Joffrey Jaffeux</strong><span>7d</span></div>
+                  <p class="reply__text">like even webviews can be annoying on linux</p>
+                </div>
+                <div class="thread__activity">
+                  <span class="reply-count">32 replies</span>
+                  <div class="participants" aria-label="Three participants">
+                    <span class="avatar avatar--small avatar--sam">👨🏻</span>
+                    <span class="avatar avatar--small avatar--mark">🧑🏻‍💻</span>
+                    <span class="avatar avatar--small avatar--cat">🐈‍⬛</span>
+                  </div>
+                </div>
+              </div>
+              <span class="unread-dot" aria-label="Unread"></span>
+            </article>
+
+            <article class="thread" tabindex="0" aria-label="Open thread Need for dress maker">
+              <div class="thread__marker"><svg class="icon"><use href="#icon-bubble"></use></svg></div>
+              <div class="thread__origin">
+                <div class="thread__channel"><span class="channel-icon"></span>general</div>
+                <h2 class="thread__title">Need for dress maker and offer to make dress</h2>
+              </div>
+              <div class="reply">
+                <div class="avatar avatar--markdoerr" aria-hidden="true">🐯</div>
+                <div class="reply__copy">
+                  <div class="reply__meta"><strong>Old Man Crampin'</strong><span>14d</span></div>
+                  <p class="reply__text">wouldn't be the first I've worn...</p>
+                </div>
+                <div class="thread__activity">
+                  <span class="reply-count">2 replies</span>
+                  <div class="participants" aria-label="Two participants">
+                    <span class="avatar avatar--small avatar--ann">👩🏻</span>
+                    <span class="avatar avatar--small avatar--markdoerr">🐯</span>
+                  </div>
+                </div>
+              </div>
+              <span class="unread-dot"></span>
+            </article>
+
+            <article class="thread" tabindex="0" aria-label="Open thread No more jokes about ducks">
+              <div class="thread__marker"><svg class="icon"><use href="#icon-bubble"></use></svg></div>
+              <div class="thread__origin">
+                <div class="thread__channel"><span class="channel-icon"></span>general</div>
+                <h2 class="thread__title">No more jokes about ducks</h2>
+              </div>
+              <div class="reply">
+                <div class="avatar avatar--cat" aria-hidden="true">🐈‍⬛</div>
+                <div class="reply__copy">
+                  <div class="reply__meta"><strong>Jake Goldsborough</strong><span>18d</span></div>
+                  <p class="reply__text">meme723-1786981724586.jpg</p>
+                </div>
+                <div class="thread__activity">
+                  <span class="reply-count">1 reply</span>
+                  <div class="participants" aria-label="Two participants">
+                    <span class="avatar avatar--small avatar--cat">🐈‍⬛</span>
+                    <span class="avatar avatar--small avatar--duck">🦆</span>
+                  </div>
+                </div>
+              </div>
+              <span class="unread-dot"></span>
+            </article>
+
+            <article class="thread thread--unread" tabindex="0" aria-label="Open unread thread Seeking affordable powerbanks">
+              <div class="thread__marker"><span class="channel-glyph">◆</span></div>
+              <div class="thread__origin">
+                <div class="thread__channel"><span class="channel-icon"></span>random</div>
+                <h2 class="thread__title">Seeking affordable and compact powerbanks in Europe</h2>
+              </div>
+              <div class="reply">
+                <div class="avatar avatar--bas" aria-hidden="true">🦁</div>
+                <div class="reply__copy">
+                  <div class="reply__meta"><strong>Bas van Leeuwen</strong><span>26d</span></div>
+                  <p class="reply__text">https://www.anker.com/products/a1638-10k-45w-power-bank?variant=4521...</p>
+                </div>
+                <div class="thread__activity">
+                  <span class="reply-count">11 replies</span>
+                  <div class="participants" aria-label="Three participants">
+                    <span class="avatar avatar--small avatar--ann">👩🏻</span>
+                    <span class="avatar avatar--small avatar--mark">🧑🏻‍💻</span>
+                    <span class="avatar avatar--small avatar--bas">🦁</span>
+                  </div>
+                </div>
+              </div>
+              <span class="unread-dot" aria-label="Unread"></span>
+            </article>
+
+            <article class="thread" tabindex="0" aria-label="Open thread Discussion on scheduling unpin jobs">
+              <div class="thread__marker"><svg class="icon"><use href="#icon-bubble"></use></svg></div>
+              <div class="thread__origin">
+                <div class="thread__channel"><span class="channel-icon"></span>dev</div>
+                <h2 class="thread__title">Discussion on scheduling unpin jobs for 1000 years</h2>
+              </div>
+              <div class="reply">
+                <div class="avatar avatar--martin" aria-hidden="true">🧙🏻‍♂️</div>
+                <div class="reply__copy">
+                  <div class="reply__meta"><strong>Martin Brennan</strong><span>29d</span></div>
+                  <p class="reply__text">we could be waiting for this job to run chilling in constantinople</p>
+                </div>
+                <div class="thread__activity">
+                  <span class="reply-count">8 replies</span>
+                  <div class="participants" aria-label="Three participants">
+                    <span class="avatar avatar--small avatar--martin">🧙🏻‍♂️</span>
+                    <span class="avatar avatar--small avatar--jj">🧔🏻</span>
+                    <span class="avatar avatar--small avatar--mark">🧑🏻‍💻</span>
+                  </div>
+                </div>
+              </div>
+              <span class="unread-dot"></span>
+            </article>
+
+            <article class="thread" tabindex="0" aria-label="Open thread Adding topics to boards">
+              <div class="thread__marker"><span class="channel-glyph channel-glyph--project">K</span></div>
+              <div class="thread__origin">
+                <div class="thread__channel"><span class="channel-icon"></span>kanban-project</div>
+                <h2 class="thread__title">Adding topics to boards from the topic view</h2>
+              </div>
+              <div class="reply">
+                <div class="avatar avatar--martin" aria-hidden="true">🧙🏻‍♂️</div>
+                <div class="reply__copy">
+                  <div class="reply__meta"><strong>Martin Brennan</strong><span>29d</span></div>
+                  <p class="reply__text">might make topics for both of these today</p>
+                </div>
+                <div class="thread__activity">
+                  <span class="reply-count">5 replies</span>
+                  <div class="participants" aria-label="Two participants">
+                    <span class="avatar avatar--small avatar--bas">🦁</span>
+                    <span class="avatar avatar--small avatar--martin">🧙🏻‍♂️</span>
+                  </div>
+                </div>
+              </div>
+              <span class="unread-dot"></span>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const descriptions = {
+        web: "A near-literal translation of the browser UI",
+        rail: "The thread origin and latest reply are visibly connected",
+        compact: "The web hierarchy compressed into a faster-scanning feed",
+        cards: "Each thread and its latest reply become one contained object",
+      };
+
+      const body = document.body;
+      const description = document.querySelector("#layout-description");
+      const scroll = document.querySelector(".threads-scroll");
+
+      document.querySelectorAll("[data-layout-button]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const layout = button.dataset.layoutButton;
+          body.dataset.layout = layout;
+          description.textContent = descriptions[layout];
+          scroll.scrollTop = 0;
+          document.querySelectorAll("[data-layout-button]").forEach((candidate) => {
+            candidate.setAttribute("aria-pressed", String(candidate === button));
+          });
+        });
+      });
+
+      document.querySelectorAll("[data-width-button]").forEach((button) => {
+        button.addEventListener("click", () => {
+          body.dataset.width = button.dataset.widthButton;
+          scroll.scrollTop = 0;
+          document.querySelectorAll("[data-width-button]").forEach((candidate) => {
+            candidate.setAttribute("aria-pressed", String(candidate === button));
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
