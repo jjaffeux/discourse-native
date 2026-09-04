@@ -2687,7 +2687,10 @@ void _registerTopicReadingTests() {
         expect(bottomBarRect.right, sidebarRect.left);
         expect(bottomBarRect.height, 48);
         expect(replyRect.height, 32);
-        expect(tester.getSize(progressButton), const Size(72, 32));
+        final progressRect = tester.getRect(progressButton);
+        expect(progressRect.size, const Size(72, 32));
+        expect(replyRect.left - bottomBarRect.left, 8);
+        expect(bottomBarRect.right - progressRect.right, 8);
         expect(
           tester.getRect(find.byType(SuperListView)).bottom,
           bottomBarRect.top,

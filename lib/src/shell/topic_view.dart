@@ -1952,7 +1952,7 @@ class _TopicBottomBar extends StatelessWidget {
         child: SizedBox(
           height: 48,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(8),
             child: Row(
               children: [
                 if (canReply)
