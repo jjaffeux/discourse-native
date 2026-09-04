@@ -11,6 +11,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
 import 'adaptive_dialog_action.dart';
+import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'external_link.dart';
 import 'loading_skeleton.dart';
@@ -527,7 +528,7 @@ class _DraftRowContent extends StatelessWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         if (category case final category?)
-                          _DraftCategory(category: category),
+                          _DraftCategory(siteUrl: siteUrl, category: category),
                         if (category != null && createdAt != null)
                           Text(
                             '•',
@@ -593,8 +594,9 @@ class _DraftRowContent extends StatelessWidget {
 }
 
 class _DraftCategory extends StatelessWidget {
-  const _DraftCategory({required this.category});
+  const _DraftCategory({required this.siteUrl, required this.category});
 
+  final String siteUrl;
   final TopicCategory category;
 
   @override
@@ -603,13 +605,11 @@ class _DraftCategory extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            color: Color(category.colorValue),
-            borderRadius: BorderRadius.circular(2),
-          ),
+        CategoryIcon(
+          category: category,
+          siteUrl: siteUrl,
+          size: 14,
+          squareSize: 10,
         ),
         const SizedBox(width: 5),
         Text(

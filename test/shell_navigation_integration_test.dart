@@ -1797,6 +1797,72 @@ void _registerShellNavigationTests() {
     expect(count('priority', 2), findsOneWidget);
   });
 
+  testWidgets('uses a configured category icon in navigation and the header', (
+    tester,
+  ) async {
+    const user = DiscourseUser(
+      id: 7,
+      username: 'joffreyj',
+      sidebarCategoryIds: [1],
+    );
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Discourse Meta',
+    ).copyWith(user: user);
+    final auth = FakeAuthenticator()..keys[site.url] = 'api-key';
+    final api = FakeDiscourseApi(
+      user: user,
+      feeds: const {'/latest.json': [], '/c/general/1.json': []},
+      categoryList: const [
+        TopicCategory(
+          id: 1,
+          name: 'General',
+          color: '3498DB',
+          slug: 'general',
+          styleType: 'icon',
+          icon: 'folder-open',
+        ),
+      ],
+    );
+
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [site],
+      api: api,
+      authenticator: auth,
+    );
+
+    final sidebarRow = find
+        .ancestor(
+          of: sidebarDestination('General'),
+          matching: find.byType(InkWell),
+        )
+        .first;
+    expect(
+      find.descendant(
+        of: sidebarRow,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.folderOpen,
+        ),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(sidebarDestination('General'));
+    await tester.pumpAndSettle();
+
+    final headerIcon = find.byKey(
+      const ValueKey('content-header-category-icon'),
+    );
+    expect(headerIcon, findsOneWidget);
+    final icon = tester.widget<DIcon>(
+      find.descendant(of: headerIcon, matching: find.byType(DIcon)),
+    );
+    expect(icon.icon, DIcons.folderOpen);
+    expect(icon.color, const Color(0xFF3498DB));
+  });
+
   testWidgets('loads categories even when the default topic feed fails', (
     tester,
   ) async {

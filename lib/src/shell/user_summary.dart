@@ -10,6 +10,7 @@ import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
+import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'external_link.dart';
 import 'inline_action.dart';
@@ -261,6 +262,7 @@ class _SummaryContent extends StatelessWidget {
                       _SummarySection(
                         title: 'Top Categories',
                         child: _CategoryRows(
+                          siteUrl: siteUrl,
                           username: username,
                           categories: summary.topCategories,
                         ),
@@ -735,8 +737,13 @@ class _SummaryUserRow extends StatelessWidget {
 }
 
 class _CategoryRows extends StatelessWidget {
-  const _CategoryRows({required this.username, required this.categories});
+  const _CategoryRows({
+    required this.siteUrl,
+    required this.username,
+    required this.categories,
+  });
 
+  final String siteUrl;
   final String username;
   final List<UserSummaryCategory> categories;
 
@@ -788,13 +795,18 @@ class _CategoryRows extends StatelessWidget {
                 Expanded(
                   child: Row(
                     children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: Color(category.colorValue),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+                      CategoryIcon.presentation(
+                        key: ValueKey((
+                          'user-summary-category-icon',
+                          category.id,
+                        )),
+                        color: Color(category.colorValue),
+                        styleType: category.styleType,
+                        icon: category.icon,
+                        emoji: category.emoji,
+                        siteUrl: siteUrl,
+                        size: 14,
+                        squareSize: 10,
                       ),
                       const SizedBox(width: 8),
                       Expanded(

@@ -442,11 +442,13 @@ DIconData _messageIcon(String subsection) => switch (subsection) {
 
 class _PermissionsSection extends StatelessWidget {
   const _PermissionsSection({
+    required this.siteUrl,
     required this.permissions,
     required this.loading,
     required this.error,
   });
 
+  final String siteUrl;
   final List<GroupPermission> permissions;
   final bool loading;
   final String? error;
@@ -488,9 +490,15 @@ class _PermissionsSection extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                leading: const DIcon(DIcons.lock, size: 17),
+                leading: CategoryIcon(
+                  category: permission.category,
+                  siteUrl: siteUrl,
+                  size: 17,
+                  squareSize: 12,
+                ),
                 title: Text(permission.category.name),
                 subtitle: Text(label),
+                trailing: const DIcon(DIcons.lock, size: 15),
               ),
             ),
           );

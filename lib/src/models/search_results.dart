@@ -280,6 +280,9 @@ class SearchCategoryHit extends SearchResult {
     required this.name,
     required this.slug,
     this.color = '888888',
+    this.styleType = 'square',
+    this.icon,
+    this.emoji,
   });
 
   static SearchCategoryHit? fromJson(Map<String, dynamic> json) {
@@ -291,6 +294,9 @@ class SearchCategoryHit extends SearchResult {
       name: name,
       slug: jsonText(json['slug']) ?? '',
       color: jsonText(json['color']) ?? '888888',
+      styleType: jsonText(json['style_type']) ?? 'square',
+      icon: jsonText(json['icon']),
+      emoji: jsonText(json['emoji']),
     );
   }
 
@@ -298,6 +304,9 @@ class SearchCategoryHit extends SearchResult {
   final String name;
   final String slug;
   final String color;
+  final String styleType;
+  final String? icon;
+  final String? emoji;
 
   int get colorValue => categoryColorValue(color);
 

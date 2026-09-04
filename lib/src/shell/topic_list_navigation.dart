@@ -204,6 +204,7 @@ class _TopicListNavigationControls extends StatelessWidget {
               ),
           if (showsFilters)
             TopicListFilterBar(
+              siteUrl: state.siteUrl!,
               categories: state.categories,
               knownTags: state.tags,
               selectedCategoryId: state.route!.categoryId,

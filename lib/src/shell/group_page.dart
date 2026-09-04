@@ -13,6 +13,7 @@ import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
+import 'category_icon.dart';
 import 'command_menu.dart';
 import 'content_reading_lane.dart';
 import 'group/group_manage_controller.dart';
@@ -296,6 +297,7 @@ class _GroupPageState extends State<GroupPage> {
         onSelect: _select,
       ),
       GroupRoute.permissions => _PermissionsSection(
+        siteUrl: widget.siteUrl,
         permissions: widget.data.permissions,
         loading: widget.data.sectionLoading,
         error: widget.data.sectionError,

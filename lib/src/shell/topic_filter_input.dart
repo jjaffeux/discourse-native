@@ -9,7 +9,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
-import 'hashtag.dart';
+import 'category_icon.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_filter_controller.dart';
@@ -235,7 +235,9 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
               ),
               child: child!,
             ),
-            child: TextFieldTapRegion(child: _SuggestionList(filter: filter)),
+            child: TextFieldTapRegion(
+              child: _SuggestionList(siteUrl: widget.siteUrl, filter: filter),
+            ),
           ),
           child: KeyedSubtree(
             key: _anchorKey,
@@ -287,8 +289,9 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
 }
 
 class _SuggestionList extends StatelessWidget {
-  const _SuggestionList({required this.filter});
+  const _SuggestionList({required this.siteUrl, required this.filter});
 
+  final String siteUrl;
   final TopicFilterController filter;
 
   @override
@@ -343,14 +346,12 @@ class _SuggestionList extends StatelessWidget {
                         child: Row(
                           children: [
                             if (suggestion.category case final category?) ...[
-                              CategorySquare(
-                                color: Color(category.colorValue),
-                                parentColor: suggestion.parentCategory == null
-                                    ? null
-                                    : Color(
-                                        suggestion.parentCategory!.colorValue,
-                                      ),
+                              CategoryIcon(
+                                category: category,
+                                parentCategory: suggestion.parentCategory,
+                                siteUrl: siteUrl,
                                 size: 16,
+                                squareSize: 16,
                               ),
                               const SizedBox(width: 10),
                             ],

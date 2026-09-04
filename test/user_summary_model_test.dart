@@ -72,6 +72,8 @@ Map<String, dynamic> _payload() => {
         'name': 'Support',
         'slug': 'support',
         'color': '08c',
+        'style_type': 'icon',
+        'icon': 'folder-open',
         'topic_count': 2,
         'post_count': 7,
       },
@@ -111,6 +113,9 @@ void main() {
       '$_siteUrl/user_avatar/sam/90.png',
     );
     expect(summary.topCategories.single.colorValue, 0xFF0088CC);
+    expect(summary.topCategories.single.styleType, 'icon');
+    expect(summary.topCategories.single.icon, 'folder-open');
+    expect(summary.topCategories.single.emoji, isNull);
     expect(summary.badges.single.name, 'Helpful');
     expect(summary.badges.single.description, 'Helped people');
     expect(summary.badges.single.count, 2);

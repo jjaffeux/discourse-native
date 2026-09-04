@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
+import 'category_icon.dart';
 import 'external_link.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
@@ -1049,7 +1050,16 @@ class _SearchResultRow extends StatelessWidget {
       selected: selected,
       onFocus: onFocus,
       onTap: onTap,
-      leading: _CategorySwatch(color: Color(category.colorValue)),
+      leading: CategoryIcon.presentation(
+        key: ValueKey(('forum-search-category-icon', category.categoryId)),
+        color: Color(category.colorValue),
+        styleType: category.styleType,
+        icon: category.icon,
+        emoji: category.emoji,
+        siteUrl: siteUrl,
+        size: 17,
+        squareSize: 14,
+      ),
     ),
     final SearchTagHit tag => _CompactSearchResultRow(
       result: result,
@@ -1215,24 +1225,6 @@ class _SearchAvatar extends StatelessWidget {
   }
 }
 
-class _CategorySwatch extends StatelessWidget {
-  const _CategorySwatch({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Container(
-      width: 14,
-      height: 14,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(2),
-      ),
-    ),
-  );
-}
-
 String _resultTitle(SearchResult result) => switch (result) {
   final SearchPostHit hit => hit.topicTitle,
   final SearchCategoryHit category => category.name,
@@ -1383,6 +1375,7 @@ class _SearchHitRow extends StatelessWidget {
                 if (category != null || (showTags && hit.tags.isNotEmpty)) ...[
                   const SizedBox(height: 3),
                   _SearchTopicMetadata(
+                    siteUrl: siteUrl,
                     category: category,
                     tags: showTags ? hit.tags : const [],
                   ),
@@ -1482,8 +1475,13 @@ class _SearchTopicStatuses extends StatelessWidget {
 }
 
 class _SearchTopicMetadata extends StatelessWidget {
-  const _SearchTopicMetadata({required this.category, required this.tags});
+  const _SearchTopicMetadata({
+    required this.siteUrl,
+    required this.category,
+    required this.tags,
+  });
 
+  final String siteUrl;
   final TopicCategory? category;
   final List<TopicTag> tags;
 
@@ -1502,13 +1500,11 @@ class _SearchTopicMetadata extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: Color(category.colorValue),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+              CategoryIcon(
+                category: category,
+                siteUrl: siteUrl,
+                size: 13,
+                squareSize: 9,
               ),
               const SizedBox(width: 5),
               Text(category.name, style: style),
