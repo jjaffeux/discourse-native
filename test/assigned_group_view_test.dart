@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/assign/assigned_group_api.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_controller.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_presentation.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_view.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
@@ -422,7 +423,9 @@ void main() {
       );
       await _pumpView(tester, presentation);
 
-      expect(find.text('3 posts · 91 views'), findsOneWidget);
+      expect(find.byType(TopicListHeader), findsOneWidget);
+      expect(find.byType(TopicListRow), findsOneWidget);
+      expect(find.text('91'), findsOneWidget);
       await tester.tap(find.text(_topic.title));
       await tester.scrollUntilVisible(
         find.text('Load more assignments'),

@@ -179,10 +179,15 @@ final class AssignPlugin
   ) {
     final assignments = topic.plugins.get(assignmentsDataKey);
     if (assignments == null || !assignments.hasAssignments) return const [];
-    final style = Theme.of(context).textTheme.bodySmall;
+    final style = Theme.of(context).textTheme.labelMedium;
     return [
       for (final assignment in assignments.all)
         Semantics(
+          key: ValueKey((
+            'topic-list-assignment',
+            assignment.postId,
+            assignment.assignee.identifier,
+          )),
           container: true,
           label: assignmentSummary(
             assignment,
@@ -192,11 +197,11 @@ final class AssignPlugin
           ),
           child: ExcludeSemantics(
             child: Pill(
-              label: _compactLabel(assignment),
+              label: assignment.assignee.displayName,
               baseStyle: style,
-              leading: DIcon(
-                assignment.assignee.isGroup ? DIcons.users : DIcons.userPlus,
-                size: Pill.iconBoxFor(style),
+              leading: AssignmentAssigneeAvatar(
+                assignee: assignment.assignee,
+                size: 16,
               ),
             ),
           ),
@@ -745,17 +750,4 @@ int _comparePostAssignments(Assignment left, Assignment right) {
 int? _validPostNumber(Assignment assignment) {
   final postNumber = assignment.postNumber;
   return postNumber != null && postNumber > 0 ? postNumber : null;
-}
-
-String _compactLabel(Assignment assignment) {
-  final prefix = assignment.isPostAssignment
-      ? '${_postLabel(assignment.postNumber)} · '
-      : '';
-  final status = assignment.status?.trim();
-  final note = assignment.note?.trim();
-  return [
-    '$prefix${assignment.assignee.displayName}',
-    if (status != null && status.isNotEmpty) status,
-    if (note != null && note.isNotEmpty) note,
-  ].join(' · ');
 }

@@ -263,11 +263,18 @@ class _TopicListViewState extends State<TopicListView> {
     final feed = widget.feed;
 
     if (feed.loading && feed.topicIds.isEmpty) {
-      return ContentReadingLaneBox(
-        child: _TopicListLoadingSkeleton(
-          key: const ValueKey('topic-list-loading-skeleton'),
-          destination: destination,
-        ),
+      return Column(
+        children: [
+          const ContentReadingLaneBox(child: TopicListHeader()),
+          Expanded(
+            child: ContentReadingLaneBox(
+              child: _TopicListLoadingSkeleton(
+                key: const ValueKey('topic-list-loading-skeleton'),
+                destination: destination,
+              ),
+            ),
+          ),
+        ],
       );
     }
     if (feed.error case final error? when feed.topicIds.isEmpty) {
@@ -298,6 +305,7 @@ class _TopicListViewState extends State<TopicListView> {
             message: error,
             onRetry: () => unawaited(controller.loadFeed(destination)),
           ),
+        const ContentReadingLaneBox(child: TopicListHeader()),
         Expanded(
           child: ContentReadingLane(
             basePadding: const EdgeInsets.symmetric(vertical: 4),
@@ -392,6 +400,95 @@ class _TopicListViewState extends State<TopicListView> {
   static const double _loadMoreThreshold = 800;
 }
 
+class _TopicLedgerLayout {
+  const _TopicLedgerLayout({
+    required this.showStateLabel,
+    required this.showParticipants,
+    required this.showActivity,
+  });
+
+  factory _TopicLedgerLayout.forWidth(double width) => _TopicLedgerLayout(
+    showStateLabel: width >= 760,
+    showParticipants: width >= 440,
+    showActivity: width >= 650,
+  );
+
+  static const double horizontalPadding = 14;
+  static const double gap = 12;
+  static const double wideStateWidth = 100;
+  static const double compactStateWidth = 12;
+  static const double participantsWidth = 82;
+  static const double activityWidth = 120;
+
+  final bool showStateLabel;
+  final bool showParticipants;
+  final bool showActivity;
+
+  double get stateWidth => showStateLabel
+      ? _TopicLedgerLayout.wideStateWidth
+      : _TopicLedgerLayout.compactStateWidth;
+}
+
+class TopicListHeader extends StatelessWidget {
+  const TopicListHeader({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+      fontSize: 9,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.8,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = _TopicLedgerLayout.forWidth(constraints.maxWidth);
+        return Container(
+          key: const ValueKey('topic-list-ledger-header'),
+          height: 36,
+          padding: const EdgeInsets.symmetric(
+            horizontal: _TopicLedgerLayout.horizontalPadding,
+          ),
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: theme.shell.divider),
+              bottom: BorderSide(color: theme.shell.divider),
+            ),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: layout.stateWidth,
+                child: layout.showStateLabel
+                    ? Text('STATE', style: style)
+                    : null,
+              ),
+              const SizedBox(width: _TopicLedgerLayout.gap),
+              Expanded(child: Text('TOPIC', style: style)),
+              if (layout.showParticipants) ...[
+                const SizedBox(width: _TopicLedgerLayout.gap),
+                SizedBox(
+                  width: _TopicLedgerLayout.participantsWidth,
+                  child: Text('PARTICIPANTS', style: style),
+                ),
+              ],
+              if (layout.showActivity) ...[
+                const SizedBox(width: _TopicLedgerLayout.gap),
+                SizedBox(
+                  width: _TopicLedgerLayout.activityWidth,
+                  child: Text('ACTIVITY', style: style),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _TopicListLoadingSkeleton extends StatelessWidget {
   const _TopicListLoadingSkeleton({super.key, required this.destination});
 
@@ -451,7 +548,6 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
     ),
     1 => const _TopicListSkeletonRow(
       titleWidth: 0.88,
-      secondTitleWidth: 0.42,
       metadataWidth: 0.52,
       posterCount: 2,
     ),
@@ -469,7 +565,6 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
       opacity: 0.72,
       child: _TopicListSkeletonRow(
         titleWidth: 0.66,
-        secondTitleWidth: 0.32,
         metadataWidth: 0.58,
         posterCount: 2,
       ),
@@ -480,41 +575,73 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
 class _TopicListSkeletonRow extends StatelessWidget {
   const _TopicListSkeletonRow({
     required this.titleWidth,
-    this.secondTitleWidth,
     required this.metadataWidth,
     required this.posterCount,
   });
 
   final double titleWidth;
-  final double? secondTitleWidth;
   final double metadataWidth;
   final int posterCount;
 
   @override
   Widget build(BuildContext context) {
-    final row = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SkeletonLine(widthFactor: titleWidth, height: 11),
-                if (secondTitleWidth case final secondTitleWidth?) ...[
-                  const SizedBox(height: 7),
-                  _SkeletonLine(widthFactor: secondTitleWidth, height: 11),
-                ],
-                const SizedBox(height: 8),
-                _SkeletonLine(widthFactor: metadataWidth, height: 8),
-              ],
-            ),
+    final row = LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = _TopicLedgerLayout.forWidth(constraints.maxWidth);
+        return Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: _TopicLedgerLayout.horizontalPadding,
+            vertical: 9,
           ),
-          const SizedBox(width: 12),
-          _TopicListSkeletonPosters(count: posterCount),
-        ],
-      ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: layout.stateWidth,
+                child: layout.showStateLabel
+                    ? const LoadingSkeletonBlock(width: 56, height: 8)
+                    : const Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: LoadingSkeletonBlock.circle(diameter: 7),
+                      ),
+              ),
+              const SizedBox(width: _TopicLedgerLayout.gap),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SkeletonLine(widthFactor: titleWidth, height: 11),
+                    const SizedBox(height: 8),
+                    _SkeletonLine(widthFactor: metadataWidth, height: 8),
+                  ],
+                ),
+              ),
+              if (layout.showParticipants) ...[
+                const SizedBox(width: _TopicLedgerLayout.gap),
+                SizedBox(
+                  width: _TopicLedgerLayout.participantsWidth,
+                  child: _TopicListSkeletonPosters(count: posterCount),
+                ),
+              ],
+              if (layout.showActivity) ...[
+                const SizedBox(width: _TopicLedgerLayout.gap),
+                const SizedBox(
+                  width: _TopicLedgerLayout.activityWidth,
+                  child: Row(
+                    children: [
+                      LoadingSkeletonBlock(width: 22, height: 8),
+                      SizedBox(width: 8),
+                      LoadingSkeletonBlock(width: 26, height: 8),
+                      Spacer(),
+                      LoadingSkeletonBlock(width: 24, height: 8),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
 
     return ConstrainedBox(
@@ -796,7 +923,20 @@ class TopicListRow extends StatelessWidget {
     String siteUrl,
     DiscourseInstance? owningForum,
   ) {
-    final controller = ShellScope.read(context);
+    final controller = ShellScope.maybeRead(context);
+    if (controller == null) {
+      assert(onTap != null, 'TopicListRow needs an onTap outside ShellScope.');
+      return _TopicRowBody(
+        topic: topic,
+        category: null,
+        parentCategory: null,
+        showCategoryBreadcrumb: false,
+        siteUrl: siteUrl,
+        forum: owningForum,
+        onTap: onTap ?? () {},
+        titleStyle: titleStyle,
+      );
+    }
     return ShellSelector<({TopicCategory? category, TopicCategory? parent})>(
       select: (controller) =>
           _topicCategoryPresentation(controller, topic.categoryId, siteUrl),
@@ -873,226 +1013,72 @@ class _TopicRowBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final controller = ShellScope.read(context);
-    final effectiveTitleStyle = titleStyle ?? theme.textTheme.titleMedium;
+    final effectiveTitleStyle = titleStyle ?? theme.textTheme.titleSmall;
+    final pluginMetadata =
+        (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
+            .topicListMetadata(context, siteUrl, topic);
 
     final row = InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (forum case final forum?) ...[
-              Padding(
-                padding: const EdgeInsets.only(right: 12, top: 1),
-                child: Semantics(
-                  label: forum.title,
-                  image: true,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(7),
-                    child: AvatarImage(
-                      url: forum.iconUrl,
-                      size: 28,
-                      fit: BoxFit.contain,
-                      fallback: ColoredBox(
-                        color: forum.accentColor.withValues(alpha: 0.16),
-                        child: SizedBox.square(
-                          dimension: 28,
-                          child: Center(
-                            child: Text(
-                              forum.monogram,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = _TopicLedgerLayout.forWidth(constraints.maxWidth);
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: _TopicLedgerLayout.horizontalPadding,
+              vertical: 9,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  key: ValueKey('topic-ledger-state-${topic.id}'),
+                  width: layout.stateWidth,
+                  child: _TopicLedgerState(
+                    topic: topic,
+                    category: category,
+                    showLabel: layout.showStateLabel,
                   ),
                 ),
-              ),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      if (topic.closed)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: Transform.translate(
-                            // Remove DIcon's scale inset and the portrait
-                            // lock SVG's remaining horizontal letterbox.
-                            offset: const Offset(-1.640625, 0),
-                            child: DIcon(
-                              DIcons.lock,
-                              size: 14,
-                              color: theme.colorScheme.onSurfaceVariant,
-                              semanticLabel: 'Closed topic',
-                            ),
-                          ),
-                        ),
-                      if (topic.pinned)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: DIcon(
-                            DIcons.thumbtack,
-                            size: 14,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      if (topic.bookmarked)
-                        Semantics(
-                          label: 'Bookmarked',
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: DIcon(
-                              DIcons.bookmark,
-                              size: 14,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                        ),
-                      Flexible(
-                        child: TopicTitle(
-                          topic.title,
-                          siteUrl: siteUrl,
-                          trailing: [
-                            if (topic.showUnreadCount) ...[
-                              const SizedBox(width: 8),
-                              _UnreadPill(count: topic.unreadCount),
-                            ],
-                            if (topic.showNewTopicDot) ...[
-                              const SizedBox(width: 8),
-                              const _TopicStateDot(
-                                key: ValueKey('new-topic-dot'),
-                                label: 'New topic',
-                              ),
-                            ],
-                            if (topic.showNewRepliesDot) ...[
-                              const SizedBox(width: 8),
-                              const _TopicStateDot(
-                                key: ValueKey('new-replies-dot'),
-                                label: 'Topic has new replies',
-                              ),
-                            ],
-                          ],
-                          style: effectiveTitleStyle?.copyWith(
-                            // Core dims only rows whose last visible post has
-                            // been read. Tracking level controls the badge, not
-                            // the title treatment.
-                            color: topic.visited
-                                ? theme.discourse.whisper
-                                : theme.colorScheme.onSurface,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                    ],
+                const SizedBox(width: _TopicLedgerLayout.gap),
+                Expanded(
+                  key: ValueKey('topic-ledger-topic-${topic.id}'),
+                  child: _TopicIdentity(
+                    topic: topic,
+                    category: category,
+                    parentCategory: parentCategory,
+                    showCategoryBreadcrumb: showCategoryBreadcrumb,
+                    siteUrl: siteUrl,
+                    forum: forum,
+                    titleStyle: effectiveTitleStyle,
+                    pluginMetadata: pluginMetadata,
+                    showInlineParticipants: !layout.showParticipants,
+                    showInlineActivity: !layout.showActivity,
                   ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    runSpacing: 0,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      if (forum case final forum?)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: Text(
-                            forum.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      if (showCategoryBreadcrumb)
-                        if (category case final category?)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 10),
-                            child: _CategoryBreadcrumb(
-                              parent: parentCategory,
-                              category: category,
-                              siteUrl: siteUrl,
-                              onOpen: (category) => controller.openCategory(
-                                category,
-                                siteUrl: siteUrl,
-                              ),
-                            ),
-                          ),
-                      for (var index = 0; index < topic.tags.length; index++)
-                        _TopicTag(
-                          tag: topic.tags[index],
-                          onTap: () => controller.openTopicTag(
-                            topic.tags[index],
-                            siteUrl: siteUrl,
-                            privateMessage: topic.privateMessage,
-                          ),
-                          onMiddleClick: () async {
-                            final opened = await controller.openTopicTag(
-                              topic.tags[index],
-                              siteUrl: siteUrl,
-                              privateMessage: topic.privateMessage,
-                              newTab: true,
-                            );
-                            if (!opened && context.mounted) {
-                              ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Could not open this tag in a new tab.',
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                          hasComma: index < topic.tags.length - 1,
-                          trailingSpacing: index < topic.tags.length - 1
-                              ? 3
-                              : 10,
-                        ),
-                      for (final metadata
-                          in (PluginScope.maybeOf(context)?.registry ??
-                                  PluginRegistry.empty)
-                              .topicListMetadata(context, siteUrl, topic))
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: metadata,
-                        ),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: _Stat(
-                          icon: DIcons.reply,
-                          value: topic.replyCount,
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.only(
-                          right: topic.bumpedAt == null ? 0 : 10,
-                        ),
-                        child: _Stat(icon: DIcons.farEye, value: topic.views),
-                      ),
-                      if (topic.bumpedAt case final bumpedAt?)
-                        Text(
-                          relativeTime(bumpedAt),
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
+                ),
+                if (layout.showParticipants) ...[
+                  const SizedBox(width: _TopicLedgerLayout.gap),
+                  SizedBox(
+                    key: ValueKey('topic-ledger-participants-${topic.id}'),
+                    width: _TopicLedgerLayout.participantsWidth,
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: _Posters(avatars: topic.posterAvatars),
+                    ),
                   ),
                 ],
-              ),
+                if (layout.showActivity) ...[
+                  const SizedBox(width: _TopicLedgerLayout.gap),
+                  SizedBox(
+                    key: ValueKey('topic-ledger-activity-${topic.id}'),
+                    width: _TopicLedgerLayout.activityWidth,
+                    child: _TopicActivity(topic: topic),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(width: 12),
-            _Posters(avatars: topic.posterAvatars),
-          ],
-        ),
+          );
+        },
       ),
     );
 
@@ -1107,6 +1093,406 @@ class _TopicRowBody extends StatelessWidget {
           // Keeping that surface local lets the scroll viewport clip them.
           type: MaterialType.transparency,
           child: row,
+        ),
+      ),
+    );
+  }
+}
+
+class _TopicIdentity extends StatelessWidget {
+  const _TopicIdentity({
+    required this.topic,
+    required this.category,
+    required this.parentCategory,
+    required this.showCategoryBreadcrumb,
+    required this.siteUrl,
+    required this.forum,
+    required this.titleStyle,
+    required this.pluginMetadata,
+    required this.showInlineParticipants,
+    required this.showInlineActivity,
+  });
+
+  final Topic topic;
+  final TopicCategory? category;
+  final TopicCategory? parentCategory;
+  final bool showCategoryBreadcrumb;
+  final String siteUrl;
+  final DiscourseInstance? forum;
+  final TextStyle? titleStyle;
+  final List<Widget> pluginMetadata;
+  final bool showInlineParticipants;
+  final bool showInlineActivity;
+
+  @override
+  Widget build(BuildContext context) {
+    final forum = this.forum;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (forum != null) ...[
+          _TopicForumIcon(forum: forum),
+          const SizedBox(width: 10),
+        ],
+        Expanded(
+          child: _TopicCopy(
+            topic: topic,
+            category: category,
+            parentCategory: parentCategory,
+            showCategoryBreadcrumb: showCategoryBreadcrumb,
+            siteUrl: siteUrl,
+            forum: forum,
+            titleStyle: titleStyle,
+            pluginMetadata: pluginMetadata,
+            showInlineParticipants: showInlineParticipants,
+            showInlineActivity: showInlineActivity,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TopicForumIcon extends StatelessWidget {
+  const _TopicForumIcon({required this.forum});
+
+  final DiscourseInstance forum;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      label: forum.title,
+      image: true,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(7),
+        child: AvatarImage(
+          url: forum.iconUrl,
+          size: 28,
+          fit: BoxFit.contain,
+          fallback: ColoredBox(
+            color: forum.accentColor.withValues(alpha: 0.16),
+            child: SizedBox.square(
+              dimension: 28,
+              child: Center(
+                child: Text(
+                  forum.monogram,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopicCopy extends StatelessWidget {
+  const _TopicCopy({
+    required this.topic,
+    required this.category,
+    required this.parentCategory,
+    required this.showCategoryBreadcrumb,
+    required this.siteUrl,
+    required this.forum,
+    required this.titleStyle,
+    required this.pluginMetadata,
+    required this.showInlineParticipants,
+    required this.showInlineActivity,
+  });
+
+  static const int maximumVisibleTags = 2;
+
+  final Topic topic;
+  final TopicCategory? category;
+  final TopicCategory? parentCategory;
+  final bool showCategoryBreadcrumb;
+  final String siteUrl;
+  final DiscourseInstance? forum;
+  final TextStyle? titleStyle;
+  final List<Widget> pluginMetadata;
+  final bool showInlineParticipants;
+  final bool showInlineActivity;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final controller = ShellScope.maybeRead(context);
+    final visibleTags = topic.tags.take(maximumVisibleTags).toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            if (topic.closed)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Transform.translate(
+                  // Remove DIcon's scale inset and the portrait lock SVG's
+                  // remaining horizontal letterbox.
+                  offset: const Offset(-1.640625, 0),
+                  child: DIcon(
+                    DIcons.lock,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    semanticLabel: 'Closed topic',
+                  ),
+                ),
+              ),
+            if (topic.pinned)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: DIcon(
+                  DIcons.thumbtack,
+                  size: 14,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            if (topic.bookmarked)
+              Semantics(
+                label: 'Bookmarked',
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: DIcon(
+                    DIcons.bookmark,
+                    size: 14,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+            Flexible(
+              child: TopicTitle(
+                topic.title,
+                siteUrl: siteUrl,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: titleStyle?.copyWith(
+                  color: topic.visited
+                      ? theme.discourse.whisper
+                      : theme.colorScheme.onSurface,
+                  fontWeight: topic.visited ? FontWeight.w400 : FontWeight.w500,
+                ),
+              ),
+            ),
+            if (topic.showUnreadCount) ...[
+              const SizedBox(width: 8),
+              _UnreadPill(count: topic.unreadCount),
+            ],
+            if (topic.showNewTopicDot) ...[
+              const SizedBox(width: 8),
+              const _TopicStateDot(
+                key: ValueKey('new-topic-dot'),
+                label: 'New topic',
+              ),
+            ],
+            if (topic.showNewRepliesDot) ...[
+              const SizedBox(width: 8),
+              const _TopicStateDot(
+                key: ValueKey('new-replies-dot'),
+                label: 'Topic has new replies',
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 5),
+        Wrap(
+          runSpacing: 3,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (forum case final forum?)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  forum.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            if (showCategoryBreadcrumb)
+              if (category case final category?)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _CategoryBreadcrumb(
+                    parent: parentCategory,
+                    category: category,
+                    siteUrl: siteUrl,
+                    onOpen: (category) =>
+                        controller?.openCategory(category, siteUrl: siteUrl),
+                  ),
+                ),
+            for (final tag in visibleTags)
+              _TopicTag(
+                tag: tag,
+                onTap: () => controller?.openTopicTag(
+                  tag,
+                  siteUrl: siteUrl,
+                  privateMessage: topic.privateMessage,
+                ),
+                onMiddleClick: () async {
+                  if (controller == null) return;
+                  final opened = await controller.openTopicTag(
+                    tag,
+                    siteUrl: siteUrl,
+                    privateMessage: topic.privateMessage,
+                    newTab: true,
+                  );
+                  if (!opened && context.mounted) {
+                    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                      const SnackBar(
+                        content: Text('Could not open this tag in a new tab.'),
+                      ),
+                    );
+                  }
+                },
+              ),
+            if (topic.tags.length > maximumVisibleTags)
+              _TopicTagOverflow(count: topic.tags.length - maximumVisibleTags),
+            for (final metadata in pluginMetadata)
+              Padding(
+                padding: const EdgeInsets.only(right: 5),
+                child: metadata,
+              ),
+            if (showInlineParticipants && topic.posterAvatars.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _Posters(avatars: topic.posterAvatars),
+              ),
+            if (showInlineActivity)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _Stat(icon: DIcons.reply, value: topic.replyCount),
+              ),
+            if (showInlineActivity)
+              Padding(
+                padding: EdgeInsets.only(right: topic.bumpedAt == null ? 0 : 8),
+                child: _Stat(icon: DIcons.farEye, value: topic.views),
+              ),
+            if (showInlineActivity)
+              if (topic.bumpedAt case final bumpedAt?)
+                Text(
+                  relativeTime(bumpedAt),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _TopicLedgerState extends StatelessWidget {
+  const _TopicLedgerState({
+    required this.topic,
+    required this.category,
+    required this.showLabel,
+  });
+
+  final Topic topic;
+  final TopicCategory? category;
+  final bool showLabel;
+
+  String get _label {
+    if (topic.closed) return 'Closed';
+    if (topic.showUnreadCount) return '${topic.unreadCount} unread';
+    if (topic.showNewTopicDot) return 'New';
+    if (topic.showNewRepliesDot) return 'New replies';
+    if (topic.pinned) return 'Pinned';
+    return topic.visited ? 'Read' : 'Active';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = switch ((
+      topic.closed,
+      topic.hasUnseenActivity,
+      topic.visited,
+    )) {
+      (true, _, _) => theme.colorScheme.onSurfaceVariant,
+      (_, true, _) => theme.colorScheme.primary,
+      (_, _, true) => theme.colorScheme.onSurfaceVariant.withValues(
+        alpha: 0.55,
+      ),
+      _ =>
+        category == null
+            ? theme.colorScheme.primary
+            : Color(category!.colorValue),
+    };
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ExcludeSemantics(
+          child: Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+        ),
+        if (showLabel) ...[
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              _label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _TopicActivity extends StatelessWidget {
+  const _TopicActivity({required this.topic});
+
+  final Topic topic;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final age = topic.bumpedAt == null ? null : relativeTime(topic.bumpedAt!);
+    final replyNoun = topic.replyCount == 1 ? 'reply' : 'replies';
+    final viewNoun = topic.views == 1 ? 'view' : 'views';
+
+    return Semantics(
+      container: true,
+      label:
+          '${topic.replyCount} $replyNoun, ${topic.views} $viewNoun'
+          '${age == null ? '' : ', $age'}',
+      child: ExcludeSemantics(
+        child: Row(
+          children: [
+            _Stat(icon: DIcons.reply, value: topic.replyCount),
+            const SizedBox(width: 8),
+            _Stat(icon: DIcons.farEye, value: topic.views),
+            if (age != null) ...[
+              const Spacer(),
+              Text(
+                age,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -1236,15 +1622,11 @@ class _TopicTag extends StatelessWidget {
     required this.tag,
     required this.onTap,
     required this.onMiddleClick,
-    required this.hasComma,
-    required this.trailingSpacing,
   });
 
   final TopicTag tag;
   final VoidCallback onTap;
   final VoidCallback onMiddleClick;
-  final bool hasComma;
-  final double trailingSpacing;
 
   @override
   Widget build(BuildContext context) {
@@ -1254,27 +1636,24 @@ class _TopicTag extends StatelessWidget {
     );
 
     final chip = Padding(
-      padding: EdgeInsets.only(right: trailingSpacing),
+      padding: const EdgeInsets.only(right: 5),
       child: InlineAction.link(
         onTap: onTap,
         semanticLabel: 'Tag: ${tag.name}',
         excludeChildSemantics: true,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 24),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            widthFactor: 1,
-            heightFactor: 1,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 200),
-              child: Text(
-                '${tag.name}${hasComma ? ',' : ''}',
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-                style: style,
-              ),
-            ),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 160, minHeight: 22),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: theme.shell.mention,
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Text(
+            tag.name,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+            style: style?.copyWith(height: 1),
           ),
         ),
       ),
@@ -1283,6 +1662,38 @@ class _TopicTag extends StatelessWidget {
       excludeFromSemantics: true,
       onTertiaryTapUp: (_) => onMiddleClick(),
       child: chip,
+    );
+  }
+}
+
+class _TopicTagOverflow extends StatelessWidget {
+  const _TopicTagOverflow({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      label: '$count more ${count == 1 ? 'tag' : 'tags'}',
+      child: ExcludeSemantics(
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 22),
+          margin: const EdgeInsets.only(right: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: theme.shell.mention,
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Text(
+            '+$count',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

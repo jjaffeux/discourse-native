@@ -129,7 +129,20 @@ void main() {
       ),
       findsNothing,
     );
+    expect(find.byType(TopicListHeader), findsOneWidget);
     expect(find.byType(TopicListRow), findsNWidgets(2));
+    expect(
+      find.byKey(const ValueKey('topic-ledger-state-42')),
+      findsNWidgets(2),
+    );
+    expect(
+      find.byKey(const ValueKey('topic-ledger-topic-42')),
+      findsNWidgets(2),
+    );
+    expect(
+      find.byKey(const ValueKey('topic-ledger-activity-42')),
+      findsNWidgets(2),
+    );
     expect(find.text('Fresh cross-forum topic'), findsNWidgets(2));
     expect(find.text('One'), findsOneWidget);
     expect(find.text('Two'), findsOneWidget);
