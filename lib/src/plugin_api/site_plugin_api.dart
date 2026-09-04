@@ -323,11 +323,17 @@ final class TopicPropertySection {
     required this.label,
     required this.values,
     this.layout = TopicPropertySectionLayout.inline,
+    this.showHeader = true,
   });
 
   final String label;
   final List<Widget> values;
   final TopicPropertySectionLayout layout;
+
+  /// Whether a standalone section renders [label] as a visible heading.
+  ///
+  /// Inline sections always use [label] as their property-row label.
+  final bool showHeader;
 }
 
 abstract interface class TopicPropertiesPlugin {

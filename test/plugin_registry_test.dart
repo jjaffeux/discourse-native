@@ -468,7 +468,11 @@ void main() {
       const registry = PluginRegistry([
         _SurfacePlugin('first'),
         _NamedPlugin('unrelated'),
-        _SurfacePlugin('second', layout: TopicPropertySectionLayout.standalone),
+        _SurfacePlugin(
+          'second',
+          layout: TopicPropertySectionLayout.standalone,
+          showHeader: false,
+        ),
       ]);
       late List<Widget> decorations;
       late List<Widget> metadata;
@@ -516,6 +520,7 @@ void main() {
         TopicPropertySectionLayout.inline,
         TopicPropertySectionLayout.standalone,
       ]);
+      expect(properties.map((section) => section.showHeader), [true, false]);
     });
 
     testWidgets('aggregates topic-property rebuild signals', (tester) async {
@@ -653,9 +658,11 @@ final class _SurfacePlugin extends _NamedPlugin
   const _SurfacePlugin(
     super.name, {
     this.layout = TopicPropertySectionLayout.inline,
+    this.showHeader = true,
   });
 
   final TopicPropertySectionLayout layout;
+  final bool showHeader;
 
   @override
   List<Widget> postDecorations(
@@ -682,6 +689,7 @@ final class _SurfacePlugin extends _NamedPlugin
       label: name,
       values: [Text('$name-properties')],
       layout: layout,
+      showHeader: showHeader,
     ),
   ];
 }

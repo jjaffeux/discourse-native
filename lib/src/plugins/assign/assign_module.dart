@@ -40,11 +40,28 @@ final class AssignModule implements PluginModule {
                 topicId: target.topicId,
               ),
             };
-            final snapshot = targetHost.recordFor(
+            var snapshot = targetHost.recordFor(
               siteUrl,
               reference,
               assignmentsDataKey,
             );
+            if (!snapshot.valid && target.type == AssignmentTargetType.post) {
+              final topicSnapshot = targetHost.recordFor(
+                siteUrl,
+                PluginTarget.topic(target.topicId),
+                assignmentsDataKey,
+              );
+              final knownAssignment =
+                  topicSnapshot.value?.postAssignments[target.id];
+              final postNumber = knownAssignment?.postNumber;
+              // Topic-level Assign controls upstream manage every assigned
+              // post using the topic permission. Use that same category-scoped
+              // permission only for a post the topic payload identifies, while
+              // still preferring an authoritative loaded-post denial above.
+              if (topicSnapshot.valid && postNumber != null && postNumber > 1) {
+                snapshot = topicSnapshot;
+              }
+            }
             return (
               valid: snapshot.valid,
               recordPermission: snapshot.value?.canAssign,

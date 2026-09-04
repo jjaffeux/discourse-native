@@ -48,10 +48,13 @@ abstract interface class PluginRouteNavigationHost {
   void pushContent(ContentRoute route);
   void replaceCurrentContent(ContentRoute route);
 
+  /// Opens [postNumber] and briefly emphasizes its rendered post when
+  /// [highlight] is true. Ordinary navigation keeps the emphasis disabled.
   void openTopicPost({
     required String siteUrl,
     required int topicId,
     required int postNumber,
+    bool highlight = false,
   });
 }
 

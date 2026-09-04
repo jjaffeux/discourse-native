@@ -7,8 +7,10 @@ import '../../models/post.dart';
 import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
+import '../../shell/inline_action.dart';
 import '../../shell/pill.dart';
 import '../../shell/post_action.dart';
+import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_data.dart';
@@ -19,6 +21,7 @@ import 'assign_services.dart';
 import 'assign_user_menu.dart';
 import 'assigned_group_view.dart';
 import 'assignment.dart';
+import 'assignment_controller.dart';
 import 'assignment_sheet.dart';
 
 export 'assign_data.dart';
@@ -229,10 +232,72 @@ final class AssignPlugin
       context,
       assignGroupNavigationService,
     );
+    final controller = PluginUiScope.maybe(
+      context,
+      assignmentControllerService,
+    );
+
+    Widget postAssignmentRow(Assignment assignment) {
+      final postId = assignment.postId;
+      final postNumber = _validPostNumber(assignment);
+      final postTarget = postId == null || postId <= 0
+          ? null
+          : AssignmentTarget.post(postId, topicId: topic.id);
+      final canManage =
+          postTarget != null &&
+          _canAssignRecord(context, siteUrl, postTarget, null);
+      final writing =
+          postTarget != null &&
+          controller?.isWriting(siteUrl, postTarget) == true;
+      final targetLabel = _postLabel(postNumber);
+
+      return _TopicAssignmentPropertyRow(
+        key: Key('assign-topic-property-post-${postId ?? 'unknown'}'),
+        assignment: assignment,
+        targetLabel: targetLabel,
+        postTargetKey: postId == null
+            ? null
+            : Key('assign-post-$postId-target'),
+        onOpenTarget: navigation != null && postNumber != null
+            ? () => navigation.openTopicPost(
+                siteUrl: siteUrl,
+                topicId: topic.id,
+                postNumber: postNumber,
+              )
+            : null,
+        onChange: canManage
+            ? (anchorContext) => unawaited(
+                showAssignmentEditor(
+                  context: anchorContext,
+                  anchorContext: anchorContext,
+                  siteUrl: siteUrl,
+                  target: postTarget,
+                  existing: assignment,
+                ),
+              )
+            : null,
+        onRemove: canManage
+            ? (anchorContext) => unawaited(
+                _removeAssignment(
+                  context: anchorContext,
+                  siteUrl: siteUrl,
+                  target: postTarget,
+                  assignment: assignment,
+                  targetLabel: targetLabel,
+                ),
+              )
+            : null,
+        changeKey: postId == null ? null : Key('assign-post-$postId-change'),
+        removeKey: postId == null ? null : Key('assign-post-$postId-remove'),
+        writing: writing,
+      );
+    }
+
     return [
       TopicPropertySection(
         label: 'Assignments',
         layout: TopicPropertySectionLayout.standalone,
+        showHeader: false,
         values: [
           if (direct == null && canAssign)
             _AssignTopicButton(
@@ -246,14 +311,12 @@ final class AssignPlugin
                 ),
               ),
             )
-          else
+          else if (direct != null)
             _TopicAssignmentPropertyRow(
               key: const Key('assign-topic-property'),
-              targetLabel: 'Topic',
               assignment: direct,
-              actionLabel: canAssign ? 'Edit topic assignment' : null,
-              actionIcon: canAssign ? DIcons.pencil : null,
-              onTap: canAssign
+              targetLabel: 'Topic',
+              onChange: canAssign
                   ? (anchorContext) => unawaited(
                       showAssignmentEditor(
                         context: anchorContext,
@@ -264,29 +327,28 @@ final class AssignPlugin
                       ),
                     )
                   : null,
-            ),
-          for (final assignment in postAssignments)
-            _TopicAssignmentPropertyRow(
-              key: Key(
-                'assign-topic-property-post-${assignment.postId ?? 'unknown'}',
-              ),
-              targetLabel: _postLabel(_validPostNumber(assignment)),
-              assignment: assignment,
-              actionLabel:
-                  navigation != null && _validPostNumber(assignment) != null
-                  ? 'Open ${_postLabel(_validPostNumber(assignment))}'
-                  : null,
-              actionIcon:
-                  navigation != null && _validPostNumber(assignment) != null
-                  ? DIcons.chevronRight
-                  : null,
-              onTap: navigation != null && _validPostNumber(assignment) != null
-                  ? (_) => navigation.openTopicPost(
-                      siteUrl: siteUrl,
-                      topicId: topic.id,
-                      postNumber: _validPostNumber(assignment)!,
+              onRemove: canAssign
+                  ? (anchorContext) => unawaited(
+                      _removeAssignment(
+                        context: anchorContext,
+                        siteUrl: siteUrl,
+                        target: target,
+                        assignment: direct,
+                        targetLabel: 'Topic',
+                      ),
                     )
                   : null,
+              changeKey: const Key('assign-topic-change'),
+              removeKey: const Key('assign-topic-remove'),
+              writing: controller?.isWriting(siteUrl, target) == true,
+            ),
+          if (postAssignments.isNotEmpty)
+            _PostAssignmentLedger(
+              showTopDivider: direct != null || canAssign,
+              rows: [
+                for (final assignment in postAssignments)
+                  postAssignmentRow(assignment),
+              ],
             ),
         ],
       ),
@@ -562,54 +624,50 @@ class _AssignTopicButton extends StatelessWidget {
   final ValueChanged<BuildContext> onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = theme.colorScheme.onSurfaceVariant;
-    const shape = StadiumBorder();
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Builder(
-        builder: (anchorContext) => Semantics(
-          button: true,
-          label: 'Topic unassigned. Assign topic',
-          onTap: () => onTap(anchorContext),
-          child: ExcludeSemantics(
-            child: Tooltip(
-              message: 'Assign topic',
-              child: Material(
-                color: theme.colorScheme.surfaceContainerHigh,
-                shape: shape,
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  key: const Key('assign-topic-button'),
-                  onTap: () => onTap(anchorContext),
-                  mouseCursor: SystemMouseCursors.click,
-                  customBorder: shape,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 2,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DIcon(DIcons.userPlus, size: 11, color: color),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Assign',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: color,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+  Widget build(BuildContext context) => Builder(
+    builder: (anchorContext) => SizedBox(
+      width: double.infinity,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 46),
+        child: DButton(
+          key: const Key('assign-topic-button'),
+          label: const Text('Assign topic'),
+          icon: const DIcon(DIcons.userPlus),
+          variant: DButtonVariant.primary,
+          semanticLabel: 'Topic unassigned. Assign topic',
+          borderRadius: BorderRadius.circular(9),
+          onPressed: () => onTap(anchorContext),
         ),
       ),
+    ),
+  );
+}
+
+class _PostAssignmentLedger extends StatelessWidget {
+  const _PostAssignmentLedger({
+    required this.rows,
+    required this.showTopDivider,
+  });
+
+  final List<Widget> rows;
+  final bool showTopDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final dividerColor = Theme.of(
+      context,
+    ).colorScheme.outlineVariant.withValues(alpha: 0.55);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (showTopDivider)
+          Divider(height: 1, thickness: 1, color: dividerColor),
+        for (var index = 0; index < rows.length; index++) ...[
+          rows[index],
+          if (index < rows.length - 1)
+            Divider(height: 1, thickness: 1, color: dividerColor),
+        ],
+      ],
     );
   }
 }
@@ -617,89 +675,207 @@ class _AssignTopicButton extends StatelessWidget {
 class _TopicAssignmentPropertyRow extends StatelessWidget {
   const _TopicAssignmentPropertyRow({
     super.key,
-    required this.targetLabel,
     required this.assignment,
-    required this.actionLabel,
-    required this.actionIcon,
-    required this.onTap,
+    required this.targetLabel,
+    this.postTargetKey,
+    this.onOpenTarget,
+    this.onChange,
+    this.onRemove,
+    this.changeKey,
+    this.removeKey,
+    this.writing = false,
   });
 
+  final Assignment assignment;
   final String targetLabel;
-  final Assignment? assignment;
-  final String? actionLabel;
-  final DIconData? actionIcon;
-  final ValueChanged<BuildContext>? onTap;
+  final Key? postTargetKey;
+  final VoidCallback? onOpenTarget;
+  final ValueChanged<BuildContext>? onChange;
+  final ValueChanged<BuildContext>? onRemove;
+  final Key? changeKey;
+  final Key? removeKey;
+  final bool writing;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final assigneeLabel = assignment?.assignee.displayName ?? 'Unassigned';
-    final semanticLabel = [
-      if (assignment case final assignment?)
-        assignmentSummary(assignment, targetLabel)
-      else
-        '$targetLabel unassigned',
-      ?actionLabel,
-    ].join('. ');
+    final isPost = assignment.isPostAssignment;
+    final eyebrowStyle = theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w500,
+    );
+    final handleStyle = theme.textTheme.labelMedium?.copyWith(
+      color: theme.colorScheme.onSurface,
+      fontWeight: FontWeight.w700,
+    );
+    final actionTarget = isPost ? targetLabel : 'topic';
+    final openTarget = onOpenTarget;
+    final targetIsLink = isPost && openTarget != null;
+    final identity = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 40),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text.rich(
+              TextSpan(
+                text: 'Assigned to',
+                children: [
+                  if (isPost) ...[
+                    const TextSpan(text: ' · '),
+                    TextSpan(
+                      text: targetLabel,
+                      style: targetIsLink
+                          ? TextStyle(color: theme.colorScheme.primary)
+                          : null,
+                    ),
+                  ],
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: eyebrowStyle,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '@${assignment.assignee.identifier}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: handleStyle,
+            ),
+          ],
+        ),
+      ),
+    );
 
-    return Builder(
-      builder: (anchorContext) {
-        final invoke = onTap == null ? null : () => onTap!(anchorContext);
-        return Semantics(
-          container: true,
-          button: invoke != null,
-          label: semanticLabel,
-          onTap: invoke,
-          child: ExcludeSemantics(
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: invoke,
-                mouseCursor: invoke == null ? null : SystemMouseCursors.click,
-                hoverColor: Colors.transparent,
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DIcon(
-                        assignment?.assignee.isGroup == true
-                            ? DIcons.users
-                            : DIcons.userPlus,
-                        size: 14,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: Text(
-                          '$targetLabel · $assigneeLabel',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                      if (actionIcon case final actionIcon?) ...[
-                        const SizedBox(width: 6),
-                        DIcon(
-                          actionIcon,
-                          size: 12,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      label: assignmentSummary(assignment, targetLabel),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: isPost ? 7 : 4),
+        child: Row(
+          children: [
+            ExcludeSemantics(
+              child: AssignmentAssigneeAvatar(
+                assignee: assignment.assignee,
+                size: isPost ? 30 : 34,
               ),
             ),
-          ),
-        );
-      },
+            const SizedBox(width: 9),
+            Expanded(
+              child: openTarget != null
+                  ? Tooltip(
+                      message: 'Open $targetLabel',
+                      child: InlineAction.link(
+                        key: postTargetKey,
+                        onTap: openTarget,
+                        semanticLabel: 'Open $targetLabel',
+                        excludeChildSemantics: true,
+                        borderRadius: BorderRadius.circular(4),
+                        child: identity,
+                      ),
+                    )
+                  : ExcludeSemantics(child: identity),
+            ),
+            if (onChange != null || onRemove != null) ...[
+              const SizedBox(width: 5),
+              Builder(
+                builder: (anchorContext) => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (onChange != null)
+                      if (isPost)
+                        DButton.iconOnly(
+                          key: changeKey,
+                          icon: const DIcon(DIcons.arrowsRotate, size: 13),
+                          tooltip: 'Change assignee',
+                          semanticLabel: 'Change $actionTarget assignment',
+                          variant: DButtonVariant.transparent,
+                          size: DButtonSize.small,
+                          onPressed: writing
+                              ? null
+                              : () => onChange!(anchorContext),
+                        )
+                      else
+                        DButton(
+                          key: changeKey,
+                          label: const Text('Change'),
+                          tooltip: 'Change assignee',
+                          semanticLabel: 'Change topic assignment',
+                          variant: DButtonVariant.transparent,
+                          size: DButtonSize.small,
+                          onPressed: writing
+                              ? null
+                              : () => onChange!(anchorContext),
+                        ),
+                    if (onRemove != null)
+                      DButton.iconOnly(
+                        key: removeKey,
+                        icon: const DIcon(DIcons.xmark, size: 13),
+                        tooltip: 'Remove assignment',
+                        semanticLabel: 'Remove $actionTarget assignment',
+                        variant: DButtonVariant.transparentDanger,
+                        size: DButtonSize.small,
+                        loading: writing,
+                        onPressed: () => onRemove!(anchorContext),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
+}
+
+Future<void> _removeAssignment({
+  required BuildContext context,
+  required String siteUrl,
+  required AssignmentTarget target,
+  required Assignment assignment,
+  required String targetLabel,
+}) async {
+  final controller = PluginUiScope.maybe(context, assignmentControllerService);
+  if (controller == null || controller.isWriting(siteUrl, target)) return;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final result = await controller.unassignForUndo(siteUrl, target, assignment);
+  if (messenger == null || !messenger.mounted) return;
+  if (result.error case final error?) {
+    messenger.showSnackBar(SnackBar(content: Text(error)));
+    return;
+  }
+  final permit = result.permit;
+  if (permit == null) return;
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text('$targetLabel assignment removed'),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () => unawaited(
+          _restoreAssignment(
+            messenger: messenger,
+            controller: controller,
+            permit: permit,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+Future<void> _restoreAssignment({
+  required ScaffoldMessengerState messenger,
+  required AssignmentController controller,
+  required AssignmentRestorePermit permit,
+}) async {
+  final error = await controller.restoreAssignment(permit);
+  if (error == null || !messenger.mounted) return;
+  messenger.showSnackBar(SnackBar(content: Text(error)));
 }
 
 Widget _assignmentPermissionBuilder({

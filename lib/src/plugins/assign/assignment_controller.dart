@@ -27,6 +27,33 @@ typedef AssignmentStatusOptions = ({bool enabled, List<String> values});
 typedef AssignmentStatusOptionsReader =
     AssignmentStatusOptions Function(String siteUrl);
 
+final class AssignmentRestorePermit {
+  AssignmentRestorePermit._({
+    required this._owner,
+    required this.siteUrl,
+    required this.target,
+    required Assignment assignment,
+    required this.expiresAt,
+  }) : _assignment = assignment;
+
+  final AssignmentController _owner;
+  final String siteUrl;
+  final AssignmentTarget target;
+  final Assignment _assignment;
+  final DateTime expiresAt;
+  bool _used = false;
+
+  bool _take(AssignmentController owner) {
+    if (_used ||
+        !identical(_owner, owner) ||
+        !DateTime.now().isBefore(expiresAt)) {
+      return false;
+    }
+    _used = true;
+    return true;
+  }
+}
+
 /// Checks target-scoped permission again at the command boundary. A missing
 /// legacy answer may fall back only to a freshly fetched session capability.
 class AssignmentController extends FrameSafeNotifier
@@ -67,6 +94,7 @@ class AssignmentController extends FrameSafeNotifier
       'This assignment target is no longer available.';
   static const _writeAlreadyInProgress =
       'An assignment update is already in progress.';
+  static const _restorePermitDuration = Duration(seconds: 10);
 
   bool isWriting(String siteUrl, AssignmentTarget target) =>
       _writes.contains((siteUrl: siteUrl, target: target));
@@ -162,12 +190,65 @@ class AssignmentController extends FrameSafeNotifier
         );
       });
 
+  Future<({String? error, AssignmentRestorePermit? permit})> unassignForUndo(
+    String siteUrl,
+    AssignmentTarget target,
+    Assignment assignment,
+  ) async {
+    var removed = false;
+    final error = await _mutate(
+      siteUrl,
+      target,
+      (session) => api.unassign(
+        siteUrl: siteUrl,
+        apiKey: session.apiKey,
+        clientId: session.clientId,
+        target: target,
+      ),
+      afterWrite: () => removed = true,
+    );
+    final permit = error == null && removed
+        ? AssignmentRestorePermit._(
+            owner: this,
+            siteUrl: siteUrl,
+            target: target,
+            assignment: assignment,
+            expiresAt: DateTime.now().add(_restorePermitDuration),
+          )
+        : null;
+    return (error: error, permit: permit);
+  }
+
+  Future<String?> restoreAssignment(AssignmentRestorePermit permit) {
+    if (!permit._take(this)) {
+      return Future.value(const WriteException(WriteFailure.forbidden).message);
+    }
+    return _mutate(
+      permit.siteUrl,
+      permit.target,
+      (session) => api.assign(
+        siteUrl: permit.siteUrl,
+        apiKey: session.apiKey,
+        clientId: session.clientId,
+        target: permit.target,
+        assignee: permit._assignment.assignee,
+        note: permit._assignment.note,
+        status: permit._assignment.status,
+        shouldNotify: false,
+      ),
+      permissionAlreadyEstablished: true,
+    );
+  }
+
   Future<String?> _mutate(
     String siteUrl,
     AssignmentTarget target,
-    Future<void> Function(_AssignmentSession session) write,
-  ) async {
-    if (isDisposed || !canAssign(siteUrl, target)) {
+    Future<void> Function(_AssignmentSession session) write, {
+    bool permissionAlreadyEstablished = false,
+    void Function()? afterWrite,
+  }) async {
+    if (isDisposed ||
+        (!permissionAlreadyEstablished && !canAssign(siteUrl, target))) {
       return const WriteException(WriteFailure.forbidden).message;
     }
 
@@ -181,6 +262,7 @@ class AssignmentController extends FrameSafeNotifier
       if (!_isCurrent(lease)) return null;
       await write(session);
       if (!_isCurrent(lease)) return null;
+      afterWrite?.call();
 
       // Assign writes can change tracking and return no assignment snapshot.
       await _reloadTopic(siteUrl, target.topicId);

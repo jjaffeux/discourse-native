@@ -2093,6 +2093,7 @@ final class _RouteHost implements PluginRouteNavigationHost {
     required String siteUrl,
     required int topicId,
     required int postNumber,
+    bool highlight = false,
   }) {}
 
   @override

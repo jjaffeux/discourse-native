@@ -678,13 +678,16 @@ sidebar holds Reply with the adjacent guardian-gated topic menu, followed by
 bookmarks and other account actions; category, tags and inline plugin-owned
 properties share one untitled card; and non-empty recommendation sources such
 as Related and Suggested share a second card with tabs. Assignments use their
-own titled card: the topic is always the first compact row, followed by one row
-per assigned post in post order. The topic row opens the shared anchored picker
-to set, update, or remove its assignment, while a numbered post row navigates
-to that post. On pointer layouts the editor is a stable 360-by-400-point
-user/group popover with Note and optional Status fields; touch layouts use the
-shared bottom sheet. The panel-shaped toggle removes the entire sidebar from
-the layout, and that preference is remembered per forum.
+own untitled section. An unassigned topic presents one full-width primary
+**Assign topic** action; once assigned, it becomes an avatar-led, two-line row
+with explicit Change and Remove controls; a successful removal offers Undo.
+Assigned posts appear underneath only when present, in post order, with the
+post number linked inline beside **Assigned to** and their own Change and Remove
+controls. Opening that link jumps to and briefly highlights its post. On pointer
+layouts the editor is a stable 360-by-400-point user/group popover with Note and
+optional Status fields; touch layouts use the shared bottom sheet. The
+panel-shaped toggle removes the entire sidebar from the layout, and that
+preference is remembered per forum.
 Medium and compact layouts keep the same controls available through a transient
 right-side overlay instead of shrinking the reading column.
 
