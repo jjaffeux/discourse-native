@@ -1950,24 +1950,21 @@ class _TopicBottomBar extends StatelessWidget {
           border: Border(top: BorderSide(color: theme.shell.divider)),
         ),
         child: SizedBox(
-          height: 64,
+          height: 48,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
                 if (canReply)
-                  SizedBox(
-                    height: DButton.iconOnlyDimensionFor(DButtonSize.small),
-                    child: DButton(
-                      key: const ValueKey('topic-reply-button'),
-                      onPressed: onReplyPressed,
-                      icon: const DIcon(DIcons.reply, size: 18),
-                      label: const Text('Reply'),
-                      tooltip: 'Reply to this topic',
-                      shortcut: const DShortcut(topicReplyShortcut),
-                      variant: DButtonVariant.primary,
-                      size: DButtonSize.small,
-                    ),
+                  DButton(
+                    key: const ValueKey('topic-reply-button'),
+                    onPressed: onReplyPressed,
+                    icon: const DIcon(DIcons.reply, size: 16),
+                    label: const Text('Reply'),
+                    tooltip: 'Reply to this topic',
+                    shortcut: const DShortcut(topicReplyShortcut),
+                    variant: DButtonVariant.primary,
+                    size: DButtonSize.small,
                   ),
                 const Spacer(),
                 if (progressPosition case final position?)

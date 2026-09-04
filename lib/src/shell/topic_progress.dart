@@ -36,8 +36,8 @@ class TopicProgressButton extends StatelessWidget {
             key: const ValueKey('topic-progress-button'),
             onTap: onPressed,
             child: SizedBox(
-              width: 82,
-              height: 40,
+              width: 72,
+              height: 32,
               child: Stack(
                 children: [
                   Positioned.fill(

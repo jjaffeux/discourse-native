@@ -2685,6 +2685,9 @@ void _registerTopicReadingTests() {
         expect(notificationRect.right, lessThanOrEqualTo(toggleRect.left));
         expect(headerRect.right - toggleRect.right, lessThanOrEqualTo(8.1));
         expect(bottomBarRect.right, sidebarRect.left);
+        expect(bottomBarRect.height, 48);
+        expect(replyRect.height, 32);
+        expect(tester.getSize(progressButton), const Size(72, 32));
         expect(
           tester.getRect(find.byType(SuperListView)).bottom,
           bottomBarRect.top,
