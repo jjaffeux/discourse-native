@@ -42,6 +42,58 @@ void main() {
       expect(bootstrap?.notificationChannelPosition, 91);
     },
   );
+
+  test('returns null for a malformed preload document', () async {
+    final api = DiscourseApi(
+      client: MockClient(
+        (_) async => http.Response(
+          '''
+<script type="application/json" id="data-preloaded">
+  {"currentUser":
+</script>
+''',
+          200,
+          headers: {'content-type': 'text/html; charset=utf-8'},
+        ),
+      ),
+    );
+    addTearDown(api.close);
+
+    final bootstrap = await api.messageBusBootstrap(
+      siteUrl: 'https://example.com',
+      apiKey: 'secret',
+    );
+
+    expect(bootstrap, isNull);
+  });
+
+  test('decodes a large authenticated preload payload', () async {
+    final padding = 'x' * (1024 * 1024);
+    final api = DiscourseApi(
+      client: MockClient(
+        (_) async => http.Response(
+          _document({
+            'currentUser': jsonEncode({
+              'id': 42,
+              'username': 'sam',
+              'plugin_payload': padding,
+            }),
+          }),
+          200,
+          headers: {'content-type': 'text/html; charset=utf-8'},
+        ),
+      ),
+    );
+    addTearDown(api.close);
+
+    final bootstrap = await api.messageBusBootstrap(
+      siteUrl: 'https://example.com',
+      apiKey: 'secret',
+    );
+
+    expect(bootstrap?.currentUser?.id, 42);
+    expect(bootstrap?.currentUserState?['plugin_payload'], padding);
+  });
 }
 
 String _document(Map<String, String> entries) =>

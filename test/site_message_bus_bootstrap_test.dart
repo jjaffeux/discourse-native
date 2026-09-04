@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
@@ -6,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('SiteMessageBusBootstrap', () {
-    test('decodes core snapshots and every supplied channel position', () {
+    test('decodes snapshots and every channel position', () async {
       final document = _document({
         'currentUser': jsonEncode({
           'id': 42,
@@ -44,7 +45,7 @@ void main() {
         }),
       });
 
-      final bootstrap = SiteMessageBusBootstrap.fromHtml(
+      final bootstrap = await SiteMessageBusBootstrap.fromHtml(
         document,
         siteUrl: 'https://example.com',
         models: const DiscourseModelCodec.core(),
@@ -72,7 +73,7 @@ void main() {
       expect(bootstrap?.currentUserState?['all_unread_notifications_count'], 5);
     });
 
-    test('keeps independent tracking data when current user is malformed', () {
+    test('keeps tracking data when current user is malformed', () async {
       final document = _document({
         'currentUser': jsonEncode({'id': 42}),
         'topicTrackingStates': jsonEncode([
@@ -83,7 +84,7 @@ void main() {
         }),
       });
 
-      final bootstrap = SiteMessageBusBootstrap.fromHtml(
+      final bootstrap = await SiteMessageBusBootstrap.fromHtml(
         document,
         siteUrl: 'https://example.com',
         models: const DiscourseModelCodec.core(),
@@ -95,14 +96,79 @@ void main() {
       expect(bootstrap?.topicTrackingLastIds, {'/latest': 15});
     });
 
-    test('returns null when the core preload element is absent', () {
-      final bootstrap = SiteMessageBusBootstrap.fromHtml(
+    test('keeps snapshots independent when nested JSON is malformed', () async {
+      final document = _document({
+        'currentUser': '{',
+        'topicTrackingStates': jsonEncode([
+          {'topic_id': 7, 'highest_post_number': 1},
+        ]),
+        'topicTrackingStateMeta': jsonEncode({
+          'message_bus_last_ids': {'/latest': 15},
+        }),
+      });
+
+      final bootstrap = await SiteMessageBusBootstrap.fromHtml(
+        document,
+        siteUrl: 'https://example.com',
+        models: const DiscourseModelCodec.core(),
+      );
+
+      expect(bootstrap?.currentUserState, isNull);
+      expect(bootstrap?.topicTrackingState?.topics.single.topicId, 7);
+      expect(bootstrap?.topicTrackingLastIds, {'/latest': 15});
+    });
+
+    test('returns null when the outer preload JSON is malformed', () async {
+      final bootstrap = await SiteMessageBusBootstrap.fromHtml(
+        '''
+<script type="application/json" id="data-preloaded">
+  {"currentUser":
+</script>
+''',
+        siteUrl: 'https://example.com',
+        models: const DiscourseModelCodec.core(),
+      );
+
+      expect(bootstrap, isNull);
+    });
+
+    test('returns null when the core preload element is absent', () async {
+      final bootstrap = await SiteMessageBusBootstrap.fromHtml(
         '<html><body></body></html>',
         siteUrl: 'https://example.com',
         models: const DiscourseModelCodec.core(),
       );
 
       expect(bootstrap, isNull);
+    });
+
+    test('yields before decoding a large preload payload', () async {
+      final padding = 'x' * (2 * 1024 * 1024);
+      final document = _document({
+        'currentUser': jsonEncode({
+          'id': 42,
+          'username': 'sam',
+          'plugin_payload': padding,
+        }),
+      });
+      final completionOrder = <String>[];
+
+      final parsing =
+          SiteMessageBusBootstrap.fromHtml(
+            document,
+            siteUrl: 'https://example.com',
+            models: const DiscourseModelCodec.core(),
+          ).then((bootstrap) {
+            completionOrder.add('parsed');
+            return bootstrap;
+          });
+      scheduleMicrotask(() => completionOrder.add('caller'));
+
+      final bootstrap = await parsing;
+
+      expect(completionOrder, ['caller', 'parsed']);
+      expect(bootstrap?.currentUser?.id, 42);
+      expect(bootstrap?.currentUserState?['plugin_payload'], padding);
     });
   });
 }
