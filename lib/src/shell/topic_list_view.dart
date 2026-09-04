@@ -1102,7 +1102,12 @@ class _TopicRowBody extends StatelessWidget {
         url: '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
         title: topic.title,
         siteUrl: siteUrl,
-        child: row,
+        child: Material(
+          // Ink features paint on their Material rather than with the row.
+          // Keeping that surface local lets the scroll viewport clip them.
+          type: MaterialType.transparency,
+          child: row,
+        ),
       ),
     );
   }
