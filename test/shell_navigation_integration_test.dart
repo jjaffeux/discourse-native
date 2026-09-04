@@ -1671,10 +1671,18 @@ void _registerShellNavigationTests() {
     );
     expect(parentBreadcrumb, findsOneWidget);
     expect(find.bySemanticsLabel('Parent category: Parent'), findsOneWidget);
+    final parentTitle = tester.widget<Text>(
+      find.descendant(of: parentBreadcrumb, matching: find.text('Parent')),
+    );
+    expect(parentTitle.style?.fontWeight, FontWeight.w400);
     final categoryTitle = find.byKey(
       const ValueKey('content-header-category-title'),
     );
     expect(categoryTitle, findsOneWidget);
+    expect(
+      tester.widget<Text>(categoryTitle).style?.fontWeight,
+      FontWeight.w400,
+    );
     expect(
       (tester.getCenter(parentBreadcrumb).dy -
               tester.getCenter(categoryTitle).dy)
