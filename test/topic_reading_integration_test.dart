@@ -4895,6 +4895,22 @@ void _registerTopicReadingTests() {
 
       expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsOneWidget);
       expect(find.text('More topics'), findsOneWidget);
+      final moreTopicsCard = find.byKey(
+        const ValueKey('topic-more-topics-card'),
+      );
+      final moreTopicsCardDecoration =
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .descendant(
+                          of: moreTopicsCard,
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(moreTopicsCardDecoration.border, isNull);
       expect(find.byTooltip('Hide topic sidebar'), findsOneWidget);
       expect(find.text('Suggested'), findsOneWidget);
       expect(find.text('Related'), findsOneWidget);

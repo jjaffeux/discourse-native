@@ -2562,6 +2562,7 @@ class _TopicSidebarPanel extends StatelessWidget {
                     if (recommendations?.isNotEmpty == true || loading) ...[
                       _TopicSidebarCard(
                         key: const ValueKey('topic-more-topics-card'),
+                        showBottomDivider: false,
                         child: switch (recommendations) {
                           final recommendations? => Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2926,16 +2927,23 @@ class _TopicStandalonePropertyCard extends StatelessWidget {
 }
 
 class _TopicSidebarCard extends StatelessWidget {
-  const _TopicSidebarCard({super.key, required this.child});
+  const _TopicSidebarCard({
+    super.key,
+    required this.child,
+    this.showBottomDivider = true,
+  });
 
   final Widget child;
+  final bool showBottomDivider;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: theme.shell.divider)),
+        border: showBottomDivider
+            ? Border(bottom: BorderSide(color: theme.shell.divider))
+            : null,
       ),
       child: child,
     );
