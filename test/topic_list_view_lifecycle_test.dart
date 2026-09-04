@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -12,6 +13,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -291,6 +293,77 @@ void main() {
     } finally {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
+  });
+
+  testWidgets('a scrolled row cannot paint its hover into the header', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 300));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final topics = _topics(1, 20);
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([sites.first]),
+      api: FakeDiscourseApi(feeds: {'/latest.json': topics}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store.putAll(sites.first.url, topics);
+    final feed = TopicFeed(
+      topicIds: [for (final topic in topics) topic.id],
+      loaded: true,
+    );
+    const background = Color(0xFF123456);
+    const captureKey = ValueKey('topic-list-hover-capture');
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: RepaintBoundary(
+            key: captureKey,
+            child: Material(
+              color: background,
+              child: Column(
+                children: [
+                  const SizedBox(height: 80),
+                  Expanded(child: TopicListView(feed: feed)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final firstRow = find.byKey(const ValueKey(1));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(firstRow));
+    await tester.pumpAndSettle();
+
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    list.controller!.jumpTo(80);
+    await tester.pump();
+    await tester.pump();
+
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find.byKey(captureKey),
+    );
+    final headerPixel = await tester.runAsync(() async {
+      final image = await boundary.toImage();
+      try {
+        return await _pixelAt(image, 200, 40);
+      } finally {
+        image.dispose();
+      }
+    });
+    expect(headerPixel, background);
   });
 
   testWidgets('a restored row is bounded by the currently loaded page', (
@@ -679,4 +752,16 @@ Future<bool> _sendMetaShortcut(
   final handled = await tester.sendKeyEvent(key);
   await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
   return handled;
+}
+
+Future<Color> _pixelAt(ui.Image image, int x, int y) async {
+  final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+  if (data == null) throw StateError('Could not read rendered pixels.');
+  final offset = (y * image.width + x) * 4;
+  return Color.fromARGB(
+    data.getUint8(offset + 3),
+    data.getUint8(offset),
+    data.getUint8(offset + 1),
+    data.getUint8(offset + 2),
+  );
 }
