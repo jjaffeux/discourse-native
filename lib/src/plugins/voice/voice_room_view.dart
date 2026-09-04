@@ -1799,7 +1799,6 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                       children: [
                         PopupMenuButton<VoiceRole>(
                           tooltip: 'Change role',
-                          icon: const DIcon(DIcons.ellipsisVertical, size: 16),
                           popUpAnimationStyle: discoursePopupMenuAnimationStyle(
                             context,
                           ),

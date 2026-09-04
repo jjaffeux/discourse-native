@@ -337,7 +337,7 @@ class _ChatNewDirectMessageDialogState
                 hintText: _composingGroup
                     ? 'Search users or groups'
                     : 'Search users, groups, or conversations',
-                prefixIcon: const DIcon(DIcons.magnifyingGlass),
+                prefixIcon: const Icon(Icons.search),
                 border: const OutlineInputBorder(),
               ),
             ),
@@ -396,7 +396,6 @@ class _ChatNewDirectMessageDialogState
                 InputChip(
                   key: ValueKey('chat-new-group-member-${member.identifier}'),
                   label: Text(_memberLabel(member)),
-                  deleteIcon: const DIcon(DIcons.xmark, size: 16),
                   onDeleted: _opening ? null : () => _removeMember(member),
                 ),
                 const SizedBox(width: 6),

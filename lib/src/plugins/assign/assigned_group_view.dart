@@ -685,7 +685,6 @@ class _AssignedQueryControls extends StatelessWidget {
       key: ValueKey('assigned-order-${query.order?.wireName ?? 'default'}'),
       initialValue: query.order,
       isExpanded: true,
-      icon: const DIcon(DIcons.chevronDown, size: 16),
       decoration: const InputDecoration(
         border: OutlineInputBorder(),
         isDense: true,
@@ -716,7 +715,7 @@ class _AssignedQueryControls extends StatelessWidget {
           search: query.search,
         ),
       ),
-      icon: DIcon(query.ascending ? DIcons.arrowUp : DIcons.arrowDown),
+      icon: Icon(query.ascending ? Icons.arrow_upward : Icons.arrow_downward),
     );
 
     return FocusTraversalGroup(

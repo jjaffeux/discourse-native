@@ -2694,7 +2694,7 @@ class _ImageComposerMenu extends StatelessWidget {
                         onPressed: scaleIndex > 0
                             ? () => onScale(scales[scaleIndex - 1])
                             : null,
-                        icon: const DIcon(DIcons.zoomOut, size: 18),
+                        icon: const Icon(Icons.zoom_out, size: 18),
                         tooltip: 'Decrease image size',
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(
@@ -2707,7 +2707,7 @@ class _ImageComposerMenu extends StatelessWidget {
                         onPressed: scaleIndex < scales.length - 1
                             ? () => onScale(scales[scaleIndex + 1])
                             : null,
-                        icon: const DIcon(DIcons.zoomIn, size: 18),
+                        icon: const Icon(Icons.zoom_in, size: 18),
                         tooltip: 'Increase image size',
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(
@@ -2718,7 +2718,7 @@ class _ImageComposerMenu extends StatelessWidget {
                     ] else
                       IconButton(
                         onPressed: onMoveOutsideGallery,
-                        icon: const DIcon(DIcons.grid2x2X, size: 18),
+                        icon: const Icon(Icons.grid_off_outlined, size: 18),
                         tooltip: 'Move image outside gallery',
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(
@@ -2729,7 +2729,7 @@ class _ImageComposerMenu extends StatelessWidget {
                     const Spacer(),
                     IconButton(
                       onPressed: onDelete,
-                      icon: const DIcon(DIcons.trashCan, size: 18),
+                      icon: const Icon(Icons.delete_outline, size: 18),
                       tooltip: 'Delete image',
                       visualDensity: VisualDensity.compact,
                       constraints: const BoxConstraints.tightFor(
@@ -2755,7 +2755,7 @@ class _ImageComposerMenu extends StatelessWidget {
                       suffixIcon: IconButton(
                         onPressed: onSaveAlt,
                         tooltip: 'Save alt text',
-                        icon: const DIcon(DIcons.check, size: 16),
+                        icon: const Icon(Icons.check, size: 16),
                         constraints: const BoxConstraints.tightFor(
                           width: 44,
                           height: 44,
@@ -2825,8 +2825,8 @@ class _GalleryComposerMenu extends StatelessWidget {
                     IconButton(
                       isSelected: gallery.mode == ComposerGalleryMode.grid,
                       onPressed: () => onMode(ComposerGalleryMode.grid),
-                      icon: const DIcon(DIcons.grid3x3, size: 18),
-                      selectedIcon: const DIcon(DIcons.grid3x3, size: 18),
+                      icon: const Icon(Icons.grid_view_outlined, size: 18),
+                      selectedIcon: const Icon(Icons.grid_view, size: 18),
                       tooltip: 'Grid gallery mode',
                       constraints: const BoxConstraints.tightFor(
                         width: _ComposerEditorState._galleryMenuButtonExtent,
@@ -2840,11 +2840,8 @@ class _GalleryComposerMenu extends StatelessWidget {
                     IconButton(
                       isSelected: gallery.mode == ComposerGalleryMode.carousel,
                       onPressed: () => onMode(ComposerGalleryMode.carousel),
-                      icon: const DIcon(DIcons.galleryHorizontal, size: 18),
-                      selectedIcon: const DIcon(
-                        DIcons.galleryHorizontal,
-                        size: 18,
-                      ),
+                      icon: const Icon(Icons.view_carousel_outlined, size: 18),
+                      selectedIcon: const Icon(Icons.view_carousel, size: 18),
                       tooltip: 'Carousel gallery mode',
                       constraints: const BoxConstraints.tightFor(
                         width: _ComposerEditorState._galleryMenuButtonExtent,
@@ -2875,7 +2872,10 @@ class _GalleryComposerMenu extends StatelessWidget {
                                 strokeWidth: 2,
                               ),
                             )
-                          : const DIcon(DIcons.imagePlus, size: 18),
+                          : const Icon(
+                              Icons.add_photo_alternate_outlined,
+                              size: 18,
+                            ),
                       onSelected: (choice) {
                         switch (choice) {
                           case _GalleryAddChoice.upload:
@@ -2889,7 +2889,7 @@ class _GalleryComposerMenu extends StatelessWidget {
                           value: _GalleryAddChoice.upload,
                           child: ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: DIcon(DIcons.upload),
+                            leading: Icon(Icons.upload_outlined),
                             title: Text('Upload new images'),
                           ),
                         ),
@@ -2898,7 +2898,7 @@ class _GalleryComposerMenu extends StatelessWidget {
                           enabled: hasStandaloneImages,
                           child: const ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: DIcon(DIcons.images),
+                            leading: Icon(Icons.photo_library_outlined),
                             title: Text('Add existing draft images'),
                           ),
                         ),
@@ -2906,7 +2906,7 @@ class _GalleryComposerMenu extends StatelessWidget {
                     ),
                     IconButton(
                       onPressed: onUnwrap,
-                      icon: const DIcon(DIcons.grid2x2X, size: 18),
+                      icon: const Icon(Icons.grid_off_outlined, size: 18),
                       tooltip: 'Remove gallery, keep images',
                       constraints: const BoxConstraints.tightFor(
                         width: _ComposerEditorState._galleryMenuButtonExtent,
@@ -2959,7 +2959,7 @@ class _ExistingGalleryImagesDialogState
               key: ValueKey('gallery-existing-image-${image.start}'),
               value: selected,
               controlAffinity: ListTileControlAffinity.leading,
-              secondary: const DIcon(DIcons.image),
+              secondary: const Icon(Icons.image_outlined),
               title: Text(
                 image.alt.isEmpty ? 'Image ${index + 1}' : image.alt,
                 maxLines: 2,
@@ -3181,7 +3181,7 @@ class _Header extends StatelessWidget {
               IconButton(
                 key: const ValueKey('composer-minimize'),
                 onPressed: minimize,
-                icon: const DIcon(DIcons.minus, size: 18),
+                icon: const Icon(Icons.minimize, size: 18),
                 tooltip: 'Minimize composer',
               ),
             IconButton(
@@ -3534,8 +3534,8 @@ class ComposerUploadQueue extends StatelessWidget {
                     url: thumbnail.previewUrl,
                   )
                 else
-                  DIcon(
-                    failed ? DIcons.triangleExclamation : DIcons.image,
+                  Icon(
+                    failed ? Icons.error_outline : Icons.image_outlined,
                     size: 18,
                     color: failed
                         ? theme.colorScheme.error
@@ -3580,20 +3580,20 @@ class ComposerUploadQueue extends StatelessWidget {
                 if (failed) ...[
                   IconButton(
                     onPressed: () => composer.retryUpload(upload.id),
-                    icon: const DIcon(DIcons.arrowsRotate, size: 17),
+                    icon: const Icon(Icons.refresh, size: 17),
                     tooltip: 'Retry upload',
                     visualDensity: VisualDensity.compact,
                   ),
                   IconButton(
                     onPressed: () => composer.removeUpload(upload.id),
-                    icon: const DIcon(DIcons.xmark, size: 17),
+                    icon: const Icon(Icons.close, size: 17),
                     tooltip: 'Remove upload',
                     visualDensity: VisualDensity.compact,
                   ),
                 ] else if (completed) ...[
                   IconButton(
                     onPressed: () => composer.removeUpload(upload.id),
-                    icon: const DIcon(DIcons.xmark, size: 17),
+                    icon: const Icon(Icons.close, size: 17),
                     tooltip: 'Remove upload',
                     visualDensity: VisualDensity.compact,
                   ),
@@ -3608,7 +3608,7 @@ class ComposerUploadQueue extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: () => composer.cancelUpload(upload.id),
-                    icon: const DIcon(DIcons.xmark, size: 17),
+                    icon: const Icon(Icons.close, size: 17),
                     tooltip: 'Cancel upload',
                     visualDensity: VisualDensity.compact,
                   ),
@@ -3640,8 +3640,8 @@ class _ComposerUploadThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = DIcon(
-      DIcons.image,
+    final fallback = Icon(
+      Icons.image_outlined,
       size: 18,
       color: Theme.of(context).colorScheme.onSurfaceVariant,
     );

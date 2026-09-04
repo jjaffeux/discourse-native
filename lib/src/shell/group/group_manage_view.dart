@@ -229,7 +229,6 @@ class _GroupManageFormState extends State<_GroupManageForm> {
         DropdownButtonFormField<String>(
           key: const ValueKey('membership-admission'),
           initialValue: controller.admission,
-          icon: const DIcon(DIcons.chevronDown, size: 16),
           decoration: const InputDecoration(labelText: 'Who can join?'),
           items: const [
             DropdownMenuItem(value: 'closed', child: Text('Invitation only')),
@@ -499,7 +498,6 @@ class _LevelField extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 14),
       child: DropdownButtonFormField<int>(
         initialValue: value,
-        icon: const DIcon(DIcons.chevronDown, size: 16),
         decoration: InputDecoration(labelText: label),
         items: [
           for (final option in values)
@@ -531,7 +529,6 @@ class _InteractionLevelField extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 14),
       child: DropdownButtonFormField<int>(
         initialValue: value,
-        icon: const DIcon(DIcons.chevronDown, size: 16),
         decoration: InputDecoration(labelText: label),
         items: [
           for (final option in values)

@@ -1559,7 +1559,6 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                     key: const ValueKey('chat-move-destination'),
                     initialValue: selected,
                     isExpanded: true,
-                    icon: const DIcon(DIcons.chevronDown, size: 16),
                     decoration: const InputDecoration(
                       labelText: 'Destination channel',
                     ),

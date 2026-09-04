@@ -720,8 +720,6 @@ class _ProfileForm extends StatelessWidget {
           enableFilter: true,
           enableSearch: true,
           requestFocusOnTap: true,
-          trailingIcon: const DIcon(DIcons.chevronDown, size: 16),
-          selectedTrailingIcon: const DIcon(DIcons.chevronUp, size: 16),
           label: const Text('Timezone'),
           helperText:
               'Type to filter IANA timezones used for dates and reminders.',

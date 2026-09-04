@@ -373,10 +373,6 @@ class _ChannelSettings extends StatelessWidget {
                                             'chat-channel-notification-setting',
                                           ),
                                           value: membership.notificationLevel,
-                                          icon: const DIcon(
-                                            DIcons.chevronDown,
-                                            size: 16,
-                                          ),
                                           onChanged: notificationBusy
                                               ? null
                                               : (level) {

@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import '../models/found_user.dart';
 import '../models/post.dart';
 import '../theme/d_button.dart';
-import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'shell_controller.dart';
 
@@ -153,7 +151,7 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
               onChanged: _scheduleSearch,
               decoration: const InputDecoration(
                 labelText: 'Search users',
-                prefixIcon: DIcon(DIcons.magnifyingGlass),
+                prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
               ),
             ),

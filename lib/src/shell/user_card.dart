@@ -394,7 +394,10 @@ class _CardContent extends StatelessWidget {
                         ),
                       if (card.location case final location?)
                         _CardDetail(
-                          icon: const DIcon(DIcons.mapPin, size: 16),
+                          icon: const Icon(
+                            Icons.location_on_outlined,
+                            size: 16,
+                          ),
                           label: location,
                         ),
                     ],
