@@ -18,12 +18,13 @@ void main() {
       'installGlobalErrorHandlers',
       'initializePlugins',
       'launchApplication',
+      'hydrateDiagnostics',
       'scheduleAfterFirstFrame',
     ]);
     expect(host.deferred.isCompleted, isFalse);
 
     await host.runDeferred();
-    expect(host.calls.skip(8), [
+    expect(host.calls.skip(9), [
       'initializeTimezoneEnvironment',
       'initializePersistentMediaCache',
     ]);
@@ -47,11 +48,12 @@ void main() {
       'installGlobalErrorHandlers',
       'initializePlugins',
       'launchApplication',
+      'hydrateDiagnostics',
       'scheduleAfterFirstFrame',
     ]);
 
     await host.runDeferred();
-    expect(host.calls.skip(8), [
+    expect(host.calls.skip(9), [
       'initializeTimezoneEnvironment',
       'initializePersistentMediaCache',
       'reportError',
@@ -82,6 +84,7 @@ void main() {
       'installRecordingHttpOverrides',
       'installGlobalErrorHandlers',
       'initializePlugins',
+      'hydrateDiagnostics',
       'reportUnhandledError',
     ]);
     expect(host.launched.isCompleted, isFalse);
@@ -96,6 +99,23 @@ void main() {
     expect(host.unhandledErrors, isEmpty);
     expect(host.calls, ['ensureFlutterInitialized', 'createDiagnostics']);
     expect(host.launched.isCompleted, isFalse);
+  });
+
+  test('does not wait for diagnostics hydration before launching', () async {
+    final hydrationGate = Completer<void>();
+    final host = _RecordingBootstrapHost(hydrationGate: hydrationGate.future);
+
+    AppBootstrap(host: host).start();
+    await host.launched.future;
+
+    expect(
+      host.calls.indexOf('launchApplication'),
+      lessThan(host.calls.indexOf('hydrateDiagnostics')),
+    );
+    expect(host.hydrated.isCompleted, isFalse);
+
+    hydrationGate.complete();
+    await host.hydrated.future;
   });
 }
 
@@ -139,14 +159,16 @@ typedef _UnhandledError = ({
 });
 
 final class _RecordingBootstrapHost implements AppBootstrapHost {
-  _RecordingBootstrapHost({this.failureStage});
+  _RecordingBootstrapHost({this.failureStage, this.hydrationGate});
 
   final String? failureStage;
+  final Future<void>? hydrationGate;
   final Object failure = StateError('startup failed');
   final List<String> calls = [];
   final List<_ReportedError> reportedErrors = [];
   final List<_UnhandledError> unhandledErrors = [];
   final Completer<void> launched = Completer<void>();
+  final Completer<void> hydrated = Completer<void>();
   final Completer<void> deferred = Completer<void>();
   Future<void> Function()? _deferredWork;
 
@@ -156,8 +178,16 @@ final class _RecordingBootstrapHost implements AppBootstrapHost {
   }
 
   @override
-  Future<void> createDiagnostics() async {
+  void createDiagnostics() {
     _record('createDiagnostics');
+  }
+
+  @override
+  Future<void> hydrateDiagnostics() async {
+    _record('hydrateDiagnostics');
+    final gate = hydrationGate;
+    if (gate != null) await gate;
+    hydrated.complete();
   }
 
   @override

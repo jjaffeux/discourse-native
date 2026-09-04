@@ -923,6 +923,162 @@ void main() {
   });
 
   test(
+    'delayed hydration preserves early event order and close drains a delayed append',
+    () async {
+      var now = DateTime.utc(2026, 8, 8, 9);
+      final persistence = _GatedHydrationPersistence();
+      await persistence.seed([
+        ErrorDiagnosticEvent(
+          id: 'retained-error',
+          sessionId: 'previous-session',
+          sequence: 41,
+          timestampUtc: now.subtract(const Duration(minutes: 1)),
+          updatedAtUtc: now.subtract(const Duration(minutes: 1)),
+          source: 'application',
+          handled: true,
+          degraded: true,
+          errorType: 'StateError',
+          message: 'retained failure',
+          stackTrace: 'retained stack',
+        ),
+      ], nowUtc: now);
+      final controller = DiagnosticsController.start(
+        persistence: persistence,
+        clock: () => now,
+        sessionId: 'hydrating-session',
+      );
+      addTearDown(() async {
+        persistence.releaseLoad();
+        persistence.releaseAppend();
+        await controller.close();
+      });
+
+      controller.reportError(
+        StateError('first early failure'),
+        StackTrace.current,
+      );
+      expect(persistence.loadStarted.isCompleted, isFalse);
+
+      final hydration = controller.hydrate();
+      await persistence.loadStarted.future;
+      now = now.add(const Duration(milliseconds: 1));
+      controller.reportError(
+        StateError('second early failure'),
+        StackTrace.current,
+      );
+      persistence.releaseLoad();
+      await hydration;
+      await persistence.appendStarted.future;
+
+      final errorsAfterHydration = controller.events
+          .whereType<ErrorDiagnosticEvent>()
+          .toList();
+      expect(errorsAfterHydration.map((event) => event.message), [
+        'retained failure',
+        'Bad state: first early failure',
+        'Bad state: second early failure',
+      ]);
+      expect(
+        errorsAfterHydration.map((event) => event.sequence),
+        orderedEquals([41, 43, 44]),
+      );
+      expect(controller.unseenErrorCountListenable.value, 3);
+
+      now = now.add(const Duration(milliseconds: 1));
+      controller.reportError(
+        StateError('failure during append'),
+        StackTrace.current,
+      );
+      final closing = controller.close();
+      var closeCompleted = false;
+      closing.whenComplete(() => closeCompleted = true).ignore();
+      await Future<void>.delayed(Duration.zero);
+      expect(closeCompleted, isFalse);
+
+      persistence.releaseAppend();
+      await closing;
+      final stored = await persistence.snapshot(nowUtc: now);
+      expect(
+        stored.events.whereType<ErrorDiagnosticEvent>().map(
+          (event) => event.message,
+        ),
+        [
+          'retained failure',
+          'Bad state: first early failure',
+          'Bad state: second early failure',
+          'Bad state: failure during append',
+        ],
+      );
+      expect(
+        stored.events
+            .whereType<DiagnosticSessionEvent>()
+            .where((event) => event.sessionId == 'hydrating-session')
+            .map((event) => event.state),
+        [DiagnosticSessionState.started, DiagnosticSessionState.ended],
+      );
+    },
+  );
+
+  test(
+    'clear during delayed hydration cannot restore retained history',
+    () async {
+      final now = DateTime.utc(2026, 8, 8, 9);
+      final persistence = _GatedHydrationPersistence();
+      await persistence.seed([
+        ErrorDiagnosticEvent(
+          id: 'history-to-clear',
+          sessionId: 'previous-session',
+          sequence: 7,
+          timestampUtc: now,
+          updatedAtUtc: now,
+          source: 'application',
+          handled: true,
+          degraded: true,
+          errorType: 'StateError',
+          message: 'must stay cleared',
+          stackTrace: 'retained stack',
+        ),
+      ], nowUtc: now);
+      final controller = DiagnosticsController.start(
+        persistence: persistence,
+        clock: () => now,
+        sessionId: 'clear-during-hydration',
+      );
+      addTearDown(() async {
+        persistence.releaseLoad();
+        persistence.releaseAppend();
+        await controller.close();
+      });
+
+      final hydration = controller.hydrate();
+      await persistence.loadStarted.future;
+      final clearing = controller.clear();
+      controller.reportError(
+        StateError('recorded after clear'),
+        StackTrace.current,
+      );
+      persistence.releaseLoad();
+      await persistence.appendStarted.future;
+      persistence.releaseAppend();
+
+      await Future.wait([hydration, clearing]);
+      final stored = await persistence.snapshot(nowUtc: now);
+      expect(
+        controller.events.whereType<ErrorDiagnosticEvent>().map(
+          (event) => event.message,
+        ),
+        ['Bad state: recorded after clear'],
+      );
+      expect(
+        stored.events.whereType<ErrorDiagnosticEvent>().map(
+          (event) => event.message,
+        ),
+        ['Bad state: recorded after clear'],
+      );
+    },
+  );
+
+  test(
     'concurrent close callers share failure and still release notifiers',
     () async {
       final persistence = _GatedClosePersistence();
@@ -1479,6 +1635,63 @@ final class _TrackingPersistence implements DiagnosticsPersistence {
       throw StateError('append unavailable');
     }
     batches.add(List.unmodifiable(events));
+    await _delegate.appendEvents(events, nowUtc: nowUtc);
+  }
+
+  @override
+  Future<void> clear() => _delegate.clear();
+
+  @override
+  Future<void> close() => _delegate.close();
+
+  @override
+  Future<void> compact({required DateTime nowUtc}) =>
+      _delegate.compact(nowUtc: nowUtc);
+
+  @override
+  Future<void> writeLastSeenSequence(int sequence) =>
+      _delegate.writeLastSeenSequence(sequence);
+}
+
+final class _GatedHydrationPersistence implements DiagnosticsPersistence {
+  final MemoryDiagnosticsPersistence _delegate = MemoryDiagnosticsPersistence();
+  final Completer<void> loadStarted = Completer<void>();
+  final Completer<void> appendStarted = Completer<void>();
+  final Completer<void> _loadGate = Completer<void>();
+  final Completer<void> _appendGate = Completer<void>();
+  bool _gateFirstAppend = true;
+
+  Future<void> seed(List<DiagnosticEvent> events, {required DateTime nowUtc}) =>
+      _delegate.appendEvents(events, nowUtc: nowUtc);
+
+  Future<DiagnosticsPersistenceState> snapshot({required DateTime nowUtc}) =>
+      _delegate.load(nowUtc: nowUtc);
+
+  void releaseLoad() {
+    if (!_loadGate.isCompleted) _loadGate.complete();
+  }
+
+  void releaseAppend() {
+    if (!_appendGate.isCompleted) _appendGate.complete();
+  }
+
+  @override
+  Future<DiagnosticsPersistenceState> load({required DateTime nowUtc}) async {
+    if (!loadStarted.isCompleted) loadStarted.complete();
+    await _loadGate.future;
+    return _delegate.load(nowUtc: nowUtc);
+  }
+
+  @override
+  Future<void> appendEvents(
+    List<DiagnosticEvent> events, {
+    required DateTime nowUtc,
+  }) async {
+    if (_gateFirstAppend) {
+      _gateFirstAppend = false;
+      appendStarted.complete();
+      await _appendGate.future;
+    }
     await _delegate.appendEvents(events, nowUtc: nowUtc);
   }
 
