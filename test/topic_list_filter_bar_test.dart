@@ -189,6 +189,63 @@ void main() {
     expect(categoryTextStyle.color, tagTextStyle.color);
     expect(categoryTextStyle.fontWeight, tagTextStyle.fontWeight);
     expect(categoryTextStyle.fontWeight, FontWeight.normal);
+    Navigator.of(
+      tester.element(
+        find.byKey(const ValueKey('topic-list-tag-filter-popover')),
+      ),
+    ).pop();
+    await tester.pumpAndSettle();
+
+    await pumpBar(
+      tester,
+      selectedCategoryId: parent.id,
+      platform: TargetPlatform.macOS,
+    );
+    final subcategoryFilter = find.byKey(
+      const ValueKey('topic-list-subcategory-filter'),
+    );
+    await tester.ensureVisible(subcategoryFilter);
+    await tester.tap(subcategoryFilter);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Subcategories of ${parent.name}'), findsNothing);
+    final childIndicator = find.byKey(
+      const ValueKey(('topic-list-category-indicator', 2)),
+    );
+    expect(childIndicator, findsOneWidget);
+    expect(
+      tester
+          .widget<Container>(
+            find.descendant(
+              of: childIndicator,
+              matching: find.byType(Container),
+            ),
+          )
+          .decoration,
+      isA<BoxDecoration>().having(
+        (decoration) => decoration.color,
+        'color',
+        const Color(0xFF3188CC),
+      ),
+    );
+    final subcategorySurface = find.byKey(
+      const ValueKey('choice-menu-surface'),
+    );
+    expect(
+      find.descendant(
+        of: subcategorySurface,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.folder,
+        ),
+      ),
+      findsNothing,
+    );
+    final subcategoryTextStyle = tester
+        .widget<Text>(find.text(child.name))
+        .style!;
+    expect(subcategoryTextStyle.fontSize, tagTextStyle.fontSize);
+    expect(subcategoryTextStyle.color, tagTextStyle.color);
+    expect(subcategoryTextStyle.fontWeight, tagTextStyle.fontWeight);
   });
 
   testWidgets('selects a category and one of its subcategories', (
