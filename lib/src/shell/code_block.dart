@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_code_editor/flutter_code_editor.dart' as editor;
 import 'package:html/dom.dart' as dom;
 
 import '../theme/app_theme.dart';
@@ -200,6 +201,74 @@ Color? scopeColor(String? scope, CodeColors colors) => switch (scope) {
   _ => null,
 };
 
+const Map<String, String> _languageLabels = {
+  'bash': 'Bash',
+  'c': 'C',
+  'clojure': 'Clojure',
+  'coffee': 'CoffeeScript',
+  'coffeescript': 'CoffeeScript',
+  'cpp': 'C++',
+  'cs': 'C#',
+  'csharp': 'C#',
+  'css': 'CSS',
+  'dart': 'Dart',
+  'diff': 'Diff',
+  'dockerfile': 'Dockerfile',
+  'elixir': 'Elixir',
+  'erb': 'ERB',
+  'go': 'Go',
+  'graphql': 'GraphQL',
+  'handlebars': 'Handlebars',
+  'hbs': 'Handlebars',
+  'html': 'HTML',
+  'html.hbs': 'Handlebars',
+  'java': 'Java',
+  'javascript': 'JavaScript',
+  'js': 'JavaScript',
+  'json': 'JSON',
+  'jsx': 'JSX',
+  'kotlin': 'Kotlin',
+  'kt': 'Kotlin',
+  'markdown': 'Markdown',
+  'md': 'Markdown',
+  'objectivec': 'Objective-C',
+  'php': 'PHP',
+  'plaintext': 'Plain text',
+  'python': 'Python',
+  'py': 'Python',
+  'rb': 'Ruby',
+  'ruby': 'Ruby',
+  'rust': 'Rust',
+  'scss': 'SCSS',
+  'shell': 'Shell',
+  'sql': 'SQL',
+  'swift': 'Swift',
+  'text': 'Plain text',
+  'tsx': 'TSX',
+  'typescript': 'TypeScript',
+  'ts': 'TypeScript',
+  'xml': 'XML',
+  'yaml': 'YAML',
+  'yml': 'YAML',
+};
+
+String codeLanguageLabel(String? language) {
+  final normalized = language?.trim().toLowerCase();
+  if (normalized == null ||
+      normalized.isEmpty ||
+      normalized == 'auto' ||
+      normalized == 'nohighlight') {
+    return 'Code';
+  }
+
+  return _languageLabels[normalized] ??
+      normalized
+          .split(RegExp(r'[-_.]+'))
+          .where((part) => part.isNotEmpty)
+          .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+          .join(' ');
+}
+
 Widget? codeBlockWidgetBuilder(dom.Element element) {
   if (element.localName != 'pre') return null;
   return CodeBlock(data: CodeBlockData.from(element));
@@ -219,8 +288,6 @@ class CodeBlock extends StatefulWidget {
 
 class _CodeBlockState extends State<CodeBlock> {
   final ScrollController _horizontal = ScrollController();
-  Timer? _copiedTimer;
-  bool _copied = false;
   late CodeBlockData _data;
   int _highlightGeneration = 0;
 
@@ -266,31 +333,8 @@ class _CodeBlockState extends State<CodeBlock> {
 
   @override
   void dispose() {
-    _copiedTimer?.cancel();
     _horizontal.dispose();
     super.dispose();
-  }
-
-  Future<void> _copy() async {
-    try {
-      await Clipboard.setData(ClipboardData(text: _data.clipboardText));
-    } catch (_) {
-      if (mounted) _notice("Couldn't copy code.");
-      return;
-    }
-    if (!mounted) return;
-
-    _copiedTimer?.cancel();
-    setState(() => _copied = true);
-    _copiedTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _copied = false);
-    });
-  }
-
-  void _notice(String message) {
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _openFullscreen() {
@@ -329,12 +373,28 @@ class _CodeBlockState extends State<CodeBlock> {
         borderRadius: BorderRadius.circular(6),
       ),
       clipBehavior: Clip.antiAlias,
-      // Code does not wrap — it scrolls, like every other code viewer, since
-      // wrapping makes indentation lie about structure. The scrollbar stays up
-      // whenever there is somewhere to scroll: a clipped line otherwise reads
-      // as a rendering bug rather than as an invitation to scroll.
-      child: Stack(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          _CodeBlockHeader(
+            language: data.language,
+            actions: [
+              _CodeCopyButton(text: data.clipboardText),
+              if (widget.showFullscreen)
+                DButton.iconOnly(
+                  key: const ValueKey('code-block-fullscreen'),
+                  onPressed: _openFullscreen,
+                  tooltip: 'View code full screen',
+                  semanticLabel: 'View code full screen',
+                  variant: DButtonVariant.flat,
+                  size: DButtonSize.small,
+                  icon: const DIcon(DIcons.expand, size: 16),
+                ),
+            ],
+          ),
+          // Code does not wrap — it scrolls, like every other code viewer,
+          // since wrapping makes indentation lie about structure. The
+          // scrollbar stays up whenever there is somewhere to scroll.
           LayoutBuilder(
             builder: (context, constraints) => Scrollbar(
               controller: _horizontal,
@@ -343,7 +403,7 @@ class _CodeBlockState extends State<CodeBlock> {
                 controller: _horizontal,
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.only(
-                  top: 8,
+                  top: 4,
                   bottom: CodeBlock._scrollbarLane,
                 ),
                 child: ConstrainedBox(
@@ -366,41 +426,6 @@ class _CodeBlockState extends State<CodeBlock> {
                     ),
                   ),
                 ),
-              ),
-            ),
-          ),
-          PositionedDirectional(
-            top: 0,
-            end: 0,
-            child: ColoredBox(
-              color: theme.code.blockBackground.withValues(alpha: 0.94),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DButton.iconOnly(
-                    key: const ValueKey('code-block-copy'),
-                    onPressed: _copied ? null : () => unawaited(_copy()),
-                    tooltip: _copied ? 'Copied!' : 'Copy code',
-                    semanticLabel: _copied ? 'Code copied' : 'Copy code',
-                    variant: DButtonVariant.flat,
-                    size: DButtonSize.small,
-                    icon: DIcon(
-                      _copied ? DIcons.check : DIcons.copy,
-                      size: 14,
-                      color: _copied ? theme.colorScheme.primary : null,
-                    ),
-                  ),
-                  if (widget.showFullscreen)
-                    DButton.iconOnly(
-                      key: const ValueKey('code-block-fullscreen'),
-                      onPressed: _openFullscreen,
-                      tooltip: 'View code full screen',
-                      semanticLabel: 'View code full screen',
-                      variant: DButtonVariant.flat,
-                      size: DButtonSize.small,
-                      icon: const DIcon(DIcons.expand, size: 14),
-                    ),
-                ],
               ),
             ),
           ),
@@ -427,40 +452,247 @@ class CodeBlockFullscreen extends StatefulWidget {
 }
 
 class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
-  final ScrollController _vertical = ScrollController();
+  late final editor.CodeController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = editor.CodeController(
+      text: widget.data.text,
+      language: highlightMode(widget.data.text, widget.data.language),
+      readOnly: true,
+    );
+  }
 
   @override
   void dispose() {
-    _vertical.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = monospaceTextStyle.copyWith(
+      fontSize: DiscourseTypography.fontDown1,
+      height: DiscourseTypography.codeLineHeight,
+      color: theme.discourse.primaryVeryHigh,
+    );
+
     return Scaffold(
       key: const ValueKey('code-block-fullscreen-view'),
-      appBar: AppBar(
-        leading: IconButton(
-          key: const ValueKey('code-block-fullscreen-close'),
-          onPressed: Navigator.of(context).pop,
-          tooltip: 'Close',
-          icon: const DIcon(DIcons.xmark, size: 18),
-        ),
-        title: const Text('View code'),
-      ),
+      backgroundColor: theme.code.blockBackground,
       body: SafeArea(
-        child: Scrollbar(
-          controller: _vertical,
-          thumbVisibility: true,
-          child: SingleChildScrollView(
-            controller: _vertical,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: CodeBlock(data: widget.data, showFullscreen: false),
-          ),
+        child: Column(
+          children: [
+            _CodeBlockHeader(
+              language: widget.data.language,
+              actions: [
+                _CodeCopyButton(text: widget.data.clipboardText),
+                DButton.iconOnly(
+                  key: const ValueKey('code-block-fullscreen-close'),
+                  onPressed: Navigator.of(context).pop,
+                  tooltip: 'Close',
+                  semanticLabel: 'Close code viewer',
+                  variant: DButtonVariant.flat,
+                  size: DButtonSize.small,
+                  icon: const DIcon(DIcons.xmark, size: 18),
+                ),
+              ],
+            ),
+            Expanded(
+              child: editor.CodeTheme(
+                data: editor.CodeThemeData(styles: _editorStyles(theme)),
+                child: editor.CodeField(
+                  key: const ValueKey('code-block-fullscreen-editor'),
+                  controller: _controller,
+                  readOnly: true,
+                  expands: true,
+                  wrap: false,
+                  background: theme.code.blockBackground,
+                  textStyle: style,
+                  gutterStyle: editor.GutterStyle(
+                    width: 56,
+                    margin: 12,
+                    showErrors: false,
+                    showFoldingHandles: false,
+                    textStyle: style.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  textSelectionTheme: TextSelectionThemeData(
+                    selectionColor: theme.colorScheme.primary.withValues(
+                      alpha: 0.28,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+class _CodeBlockHeader extends StatelessWidget {
+  const _CodeBlockHeader({required this.language, required this.actions});
+
+  final String? language;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SizedBox(
+      height: 48,
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(start: 12, end: 4),
+        child: Row(
+          children: [
+            DIcon(
+              DIcons.code,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                codeLanguageLabel(language),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.discourse.primaryVeryHigh,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ...actions,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CodeCopyButton extends StatefulWidget {
+  const _CodeCopyButton({required this.text});
+
+  final String text;
+
+  @override
+  State<_CodeCopyButton> createState() => _CodeCopyButtonState();
+}
+
+class _CodeCopyButtonState extends State<_CodeCopyButton> {
+  Timer? _copiedTimer;
+  bool _copied = false;
+
+  @override
+  void dispose() {
+    _copiedTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copy() async {
+    try {
+      await Clipboard.setData(ClipboardData(text: widget.text));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(
+          context,
+        )?.showSnackBar(const SnackBar(content: Text("Couldn't copy code.")));
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    _copiedTimer?.cancel();
+    setState(() => _copied = true);
+    _copiedTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DButton.iconOnly(
+      key: const ValueKey('code-block-copy'),
+      onPressed: _copied ? null : () => unawaited(_copy()),
+      tooltip: _copied ? 'Copied!' : 'Copy code',
+      semanticLabel: _copied ? 'Code copied' : 'Copy code',
+      variant: DButtonVariant.flat,
+      size: DButtonSize.small,
+      icon: DIcon(
+        _copied ? DIcons.check : DIcons.copy,
+        size: 16,
+        color: _copied ? theme.colorScheme.primary : null,
+      ),
+    );
+  }
+}
+
+Map<String, TextStyle> _editorStyles(ThemeData theme) {
+  final colors = theme.code;
+  TextStyle color(Color color) => TextStyle(color: color);
+
+  return {
+    'root': TextStyle(
+      color: theme.discourse.primaryVeryHigh,
+      backgroundColor: colors.blockBackground,
+    ),
+    for (final scope in const [
+      'keyword',
+      'built_in',
+      'builtin-name',
+      'type',
+      'literal',
+      'operator',
+      'selector-tag',
+      'tag',
+    ])
+      scope: color(colors.keyword),
+    for (final scope in const [
+      'string',
+      'regexp',
+      'symbol',
+      'char',
+      'quote',
+      'addition',
+      'selector-attr',
+    ])
+      scope: color(colors.string),
+    for (final scope in const ['comment', 'doctag'])
+      scope: color(colors.comment),
+    for (final scope in const ['number', 'deletion'])
+      scope: color(colors.number),
+    for (final scope in const [
+      'title',
+      'class',
+      'function',
+      'name',
+      'section',
+      'attr',
+      'attribute',
+      'variable',
+      'template-variable',
+      'selector-id',
+      'selector-class',
+      'bullet',
+    ])
+      scope: color(colors.name),
+    for (final scope in const [
+      'meta',
+      'meta-keyword',
+      'meta-string',
+      'subst',
+      'link',
+      'formula',
+    ])
+      scope: color(colors.meta),
+  };
 }
 
 class _Line extends StatelessWidget {

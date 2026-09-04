@@ -65,6 +65,10 @@ dependencies:
   # published in 2021, which is tolerable for a pure-Dart tokenizer with no
   # platform surface. See lib/src/shell/syntax.dart.
   highlight: ^0.7.0
+  # The full-screen post-code viewer uses its read-only CodeField so long
+  # snippets get native selection, horizontal scrolling, and line gutters.
+  # Inline blocks keep the lighter app-owned renderer below.
+  flutter_code_editor: ^0.3.5
   # Zoom/pan surface for the post image gallery. `PhotoViewGallery` is the
   # swipe-between-images widget the web client gets from PhotoSwipe, and this is
   # the only pub package that does it well.
