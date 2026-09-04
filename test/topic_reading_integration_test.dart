@@ -5261,16 +5261,54 @@ void _registerTopicReadingTests() {
       expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
       expect(find.text('Narrow suggestion'), findsOneWidget);
       expect(find.byTooltip('Show topic sidebar'), findsOneWidget);
+      expect(
+        tester
+            .widget<DButton>(find.byKey(const ValueKey('topic-sidebar-toggle')))
+            .variant,
+        DButtonVariant.flat,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-sidebar-icon-closed')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-sidebar-icon-open')),
+        findsNothing,
+      );
 
       await tester.tap(find.byTooltip('Show topic sidebar'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsOneWidget);
       expect(find.byTooltip('Hide topic sidebar'), findsOneWidget);
       expect(find.byKey(const ValueKey('topic-status-button')), findsOneWidget);
+      expect(
+        tester
+            .widget<DButton>(find.byKey(const ValueKey('topic-sidebar-toggle')))
+            .variant,
+        DButtonVariant.standard,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-sidebar-icon-open')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-sidebar-icon-closed')),
+        findsNothing,
+      );
 
       await tester.tap(find.byTooltip('Hide topic sidebar'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
+      expect(
+        tester
+            .widget<DButton>(find.byKey(const ValueKey('topic-sidebar-toggle')))
+            .variant,
+        DButtonVariant.flat,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-sidebar-icon-closed')),
+        findsOneWidget,
+      );
     });
 
     testWidgets(
