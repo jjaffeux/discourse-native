@@ -2158,6 +2158,23 @@ void _registerChatShellTests() {
 
     group('in the sidebar', () {
       group('separate sidebar modes', () {
+        testWidgets('floats the panel switcher at the bottom', (tester) async {
+          await pumpChat(
+            tester,
+            public: [channel(9)],
+            user: chatUser(separateSidebarMode: ChatSeparateSidebarMode.always),
+          );
+
+          final switcher = find.byKey(
+            const ValueKey('sidebar-panel-switch-chat'),
+          );
+          final switcherRect = tester.getRect(switcher);
+          final sidebarRect = tester.getRect(find.byType(InstanceSidebar));
+
+          expect(switcherRect.center.dy, greaterThan(sidebarRect.center.dy));
+          expect(sidebarRect.bottom - switcherRect.bottom, 4);
+        });
+
         for (final scenario in [
           (
             name: 'an explicit never preference overrides the site',
