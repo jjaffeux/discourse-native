@@ -205,6 +205,20 @@ budget and could hide older replies. A row present in both feeds is still one
 notification, though: opening it marks it read in both cached lists (and in a
 bookmark reminder, when it is there too) before the write returns.
 
+### Likes
+
+The Likes tab mirrors Discourse's dedicated received-likes feed. It asks
+`/notifications.json` for `liked`, `liked_consolidated` and the Reactions
+plugin's `reaction` type with the same recent, thirty-row, silent request as
+Replies. The three grouped unread counts are combined into its badge, while
+unrelated reminder and notification counts stay out of it.
+
+Like notifications have their own per-site feed and still share row-read
+reconciliation with every other cached notification surface. The tab is hidden
+when the current account's like notification frequency is **Never**, including
+immediately after that native preference is saved. An empty feed states that
+the account has not received any likes yet instead of leaving a blank panel.
+
 ### Chat notifications
 
 When Chat is available to the connected account, its user-menu tab is another

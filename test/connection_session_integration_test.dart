@@ -424,6 +424,12 @@ void _registerConnectionSessionTests() {
       await tester.pumpAndSettle();
     }
 
+    Future<void> openLikes(WidgetTester tester) async {
+      await openMenu(tester);
+      await tester.tap(find.text('Likes'));
+      await tester.pumpAndSettle();
+    }
+
     Future<void> openOther(WidgetTester tester) async {
       await openMenu(tester);
       await tester.tap(find.text('Other'));
@@ -521,6 +527,167 @@ void _registerConnectionSessionTests() {
 
       expect(find.text('Profile'), findsOneWidget);
       expect(find.textContaining('sam replied to'), findsNothing);
+    });
+
+    testWidgets('Likes renders the same filtered notification types as core', (
+      tester,
+    ) async {
+      const likeNotification = DiscourseNotification.test(
+        id: 52,
+        typeId: NotificationTypeId(5),
+        title: 'Merge CVSS',
+        topicId: 8,
+        slug: 'merge-cvss',
+        data: {'display_username': 'david'},
+      );
+      final api = FakeDiscourseApi(
+        likeNotificationList: const [likeNotification],
+        topics: {
+          8: topicPayload(
+            id: 8,
+            title: 'Merge CVSS',
+            posts: const [
+              Post(
+                id: 2,
+                postNumber: 1,
+                username: 'david',
+                cooked: '<p>Liked post body</p>',
+              ),
+            ],
+            stream: const [2],
+          ),
+        },
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openLikes(tester);
+
+      expect(api.likeNotificationCalls, 1);
+      expect(api.notificationFilters.single, userMenuLikeNotificationTypes);
+      expect(
+        find.textContaining('david liked your post in Merge CVSS'),
+        findsOneWidget,
+      );
+      expect(find.byType(LikesSection), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('notification-row-52')));
+      await tester.pumpAndSettle();
+
+      expect(api.topicsOpened, [8]);
+      expect(api.markedRead, [52]);
+      expect(find.byType(LikesSection), findsNothing);
+      expect(renderedText('Liked post body'), findsOneWidget);
+    });
+
+    testWidgets('Likes combines like, consolidated-like, and reaction counts', (
+      tester,
+    ) async {
+      final totals = NotificationTotals(
+        groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+          '5': 1,
+          '19': 2,
+          '25': 3,
+          '24': 10,
+        }),
+      );
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [connected.single.copyWith(notificationTotals: totals)],
+          api: FakeDiscourseApi(
+            totals: totals,
+            notificationList: const [],
+          ),
+          authenticator: signedIn(),
+        );
+        await openMenu(tester);
+
+        final likesTab = find.byKey(const ValueKey('user-menu-tab-likes'));
+        expect(
+          find.descendant(of: likesTab, matching: find.text('6')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: likesTab, matching: find.text('10')),
+          findsNothing,
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
+    testWidgets('Likes is hidden when like notifications are disabled', (
+      tester,
+    ) async {
+      const disabledUser = DiscourseUser(
+        id: 7,
+        username: 'joffreyj',
+        name: 'Joffrey',
+        hidePresence: false,
+        likesNotificationsDisabled: true,
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: [connected.single.copyWith(user: disabledUser)],
+        api: FakeDiscourseApi(user: disabledUser),
+        authenticator: signedIn(),
+      );
+      await openMenu(tester);
+
+      expect(find.text('Likes'), findsNothing);
+      expect(find.byKey(const ValueKey('user-menu-tab-likes')), findsNothing);
+    });
+
+    testWidgets('Likes can retry a failed filtered request', (tester) async {
+      final api = FakeDiscourseApi();
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openLikes(tester);
+
+      expect(find.textContaining("Couldn't reach"), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+
+      expect(api.likeNotificationCalls, 2);
+      expect(api.otherNotificationCalls, 0);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an empty Likes tab explains that no likes were received', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(likeNotificationList: const []);
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openLikes(tester);
+
+      expect(
+        find.text("You haven't received any likes yet."),
+        findsOneWidget,
+      );
     });
 
     testWidgets('Other renders notification types not claimed by another tab', (
@@ -1110,7 +1277,10 @@ void _registerConnectionSessionTests() {
           tester,
           desktop,
           instances: connected,
-          api: FakeDiscourseApi(notificationList: notifications),
+          api: FakeDiscourseApi(
+            notificationList: notifications,
+            likeNotificationList: [notifications[1]],
+          ),
           authenticator: signedIn(),
           key: const ValueKey('macos'),
         );
@@ -1127,7 +1297,7 @@ void _registerConnectionSessionTests() {
 
         expect(find.text('Likes'), findsOneWidget);
         expect(find.textContaining('sam replied to'), findsNothing);
-        expect(find.textContaining('liked your post'), findsNWidgets(2));
+        expect(find.textContaining('liked your post'), findsOneWidget);
       } finally {
         debugDefaultTargetPlatformOverride = previous;
       }

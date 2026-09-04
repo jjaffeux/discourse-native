@@ -518,6 +518,7 @@ class FakeDiscourseApi
     this.totals,
     this.notificationList,
     this.replyNotificationList,
+    this.likeNotificationList,
     this.otherNotificationList,
     this.chatNotificationList,
     this.bookmarkList,
@@ -712,6 +713,8 @@ class FakeDiscourseApi
 
   final List<DiscourseNotification>? replyNotificationList;
 
+  final List<DiscourseNotification>? likeNotificationList;
+
   final List<DiscourseNotification>? otherNotificationList;
 
   final List<DiscourseNotification>? chatNotificationList;
@@ -739,6 +742,7 @@ class FakeDiscourseApi
   int totalsCalls = 0;
   int notificationCalls = 0;
   int replyNotificationCalls = 0;
+  int likeNotificationCalls = 0;
   int otherNotificationCalls = 0;
   int chatNotificationCalls = 0;
 
@@ -1432,9 +1436,12 @@ class FakeDiscourseApi
   }) async {
     notificationFilters.add(List.unmodifiable(filterByTypes));
     final replies = _sameKinds(filterByTypes, userMenuReplyNotificationTypes);
+    final likes = _sameKinds(filterByTypes, userMenuLikeNotificationTypes);
     final chat = _sameKinds(filterByTypes, chatNotificationFeed.filterByTypes);
     if (replies) {
       replyNotificationCalls++;
+    } else if (likes) {
+      likeNotificationCalls++;
     } else if (chat) {
       chatNotificationCalls++;
     } else if (filterByTypes.isEmpty) {
@@ -1444,6 +1451,8 @@ class FakeDiscourseApi
     }
     final result = replies
         ? replyNotificationList
+        : likes
+        ? likeNotificationList
         : chat
         ? chatNotificationList
         : filterByTypes.isEmpty

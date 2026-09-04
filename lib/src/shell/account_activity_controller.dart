@@ -65,6 +65,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final _totalsChanges = _ActivityAspect();
   final _notificationChanges = _ActivityAspect();
   final _replyNotificationChanges = _ActivityAspect();
+  final _likeNotificationChanges = _ActivityAspect();
   final _otherNotificationChanges = _ActivityAspect();
   final Map<PluginNotificationFeedId, _PluginNotificationState>
   _pluginNotifications = {};
@@ -76,6 +77,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   Listenable get totalsListenable => _totalsChanges;
   Listenable get notificationsListenable => _notificationChanges;
   Listenable get replyNotificationsListenable => _replyNotificationChanges;
+  Listenable get likeNotificationsListenable => _likeNotificationChanges;
   Listenable get otherNotificationsListenable => _otherNotificationChanges;
   Listenable get bookmarksListenable => _bookmarkChanges;
   Listenable get userActivityListenable => _userActivityChanges;
@@ -83,6 +85,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, NotificationTotals> _totals = {};
   final Map<String, NotificationFeed> _notifications = {};
   final Map<String, NotificationFeed> _replyNotifications = {};
+  final Map<String, NotificationFeed> _likeNotifications = {};
   final Map<String, NotificationFeed> _otherNotifications = {};
   final Map<String, BookmarkFeed> _bookmarks = {};
   final Map<String, UserActivityFeed> _userActivity = {};
@@ -95,6 +98,7 @@ final class AccountActivityController extends FrameSafeNotifier {
       {};
   final Map<String, Future<void>> _notificationTasks = {};
   final Map<String, Future<void>> _replyNotificationTasks = {};
+  final Map<String, Future<void>> _likeNotificationTasks = {};
   final Map<String, Future<void>> _otherNotificationTasks = {};
   final Map<String, Future<void>> _bookmarkTasks = {};
   final Map<String, Future<void>> _userActivityTasks = {};
@@ -103,6 +107,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, Completer<void>> _replayingBookmarkWaiters = {};
   final Map<String, Object> _notificationRequests = {};
   final Map<String, Object> _replyNotificationRequests = {};
+  final Map<String, Object> _likeNotificationRequests = {};
   final Map<String, Object> _otherNotificationRequests = {};
   final Map<String, Object> _bookmarkRequests = {};
   final Map<String, Object> _userActivityRequests = {};
@@ -128,6 +133,10 @@ final class AccountActivityController extends FrameSafeNotifier {
   NotificationFeed replyNotificationsFor(String? siteUrl) => siteUrl == null
       ? const NotificationFeed()
       : _replyNotifications[siteUrl] ?? const NotificationFeed();
+
+  NotificationFeed likeNotificationsFor(String? siteUrl) => siteUrl == null
+      ? const NotificationFeed()
+      : _likeNotifications[siteUrl] ?? const NotificationFeed();
 
   NotificationFeed otherNotificationsFor(String? siteUrl) => siteUrl == null
       ? const NotificationFeed()
@@ -332,6 +341,26 @@ final class AccountActivityController extends FrameSafeNotifier {
           failureMessage: "Couldn't load replies from ${instance.host}.",
           operation: 'account.loadReplyNotifications',
           notify: _notifyReplyNotifications,
+        ),
+      );
+
+  Future<void> loadLikeNotifications(DiscourseInstance instance) =>
+      _coalescedActivityLoad(
+        instance.url,
+        tasks: _likeNotificationTasks,
+        start: () => _loadNotificationFeed(
+          instance,
+          feeds: _likeNotifications,
+          requests: _likeNotificationRequests,
+          fetch: (apiKey) => api.notifications(
+            siteUrl: instance.url,
+            apiKey: apiKey,
+            filterByTypes: userMenuLikeNotificationTypes,
+          ),
+          reconnectMessage: 'Reconnect to ${instance.host} to see likes.',
+          failureMessage: "Couldn't load likes from ${instance.host}.",
+          operation: 'account.loadLikeNotifications',
+          notify: _notifyLikeNotifications,
         ),
       );
 
@@ -1105,6 +1134,9 @@ final class AccountActivityController extends FrameSafeNotifier {
     if (_replyNotifications[siteUrl] case final feed?) {
       collect(feed.notifications);
     }
+    if (_likeNotifications[siteUrl] case final feed?) {
+      collect(feed.notifications);
+    }
     if (_otherNotifications[siteUrl] case final feed?) {
       collect(feed.notifications);
     }
@@ -1157,6 +1189,7 @@ final class AccountActivityController extends FrameSafeNotifier {
 
     var notificationChanged = false;
     var replyNotificationChanged = false;
+    var likeNotificationChanged = false;
     var otherNotificationChanged = false;
     final pluginNotificationChanges = <_PluginNotificationState>[];
     var bookmarkChanged = false;
@@ -1172,6 +1205,13 @@ final class AccountActivityController extends FrameSafeNotifier {
       if (!identical(updated, feed)) {
         _replyNotifications[siteUrl] = updated;
         replyNotificationChanged = true;
+      }
+    }
+    if (_likeNotifications[siteUrl] case final feed?) {
+      final updated = markFeed(feed);
+      if (!identical(updated, feed)) {
+        _likeNotifications[siteUrl] = updated;
+        likeNotificationChanged = true;
       }
     }
     if (_otherNotifications[siteUrl] case final feed?) {
@@ -1202,6 +1242,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
     if (notificationChanged) _notificationChanges.changed();
     if (replyNotificationChanged) _replyNotificationChanges.changed();
+    if (likeNotificationChanged) _likeNotificationChanges.changed();
     if (otherNotificationChanged) _otherNotificationChanges.changed();
     for (final state in pluginNotificationChanges) {
       state.changes.changed();
@@ -1209,6 +1250,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     if (bookmarkChanged) _bookmarkChanges.changed();
     if (notificationChanged ||
         replyNotificationChanged ||
+        likeNotificationChanged ||
         otherNotificationChanged ||
         pluginNotificationChanges.isNotEmpty ||
         bookmarkChanged) {
@@ -1383,6 +1425,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     final hadTotals = _totals.remove(siteUrl) != null;
     final hadNotifications = _notifications.remove(siteUrl) != null;
     final hadReplyNotifications = _replyNotifications.remove(siteUrl) != null;
+    final hadLikeNotifications = _likeNotifications.remove(siteUrl) != null;
     final hadOtherNotifications = _otherNotifications.remove(siteUrl) != null;
     var hadPluginNotifications = false;
     for (final state in _pluginNotifications.values) {
@@ -1406,6 +1449,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
     _notificationTasks.remove(siteUrl)?.ignore();
     _replyNotificationTasks.remove(siteUrl)?.ignore();
+    _likeNotificationTasks.remove(siteUrl)?.ignore();
     _otherNotificationTasks.remove(siteUrl)?.ignore();
     _bookmarkTasks.remove(siteUrl)?.ignore();
     _userActivityTasks.remove(siteUrl)?.ignore();
@@ -1418,6 +1462,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
     _notificationRequests.remove(siteUrl);
     _replyNotificationRequests.remove(siteUrl);
+    _likeNotificationRequests.remove(siteUrl);
     _otherNotificationRequests.remove(siteUrl);
     _bookmarkRequests.remove(siteUrl);
     _userActivityRequests.remove(siteUrl);
@@ -1437,6 +1482,7 @@ final class AccountActivityController extends FrameSafeNotifier {
         hadTotals ||
         hadNotifications ||
         hadReplyNotifications ||
+        hadLikeNotifications ||
         hadOtherNotifications ||
         hadPluginNotifications ||
         hadBookmarks ||
@@ -1444,6 +1490,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     if (hadTotals) _totalsChanges.changed();
     if (hadNotifications) _notificationChanges.changed();
     if (hadReplyNotifications) _replyNotificationChanges.changed();
+    if (hadLikeNotifications) _likeNotificationChanges.changed();
     if (hadOtherNotifications) _otherNotificationChanges.changed();
     if (hadBookmarks) _bookmarkChanges.changed();
     if (hadUserActivity) _userActivityChanges.changed();
@@ -1464,6 +1511,11 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   void _notifyReplyNotifications() {
     _replyNotificationChanges.changed();
+    notifySafely();
+  }
+
+  void _notifyLikeNotifications() {
+    _likeNotificationChanges.changed();
     notifySafely();
   }
 
@@ -1538,6 +1590,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _totalsTasks.clear();
     _notificationTasks.clear();
     _replyNotificationTasks.clear();
+    _likeNotificationTasks.clear();
     _otherNotificationTasks.clear();
     for (final state in _pluginNotifications.values) {
       for (final task in state.tasks.values) {
@@ -1552,6 +1605,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _totalsRequests.clear();
     _notificationRequests.clear();
     _replyNotificationRequests.clear();
+    _likeNotificationRequests.clear();
     _otherNotificationRequests.clear();
     _bookmarkRequests.clear();
     _userActivityRequests.clear();
@@ -1564,6 +1618,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _totalsChanges.dispose();
     _notificationChanges.dispose();
     _replyNotificationChanges.dispose();
+    _likeNotificationChanges.dispose();
     _otherNotificationChanges.dispose();
     _bookmarkChanges.dispose();
     _userActivityChanges.dispose();

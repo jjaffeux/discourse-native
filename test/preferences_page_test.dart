@@ -809,6 +809,34 @@ void main() {
   });
 
   group('account mirror updates', () {
+    testWidgets('persist whether like notifications are disabled', (
+      tester,
+    ) async {
+      final fixture = await _fixture();
+      await _pumpPage(tester, fixture);
+
+      await _selectNeverLikeNotifications(tester);
+      fixture.store.saved.clear();
+      await tester.tap(_save(PreferenceSection.notifications));
+      await tester.pumpAndSettle();
+
+      expect(
+        fixture.shell.instanceFor(_siteUrl)!.user!.likesNotificationsDisabled,
+        isTrue,
+      );
+      expect(fixture.store.saved, hasLength(1));
+      expect(
+        fixture
+            .store
+            .saved
+            .single
+            .single
+            .user
+            ?.likesNotificationsDisabled,
+        isTrue,
+      );
+    });
+
     testWidgets('persist confirmed profile settings to the account mirror', (
       tester,
     ) async {
