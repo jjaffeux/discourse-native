@@ -7,8 +7,6 @@ import '../../shell/select.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
-import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
 import 'poll_composer_editor.dart';
 import 'poll_composer_parser.dart';
 
@@ -85,7 +83,7 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(dialogContext).pop(),
-                    icon: const DIcon(DIcons.xmark),
+                    icon: const Icon(Icons.close),
                     tooltip: 'Close',
                   ),
                 ],
@@ -336,19 +334,19 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
               ),
               IconButton(
                 onPressed: index == 0 ? null : () => _moveOption(index, -1),
-                icon: const DIcon(DIcons.arrowUp),
+                icon: const Icon(Icons.arrow_upward),
                 tooltip: 'Move option up',
               ),
               IconButton(
                 onPressed: index == _options.length - 1
                     ? null
                     : () => _moveOption(index, 1),
-                icon: const DIcon(DIcons.arrowDown),
+                icon: const Icon(Icons.arrow_downward),
                 tooltip: 'Move option down',
               ),
               IconButton(
                 onPressed: () => _removeOption(index),
-                icon: const DIcon(DIcons.circleMinus),
+                icon: const Icon(Icons.remove_circle_outline),
                 tooltip: 'Remove option',
               ),
             ],
@@ -361,7 +359,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
           onPressed: _options.length >= widget.maximumOptions
               ? null
               : _addOption,
-          icon: const DIcon(DIcons.plus),
+          icon: const Icon(Icons.add),
         ),
       ),
       if (_isMultiple) ...[

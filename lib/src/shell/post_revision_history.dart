@@ -897,25 +897,25 @@ class _PostRevisionHistoryFooter extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     DButton.iconOnly(
-                      icon: const DIcon(DIcons.chevronsLeft, size: 18),
+                      icon: const Icon(Icons.first_page, size: 18),
                       tooltip: 'First',
                       onPressed: firstAction,
                       size: DButtonSize.small,
                     ),
                     DButton.iconOnly(
-                      icon: const DIcon(DIcons.chevronLeft, size: 18),
+                      icon: const Icon(Icons.navigate_before, size: 18),
                       tooltip: 'Previous',
                       onPressed: previousAction,
                       size: DButtonSize.small,
                     ),
                     DButton.iconOnly(
-                      icon: const DIcon(DIcons.chevronRight, size: 18),
+                      icon: const Icon(Icons.navigate_next, size: 18),
                       tooltip: 'Next',
                       onPressed: nextAction,
                       size: DButtonSize.small,
                     ),
                     DButton.iconOnly(
-                      icon: const DIcon(DIcons.chevronsRight, size: 18),
+                      icon: const Icon(Icons.last_page, size: 18),
                       tooltip: 'Latest',
                       onPressed: latestAction,
                       size: DButtonSize.small,

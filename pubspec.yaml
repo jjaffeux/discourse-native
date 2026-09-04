@@ -97,8 +97,6 @@ dependencies:
   # Core and Voice exports use the platform share sheet.
   share_plus: ^12.0.2
   file_selector: ^1.1.0
-  # The only glyph source for application and bundled-plugin icons.
-  lucide_flutter: ^1.41.0
 
 dependency_overrides:
   # Version 1.6.0 lacks the iOS required-reason privacy manifest. Keep every
@@ -128,9 +126,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/fonts/JetBrainsMono-OFL.txt
-    # Keep Lucide's upstream ISC and inherited Feather MIT notices in every
-    # distributed app alongside lucide_flutter's package-level MIT notice.
-    - assets/Lucide-LICENSE.txt
   fonts:
     - family: JetBrains Mono
       fonts:

@@ -7,8 +7,6 @@ import '../../shell/select.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
-import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
 import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_environment.dart';
@@ -72,7 +70,7 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(dialogContext).pop(),
-                    icon: const DIcon(DIcons.xmark),
+                    icon: const Icon(Icons.close),
                     tooltip: 'Close',
                   ),
                 ],
@@ -122,7 +120,6 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
   late bool _countdown;
   late _CalendarMode _calendar;
   late List<String> _previewTimezones;
-  bool _displayOptionsExpanded = false;
   String? _previewCandidate;
   String? _error;
 
@@ -237,13 +234,6 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
             tilePadding: EdgeInsets.zero,
             childrenPadding: EdgeInsets.zero,
             title: const Text('Display options'),
-            onExpansionChanged: (expanded) =>
-                setState(() => _displayOptionsExpanded = expanded),
-            trailing: AnimatedRotation(
-              turns: _displayOptionsExpanded ? 0.5 : 0,
-              duration: kThemeAnimationDuration,
-              child: const DIcon(DIcons.chevronDown, size: 16),
-            ),
             children: [
               if (!_hasEnd) ...[
                 TextField(
@@ -326,7 +316,6 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                   for (final zone in _previewTimezones)
                     InputChip(
                       label: Text(LocalDateFormatter.zoneLabel(zone)),
-                      deleteIcon: const DIcon(DIcons.xmark, size: 16),
                       onDeleted: () =>
                           setState(() => _previewTimezones.remove(zone)),
                     ),
@@ -359,7 +348,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                               _previewTimezones.add(_previewCandidate!);
                               _previewCandidate = null;
                             }),
-                      icon: const DIcon(DIcons.plus),
+                      icon: const Icon(Icons.add),
                       tooltip: 'Add timezone',
                     ),
                   ],
@@ -408,7 +397,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
           ),
           IconButton(
             onPressed: () => unawaited(_pickDate(date)),
-            icon: const DIcon(DIcons.calendar),
+            icon: const Icon(Icons.calendar_month),
             tooltip: 'Choose $label date',
           ),
         ],
@@ -435,7 +424,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
             ),
             IconButton(
               onPressed: () => unawaited(_pickTime(time)),
-              icon: const DIcon(DIcons.farClock),
+              icon: const Icon(Icons.schedule),
               tooltip: 'Choose $label time',
             ),
           ],
@@ -458,7 +447,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            const DIcon(DIcons.globe, size: 18),
+            const Icon(Icons.public, size: 18),
             const SizedBox(width: 8),
             Expanded(child: Text(text)),
           ],
@@ -574,8 +563,6 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
       initialDate: initial,
       firstDate: DateTime(1900),
       lastDate: DateTime(2200),
-      switchToInputEntryModeIcon: Icon(DIcons.keyboard.data),
-      switchToCalendarEntryModeIcon: Icon(DIcons.calendar.data),
     );
     if (selected == null || !mounted) return;
     controller.text =
@@ -595,8 +582,6 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
     final selected = await showTimePicker(
       context: context,
       initialTime: initial,
-      switchToInputEntryModeIcon: Icon(DIcons.keyboard.data),
-      switchToTimerEntryModeIcon: Icon(DIcons.farClock.data),
     );
     if (selected == null || !mounted) return;
     controller.text =
@@ -630,8 +615,6 @@ class _TimezoneMenu extends StatelessWidget {
       enableFilter: true,
       enableSearch: true,
       requestFocusOnTap: true,
-      trailingIcon: const DIcon(DIcons.chevronDown, size: 16),
-      selectedTrailingIcon: const DIcon(DIcons.chevronUp, size: 16),
       dropdownMenuEntries: [
         if (optional)
           const DropdownMenuEntry(value: '', label: 'None / device timezone'),

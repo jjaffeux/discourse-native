@@ -238,10 +238,7 @@ class _InlineError extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
       child: Row(
         children: [
-          DIcon(
-            DIcons.triangleExclamation,
-            color: Theme.of(context).colorScheme.error,
-          ),
+          Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),
           const SizedBox(width: 8),
           Expanded(child: Text(message)),
         ],

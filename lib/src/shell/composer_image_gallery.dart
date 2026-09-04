@@ -3,8 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../theme/d_button.dart';
-import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 import 'composer_galleries.dart';
 import 'composer_images.dart';
 import 'image_decode.dart';
@@ -242,7 +240,7 @@ class ComposerImageGalleryControl extends StatelessWidget {
           tooltip: 'Gallery options',
           semanticLabel: 'Gallery options',
           variant: DButtonVariant.flat,
-          icon: const DIcon(DIcons.slidersHorizontal),
+          icon: const Icon(Icons.tune),
         ),
       ),
     );
@@ -353,8 +351,8 @@ class ComposerImageGalleryTile extends StatelessWidget {
           child: source == null
               ? ExcludeSemantics(
                   child: Center(
-                    child: DIcon(
-                      DIcons.image,
+                    child: Icon(
+                      Icons.image_outlined,
                       size: 22,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -383,8 +381,8 @@ class ComposerImageGalleryTile extends StatelessWidget {
                   ),
                   errorBuilder: (_, _, _) => ExcludeSemantics(
                     child: Center(
-                      child: DIcon(
-                        DIcons.imageOff,
+                      child: Icon(
+                        Icons.broken_image_outlined,
                         size: 22,
                         color: scheme.onSurfaceVariant,
                       ),

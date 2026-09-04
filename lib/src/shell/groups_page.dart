@@ -600,8 +600,8 @@ class _DirectoryError extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            DIcon(
-              DIcons.triangleExclamation,
+            Icon(
+              Icons.error_outline,
               color: Theme.of(context).colorScheme.error,
             ),
             const SizedBox(width: 10),
