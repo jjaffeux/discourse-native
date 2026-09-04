@@ -324,6 +324,15 @@ final class _RevisionLeasedComposerEditorHost implements ComposerEditorHost {
   bool get isEdit => _delegate.isEdit;
 
   @override
+  bool get isNewTopic => _delegate.isNewTopic;
+
+  @override
+  bool get isReply => _delegate.isReply;
+
+  @override
+  bool get isEditing => _delegate.isEditing;
+
+  @override
   bool get isPluginTarget => _delegate.isPluginTarget;
 
   @override

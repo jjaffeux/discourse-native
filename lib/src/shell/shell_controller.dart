@@ -9194,21 +9194,55 @@ class ShellController extends FrameSafeNotifier
     }
 
     final target = composer.target;
-    final raw = composer.raw;
-    // Read beside `raw`, not after the awaits: a reply retargeted at a whisper
-    // while this one is out would otherwise post what was written in public
-    // as a whisper.
+    // Read before the awaits: a reply retargeted at a whisper while this one
+    // is out would otherwise post what was written in public as a whisper.
     final whisper = composer.whisper;
     final lease = lifecycle.capture(target.siteUrl);
 
-    if (target.isEdit) return _submitEdit(composer, target, raw);
+    if (target.isEdit) return _submitEdit(composer, target, composer.raw);
 
     // Before any await: the credential round trip below is a gap a second tap
     // can pass through, and a create sent twice posts twice — unlike an edit,
     // nothing undoes that.
     composer.beginSubmit();
+    var preparationChanged = false;
+    for (final preparer
+        in _pluginSession.capabilities<PluginComposerSubmitPreparer>()) {
+      final PluginComposerSubmitPreparation result;
+      try {
+        result = await preparer.prepareComposerSubmit(composer);
+      } catch (error, stackTrace) {
+        _pluginDiagnosticsReporter.reportError(
+          error,
+          stackTrace,
+          operation: 'composer.prepareSubmit',
+          source: 'plugin',
+          handled: true,
+          degraded: true,
+        );
+        if (!lease.isCurrent) return;
+        if (preparationChanged) await composer.flushDraft();
+        composer.failed(
+          const WriteException(
+            WriteFailure.unreachable,
+            errors: ["Couldn't prepare this post. Nothing was posted."],
+          ),
+        );
+        return;
+      }
+      if (!lease.isCurrent) return;
+      if (result.failure case final failure?) {
+        if (preparationChanged) await composer.flushDraft();
+        composer.failed(failure);
+        return;
+      }
+      preparationChanged |= result.changed;
+    }
+    if (preparationChanged) await composer.flushDraft();
     await composer.finishDraftSaves();
     if (!lease.isCurrent) return;
+
+    final raw = composer.raw;
 
     final credential = await _credentialForWrite(target.siteUrl);
     if (!lease.isCurrent) return;

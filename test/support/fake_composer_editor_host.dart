@@ -32,6 +32,15 @@ final class FakeComposerEditorHost implements ComposerEditorHost {
   bool get isEdit => false;
 
   @override
+  bool get isNewTopic => false;
+
+  @override
+  bool get isReply => true;
+
+  @override
+  bool get isEditing => true;
+
+  @override
   PluginData get siteSettings => PluginData.none;
 
   @override

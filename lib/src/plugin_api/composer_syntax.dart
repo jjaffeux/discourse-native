@@ -160,6 +160,9 @@ abstract interface class ComposerEditorHost {
   bool get loadingBody;
   bool get isCurrent;
   bool get isEdit;
+  bool get isNewTopic;
+  bool get isReply;
+  bool get isEditing;
   PluginData get siteSettings;
 
   T? syntaxPolicy<T extends ComposerSyntaxPolicy>(ComposerSyntaxKind kind);

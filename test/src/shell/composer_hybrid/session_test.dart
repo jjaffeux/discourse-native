@@ -609,6 +609,15 @@ final class _RecordingEditorHost implements ComposerEditorHost {
   bool get isEdit => false;
 
   @override
+  bool get isNewTopic => false;
+
+  @override
+  bool get isReply => true;
+
+  @override
+  bool get isEditing => true;
+
+  @override
   bool get isPluginTarget => false;
 
   @override
@@ -656,6 +665,15 @@ final class _FakeEditorHost implements ComposerEditorHost {
 
   @override
   bool get isEdit => false;
+
+  @override
+  bool get isNewTopic => false;
+
+  @override
+  bool get isReply => true;
+
+  @override
+  bool get isEditing => true;
 
   @override
   bool get isPluginTarget => false;

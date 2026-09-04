@@ -403,6 +403,11 @@ abstract interface class ComposerToolbarPlugin {
   );
 }
 
+/// Adds compact controls beside the title of a topic composer.
+abstract interface class ComposerHeaderPlugin {
+  List<Widget> composerHeader(BuildContext context, ComposerEditorHost editor);
+}
+
 /// Resolves one exact, namespaced plugin composer target.
 ///
 /// A capability claims a key rather than answering a predicate. This makes a
