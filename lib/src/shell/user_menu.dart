@@ -73,6 +73,8 @@ class UserMenuSection {
 
   static const String messagesId = 'messages';
 
+  static const String otherId = 'other';
+
   static const String profileId = 'profile';
 
   final String id;
@@ -88,12 +90,14 @@ class UserMenuSection {
   bool get isReplies => id == repliesId;
   bool get isBookmarks => id == bookmarksId;
   bool get isMessages => id == messagesId;
+  bool get isOther => id == otherId;
   bool get isProfile => id == profileId;
 
   bool get isPlaceholder =>
       !isNotifications &&
       !isReplies &&
       !isBookmarks &&
+      !isOther &&
       plugin == null &&
       !isMessages &&
       !isProfile;
@@ -133,6 +137,7 @@ List<UserMenuSection> userMenuSections(
   NotificationTotals? totals, {
   DiscourseUser? user,
   bool userStatusEnabled = false,
+  int otherBadge = 0,
   List<PluginUserMenuSection> pluginSections = const [],
 }) {
   return [
@@ -185,14 +190,10 @@ List<UserMenuSection> userMenuSections(
         plugin: contribution,
       ),
     UserMenuSection(
-      id: 'other',
+      id: UserMenuSection.otherId,
       icon: DIcons.ellipsis,
       label: 'Other',
-      badge: totals?.unseenReviewables ?? 0,
-      rows: const [
-        UserMenuRow(DIcons.flag, '2 posts waiting in the review queue'),
-        UserMenuRow(DIcons.certificate, 'You earned the Nice Reply badge'),
-      ],
+      badge: otherBadge,
     ),
     UserMenuSection(
       id: UserMenuSection.profileId,
@@ -260,21 +261,29 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
         listenable: controller.accountActivity.totalsListenable,
         builder: (context, _) {
           final siteUrl = menu.siteUrl;
+          final totals = siteUrl == null
+              ? null
+              : controller.accountActivity.totalsFor(siteUrl);
+          final pluginSections = siteUrl == null || menu.user == null
+              ? const <PluginUserMenuSection>[]
+              : PluginScope.of(context).registry.userMenuSections(
+                  PluginUserMenuContext(
+                    siteUrl: siteUrl,
+                    user: menu.user!,
+                    totals: totals,
+                  ),
+                );
           final sections = userMenuSections(
-            siteUrl == null
-                ? null
-                : controller.accountActivity.totalsFor(siteUrl),
+            totals,
             user: menu.user,
             userStatusEnabled: menu.userStatusEnabled,
-            pluginSections: siteUrl == null || menu.user == null
-                ? const []
-                : PluginScope.of(context).registry.userMenuSections(
-                    PluginUserMenuContext(
-                      siteUrl: siteUrl,
-                      user: menu.user!,
-                      totals: controller.accountActivity.totalsFor(siteUrl),
-                    ),
+            otherBadge: siteUrl == null
+                ? 0
+                : controller.otherNotificationUnreadCount(
+                    siteUrl,
+                    pluginSections: pluginSections,
                   ),
+            pluginSections: pluginSections,
           );
           final section = sections.firstWhere(
             (candidate) => candidate.id == _sectionId,
@@ -516,6 +525,8 @@ class _SectionBody extends StatelessWidget {
         RepliesSection(siteUrl: siteUrl, onOpened: onDismiss)
       else if (section.isBookmarks && siteUrl != null)
         BookmarkSection(siteUrl: siteUrl, onOpened: onDismiss)
+      else if (section.isOther && siteUrl != null)
+        OtherNotificationsSection(siteUrl: siteUrl, onOpened: onDismiss)
       else
         for (final row in section.rows)
           if (row.isHidePresence && siteUrl != null)
@@ -1098,17 +1109,24 @@ class _SectionList extends StatelessWidget {
       return ListenableBuilder(
         listenable: controller.accountActivity.totalsListenable,
         builder: (context, _) {
+          final totals = controller.accountActivity.totalsFor(currentSiteUrl);
+          final pluginSections = PluginScope.of(context).registry
+              .userMenuSections(
+                PluginUserMenuContext(
+                  siteUrl: currentSiteUrl,
+                  user: user,
+                  totals: totals,
+                ),
+              );
           final sections = userMenuSections(
-            controller.accountActivity.totalsFor(currentSiteUrl),
+            totals,
             user: user,
             userStatusEnabled: state.userStatusEnabled,
-            pluginSections: PluginScope.of(context).registry.userMenuSections(
-              PluginUserMenuContext(
-                siteUrl: currentSiteUrl,
-                user: user,
-                totals: controller.accountActivity.totalsFor(currentSiteUrl),
-              ),
+            otherBadge: controller.otherNotificationUnreadCount(
+              currentSiteUrl,
+              pluginSections: pluginSections,
             ),
+            pluginSections: pluginSections,
           );
           return Column(
             mainAxisSize: MainAxisSize.min,
@@ -1173,17 +1191,23 @@ class _LiveNestedSectionBody extends StatelessWidget {
           final totals = state.controller.accountActivity.totalsFor(
             currentSiteUrl,
           );
+          final pluginSections = PluginScope.of(context).registry
+              .userMenuSections(
+                PluginUserMenuContext(
+                  siteUrl: currentSiteUrl,
+                  user: user,
+                  totals: totals,
+                ),
+              );
           final sections = userMenuSections(
             totals,
             user: user,
             userStatusEnabled: state.userStatusEnabled,
-            pluginSections: PluginScope.of(context).registry.userMenuSections(
-              PluginUserMenuContext(
-                siteUrl: currentSiteUrl,
-                user: user,
-                totals: totals,
-              ),
+            otherBadge: state.controller.otherNotificationUnreadCount(
+              currentSiteUrl,
+              pluginSections: pluginSections,
             ),
+            pluginSections: pluginSections,
           );
           final section = sections
               .where((candidate) => candidate.id == sectionId)

@@ -43,6 +43,7 @@ import '../models/found_user.dart';
 import '../models/group_route.dart';
 import '../models/json.dart';
 import '../models/list_link.dart';
+import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/notification_type_counts.dart';
 import '../models/post.dart';
@@ -1988,6 +1989,111 @@ class ShellController extends FrameSafeNotifier
     if (instance != null) {
       await accountActivity.loadReplyNotifications(instance);
     }
+  }
+
+  NotificationFeed otherNotificationsFor(String siteUrl) =>
+      accountActivity.otherNotificationsFor(siteUrl);
+
+  Future<void> loadOtherNotifications(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance != null) {
+      await accountActivity.loadOtherNotifications(
+        instance,
+        (apiKey) => _otherNotificationTypesFor(instance, apiKey),
+      );
+    }
+  }
+
+  int otherNotificationUnreadCount(
+    String siteUrl, {
+    List<PluginUserMenuSection>? pluginSections,
+  }) {
+    final instance = _instanceAt(siteUrl);
+    final live = accountActivity.totalsFor(siteUrl)?.groupedUnreadNotifications;
+    final counts = live?.isAvailable == true
+        ? live!
+        : instance?.user?.groupedUnreadNotifications;
+    if (counts == null || !counts.isAvailable) return 0;
+
+    final claimedNames = _claimedUserMenuNotificationTypes(
+      pluginSections ?? _pluginUserMenuSectionsFor(instance),
+    );
+    final claimedIds = <NotificationTypeId>{
+      for (final definition in <NotificationWireType>[
+        ...CoreNotificationTypes.values,
+        for (final type in plugins.registry.notificationTypes) type.wireType,
+      ])
+        if (claimedNames.contains(NotificationTypeName(definition.wireName)))
+          NotificationTypeId(definition.wireId),
+    };
+    return counts.totalExcluding(claimedIds);
+  }
+
+  final Map<String, List<NotificationWireType>> _siteNotificationTypes = {};
+  final Map<String, Future<List<NotificationWireType>>>
+  _siteNotificationTypeRequests = {};
+
+  Set<NotificationTypeName> _claimedUserMenuNotificationTypes(
+    Iterable<PluginUserMenuSection> pluginSections,
+  ) => {
+    ...userMenuDedicatedNotificationTypes,
+    for (final section in pluginSections) ...section.notificationTypes,
+  };
+
+  List<PluginUserMenuSection> _pluginUserMenuSectionsFor(
+    DiscourseInstance? instance,
+  ) {
+    final user = instance?.user;
+    if (instance == null || user == null) return const [];
+    return plugins.registry.userMenuSections(
+      PluginUserMenuContext(
+        siteUrl: instance.url,
+        user: user,
+        totals: accountActivity.totalsFor(instance.url),
+      ),
+    );
+  }
+
+  Future<List<NotificationTypeName>> _otherNotificationTypesFor(
+    DiscourseInstance instance,
+    String apiKey,
+  ) async {
+    final siteTypes = await _siteNotificationTypesFor(instance, apiKey);
+    final claimed = _claimedUserMenuNotificationTypes(
+      _pluginUserMenuSectionsFor(instance),
+    );
+    return List.unmodifiable([
+      for (final type in siteTypes)
+        if (!claimed.contains(NotificationTypeName(type.wireName)))
+          NotificationTypeName(type.wireName),
+    ]);
+  }
+
+  Future<List<NotificationWireType>> _siteNotificationTypesFor(
+    DiscourseInstance instance,
+    String apiKey,
+  ) {
+    final cached = _siteNotificationTypes[instance.url];
+    if (cached != null) return Future.value(cached);
+    final active = _siteNotificationTypeRequests[instance.url];
+    if (active != null) return active;
+
+    final lease = lifecycle.capture(instance.url);
+    late final Future<List<NotificationWireType>> request;
+    request = api.site
+        .siteNotificationTypes(siteUrl: instance.url, apiKey: apiKey)
+        .then((types) {
+          final immutable = List<NotificationWireType>.unmodifiable(types);
+          lease.commit(() => _siteNotificationTypes[instance.url] = immutable);
+          return immutable;
+        })
+        .whenComplete(() {
+          if (identical(_siteNotificationTypeRequests[instance.url], request)) {
+            final _ = _siteNotificationTypeRequests.remove(instance.url);
+          }
+        });
+    _siteNotificationTypeRequests[instance.url] = request;
+    return request;
   }
 
   @override
@@ -11144,6 +11250,8 @@ class ShellController extends FrameSafeNotifier
     _customSidebarSectionsLoaded.remove(siteUrl);
     _customSidebarSectionAttemptedAt.remove(siteUrl);
     _customSidebarSectionRequests.remove(siteUrl)?.ignore();
+    _siteNotificationTypes.remove(siteUrl);
+    _siteNotificationTypeRequests.remove(siteUrl)?.ignore();
     _sitePresentation?.forget(siteUrl);
     _pluginSiteConfigListenables.remove(siteUrl)?.dispose();
     _hashtags.remove(siteUrl);
@@ -12269,6 +12377,11 @@ class ShellController extends FrameSafeNotifier
       timer.cancel();
     }
     _pluginNotificationFeedRefreshTimers.clear();
+    _siteNotificationTypes.clear();
+    for (final request in _siteNotificationTypeRequests.values) {
+      request.ignore();
+    }
+    _siteNotificationTypeRequests.clear();
     _topicDeletionWrites.clear();
     _topicPostSelections.clear();
     _topicPostSelectionWrites.clear();

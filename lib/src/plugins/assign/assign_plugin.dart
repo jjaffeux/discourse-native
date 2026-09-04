@@ -89,6 +89,7 @@ final class AssignPlugin
         icon: DIcons.userPlus,
         label: 'Assign list',
         badge: unreadCount,
+        notificationTypes: assignNotificationFeed.filterByTypes,
         linkWhenActive: fullListPath,
         builder: (buildContext, actions) => AssignUserMenuNotifications(
           siteUrl: context.siteUrl,

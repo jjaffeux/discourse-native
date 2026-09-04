@@ -518,6 +518,7 @@ class FakeDiscourseApi
     this.totals,
     this.notificationList,
     this.replyNotificationList,
+    this.otherNotificationList,
     this.chatNotificationList,
     this.bookmarkList,
     this.reminderList = const [],
@@ -584,6 +585,7 @@ class FakeDiscourseApi
     this.appearanceGate,
     this.siteConfigs = const {},
     this.siteConfigGate,
+    this.siteNotificationTypeList = CoreNotificationTypes.values,
     this.gifCategoriesBySite = const {},
     this.gifSearchPages = const {},
     this.gifFailure,
@@ -710,6 +712,8 @@ class FakeDiscourseApi
 
   final List<DiscourseNotification>? replyNotificationList;
 
+  final List<DiscourseNotification>? otherNotificationList;
+
   final List<DiscourseNotification>? chatNotificationList;
 
   final List<Bookmark>? bookmarkList;
@@ -735,6 +739,7 @@ class FakeDiscourseApi
   int totalsCalls = 0;
   int notificationCalls = 0;
   int replyNotificationCalls = 0;
+  int otherNotificationCalls = 0;
   int chatNotificationCalls = 0;
 
   final List<List<NotificationTypeName>> notificationFilters = [];
@@ -940,6 +945,8 @@ class FakeDiscourseApi
   /// Missing config is the neutral, plain-core fixture default.
   final Map<String, SiteConfig> siteConfigs;
   final Completer<void>? siteConfigGate;
+  final List<NotificationWireType> siteNotificationTypeList;
+  final List<String> siteNotificationTypesRequested = [];
 
   final Map<String, List<GifCategory>> gifCategoriesBySite;
   final Map<String, GifSearchPage> gifSearchPages;
@@ -1432,6 +1439,8 @@ class FakeDiscourseApi
       chatNotificationCalls++;
     } else if (filterByTypes.isEmpty) {
       notificationCalls++;
+    } else {
+      otherNotificationCalls++;
     }
     final result = replies
         ? replyNotificationList
@@ -1439,7 +1448,7 @@ class FakeDiscourseApi
         ? chatNotificationList
         : filterByTypes.isEmpty
         ? notificationList
-        : null;
+        : otherNotificationList;
     if (result == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
@@ -1955,6 +1964,16 @@ class FakeDiscourseApi
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return config;
+  }
+
+  @override
+  Future<List<NotificationWireType>> siteNotificationTypes({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    siteNotificationTypesRequested.add(siteUrl);
+    return siteNotificationTypeList;
   }
 
   @override

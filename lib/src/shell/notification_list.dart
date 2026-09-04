@@ -43,7 +43,7 @@ class NotificationDescription {
   final String phrase;
 }
 
-enum _NotificationFeedKind { all, replies }
+enum _NotificationFeedKind { all, replies, other }
 
 class NotificationSection extends StatelessWidget {
   const NotificationSection({
@@ -87,6 +87,29 @@ class RepliesSection extends StatelessWidget {
           siteUrl: siteUrl,
           onOpened: onOpened,
           kind: _NotificationFeedKind.replies,
+        ),
+      );
+}
+
+class OtherNotificationsSection extends StatelessWidget {
+  const OtherNotificationsSection({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+  });
+
+  final String siteUrl;
+  final VoidCallback onOpened;
+
+  @override
+  Widget build(BuildContext context) =>
+      AccountActivityLoader.otherNotifications(
+        siteUrl: siteUrl,
+        builder: (context, controller) => _NotificationSectionView(
+          controller: controller,
+          siteUrl: siteUrl,
+          onOpened: onOpened,
+          kind: _NotificationFeedKind.other,
         ),
       );
 }
@@ -388,6 +411,10 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         controller.accountActivity.replyNotificationsListenable,
         () => controller.loadReplyNotifications(widget.siteUrl),
       ),
+      _NotificationFeedKind.other => (
+        controller.accountActivity.otherNotificationsListenable,
+        () => controller.loadOtherNotifications(widget.siteUrl),
+      ),
     };
     return ListenableBuilder(
       listenable: listenable,
@@ -399,6 +426,9 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
           _NotificationFeedKind.replies => controller.replyNotificationsFor(
             widget.siteUrl,
           ),
+          _NotificationFeedKind.other => controller.otherNotificationsFor(
+            widget.siteUrl,
+          ),
         };
 
         if (currentFeed.error case final error?) {
@@ -406,7 +436,11 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         }
         if (!currentFeed.loaded) return const UserMenuMessage(text: null);
         if (currentFeed.isEmpty) {
-          return const UserMenuMessage(text: 'Nothing new.');
+          return UserMenuMessage(
+            text: widget.kind == _NotificationFeedKind.other
+                ? 'You don’t have any other notifications yet.'
+                : 'Nothing new.',
+          );
         }
 
         return Column(

@@ -697,6 +697,17 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
       _site.siteConfig(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
 
   @override
+  Future<List<NotificationWireType>> siteNotificationTypes({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async => _site.siteNotificationTypes(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
+
+  @override
   Future<Map<String, String>> customEmojis({
     required String siteUrl,
     String? apiKey,

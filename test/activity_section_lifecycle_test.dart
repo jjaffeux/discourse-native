@@ -157,6 +157,7 @@ void main() {
 enum _Activity {
   notifications,
   replies,
+  other,
   chat,
   bookmarks,
   userActivity;
@@ -164,6 +165,7 @@ enum _Activity {
   String get label => switch (this) {
     notifications => 'notifications',
     replies => 'replies',
+    other => 'other notifications',
     chat => 'chat notifications',
     bookmarks => 'bookmarks',
     userActivity => 'user activity',
@@ -172,6 +174,7 @@ enum _Activity {
   Widget section(ShellController controller, String siteUrl) => switch (this) {
     notifications => NotificationSection(siteUrl: siteUrl, onOpened: _ignore),
     replies => RepliesSection(siteUrl: siteUrl, onOpened: _ignore),
+    other => OtherNotificationsSection(siteUrl: siteUrl, onOpened: _ignore),
     chat => PluginNotificationsSection(
       siteUrl: siteUrl,
       onOpened: _ignore,
@@ -185,6 +188,7 @@ enum _Activity {
   List<String> requests(_RecordingActivityApi api) => switch (this) {
     notifications => api.notificationSites,
     replies => api.replySites,
+    other => api.otherSites,
     chat => api.chatSites,
     bookmarks => api.bookmarkSites,
     userActivity => api.userActivitySites,
@@ -196,6 +200,7 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
     : super(
         notificationList: const [],
         replyNotificationList: const [],
+        otherNotificationList: const [],
         chatNotificationList: const [],
         bookmarkList: const [],
         user: const DiscourseUser(username: 'reader'),
@@ -203,6 +208,7 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
 
   final List<String> notificationSites = [];
   final List<String> replySites = [];
+  final List<String> otherSites = [];
   final List<String> chatSites = [];
   final List<String> bookmarkSites = [];
   final List<String> userActivitySites = [];
@@ -238,7 +244,7 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
     } else if (_sameKinds(filterByTypes, chatNotificationFeed.filterByTypes)) {
       chatSites.add(siteUrl);
     } else {
-      throw StateError('Unexpected notification filter: $filterByTypes');
+      otherSites.add(siteUrl);
     }
     return super.notifications(
       siteUrl: siteUrl,

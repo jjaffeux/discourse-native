@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/do_not_disturb.dart';
+import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
@@ -2117,6 +2118,44 @@ void _feedGroups() {
         );
       },
     );
+  });
+
+  group('siteNotificationTypes', () {
+    test('reads the ordered notification catalog from /site.json', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'notification_types': {
+                'replied': 2,
+                'granted_badge': 12,
+                'plugin_alert': 4200,
+                'broken': 0,
+                'also_broken': 'nope',
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final types = await api.siteNotificationTypes(
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+        clientId: 'client',
+      );
+
+      expect(sent.url, Uri.parse('https://example.com/site.json'));
+      expect(sent.headers['User-Api-Key'], 'secret');
+      expect(sent.headers['User-Api-Client-Id'], 'client');
+      expect(types, const [
+        CoreNotificationTypes.replied,
+        CoreNotificationTypes.grantedBadge,
+        NotificationWireType(4200, 'plugin_alert'),
+      ]);
+    });
   });
 
   group('emoji catalog', () {
