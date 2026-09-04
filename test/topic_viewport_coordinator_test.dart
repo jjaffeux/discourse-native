@@ -7,6 +7,50 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('TopicViewportCoordinator', () {
+    test('viewport aspects notify only their affected consumers', () {
+      final frames = _FrameQueue();
+      final geometry = _Geometry();
+      final subject = _coordinator(frames: frames, geometry: geometry);
+      _disposeAfter(subject, frames);
+      var overlayNotifications = 0;
+      var dayNotifications = 0;
+      var progressNotifications = 0;
+      subject.floatingDayOverlayListenable.addListener(
+        () => overlayNotifications++,
+      );
+      subject.floatingDayListenable.addListener(() => dayNotifications++);
+      subject.progressPositionListenable.addListener(
+        () => progressNotifications++,
+      );
+
+      final day = DateTime(2026, 8, 30);
+      subject.updateFloatingDay(day, 0);
+
+      expect(overlayNotifications, 1);
+      expect(dayNotifications, 1);
+      expect(progressNotifications, 0);
+
+      subject.updateFloatingDay(day, -4);
+
+      expect(overlayNotifications, 2);
+      expect(dayNotifications, 1);
+      expect(progressNotifications, 0);
+
+      final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]));
+      subject
+        ..bind(owner.binding)
+        ..restoreInitialPost(owner.snapshot)
+        ..recordObservation(
+          snapshot: owner.snapshot,
+          saveAnchor: false,
+          visible: const (postId: 11, postNumber: 2, caughtUp: true),
+        );
+
+      expect(overlayNotifications, 2);
+      expect(dayNotifications, 1);
+      expect(progressNotifications, 1);
+    });
+
     test(
       'topic switches replace state and retire the previous controllers',
       () {

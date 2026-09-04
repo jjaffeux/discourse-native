@@ -228,12 +228,28 @@ final class TopicViewportBinding {
 enum TopicViewportExtentAction { none, invalidate, replace }
 
 /// The independently changing viewport values consumed while rendering.
-abstract interface class TopicViewportListenable implements Listenable {
+///
+/// Each listenable is intentionally narrower than the coordinator itself so a
+/// scroll-critical offset or progress update only invalidates its consumer.
+abstract interface class TopicViewportListenable {
+  /// Changes whenever the floating day or its push offset changes.
+  Listenable get floatingDayOverlayListenable;
+
+  /// Changes only when the floating day identity changes.
+  Listenable get floatingDayListenable;
+
+  /// Changes only when the visible position in the topic stream changes.
+  Listenable get progressPositionListenable;
+
   DateTime? get floatingDay;
 
   double get floatingDayOffset;
 
   int? get progressPosition;
+}
+
+final class _TopicViewportAspectNotifier extends FrameSafeNotifier {
+  void notifyChanged() => notifySafely();
 }
 
 @immutable
@@ -338,6 +354,9 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   DateTime? _floatingDay;
   double _floatingDayOffset = 0;
   int? _progressPosition;
+  final _floatingDayOverlayNotifier = _TopicViewportAspectNotifier();
+  final _floatingDayNotifier = _TopicViewportAspectNotifier();
+  final _progressPositionNotifier = _TopicViewportAspectNotifier();
   Map<int, int>? _streamIndexes;
   List<int>? _indexedStream;
 
@@ -389,6 +408,12 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   bool get userDragging => _userDragging;
   bool get applyingAnchorRestore => _applyingAnchorRestore;
   int? get savedAnchorPostNumber => _savedAnchorPostNumber;
+  @override
+  Listenable get floatingDayOverlayListenable => _floatingDayOverlayNotifier;
+  @override
+  Listenable get floatingDayListenable => _floatingDayNotifier;
+  @override
+  Listenable get progressPositionListenable => _progressPositionNotifier;
   @override
   DateTime? get floatingDay => _floatingDay;
   @override
@@ -1080,15 +1105,17 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     if (_floatingDay == day && (_floatingDayOffset - offset).abs() < 0.1) {
       return;
     }
+    final dayChanged = _floatingDay != day;
     _floatingDay = day;
     _floatingDayOffset = offset;
-    notifySafely();
+    _floatingDayOverlayNotifier.notifyChanged();
+    if (dayChanged) _floatingDayNotifier.notifyChanged();
   }
 
   void _setProgressPosition(int position) {
     if (_progressPosition == position) return;
     _progressPosition = position;
-    notifySafely();
+    _progressPositionNotifier.notifyChanged();
   }
 
   void setTickerEnabled(bool enabled) {
@@ -1196,6 +1223,9 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _readTimer?.cancel();
     _readTimer = null;
     _retireControllers();
+    _floatingDayOverlayNotifier.dispose();
+    _floatingDayNotifier.dispose();
+    _progressPositionNotifier.dispose();
     super.dispose();
   }
 }
