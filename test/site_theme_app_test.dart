@@ -133,7 +133,9 @@ void main() {
       expect(store.saveCount, 1);
     });
 
-    testWidgets('swaps site palettes without cross-site bleed', (tester) async {
+    testWidgets('swaps site palettes without an intermediate animated theme', (
+      tester,
+    ) async {
       final first = siteAppearance(accent: const Color(0xFFAA2200));
       final second = siteAppearance(accent: const Color(0xFF0066BB));
       final store = FakeInstanceStore([
@@ -150,23 +152,18 @@ void main() {
       await _pumpApp(tester, store: store, api: FakeDiscourseApi());
       final controller = _controller(tester);
       expect(
-        _materialApp(tester).theme?.colorScheme.primary,
-        first.base?.tertiary,
+        _materialApp(tester).themeAnimationStyle,
+        AnimationStyle.noAnimation,
       );
+      expect(_activeTheme(tester).colorScheme.primary, first.base?.tertiary);
 
       controller.selectInstance(1);
       await tester.pump();
-      expect(
-        _materialApp(tester).theme?.colorScheme.primary,
-        second.base?.tertiary,
-      );
+      expect(_activeTheme(tester).colorScheme.primary, second.base?.tertiary);
 
       controller.selectInstance(0);
       await tester.pump();
-      expect(
-        _materialApp(tester).theme?.colorScheme.primary,
-        first.base?.tertiary,
-      );
+      expect(_activeTheme(tester).colorScheme.primary, first.base?.tertiary);
     });
 
     testWidgets('clears account-derived data on disconnect', (tester) async {
