@@ -350,6 +350,7 @@ class DButton extends StatelessWidget {
   final bool _iconOnly;
 
   static const double minimumDimension = 48;
+  static const double flatSurfacePadding = 4;
   static const double _borderWidth = 1;
   static const double _textLineHeight = 1.2;
 
@@ -372,6 +373,12 @@ class DButton extends StatelessWidget {
     final variantStyle = buttons.styleFor(variant);
     final fontSize = fontSizeFor(size);
     final iconOnlyDimension = iconOnlyDimensionFor(size);
+    final compactFlatSurface =
+        _iconOnly &&
+        (variant == DButtonVariant.flat || variant == DButtonVariant.flatClose);
+    final iconOnlySurfaceDimension = compactFlatSurface
+        ? iconOnlyDimension - flatSurfacePadding * 2
+        : iconOnlyDimension;
     final enabled = onPressed != null && !loading;
     final radius = borderRadius ?? BorderRadius.circular(buttons.borderRadius);
 
@@ -400,13 +407,13 @@ class DButton extends StatelessWidget {
 
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(
-        _iconOnly ? Size.square(iconOnlyDimension) : Size.zero,
+        _iconOnly ? Size.square(iconOnlySurfaceDimension) : Size.zero,
       ),
       fixedSize: _iconOnly
-          ? WidgetStatePropertyAll(Size.square(iconOnlyDimension))
+          ? WidgetStatePropertyAll(Size.square(iconOnlySurfaceDimension))
           : null,
       maximumSize: _iconOnly
-          ? WidgetStatePropertyAll(Size.square(iconOnlyDimension))
+          ? WidgetStatePropertyAll(Size.square(iconOnlySurfaceDimension))
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
         _iconOnly
@@ -447,8 +454,16 @@ class DButton extends StatelessWidget {
       shadowColor: const WidgetStatePropertyAll(Colors.transparent),
       surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
       animationDuration: Duration.zero,
-      visualDensity: VisualDensity.standard,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: compactFlatSurface
+          ? VisualDensity(
+              // Material density changes padded targets in four-pixel steps.
+              horizontal: (iconOnlyDimension - kMinInteractiveDimension) / 4,
+              vertical: (iconOnlyDimension - kMinInteractiveDimension) / 4,
+            )
+          : VisualDensity.standard,
+      tapTargetSize: compactFlatSurface
+          ? MaterialTapTargetSize.padded
+          : MaterialTapTargetSize.shrinkWrap,
       splashFactory: NoSplash.splashFactory,
       mouseCursor: WidgetStateMouseCursor.clickable,
       alignment: alignment,

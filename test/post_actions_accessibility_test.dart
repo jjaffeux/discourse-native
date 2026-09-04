@@ -56,7 +56,9 @@ void main() {
     );
     expect(
       filledButton.style!.fixedSize!.resolve({}),
-      const Size.square(DButton.minimumDimension),
+      const Size.square(
+        DButton.minimumDimension - DButton.flatSurfacePadding * 2,
+      ),
     );
   });
 
