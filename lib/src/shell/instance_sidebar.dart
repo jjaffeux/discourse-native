@@ -734,7 +734,7 @@ class _SectionState extends State<_Section> {
                   section: section,
                   collapsed: _collapsed,
                   onToggle: section.collapsible ? _toggle : null,
-                  rowHeight: sectionHeaderHeight,
+                  minimumHeight: sectionHeaderHeight,
                 )
               : const SizedBox.shrink(),
         ),
@@ -828,13 +828,13 @@ class _SectionHeader extends StatefulWidget {
     required this.section,
     required this.collapsed,
     required this.onToggle,
-    required this.rowHeight,
+    required this.minimumHeight,
   });
 
   final SidebarSection section;
   final bool collapsed;
   final VoidCallback? onToggle;
-  final double rowHeight;
+  final double minimumHeight;
 
   @override
   State<_SectionHeader> createState() => _SectionHeaderState();
@@ -872,7 +872,7 @@ class _SectionHeaderState extends State<_SectionHeader> {
     final toggle = widget.onToggle;
     final title = _SectionTitle(
       section: section,
-      rowHeight: widget.rowHeight,
+      minimumHeight: widget.minimumHeight,
       color: _titleHovered
           ? theme.colorScheme.onSurface
           : theme.colorScheme.onSurfaceVariant,
@@ -978,30 +978,43 @@ class _SectionAction extends StatelessWidget {
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({
     required this.section,
-    required this.rowHeight,
+    required this.minimumHeight,
     required this.color,
   });
 
   final SidebarSection section;
-  final double rowHeight;
+  final double minimumHeight;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final title = section.title.toUpperCase();
+    final textScaler = MediaQuery.textScalerOf(context);
+    final scaledFontSize = textScaler.scale(
+      _SidebarSpacing.sectionHeaderFontSize,
+    );
+    final scaledLineHeight =
+        scaledFontSize * DiscourseTypography.lineHeightMedium;
+    // RenderParagraph rounds its line box to a logical pixel. Base the
+    // padding on that same footprint so a one-line header keeps its exact
+    // existing height while wrapped text remains free to size intrinsically.
+    final unusedHeight = minimumHeight - scaledLineHeight.roundToDouble();
+    final verticalPadding = unusedHeight > 0 ? unusedHeight / 2 : 0.0;
+    final style = theme.textTheme.labelSmall?.copyWith(
+      color: color,
+      fontSize: _SidebarSpacing.sectionHeaderFontSize,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.6,
+    );
 
-    return SizedBox(
-      height: rowHeight,
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          section.title.toUpperCase(),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: color,
-            fontSize: _SidebarSpacing.sectionHeaderFontSize,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.6,
-          ),
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: minimumHeight),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: verticalPadding),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(title, semanticsLabel: section.title, style: style),
         ),
       ),
     );
