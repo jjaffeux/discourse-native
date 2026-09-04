@@ -673,7 +673,7 @@ void main() {
       );
     });
 
-    testWidgets('gives an assigned topic separate Change and Remove actions', (
+    testWidgets('gives an assigned topic icon-only change and remove actions', (
       tester,
     ) async {
       const registry = PluginRegistry([AssignPlugin()]);
@@ -719,6 +719,15 @@ void main() {
       expect(remove, findsOneWidget);
       expect(
         find.descendant(of: change, matching: find.text('Change')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: change,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.pencil,
+          ),
+        ),
         findsOneWidget,
       );
       expect(
