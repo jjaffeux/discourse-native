@@ -95,7 +95,7 @@ class _TopicListNavigationControls extends StatelessWidget {
     final mode = state.mode ?? TopicListMode.latest;
     final theme = Theme.of(context);
     final primaryTextStyle = theme.textTheme.labelLarge?.copyWith(
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w400,
     );
     final secondaryTextStyle = theme.textTheme.labelMedium?.copyWith(
       fontWeight: FontWeight.w400,

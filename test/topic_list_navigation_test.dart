@@ -171,6 +171,7 @@ void main() {
     final latestText = _tabText(tester, 'topic-list-latest');
     final newText = _tabText(tester, 'topic-list-new');
     expect(latestText.style?.fontSize, newText.style?.fontSize);
+    expect(latestText.style?.fontWeight, FontWeight.w400);
     expect(latestText.style?.fontWeight, newText.style?.fontWeight);
     expect(latestText.overflow, TextOverflow.visible);
     expect(newText.overflow, TextOverflow.visible);
