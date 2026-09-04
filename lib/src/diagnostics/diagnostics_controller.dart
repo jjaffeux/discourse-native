@@ -417,11 +417,10 @@ final class DiagnosticsController
         HttpDiagnosticsRecorder,
         IntermediateHttpDiagnosticsRecorder {
   DiagnosticsController._({
-    required this._persistence,
+    required this._persistenceFactory,
     required this._clock,
     required this._timerFactory,
     required this.sessionId,
-    required this._durablePersistenceUnavailable,
     required DiagnosticsJournal journal,
   }) : _sequence = journal.maximumSequence,
        _journal = journal,
@@ -432,7 +431,8 @@ final class DiagnosticsController
   static const Duration ordinaryWriteDelay = Duration(milliseconds: 150);
   static const int reportFormatVersion = 1;
 
-  final DiagnosticsPersistence _persistence;
+  final Future<DiagnosticsPersistence> Function() _persistenceFactory;
+  DiagnosticsPersistence? _persistence;
   final DateTime Function() _clock;
   final DiagnosticsTimerFactory _timerFactory;
   final DiagnosticsJournal _journal;
@@ -458,6 +458,8 @@ final class DiagnosticsController
   bool _errorEpochRotationScheduled = false;
   final DiagnosticsJournalOperationQueue _persistenceOperations =
       DiagnosticsJournalOperationQueue();
+  final Completer<void> _hydrationCompleted = Completer<void>();
+  final Set<int> _queuedWriteDrains = {};
   Timer? _writeTimer;
   Timer? _expiryTimer;
   List<DiagnosticEvent>? _frozenEvents;
@@ -468,7 +470,10 @@ final class DiagnosticsController
   bool _closed = false;
   Future<void>? _closeTask;
   bool _closeSettled = false;
-  final bool _durablePersistenceUnavailable;
+  Future<void>? _hydrationTask;
+  bool _discardHydratedHistory = false;
+  bool _markSeenRequestedDuringHydration = false;
+  bool _durablePersistenceUnavailable = false;
 
   final String sessionId;
 
@@ -479,69 +484,156 @@ final class DiagnosticsController
     DiagnosticsTimerFactory? timerFactory,
     String? sessionId,
   }) async {
+    final controller = start(
+      persistence: persistence,
+      persistenceFactory: persistenceFactory,
+      clock: clock,
+      timerFactory: timerFactory,
+      sessionId: sessionId,
+    );
+    await controller.flush();
+    return controller;
+  }
+
+  /// Creates the current-session recorder without touching durable storage.
+  ///
+  /// Call [hydrate] after latency-sensitive startup work. Until hydration
+  /// completes, events are captured in memory and persistence operations wait
+  /// behind the same barrier, so no early event can overtake retained history.
+  static DiagnosticsController start({
+    DiagnosticsPersistence? persistence,
+    Future<DiagnosticsPersistence> Function()? persistenceFactory,
+    DateTime Function()? clock,
+    DiagnosticsTimerFactory? timerFactory,
+    String? sessionId,
+  }) {
     final resolvedClock = clock ?? _utcNow;
-    DiagnosticsPersistence resolvedPersistence;
+    final createPersistence = persistence != null
+        ? () async => persistence
+        : persistenceFactory ?? FileDiagnosticsPersistence.applicationSupport;
+    final controller = DiagnosticsController._(
+      persistenceFactory: createPersistence,
+      clock: resolvedClock,
+      timerFactory: timerFactory ?? Timer.new,
+      sessionId: sessionId ?? _newSessionId(resolvedClock()),
+      journal: DiagnosticsJournal(sizeOf: diagnosticEventSerializedBytes),
+    );
+    controller._recordSessionStart();
+    return controller;
+  }
+
+  /// Loads and merges retained history exactly once.
+  Future<void> hydrate() => _hydrationTask ??= _performHydration();
+
+  Future<void> _performHydration() async {
     Object? persistenceError;
     StackTrace? persistenceStack;
     var durablePersistenceUnavailable = false;
-    if (persistence != null) {
-      resolvedPersistence = persistence;
-    } else {
+    DiagnosticsPersistence resolvedPersistence;
+    DiagnosticsPersistenceState stored;
+
+    try {
       try {
-        resolvedPersistence =
-            await (persistenceFactory?.call() ??
-                FileDiagnosticsPersistence.applicationSupport());
+        resolvedPersistence = await _persistenceFactory();
       } on Object catch (error, stackTrace) {
         resolvedPersistence = MemoryDiagnosticsPersistence();
         durablePersistenceUnavailable = true;
         persistenceError = error;
         persistenceStack = stackTrace;
       }
-    }
 
-    DiagnosticsPersistenceState stored;
-    try {
-      stored = await resolvedPersistence.load(nowUtc: resolvedClock());
-    } on Object catch (error, stackTrace) {
-      // Keep the failed persistence as a clear-only recovery delegate. A
-      // confirmed Clear must still get a chance to delete an unreadable JSONL
-      // file instead of silently clearing only this fallback memory store.
-      resolvedPersistence = _LoadFailureFallbackPersistence(
-        resolvedPersistence,
-      );
-      stored = const DiagnosticsPersistenceState();
-      persistenceError = error;
-      persistenceStack = stackTrace;
-    }
+      try {
+        stored = await resolvedPersistence.load(nowUtc: _clock());
+      } on Object catch (error, stackTrace) {
+        // Keep the failed persistence as a clear-only recovery delegate. A
+        // confirmed Clear must still get a chance to delete an unreadable
+        // JSONL file instead of silently clearing only fallback memory.
+        resolvedPersistence = _LoadFailureFallbackPersistence(
+          resolvedPersistence,
+        );
+        stored = const DiagnosticsPersistenceState();
+        persistenceError = error;
+        persistenceStack = stackTrace;
+      }
 
-    final journal = DiagnosticsJournal(
-      sizeOf: diagnosticEventSerializedBytes,
-      events: stored.events,
-      serializedEventBytes: stored.serializedEventBytes,
-      lastSeenSequence: stored.lastSeenSequence,
-    );
-    final controller = DiagnosticsController._(
-      persistence: resolvedPersistence,
-      clock: resolvedClock,
-      timerFactory: timerFactory ?? Timer.new,
-      sessionId: sessionId ?? _newSessionId(resolvedClock()),
-      durablePersistenceUnavailable: durablePersistenceUnavailable,
-      journal: journal,
-    );
-    controller._initializePreviousSession();
-    controller._recordSessionStart();
-    controller._updateUnseenCount();
-    if (persistenceError != null) {
-      controller._recordPersistenceFailure(
-        persistenceError,
-        persistenceStack ?? StackTrace.empty,
+      _persistence = resolvedPersistence;
+      _durablePersistenceUnavailable = durablePersistenceUnavailable;
+      if (!_discardHydratedHistory) {
+        _mergeRetainedHistory(stored);
+      } else {
+        _publishEvents(_clock());
+        _updateUnseenCount();
+      }
+      if (persistenceError != null) {
+        _recordPersistenceFailure(
+          persistenceError,
+          persistenceStack ?? StackTrace.empty,
+        );
+      }
+      // File persistence already compacts while loading when retention
+      // requires it. An unconditional second compaction would rewrite the
+      // complete diagnostics history on every launch.
+    } finally {
+      if (!_hydrationCompleted.isCompleted) {
+        _hydrationCompleted.complete();
+      }
+    }
+  }
+
+  void _mergeRetainedHistory(DiagnosticsPersistenceState stored) {
+    final currentEvents = List<DiagnosticEvent>.of(_journal.events);
+    final frozenIds = _frozenEvents
+        ?.map((event) => event.id)
+        .toList(growable: false);
+
+    _journal.clear(lastSeenSequence: stored.lastSeenSequence);
+    for (final event in stored.events) {
+      _journal.put(
+        event,
+        serializedBytes: stored.serializedEventBytes[event.id],
       );
     }
-    await controller.flush();
-    // File persistence already compacts while loading when retention requires
-    // it. An unconditional second compaction rewrote the complete diagnostics
-    // history on every launch, directly on the startup critical path.
-    return controller;
+    _sequence = _journal.maximumSequence;
+    _initializePreviousSession(publish: false);
+
+    final rebasedById = <String, DiagnosticEvent>{};
+    for (final event in currentEvents) {
+      final rebased = _copyWithSequence(event, _nextSequence());
+      rebasedById[event.id] = rebased;
+      _journal.put(rebased);
+    }
+    _rebasePendingWrites(rebasedById);
+
+    if (frozenIds != null) {
+      _frozenEvents = List.unmodifiable(
+        frozenIds.map(_journal.eventById).whereType<DiagnosticEvent>(),
+      );
+    }
+    _publishEvents(_clock());
+    if (_markSeenRequestedDuringHydration || _isShowingLiveEvents) {
+      _markSeenNow();
+    } else {
+      _updateUnseenCount();
+    }
+  }
+
+  void _rebasePendingWrites(Map<String, DiagnosticEvent> rebasedById) {
+    for (var index = 0; index < _pendingWrites.length; index += 1) {
+      final (event, generation) = _pendingWrites[index];
+      _pendingWrites[index] = (rebasedById[event.id] ?? event, generation);
+    }
+    _pendingWrites.sort((left, right) {
+      final bySequence = left.$1.sequence.compareTo(right.$1.sequence);
+      return bySequence != 0 ? bySequence : left.$1.id.compareTo(right.$1.id);
+    });
+    _rebuildPendingWriteIndexes();
+  }
+
+  void _rebuildPendingWriteIndexes() {
+    _pendingWriteIndexes.clear();
+    for (var index = 0; index < _pendingWrites.length; index += 1) {
+      _pendingWriteIndexes[_pendingWrites[index].$1.id] = index;
+    }
   }
 
   ValueListenable<List<DiagnosticEvent>> get eventsListenable =>
@@ -651,6 +743,13 @@ final class DiagnosticsController
       _setPanelState(panelState.copyWith(selectedEventId: eventId));
 
   void markSeen() {
+    if (!_hydrationCompleted.isCompleted) {
+      _markSeenRequestedDuringHydration = true;
+    }
+    _markSeenNow();
+  }
+
+  void _markSeenNow() {
     final previousSequence = _journal.lastSeenSequence;
     final previousUnseenCount = _journal.unseenErrorCount;
     final latestErrorSequence = _journal.markErrorsSeen();
@@ -659,7 +758,7 @@ final class DiagnosticsController
     }
     _unseenErrorCountNotifier.value = 0;
     _queuePersistence(
-      () => _persistence.writeLastSeenSequence(latestErrorSequence),
+      () => _persistence!.writeLastSeenSequence(_journal.lastSeenSequence),
       generation: _generation,
     );
   }
@@ -897,6 +996,8 @@ final class DiagnosticsController
   Future<void> clear() async {
     if (_closed) return;
     _generation += 1;
+    _discardHydratedHistory = true;
+    _markSeenRequestedDuringHydration = false;
     _writeTimer?.cancel();
     _writeTimer = null;
     _expiryTimer?.cancel();
@@ -915,7 +1016,7 @@ final class DiagnosticsController
     _unseenErrorCountNotifier.value = 0;
     selectEvent(null);
     final generation = _generation;
-    _queuePersistence(_persistence.clear, generation: generation);
+    _queuePersistence(() => _persistence!.clear(), generation: generation);
     await flush();
     if (_durablePersistenceUnavailable && !_closed) {
       _recordPersistenceFailure(
@@ -926,8 +1027,15 @@ final class DiagnosticsController
   }
 
   Future<void> flush() async {
+    final hydration = hydrate();
     _flushPendingWrites();
-    await _persistenceOperations.done;
+    await hydration;
+    while (true) {
+      final pending = _persistenceOperations.done;
+      await pending;
+      _flushPendingWrites();
+      if (identical(pending, _persistenceOperations.done)) return;
+    }
   }
 
   Future<void> close() {
@@ -993,7 +1101,7 @@ final class DiagnosticsController
     }
 
     await stage(flush);
-    await stage(_persistence.close);
+    await stage(() => _persistence!.close());
     disposeNotifier(_eventsNotifier);
     disposeNotifier(_panelStateNotifier);
     disposeNotifier(_panelOpenNotifier);
@@ -1005,7 +1113,7 @@ final class DiagnosticsController
     }
   }
 
-  void _initializePreviousSession() {
+  void _initializePreviousSession({bool publish = true}) {
     final now = _clock().toUtc();
     final interruptedEvents = <HttpDiagnosticEvent>[];
     for (final event in _journal.events) {
@@ -1027,7 +1135,7 @@ final class DiagnosticsController
       _journal.put(interrupted);
       _schedulePersist(interrupted);
     }
-    _publishEvents(now);
+    if (publish) _publishEvents(now);
   }
 
   void _recordSessionStart() {
@@ -1115,7 +1223,7 @@ final class DiagnosticsController
     _updateUnseenCount();
     if (_journal.length != before) {
       _queuePersistence(
-        () => _persistence.compact(nowUtc: now),
+        () => _persistence!.compact(nowUtc: now),
         generation: _generation,
       );
     }
@@ -1208,18 +1316,47 @@ final class DiagnosticsController
     _writeTimer?.cancel();
     _writeTimer = null;
     if (_pendingWrites.isEmpty) return;
-    final writes = List<(DiagnosticEvent, int)>.of(_pendingWrites);
-    _pendingWrites.clear();
-    _pendingWriteIndexes.clear();
-    final batches = <int, List<DiagnosticEvent>>{};
-    for (final (event, generation) in writes) {
-      (batches[generation] ??= []).add(event);
-    }
-    for (final MapEntry(key: generation, value: events) in batches.entries) {
-      _queuePersistence(
-        () => _persistence.appendEvents(events, nowUtc: _clock()),
-        generation: generation,
+    final generations = {
+      for (final (_, generation) in _pendingWrites) generation,
+    };
+    for (final generation in generations) {
+      if (!_queuedWriteDrains.add(generation)) continue;
+      unawaited(
+        _persistenceOperations.run(() async {
+          try {
+            await _hydrationCompleted.future;
+            if (generation != _generation) return;
+            await _persistPendingWrites(generation);
+          } on Object catch (error, stackTrace) {
+            if (generation == _generation) {
+              _recordPersistenceFailure(error, stackTrace);
+            }
+          } finally {
+            _queuedWriteDrains.remove(generation);
+            if (_pendingWrites.isNotEmpty) _flushPendingWrites();
+          }
+        }),
       );
+    }
+  }
+
+  Future<void> _persistPendingWrites(int generation) async {
+    while (generation == _generation) {
+      final events = <DiagnosticEvent>[];
+      final retained = <(DiagnosticEvent, int)>[];
+      for (final write in _pendingWrites) {
+        if (write.$2 == generation) {
+          events.add(write.$1);
+        } else {
+          retained.add(write);
+        }
+      }
+      if (events.isEmpty) return;
+      _pendingWrites
+        ..clear()
+        ..addAll(retained);
+      _rebuildPendingWriteIndexes();
+      await _persistence!.appendEvents(events, nowUtc: _clock());
     }
   }
 
@@ -1229,8 +1366,9 @@ final class DiagnosticsController
   }) {
     unawaited(
       _persistenceOperations.run(() async {
-        if (generation != _generation) return;
         try {
+          await _hydrationCompleted.future;
+          if (generation != _generation) return;
           await operation();
         } on Object catch (error, stackTrace) {
           if (generation == _generation) {
@@ -1271,6 +1409,59 @@ final class DiagnosticsController
     }
   }
 }
+
+DiagnosticEvent _copyWithSequence(DiagnosticEvent event, int sequence) =>
+    switch (event) {
+      final DiagnosticSessionEvent event => DiagnosticSessionEvent(
+        id: event.id,
+        sessionId: event.sessionId,
+        sequence: sequence,
+        timestampUtc: event.timestampUtc,
+        updatedAtUtc: event.updatedAtUtc,
+        severity: event.severity,
+        source: event.source,
+        operation: event.operation,
+        correlationId: event.correlationId,
+        handled: event.handled,
+        degraded: event.degraded,
+        state: event.state,
+        message: event.message,
+      ),
+      final HttpDiagnosticEvent event => event.copyWith(sequence: sequence),
+      final DiagnosticLogEvent event => DiagnosticLogEvent(
+        id: event.id,
+        sessionId: event.sessionId,
+        sequence: sequence,
+        timestampUtc: event.timestampUtc,
+        updatedAtUtc: event.updatedAtUtc,
+        severity: event.severity,
+        source: event.source,
+        operation: event.operation,
+        correlationId: event.correlationId,
+        handled: event.handled,
+        degraded: event.degraded,
+        name: event.name,
+        component: event.component,
+        message: event.message,
+        attributes: event.attributes,
+      ),
+      final ErrorDiagnosticEvent event => ErrorDiagnosticEvent(
+        id: event.id,
+        sessionId: event.sessionId,
+        sequence: sequence,
+        timestampUtc: event.timestampUtc,
+        updatedAtUtc: event.updatedAtUtc,
+        severity: event.severity,
+        source: event.source,
+        operation: event.operation,
+        correlationId: event.correlationId,
+        handled: event.handled,
+        degraded: event.degraded,
+        errorType: event.errorType,
+        message: event.message,
+        stackTrace: event.stackTrace,
+      ),
+    };
 
 extension on String {
   String? get nullIfEmpty => isEmpty ? null : this;
