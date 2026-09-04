@@ -737,6 +737,11 @@ posts. In both cases paging is by id (`/t/{id}/posts.json?post_ids[]=…`) rathe
 than by page number. Fetched posts are merged in post-number order, not append
 order.
 
+Terminal small actions such as closing or pinning remain visible in that
+stream, but read receipts stop at the last non-small-action post because core's
+`highest_post_number` deliberately excludes those action rows. A repeated
+caught-up receipt still clears the cached unread state without another write.
+
 `TopicView` owns render objects, post measurement, and composition. Its
 `TopicViewportCoordinator` is a separate lifecycle-owned `Listenable` for the
 reader state machine: it replaces and disposes scroll/list controllers with

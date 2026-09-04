@@ -182,6 +182,24 @@ void main() {
         ]);
       },
     );
+
+    test('a caught-up duplicate clears the optimistic unread state', () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'key';
+      store.put(siteUrl, _topic(highest: 12));
+
+      final partial = controller.mark(siteUrl, 1, 12, caughtUp: false);
+      await pumpEventQueue();
+
+      expect(store.read<Topic>(siteUrl, 1)!.hasUnread, isTrue);
+      api.requests.single.response.complete();
+      await partial;
+
+      await controller.mark(siteUrl, 1, 12, caughtUp: true);
+
+      expect(api.requests, hasLength(1));
+      expect(store.read<Topic>(siteUrl, 1)!.hasUnread, isFalse);
+    });
   });
 
   group('receipt coalescing and write outcomes', () {
