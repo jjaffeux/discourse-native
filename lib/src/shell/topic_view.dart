@@ -2483,7 +2483,7 @@ class _TopicViewHeader extends StatelessWidget {
             if (onToggleSidebar case final onPressed?) ...[
               const SizedBox(width: 4),
               _TopicSidebarToggle(
-                showSidebar: !sidebarVisible,
+                sidebarVisible: sidebarVisible,
                 onPressed: onPressed,
               ),
             ],
@@ -2652,7 +2652,10 @@ class _TopicSidebarActions extends StatelessWidget {
                 const Spacer(),
                 if (onCollapsed case final onPressed?) ...[
                   const SizedBox(width: 4),
-                  _TopicSidebarToggle(showSidebar: false, onPressed: onPressed),
+                  _TopicSidebarToggle(
+                    sidebarVisible: true,
+                    onPressed: onPressed,
+                  ),
                 ],
               ],
             ),
@@ -2668,26 +2671,28 @@ class _TopicSidebarActions extends StatelessWidget {
 
 class _TopicSidebarToggle extends StatelessWidget {
   const _TopicSidebarToggle({
-    required this.showSidebar,
+    required this.sidebarVisible,
     required this.onPressed,
   });
 
-  final bool showSidebar;
+  final bool sidebarVisible;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) => DButton.iconOnly(
     key: const ValueKey('topic-sidebar-toggle'),
     onPressed: onPressed,
-    icon: const _TopicSidebarIcon(),
-    tooltip: showSidebar ? 'Show topic sidebar' : 'Hide topic sidebar',
-    variant: DButtonVariant.flat,
+    icon: _TopicSidebarIcon(sidebarVisible: sidebarVisible),
+    tooltip: sidebarVisible ? 'Hide topic sidebar' : 'Show topic sidebar',
+    variant: sidebarVisible ? DButtonVariant.standard : DButtonVariant.flat,
     size: DButtonSize.small,
   );
 }
 
 class _TopicSidebarIcon extends StatelessWidget {
-  const _TopicSidebarIcon();
+  const _TopicSidebarIcon({required this.sidebarVisible});
+
+  final bool sidebarVisible;
 
   @override
   Widget build(BuildContext context) {
@@ -2706,15 +2711,20 @@ class _TopicSidebarIcon extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: 4,
-            right: 4,
-            bottom: 4,
+            key: ValueKey(
+              sidebarVisible
+                  ? 'topic-sidebar-icon-open'
+                  : 'topic-sidebar-icon-closed',
+            ),
+            top: sidebarVisible ? 2 : 4,
+            right: sidebarVisible ? 5 : 4,
+            bottom: sidebarVisible ? 2 : 4,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: color,
                 borderRadius: BorderRadius.circular(1),
               ),
-              child: const SizedBox(width: 4),
+              child: SizedBox(width: sidebarVisible ? 2 : 4),
             ),
           ),
         ],
