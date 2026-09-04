@@ -259,24 +259,18 @@ class AggregateViewState extends State<AggregateView> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: lane.padding,
           itemCount:
-              1 +
               state.topics.length +
               (state.failures.isNotEmpty ? 1 : 0) +
               (state.loadingMore ? 1 : 0),
           separatorBuilder: (context, index) {
-            final firstTopicIndex = 1 + (state.failures.isNotEmpty ? 1 : 0);
+            final firstTopicIndex = state.failures.isNotEmpty ? 1 : 0;
             final lastTopicIndex = firstTopicIndex + state.topics.length - 1;
             if (index >= firstTopicIndex && index < lastTopicIndex) {
               return Divider(height: 1, color: Theme.of(context).shell.divider);
             }
-            if (index == 0 && state.failures.isEmpty) {
-              return const SizedBox.shrink();
-            }
             return const SizedBox(height: 9);
           },
           itemBuilder: (context, index) {
-            if (index == 0) return const TopicListHeader();
-            index--;
             if (state.failures.isNotEmpty) {
               if (index == 0) {
                 return _AggregateCard(

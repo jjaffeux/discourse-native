@@ -4935,7 +4935,10 @@ void _registerTopicReadingTests() {
 
       expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsOneWidget);
       expect(find.text('More topics'), findsOneWidget);
-      expect(find.byType(TopicListHeader), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('topic-list-ledger-header')),
+        findsNothing,
+      );
       final moreTopicsCard = find.byKey(
         const ValueKey('topic-more-topics-card'),
       );
@@ -5018,12 +5021,12 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('More topics'), findsOneWidget);
-      expect(find.byType(TopicListHeader), findsOneWidget);
-      expect(find.text('Suggested'), findsNothing);
       expect(
-        find.byKey(const ValueKey('topic-ledger-state-8')),
-        findsOneWidget,
+        find.byKey(const ValueKey('topic-list-ledger-header')),
+        findsNothing,
       );
+      expect(find.text('Suggested'), findsNothing);
+      expect(find.byKey(const ValueKey('topic-ledger-state-8')), findsNothing);
       expect(
         find.byKey(const ValueKey('topic-ledger-topic-8')),
         findsOneWidget,

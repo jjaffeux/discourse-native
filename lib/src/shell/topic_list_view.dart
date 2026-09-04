@@ -263,18 +263,11 @@ class _TopicListViewState extends State<TopicListView> {
     final feed = widget.feed;
 
     if (feed.loading && feed.topicIds.isEmpty) {
-      return Column(
-        children: [
-          const ContentReadingLaneBox(child: TopicListHeader()),
-          Expanded(
-            child: ContentReadingLaneBox(
-              child: _TopicListLoadingSkeleton(
-                key: const ValueKey('topic-list-loading-skeleton'),
-                destination: destination,
-              ),
-            ),
-          ),
-        ],
+      return ContentReadingLaneBox(
+        child: _TopicListLoadingSkeleton(
+          key: const ValueKey('topic-list-loading-skeleton'),
+          destination: destination,
+        ),
       );
     }
     if (feed.error case final error? when feed.topicIds.isEmpty) {
@@ -305,7 +298,6 @@ class _TopicListViewState extends State<TopicListView> {
             message: error,
             onRetry: () => unawaited(controller.loadFeed(destination)),
           ),
-        const ContentReadingLaneBox(child: TopicListHeader()),
         Expanded(
           child: ContentReadingLane(
             basePadding: const EdgeInsets.symmetric(vertical: 4),
@@ -402,91 +394,22 @@ class _TopicListViewState extends State<TopicListView> {
 
 class _TopicLedgerLayout {
   const _TopicLedgerLayout({
-    required this.showStateLabel,
     required this.showParticipants,
     required this.showActivity,
   });
 
   factory _TopicLedgerLayout.forWidth(double width) => _TopicLedgerLayout(
-    showStateLabel: width >= 760,
     showParticipants: width >= 440,
     showActivity: width >= 650,
   );
 
   static const double horizontalPadding = 14;
   static const double gap = 12;
-  static const double wideStateWidth = 100;
-  static const double compactStateWidth = 12;
   static const double participantsWidth = 82;
   static const double activityWidth = 120;
 
-  final bool showStateLabel;
   final bool showParticipants;
   final bool showActivity;
-
-  double get stateWidth => showStateLabel
-      ? _TopicLedgerLayout.wideStateWidth
-      : _TopicLedgerLayout.compactStateWidth;
-}
-
-class TopicListHeader extends StatelessWidget {
-  const TopicListHeader({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final style = theme.textTheme.labelSmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-      fontSize: 9,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.8,
-    );
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final layout = _TopicLedgerLayout.forWidth(constraints.maxWidth);
-        return Container(
-          key: const ValueKey('topic-list-ledger-header'),
-          height: 36,
-          padding: const EdgeInsets.symmetric(
-            horizontal: _TopicLedgerLayout.horizontalPadding,
-          ),
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: theme.shell.divider),
-              bottom: BorderSide(color: theme.shell.divider),
-            ),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: layout.stateWidth,
-                child: layout.showStateLabel
-                    ? Text('STATE', style: style)
-                    : null,
-              ),
-              const SizedBox(width: _TopicLedgerLayout.gap),
-              Expanded(child: Text('TOPIC', style: style)),
-              if (layout.showParticipants) ...[
-                const SizedBox(width: _TopicLedgerLayout.gap),
-                SizedBox(
-                  width: _TopicLedgerLayout.participantsWidth,
-                  child: Text('PARTICIPANTS', style: style),
-                ),
-              ],
-              if (layout.showActivity) ...[
-                const SizedBox(width: _TopicLedgerLayout.gap),
-                SizedBox(
-                  width: _TopicLedgerLayout.activityWidth,
-                  child: Text('ACTIVITY', style: style),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _TopicListLoadingSkeleton extends StatelessWidget {
@@ -596,16 +519,6 @@ class _TopicListSkeletonRow extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              SizedBox(
-                width: layout.stateWidth,
-                child: layout.showStateLabel
-                    ? const LoadingSkeletonBlock(width: 56, height: 8)
-                    : const Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: LoadingSkeletonBlock.circle(diameter: 7),
-                      ),
-              ),
-              const SizedBox(width: _TopicLedgerLayout.gap),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1031,16 +944,6 @@ class _TopicRowBody extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SizedBox(
-                  key: ValueKey('topic-ledger-state-${topic.id}'),
-                  width: layout.stateWidth,
-                  child: _TopicLedgerState(
-                    topic: topic,
-                    category: category,
-                    showLabel: layout.showStateLabel,
-                  ),
-                ),
-                const SizedBox(width: _TopicLedgerLayout.gap),
                 Expanded(
                   key: ValueKey('topic-ledger-topic-${topic.id}'),
                   child: _TopicIdentity(
@@ -1241,7 +1144,7 @@ class _TopicCopy extends StatelessWidget {
                     DIcons.lock,
                     size: 14,
                     color: theme.colorScheme.onSurfaceVariant,
-                    semanticLabel: 'Closed topic',
+                    semanticLabel: 'Closed',
                   ),
                 ),
               ),
@@ -1387,74 +1290,6 @@ class _TopicCopy extends StatelessWidget {
                 ),
           ],
         ),
-      ],
-    );
-  }
-}
-
-class _TopicLedgerState extends StatelessWidget {
-  const _TopicLedgerState({
-    required this.topic,
-    required this.category,
-    required this.showLabel,
-  });
-
-  final Topic topic;
-  final TopicCategory? category;
-  final bool showLabel;
-
-  String get _label {
-    if (topic.closed) return 'Closed';
-    if (topic.showUnreadCount) return '${topic.unreadCount} unread';
-    if (topic.showNewTopicDot) return 'New';
-    if (topic.showNewRepliesDot) return 'New replies';
-    if (topic.pinned) return 'Pinned';
-    return topic.visited ? 'Read' : 'Active';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = switch ((
-      topic.closed,
-      topic.hasUnseenActivity,
-      topic.visited,
-    )) {
-      (true, _, _) => theme.colorScheme.onSurfaceVariant,
-      (_, true, _) => theme.colorScheme.primary,
-      (_, _, true) => theme.colorScheme.onSurfaceVariant.withValues(
-        alpha: 0.55,
-      ),
-      _ =>
-        category == null
-            ? theme.colorScheme.primary
-            : Color(category!.colorValue),
-    };
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ExcludeSemantics(
-          child: Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-        ),
-        if (showLabel) ...[
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              _label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }
