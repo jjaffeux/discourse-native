@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
@@ -10,6 +12,7 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -235,6 +238,41 @@ void main() {
     } finally {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
+  });
+
+  testWidgets('refresh uses the toolbar button without shifting the feed', (
+    tester,
+  ) async {
+    final fixture = await _pumpMixedAggregateView(tester);
+    final refreshGate = Completer<void>();
+    fixture.api.feedGates[_defaultAggregatePath] = refreshGate;
+    final refreshButton = find.byKey(
+      const ValueKey('aggregate-refresh-button'),
+    );
+    final firstCard = find.byKey(
+      ValueKey('aggregate-topic-card-${fixture.forumUrls[0]}-42'),
+    );
+    final cardTopBeforeRefresh = tester.getTopLeft(firstCard).dy;
+
+    await tester.tap(refreshButton);
+    await tester.pump();
+
+    expect(tester.widget<DButton>(refreshButton).loading, isTrue);
+    expect(find.text('Refreshing…'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AggregateView),
+        matching: find.byType(LinearProgressIndicator),
+      ),
+      findsNothing,
+    );
+    expect(tester.getTopLeft(firstCard).dy, cardTopBeforeRefresh);
+
+    refreshGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<DButton>(refreshButton).loading, isFalse);
+    expect(find.text('Refresh'), findsOneWidget);
   });
 
   testWidgets('saves exact per-forum filters and can exclude every forum', (
@@ -491,6 +529,7 @@ _pumpMixedAggregateView(WidgetTester tester) async {
       _firstFilterPath: _filterOptions,
       _secondFilterPath: _filterOptions,
     },
+    feedGates: <String, Completer<void>>{},
     categoryList: const [
       TopicCategory(id: 1, name: 'Design', slug: 'design', color: 'AA00AA'),
       TopicCategory(

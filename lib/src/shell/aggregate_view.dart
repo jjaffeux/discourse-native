@@ -209,8 +209,6 @@ class AggregateViewState extends State<AggregateView> {
                       ? null
                       : () => unawaited(controller.refreshAggregate()),
                 ),
-                if (state.refreshing)
-                  const LinearProgressIndicator(minHeight: 2),
                 Expanded(child: _body(context, controller, state, activeTabId)),
               ],
             );
@@ -664,6 +662,7 @@ class _AggregateTabToolbar extends StatelessWidget {
                   icon: const DIcon(DIcons.arrowsRotate, size: 15),
                   tooltip: 'Refresh',
                   onPressed: onRefresh,
+                  loading: state.loading || state.refreshing,
                   size: DButtonSize.small,
                 )
               else
@@ -673,6 +672,8 @@ class _AggregateTabToolbar extends StatelessWidget {
                   icon: const DIcon(DIcons.arrowsRotate, size: 15),
                   tooltip: 'Refresh',
                   onPressed: onRefresh,
+                  loading: state.loading || state.refreshing,
+                  loadingLabel: const Text('Refreshing…'),
                   size: DButtonSize.small,
                 ),
             ],
