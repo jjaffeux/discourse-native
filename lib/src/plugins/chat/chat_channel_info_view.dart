@@ -101,26 +101,37 @@ class _ChannelInfoTabs extends StatelessWidget {
     final theme = Theme.of(context);
     return Material(
       color: theme.colorScheme.surface,
-      child: LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: constraints.maxWidth),
-            child: Row(
-              key: const ValueKey('chat-channel-info-tabs'),
-              children: [
-                const SizedBox(width: 16),
-                _tab(context, ChatChannelInfoTab.settings, 'Settings'),
-                _tab(
-                  context,
-                  ChatChannelInfoTab.members,
-                  channel.isCategoryChannel
-                      ? 'Members (${channel.membershipsCount})'
-                      : 'Members',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: theme.dividerColor)),
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final leadingSpace = constraints.maxWidth <= 740 ? 8.0 : 22.0;
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: SizedBox(
+                  height: 58,
+                  child: Row(
+                    key: const ValueKey('chat-channel-info-tabs'),
+                    children: [
+                      SizedBox(width: leadingSpace),
+                      _tab(context, ChatChannelInfoTab.settings, 'Settings'),
+                      _tab(
+                        context,
+                        ChatChannelInfoTab.members,
+                        channel.isCategoryChannel
+                            ? 'Members (${channel.membershipsCount})'
+                            : 'Members',
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -129,33 +140,39 @@ class _ChannelInfoTabs extends StatelessWidget {
   Widget _tab(BuildContext context, ChatChannelInfoTab tab, String label) {
     final theme = Theme.of(context);
     final active = selected == tab;
-    return InkWell(
-      key: ValueKey('chat-channel-info-${tab.name}-tab'),
-      onTap: active
-          ? null
-          : () => PluginUiScope.require(context, chatShellService)
-                .openChannelInfo(
-                  siteUrl: siteUrl,
-                  channelId: channel.id,
-                  tab: tab,
-                ),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              width: 3,
-              color: active ? theme.colorScheme.primary : Colors.transparent,
+    return Semantics(
+      button: true,
+      selected: active,
+      child: InkWell(
+        key: ValueKey('chat-channel-info-${tab.name}-tab'),
+        onTap: active
+            ? null
+            : () => PluginUiScope.require(context, chatShellService)
+                  .openChannelInfo(
+                    siteUrl: siteUrl,
+                    channelId: channel.id,
+                    tab: tab,
+                  ),
+        child: Container(
+          height: 58,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                width: 3,
+                color: active ? theme.colorScheme.primary : Colors.transparent,
+              ),
             ),
           ),
-        ),
-        child: Text(
-          label,
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: active
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurface,
-            fontWeight: active ? FontWeight.w600 : null,
+          child: Text(
+            label,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: active
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface,
+              fontWeight: active ? FontWeight.w500 : FontWeight.normal,
+            ),
           ),
         ),
       ),
@@ -281,7 +298,6 @@ class _ChannelSettings extends StatelessWidget {
                               membership.following)
                             _InfoSection(
                               title: 'Your notifications',
-                              scope: 'Only affects you',
                               children: [
                                 _InfoRow(
                                   label: 'Mute channel',
@@ -306,7 +322,7 @@ class _ChannelSettings extends StatelessWidget {
                                   _InfoRow(
                                     label: 'Push notifications',
                                     description:
-                                        'Choose which channel activity sends a push notification.',
+                                        'Choose which activity should reach this device.',
                                     action:
                                         DropdownButton<
                                           ChatChannelNotificationLevel
@@ -356,12 +372,11 @@ class _ChannelSettings extends StatelessWidget {
                               canEdit)
                             _InfoSection(
                               title: 'Conversation',
-                              scope: 'Shared setting',
                               children: [
                                 _InfoRow(
                                   label: 'Threaded replies',
                                   description:
-                                      'Replies create separate conversations alongside the main channel.',
+                                      'Replies open as separate conversations alongside the main channel.',
                                   action: Switch.adaptive(
                                     key: const ValueKey(
                                       'chat-channel-threading-switch',
@@ -382,6 +397,8 @@ class _ChannelSettings extends StatelessWidget {
                               if (channel.isCategoryChannel)
                                 _InfoRow(
                                   label: 'Category',
+                                  description:
+                                      'Controls visibility and membership rules.',
                                   action: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -414,7 +431,7 @@ class _ChannelSettings extends StatelessWidget {
                               _InfoRow(
                                 label: 'Message history',
                                 description:
-                                    'Messages are retained for this long.',
+                                    'Messages are removed after the retention period.',
                                 action: Text(
                                   _retentionLabel(
                                     channel.isDirectMessage
@@ -432,13 +449,12 @@ class _ChannelSettings extends StatelessWidget {
                           if (canChangeStatus)
                             _InfoSection(
                               title: 'Channel management',
-                              scope: 'Staff',
                               children: [
                                 _InfoRow(
                                   label:
                                       channel.status == ChatChannelStatus.closed
-                                      ? 'Channel is closed'
-                                      : 'Channel is open',
+                                      ? 'Channel is closed.'
+                                      : 'Channel is open.',
                                   description:
                                       channel.status == ChatChannelStatus.closed
                                       ? 'Opening lets members post in this channel again.'
@@ -473,7 +489,9 @@ class _ChannelSettings extends StatelessWidget {
                                 _InfoRow(
                                   value: Text(
                                     'Remove ${channel.title} from your sidebar and stop following its conversations.',
-                                    style: Theme.of(context).textTheme.bodySmall
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
                                         ?.copyWith(
                                           color: Theme.of(
                                             context,
@@ -547,15 +565,15 @@ class _ChannelSummary extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 channel.title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               if (channel.isCategoryChannel) ...[
@@ -596,7 +614,7 @@ class _ChannelSummary extends StatelessWidget {
 
     return Padding(
       key: const ValueKey('chat-channel-summary'),
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 22),
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (onEdit == null) return identity;
@@ -629,11 +647,10 @@ class _ChannelSummary extends StatelessWidget {
 }
 
 class _InfoSection extends StatelessWidget {
-  const _InfoSection({required this.title, required this.children, this.scope});
+  const _InfoSection({required this.title, required this.children});
 
   final String title;
   final List<Widget> children;
-  final String? scope;
 
   @override
   Widget build(BuildContext context) {
@@ -646,31 +663,16 @@ class _InfoSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 4,
-            children: [
-              Semantics(
-                header: true,
-                child: Text(
-                  title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+          Semantics(
+            header: true,
+            child: Text(
+              title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w500,
               ),
-              if (scope case final scope?)
-                Text(
-                  scope,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           for (var index = 0; index < children.length; index++) ...[
             if (index > 0) Divider(height: 1, color: theme.dividerColor),
             children[index],
@@ -709,14 +711,14 @@ class _InfoRow extends StatelessWidget {
                       Text(
                         label!,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       if (description case final description?) ...[
                         const SizedBox(height: 2),
                         Text(
                           description,
-                          style: theme.textTheme.bodySmall?.copyWith(
+                          style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
