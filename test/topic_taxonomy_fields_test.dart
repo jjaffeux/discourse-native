@@ -133,7 +133,7 @@ void main() {
 
     final wrap = tester.widget<Wrap>(find.byType(Wrap));
     expect(wrap.spacing, 4);
-    expect(wrap.runSpacing, 2);
+    expect(wrap.runSpacing, 0);
 
     final firstToken = find.byKey(const ValueKey('sea2'));
     final material = tester.widget<Material>(firstToken);
@@ -185,9 +185,11 @@ void main() {
               width: 220,
               child: TopicTagsValue(
                 tags: tags,
+                onTagNavigate: (_) {},
                 onEdit: () {},
                 tagKey: (tag) => ValueKey(tag.name),
                 addKey: const ValueKey('edit-tags'),
+                addIconKey: const ValueKey('edit-tags-icon'),
               ),
             ),
           ),
@@ -200,10 +202,14 @@ void main() {
     );
     final finalTag = tester.getRect(find.byKey(const ValueKey('ask')));
     final editButton = tester.getRect(find.byKey(const ValueKey('edit-tags')));
+    final editIcon = tester.getRect(
+      find.byKey(const ValueKey('edit-tags-icon')),
+    );
 
-    expect(finalTag.center.dy, editButton.center.dy);
+    expect(finalTag.center.dy, editIcon.center.dy);
+    expect(editButton.size, const Size.square(32));
     expect(finalTag.top, greaterThan(firstTag.top));
-    expect(finalTag.top - firstTag.bottom, lessThan(10));
+    expect(finalTag.top - firstTag.bottom, lessThan(8));
     expect(tester.takeException(), isNull);
   });
 }
