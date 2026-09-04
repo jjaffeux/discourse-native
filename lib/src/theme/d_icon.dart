@@ -1,39 +1,11 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-
-// Mapping paints while compiling avoids a saveLayer for every icon paint.
-@immutable
-final class _DIconColorMapper extends ColorMapper {
-  const _DIconColorMapper(this.tint);
-
-  final Color tint;
-
-  @override
-  Color substitute(
-    String? id,
-    String elementName,
-    String attributeName,
-    Color color,
-  ) => tint;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _DIconColorMapper && other.tint == tint;
-
-  @override
-  int get hashCode => tint.hashCode;
-}
 
 @immutable
 class DIconData {
-  const DIconData(this.name, this.svg);
+  const DIconData(this.name, this.data);
 
   final String name;
-  final String svg;
-
-  String get tintableSvg => svg.contains('fill=')
-      ? svg
-      : svg.replaceFirst('<svg ', '<svg fill="currentColor" ');
+  final IconData data;
 
   @override
   bool operator ==(Object other) => other is DIconData && other.name == name;
@@ -65,27 +37,27 @@ class DIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    assert(
+      icon.data.fontPackage == 'lucide_flutter',
+      '${icon.name} is not backed by Lucide.',
+    );
     final iconTheme = IconTheme.of(context);
     final box = size ?? iconTheme.size ?? 24;
     final tint = color ?? iconTheme.color ?? const Color(0xFF000000);
-    final opacity = iconTheme.opacity ?? 1.0;
-    final resolvedTint = opacity == 1.0
-        ? tint
-        : tint.withValues(alpha: tint.a * opacity);
 
-    return SizedBox.square(
+    final glyph = SizedBox.square(
       dimension: box,
       child: Center(
-        child: SvgPicture.string(
-          icon.tintableSvg,
-          width: box * glyphScale,
-          height: box * glyphScale,
-          fit: BoxFit.contain,
-          theme: SvgTheme(currentColor: resolvedTint),
-          colorMapper: _DIconColorMapper(resolvedTint),
-          semanticsLabel: semanticLabel,
-        ),
+        child: Icon(icon.data, size: box * glyphScale, color: tint),
       ),
+    );
+
+    if (semanticLabel == null) return glyph;
+    return Semantics(
+      container: true,
+      image: true,
+      label: semanticLabel,
+      child: ExcludeSemantics(child: glyph),
     );
   }
 }

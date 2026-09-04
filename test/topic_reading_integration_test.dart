@@ -44,7 +44,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -973,10 +972,6 @@ void _registerTopicReadingTests() {
       final title = find.text('Closed topic');
       final row = minimumHeightAncestors(title, TopicListRow.minimumHeight);
       final lock = find.descendant(of: row, matching: find.dIcon(DIcons.lock));
-      final lockGlyph = find.descendant(
-        of: lock,
-        matching: find.byType(SvgPicture),
-      );
       final categoryBlock = find.descendant(
         of: row,
         matching: find.byWidgetPredicate(
@@ -991,12 +986,8 @@ void _registerTopicReadingTests() {
 
       expect(lock, findsOneWidget);
       expect(tester.getTopLeft(lock).dx, lessThan(tester.getTopLeft(title).dx));
-      expect(lockGlyph, findsOneWidget);
       expect(categoryBlock, findsOneWidget);
-      expect(
-        tester.getTopLeft(lockGlyph).dx,
-        tester.getTopLeft(categoryBlock).dx,
-      );
+      expect(tester.getTopLeft(lock).dx, tester.getTopLeft(categoryBlock).dx);
       expect(find.bySemanticsLabel('Closed topic'), findsOneWidget);
     });
 
@@ -1301,9 +1292,7 @@ void _registerTopicReadingTests() {
       );
     });
 
-    testWidgets('short topic tags use the intended inline gap', (
-      tester,
-    ) async {
+    testWidgets('short topic tags use the intended inline gap', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {
           '/latest.json': [
@@ -2690,10 +2679,7 @@ void _registerTopicReadingTests() {
           bottomBarRect.top,
         );
         expect(replyRect.left, greaterThan(bottomBarRect.left));
-        expect(
-          replyRect.right,
-          lessThan(tester.getRect(progressButton).left),
-        );
+        expect(replyRect.right, lessThan(tester.getRect(progressButton).left));
         expect(moreIcon, findsOneWidget);
         expect(tester.getSize(moreIcon), const Size.square(16));
         expect(properties, findsOneWidget);

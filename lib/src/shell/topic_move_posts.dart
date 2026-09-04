@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
 import '../theme/d_button.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'shell_controller.dart';
 
 Future<void> showTopicMovePosts({
@@ -250,6 +252,7 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
       DropdownButtonFormField<int?>(
         key: const ValueKey('topic-move-posts-category'),
         initialValue: _categoryId,
+        icon: const DIcon(DIcons.chevronDown, size: 16),
         decoration: const InputDecoration(
           labelText: 'Category',
           border: OutlineInputBorder(),

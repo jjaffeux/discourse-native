@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'composer_images.dart';
 import 'image_decode.dart';
 import 'site_image.dart';
@@ -138,7 +140,7 @@ class _ImageFallback extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.image_outlined, size: 18),
+            const DIcon(DIcons.image, size: 18),
             const SizedBox(width: 8),
             Flexible(
               child: Text(

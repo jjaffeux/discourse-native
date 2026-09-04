@@ -6,6 +6,8 @@ import 'package:html/parser.dart' as html_parser;
 
 import '../../shell/cooked_html.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
 import 'poll.dart';
 
 typedef PollVoteCallback =
@@ -541,14 +543,10 @@ class _PollOptionRow extends StatelessWidget {
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(top: 1),
-                      child: Icon(
+                      child: DIcon(
                         multiple
-                            ? (selected
-                                  ? Icons.check_box
-                                  : Icons.check_box_outline_blank)
-                            : (selected
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_unchecked),
+                            ? (selected ? DIcons.squareCheck : DIcons.square)
+                            : (selected ? DIcons.circleDot : DIcons.circle),
                         size: 22,
                         color: selected
                             ? Theme.of(context).colorScheme.primary

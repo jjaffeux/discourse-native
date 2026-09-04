@@ -8,9 +8,9 @@ import 'package:discourse_native/src/plugins/local_dates/local_date_environment.
 import 'package:discourse_native/src/plugins/local_dates/local_dates_cooked_time_parser.dart';
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
@@ -200,12 +200,13 @@ void main() {
         tester.getSize(find.byType(GithubOneboxIcon)),
         githubPrStatusSlotSize,
       );
-      expect(tester.getSize(find.byType(SvgPicture)), githubPrStatusIconSize);
-      expect(githubPrStatusIconSize.aspectRatio, 1);
-      expect(
-        tester.widget<SvgPicture>(find.byType(SvgPicture)).fit,
-        BoxFit.contain,
+      final glyph = find.descendant(
+        of: find.byType(GithubOneboxIcon),
+        matching: find.byType(DIcon),
       );
+      expect(tester.getSize(glyph), githubPrStatusIconSize);
+      expect(githubPrStatusIconSize.aspectRatio, 1);
+      expect(tester.widget<DIcon>(glyph).icon, githubPrMergedIcon);
     });
 
     testWidgets('uses core legacy size and primary-high without a status', (
@@ -234,7 +235,15 @@ void main() {
       expect(icon.icon, githubPullRequestIcon);
       expect(icon.color, theme.discourse.primaryHigh);
       expect(icon.isPrStatus, isFalse);
-      expect(tester.getSize(find.byType(SvgPicture)), githubLegacyIconSize);
+      expect(
+        tester.getSize(
+          find.descendant(
+            of: find.byType(GithubOneboxIcon),
+            matching: find.byType(DIcon),
+          ),
+        ),
+        githubLegacyIconSize,
+      );
     });
 
     testWidgets('does not overflow in an exceptionally narrow post column', (

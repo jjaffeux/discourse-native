@@ -206,7 +206,7 @@ class _SubcategoryFilterAnchor extends StatelessWidget {
     title: 'Subcategories of ${parent.name}',
     value: selected?.id ?? 0,
     options: [
-      ChoiceMenuOption<int>(
+      const ChoiceMenuOption<int>(
         value: 0,
         title: 'All subcategories',
         description: '',

@@ -140,7 +140,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                 controller: _filterController,
                 decoration: const InputDecoration(
                   labelText: 'Find a channel',
-                  prefixIcon: Icon(Icons.search),
+                  prefixIcon: DIcon(DIcons.magnifyingGlass),
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
@@ -153,6 +153,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                       key: const ValueKey('chat-browse-status'),
                       initialValue: _status,
                       isExpanded: true,
+                      icon: const DIcon(DIcons.chevronDown, size: 16),
                       decoration: const InputDecoration(
                         labelText: 'Status',
                         border: OutlineInputBorder(),
@@ -178,6 +179,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                       key: const ValueKey('chat-browse-joined'),
                       initialValue: _joined,
                       isExpanded: true,
+                      icon: const DIcon(DIcons.chevronDown, size: 16),
                       decoration: const InputDecoration(
                         labelText: 'Membership',
                         border: OutlineInputBorder(),

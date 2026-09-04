@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../models/user_status.dart';
 import '../plugin_api/emoji_usage.dart';
 import '../theme/d_button.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'emoji_picker.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
@@ -104,11 +106,15 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
       initialDate: initial,
       firstDate: now,
       lastDate: DateTime(now.year + 5),
+      switchToInputEntryModeIcon: Icon(DIcons.keyboard.data),
+      switchToCalendarEntryModeIcon: Icon(DIcons.calendar.data),
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(initial),
+      switchToInputEntryModeIcon: Icon(DIcons.keyboard.data),
+      switchToTimerEntryModeIcon: Icon(DIcons.farClock.data),
     );
     if (time == null || !mounted) return;
     final endsAt = DateTime(
@@ -246,6 +252,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
               const SizedBox(height: 10),
               DropdownButtonFormField<_StatusExpiry>(
                 initialValue: _expiry,
+                icon: const DIcon(DIcons.chevronDown, size: 16),
                 decoration: const InputDecoration(
                   labelText: 'Clear after',
                   border: OutlineInputBorder(),

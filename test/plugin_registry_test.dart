@@ -8,16 +8,13 @@ import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 
 import 'support/bundled_plugins.dart';
 
 const _post = Post(id: 1, postNumber: 1, username: 'sam', cooked: '');
 const _topic = TopicDetail(id: 42, title: 'A topic', stream: [1]);
-const _pluginOnlyIcon = DIconData(
-  'plugin-only',
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">'
-      '<path d="M0 0h1v1H0z"/></svg>',
-);
+const _pluginOnlyIcon = DIconData('plugin-only', LucideIcons.circle);
 
 void main() {
   group('capability dispatch and icons', () {

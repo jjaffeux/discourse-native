@@ -6,8 +6,8 @@ import 'package:discourse_native/src/plugins/local_dates/local_date_environment.
 import 'package:discourse_native/src/plugins/local_dates/local_dates_cooked_time_parser.dart';
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
@@ -136,7 +136,15 @@ void main() {
       );
       expect(icon.icon, githubIssueIcon);
       expect(icon.color, theme.discourse.primaryHigh);
-      expect(tester.getSize(find.byType(SvgPicture)), githubLegacyIconSize);
+      expect(
+        tester.getSize(
+          find.descendant(
+            of: find.byType(GithubOneboxIcon),
+            matching: find.byType(DIcon),
+          ),
+        ),
+        githubLegacyIconSize,
+      );
     });
   });
 }

@@ -1,6 +1,8 @@
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/poll_card.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -387,14 +389,18 @@ void main() {
         expect(
           find.descendant(
             of: find.byKey(const ValueKey('poll-poll-option-a')),
-            matching: find.byIcon(Icons.radio_button_checked),
+            matching: find.byWidgetPredicate(
+              (widget) => widget is DIcon && widget.icon == DIcons.circleDot,
+            ),
           ),
           findsOneWidget,
         );
         expect(
           find.descendant(
             of: find.byKey(const ValueKey('poll-poll-option-b')),
-            matching: find.byIcon(Icons.radio_button_unchecked),
+            matching: find.byWidgetPredicate(
+              (widget) => widget is DIcon && widget.icon == DIcons.circle,
+            ),
           ),
           findsOneWidget,
         );
