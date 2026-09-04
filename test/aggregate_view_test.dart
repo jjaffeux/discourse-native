@@ -150,6 +150,32 @@ void main() {
     final firstCardFinder = find.byKey(
       ValueKey('aggregate-topic-card-${forumUrls[0]}-42'),
     );
+    final forumLabel = find.descendant(
+      of: firstCardFinder,
+      matching: find.text('One'),
+    );
+    final categoryLabel = find.descendant(
+      of: firstCardFinder,
+      matching: find.text('Design'),
+    );
+    final categorySwatch = find.descendant(
+      of: firstCardFinder,
+      matching: find.byKey(const ValueKey(('topic-row-category-swatch', 1))),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(ValueKey(('topic-row-forum', forumUrls[0]))))
+          .height,
+      greaterThanOrEqualTo(24),
+    );
+    expect(
+      tester.getCenter(forumLabel).dy,
+      closeTo(tester.getCenter(categoryLabel).dy, 0.01),
+    );
+    expect(
+      tester.getCenter(categorySwatch).dy,
+      closeTo(tester.getCenter(categoryLabel).dy, 0.01),
+    );
     expect(find.text('2 topics from 2 forums'), findsOneWidget);
     expect(
       tester.getBottomLeft(heroFinder).dy,
