@@ -376,6 +376,24 @@ void main() {
       );
     });
 
+    testWidgets('closes the full-screen viewer on Escape', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: CodeBlock(data: parseBlock(codeFence))),
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('code-block-fullscreen')));
+      await tester.pumpAndSettle();
+      expect(find.byType(CodeBlockFullscreen), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CodeBlockFullscreen), findsNothing);
+    });
+
     testWidgets('a onebox containing code gets the native block', (
       tester,
     ) async {
