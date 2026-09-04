@@ -411,6 +411,25 @@ Narrow desktop windows fill their available width, and mobile and web layouts
 are unchanged. Changes apply immediately and are stored under the global
 `discourse_native.content_alignment` preference key; there is no Save action.
 
+**Text size** is the other app-wide setting. It uses the finite 80%, 90%,
+100%, 110%, 125%, 150%, 175%, and 200% scale rather than accepting arbitrary
+values. Command+Plus and Command+Minus move one step on macOS and an iOS
+hardware keyboard; Control replaces Command on Linux and Windows. The unshifted
+Command/Control+Equals spelling of Plus works too, and Command/Control+0 returns
+to 100%. These shortcuts are global, including while a text field or modal has
+focus. The setting updates immediately and is stored as a stable enum name
+under `discourse_native.text_scale`.
+
+App-authored text sizes come exclusively from `DiscourseTypography`, the same
+modular scale used by Discourse web: three sizes below the 16-point base and six
+above it. The scale maps the complete Material `TextTheme`, cooked HTML
+headings, composer headings, controls, badges, tooltips, code, and other custom
+text. A source-level adoption test prevents new visible numeric `fontSize`
+literals from bypassing those tokens. At the root `MediaQuery`, the selected
+app percentage multiplies the platform `TextScaler` instead of replacing it,
+so the preference composes with OS accessibility text sizing. Layout smoke
+tests exercise both compact and wide Settings surfaces at the 200% endpoint.
+
 ### Pausing notifications
 
 The profile tab's **Pause notifications** row is the native Do Not Disturb

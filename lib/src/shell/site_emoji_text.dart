@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../theme/discourse_typography.dart';
 import 'emoji.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -143,7 +144,9 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
           child: SiteEmojiImage(
             siteUrl: widget.siteUrl,
             name: resolved.name,
-            size: (emojiStyle.fontSize ?? 14) * emojiScale,
+            size:
+                (emojiStyle.fontSize ?? DiscourseTypography.fontDown1) *
+                emojiScale,
             alt: match.group(0)!,
             style: emojiStyle,
           ),

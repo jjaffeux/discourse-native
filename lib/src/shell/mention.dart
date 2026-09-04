@@ -3,6 +3,7 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../models/user_status.dart';
+import '../theme/discourse_typography.dart';
 import 'open_link.dart';
 import 'pill.dart';
 import 'user_status.dart';
@@ -50,7 +51,7 @@ class MentionPill extends StatelessWidget {
           siteUrl: siteUrl!,
           userId: reference.userId,
           status: reference.status,
-          size: (baseStyle?.fontSize ?? 14) * .95,
+          size: (baseStyle?.fontSize ?? DiscourseTypography.fontDown1) * .95,
           style: baseStyle,
           leadingGap: 4,
         ),

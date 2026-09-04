@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'discourse_typography.dart';
+
 @immutable
 class DShortcut {
   const DShortcut(this._first) : _following = const [];
@@ -271,7 +273,7 @@ class DKbd extends StatelessWidget {
           style: TextStyle(
             color: keyForeground,
             fontFamily: 'JetBrains Mono',
-            fontSize: 12,
+            fontSize: DiscourseTypography.fontDown2,
             fontWeight: FontWeight.w600,
             height: 1,
           ),

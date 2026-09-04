@@ -105,7 +105,9 @@ class ComposerBlockquoteMarker extends StatelessWidget {
       // Indent quoted line starts with their source prefix, leaving ordinary
       // paragraphs at the native editable's left edge.
       width: ComposerBlockquoteDecoration.gutter,
-      height: (baseStyle.fontSize ?? 14) * (baseStyle.height ?? 1.2),
+      height:
+          (baseStyle.fontSize ?? DiscourseTypography.fontDown1) *
+          (baseStyle.height ?? DiscourseTypography.lineHeightMedium),
     ),
   );
 }

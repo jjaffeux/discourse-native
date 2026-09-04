@@ -5,6 +5,9 @@ import '../models/site_appearance.dart';
 import 'color_contrast.dart';
 import 'd_button.dart';
 import 'd_tooltip.dart';
+import 'discourse_typography.dart';
+
+export 'discourse_typography.dart';
 
 const Color discourseBlue = Color(0xFF0088CC);
 
@@ -28,25 +31,6 @@ AnimationStyle discoursePopupMenuAnimationStyle(BuildContext context) =>
         curve: Curves.easeOutCubic,
         reverseCurve: Curves.easeInCubic,
       );
-
-abstract final class DiscourseTypography {
-  static const double base = 16;
-  static const double fontUp1 = 18.3792;
-  static const double fontUp2 = 21.112;
-  static const double fontUp3 = 24.2512;
-  static const double fontUp4 = 28.0176;
-  static const double fontUp5 = 32;
-  static const double fontUp6 = 36.736;
-  static const double fontDown1 = 13.9296;
-  static const double fontDown2 = 12.1264;
-  static const double fontDown3 = 10.5584;
-  static const double code = 14;
-  static const double codeLineHeight = 17 / 13;
-
-  static const double lineHeightMedium = 1.2;
-  static const double lineHeightLarge = 1.4;
-  static const double lineHeightCooked = 1.5;
-}
 
 Color _readableOn(
   Color background,

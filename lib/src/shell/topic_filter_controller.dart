@@ -5,12 +5,10 @@ import 'package:flutter/widgets.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
 
-typedef TopicFilterLookup = Future<List<TopicFilterLookupValue>> Function(
-  String term,
-);
-typedef TopicFilterCategoryLookup = Future<List<TopicCategory>> Function(
-  String term,
-);
+typedef TopicFilterLookup =
+    Future<List<TopicFilterLookupValue>> Function(String term);
+typedef TopicFilterCategoryLookup =
+    Future<List<TopicCategory>> Function(String term);
 
 @immutable
 class TopicFilterSuggestion {

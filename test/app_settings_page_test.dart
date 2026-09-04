@@ -38,6 +38,8 @@ void main() {
     );
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('Content alignment'), findsOneWidget);
+    expect(find.text('Text size'), findsOneWidget);
+    expect(find.text('100%'), findsOneWidget);
     expect(find.text('Disable GIF animations'), findsOneWidget);
     expect(
       find.textContaining('reading lane is limited to 825 px'),
@@ -59,6 +61,20 @@ void main() {
       find.byKey(const ValueKey('content-alignment-segmented-button')),
     );
     expect(segmented.selected, {ContentAlignment.left});
+
+    await tester.tap(find.byKey(const ValueKey('text-size-increase')));
+    await tester.pump();
+
+    expect(controller.appSettings.textScale, AppTextScale.percent110);
+    expect(persistence.textScale, AppTextScale.percent110.name);
+    expect(find.text('110%'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('text-size-reset')));
+    await tester.pump();
+
+    expect(controller.appSettings.textScale, AppTextScale.percent100);
+    expect(persistence.textScale, AppTextScale.percent100.name);
+    expect(find.text('100%'), findsOneWidget);
 
     await tester.tap(
       find.byKey(const ValueKey('disable-gif-animations-switch')),
@@ -85,6 +101,9 @@ void main() {
         find.bySemanticsLabel('Content alignment options'),
         findsOneWidget,
       );
+      expect(find.bySemanticsLabel('Decrease text size'), findsOneWidget);
+      expect(find.bySemanticsLabel('Increase text size'), findsOneWidget);
+      expect(find.bySemanticsLabel('Current text size'), findsOneWidget);
       expect(
         find.bySemanticsLabel(RegExp('Disable GIF animations')),
         findsOneWidget,

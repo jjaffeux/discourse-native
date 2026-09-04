@@ -12,6 +12,8 @@ final class AppSettingsController extends FrameSafeNotifier {
   AppSettings get settings => _settings;
   ContentAlignment get contentAlignment => _settings.contentAlignment;
   bool get disableGifAnimations => _settings.disableGifAnimations;
+  AppTextScale get textScale => _settings.textScale;
+  double get textScaleFactor => textScale.factor;
 
   bool _loaded = false;
   bool get loaded => _loaded;
@@ -64,5 +66,44 @@ final class AppSettingsController extends FrameSafeNotifier {
     _loaded = true;
     notifySafely();
     return store.write(_settings);
+  }
+
+  Future<void> setTextScale(AppTextScale scale) {
+    if (isDisposed || (_loaded && scale == textScale)) {
+      return Future<void>.value();
+    }
+
+    _mutationRevision++;
+    _settings = _settings.copyWith(textScale: scale);
+    _loaded = true;
+    notifySafely();
+    return store.write(_settings);
+  }
+
+  Future<void> increaseTextScale() {
+    if (!_loaded) return _changeTextScaleAfterLoad(increaseTextScale);
+    final index = textScale.index;
+    if (index == AppTextScale.values.length - 1) {
+      return Future<void>.value();
+    }
+    return setTextScale(AppTextScale.values[index + 1]);
+  }
+
+  Future<void> decreaseTextScale() {
+    if (!_loaded) return _changeTextScaleAfterLoad(decreaseTextScale);
+    final index = textScale.index;
+    if (index == 0) return Future<void>.value();
+    return setTextScale(AppTextScale.values[index - 1]);
+  }
+
+  Future<void> resetTextScale() {
+    if (!_loaded) return _changeTextScaleAfterLoad(resetTextScale);
+    return setTextScale(AppTextScale.percent100);
+  }
+
+  Future<void> _changeTextScaleAfterLoad(Future<void> Function() change) async {
+    await load();
+    if (isDisposed) return;
+    await change();
   }
 }

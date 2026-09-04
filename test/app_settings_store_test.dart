@@ -11,15 +11,30 @@ void main() {
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('defaults missing and unknown alignment values to center', () async {
+  test('defaults missing and unknown enum values', () async {
     final platformStore = AppSettingsStore();
 
     expect(await platformStore.read(), AppSettings.defaults);
 
     SharedPreferences.setMockInitialValues({
       AppSettingsStore.contentAlignmentKey: 'justify',
+      AppSettingsStore.textScaleKey: 'percent137',
     });
     expect(await platformStore.read(), AppSettings.defaults);
+  });
+
+  test('defines the bounded browser-like text scale', () {
+    expect(AppTextScale.values.map((scale) => scale.factor), [
+      0.8,
+      0.9,
+      1.0,
+      1.1,
+      1.25,
+      1.5,
+      1.75,
+      2.0,
+    ]);
+    expect(AppSettings.defaults.textScale, AppTextScale.percent100);
   });
 
   test('round-trips the GIF animation preference', () async {
@@ -52,6 +67,21 @@ void main() {
     }
   });
 
+  test('round-trips every text scale by its stable enum name', () async {
+    for (final scale in AppTextScale.values) {
+      final store = AppSettingsStore();
+      await store.write(AppSettings(textScale: scale));
+
+      expect(
+        (await SharedPreferences.getInstance()).getString(
+          AppSettingsStore.textScaleKey,
+        ),
+        scale.name,
+      );
+      expect(await AppSettingsStore().read(), AppSettings(textScale: scale));
+    }
+  });
+
   test('replacement stores persist writes in request order', () async {
     final persistence = _ControlledAppSettingsPersistence(
       firstWriteGate: Completer<void>(),
@@ -60,11 +90,17 @@ void main() {
     final replacement = AppSettingsStore(persistence: persistence);
 
     final writingLeft = first.write(
-      const AppSettings(contentAlignment: ContentAlignment.left),
+      const AppSettings(
+        contentAlignment: ContentAlignment.left,
+        textScale: AppTextScale.percent90,
+      ),
     );
     await persistence.firstWriteStarted.future;
     final writingRight = replacement.write(
-      const AppSettings(contentAlignment: ContentAlignment.right),
+      const AppSettings(
+        contentAlignment: ContentAlignment.right,
+        textScale: AppTextScale.percent150,
+      ),
     );
 
     await Future<void>.delayed(Duration.zero);
@@ -75,6 +111,11 @@ void main() {
 
     expect(persistence.attemptedWrites, ['left', 'right']);
     expect(persistence.contentAlignment, 'right');
+    expect(persistence.attemptedTextScaleWrites, [
+      AppTextScale.percent90.name,
+      AppTextScale.percent150.name,
+    ]);
+    expect(persistence.textScale, AppTextScale.percent150.name);
   });
 
   test('a replacement read waits for an accepted write', () async {
@@ -85,7 +126,10 @@ void main() {
     final replacement = AppSettingsStore(persistence: persistence);
 
     final writing = first.write(
-      const AppSettings(contentAlignment: ContentAlignment.left),
+      const AppSettings(
+        contentAlignment: ContentAlignment.left,
+        textScale: AppTextScale.percent125,
+      ),
     );
     await persistence.firstWriteStarted.future;
     final reading = replacement.read();
@@ -97,7 +141,10 @@ void main() {
     await writing;
     expect(
       await reading,
-      const AppSettings(contentAlignment: ContentAlignment.left),
+      const AppSettings(
+        contentAlignment: ContentAlignment.left,
+        textScale: AppTextScale.percent125,
+      ),
     );
     expect(persistence.readCount, 1);
   });
@@ -120,11 +167,13 @@ void main() {
       containsAll([
         _isStorageFailure('appSettings.readContentAlignment', 'StateError'),
         _isStorageFailure('appSettings.readDisableGifAnimations', 'StateError'),
+        _isStorageFailure('appSettings.readTextScale', 'StateError'),
         _isStorageFailure('appSettings.writeContentAlignment', 'StateError'),
         _isStorageFailure(
           'appSettings.writeDisableGifAnimations',
           'StateError',
         ),
+        _isStorageFailure('appSettings.writeTextScale', 'StateError'),
       ]),
     );
   });
@@ -166,11 +215,13 @@ final class _ControlledAppSettingsPersistence
 
   String? contentAlignment;
   bool? disableGifAnimations;
+  String? textScale;
   final Completer<void>? firstWriteGate;
   final bool failReads;
   final bool acceptWrites;
   final Completer<void> firstWriteStarted = Completer<void>();
   final List<String> attemptedWrites = [];
+  final List<String> attemptedTextScaleWrites = [];
   int readCount = 0;
 
   @override
@@ -184,6 +235,12 @@ final class _ControlledAppSettingsPersistence
   Future<bool?> readDisableGifAnimations() async {
     if (failReads) throw StateError('preferences unavailable');
     return disableGifAnimations;
+  }
+
+  @override
+  Future<String?> readTextScale() async {
+    if (failReads) throw StateError('preferences unavailable');
+    return textScale;
   }
 
   @override
@@ -202,6 +259,14 @@ final class _ControlledAppSettingsPersistence
   Future<bool> writeDisableGifAnimations(bool value) async {
     if (!acceptWrites) return false;
     disableGifAnimations = value;
+    return true;
+  }
+
+  @override
+  Future<bool> writeTextScale(String value) async {
+    attemptedTextScaleWrites.add(value);
+    if (!acceptWrites) return false;
+    textScale = value;
     return true;
   }
 }

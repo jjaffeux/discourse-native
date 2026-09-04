@@ -105,12 +105,5 @@ TextStyle markdownStyle(
       _ => (style, 1.0),
     };
 
-double _headingScale(int level) => switch (level.clamp(1, 6)) {
-  1 => DiscourseTypography.fontUp3 / DiscourseTypography.base,
-  2 => DiscourseTypography.fontUp2 / DiscourseTypography.base,
-  3 => DiscourseTypography.fontUp1 / DiscourseTypography.base,
-  4 => 1,
-  5 => DiscourseTypography.fontDown1 / DiscourseTypography.base,
-  6 => DiscourseTypography.fontDown2 / DiscourseTypography.base,
-  _ => 1,
-};
+double _headingScale(int level) =>
+    DiscourseTypography.headingSize(level) / DiscourseTypography.base;

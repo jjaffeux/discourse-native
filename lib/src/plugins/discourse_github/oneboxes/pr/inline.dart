@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../../../theme/d_icon.dart';
+import '../../../../theme/discourse_typography.dart';
 import '../github.dart';
 
 class GithubPullRequestInlineOnebox {
@@ -25,7 +26,9 @@ class GithubPullRequestInlineOnebox {
       padding: const EdgeInsets.only(right: 3),
       child: Builder(
         builder: (context) {
-          final fontSize = DefaultTextStyle.of(context).style.fontSize ?? 14;
+          final fontSize =
+              DefaultTextStyle.of(context).style.fontSize ??
+              DiscourseTypography.fontDown1;
           return DIcon(status.icon, size: fontSize * 1.2, color: status.color);
         },
       ),

@@ -16,6 +16,7 @@ import '../../shell/user_status.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../theme/discourse_typography.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_controller.dart';
@@ -1398,7 +1399,9 @@ class ChatDrawerFooter extends StatelessWidget {
                                   child: Text(
                                     item.label,
                                     maxLines: 1,
-                                    style: const TextStyle(fontSize: 12),
+                                    style: const TextStyle(
+                                      fontSize: DiscourseTypography.fontDown2,
+                                    ),
                                   ),
                                 ),
                                 icon: _footerIcon(item, 17),

@@ -726,11 +726,9 @@ void main() {
     ) async {
       final composer = ComposerController(
         _newTopicTarget,
-        imageUploader: (
-          file, {
-          required onProgress,
-          required abortTrigger,
-        }) async => throw StateError('The picker is not invoked by this test.'),
+        imageUploader:
+            (file, {required onProgress, required abortTrigger}) async =>
+                throw StateError('The picker is not invoked by this test.'),
       );
       final shell = await _shell();
       addTearDown(composer.dispose);
@@ -752,11 +750,9 @@ void main() {
     testWidgets('left aligns the toolbar when all tools fit', (tester) async {
       final composer = ComposerController(
         _newTopicTarget,
-        imageUploader: (
-          file, {
-          required onProgress,
-          required abortTrigger,
-        }) async => throw StateError('The picker is not invoked by this test.'),
+        imageUploader:
+            (file, {required onProgress, required abortTrigger}) async =>
+                throw StateError('The picker is not invoked by this test.'),
       );
       final shell = await _shell();
       addTearDown(composer.dispose);

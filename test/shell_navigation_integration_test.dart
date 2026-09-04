@@ -1371,7 +1371,7 @@ void _registerShellNavigationTests() {
     final count = tester.widget<Text>(
       find.descendant(of: roadmapTile, matching: find.text('16')),
     );
-    expect(count.style?.fontSize, 12);
+    expect(count.style?.fontSize, DiscourseTypography.fontDown2);
     expect(count.style?.fontWeight, FontWeight.w500);
 
     final sidebarRect = tester.getRect(find.byType(InstanceSidebar));
@@ -2301,7 +2301,7 @@ void _registerShellNavigationTests() {
       find.descendant(of: callout, matching: find.text('Discourse Team')),
     );
     expect(label.style!.color, const Color(0xFFF3F3F4));
-    expect(label.style!.fontSize, 16);
+    expect(label.style!.fontSize, DiscourseTypography.base);
     expect(label.style!.fontWeight, FontWeight.w600);
 
     await mouse.moveTo(Offset.zero);

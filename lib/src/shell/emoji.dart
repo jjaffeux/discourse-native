@@ -7,6 +7,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../data/media_pipeline.dart';
 import '../foundation/diagnostic_errors.dart';
+import '../theme/discourse_typography.dart';
 import 'image_decode.dart';
 import 'site_url.dart';
 
@@ -131,7 +132,7 @@ Widget? emojiWidgetBuilder(
         ? 32
         : compactOnlyEmoji
         ? 20
-        : (baseStyle?.fontSize ?? 14) * emojiScale,
+        : (baseStyle?.fontSize ?? DiscourseTypography.fontDown1) * emojiScale,
     alt: element.attributes['alt'] ?? element.attributes['title'] ?? '',
     style: baseStyle,
   );
