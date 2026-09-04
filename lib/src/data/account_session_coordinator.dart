@@ -397,7 +397,10 @@ final class AccountSessionCoordinator {
     );
   }
 
-  Future<AccountDisconnectionResult> disconnect(String siteUrl) async {
+  Future<AccountDisconnectionResult> disconnect(
+    String siteUrl, {
+    bool requireRemoteRevocation = false,
+  }) async {
     final operation = _begin(siteUrl);
     final initial = host.accountSessionInstance(siteUrl);
     if (initial == null) {
@@ -469,7 +472,15 @@ final class AccountSessionCoordinator {
             error,
             stackTrace,
             'authentication.readCredentialForDisconnect',
-            warning: true,
+            warning: !requireRemoteRevocation,
+          );
+        }
+        if (requireRemoteRevocation) {
+          return await _restoreFailedDisconnect(
+            siteUrl,
+            operation,
+            lease,
+            initial,
           );
         }
       }
@@ -477,12 +488,21 @@ final class AccountSessionCoordinator {
         return AccountDisconnectionResult.stale(lease);
       }
       if (apiKey != null) {
-        await _revokeBestEffort(
+        final revoked = await _revokeBestEffort(
           siteUrl,
           apiKey,
           operation: 'authentication.revokeKey',
           ifCurrent: () => _isCurrent(siteUrl, operation, lease),
+          warning: !requireRemoteRevocation,
         );
+        if (requireRemoteRevocation && !revoked) {
+          return await _restoreFailedDisconnect(
+            siteUrl,
+            operation,
+            lease,
+            initial,
+          );
+        }
       }
       if (!_isCurrent(siteUrl, operation, lease)) {
         return AccountDisconnectionResult.stale(lease);
@@ -521,6 +541,33 @@ final class AccountSessionCoordinator {
     } finally {
       _finish(siteUrl, operation);
     }
+  }
+
+  Future<AccountDisconnectionResult> _restoreFailedDisconnect(
+    String siteUrl,
+    Object operation,
+    SiteLease lease,
+    DiscourseInstance initial,
+  ) async {
+    if (!_isCurrent(siteUrl, operation, lease)) {
+      return AccountDisconnectionResult.stale(lease);
+    }
+
+    final restoredLease = _rotate(siteUrl, operation);
+    if (restoredLease == null) {
+      return AccountDisconnectionResult.stale(lifecycle.capture(siteUrl));
+    }
+    if (host.applyAccountSessionInstance(
+          initial,
+          AccountSessionPhase.restored,
+        ) ==
+        null) {
+      return const AccountDisconnectionResult.missing();
+    }
+    await _repairSnapshot(siteUrl, operation, restoredLease);
+    return _isCurrent(siteUrl, operation, restoredLease)
+        ? const AccountDisconnectionResult.failed()
+        : AccountDisconnectionResult.stale(restoredLease);
   }
 
   Future<bool> _persistProjectedSignedOut(
@@ -571,22 +618,30 @@ final class AccountSessionCoordinator {
     }
   }
 
-  Future<void> _revokeIssued(String siteUrl, String apiKey) =>
-      _revokeBestEffort(siteUrl, apiKey, operation: 'authentication.revokeKey');
+  Future<void> _revokeIssued(String siteUrl, String apiKey) async {
+    await _revokeBestEffort(
+      siteUrl,
+      apiKey,
+      operation: 'authentication.revokeKey',
+    );
+  }
 
-  Future<void> _revokeBestEffort(
+  Future<bool> _revokeBestEffort(
     String siteUrl,
     String apiKey, {
     required String operation,
     bool Function()? ifCurrent,
+    bool warning = true,
   }) async {
-    if (ifCurrent?.call() == false) return;
+    if (ifCurrent?.call() == false) return false;
     try {
       await api.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey);
+      return true;
     } catch (error, stackTrace) {
       if (ifCurrent?.call() != false) {
-        _reportError(error, stackTrace, operation, warning: true);
+        _reportError(error, stackTrace, operation, warning: warning);
       }
+      return false;
     }
   }
 

@@ -660,14 +660,20 @@ void main() {
       expect(path, '/user-api-key/revoke');
     });
 
-    test('tolerates a site too old to have the route', () async {
+    test('reports a site too old to revoke its notification key', () async {
       final api = _accountApi(
         client: MockClient((_) async => http.Response('', 404)),
       );
 
       await expectLater(
         api.revokeApiKey(siteUrl: 'https://old.example.com', apiKey: 'k'),
-        completes,
+        throwsA(
+          isA<SiteLookupException>().having(
+            (error) => error.statusCode,
+            'statusCode',
+            404,
+          ),
+        ),
       );
     });
 

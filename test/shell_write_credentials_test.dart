@@ -217,6 +217,26 @@ void main() {
     );
 
     test(
+      'keeps a forum and its credential when notification revocation fails',
+      () async {
+        api.revokeError = StateError('remote revoke unavailable');
+
+        expect(
+          await controller.removeInstance(controller.currentInstance!),
+          isFalse,
+        );
+
+        expect(controller.instances, hasLength(1));
+        expect(controller.currentInstance?.user?.username, 'reader');
+        expect(authenticator.keys[_siteUrl], 'api-key');
+        expect(authenticator.disconnected, isEmpty);
+        expect(api.revoked, [_siteUrl]);
+        final event = _singleOperation(diagnostics, 'authentication.revokeKey');
+        expect(event.severity, DiagnosticSeverity.error);
+      },
+    );
+
+    test(
       'aborts disconnect before credential removal when drafts cannot clear',
       () async {
         const error = FileSystemException('draft boundary unavailable');

@@ -593,12 +593,10 @@ final class DiscourseAccountApi {
       clientId: clientId,
     );
 
-    // 404 means the site predates the revoke route; nothing to do about it.
-    // Every other non-2xx response is a failed revocation. In particular,
-    // SafeHttpClient deliberately refuses automatic redirects, so accepting a
-    // 3xx here would delete our local key while leaving the remote key live.
-    if ((response.statusCode < 200 || response.statusCode >= 300) &&
-        response.statusCode != 404) {
+    // Every non-2xx response is a failed revocation. In particular, accepting
+    // a missing route or redirect would let forum removal delete our only
+    // local copy of the key while its native push registration stays active.
+    if (response.statusCode < 200 || response.statusCode >= 300) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
         siteUrl,
