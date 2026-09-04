@@ -1559,7 +1559,13 @@ class ShellController extends FrameSafeNotifier
   Future<bool> removeInstance(DiscourseInstance instance) async {
     if (!_instances.contains(instance)) return false;
 
-    final disconnected = await _accountSessions.disconnect(instance.url);
+    // Removing the forum also removes the only local credential capable of
+    // revoking its native push registration. Do not commit the rail removal
+    // until the site has confirmed that revocation.
+    final disconnected = await _accountSessions.disconnect(
+      instance.url,
+      requireRemoteRevocation: true,
+    );
     final lease = disconnected.lease;
     if (disconnected.outcome != AccountDisconnectionOutcome.disconnected ||
         lease == null ||

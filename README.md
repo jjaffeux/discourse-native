@@ -97,6 +97,11 @@ a failure after it writes keeps the signed-out boundary and compensates by
 revoking and deleting the replacement key. Stale completions are generation
 checked at every suspension point.
 
+Removing a connected forum requires the site to confirm that its user API key
+was revoked before the app deletes the local credential or rail entry. If the
+site is unavailable or lacks the revoke route, the previous account snapshot is
+restored so the user can retry and the push registration is never orphaned.
+
 Scopes requested: `read,write,session_info,notifications`. The `notifications`
 scope also authorizes a site-approved push URL, so a separate `push` scope is
 not needed.
@@ -2235,15 +2240,17 @@ as that grid scrolls.
 
 `POST /user-api-key/revoke` runs before the local key is deleted, on both
 disconnect and removing a site. Deleting only our copy would leave a live key in
-the user's authorized-apps list with nothing tying it back to us. A 404 is
-tolerated — older sites lack the route — and so is being offline; the key is
-forgotten locally either way, since keeping one we can no longer see is worse.
+the user's authorized-apps list with nothing tying it back to us. An ordinary
+disconnect treats revocation as best-effort and still forgets the local key if
+the site is unavailable. Removing a forum requires a successful response; a
+missing route or network failure restores the connected account and keeps the
+key and rail entry so the user can retry without orphaning push registration.
 
-Disconnect first writes the draft blocker and signed-out instance snapshot,
-then withdraws the account presentation before remote revocation and local key
-deletion. If either cleanup fails, the remaining key is an ignored orphan: API
-credential reads are gated by the signed-out instance. A second lifecycle
-rotation rejects anonymous or account work started during cleanup.
+An ordinary disconnect first writes the draft blocker and signed-out instance
+snapshot, then withdraws the account presentation before remote revocation and
+local key deletion. If either cleanup fails, the remaining key is an ignored
+orphan: API credential reads are gated by the signed-out instance. A second
+lifecycle rotation rejects anonymous or account work started during cleanup.
 
 ### macOS keychain
 

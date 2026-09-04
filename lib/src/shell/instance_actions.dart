@@ -25,8 +25,8 @@ Future<void> confirmInstanceRemoval(
         title: Text('Remove ${instance.title}?'),
         content: Text(
           'This signs out of ${instance.host} and takes it out of the rail. '
-          'Nothing on the site itself changes, and you can add it back at '
-          'any time.',
+          'The app will revoke this device’s access so notifications stop. '
+          'You can add the forum back at any time.',
         ),
         actions: [
           AdaptiveDialogAction(

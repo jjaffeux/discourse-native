@@ -507,6 +507,37 @@ void main() {
         fixture.expectPrivateStateIsCoherent();
       });
     }
+
+    for (final failure in [_Failure.readCredential, _Failure.revokeOld]) {
+      test(
+        'restores the account when required revocation fails at ${failure.name}',
+        () async {
+          final fixture = _Fixture(failures: {failure});
+
+          final result = await fixture.coordinator.disconnect(
+            _siteUrl,
+            requireRemoteRevocation: true,
+          );
+
+          expect(result.outcome, AccountDisconnectionOutcome.failed);
+          expect(fixture.current.user, _accountA);
+          expect((await fixture.durable).user, _accountA);
+          expect(fixture.authenticator.keys[_siteUrl], _oldKey);
+          expect(fixture.events, isNot(contains('credential:delete')));
+          expect(
+            fixture.events,
+            containsAllInOrder([
+              'presentation:disconnecting',
+              if (failure == _Failure.revokeOld) 'credential:revoke:$_oldKey',
+              'lifecycle:clear',
+              'presentation:restored',
+              'instances:save:account-a',
+            ]),
+          );
+          fixture.expectPrivateStateIsCoherent();
+        },
+      );
+    }
   });
 
   group('AccountSessionCoordinator stale completions', () {
