@@ -2684,7 +2684,7 @@ class _TopicSidebarToggle extends StatelessWidget {
     onPressed: onPressed,
     icon: _TopicSidebarIcon(sidebarVisible: sidebarVisible),
     tooltip: sidebarVisible ? 'Hide topic sidebar' : 'Show topic sidebar',
-    variant: sidebarVisible ? DButtonVariant.standard : DButtonVariant.flat,
+    variant: DButtonVariant.flat,
     size: DButtonSize.small,
   );
 }
@@ -2696,17 +2696,20 @@ class _TopicSidebarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = IconTheme.of(context).color ?? const Color(0xFF000000);
+    final color = sidebarVisible
+        ? Theme.of(context).colorScheme.onSurface
+        : IconTheme.of(context).color ?? const Color(0xFF000000);
     return SizedBox(
-      width: 20,
-      height: 18,
+      key: const ValueKey('topic-sidebar-icon'),
+      width: 16,
+      height: 14,
       child: Stack(
         children: [
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                border: Border.all(color: color, width: 2),
-                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: color, width: 1.5),
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
           ),
@@ -2716,15 +2719,15 @@ class _TopicSidebarIcon extends StatelessWidget {
                   ? 'topic-sidebar-icon-open'
                   : 'topic-sidebar-icon-closed',
             ),
-            top: sidebarVisible ? 2 : 4,
-            right: sidebarVisible ? 5 : 4,
-            bottom: sidebarVisible ? 2 : 4,
+            top: sidebarVisible ? 1.5 : 3,
+            right: sidebarVisible ? 4 : 3,
+            bottom: sidebarVisible ? 1.5 : 3,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: color,
                 borderRadius: BorderRadius.circular(1),
               ),
-              child: SizedBox(width: sidebarVisible ? 2 : 4),
+              child: SizedBox(width: sidebarVisible ? 1.5 : 3),
             ),
           ),
         ],

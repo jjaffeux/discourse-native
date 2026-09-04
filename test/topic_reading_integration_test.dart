@@ -5275,6 +5275,10 @@ void _registerTopicReadingTests() {
         find.byKey(const ValueKey('topic-sidebar-icon-open')),
         findsNothing,
       );
+      expect(
+        tester.getSize(find.byKey(const ValueKey('topic-sidebar-icon'))),
+        const Size(16, 14),
+      );
 
       await tester.tap(find.byTooltip('Show topic sidebar'));
       await tester.pumpAndSettle();
@@ -5285,7 +5289,7 @@ void _registerTopicReadingTests() {
         tester
             .widget<DButton>(find.byKey(const ValueKey('topic-sidebar-toggle')))
             .variant,
-        DButtonVariant.standard,
+        DButtonVariant.flat,
       );
       expect(
         find.byKey(const ValueKey('topic-sidebar-icon-open')),
