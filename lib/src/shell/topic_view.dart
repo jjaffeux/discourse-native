@@ -2799,6 +2799,7 @@ class _TopicPropertiesCard extends StatelessWidget {
                     builder: (context, openMenu, saving) => TopicPropertyRow(
                       key: const ValueKey('topic-sidebar-category-property'),
                       label: 'Category',
+                      alignLabelToControl: true,
                       child: TopicCategoryValue(
                         valueKey: const ValueKey('topic-sidebar-category'),
                         label: category == null

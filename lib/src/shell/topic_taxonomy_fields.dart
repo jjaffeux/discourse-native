@@ -12,15 +12,23 @@ class TopicPropertyRow extends StatelessWidget {
     required this.label,
     required this.child,
     this.padding = const EdgeInsets.symmetric(vertical: 8),
+    this.alignLabelToControl = false,
   });
 
   final String label;
   final Widget child;
   final EdgeInsetsGeometry padding;
+  final bool alignLabelToControl;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final labelText = Text(
+      label,
+      style: theme.textTheme.labelMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
     return Padding(
       padding: padding,
       child: Row(
@@ -28,15 +36,18 @@ class TopicPropertyRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 94,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 3),
-              child: Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
+            child: alignLabelToControl
+                ? SizedBox(
+                    height: 32,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: labelText,
+                    ),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: labelText,
+                  ),
           ),
           Expanded(child: child),
         ],
@@ -86,13 +97,18 @@ class TopicCategoryValue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final usesLargeCategoryArt =
+        category?.styleType == 'icon' ||
+        (category?.styleType == 'emoji' &&
+            category?.emoji != null &&
+            siteUrl != null);
     final categoryValue = Row(
       key: valueKey,
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 2),
+          padding: EdgeInsets.only(top: usesLargeCategoryArt ? 2 : 4),
           child: category == null
               ? Container(
                   key: colorKey,
