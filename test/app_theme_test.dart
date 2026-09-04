@@ -1,6 +1,8 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart' as sdk;
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_tooltip.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart' as leaf;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -218,6 +220,31 @@ void main() {
     test(
       'uses the Discourse modular type scale instead of Material defaults',
       () {
+        for (
+          var index = 1;
+          index < DiscourseTypography.fontSizes.length;
+          index++
+        ) {
+          expect(
+            DiscourseTypography.fontSizes[index],
+            greaterThan(DiscourseTypography.fontSizes[index - 1]),
+          );
+        }
+
+        expect(DiscourseTypography.headingSizes, [
+          DiscourseTypography.fontUp3,
+          DiscourseTypography.fontUp2,
+          DiscourseTypography.fontUp1,
+          DiscourseTypography.base,
+          DiscourseTypography.fontDown1,
+          DiscourseTypography.fontDown2,
+        ]);
+        expect(DiscourseTypography.headingSize(0), DiscourseTypography.fontUp3);
+        expect(
+          DiscourseTypography.headingSize(7),
+          DiscourseTypography.fontDown2,
+        );
+
         final text = AppTheme.fromPalette(palette()).textTheme;
 
         expect(text.displayLarge?.fontSize, DiscourseTypography.fontUp6);
@@ -260,6 +287,10 @@ void main() {
         expect(text.labelSmall?.height, DiscourseTypography.lineHeightMedium);
       },
     );
+
+    test('keeps typography available across public import boundaries', () {
+      expect(sdk.DiscourseTypography.base, leaf.DiscourseTypography.base);
+    });
 
     test('maps the site palette into adaptive Cupertino controls', () {
       final source = palette();

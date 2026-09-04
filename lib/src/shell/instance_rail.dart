@@ -1644,7 +1644,7 @@ class _RailTooltipCallout extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.titleMedium?.copyWith(
                 color: const Color(0xFFF3F3F4),
-                fontSize: 16,
+                fontSize: DiscourseTypography.base,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.15,
                 height: 1.25,

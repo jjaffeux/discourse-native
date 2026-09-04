@@ -313,7 +313,7 @@ class _CodeBlockState extends State<CodeBlock> {
     if (data.lines.isEmpty) return const SizedBox();
 
     final style = monospaceTextStyle.copyWith(
-      fontSize: DiscourseTypography.code,
+      fontSize: DiscourseTypography.fontDown1,
       height: DiscourseTypography.codeLineHeight,
       color: theme.discourse.primaryVeryHigh,
     );

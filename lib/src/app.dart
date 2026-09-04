@@ -25,6 +25,7 @@ import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
 import 'plugin_api/site_plugin_api.dart';
 import 'shell/adaptive_shell.dart';
+import 'shell/app_text_scale.dart';
 import 'shell/content_reading_lane.dart';
 import 'shell/platform.dart';
 import 'shell/shell_controller.dart';
@@ -585,9 +586,12 @@ class _DiscourseAppState extends State<DiscourseApp>
     themeMode: themeMode,
     localizationsDelegates: RelativeTimeLocalizations.localizationsDelegates,
     supportedLocales: RelativeTimeLocalizations.supportedLocales,
-    builder: (context, child) => _MouseNavigationRegion(
-      navigatorKey: _navigatorKey,
-      child: child ?? const SizedBox.shrink(),
+    builder: (context, child) => AppTextScaleRegion(
+      controller: _controller.appSettings,
+      child: _MouseNavigationRegion(
+        navigatorKey: _navigatorKey,
+        child: child ?? const SizedBox.shrink(),
+      ),
     ),
     home: const AdaptiveShell(),
   );

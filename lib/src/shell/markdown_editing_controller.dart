@@ -9,6 +9,7 @@ import '../models/composer_upload.dart';
 import '../models/site_config.dart';
 import '../plugin_api/composer_syntax.dart';
 import '../plugin_api/hashtag_kind.dart';
+import '../theme/discourse_typography.dart';
 import 'composer_blockquote.dart';
 import 'composer_galleries.dart';
 import 'composer_image.dart';
@@ -1362,7 +1363,7 @@ class MarkdownEditingController extends TextEditingController {
     }
     if (cache.cached(url) == null) return null;
 
-    final size = (base.fontSize ?? 14) * emojiScale;
+    final size = (base.fontSize ?? DiscourseTypography.fontDown1) * emojiScale;
     return [
       TextSpan(text: text.substring(run.start, run.end - 1), style: _hidden),
       WidgetSpan(

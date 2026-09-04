@@ -3148,7 +3148,7 @@ class _Header extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelLarge?.copyWith(
-                  fontSize: target.isNewTopic ? 15 : null,
+                  fontSize: target.isNewTopic ? DiscourseTypography.base : null,
                   fontWeight: FontWeight.w600,
                 ),
               ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../theme/discourse_typography.dart';
 import 'emoji.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
@@ -341,7 +342,9 @@ class _TopicTitleEditingController extends TextEditingController {
             child: SiteEmojiImage(
               siteUrl: siteUrl,
               name: name,
-              size: (style?.fontSize ?? 14) * emojiScale,
+              size:
+                  (style?.fontSize ?? DiscourseTypography.fontDown1) *
+                  emojiScale,
               alt: '',
               style: style,
             ),

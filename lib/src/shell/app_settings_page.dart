@@ -46,6 +46,26 @@ class AppSettingsPage extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 36),
+                          _TextSizeSetting(
+                            scale: appSettings.textScale,
+                            onDecrease: appSettings.textScale.index == 0
+                                ? null
+                                : () => unawaited(
+                                    appSettings.decreaseTextScale(),
+                                  ),
+                            onIncrease:
+                                appSettings.textScale.index ==
+                                    AppTextScale.values.length - 1
+                                ? null
+                                : () => unawaited(
+                                    appSettings.increaseTextScale(),
+                                  ),
+                            onReset:
+                                appSettings.textScale == AppTextScale.percent100
+                                ? null
+                                : () => unawaited(appSettings.resetTextScale()),
+                          ),
+                          const SizedBox(height: 36),
                           SwitchListTile.adaptive(
                             key: const ValueKey(
                               'disable-gif-animations-switch',
@@ -111,6 +131,95 @@ class _SettingsHeader extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TextSizeSetting extends StatelessWidget {
+  const _TextSizeSetting({
+    required this.scale,
+    required this.onDecrease,
+    required this.onIncrease,
+    required this.onReset,
+  });
+
+  final AppTextScale scale;
+  final VoidCallback? onDecrease;
+  final VoidCallback? onIncrease;
+  final VoidCallback? onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final percentage = (scale.factor * 100).round();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Text size',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Applies across every forum. On desktop, use Command or Control '
+          'with + or −; use the same modifier with 0 to reset.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            DButton.iconOnly(
+              key: const ValueKey('text-size-decrease'),
+              onPressed: onDecrease,
+              icon: const DIcon(DIcons.minus, size: 16),
+              tooltip: 'Decrease text size',
+              semanticLabel: 'Decrease text size',
+              size: DButtonSize.small,
+            ),
+            Semantics(
+              key: const ValueKey('text-size-value'),
+              container: true,
+              excludeSemantics: true,
+              label: 'Current text size',
+              value: '$percentage percent',
+              liveRegion: true,
+              child: SizedBox(
+                width: 64,
+                child: Center(
+                  child: Text(
+                    '$percentage%',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            DButton.iconOnly(
+              key: const ValueKey('text-size-increase'),
+              onPressed: onIncrease,
+              icon: const DIcon(DIcons.plus, size: 16),
+              tooltip: 'Increase text size',
+              semanticLabel: 'Increase text size',
+              size: DButtonSize.small,
+            ),
+            DButton(
+              key: const ValueKey('text-size-reset'),
+              label: const Text('Reset'),
+              onPressed: onReset,
+              size: DButtonSize.small,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

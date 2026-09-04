@@ -125,22 +125,42 @@ abstract final class _SidebarSpacing {
   static const double desktopRowHeight = 30;
   static const double compactRowHeight = 38.4;
   static const double desktopSectionHeaderHeight = 24;
-  static const double sectionHeaderFontSize = 11;
+  static const double sectionHeaderFontSize = DiscourseTypography.fontDown3;
 
   static bool isCompact(BuildContext context) =>
       MediaQuery.sizeOf(context).width <= compactBreakpoint;
 
-  static double rowHeight(BuildContext context) =>
-      isCompact(context) ? compactRowHeight : desktopRowHeight;
+  static double rowHeight(BuildContext context) {
+    final compact = isCompact(context);
+    final minimum = compact ? compactRowHeight : desktopRowHeight;
+    final fontSize = compact
+        ? DiscourseTypography.base
+        : DiscourseTypography.fontDown1;
+    return _heightWithScaledText(
+      context,
+      minimum: minimum,
+      fontSize: fontSize,
+      lineHeight: DiscourseTypography.lineHeightLarge,
+    );
+  }
 
-  static double sectionHeaderHeight(BuildContext context) =>
-      isCompact(context) ? compactRowHeight : desktopSectionHeaderHeight;
+  static double sectionHeaderHeight(BuildContext context) {
+    if (isCompact(context)) return rowHeight(context);
+    return _heightWithScaledText(
+      context,
+      minimum: desktopSectionHeaderHeight,
+      fontSize: sectionHeaderFontSize,
+      lineHeight: DiscourseTypography.lineHeightMedium,
+    );
+  }
 
-  static double labelFontSize(BuildContext context) =>
-      isCompact(context) ? 16 : 14;
+  static double labelFontSize(BuildContext context) => isCompact(context)
+      ? DiscourseTypography.base
+      : DiscourseTypography.fontDown1;
 
-  static double countFontSize(BuildContext context) =>
-      isCompact(context) ? 14 : 12;
+  static double countFontSize(BuildContext context) => isCompact(context)
+      ? DiscourseTypography.fontDown1
+      : DiscourseTypography.fontDown2;
 
   static double prefixArtSize(BuildContext context) =>
       isCompact(context) ? 22 : 18;
@@ -155,6 +175,19 @@ abstract final class _SidebarSpacing {
 
   static double sectionPadding(BuildContext context) =>
       isCompact(context) ? 0 : sectionVerticalPadding;
+
+  static double _heightWithScaledText(
+    BuildContext context, {
+    required double minimum,
+    required double fontSize,
+    required double lineHeight,
+  }) {
+    final nominalTextHeight = fontSize * lineHeight;
+    final scaledTextHeight =
+        MediaQuery.textScalerOf(context).scale(fontSize) * lineHeight;
+    final growth = scaledTextHeight - nominalTextHeight;
+    return growth > 0 ? minimum + growth : minimum;
+  }
 }
 
 class InstanceSidebar extends StatelessWidget {

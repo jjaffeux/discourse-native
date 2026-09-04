@@ -3,6 +3,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 
 import 'd_tooltip.dart';
+import 'discourse_typography.dart';
 
 enum DButtonVariant {
   standard,
@@ -353,9 +354,9 @@ class DButton extends StatelessWidget {
   static const double _textLineHeight = 1.2;
 
   static double fontSizeFor(DButtonSize size) => switch (size) {
-    DButtonSize.small => 13.9296,
-    DButtonSize.regular => 16,
-    DButtonSize.large => 18.3792,
+    DButtonSize.small => DiscourseTypography.fontDown1,
+    DButtonSize.regular => DiscourseTypography.base,
+    DButtonSize.large => DiscourseTypography.fontUp1,
   };
 
   static double iconOnlyDimensionFor(DButtonSize size) => switch (size) {

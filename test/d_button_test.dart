@@ -6,6 +6,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('button sizes use the modular type scale', () {
+    expect(
+      DButton.fontSizeFor(DButtonSize.small),
+      DiscourseTypography.fontDown1,
+    );
+    expect(DButton.fontSizeFor(DButtonSize.regular), DiscourseTypography.base);
+    expect(DButton.fontSizeFor(DButtonSize.large), DiscourseTypography.fontUp1);
+  });
+
   testWidgets('text buttons use core font-relative geometry', (tester) async {
     for (final size in DButtonSize.values) {
       await tester.pumpWidget(

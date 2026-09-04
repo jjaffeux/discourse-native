@@ -1,7 +1,9 @@
 import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/src/data/sidebar_width_store.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -55,7 +57,10 @@ void main() {
       matching: find.text('Topics'),
     );
     expect(topics, findsOneWidget);
-    expect(tester.widget<Text>(topics).style?.fontSize, 14);
+    expect(
+      tester.widget<Text>(topics).style?.fontSize,
+      DiscourseTypography.fontDown1,
+    );
     expect(
       tester
           .getSize(
@@ -65,6 +70,31 @@ void main() {
       30,
     );
   });
+
+  for (final size in [const Size(390, 700), const Size(1200, 800)]) {
+    testWidgets(
+      'scaled sidebar text remains inside expanded ${size.width}px rows',
+      (tester) async {
+        final controller = await _controller();
+        await controller.appSettings.setTextScale(AppTextScale.percent200);
+        await _pumpShell(tester, controller, size);
+
+        final topics = find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.text('Topics'),
+        );
+        final row = find
+            .ancestor(of: topics, matching: find.byType(InkWell))
+            .first;
+        final textRect = tester.getRect(topics);
+        final rowRect = tester.getRect(row);
+
+        expect(rowRect.height, greaterThan(size.width <= 640 ? 38.4 : 30));
+        expect(textRect.top, greaterThanOrEqualTo(rowRect.top));
+        expect(textRect.bottom, lessThanOrEqualTo(rowRect.bottom));
+      },
+    );
+  }
 
   testWidgets('resizes once for every forum and restores after reload', (
     tester,
@@ -234,7 +264,14 @@ Future<void> _pumpShell(
   await tester.pumpWidget(
     ShellScope(
       controller: controller,
-      child: MaterialApp(theme: AppTheme.light, home: const AdaptiveShell()),
+      child: MaterialApp(
+        theme: AppTheme.light,
+        builder: (context, child) => AppTextScaleRegion(
+          controller: controller.appSettings,
+          child: child!,
+        ),
+        home: const AdaptiveShell(),
+      ),
     ),
   );
   await tester.pumpAndSettle();

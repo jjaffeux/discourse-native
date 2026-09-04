@@ -31,7 +31,10 @@ void main() {
     tester,
   ) async {
     final appSettingsStore = AppSettingsStore(
-      persistence: MemoryAppSettingsPersistence(contentAlignment: 'right'),
+      persistence: MemoryAppSettingsPersistence(
+        contentAlignment: 'right',
+        textScale: AppTextScale.percent125.name,
+      ),
     );
 
     await _pumpApp(
@@ -45,7 +48,44 @@ void main() {
       _controller(tester).appSettings.contentAlignment,
       ContentAlignment.right,
     );
+    expect(_controller(tester).appSettings.textScale, AppTextScale.percent125);
+    expect(
+      MediaQuery.textScalerOf(
+        tester.element(find.byType(AdaptiveShell)),
+      ).scale(DiscourseTypography.base),
+      moreOrLessEquals(DiscourseTypography.base * 1.25),
+    );
   });
+
+  for (final size in [const Size(390, 700), const Size(1200, 800)]) {
+    testWidgets('maximum text size lays out the ${size.width}px shell', (
+      tester,
+    ) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final appSettingsStore = AppSettingsStore(
+        persistence: MemoryAppSettingsPersistence(
+          textScale: AppTextScale.percent200.name,
+        ),
+      );
+
+      await _pumpApp(
+        tester,
+        store: FakeInstanceStore([
+          const DiscourseInstance(url: siteA, title: 'A very long forum name'),
+        ]),
+        api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+        appSettingsStore: appSettingsStore,
+      );
+
+      expect(tester.takeException(), isNull);
+      _controller(tester).selectSettings();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('200%'), findsOneWidget);
+    });
+  }
 
   group('appearance loading and persistence', () {
     testWidgets('renders persisted palettes before refreshing them once', (

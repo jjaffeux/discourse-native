@@ -674,7 +674,8 @@ void main() {
           ),
         ),
         child: const CookedHtml(
-          html: '<table style="width: 100%"><tbody><tr>'
+          html:
+              '<table style="width: 100%"><tbody><tr>'
               '<td style="width: 40px; max-width: 40px">By '
               '<a class="mention" href="/u/sam">@sam</a></td>'
               '<td>A second column that also needs room</td>'
@@ -1106,6 +1107,36 @@ void main() {
       );
       expect(chip.width, lessThan(200));
     });
+  });
+
+  testWidgets('headings use the same modular scale as the composer', (
+    tester,
+  ) async {
+    await pumpCooked(
+      tester,
+      [
+        for (var level = 1; level <= 6; level++)
+          '<h$level>Heading $level</h$level>',
+      ].join(),
+    );
+
+    final expected = [
+      DiscourseTypography.fontUp3,
+      DiscourseTypography.fontUp2,
+      DiscourseTypography.fontUp1,
+      DiscourseTypography.base,
+      DiscourseTypography.fontDown1,
+      DiscourseTypography.fontDown2,
+    ];
+    for (var level = 1; level <= 6; level++) {
+      final style = styleOf(tester, 'Heading $level');
+      expect(style.fontSize, expected[level - 1], reason: 'heading $level');
+      expect(
+        style.height,
+        closeTo(DiscourseTypography.lineHeightMedium, 0.0001),
+        reason: 'heading $level',
+      );
+    }
   });
 
   group('inline code', () {
