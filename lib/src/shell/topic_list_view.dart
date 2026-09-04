@@ -407,7 +407,7 @@ class _TopicLedgerLayout {
   static const double horizontalPadding = 14;
   static const double gap = 12;
   static const double participantsWidth = 82;
-  static const double activityWidth = 120;
+  static const double activityWidth = 180;
 
   static double activityWidthOf(BuildContext context) =>
       activityWidth * ContentAlignmentScope.appTextScaleFactorOf(context);

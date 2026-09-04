@@ -120,23 +120,24 @@ void main() {
     }
   });
 
-  testWidgets('desktop rows compact only when their context line is empty', (
+  testWidgets('desktop compact rows contain large activity values', (
     tester,
   ) async {
     tester.view.physicalSize = const ui.Size(900, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    const topics = [
+    final topics = [
       Topic(
         id: 7,
         title: 'Daily Log',
         slug: 'daily-log',
-        replyCount: 2,
-        views: 14,
-        posterAvatars: ['', ''],
+        replyCount: 582,
+        views: 13800,
+        bumpedAt: DateTime.now().subtract(const Duration(minutes: 4)),
+        posterAvatars: const ['', ''],
       ),
-      Topic(
+      const Topic(
         id: 8,
         title: 'A contextual topic',
         slug: 'a-contextual-topic',
@@ -307,7 +308,7 @@ void main() {
         tester
             .getSize(find.byKey(const ValueKey('topic-ledger-activity-8')))
             .width,
-        150,
+        225,
       );
       expect(tester.takeException(), isNull);
     } finally {
