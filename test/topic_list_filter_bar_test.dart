@@ -94,6 +94,22 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('labels and opens the unfiltered category selector', (
+    tester,
+  ) async {
+    await pumpBar(tester, platform: TargetPlatform.macOS);
+
+    expect(find.text('All categories'), findsOneWidget);
+    expect(find.text('Categories'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('topic-list-category-filter')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('choice-menu-surface')), findsOneWidget);
+    expect(find.text('All categories'), findsNWidgets(2));
+    expect(find.text('Categories'), findsNothing);
+  });
+
   testWidgets('selects a category and one of its subcategories', (
     tester,
   ) async {
