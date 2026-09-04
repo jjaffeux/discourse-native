@@ -487,6 +487,8 @@ class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
           children: [
             _CodeBlockHeader(
               language: widget.data.language,
+              centerLanguage: true,
+              languageKey: const ValueKey('code-block-fullscreen-language'),
               actions: [
                 _CodeCopyButton(text: widget.data.clipboardText),
                 DButton.iconOnly(
@@ -536,14 +538,66 @@ class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
 }
 
 class _CodeBlockHeader extends StatelessWidget {
-  const _CodeBlockHeader({required this.language, required this.actions});
+  const _CodeBlockHeader({
+    required this.language,
+    required this.actions,
+    this.centerLanguage = false,
+    this.languageKey,
+  });
 
   final String? language;
   final List<Widget> actions;
+  final bool centerLanguage;
+  final Key? languageKey;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    final languageLabel = Row(
+      key: languageKey,
+      mainAxisSize: centerLanguage ? MainAxisSize.min : MainAxisSize.max,
+      children: [
+        DIcon(DIcons.code, size: 18, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            codeLanguageLabel(language),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.discourse.primaryVeryHigh,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (centerLanguage) {
+      return SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Padding(
+              // Reserve equal space on both sides so the title stays centered
+              // in the window and clear of both macOS controls and our actions.
+              padding: const EdgeInsets.symmetric(horizontal: 96),
+              child: Center(child: languageLabel),
+            ),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(end: 4),
+                child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return SizedBox(
       height: 48,
@@ -551,23 +605,7 @@ class _CodeBlockHeader extends StatelessWidget {
         padding: const EdgeInsetsDirectional.only(start: 12, end: 4),
         child: Row(
           children: [
-            DIcon(
-              DIcons.code,
-              size: 18,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                codeLanguageLabel(language),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.discourse.primaryVeryHigh,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+            Expanded(child: languageLabel),
             ...actions,
           ],
         ),

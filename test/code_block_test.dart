@@ -354,6 +354,13 @@ void main() {
 
       final close = find.byKey(const ValueKey('code-block-fullscreen-close'));
       final viewer = find.byKey(const ValueKey('code-block-fullscreen-view'));
+      final language = find.byKey(
+        const ValueKey('code-block-fullscreen-language'),
+      );
+      expect(
+        tester.getRect(language).center.dx,
+        moreOrLessEquals(tester.getRect(viewer).center.dx),
+      );
       expect(
         tester.getRect(viewer).right - tester.getRect(close).right,
         lessThanOrEqualTo(8),
