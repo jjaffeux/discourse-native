@@ -288,11 +288,6 @@ class _TopicListViewState extends State<TopicListView> {
 
     return Column(
       children: [
-        if (feed.loading)
-          const LinearProgressIndicator(
-            key: ValueKey('topic-feed-refresh-progress'),
-            minHeight: 2,
-          ),
         if (feed.error case final error? when !feed.pageError)
           _FeedErrorBanner(
             key: const ValueKey('topic-feed-refresh-error'),

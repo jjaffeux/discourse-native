@@ -941,6 +941,67 @@ void _registerTopicReadingTests() {
       expect(api.feedPaths, ['/latest.json', '/latest.json']);
     });
 
+    testWidgets(
+      'refreshing Topics replaces its sidebar icon without shifting the list',
+      (tester) async {
+        final feedGates = <String, Completer<void>>{};
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': latest},
+          feedGates: feedGates,
+        );
+
+        await pumpShell(tester, desktop, api: api);
+        final firstTopic = contentText('Welcome to the forum');
+        final initialTop = tester.getTopLeft(firstTopic).dy;
+        final topicsRow = find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.byKey(const ValueKey('latest')),
+        );
+        final gate = Completer<void>();
+        feedGates['/latest.json'] = gate;
+
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pump();
+
+        expect(
+          find.descendant(
+            of: topicsRow,
+            matching: find.byKey(
+              const ValueKey('sidebar-destination-loading-latest'),
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: topicsRow,
+            matching: find.dIcon(DIcons.layerGroup),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('topic-feed-refresh-progress')),
+          findsNothing,
+        );
+        expect(tester.getTopLeft(firstTopic).dy, initialTop);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('sidebar-destination-loading-latest')),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: topicsRow,
+            matching: find.dIcon(DIcons.layerGroup),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
     testWidgets('unread topics carry a count', (tester) async {
       final api = FakeDiscourseApi(feeds: {'/latest.json': latest});
 
