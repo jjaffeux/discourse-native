@@ -497,10 +497,9 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
           child: DButton(
             key: const ValueKey('sidebar-panel-switch-main'),
             label: const Text('Forum'),
-            icon: const DIcon(DIcons.shuffle, size: 14),
+            icon: const DIcon(DIcons.shuffle, size: 16),
             onPressed: active!.panel.onClose,
-            size: DButtonSize.small,
-            alignment: Alignment.centerLeft,
+            size: DButtonSize.regular,
           ),
         ),
       for (final candidate in panels)
@@ -509,10 +508,9 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
             child: DButton(
               key: ValueKey('sidebar-panel-switch-${candidate.owner.value}'),
               label: Text(candidate.panel.label),
-              icon: DIcon(candidate.panel.icon, size: 14),
+              icon: DIcon(candidate.panel.icon, size: 16),
               onPressed: candidate.panel.onOpen,
-              size: DButtonSize.small,
-              alignment: Alignment.centerLeft,
+              size: DButtonSize.regular,
             ),
           ),
     ];
@@ -520,7 +518,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
 
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: theme.shell.divider)),
       ),
