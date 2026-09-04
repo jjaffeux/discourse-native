@@ -1,5 +1,7 @@
 // ignore_for_file: prefer_initializing_formals
 
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../../data/discourse_api_contracts.dart';
@@ -9,6 +11,7 @@ import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import 'ai_proofreading_api.dart';
 import 'ai_proofreading_data.dart';
+import 'ai_proofreading_preferences.dart';
 
 final class AiProofreadingController extends FrameSafeNotifier
     implements PluginComposerSubmitPreparer {
@@ -17,6 +20,7 @@ final class AiProofreadingController extends FrameSafeNotifier
     required PluginRequestHost requests,
     required PluginSiteStateHost siteState,
     required PluginFreshAccountHost freshAccount,
+    this.preferences = const AiProofreadingPreferenceStore(),
     this.diagnostics = const PluginDiagnosticsReporter.noop(),
   }) : _requests = requests,
        _siteState = siteState,
@@ -26,8 +30,12 @@ final class AiProofreadingController extends FrameSafeNotifier
   final PluginRequestHost _requests;
   final PluginSiteStateHost _siteState;
   final PluginFreshAccountHost _freshAccount;
+  final AiProofreadingPreferenceStore preferences;
   final PluginDiagnosticsReporter diagnostics;
-  final Expando<bool> _enabled = Expando<bool>('ai-proofreading-enabled');
+  final Map<String, bool> _enabledBySite = {};
+  final Set<String> _loadedSites = {};
+  final Map<String, Future<void>> _siteLoads = {};
+  final Map<String, int> _siteRevisions = {};
 
   bool isAvailable(ComposerEditorHost composer) {
     if (!composer.isCurrent || composer.isPluginTarget) return false;
@@ -44,25 +52,37 @@ final class AiProofreadingController extends FrameSafeNotifier
         currentUser?.canUseAssistant == true;
   }
 
-  bool isEnabled(ComposerEditorHost composer) => _enabled[composer] == true;
+  bool isEnabled(ComposerEditorHost composer) {
+    unawaited(_ensurePreferenceLoaded(composer.siteUrl));
+    return _enabledBySite[composer.siteUrl] == true;
+  }
 
   void setEnabled(ComposerEditorHost composer, bool enabled) {
     if (!composer.isEditing || (enabled && !isAvailable(composer))) return;
-    if (isEnabled(composer) == enabled) return;
-    _enabled[composer] = enabled;
+    final siteUrl = composer.siteUrl;
+    if (_enabledBySite[siteUrl] == enabled && _loadedSites.contains(siteUrl)) {
+      return;
+    }
+    _siteRevisions.update(
+      siteUrl,
+      (revision) => revision + 1,
+      ifAbsent: () => 1,
+    );
+    _loadedSites.add(siteUrl);
+    _enabledBySite[siteUrl] = enabled;
     notifySafely();
+    unawaited(preferences.write(siteUrl: siteUrl, enabled: enabled));
   }
 
   @override
   Future<PluginComposerSubmitPreparation> prepareComposerSubmit(
     ComposerEditorHost composer,
   ) async {
-    if (!isEnabled(composer)) {
+    await _ensurePreferenceLoaded(composer.siteUrl);
+    if (_enabledBySite[composer.siteUrl] != true) {
       return const PluginComposerSubmitPreparation.proceed();
     }
     if (!isAvailable(composer)) {
-      _enabled[composer] = false;
-      notifySafely();
       return const PluginComposerSubmitPreparation.failed(
         WriteException(
           WriteFailure.validation,
@@ -140,6 +160,31 @@ final class AiProofreadingController extends FrameSafeNotifier
       );
     }
     return const PluginComposerSubmitPreparation.proceed(changed: true);
+  }
+
+  Future<void> _ensurePreferenceLoaded(String siteUrl) {
+    if (_loadedSites.contains(siteUrl)) return Future<void>.value();
+    final existing = _siteLoads[siteUrl];
+    if (existing != null) return existing;
+
+    final revision = _siteRevisions[siteUrl] ?? 0;
+    late final Future<void> loading;
+    loading = preferences
+        .read(siteUrl: siteUrl)
+        .then((enabled) {
+          if (isDisposed || (_siteRevisions[siteUrl] ?? 0) != revision) return;
+          final changed = _enabledBySite[siteUrl] != enabled;
+          _loadedSites.add(siteUrl);
+          _enabledBySite[siteUrl] = enabled;
+          if (changed) notifySafely();
+        })
+        .whenComplete(() {
+          if (identical(_siteLoads[siteUrl], loading)) {
+            final _ = _siteLoads.remove(siteUrl);
+          }
+        });
+    _siteLoads[siteUrl] = loading;
+    return loading;
   }
 
   static WriteException _proofreadingFailure(WriteException error) =>

@@ -14,6 +14,7 @@ import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_api.da
 import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_controller.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_data.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_plugin.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_preferences.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -111,6 +112,8 @@ AiProofreadingController _controller({
   DiscourseUser? user,
   FakeDiscourseApi? api,
   SiteLifecycle? lifecycle,
+  AiProofreadingPreferenceStore preferences =
+      const AiProofreadingPreferenceStore(),
 }) {
   final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'api-key';
   return AiProofreadingController(
@@ -133,6 +136,7 @@ AiProofreadingController _controller({
       siteConfigFor: (_) => config ?? _enabledConfig,
     ),
     freshAccount: _FreshAccountHost((user ?? _allowedUser).plugins),
+    preferences: preferences,
   );
 }
 
@@ -264,6 +268,17 @@ void main() {
     expect(disallowed.isAvailable(composer), isFalse);
   });
 
+  test('remembers the choice independently for each forum', () async {
+    const store = AiProofreadingPreferenceStore();
+
+    expect(await store.read(siteUrl: _siteUrl), isFalse);
+
+    await store.write(siteUrl: _siteUrl, enabled: true);
+
+    expect(await store.read(siteUrl: _siteUrl), isTrue);
+    expect(await store.read(siteUrl: 'https://other.discourse.org'), isFalse);
+  });
+
   test(
     'proofreads the unchanged body with the supported server contract',
     () async {
@@ -373,6 +388,40 @@ void main() {
     expect(
       find.byKey(const ValueKey('composer-proofread-control')),
       findsOneWidget,
+    );
+  });
+
+  testWidgets('a later composer restores the remembered choice', (
+    tester,
+  ) async {
+    final first = await _openReply();
+    await _pumpComposer(tester, first.shell);
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('composer-proofread-control')));
+    await tester.pump();
+
+    expect(
+      await tester.runAsync(
+        () => const AiProofreadingPreferenceStore().read(siteUrl: _siteUrl),
+      ),
+      isTrue,
+    );
+
+    first.shell.dispose();
+    await tester.pumpWidget(const SizedBox.shrink());
+    final second = await _openReply();
+    addTearDown(second.shell.dispose);
+    await _pumpComposer(tester, second.shell);
+    await tester.runAsync(pumpEventQueue);
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<Switch>(
+            find.byKey(const ValueKey('composer-proofread-switch')),
+          )
+          .value,
+      isTrue,
     );
   });
 
