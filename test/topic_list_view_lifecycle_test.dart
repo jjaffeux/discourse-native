@@ -373,7 +373,7 @@ void main() {
     expect(find.text('Topic 1'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('topic-feed-refresh-progress')),
-      findsOneWidget,
+      findsNothing,
     );
 
     api.requests.last.response.completeError(Exception('offline'));

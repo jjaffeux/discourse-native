@@ -356,6 +356,7 @@ class _SidebarPanelBody extends StatelessWidget {
                     listenable: Listenable.merge([
                       controller.accountActivity.totalsListenable,
                       controller.draftList,
+                      controller.topicFeeds,
                     ]),
                     builder: (context, _) => SliverMainAxisGroup(
                       slivers: [
@@ -367,6 +368,14 @@ class _SidebarPanelBody extends StatelessWidget {
                             first: index == 0,
                             store: sectionStore,
                             selectedId: sidebar.destinationId,
+                            loadingDestinationId:
+                                switch (controller.currentFeed) {
+                                  final feed?
+                                      when feed.loading &&
+                                          feed.topicIds.isNotEmpty =>
+                                    controller.currentFeedId,
+                                  _ => null,
+                                },
                             badgeFor: controller.sidebarBadgeFor,
                             insertedDestination:
                                 sidebar.canCreateTopic &&
@@ -608,6 +617,7 @@ class _Section extends StatefulWidget {
     required this.selectedId,
     required this.badgeFor,
     required this.onSelect,
+    this.loadingDestinationId,
     this.insertedDestination,
     this.insertAfterDestinationId,
   });
@@ -617,6 +627,7 @@ class _Section extends StatefulWidget {
   final bool first;
   final SidebarSectionStore store;
   final String? selectedId;
+  final String? loadingDestinationId;
   final SidebarBadge Function(String destinationId) badgeFor;
   final ValueChanged<SidebarDestination> onSelect;
   final SidebarDestination? insertedDestination;
@@ -761,6 +772,7 @@ class _SectionState extends State<_Section> {
                 key: ValueKey(destination.id),
                 destination: destination,
                 selected: destination.id == widget.selectedId,
+                loading: destination.id == widget.loadingDestinationId,
                 badge: widget.badgeFor(destination.id),
                 rowHeight: rowHeight,
                 gapAfter: _SidebarSpacing.rowGap,
@@ -1026,6 +1038,7 @@ class _DestinationTile extends StatefulWidget {
     super.key,
     required this.destination,
     required this.selected,
+    this.loading = false,
     required this.badge,
     required this.rowHeight,
     required this.gapAfter,
@@ -1034,6 +1047,7 @@ class _DestinationTile extends StatefulWidget {
 
   final SidebarDestination destination;
   final bool selected;
+  final bool loading;
   final SidebarBadge badge;
   final double rowHeight;
   final double gapAfter;
@@ -1065,6 +1079,14 @@ class _DestinationTileState extends State<_DestinationTile> {
   Widget _prefixArt(BuildContext context, Color foreground) {
     final theme = Theme.of(context);
     final artSize = _SidebarSpacing.prefixArtSize(context);
+
+    if (widget.loading) {
+      return SizedBox.square(
+        key: ValueKey('sidebar-destination-loading-${destination.id}'),
+        dimension: _SidebarSpacing.prefixIconSize(context),
+        child: const CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
 
     if (destination.prefixBuilder case final builder?) {
       return builder(context, artSize);
