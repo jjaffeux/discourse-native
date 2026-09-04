@@ -318,7 +318,7 @@ void main() {
     expect(find.text('Topic 1'), findsOneWidget);
   });
 
-  testWidgets('boundary shortcuts jump to the start and end of the list', (
+  testWidgets('keyboard navigation scrolls and jumps through the topic list', (
     tester,
   ) async {
     final topics = _topics(1, 40);
@@ -345,6 +345,16 @@ void main() {
     expect(position.maxScrollExtent, greaterThan(0));
 
     position.jumpTo(position.maxScrollExtent / 2);
+    final middle = position.pixels;
+    expect(await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown), isTrue);
+    await tester.pumpAndSettle();
+    expect(position.pixels, greaterThan(middle));
+
+    final afterDown = position.pixels;
+    expect(await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp), isTrue);
+    await tester.pumpAndSettle();
+    expect(position.pixels, lessThan(afterDown));
+
     expect(await tester.sendKeyEvent(LogicalKeyboardKey.home), isTrue);
     await tester.pump();
     expect(position.pixels, position.minScrollExtent);
@@ -423,6 +433,8 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.end);
     await _sendMetaShortcut(tester, LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
 
     expect(fieldFocus.hasPrimaryFocus, isTrue);
     expect(position.pixels, afterPointerScroll);
@@ -435,14 +447,20 @@ void main() {
   ) async {
     var starts = 0;
     var ends = 0;
+    final scrollController = ScrollController();
+    addTearDown(scrollController.dispose);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: ListBoundaryShortcuts(
             initiallyActive: true,
+            scrollController: scrollController,
             onStart: () => starts++,
             onEnd: () => ends++,
-            child: const SizedBox.expand(),
+            child: ListView(
+              controller: scrollController,
+              children: const [SizedBox(height: 2000)],
+            ),
           ),
         ),
       ),
@@ -469,8 +487,10 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.home);
     await _sendMetaShortcut(tester, LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     expect(starts, 0);
     expect(ends, 0);
+    expect(scrollController.offset, 0);
 
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();

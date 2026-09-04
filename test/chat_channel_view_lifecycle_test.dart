@@ -550,7 +550,7 @@ void main() {
       ChatThreadTarget(channelId: 9, threadId: 3),
     ]) {
       testWidgets(
-        'Home, End, and Command+Arrow jump across the ${target.isThread ? 'thread' : 'channel'} stream',
+        'Arrow, Home, End, and Command+Arrow navigate the ${target.isThread ? 'thread' : 'channel'} stream',
         (tester) async {
           final api = _ChatApi(openPages: const {});
           final controller = await _controller(api, sites: const [firstSite]);
@@ -578,6 +578,18 @@ void main() {
               .state<ScrollableState>(_verticalChatScroll())
               .position;
           expect(scroll.pixels, 0);
+
+          expect(await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp), isTrue);
+          await tester.pumpAndSettle();
+          expect(scroll.pixels, greaterThan(0));
+
+          final afterUp = scroll.pixels;
+          expect(
+            await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown),
+            isTrue,
+          );
+          await tester.pumpAndSettle();
+          expect(scroll.pixels, lessThan(afterUp));
 
           // The current route's stream owns navigation immediately.
           await tester.sendKeyEvent(LogicalKeyboardKey.home);

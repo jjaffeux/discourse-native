@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Gives a scrollable browser-style shortcuts for its logical boundaries.
+/// Gives a scrollable browser-style keyboard navigation.
 ///
 /// Only the active wrapper reacts, so side-by-side scrollables do not both
 /// move. Initial ownership does not take primary focus, pointer interaction
-/// transfers ownership, and the focus tree gets first chance to handle keys so
-/// editable controls keep their native shortcuts.
+/// transfers ownership, and focused editable controls keep their native
+/// shortcuts.
 class ListBoundaryShortcuts extends StatefulWidget {
   const ListBoundaryShortcuts({
     super.key,
     required this.onStart,
     required this.onEnd,
+    required this.scrollController,
     required this.child,
     this.initiallyActive = false,
     this.debugLabel,
@@ -19,6 +20,7 @@ class ListBoundaryShortcuts extends StatefulWidget {
 
   final VoidCallback onStart;
   final VoidCallback onEnd;
+  final ScrollController scrollController;
   final Widget child;
 
   /// Makes this wrapper the fallback owner without stealing primary focus.
@@ -31,6 +33,7 @@ class ListBoundaryShortcuts extends StatefulWidget {
 
 class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
   static _ListBoundaryShortcutsState? _active;
+  static const double _lineScrollIncrement = 50;
 
   static const _startShortcuts = <SingleActivator>[
     SingleActivator(LogicalKeyboardKey.home, includeRepeats: false),
@@ -48,6 +51,8 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
       includeRepeats: false,
     ),
   ];
+  static const _scrollUp = SingleActivator(LogicalKeyboardKey.arrowUp);
+  static const _scrollDown = SingleActivator(LogicalKeyboardKey.arrowDown);
 
   late final FocusNode _focusNode = FocusNode(
     debugLabel: widget.debugLabel,
@@ -57,6 +62,7 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
   @override
   void initState() {
     super.initState();
+    FocusManager.instance.addEarlyKeyEventHandler(_handleArrowKeyEvent);
     FocusManager.instance.addLateKeyEventHandler(_handleUnclaimedKeyEvent);
     if (widget.initiallyActive) _active = this;
   }
@@ -74,6 +80,7 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
 
   @override
   void dispose() {
+    FocusManager.instance.removeEarlyKeyEventHandler(_handleArrowKeyEvent);
     FocusManager.instance.removeLateKeyEventHandler(_handleUnclaimedKeyEvent);
     if (identical(_active, this)) _active = null;
     _focusNode.dispose();
@@ -93,7 +100,56 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
       widget.onEnd();
       return KeyEventResult.handled;
     }
+    return _handleScrollKey(event, keyboard);
+  }
+
+  KeyEventResult _handleScrollKey(KeyEvent event, HardwareKeyboard keyboard) {
+    if (_scrollUp.accepts(event, keyboard)) {
+      return _scroll(AxisDirection.up);
+    }
+    if (_scrollDown.accepts(event, keyboard)) {
+      return _scroll(AxisDirection.down);
+    }
     return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleArrowKeyEvent(KeyEvent event) {
+    if (!TickerMode.valuesOf(context).enabled ||
+        !identical(_active, this) ||
+        !_canClaimArrowKey) {
+      return KeyEventResult.ignored;
+    }
+    return _handleScrollKey(event, HardwareKeyboard.instance);
+  }
+
+  bool get _canClaimArrowKey {
+    final focusManager = FocusManager.instance;
+    final primaryFocus = focusManager.primaryFocus;
+    final listOwnsFocus = _focusNode.hasFocus;
+    final nothingElseOwnsFocus =
+        primaryFocus == null || identical(primaryFocus, focusManager.rootScope);
+    final routeOwnsFocus = identical(primaryFocus, FocusScope.of(context));
+    return (listOwnsFocus || nothingElseOwnsFocus || routeOwnsFocus) &&
+        _fallbackCanHandle;
+  }
+
+  KeyEventResult _scroll(AxisDirection direction) {
+    final controller = widget.scrollController;
+    if (!controller.hasClients) return KeyEventResult.ignored;
+
+    final position = controller.position;
+    if (axisDirectionToAxis(direction) != position.axis) {
+      return KeyEventResult.ignored;
+    }
+    final increment = direction == position.axisDirection
+        ? _lineScrollIncrement
+        : -_lineScrollIncrement;
+    position.moveTo(
+      position.pixels + increment,
+      duration: const Duration(milliseconds: 100),
+      curve: Curves.easeInOut,
+    );
+    return KeyEventResult.handled;
   }
 
   KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {

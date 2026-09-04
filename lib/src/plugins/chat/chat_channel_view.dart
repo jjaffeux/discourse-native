@@ -1263,6 +1263,7 @@ class _StreamState extends State<ChatMessageStream>
               key: const ValueKey('chat-message-stream-keyboard-focus'),
               debugLabel: 'chat message stream',
               initiallyActive: widget.autofocus,
+              scrollController: _scroll,
               onStart: _jumpToOldestLoadedMessage,
               onEnd: () {
                 _boundaryJumpRevision++;

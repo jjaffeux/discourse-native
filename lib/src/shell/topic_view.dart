@@ -1786,6 +1786,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         key: ValueKey(('topic-post-boundary', siteUrl, snapshot.topicId)),
         debugLabel: 'topic post stream',
         initiallyActive: true,
+        scrollController: _scroll!,
         onStart: () => _jumpToBoundary(end: false),
         onEnd: () => _jumpToBoundary(end: true),
         child: postStreamContent,
