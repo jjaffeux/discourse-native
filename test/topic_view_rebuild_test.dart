@@ -6,10 +6,12 @@ import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 
@@ -102,6 +104,107 @@ void main() {
     expect(rebuilt, isNot(contains(actions)));
     expect(rebuilt, isNot(contains(actionsSelector)));
   });
+
+  testWidgets(
+    'floating day and progress changes leave the topic content stable',
+    (tester) async {
+      final firstDay = DateTime(2020, 1, 2);
+      final secondDay = DateTime(2020, 1, 3);
+      final posts = [
+        for (var id = 1; id <= 12; id++)
+          Post(
+            id: id,
+            postNumber: id,
+            username: 'sam',
+            cooked: List.filled(4, '<p>Post $id</p>').join(),
+            createdAt: (id <= 6 ? firstDay : secondDay).add(
+              Duration(minutes: id),
+            ),
+          ),
+      ];
+      final api = FakeDiscourseApi(
+        topics: {7: topicPayload(id: 7, title: 'A topic', posts: posts)},
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([instance('meta.discourse.org')]),
+        api: api,
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(controller.dispose);
+
+      await controller.load();
+      controller.pushContent(
+        ContentRoute.topic(topicId: 7, slug: 'a-topic', title: 'A topic'),
+      );
+      await controller.loadTopic(7, 'a-topic');
+
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.dark,
+            home: const Scaffold(body: TopicView()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final listFinder = find.byType(SuperListView);
+      final list = tester.widget<SuperListView>(listFinder);
+      final listElement = tester.element(listFinder);
+      final topicViewElement = tester.element(find.byType(TopicView));
+      final headerElement = tester.element(
+        find.byKey(const ValueKey('topic-content-header')),
+      );
+      final cookedElements = tester
+          .elementList(find.byType(CookedHtml))
+          .toSet();
+      final actionElements = tester
+          .elementList(find.byType(PostActions))
+          .toSet();
+      final initialProgress = tester
+          .widget<TopicProgressButton>(find.byType(TopicProgressButton))
+          .position;
+      expect(
+        find.byKey(ValueKey(('topic-floating-day', firstDay))),
+        findsNothing,
+      );
+
+      final rebuilt = <Element>{};
+      final previousRebuildHook = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previousRebuildHook?.call(element, builtOnce);
+        rebuilt.add(element);
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildHook);
+
+      list.listController!.jumpToItem(
+        index: 3 * 2,
+        scrollController: list.controller!,
+        alignment: 0,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(ValueKey(('topic-floating-day', firstDay))),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TopicProgressButton>(find.byType(TopicProgressButton))
+            .position,
+        greaterThan(initialProgress),
+      );
+      expect(rebuilt, isNot(contains(topicViewElement)));
+      expect(rebuilt, isNot(contains(headerElement)));
+      expect(rebuilt, isNot(contains(listElement)));
+      expect(rebuilt.intersection(cookedElements), isEmpty);
+      expect(rebuilt.intersection(actionElements), isEmpty);
+    },
+  );
 }
 
 final class _CountingIntList extends ListBase<int> {

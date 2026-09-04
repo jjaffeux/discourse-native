@@ -216,6 +216,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   TopicPostIndexProjection? _postIndexProjection;
   final Map<int, BuildContext> _postContexts = {};
   final Map<int, _RetainedTopicPostExtent> _retainedPostExtents = {};
+  bool _retainedGeometryRefreshScheduled = false;
   double _laidOutPostWidth = 0;
   int _extentGeneration = 0;
   TopicScrollCaptureController? _scrollCapture;
@@ -1264,6 +1265,19 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     });
   }
 
+  void _scheduleRetainedPostGeometryRefresh() {
+    if (_retainedGeometryRefreshScheduled) return;
+    _retainedGeometryRefreshScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _retainedGeometryRefreshScheduled = false;
+      if (!mounted) return;
+      // A fresh delegate lets SuperList maintain its range when this measured
+      // asynchronous post later re-enters. This is a one-shot geometry event,
+      // independent of steady-state floating-day and progress notifications.
+      setState(() {});
+    });
+  }
+
   void _registerPostContext(int postId, BuildContext context) {
     _postContexts[postId] = context;
     if (_isScrollCaptureRecording) {
@@ -1276,8 +1290,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   void _unregisterPostContext(int postId, BuildContext context) {
     if (identical(_postContexts[postId], context)) {
-      _rememberPostExtent(postId);
+      final retained = _rememberPostExtent(postId);
       _postContexts.remove(postId);
+      if (retained) _scheduleRetainedPostGeometryRefresh();
       if (_isScrollCaptureRecording) {
         _recordTopicScrollEvent('sliver.post.detached', {
           'postId': postId,
@@ -1287,7 +1302,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  void _rememberPostExtent(int postId) {
+  bool _rememberPostExtent(int postId) {
     final snapshot = _laidOutSnapshot;
     final controller = _controller;
     final list = _list;
@@ -1295,21 +1310,21 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         controller == null ||
         list == null ||
         !list.isAttached) {
-      return;
+      return false;
     }
     final postIndex = snapshot.postIds.indexOf(postId);
-    if (postIndex < 0) return;
+    if (postIndex < 0) return false;
     final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
     final childIndex = (postIndex + leading) * 2;
-    if (childIndex >= list.numberOfItems) return;
+    if (childIndex >= list.numberOfItems) return false;
     final extent = list.extentForIndex(childIndex);
-    if (extent.$2) return;
+    if (extent.$2) return false;
     final post = controller.store.read<Post>(snapshot.siteUrl!, postId);
     final topic = snapshot.topic;
     if (post == null ||
         topic == null ||
         !CookedHtml.buildsAsynchronously(post.cooked)) {
-      return;
+      return false;
     }
     final width = _laidOutPostWidth;
     final height = extent.$1;
@@ -1333,9 +1348,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         previous.readTimeWordCount == snapshot.readTimeWordCount &&
         (previous.width - width).abs() < 0.5 &&
         previous.height > height) {
-      return;
+      return true;
     }
     _retainedPostExtents[postId] = retained;
+    return true;
   }
 
   double? _retainedPostMinimumHeight({
@@ -1443,10 +1459,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) => ShellSelector<TopicViewportSnapshot>(
     select: TopicViewportSnapshot.from,
-    builder: (context, snapshot, child) => ListenableBuilder(
-      listenable: _viewportState,
-      builder: (context, child) => _build(context, snapshot, child),
-    ),
+    builder: (context, snapshot, child) => _build(context, snapshot, child),
   );
 
   Widget _build(
@@ -1457,6 +1470,54 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     builder: (context, constraints) =>
         _buildForViewport(context, snapshot, constraints.maxWidth),
   );
+
+  Widget _buildFloatingDayOverlay(EdgeInsets readingLanePadding) => Positioned(
+    left: readingLanePadding.left,
+    right: readingLanePadding.right,
+    top: 0,
+    child: ListenableBuilder(
+      listenable: _viewportState.floatingDayOverlayListenable,
+      builder: (context, child) {
+        final floatingDay = _floatingDay;
+        if (floatingDay == null) return const SizedBox.shrink();
+        return Transform.translate(
+          offset: Offset(0, _floatingDayOffset),
+          child: StreamDaySeparator(
+            key: ValueKey(('topic-floating-day', floatingDay)),
+            day: floatingDay,
+            floating: true,
+            onTap: () => _jumpToDayStart(floatingDay),
+          ),
+        );
+      },
+    ),
+  );
+
+  Widget _buildTopicBottomBar(ShellController controller, int totalPosts) =>
+      ListenableBuilder(
+        listenable: _viewportState.progressPositionListenable,
+        builder: (context, child) {
+          final progressPosition = _progressPosition;
+          final showProgress = progressPosition != null && totalPosts > 1;
+          if (!showProgress && !widget.canReply) return const SizedBox.shrink();
+          return _TopicBottomBar(
+            progressPosition: showProgress ? progressPosition : null,
+            totalPosts: totalPosts,
+            canReply: widget.canReply,
+            onProgressPressed: showProgress
+                ? () => unawaited(
+                    showTopicProgress(
+                      context: context,
+                      controller: controller,
+                      position: progressPosition,
+                      total: totalPosts,
+                    ),
+                  )
+                : null,
+            onReplyPressed: controller.openReply,
+          );
+        },
+      );
 
   Widget _buildForViewport(
     BuildContext context,
@@ -1802,6 +1863,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             return _TopicPostItem(
               key: ValueKey(postId),
               postId: postId,
+              viewportState: _viewportState,
               retainedMinimumHeight: _retainedPostMinimumHeight(
                 postId: postId,
                 post: post,
@@ -1813,7 +1875,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               ),
               day: day,
               timeGapDays: timeGapByPostIndex[postIndex],
-              hideDay: day != null && day == _floatingDay,
               onDayTap: day == null ? null : () => _jumpToDayStart(day),
               gapBefore: snapshot.topic!.gapsBefore[postId] ?? const [],
               gapAfter: snapshot.topic!.gapsAfter[postId] ?? const [],
@@ -1849,11 +1910,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       ),
     );
 
-    final floatingDay = _floatingDay;
-    final progressPosition = _progressPosition;
-    final showProgress =
-        progressPosition != null && snapshot.streamIds.length > 1;
-    final showBottomBar = showProgress || widget.canReply;
     return Stack(
       children: [
         Positioned.fill(
@@ -1888,43 +1944,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                               clipBehavior: Clip.hardEdge,
                               children: [
                                 Positioned.fill(child: postStream),
-                                if (floatingDay != null)
-                                  Positioned(
-                                    left: readingLane.padding.left,
-                                    right: readingLane.padding.right,
-                                    top: _floatingDayOffset,
-                                    child: StreamDaySeparator(
-                                      key: ValueKey((
-                                        'topic-floating-day',
-                                        floatingDay,
-                                      )),
-                                      day: floatingDay,
-                                      floating: true,
-                                      onTap: () => _jumpToDayStart(floatingDay),
-                                    ),
-                                  ),
+                                _buildFloatingDayOverlay(readingLane.padding),
                               ],
                             ),
                           ),
-                          if (showBottomBar)
-                            _TopicBottomBar(
-                              progressPosition: showProgress
-                                  ? progressPosition
-                                  : null,
-                              totalPosts: snapshot.streamIds.length,
-                              canReply: widget.canReply,
-                              onProgressPressed: showProgress
-                                  ? () => unawaited(
-                                      showTopicProgress(
-                                        context: context,
-                                        controller: controller,
-                                        position: progressPosition,
-                                        total: snapshot.streamIds.length,
-                                      ),
-                                    )
-                                  : null,
-                              onReplyPressed: controller.openReply,
-                            ),
+                          _buildTopicBottomBar(
+                            controller,
+                            snapshot.streamIds.length,
+                          ),
                         ],
                       ),
                     ),
@@ -3244,10 +3271,10 @@ class _TopicPostItem extends StatefulWidget {
   const _TopicPostItem({
     super.key,
     required this.postId,
+    required this.viewportState,
     required this.retainedMinimumHeight,
     required this.day,
     required this.timeGapDays,
-    required this.hideDay,
     required this.onDayTap,
     required this.gapBefore,
     required this.gapAfter,
@@ -3259,10 +3286,10 @@ class _TopicPostItem extends StatefulWidget {
   });
 
   final int postId;
+  final TopicViewportListenable viewportState;
   final double? retainedMinimumHeight;
   final DateTime? day;
   final int? timeGapDays;
-  final bool hideDay;
   final VoidCallback? onDayTap;
   final List<int> gapBefore;
   final List<int> gapAfter;
@@ -3322,16 +3349,20 @@ class _TopicPostItemState extends State<_TopicPostItem> {
             onExpand: widget.expandGapBefore,
           ),
         if (day != null)
-          IgnorePointer(
-            ignoring: widget.hideDay,
-            child: Opacity(
-              opacity: widget.hideDay ? 0 : 1,
-              child: StreamDaySeparator(
-                key: ValueKey(('topic-day', day)),
-                day: day,
-                onTap: widget.onDayTap!,
-              ),
+          ListenableBuilder(
+            listenable: widget.viewportState.floatingDayListenable,
+            child: StreamDaySeparator(
+              key: ValueKey(('topic-day', day)),
+              day: day,
+              onTap: widget.onDayTap!,
             ),
+            builder: (context, child) {
+              final hidden = widget.viewportState.floatingDay == day;
+              return IgnorePointer(
+                ignoring: hidden,
+                child: Opacity(opacity: hidden ? 0 : 1, child: child),
+              );
+            },
           ),
         if (widget.timeGapDays case final daysSince?)
           TimeGapNotice(
