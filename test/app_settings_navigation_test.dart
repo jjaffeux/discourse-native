@@ -7,14 +7,12 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/app_settings_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,22 +23,26 @@ import 'support/fakes.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('Settings root navigation', () {
-    test('restores Aggregate before sites have loaded', () async {
+  group('Settings modal', () {
+    test('leaves Aggregate selected before sites have loaded', () async {
       final controller = _controller(
         instanceStore: FakeInstanceStore(),
         initialRootMode: ShellRootMode.aggregate,
       );
       addTearDown(controller.dispose);
 
-      controller.selectSettings();
-      expect(controller.handleBack(), isTrue);
-
+      expect(controller.openAppSettingsModal(), isTrue);
+      expect(controller.appSettingsModalOpen, isTrue);
       expect(controller.rootMode, ShellRootMode.aggregate);
-      expect(controller.mobilePane, MobilePane.content);
+      expect(controller.mobilePane, MobilePane.sidebar);
 
       await controller.load();
       expect(controller.rootMode, ShellRootMode.aggregate);
+
+      controller.closeAppSettingsModal();
+      expect(controller.appSettingsModalOpen, isFalse);
+      expect(controller.rootMode, ShellRootMode.aggregate);
+      expect(controller.mobilePane, MobilePane.sidebar);
     });
 
     test('alignment changes do not notify the shell controller', () async {
@@ -55,7 +57,7 @@ void main() {
       expect(shellNotifications, 0);
     });
 
-    test('restores the exact compact forum pane and workspace', () async {
+    test('does not change the compact forum pane or workspace', () async {
       final controller = await _loadedController();
       addTearDown(controller.dispose);
 
@@ -69,12 +71,12 @@ void main() {
 
       expect(controller.mobilePane, MobilePane.content);
 
-      controller.selectSettings();
-      controller.selectSettings();
+      expect(controller.openAppSettingsModal(), isTrue);
+      expect(controller.openAppSettingsModal(), isFalse);
 
-      expect(controller.rootMode, ShellRootMode.settings);
+      expect(controller.rootMode, ShellRootMode.forum);
       expect(controller.mobilePane, MobilePane.content);
-      expect(controller.handleBack(), isTrue);
+      controller.closeAppSettingsModal();
       expect(controller.rootMode, ShellRootMode.forum);
       expect(controller.mobilePane, MobilePane.content);
       expect(controller.currentWorkspace, same(workspace));
@@ -86,9 +88,9 @@ void main() {
       controller.selectInstance(0);
       expect(controller.mobilePane, MobilePane.sidebar);
 
-      controller.selectSettings();
-      controller.selectSettings();
-      expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+      expect(controller.openAppSettingsModal(), isTrue);
+      expect(controller.openAppSettingsModal(), isFalse);
+      controller.closeAppSettingsModal();
 
       expect(controller.rootMode, ShellRootMode.forum);
       expect(controller.mobilePane, MobilePane.sidebar);
@@ -97,7 +99,7 @@ void main() {
       expect(controller.contentStack, routes);
     });
 
-    test('restores Aggregate after repeated Settings activation', () async {
+    test('does not change the Aggregate root', () async {
       final controller = await _loadedController();
       addTearDown(controller.dispose);
       final workspace = controller.currentWorkspace;
@@ -105,55 +107,16 @@ void main() {
       controller.selectAggregate();
       expect(controller.rootMode, ShellRootMode.aggregate);
 
-      controller.selectSettings();
-      controller.selectSettings();
-      expect(controller.rootMode, ShellRootMode.settings);
-      expect(controller.handleBack(), isTrue);
+      expect(controller.openAppSettingsModal(), isTrue);
+      expect(controller.openAppSettingsModal(), isFalse);
+      controller.closeAppSettingsModal();
 
       expect(controller.rootMode, ShellRootMode.aggregate);
       expect(controller.mobilePane, MobilePane.content);
       expect(controller.currentWorkspace, same(workspace));
     });
 
-    test('explicit rail destinations and deep links exit Settings', () async {
-      final controller = await _loadedController();
-      addTearDown(controller.dispose);
-
-      controller.selectSettings();
-      controller.selectInstance(1);
-
-      expect(controller.rootMode, ShellRootMode.forum);
-      expect(controller.mobilePane, MobilePane.sidebar);
-      expect(controller.currentInstance?.url, 'https://two.example');
-
-      controller.selectSettings();
-      controller.selectAggregate();
-
-      expect(controller.rootMode, ShellRootMode.aggregate);
-      expect(controller.mobilePane, MobilePane.content);
-
-      controller.selectSettings();
-      expect(
-        controller.openTopicUrl('https://one.example/t/deep-link/42'),
-        isTrue,
-      );
-
-      expect(controller.rootMode, ShellRootMode.forum);
-      expect(controller.mobilePane, MobilePane.content);
-      expect(controller.currentInstance?.url, 'https://one.example');
-
-      controller.selectSettings();
-      expect(
-        controller.openTopicUrl('https://one.example/t/same-forum/43'),
-        isTrue,
-      );
-
-      expect(controller.rootMode, ShellRootMode.forum);
-      expect(controller.mobilePane, MobilePane.content);
-      expect(controller.currentContent?.topicId, 43);
-    });
-
-    testWidgets('keeps the forum scroll subtree mounted behind Settings', (
+    testWidgets('keeps the forum scroll subtree mounted behind the modal', (
       tester,
     ) async {
       final topics = [
@@ -188,9 +151,12 @@ void main() {
       expect(offset, greaterThan(0));
 
       await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      expect(find.byType(AppSettingsPage), findsOneWidget);
+      expect(find.byType(AppSettingsModal), findsOneWidget);
+      expect(find.byType(ModalBarrier), findsWidgets);
+      expect(controller.rootMode, ShellRootMode.forum);
+      expect(controller.appSettingsModalOpen, isTrue);
       final retainedList = find.byType(SuperListView, skipOffstage: false);
       expect(retainedList, findsOneWidget);
       expect(
@@ -204,12 +170,14 @@ void main() {
       expect(
         scroll.offset,
         offset,
-        reason: 'the hidden topic list must not consume boundary shortcuts',
+        reason: 'the obscured topic list must not consume boundary shortcuts',
       );
 
-      await tester.tap(find.byKey(const ValueKey('app-settings-back')));
-      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
+      await tester.pumpAndSettle();
 
+      expect(find.byType(AppSettingsModal), findsNothing);
+      expect(controller.appSettingsModalOpen, isFalse);
       expect(find.byType(TopicListView), findsOneWidget);
       expect(
         tester.widget<SuperListView>(visibleList).controller,
@@ -218,7 +186,7 @@ void main() {
       expect(scroll.offset, offset);
     });
 
-    testWidgets('hidden Settings controls cannot keep keyboard focus', (
+    testWidgets('dismissal removes the modal controls from the widget tree', (
       tester,
     ) async {
       final controller = _controller(
@@ -243,47 +211,37 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('app-settings-back')));
-      await tester.pump();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
+      await tester.pumpAndSettle();
 
       final stack = List<ContentRoute>.of(controller.contentStack);
-      final hiddenSettings = tester.element(
-        find.byType(AppSettingsPage, skipOffstage: false),
+      expect(find.byType(AppSettingsModal, skipOffstage: false), findsNothing);
+      expect(
+        find.byKey(
+          const ValueKey('content-alignment-segmented-button'),
+          skipOffstage: false,
+        ),
+        findsNothing,
       );
-      final focusedContext = FocusManager.instance.primaryFocus?.context;
-      if (focusedContext != null) {
-        expect(_isDescendantOf(focusedContext, hiddenSettings), isFalse);
-      }
 
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
       expect(controller.contentStack, stack);
     });
 
-    testWidgets('Settings dismisses an open topic-filter overlay', (
+    testWidgets('system Back dismisses the modal before content navigation', (
       tester,
     ) async {
       final controller = _controller(
         instanceStore: FakeInstanceStore([_connected('one.example')]),
-        api: FakeDiscourseApi(
-          feeds: const {'/latest.json': [], '/filter.json': []},
-          filterOptionsByPath: const {
-            '/filter.json': [TopicFilterOption(name: 'status:', priority: 1)],
-          },
-        ),
       );
       addTearDown(controller.dispose);
       await controller.load();
       controller.pushContent(
-        const ContentRoute(
-          id: 'filter',
-          title: 'Filter',
-          icon: DIcons.filter,
-          feedPath: '/filter.json',
-        ),
+        ContentRoute.topic(topicId: 42, slug: 'kept', title: 'Kept topic'),
       );
-      await controller.loadFeed('filter');
+      final stack = List<ContentRoute>.of(controller.contentStack);
       await tester.binding.setSurfaceSize(const Size(1200, 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
@@ -297,36 +255,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('topic-filter-input')));
+      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
       await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('topic-filter-suggestion-0')),
-        findsOneWidget,
-      );
+      expect(find.byType(AppSettingsModal), findsOneWidget);
 
-      controller.selectSettings();
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
 
-      expect(find.byType(AppSettingsPage), findsOneWidget);
-      expect(
-        find.byKey(
-          const ValueKey('topic-filter-suggestion-0'),
-          skipOffstage: false,
-        ),
-        findsNothing,
-      );
-
-      expect(controller.handleBack(), isTrue);
-      await tester.pump();
-      expect(
-        find.byKey(const ValueKey('topic-filter-suggestion-0')),
-        findsNothing,
-      );
+      expect(find.byType(AppSettingsModal), findsNothing);
+      expect(controller.appSettingsModalOpen, isFalse);
+      expect(controller.contentStack, stack);
     });
   });
 
-  group('Settings shell availability', () {
-    testWidgets('replaces the loading shell', (tester) async {
+  group('Settings modal availability', () {
+    testWidgets('opens over the loading shell', (tester) async {
       final load = Completer<List<DiscourseInstance>>();
       final controller = _controller(instanceStore: _GatedInstanceStore(load));
       addTearDown(controller.dispose);
@@ -339,7 +282,7 @@ void main() {
       await tester.pump();
     });
 
-    testWidgets('replaces the empty ready shell', (tester) async {
+    testWidgets('opens over the empty ready shell', (tester) async {
       final controller = _controller(instanceStore: FakeInstanceStore());
       addTearDown(controller.dispose);
       await controller.load();
@@ -349,7 +292,7 @@ void main() {
       await _openSettingsFromRail(tester, controller);
     });
 
-    testWidgets('replaces the failed shell', (tester) async {
+    testWidgets('opens over the failed shell', (tester) async {
       final controller = _controller(
         instanceStore: const _FailingInstanceStore(),
       );
@@ -360,18 +303,6 @@ void main() {
       await _openSettingsFromRail(tester, controller);
     });
   });
-}
-
-bool _isDescendantOf(BuildContext child, Element ancestor) {
-  var descendant = false;
-  child.visitAncestorElements((element) {
-    if (identical(element, ancestor)) {
-      descendant = true;
-      return false;
-    }
-    return true;
-  });
-  return descendant;
 }
 
 Future<ShellController> _loadedController() async {
@@ -427,13 +358,17 @@ Future<void> _openSettingsFromRail(
   await tester.tap(settingsButton);
   // The loading rail intentionally contains an indefinitely animated
   // activity indicator, so settling the entire shell can never complete.
-  // A finite pump is enough to finish the Settings transition while keeping
+  // A finite pump is enough to finish the modal transition while keeping
   // this test independent of the load state.
   await tester.pump(const Duration(milliseconds: 300));
 
-  expect(controller.rootMode, ShellRootMode.settings);
-  expect(find.byType(AppSettingsPage), findsOneWidget);
+  expect(controller.appSettingsModalOpen, isTrue);
+  expect(find.byType(AppSettingsModal), findsOneWidget);
   expect(find.text('Content alignment'), findsOneWidget);
+
+  await tester.tap(find.byKey(const ValueKey('app-settings-close')));
+  await tester.pump(const Duration(milliseconds: 300));
+  expect(controller.appSettingsModalOpen, isFalse);
 }
 
 final class _GatedInstanceStore implements InstanceStore {

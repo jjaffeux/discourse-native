@@ -391,12 +391,12 @@ network and rate-limit failures remain retryable without discarding edits.
 ### App settings
 
 The gear at the very bottom of the instance rail opens **Settings**, an
-app-owned destination which is available even before any forum loads. It is
+app-owned modal which is available even before any forum loads. It is
 not the profile menu's **Preferences** page: Preferences are stored by one
 Discourse server for one forum account, while Settings are local to this app
-installation and apply across every forum. Entering Settings preserves the
-current forum workspace or Aggregate view; Back restores that exact root and,
-on compact layouts, its previous sidebar/content pane.
+installation and apply across every forum. The current forum workspace or
+Aggregate view stays mounted behind the modal, and closing it reveals the exact
+same root, pane, tab, route, and scroll position.
 
 The first app setting is **Content alignment**. On native macOS, Linux, and
 Windows, primary scrolling content uses a reading lane no wider than 825

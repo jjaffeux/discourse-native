@@ -17,6 +17,7 @@ import '../theme/d_icons.dart';
 import '../theme/d_tooltip.dart';
 import 'adaptive_activity_indicator.dart';
 import 'add_instance_sheet.dart';
+import 'app_settings_page.dart';
 import 'avatar_image.dart';
 import 'curved_animation_builder.dart';
 import 'instance_actions.dart';
@@ -89,7 +90,6 @@ class InstanceRail extends StatelessWidget {
                   _RailFooter(
                     siteActionsAvailable:
                         state.loadStatus == InstanceLoadStatus.ready,
-                    settingsSelected: state.rootMode == ShellRootMode.settings,
                   ),
                 ],
               ),
@@ -948,13 +948,9 @@ class _RailLoadFailure extends StatelessWidget {
 }
 
 class _RailFooter extends StatelessWidget {
-  const _RailFooter({
-    required this.siteActionsAvailable,
-    required this.settingsSelected,
-  });
+  const _RailFooter({required this.siteActionsAvailable});
 
   final bool siteActionsAvailable;
-  final bool settingsSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -978,8 +974,7 @@ class _RailFooter extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Center(
             child: _SettingsButton(
-              selected: settingsSelected,
-              onTap: ShellScope.read(context).selectSettings,
+              onTap: () => unawaited(showAppSettingsModal(context)),
             ),
           ),
         ),
@@ -994,9 +989,8 @@ class _RailFooter extends StatelessWidget {
 }
 
 class _SettingsButton extends StatefulWidget {
-  const _SettingsButton({required this.selected, required this.onTap});
+  const _SettingsButton({required this.onTap});
 
-  final bool selected;
   final VoidCallback onTap;
 
   @override
@@ -1010,13 +1004,12 @@ class _SettingsButtonState extends State<_SettingsButton> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final foreground = theme.shell.railForeground;
-    final markerHeight = widget.selected
-        ? _railSelectedMarkerHeight
-        : (_hovered ? _railHoveredMarkerHeight : _railIdleMarkerHeight);
+    final markerHeight = _hovered
+        ? _railHoveredMarkerHeight
+        : _railIdleMarkerHeight;
 
     return Semantics(
       button: true,
-      selected: widget.selected,
       label: 'Settings',
       child: Stack(
         alignment: Alignment.centerLeft,
@@ -1051,17 +1044,13 @@ class _SettingsButtonState extends State<_SettingsButton> {
                       height: _railVisualSize,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: widget.selected
-                            ? foreground
-                            : foreground.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(
-                          widget.selected || _hovered ? 12 : 18,
-                        ),
+                        color: foreground.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(_hovered ? 12 : 18),
                       ),
                       child: DIcon(
                         DIcons.gear,
                         size: _railIconSize,
-                        color: widget.selected ? theme.shell.rail : foreground,
+                        color: foreground,
                       ),
                     ),
                   ),

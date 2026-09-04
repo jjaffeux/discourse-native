@@ -625,63 +625,62 @@ void main() {
         },
       );
 
-      testWidgets(
-        'Settings and its hidden ticker do not credit hidden dwell time',
-        (tester) async {
-          final site = instance('meta.example');
-          final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
-          final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
-          final controller = ShellController(
-            instanceStore: FakeInstanceStore([site]),
-            api: api,
-            authenticator: authenticator,
-            drafts: FakeDraftStore(),
-            trackers: FakeSiteTracker.reset(),
+      testWidgets('the Settings modal does not credit obscured dwell time', (
+        tester,
+      ) async {
+        final site = instance('meta.example');
+        final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+        final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([site]),
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+        controller.store
+          ..put(
+            site.url,
+            const TopicDetail(
+              id: 1,
+              title: 'One',
+              stream: [100],
+              postsCount: 1,
+            ),
+          )
+          ..put(
+            site.url,
+            const Post(
+              id: 100,
+              postNumber: 1,
+              username: 'sam',
+              cooked: '<p>Only post</p>',
+            ),
           );
-          addTearDown(controller.dispose);
-          await controller.load();
-          controller.store
-            ..put(
-              site.url,
-              const TopicDetail(
-                id: 1,
-                title: 'One',
-                stream: [100],
-                postsCount: 1,
-              ),
-            )
-            ..put(
-              site.url,
-              const Post(
-                id: 100,
-                postNumber: 1,
-                username: 'sam',
-                cooked: '<p>Only post</p>',
-              ),
-            );
-          controller.pushContent(
-            ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
-          );
+        controller.pushContent(
+          ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+        );
 
-          await tester.pumpWidget(_topicView(controller));
-          await tester.pump();
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 200));
-          expect(api.topicReadsRecorded, isEmpty);
+        await tester.pumpWidget(_topicView(controller));
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(api.topicReadsRecorded, isEmpty);
 
-          controller.selectSettings();
-          await tester.pump(const Duration(seconds: 2));
-          expect(api.topicReadsRecorded, isEmpty);
+        expect(controller.openAppSettingsModal(), isTrue);
+        await tester.pump(const Duration(seconds: 2));
+        expect(api.topicReadsRecorded, isEmpty);
 
-          await tester.pumpWidget(_topicView(controller, tickerEnabled: false));
-          expect(controller.handleBack(), isTrue);
-          await tester.pumpWidget(_topicView(controller));
-          await tester.pump(const Duration(milliseconds: 200));
-          expect(api.topicReadsRecorded, isEmpty);
-          await tester.pump(const Duration(milliseconds: 600));
-          expect(api.topicReadsRecorded, [(topicId: 1, postNumber: 1)]);
-        },
-      );
+        await tester.pumpWidget(_topicView(controller, tickerEnabled: false));
+        controller.closeAppSettingsModal();
+        await tester.pumpWidget(_topicView(controller));
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(api.topicReadsRecorded, isEmpty);
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(api.topicReadsRecorded, [(topicId: 1, postNumber: 1)]);
+      });
 
       testWidgets(
         'records the visible range after programmatic scroll layout',

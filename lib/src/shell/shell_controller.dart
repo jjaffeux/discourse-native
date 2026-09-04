@@ -103,7 +103,7 @@ import 'user_summary_controller.dart';
 
 enum MobilePane { sidebar, content }
 
-enum ShellRootMode { forum, aggregate, settings }
+enum ShellRootMode { forum, aggregate }
 
 enum InstanceLoadStatus { loading, ready, failed }
 
@@ -139,10 +139,6 @@ typedef _TagSidebarCache = ({
   bool display,
   String? username,
   SidebarSection section,
-});
-typedef _SettingsReturnTarget = ({
-  ShellRootMode rootMode,
-  MobilePane mobilePane,
 });
 typedef _PluginPaneKey = ({String siteUrl, String tabId, PluginId owner});
 typedef _PluginPaneStateKey = ({String siteUrl, String tabId});
@@ -950,7 +946,6 @@ class ShellController extends FrameSafeNotifier
   bool _setForumContentRoot() {
     final changed =
         _rootMode != ShellRootMode.forum || _mobilePane != MobilePane.content;
-    _settingsReturnTarget = null;
     _rootMode = ShellRootMode.forum;
     _mobilePane = MobilePane.content;
     return changed;
@@ -1029,23 +1024,15 @@ class ShellController extends FrameSafeNotifier
   ShellRootMode _rootMode;
   ShellRootMode get rootMode => _rootMode;
 
-  _SettingsReturnTarget? _settingsReturnTarget;
-
-  ShellRootMode get settingsUnderlayRootMode =>
-      _rootMode == ShellRootMode.settings
-      ? _settingsReturnTarget?.rootMode ?? ShellRootMode.forum
-      : _rootMode;
-
-  MobilePane get settingsUnderlayMobilePane =>
-      _rootMode == ShellRootMode.settings
-      ? _settingsReturnTarget?.mobilePane ?? MobilePane.sidebar
-      : _mobilePane;
+  bool _appSettingsModalOpen = false;
+  bool get appSettingsModalOpen => _appSettingsModalOpen;
 
   @override
   Listenable get changes => this;
 
   @override
-  bool get forumActive => _rootMode == ShellRootMode.forum;
+  bool get forumActive =>
+      _rootMode == ShellRootMode.forum && !_appSettingsModalOpen;
 
   ({Object owner, PluginVisibleTopicContext context})? _visibleTopicContext;
 
@@ -1053,6 +1040,7 @@ class ShellController extends FrameSafeNotifier
   PluginVisibleTopicContext? get visibleTopicContext {
     final held = _visibleTopicContext?.context;
     if (held == null ||
+        !forumActive ||
         currentInstance?.url != held.siteUrl ||
         currentContent?.topicId != held.topicId) {
       return null;
@@ -1340,11 +1328,7 @@ class ShellController extends FrameSafeNotifier
     _restoreInstanceWorkspace(
       refreshAppearance: initialInstance?.appearance == null,
     );
-    final aggregateBehindSettings =
-        _rootMode == ShellRootMode.settings &&
-        _settingsReturnTarget?.rootMode == ShellRootMode.aggregate;
-    if ((_rootMode == ShellRootMode.aggregate || aggregateBehindSettings) &&
-        _instances.isNotEmpty) {
+    if (_rootMode == ShellRootMode.aggregate && _instances.isNotEmpty) {
       unawaited(aggregate.open(_instances));
     }
     _loadStatus = InstanceLoadStatus.ready;
@@ -1377,7 +1361,6 @@ class ShellController extends FrameSafeNotifier
 
     try {
       await instanceStore.save(List.of(_instances));
-      _settingsReturnTarget = null;
       unawaited(aggregate.pruneForums(_instances));
       return true;
     } catch (_) {
@@ -1588,13 +1571,8 @@ class ShellController extends FrameSafeNotifier
       clearConfig: true,
       clearAppearance: true,
     );
-    final previousSettingsReturnTarget = _settingsReturnTarget;
     _instances.removeAt(index);
-    if (_instances.isEmpty) {
-      if (_rootMode != ShellRootMode.settings) {
-        _rootMode = ShellRootMode.forum;
-      }
-    }
+    if (_instances.isEmpty) _rootMode = ShellRootMode.forum;
 
     if (removingSelected) {
       _instanceIndex = _instances.isEmpty
@@ -1617,7 +1595,6 @@ class ShellController extends FrameSafeNotifier
 
       final restoredIndex = index.clamp(0, _instances.length);
       _instances.insert(restoredIndex, signedOut);
-      _settingsReturnTarget = previousSettingsReturnTarget;
       if (removingSelected) {
         _instanceIndex = restoredIndex;
         _mobilePane = MobilePane.sidebar;
@@ -5869,7 +5846,7 @@ class ShellController extends FrameSafeNotifier
   ComposerController? get visibleComposer {
     final composer = _composer;
     final instance = currentInstance;
-    if (_rootMode != ShellRootMode.forum ||
+    if (!forumActive ||
         composer == null ||
         composer.closing ||
         instance == null) {
@@ -11306,7 +11283,6 @@ class ShellController extends FrameSafeNotifier
   @override
   void selectInstance(int index) {
     assert(index >= 0 && index < _instances.length);
-    _settingsReturnTarget = null;
     _rootMode = ShellRootMode.forum;
     if (index != _instanceIndex) {
       _instanceIndex = index;
@@ -11327,18 +11303,22 @@ class ShellController extends FrameSafeNotifier
 
   void selectAggregate() {
     if (!loaded || !hasInstances) return;
-    _settingsReturnTarget = null;
     _rootMode = ShellRootMode.aggregate;
     _mobilePane = MobilePane.content;
     _notify();
     unawaited(aggregate.open(_instances));
   }
 
-  void selectSettings() {
-    if (_rootMode == ShellRootMode.settings) return;
-    _settingsReturnTarget = (rootMode: _rootMode, mobilePane: _mobilePane);
-    _rootMode = ShellRootMode.settings;
-    _mobilePane = MobilePane.content;
+  bool openAppSettingsModal() {
+    if (isDisposed || _appSettingsModalOpen) return false;
+    _appSettingsModalOpen = true;
+    _notify();
+    return true;
+  }
+
+  void closeAppSettingsModal() {
+    if (isDisposed || !_appSettingsModalOpen) return;
+    _appSettingsModalOpen = false;
     _notify();
   }
 
@@ -11406,7 +11386,6 @@ class ShellController extends FrameSafeNotifier
     }
 
     final instance = _instances[index];
-    _settingsReturnTarget = null;
 
     if (!forumTabsEnabled) {
       _rootMode = ShellRootMode.forum;
@@ -12175,21 +12154,6 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool handleBack({bool canReturnToSidebar = true}) {
-    if (_rootMode == ShellRootMode.settings) {
-      final target = _settingsReturnTarget;
-      _settingsReturnTarget = null;
-      final restoreAggregate = target?.rootMode == ShellRootMode.aggregate;
-      _rootMode = restoreAggregate
-          ? ShellRootMode.aggregate
-          : ShellRootMode.forum;
-      _mobilePane = restoreAggregate
-          ? MobilePane.content
-          : target?.rootMode == ShellRootMode.forum
-          ? target!.mobilePane
-          : MobilePane.sidebar;
-      _notify();
-      return true;
-    }
     if (_rootMode == ShellRootMode.aggregate) {
       _rootMode = ShellRootMode.forum;
       _mobilePane = MobilePane.sidebar;
@@ -12609,7 +12573,7 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
   DiscourseInstance? get currentInstance => _shell.currentInstance;
 
   @override
-  bool get forumActive => _shell.rootMode == ShellRootMode.forum;
+  bool get forumActive => _shell.forumActive;
 
   @override
   bool get isDisposed => _isDisposed();

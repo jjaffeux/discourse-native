@@ -66,7 +66,6 @@ class ShellTitleBar extends StatelessWidget {
                               dense: true,
                             ),
                             ShellRootMode.aggregate => const SizedBox.shrink(),
-                            ShellRootMode.settings => const SizedBox.shrink(),
                           },
                         ),
                       ),
