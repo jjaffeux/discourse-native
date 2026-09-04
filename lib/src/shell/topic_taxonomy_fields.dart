@@ -275,7 +275,7 @@ class TopicTagsValue extends StatelessWidget {
 
     return Wrap(
       spacing: 4,
-      runSpacing: 4,
+      runSpacing: 2,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: trailingAction == null
           ? pills

@@ -133,7 +133,7 @@ void main() {
 
     final wrap = tester.widget<Wrap>(find.byType(Wrap));
     expect(wrap.spacing, 4);
-    expect(wrap.runSpacing, 4);
+    expect(wrap.runSpacing, 2);
 
     final firstToken = find.byKey(const ValueKey('sea2'));
     final material = tester.widget<Material>(firstToken);
@@ -203,6 +203,7 @@ void main() {
 
     expect(finalTag.center.dy, editButton.center.dy);
     expect(finalTag.top, greaterThan(firstTag.top));
+    expect(finalTag.top - firstTag.bottom, lessThan(10));
     expect(tester.takeException(), isNull);
   });
 }
