@@ -19,6 +19,7 @@ final class ChoiceMenuOption<T> {
     this.icon,
     this.leading,
     this.titleStyle,
+    this.compact = false,
   }) : assert(icon == null || leading == null);
 
   final T value;
@@ -27,6 +28,7 @@ final class ChoiceMenuOption<T> {
   final DIconData? icon;
   final Widget? leading;
   final TextStyle? titleStyle;
+  final bool compact;
 }
 
 typedef ChoiceMenuAnchorBuilder =
@@ -694,6 +696,7 @@ class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
     final theme = Theme.of(context);
     final description = widget.option.description.trim();
     final hasDescription = description.isNotEmpty;
+    final compact = widget.option.compact && !widget.touch;
     final shell = theme.extension<ShellColors>();
     final surface = shell?.floating ?? theme.colorScheme.surfaceContainer;
     final selectedColor = Color.alphaBlend(
@@ -754,14 +757,16 @@ class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
               onTap: () => widget.onSelected(widget.option.value),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: hasDescription
+                  minHeight: compact
+                      ? 32
+                      : hasDescription
                       ? (widget.touch ? 64 : 58)
                       : (widget.touch ? 52 : 44),
                 ),
                 child: Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: widget.touch ? 12 : 10,
-                    vertical: widget.touch ? 10 : 8,
+                    vertical: compact ? 4 : (widget.touch ? 10 : 8),
                   ),
                   child: Row(
                     children: [
