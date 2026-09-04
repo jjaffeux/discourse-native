@@ -188,13 +188,17 @@ Future<void> _pumpComposer(
   WidgetTester tester,
   ShellController shell, {
   ComposerController? composer,
+  bool minimized = false,
 }) => tester.pumpWidget(
   MaterialApp(
     theme: AppTheme.dark,
     home: ShellScope(
       controller: shell,
       child: Scaffold(
-        body: ComposerPanel(composer: composer ?? shell.visibleComposer!),
+        body: ComposerPanel(
+          composer: composer ?? shell.visibleComposer!,
+          minimized: minimized,
+        ),
       ),
     ),
   ),
@@ -388,6 +392,19 @@ void main() {
     expect(
       find.byKey(const ValueKey('composer-proofread-control')),
       findsOneWidget,
+    );
+  });
+
+  testWidgets('minimized composer hides the Proofread switch', (tester) async {
+    final fixture = await _openReply();
+    addTearDown(fixture.shell.dispose);
+
+    await _pumpComposer(tester, fixture.shell, minimized: true);
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('composer-proofread-control')),
+      findsNothing,
     );
   });
 
