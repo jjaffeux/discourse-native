@@ -62,6 +62,7 @@ final class AssignShellService implements PluginLinkHandler {
       siteUrl: siteUrl,
       topicId: topicId,
       postNumber: postNumber,
+      highlight: true,
     );
   }
 

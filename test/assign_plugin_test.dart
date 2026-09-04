@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction;
+
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
@@ -13,6 +15,7 @@ import 'package:discourse_native/src/plugins/assign/assign_user_menu.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
 import 'package:discourse_native/src/shell/pill.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -510,7 +513,7 @@ void main() {
       },
     );
 
-    testWidgets('uses an Assign button for an unassigned topic', (
+    testWidgets('uses a full-width primary CTA for an unassigned topic', (
       tester,
     ) async {
       const registry = PluginRegistry([AssignPlugin()]);
@@ -540,10 +543,10 @@ void main() {
       );
 
       expect(section.layout, TopicPropertySectionLayout.standalone);
+      expect(section.showHeader, isFalse);
       expect(section.values, hasLength(1));
       expect(find.text('Topic · Unassigned'), findsNothing);
-      expect(find.text('Assign'), findsOneWidget);
-      expect(find.byTooltip('Assign topic'), findsOneWidget);
+      expect(find.text('Assign topic'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const Key('assign-topic-property')),
@@ -555,29 +558,10 @@ void main() {
       );
       final action = find.byKey(const Key('assign-topic-property'));
       final button = find.byKey(const Key('assign-topic-button'));
-      final icon = tester.widget<DIcon>(
-        find.descendant(
-          of: button,
-          matching: find.byWidgetPredicate(
-            (widget) => widget is DIcon && widget.icon == DIcons.userPlus,
-          ),
-        ),
-      );
-      final label = tester.widget<Text>(
-        find.descendant(of: button, matching: find.text('Assign')),
-      );
-      final inkWell = tester.widget<InkWell>(button);
-      expect(icon.size, 11);
-      expect(
-        label.style?.fontSize,
-        AppTheme.light.textTheme.labelSmall?.fontSize,
-      );
-      expect(inkWell.mouseCursor, SystemMouseCursors.click);
-      expect(tester.getSize(button).height, lessThanOrEqualTo(24));
-      expect(
-        tester.getSize(button).width,
-        lessThan(tester.getSize(action).width * 0.75),
-      );
+      final dButton = tester.widget<DButton>(button);
+      expect(dButton.variant, DButtonVariant.primary);
+      expect(tester.getSize(button).height, 46);
+      expect(tester.getSize(button).width, tester.getSize(action).width);
       expect(
         tester.getSemantics(button),
         isSemantics(
@@ -588,7 +572,45 @@ void main() {
       );
     });
 
-    testWidgets('keeps a read-only topic row first for post-only sections', (
+    testWidgets('lets the Assign topic CTA grow with large text', (
+      tester,
+    ) async {
+      const registry = PluginRegistry([AssignPlugin()]);
+      final plugins = registry.readTopic(const {'can_assign': true}, _siteUrl);
+      final topic = TopicDetail(
+        id: 10,
+        title: 'Unassigned topic',
+        stream: const [11],
+        plugins: plugins,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2.5)),
+            child: Scaffold(
+              body: Builder(
+                builder: (context) => Column(
+                  children: _plugin
+                      .topicProperties(context, _siteUrl, topic)
+                      .single
+                      .values,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSize(find.byKey(const Key('assign-topic-button'))).height,
+        greaterThan(46),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('only shows real post assignments in post-only sections', (
       tester,
     ) async {
       const registry = PluginRegistry([AssignPlugin()]);
@@ -626,16 +648,88 @@ void main() {
 
       final topicRow = find.byKey(const Key('assign-topic-property'));
       final postRow = find.byKey(const Key('assign-topic-property-post-22'));
-      expect(find.text('Topic · Unassigned'), findsOneWidget);
-      expect(find.text('Post #2 · Sam'), findsOneWidget);
+      expect(topicRow, findsNothing);
+      expect(postRow, findsOneWidget);
       expect(
-        tester.getTopLeft(topicRow).dy,
-        lessThan(tester.getTopLeft(postRow).dy),
+        find.descendant(
+          of: postRow,
+          matching: find.text('Assigned to · Post #2', findRichText: true),
+        ),
+        findsOneWidget,
       );
-      final semantics = tester.widget<Semantics>(
-        find.descendant(of: topicRow, matching: find.byType(Semantics)).first,
+      expect(
+        find.descendant(of: postRow, matching: find.text('@sam')),
+        findsOneWidget,
       );
-      expect(semantics.properties.onTap, isNull);
+      expect(find.byKey(const Key('assign-post-22-target')), findsNothing);
+      expect(find.byKey(const Key('assign-post-22-change')), findsNothing);
+      expect(find.byKey(const Key('assign-post-22-remove')), findsNothing);
+      expect(
+        find.descendant(
+          of: postRow,
+          matching: find.byType(AssignmentAssigneeAvatar),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('gives an assigned topic separate Change and Remove actions', (
+      tester,
+    ) async {
+      const registry = PluginRegistry([AssignPlugin()]);
+      final plugins = registry.readTopic(const {
+        'can_assign': true,
+        'assigned_to_user': {'username': 'sam', 'name': 'Sam'},
+      }, _siteUrl);
+      final topic = TopicDetail(
+        id: 10,
+        title: 'Assigned topic',
+        stream: const [11],
+        plugins: plugins,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Column(
+                children: _plugin
+                    .topicProperties(context, _siteUrl, topic)
+                    .single
+                    .values,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final row = find.byKey(const Key('assign-topic-property'));
+      final change = find.byKey(const Key('assign-topic-change'));
+      final remove = find.byKey(const Key('assign-topic-remove'));
+      expect(
+        find.descendant(of: row, matching: find.text('Assigned to')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('@sam')),
+        findsOneWidget,
+      );
+      expect(change, findsOneWidget);
+      expect(remove, findsOneWidget);
+      expect(
+        find.descendant(of: change, matching: find.text('Change')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getSemantics(row)
+            .getSemanticsData()
+            .hasAction(SemanticsAction.tap),
+        isFalse,
+      );
+      expect(tester.getSemantics(change).label, 'Change topic assignment');
+      expect(tester.getSemantics(remove).label, 'Remove topic assignment');
     });
 
     testWidgets('orders rows and exposes hidden details through semantics', (
@@ -706,12 +800,69 @@ void main() {
         final missingRow = find.byKey(
           const Key('assign-topic-property-post-32'),
         );
-        expect(find.text('Topic · Sam'), findsOneWidget);
-        expect(find.text('Post #2 · support'), findsOneWidget);
-        expect(find.text('Post #2 · Terry'), findsOneWidget);
-        expect(find.text('Post #3 · Zoe'), findsOneWidget);
-        expect(find.text('Post · Invalid number'), findsOneWidget);
-        expect(find.text('Post · Missing number'), findsOneWidget);
+        expect(
+          find.descendant(of: topicRow, matching: find.text('Assigned to')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: topicRow, matching: find.text('@sam')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: supportRow,
+            matching: find.text('Assigned to · Post #2', findRichText: true),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: supportRow, matching: find.text('@support')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: terryRow,
+            matching: find.text('Assigned to · Post #2', findRichText: true),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: terryRow, matching: find.text('@terry')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: zoeRow,
+            matching: find.text('Assigned to · Post #3', findRichText: true),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: zoeRow, matching: find.text('@zoe')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: invalidRow,
+            matching: find.text('Assigned to · Post', findRichText: true),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: invalidRow, matching: find.text('@invalid')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: missingRow,
+            matching: find.text('Assigned to · Post', findRichText: true),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: missingRow, matching: find.text('@missing')),
+          findsOneWidget,
+        );
         expect(
           tester.getTopLeft(topicRow).dy,
           lessThan(tester.getTopLeft(supportRow).dy),

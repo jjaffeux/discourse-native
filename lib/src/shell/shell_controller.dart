@@ -153,6 +153,7 @@ typedef _ClosedForumTab = ({
   ForumTab tab,
   int index,
 });
+typedef _TopicPostHighlight = ({String siteUrl, int topicId, int postNumber});
 
 int? _destinationNumericId(String destinationId, String prefix) {
   if (!destinationId.startsWith(prefix)) return null;
@@ -3936,6 +3937,11 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _topicDeletionWrites = {};
   final Map<String, Object> _topicJumpRuns = {};
   int _topicNavigationRevision = 0;
+  _TopicPostHighlight? _topicPostHighlight;
+  Timer? _topicPostHighlightTimer;
+  bool _topicPostHighlightVisible = false;
+
+  static const _topicPostHighlightDuration = Duration(milliseconds: 2200);
 
   static String _topicKey(String siteUrl, int topicId) => '$siteUrl#$topicId';
 
@@ -4581,12 +4587,22 @@ class ShellController extends FrameSafeNotifier
     required String siteUrl,
     required int topicId,
     required int postNumber,
+    bool highlight = false,
   }) {
     if (postNumber <= 0) return;
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0) return;
     if (index != _instanceIndex) selectInstance(index);
     _setForumContentRoot();
+    if (highlight) {
+      _requestTopicPostHighlight(
+        siteUrl: siteUrl,
+        topicId: topicId,
+        postNumber: postNumber,
+      );
+    } else {
+      _clearTopicPostHighlight(notify: false);
+    }
     if (currentContent?.topicId == topicId) {
       openCurrentTopicPost(postNumber, loadAroundPost: true);
       return;
@@ -4599,6 +4615,63 @@ class ShellController extends FrameSafeNotifier
       detail?.title ?? row?.title ?? 'Topic',
       postNumber: postNumber,
     );
+  }
+
+  bool isTopicPostHighlighted(String siteUrl, int topicId, int postNumber) {
+    final highlight = _topicPostHighlight;
+    return _topicPostHighlightVisible &&
+        highlight?.siteUrl == siteUrl &&
+        highlight?.topicId == topicId &&
+        highlight?.postNumber == postNumber;
+  }
+
+  void _requestTopicPostHighlight({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+  }) {
+    _topicPostHighlightTimer?.cancel();
+    _topicPostHighlight = (
+      siteUrl: siteUrl,
+      topicId: topicId,
+      postNumber: postNumber,
+    );
+    _topicPostHighlightVisible = false;
+    // Do not let a failed target load leave a latent highlight that appears
+    // during unrelated navigation much later.
+    _topicPostHighlightTimer = Timer(
+      topicLoadTimeout,
+      _clearTopicPostHighlight,
+    );
+    _armTopicPostHighlightIfLoaded();
+  }
+
+  void _armTopicPostHighlightIfLoaded() {
+    final highlight = _topicPostHighlight;
+    if (highlight == null || _topicPostHighlightVisible) return;
+    final topic = store.read<TopicDetail>(highlight.siteUrl, highlight.topicId);
+    final targetLoaded = topic?.stream.any(
+      (postId) =>
+          store.read<Post>(highlight.siteUrl, postId)?.postNumber ==
+          highlight.postNumber,
+    );
+    if (targetLoaded != true) return;
+
+    _topicPostHighlightVisible = true;
+    _topicPostHighlightTimer?.cancel();
+    _topicPostHighlightTimer = Timer(
+      _topicPostHighlightDuration,
+      _clearTopicPostHighlight,
+    );
+  }
+
+  void _clearTopicPostHighlight({bool notify = true}) {
+    final changed = _topicPostHighlight != null;
+    _topicPostHighlightTimer?.cancel();
+    _topicPostHighlightTimer = null;
+    _topicPostHighlight = null;
+    _topicPostHighlightVisible = false;
+    if (changed && notify && !isDisposed) _notify();
   }
 
   int get topicNavigationRevision => _topicNavigationRevision;
@@ -4929,6 +5002,7 @@ class ShellController extends FrameSafeNotifier
           )
           .withPlugins(detail.plugins),
     );
+    _armTopicPostHighlightIfLoaded();
     return detail;
   }
 
@@ -12167,6 +12241,10 @@ class ShellController extends FrameSafeNotifier
     _tabSelectionSettlementScheduled = false;
     _anchorPersistTimer?.cancel();
     _anchorPersistTimer = null;
+    _topicPostHighlightTimer?.cancel();
+    _topicPostHighlightTimer = null;
+    _topicPostHighlight = null;
+    _topicPostHighlightVisible = false;
     if (_tabSelectionPersistencePending || _anchorPersistencePending) {
       _persistWorkspaces();
     }
@@ -12623,10 +12701,12 @@ final class _ShellPluginRouteNavigationHost
     required String siteUrl,
     required int topicId,
     required int postNumber,
+    bool highlight = false,
   }) => _shell.openTopicPost(
     siteUrl: siteUrl,
     topicId: topicId,
     postNumber: postNumber,
+    highlight: highlight,
   );
 }
 

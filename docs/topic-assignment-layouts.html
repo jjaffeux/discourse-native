@@ -1,0 +1,2303 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Topic assignment — interaction studies</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #0d0f12;
+        --rail: #131417;
+        --navigation: #1a1c20;
+        --content: #212429;
+        --panel: #1a1c20;
+        --surface: #272b32;
+        --surface-raised: #2c3037;
+        --surface-hover: #323740;
+        --divider: #2b2e35;
+        --divider-strong: #3a3f48;
+        --text: #dddddd;
+        --text-strong: #f3f4f5;
+        --text-soft: #c5c9cf;
+        --muted: #a6a6a6;
+        --muted-2: #9298a0;
+        --blue: #099dd7;
+        --blue-hover: #19ace3;
+        --blue-soft: rgb(9 157 215 / 16%);
+        --blue-ring: rgb(9 157 215 / 42%);
+        --danger: #ef7777;
+        --danger-soft: rgb(239 119 119 / 12%);
+        --green: #45b574;
+        --orange: #f2a45d;
+        --purple: #9f84ed;
+        --radius-sm: 7px;
+        --radius: 11px;
+        --radius-lg: 16px;
+        --shadow: 0 22px 70px rgb(0 0 0 / 38%);
+        font-family:
+          Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        min-width: 320px;
+        background: var(--page);
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 52% -18%, rgb(9 157 215 / 12%), transparent 36%),
+          var(--page);
+      }
+
+      button,
+      input {
+        color: inherit;
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--blue);
+        outline-offset: 2px;
+      }
+
+      svg {
+        display: block;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .sr-only {
+        position: absolute;
+        overflow: hidden;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .icon {
+        width: 1em;
+        height: 1em;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+      }
+
+      .icon.--filled {
+        fill: currentColor;
+        stroke: none;
+      }
+
+      .icon-sprite {
+        position: absolute;
+        width: 0;
+        height: 0;
+      }
+
+      .study-header {
+        position: sticky;
+        z-index: 50;
+        top: 0;
+        display: grid;
+        grid-template-columns: minmax(190px, 1fr) auto minmax(220px, 1fr);
+        align-items: center;
+        min-height: 70px;
+        padding: 12px 24px;
+        border-bottom: 1px solid rgb(255 255 255 / 7%);
+        background: rgb(13 15 18 / 90%);
+        backdrop-filter: blur(18px);
+      }
+
+      .study-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .study-brand__mark {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid var(--blue-ring);
+        border-radius: 9px;
+        color: #8fdcff;
+        background: var(--blue-soft);
+      }
+
+      .study-brand__mark .icon {
+        width: 17px;
+        height: 17px;
+      }
+
+      .study-brand__eyebrow,
+      .study-brand__title {
+        overflow: hidden;
+        margin: 0;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .study-brand__eyebrow {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .study-brand__title {
+        margin-top: 3px;
+        color: var(--text-strong);
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .concept-switcher,
+      .state-switcher {
+        display: flex;
+        gap: 3px;
+        padding: 4px;
+        border: 1px solid var(--divider);
+        border-radius: 10px;
+        background: #171a1f;
+      }
+
+      .concept-switcher button,
+      .state-switcher button {
+        border: 0;
+        border-radius: 7px;
+        color: var(--muted);
+        background: transparent;
+        font-size: 12px;
+        transition:
+          color 140ms ease,
+          background 140ms ease,
+          box-shadow 140ms ease;
+      }
+
+      .concept-switcher button {
+        min-width: 122px;
+        padding: 9px 11px;
+      }
+
+      .state-switcher {
+        justify-self: end;
+      }
+
+      .state-switcher button {
+        padding: 8px 10px;
+      }
+
+      .concept-switcher button:hover,
+      .state-switcher button:hover {
+        color: var(--text-soft);
+        background: rgb(255 255 255 / 4%);
+      }
+
+      .concept-switcher button[aria-pressed="true"],
+      .state-switcher button[aria-pressed="true"] {
+        color: var(--text-strong);
+        background: var(--surface);
+        box-shadow:
+          inset 0 0 0 1px rgb(255 255 255 / 7%),
+          0 2px 7px rgb(0 0 0 / 20%);
+      }
+
+      .study-main {
+        width: min(1510px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 25px 0 42px;
+      }
+
+      .concept-intro {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 28px;
+        align-items: end;
+        width: min(1180px, 100%);
+        min-height: 82px;
+        margin: 0 auto 20px;
+      }
+
+      .concept-intro__index {
+        display: block;
+        margin-bottom: 7px;
+        color: #65c8f2;
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .concept-intro h1 {
+        margin: 0;
+        color: var(--text-strong);
+        font-size: clamp(22px, 2vw, 30px);
+        font-weight: 680;
+        letter-spacing: -0.025em;
+      }
+
+      .concept-intro p {
+        max-width: 760px;
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .concept-traits {
+        display: flex;
+        gap: 7px;
+        justify-content: flex-end;
+        padding-bottom: 2px;
+      }
+
+      .concept-traits span {
+        padding: 5px 8px;
+        border: 1px solid var(--divider);
+        border-radius: 999px;
+        color: var(--muted);
+        background: rgb(255 255 255 / 2%);
+        font-size: 10px;
+        font-weight: 650;
+      }
+
+      .app-frame {
+        position: relative;
+        overflow: hidden;
+        width: 100%;
+        height: min(760px, calc(100vh - 205px));
+        min-height: 630px;
+        border: 1px solid #303438;
+        border-radius: var(--radius-lg);
+        background: var(--content);
+        box-shadow: var(--shadow);
+      }
+
+      .window-strip {
+        display: grid;
+        grid-template-columns: 90px 1fr 90px;
+        align-items: center;
+        height: 35px;
+        border-bottom: 1px solid #282b2e;
+        background: #17191b;
+      }
+
+      .traffic-lights {
+        display: flex;
+        gap: 7px;
+        padding-left: 14px;
+      }
+
+      .traffic-lights i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #5b6065;
+      }
+
+      .traffic-lights i:first-child { background: #ff5f57; }
+      .traffic-lights i:nth-child(2) { background: #febc2e; }
+      .traffic-lights i:nth-child(3) { background: #28c840; }
+
+      .window-strip__search {
+        justify-self: center;
+        width: min(360px, 58%);
+        padding: 5px 12px;
+        border: 1px solid #2d3034;
+        border-radius: 7px;
+        color: #71767c;
+        background: #1d1f22;
+        font-size: 10px;
+        text-align: center;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-columns: 52px 220px minmax(430px, 1fr) 354px;
+        height: calc(100% - 35px);
+      }
+
+      .app-rail {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 9px;
+        padding: 13px 7px;
+        border-right: 1px solid #232529;
+        background: var(--rail);
+      }
+
+      .rail-button {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 0;
+        border-radius: 9px;
+        color: #777e87;
+        background: transparent;
+      }
+
+      .rail-button .icon {
+        width: 16px;
+        height: 16px;
+      }
+
+      .rail-button.--active {
+        color: #8fdcff;
+        background: var(--blue-soft);
+      }
+
+      .app-rail__spacer {
+        flex: 1;
+      }
+
+      .app-navigation {
+        overflow: hidden;
+        padding: 15px 12px;
+        border-right: 1px solid #282b2f;
+        background: var(--navigation);
+      }
+
+      .app-navigation__site {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 7px 13px;
+        color: var(--text-strong);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .navigation-list {
+        display: grid;
+        gap: 3px;
+      }
+
+      .navigation-list__item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 33px;
+        padding: 7px 9px;
+        border-radius: 7px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .navigation-list__item .icon {
+        width: 14px;
+        height: 14px;
+      }
+
+      .navigation-list__item.--active {
+        color: var(--text-strong);
+        background: #262a30;
+      }
+
+      .app-navigation__label {
+        margin: 20px 9px 7px;
+        color: #6f757e;
+        font-size: 9px;
+        font-weight: 750;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+      }
+
+      .category-dot {
+        width: 7px;
+        height: 7px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: var(--orange);
+      }
+
+      .category-dot.--purple {
+        background: var(--purple);
+      }
+
+      .topic-pane {
+        overflow: hidden;
+        background: var(--content);
+      }
+
+      .topic-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 58px;
+        padding: 0 20px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .topic-header__back {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border-radius: 8px;
+        color: var(--muted);
+        background: rgb(255 255 255 / 3%);
+      }
+
+      .topic-header__back .icon {
+        width: 15px;
+        height: 15px;
+      }
+
+      .topic-header__title {
+        overflow: hidden;
+        flex: 1;
+        color: var(--text-strong);
+        font-size: 13px;
+        font-weight: 650;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .topic-header__tools {
+        display: flex;
+        gap: 5px;
+        color: var(--muted-2);
+      }
+
+      .topic-header__tools span {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+      }
+
+      .topic-header__tools .icon {
+        width: 14px;
+        height: 14px;
+      }
+
+      .topic-stream {
+        overflow: hidden;
+        height: calc(100% - 58px);
+        padding: 27px clamp(24px, 5vw, 70px) 42px;
+      }
+
+      .topic-lead {
+        max-width: 730px;
+        margin-bottom: 20px;
+      }
+
+      .topic-lead__category {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .topic-lead h2 {
+        max-width: 690px;
+        margin: 11px 0 8px;
+        color: var(--text-strong);
+        font-size: clamp(22px, 2.35vw, 32px);
+        font-weight: 690;
+        letter-spacing: -0.03em;
+        line-height: 1.14;
+      }
+
+      .topic-lead p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .post {
+        max-width: 760px;
+        padding: 18px 0;
+        border-top: 1px solid var(--divider);
+        scroll-margin: 32px;
+        transition:
+          background 180ms ease,
+          box-shadow 180ms ease;
+      }
+
+      .post.--secondary {
+        opacity: 0.78;
+      }
+
+      .post.is-highlighted {
+        margin-inline: -12px;
+        padding-inline: 12px;
+        border-radius: 10px;
+        background: var(--blue-soft);
+        box-shadow: inset 0 0 0 1px rgb(9 157 215 / 28%);
+      }
+
+      .post__head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .post__avatar {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 50%;
+        color: #effaff;
+        background: linear-gradient(145deg, #187ca5, #4c5dba);
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .post__identity {
+        display: grid;
+        gap: 2px;
+      }
+
+      .post__identity strong {
+        color: var(--text-soft);
+        font-size: 12px;
+      }
+
+      .post__identity span,
+      .post__time {
+        color: var(--muted-2);
+        font-size: 10px;
+      }
+
+      .post__time {
+        margin-left: auto;
+      }
+
+      .post__body {
+        margin: 12px 0 0 44px;
+        color: #c2c5c9;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .post__line {
+        height: 8px;
+        margin-top: 8px;
+        border-radius: 999px;
+        background: #2b2f34;
+      }
+
+      .post__line:first-child { width: 91%; }
+      .post__line:nth-child(2) { width: 78%; }
+      .post__line:nth-child(3) { width: 58%; }
+
+      .topic-sidebar {
+        position: relative;
+        overflow: auto;
+        padding: 18px 17px 28px;
+        border-left: 1px solid var(--divider);
+        background: var(--panel);
+        scrollbar-color: #3b4048 transparent;
+        scrollbar-width: thin;
+      }
+
+      .topic-sidebar__kicker {
+        margin: 0 0 13px;
+        color: var(--muted-2);
+        font-size: 9px;
+        font-weight: 750;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .topic-properties {
+        display: grid;
+        gap: 11px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .topic-property {
+        display: grid;
+        grid-template-columns: 66px minmax(0, 1fr);
+        gap: 12px;
+        align-items: start;
+        font-size: 12px;
+      }
+
+      .topic-property__label {
+        color: var(--muted-2);
+      }
+
+      .topic-property__value {
+        overflow: hidden;
+        color: var(--text-soft);
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .topic-property__tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 7px;
+        border-radius: 999px;
+        color: #bfc4ca;
+        background: #25292e;
+        font-size: 10px;
+        font-weight: 550;
+      }
+
+      .assignment-zone {
+        position: relative;
+        padding: 17px 0;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .assignment-empty {
+        width: 100%;
+      }
+
+      .assign-topic-button {
+        display: flex;
+        width: 100%;
+        min-height: 46px;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 11px 15px;
+        border: 1px solid #18a8df;
+        border-radius: 9px;
+        color: #061c26;
+        background: var(--blue);
+        box-shadow:
+          inset 0 1px 0 rgb(255 255 255 / 18%),
+          0 7px 18px rgb(9 157 215 / 16%);
+        font-size: 14px;
+        font-weight: 720;
+        transition:
+          transform 140ms ease,
+          background 140ms ease,
+          box-shadow 140ms ease;
+      }
+
+      .assign-topic-button:hover {
+        background: var(--blue-hover);
+        box-shadow:
+          inset 0 1px 0 rgb(255 255 255 / 22%),
+          0 9px 22px rgb(9 157 215 / 22%);
+        transform: translateY(-1px);
+      }
+
+      .assign-topic-button:active {
+        transform: translateY(0);
+      }
+
+      .assign-topic-button .icon {
+        width: 18px;
+        height: 18px;
+      }
+
+      .assignment-card {
+        position: relative;
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr);
+        gap: 11px;
+        align-items: center;
+        min-width: 0;
+        padding: 13px;
+        border: 1px solid rgb(9 157 215 / 28%);
+        border-radius: 11px;
+        background:
+          linear-gradient(145deg, rgb(9 157 215 / 11%), transparent 74%),
+          #24282e;
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+      }
+
+      .assignee-avatar {
+        position: relative;
+        display: grid;
+        width: 42px;
+        height: 42px;
+        flex: 0 0 auto;
+        place-items: center;
+        overflow: hidden;
+        border: 2px solid rgb(255 255 255 / 10%);
+        border-radius: 50%;
+        color: white;
+        background: linear-gradient(145deg, #197fa8, #6558b8);
+        box-shadow: 0 5px 13px rgb(0 0 0 / 20%);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+
+      .assignee-avatar.--warm {
+        background: linear-gradient(145deg, #cf6c6a, #9f5cb1);
+      }
+
+      .assignee-avatar.--green {
+        background: linear-gradient(145deg, #258f77, #3379a5);
+      }
+
+      .assignee-avatar.--group {
+        color: #def6ff;
+        background: #3a3f48;
+      }
+
+      .assignee-avatar__group-icon {
+        width: 19px;
+        height: 19px;
+      }
+
+      .assignment-card__identity {
+        display: grid;
+        min-width: 0;
+        gap: 3px;
+        padding-right: 2px;
+      }
+
+      .assignment-card__eyebrow {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 520;
+        line-height: 1.15;
+      }
+
+      .assignment-card__name {
+        overflow: hidden;
+        color: var(--text-strong);
+        font-size: 14px;
+        font-weight: 720;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .assignment-card__actions {
+        display: flex;
+        grid-column: 1 / -1;
+        gap: 6px;
+        justify-content: flex-end;
+        padding-top: 4px;
+      }
+
+      .assignment-action {
+        display: inline-flex;
+        min-height: 32px;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 7px 9px;
+        border: 1px solid var(--divider-strong);
+        border-radius: 7px;
+        color: var(--text-soft);
+        background: rgb(255 255 255 / 3%);
+        font-size: 11px;
+        font-weight: 650;
+        transition:
+          color 130ms ease,
+          border-color 130ms ease,
+          background 130ms ease;
+      }
+
+      .assignment-action:hover {
+        border-color: #4a505a;
+        color: var(--text-strong);
+        background: rgb(255 255 255 / 6%);
+      }
+
+      .assignment-action.--remove {
+        width: 32px;
+        padding: 7px;
+        color: #c9a2a2;
+      }
+
+      .assignment-action.--remove:hover {
+        border-color: rgb(239 119 119 / 38%);
+        color: #ff9999;
+        background: var(--danger-soft);
+      }
+
+      .assignment-action .icon {
+        width: 13px;
+        height: 13px;
+      }
+
+      .assignment-action__remove-label {
+        display: none;
+      }
+
+      .post-assignments {
+        display: grid;
+        gap: 12px;
+        padding-top: 15px;
+      }
+
+      .post-assignment {
+        display: grid;
+        gap: 7px;
+      }
+
+      .post-assignment__target {
+        display: inline-flex;
+        width: max-content;
+        align-items: center;
+        gap: 4px;
+        padding: 0;
+        border: 0;
+        color: var(--muted);
+        background: transparent;
+        font-size: 10px;
+        font-weight: 680;
+      }
+
+      .post-assignment__target:hover {
+        color: #78ccee;
+      }
+
+      .post-assignment__target .icon {
+        width: 11px;
+        height: 11px;
+      }
+
+      .post-assignment__target.--inline,
+      .post-assignment__separator {
+        display: none;
+      }
+
+      .assignment-card.--post {
+        grid-template-columns: 36px minmax(0, 1fr);
+        padding: 10px 11px;
+        border-color: var(--divider-strong);
+        background: #24272c;
+      }
+
+      .assignment-card.--post .assignee-avatar {
+        width: 36px;
+        height: 36px;
+        border-width: 1px;
+        font-size: 9px;
+      }
+
+      .assignment-card.--post .assignee-avatar__group-icon {
+        width: 16px;
+        height: 16px;
+      }
+
+      .assignment-card.--post .assignment-card__name {
+        font-size: 13px;
+      }
+
+      .assignment-card.--post .assignment-card__actions {
+        padding-top: 2px;
+      }
+
+      .sidebar-after {
+        padding-top: 16px;
+      }
+
+      .sidebar-after__title {
+        margin: 0 0 10px;
+        color: var(--muted-2);
+        font-size: 9px;
+        font-weight: 750;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+      }
+
+      .related-topic {
+        display: grid;
+        gap: 4px;
+        padding: 10px 0;
+        border-bottom: 1px solid rgb(255 255 255 / 5%);
+      }
+
+      .related-topic strong {
+        color: #bfc3c8;
+        font-size: 11px;
+        font-weight: 620;
+        line-height: 1.35;
+      }
+
+      .related-topic span {
+        color: var(--muted-2);
+        font-size: 9px;
+      }
+
+      .assignment-picker {
+        position: absolute;
+        z-index: 20;
+        top: 156px;
+        right: 13px;
+        left: 13px;
+        overflow: hidden;
+        border: 1px solid #454b55;
+        border-radius: 12px;
+        background: #292d34;
+        box-shadow: 0 20px 50px rgb(0 0 0 / 48%);
+        transform-origin: 50% 0;
+        animation: picker-in 150ms ease-out;
+      }
+
+      @keyframes picker-in {
+        from {
+          opacity: 0;
+          transform: translateY(-5px) scale(0.985);
+        }
+      }
+
+      .assignment-picker__header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 12px 9px;
+      }
+
+      .assignment-picker__header strong {
+        flex: 1;
+        color: var(--text-strong);
+        font-size: 13px;
+      }
+
+      .assignment-picker__close {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border: 0;
+        border-radius: 7px;
+        color: var(--muted);
+        background: transparent;
+      }
+
+      .assignment-picker__close:hover {
+        color: var(--text-strong);
+        background: rgb(255 255 255 / 5%);
+      }
+
+      .assignment-picker__close .icon {
+        width: 14px;
+        height: 14px;
+      }
+
+      .assignment-search {
+        position: relative;
+        margin: 0 12px 10px;
+      }
+
+      .assignment-search .icon {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        width: 14px;
+        height: 14px;
+        color: var(--muted-2);
+        pointer-events: none;
+      }
+
+      .assignment-search input {
+        width: 100%;
+        height: 35px;
+        padding: 8px 10px 8px 32px;
+        border: 1px solid #454a53;
+        border-radius: 8px;
+        color: var(--text-strong);
+        background: #202329;
+        font-size: 12px;
+      }
+
+      .assignment-search input::placeholder {
+        color: #7e858e;
+      }
+
+      .assignee-options {
+        display: grid;
+        gap: 2px;
+        max-height: 242px;
+        overflow-y: auto;
+        padding: 2px 8px 9px;
+      }
+
+      .assignee-option {
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr) auto;
+        gap: 9px;
+        align-items: center;
+        width: 100%;
+        min-height: 46px;
+        padding: 7px 8px;
+        border: 0;
+        border-radius: 8px;
+        color: var(--text-soft);
+        background: transparent;
+        text-align: left;
+      }
+
+      .assignee-option:hover,
+      .assignee-option.is-selected {
+        background: rgb(9 157 215 / 13%);
+      }
+
+      .assignee-option__avatar {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        place-items: center;
+        border-radius: 50%;
+        color: white;
+        background: linear-gradient(145deg, #197fa8, #6558b8);
+        font-size: 9px;
+        font-weight: 800;
+      }
+
+      .assignee-option__avatar.--warm {
+        background: linear-gradient(145deg, #cf6c6a, #9f5cb1);
+      }
+
+      .assignee-option__avatar.--green {
+        background: linear-gradient(145deg, #258f77, #3379a5);
+      }
+
+      .assignee-option__avatar.--group {
+        color: #def6ff;
+        background: #3a3f48;
+      }
+
+      .assignee-option__avatar .icon {
+        width: 15px;
+        height: 15px;
+      }
+
+      .assignee-option__identity {
+        display: grid;
+        min-width: 0;
+        gap: 2px;
+      }
+
+      .assignee-option__identity strong {
+        overflow: hidden;
+        color: var(--text-strong);
+        font-size: 11px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .assignee-option__identity span {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .assignee-option__type {
+        color: var(--muted-2);
+        font-size: 9px;
+      }
+
+      .assignee-options__empty {
+        padding: 18px 10px 22px;
+        color: var(--muted);
+        font-size: 11px;
+        text-align: center;
+      }
+
+      .design-note {
+        position: absolute;
+        right: 18px;
+        bottom: 18px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 10px;
+        border: 1px solid rgb(255 255 255 / 7%);
+        border-radius: 999px;
+        color: #8f969e;
+        background: rgb(19 21 24 / 80%);
+        font-size: 9px;
+        backdrop-filter: blur(10px);
+      }
+
+      .design-note::before {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--green);
+        content: "";
+      }
+
+      .toast {
+        position: fixed;
+        z-index: 100;
+        right: 22px;
+        bottom: 22px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        max-width: min(360px, calc(100vw - 44px));
+        padding: 11px 12px 11px 14px;
+        border: 1px solid #454a52;
+        border-radius: 10px;
+        color: var(--text-soft);
+        background: #2a2e34;
+        box-shadow: 0 16px 42px rgb(0 0 0 / 42%);
+        font-size: 12px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(12px);
+        transition:
+          opacity 160ms ease,
+          transform 160ms ease;
+      }
+
+      .toast.is-visible {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      .toast__message {
+        flex: 1;
+      }
+
+      .toast__undo {
+        padding: 5px 7px;
+        border: 0;
+        border-radius: 6px;
+        color: #6fd0f5;
+        background: transparent;
+        font-size: 11px;
+        font-weight: 720;
+      }
+
+      .toast__undo:hover {
+        background: var(--blue-soft);
+      }
+
+      /* Option 02: a compact edit card with fully labeled actions. */
+      body[data-concept="field"] .assign-topic-button {
+        justify-content: flex-start;
+        border-color: #3b7f99;
+        color: #a9e8ff;
+        background: rgb(9 157 215 / 10%);
+        box-shadow: none;
+      }
+
+      body[data-concept="field"] .assign-topic-button:hover {
+        border-color: #4ca3c4;
+        background: rgb(9 157 215 / 17%);
+      }
+
+      body[data-concept="field"] .assignment-card {
+        grid-template-columns: 40px minmax(0, 1fr) auto;
+        gap: 10px;
+        padding: 10px 10px;
+        border-color: var(--divider-strong);
+        border-radius: 9px;
+        background: #22262b;
+        box-shadow: none;
+      }
+
+      body[data-concept="field"] .assignee-avatar {
+        width: 40px;
+        height: 40px;
+      }
+
+      body[data-concept="field"] .assignment-card__actions {
+        display: grid;
+        grid-column: auto;
+        grid-template-columns: 1fr;
+        gap: 3px;
+        padding: 0;
+      }
+
+      body[data-concept="field"] .assignment-action {
+        min-height: 30px;
+        border: 0;
+        color: #75cceb;
+        background: transparent;
+      }
+
+      body[data-concept="field"] .assignment-action:hover {
+        color: #a8e9ff;
+        background: var(--blue-soft);
+      }
+
+      body[data-concept="field"] .assignment-action.--remove {
+        width: auto;
+        color: #c8a0a0;
+      }
+
+      body[data-concept="field"] .assignment-action__change-icon {
+        display: none;
+      }
+
+      body[data-concept="field"] .assignment-action__remove-label {
+        display: inline;
+      }
+
+      body[data-concept="field"] .assignment-action.--remove .icon {
+        display: none;
+      }
+
+      body[data-concept="field"] .assignment-card.--post {
+        grid-template-columns: 35px minmax(0, 1fr) auto;
+      }
+
+      body[data-concept="field"] .assignment-card.--post .assignee-avatar {
+        width: 35px;
+        height: 35px;
+      }
+
+      /* Option 03: a profile-forward spotlight for the topic owner. */
+      body[data-concept="spotlight"] .assignment-empty {
+        display: grid;
+        min-height: 170px;
+        place-items: center;
+        padding: 18px;
+        border: 1px dashed #3b4650;
+        border-radius: 12px;
+        background:
+          radial-gradient(circle at 50% 8%, rgb(9 157 215 / 13%), transparent 55%),
+          #202328;
+      }
+
+      body[data-concept="spotlight"] .assign-topic-button {
+        width: auto;
+        min-width: 174px;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--topic {
+        display: flex;
+        min-height: 188px;
+        flex-direction: column;
+        justify-content: center;
+        gap: 8px;
+        padding: 17px;
+        text-align: center;
+        background:
+          radial-gradient(circle at 50% 18%, rgb(9 157 215 / 18%), transparent 55%),
+          #23272d;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--topic .assignee-avatar {
+        width: 58px;
+        height: 58px;
+        font-size: 13px;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--topic .assignee-avatar__group-icon {
+        width: 24px;
+        height: 24px;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--topic .assignment-card__identity {
+        gap: 4px;
+        padding: 0;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--topic .assignment-card__eyebrow {
+        font-size: 12px;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--topic .assignment-card__name {
+        font-size: 16px;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--topic .assignment-card__actions {
+        display: grid;
+        width: 100%;
+        grid-template-columns: 1fr 1fr;
+        padding-top: 7px;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--topic .assignment-action.--remove {
+        width: auto;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--topic .assignment-action__remove-label {
+        display: inline;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--post {
+        grid-template-columns: 36px minmax(0, 1fr) auto;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--post .assignment-card__actions {
+        grid-column: auto;
+        padding: 0;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--post .assignment-action__label {
+        display: none;
+      }
+
+      body[data-concept="spotlight"] .assignment-card.--post .assignment-action {
+        width: 32px;
+        padding: 7px;
+      }
+
+      /* Option 04: a compact ledger when density is the priority. */
+      body[data-concept="ledger"] .assignment-zone {
+        padding-top: 14px;
+      }
+
+      body[data-concept="ledger"] .assignment-card {
+        grid-template-columns: 34px minmax(0, 1fr) auto;
+        gap: 9px;
+        padding: 8px 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      body[data-concept="ledger"] .assignee-avatar {
+        width: 34px;
+        height: 34px;
+        border-width: 1px;
+        font-size: 9px;
+      }
+
+      body[data-concept="ledger"] .assignment-card__eyebrow {
+        font-size: 10px;
+      }
+
+      body[data-concept="ledger"] .assignment-card__name {
+        font-size: 12px;
+      }
+
+      body[data-concept="ledger"] .assignment-card__actions {
+        grid-column: auto;
+        gap: 3px;
+        padding: 0;
+      }
+
+      body[data-concept="ledger"] .assignment-action {
+        min-height: 30px;
+        padding: 6px 7px;
+        border-color: transparent;
+        background: transparent;
+      }
+
+      body[data-concept="ledger"] .assignment-action.--remove {
+        width: 30px;
+      }
+
+      body[data-concept="ledger"] .post-assignments {
+        gap: 0;
+        margin-top: 9px;
+        padding-top: 0;
+        border-top: 1px solid var(--divider);
+      }
+
+      body[data-concept="ledger"] .post-assignment {
+        display: block;
+        border-bottom: 1px solid rgb(255 255 255 / 5%);
+      }
+
+      body[data-concept="ledger"] .post-assignment > .post-assignment__target {
+        display: none;
+      }
+
+      body[data-concept="ledger"] .assignment-card__eyebrow {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+      }
+
+      body[data-concept="ledger"] .post-assignment__separator {
+        display: inline;
+        color: #69717b;
+      }
+
+      body[data-concept="ledger"] .post-assignment__target.--inline {
+        display: inline-flex;
+        width: auto;
+        min-height: 0;
+        padding: 0;
+        color: #70c8e9;
+        font-size: inherit;
+        text-decoration: underline;
+        text-decoration-color: transparent;
+        text-underline-offset: 2px;
+      }
+
+      body[data-concept="ledger"] .post-assignment__target.--inline:hover {
+        color: #a1e5ff;
+        text-decoration-color: currentColor;
+      }
+
+      body[data-concept="ledger"] .assignment-card.--post {
+        grid-template-columns: 30px minmax(0, 1fr) auto;
+        padding: 8px 0;
+      }
+
+      body[data-concept="ledger"] .assignment-card.--post .assignee-avatar {
+        width: 30px;
+        height: 30px;
+      }
+
+      body[data-concept="ledger"] .assignment-card.--post .assignment-action__label {
+        display: none;
+      }
+
+      body[data-concept="ledger"] .assignment-card.--post .assignment-action {
+        width: 30px;
+        padding: 6px;
+      }
+
+      @media (max-width: 1320px) {
+        .study-header {
+          grid-template-columns: 185px auto 200px;
+        }
+
+        .concept-switcher button {
+          min-width: 103px;
+        }
+
+        .app-shell {
+          grid-template-columns: 50px minmax(440px, 1fr) 344px;
+        }
+
+        .app-navigation {
+          display: none;
+        }
+
+        .concept-traits span:nth-child(3) {
+          display: none;
+        }
+      }
+
+      @media (max-width: 960px) {
+        .study-header {
+          grid-template-columns: 1fr auto;
+          gap: 10px;
+          padding-inline: 16px;
+        }
+
+        .concept-switcher {
+          order: 3;
+          grid-column: 1 / -1;
+          overflow-x: auto;
+          justify-content: center;
+        }
+
+        .state-switcher {
+          justify-self: end;
+        }
+
+        .study-main {
+          width: min(760px, calc(100vw - 28px));
+          padding-top: 20px;
+        }
+
+        .concept-intro {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+
+        .concept-traits {
+          justify-content: flex-start;
+        }
+
+        .app-frame {
+          height: 680px;
+        }
+
+        .app-shell {
+          grid-template-columns: minmax(340px, 1fr) 340px;
+        }
+
+        .app-rail {
+          display: none;
+        }
+
+        .topic-stream {
+          padding-inline: 28px;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .study-header {
+          position: static;
+          grid-template-columns: 1fr;
+        }
+
+        .study-brand {
+          justify-self: center;
+        }
+
+        .concept-switcher {
+          grid-column: auto;
+          order: initial;
+          width: 100%;
+          justify-content: flex-start;
+        }
+
+        .concept-switcher button {
+          min-width: 116px;
+        }
+
+        .state-switcher {
+          justify-self: center;
+        }
+
+        .state-switcher button {
+          padding-inline: 8px;
+        }
+
+        .study-main {
+          width: min(420px, calc(100vw - 24px));
+          padding-top: 16px;
+        }
+
+        .concept-intro {
+          min-height: 0;
+          margin-bottom: 15px;
+        }
+
+        .concept-traits {
+          overflow-x: auto;
+        }
+
+        .concept-traits span:nth-child(3) {
+          display: inline-block;
+        }
+
+        .app-frame {
+          min-height: 620px;
+          height: 68vh;
+          border-radius: 13px;
+        }
+
+        .window-strip {
+          grid-template-columns: 72px 1fr 72px;
+        }
+
+        .app-shell {
+          display: block;
+        }
+
+        .topic-pane {
+          display: none;
+        }
+
+        .topic-sidebar {
+          height: 100%;
+          border-left: 0;
+        }
+
+        .design-note {
+          display: none;
+        }
+
+        .assignment-picker {
+          position: fixed;
+          top: auto;
+          right: 10px;
+          bottom: 10px;
+          left: 10px;
+          max-width: 410px;
+          margin: 0 auto;
+          transform-origin: 50% 100%;
+        }
+
+        .assignment-action,
+        .post-assignment__target {
+          min-height: 44px;
+        }
+
+        .assignment-action.--remove,
+        body[data-concept="spotlight"] .assignment-card.--post .assignment-action,
+        body[data-concept="ledger"] .assignment-card.--post .assignment-action,
+        body[data-concept="ledger"] .assignment-action.--remove {
+          width: 44px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+      }
+    </style>
+  </head>
+  <body data-concept="ledger">
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="icon-user-plus" viewBox="0 0 24 24">
+        <path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="8.5" cy="7" r="4" />
+        <path d="M19 8v6M16 11h6" />
+      </symbol>
+      <symbol id="icon-users" viewBox="0 0 24 24">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="8.5" cy="7" r="4" />
+        <path d="M17 11a4 4 0 0 0 0-8M23 21v-2a4 4 0 0 0-3-3.87" />
+      </symbol>
+      <symbol id="icon-change" viewBox="0 0 24 24">
+        <path d="m17 2 4 4-4 4" />
+        <path d="M3 11V9a3 3 0 0 1 3-3h15" />
+        <path d="m7 22-4-4 4-4" />
+        <path d="M21 13v2a3 3 0 0 1-3 3H3" />
+      </symbol>
+      <symbol id="icon-x" viewBox="0 0 24 24">
+        <path d="M18 6 6 18M6 6l12 12" />
+      </symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.35-4.35" />
+      </symbol>
+      <symbol id="icon-chevron-right" viewBox="0 0 24 24">
+        <path d="m9 18 6-6-6-6" />
+      </symbol>
+      <symbol id="icon-chevron-left" viewBox="0 0 24 24">
+        <path d="m15 18-6-6 6-6" />
+      </symbol>
+      <symbol id="icon-home" viewBox="0 0 24 24">
+        <path d="m3 11 9-8 9 8" />
+        <path d="M5 10v10h14V10M9 20v-6h6v6" />
+      </symbol>
+      <symbol id="icon-topics" viewBox="0 0 24 24">
+        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3v-7a4 4 0 0 1-1-2.6V7a4 4 0 0 1 4-4h11a4 4 0 0 1 4 4Z" />
+      </symbol>
+      <symbol id="icon-message" viewBox="0 0 24 24">
+        <path d="M21 12a8 8 0 0 1-8 8H5l-3 2v-7a8 8 0 1 1 19-3Z" />
+      </symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="icon-bell" viewBox="0 0 24 24">
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+      </symbol>
+      <symbol id="icon-more" viewBox="0 0 24 24">
+        <circle cx="5" cy="12" r="1.4" class="icon --filled" />
+        <circle cx="12" cy="12" r="1.4" class="icon --filled" />
+        <circle cx="19" cy="12" r="1.4" class="icon --filled" />
+      </symbol>
+      <symbol id="icon-bookmark" viewBox="0 0 24 24">
+        <path d="M6 3h12v18l-6-4-6 4Z" />
+      </symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21h-4v-.08a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3v-4h.08a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3h4v.08a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21v4h-.08a1.7 1.7 0 0 0-1.52 1Z" />
+      </symbol>
+    </svg>
+
+    <header class="study-header">
+      <div class="study-brand">
+        <div class="study-brand__mark" aria-hidden="true">
+          <svg class="icon"><use href="#icon-user-plus"></use></svg>
+        </div>
+        <div>
+          <p class="study-brand__eyebrow">Discourse Native · UX study</p>
+          <p class="study-brand__title">Topic assignment</p>
+        </div>
+      </div>
+
+      <nav class="concept-switcher" aria-label="Choose an assignment design">
+        <button type="button" data-concept-button="card" aria-pressed="false">01 · Card</button>
+        <button type="button" data-concept-button="field" aria-pressed="false">02 · Compact</button>
+        <button type="button" data-concept-button="spotlight" aria-pressed="false">03 · Spotlight</button>
+        <button type="button" data-concept-button="ledger" aria-pressed="true">04 · Ledger</button>
+      </nav>
+
+      <div class="state-switcher" aria-label="Preview assignment state">
+        <button type="button" data-state-button="empty" aria-pressed="false">Unassigned</button>
+        <button type="button" data-state-button="assigned" aria-pressed="false">Assigned</button>
+        <button type="button" data-state-button="posts" aria-pressed="true">Post assignments</button>
+      </div>
+    </header>
+
+    <main class="study-main">
+      <section class="concept-intro" aria-live="polite">
+        <div>
+          <span class="concept-intro__index" id="concept-index">Option 04 · Dense</span>
+          <h1 id="concept-title">A compact ledger for assignment-heavy topics</h1>
+          <p id="concept-description">Topic ownership stays readable without becoming a card. Assigned posts line up below as a quiet ledger, with each post reference folded into the ownership line.</p>
+        </div>
+        <div class="concept-traits" id="concept-traits" aria-label="Design characteristics">
+          <span>space efficient</span><span>scannable list</span><span>lower emphasis</span>
+        </div>
+      </section>
+
+      <section class="app-frame" aria-label="Interactive Discourse topic assignment concept">
+        <div class="window-strip" aria-hidden="true">
+          <div class="traffic-lights"><i></i><i></i><i></i></div>
+          <div class="window-strip__search">Search this forum</div>
+        </div>
+
+        <div class="app-shell">
+          <aside class="app-rail" aria-label="Application rail">
+            <button class="rail-button" type="button" aria-label="Home"><svg class="icon"><use href="#icon-home"></use></svg></button>
+            <button class="rail-button --active" type="button" aria-label="Topics"><svg class="icon"><use href="#icon-topics"></use></svg></button>
+            <button class="rail-button" type="button" aria-label="Messages"><svg class="icon"><use href="#icon-message"></use></svg></button>
+            <button class="rail-button" type="button" aria-label="Create"><svg class="icon"><use href="#icon-plus"></use></svg></button>
+            <span class="app-rail__spacer"></span>
+            <button class="rail-button" type="button" aria-label="Settings"><svg class="icon"><use href="#icon-settings"></use></svg></button>
+          </aside>
+
+          <aside class="app-navigation" aria-label="Site navigation">
+            <div class="app-navigation__site"><span>Discourse Dev</span><span>⌄</span></div>
+            <div class="navigation-list">
+              <div class="navigation-list__item"><svg class="icon"><use href="#icon-message"></use></svg>Chat</div>
+              <div class="navigation-list__item --active"><svg class="icon"><use href="#icon-topics"></use></svg>Topics</div>
+              <div class="navigation-list__item"><svg class="icon"><use href="#icon-bell"></use></svg>Notifications</div>
+              <div class="navigation-list__item"><svg class="icon"><use href="#icon-plus"></use></svg>New topic</div>
+            </div>
+            <div class="app-navigation__label">Categories</div>
+            <div class="navigation-list">
+              <div class="navigation-list__item"><i class="category-dot"></i>product</div>
+              <div class="navigation-list__item"><i class="category-dot --purple"></i>Discourse Native</div>
+            </div>
+          </aside>
+
+          <section class="topic-pane" aria-label="Topic">
+            <header class="topic-header">
+              <span class="topic-header__back" aria-hidden="true"><svg class="icon"><use href="#icon-chevron-left"></use></svg></span>
+              <span class="topic-header__title">Make topic assignments easier to scan and manage</span>
+              <span class="topic-header__tools" aria-hidden="true">
+                <span><svg class="icon"><use href="#icon-bell"></use></svg></span>
+                <span><svg class="icon"><use href="#icon-bookmark"></use></svg></span>
+                <span><svg class="icon"><use href="#icon-more"></use></svg></span>
+              </span>
+            </header>
+
+            <div class="topic-stream">
+              <header class="topic-lead">
+                <div class="topic-lead__category"><i class="category-dot --purple"></i>Discourse Native App</div>
+                <h2>Make topic assignments easier to scan and manage</h2>
+                <p>3 posts · updated a few minutes ago</p>
+              </header>
+
+              <article class="post" data-demo-post="4">
+                <header class="post__head">
+                  <span class="post__avatar">JJ</span>
+                  <span class="post__identity"><strong>Joffrey Jaffeux</strong><span>@joffrey · staff</span></span>
+                  <span class="post__time">Post 4 · 12m</span>
+                </header>
+                <div class="post__body">
+                  The current assignment area is easy to miss. The primary action should be obvious, while assigned people should remain easy to change or remove.
+                </div>
+              </article>
+
+              <article class="post --secondary" data-demo-post="7">
+                <header class="post__head">
+                  <span class="post__avatar">SA</span>
+                  <span class="post__identity"><strong>Sam Example</strong><span>@sam</span></span>
+                  <span class="post__time">Post 7 · 4m</span>
+                </header>
+                <div class="post__body" aria-hidden="true">
+                  <div class="post__line"></div>
+                  <div class="post__line"></div>
+                  <div class="post__line"></div>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <aside class="topic-sidebar" aria-label="Topic details">
+            <p class="topic-sidebar__kicker">Topic details</p>
+            <div class="topic-properties">
+              <div class="topic-property">
+                <span class="topic-property__label">Category</span>
+                <span class="topic-property__value">Discourse Native App</span>
+              </div>
+              <div class="topic-property">
+                <span class="topic-property__label">Tags</span>
+                <span class="topic-property__value"><span class="topic-property__tag">ux</span> <span class="topic-property__tag">assign</span></span>
+              </div>
+              <div class="topic-property">
+                <span class="topic-property__label">Created</span>
+                <span class="topic-property__value">12 minutes ago</span>
+              </div>
+            </div>
+
+            <section class="assignment-zone" aria-label="Topic and post assignments">
+              <div class="assignment-empty" id="topic-empty" hidden>
+                <button class="assign-topic-button" id="assign-topic" type="button" data-open-picker="topic">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-user-plus"></use></svg>
+                  <span>Assign topic</span>
+                </button>
+              </div>
+
+              <article class="assignment-card --topic" id="topic-assignment" data-assignment-card="topic">
+                <span class="assignee-avatar" data-avatar aria-hidden="true">
+                  <span data-avatar-initials>SA</span>
+                  <svg class="icon assignee-avatar__group-icon" data-avatar-group hidden><use href="#icon-users"></use></svg>
+                </span>
+                <span class="assignment-card__identity">
+                  <span class="assignment-card__eyebrow">Assigned to</span>
+                  <strong class="assignment-card__name" data-assignee-name>@sam</strong>
+                </span>
+                <span class="assignment-card__actions">
+                  <button class="assignment-action" type="button" data-change-target="topic">
+                    <svg class="icon assignment-action__change-icon" aria-hidden="true"><use href="#icon-change"></use></svg>
+                    <span class="assignment-action__label">Change</span>
+                  </button>
+                  <button class="assignment-action --remove" type="button" data-remove-target="topic">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-x"></use></svg>
+                    <span class="assignment-action__remove-label">Remove</span>
+                  </button>
+                </span>
+              </article>
+
+              <div class="post-assignments" id="post-assignments" hidden>
+                <article class="post-assignment" data-post-assignment="post-4" hidden>
+                  <button class="post-assignment__target" type="button" data-open-post="4" aria-label="Open post 4">
+                    Post #4 <svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"></use></svg>
+                  </button>
+                  <div class="assignment-card --post" data-assignment-card="post-4">
+                    <span class="assignee-avatar" data-avatar aria-hidden="true">
+                      <span data-avatar-initials></span>
+                      <svg class="icon assignee-avatar__group-icon" data-avatar-group hidden><use href="#icon-users"></use></svg>
+                    </span>
+                    <span class="assignment-card__identity">
+                      <span class="assignment-card__eyebrow">
+                        <span>Assigned to</span>
+                        <span class="post-assignment__separator" aria-hidden="true">·</span>
+                        <button class="post-assignment__target --inline" type="button" data-open-post="4" aria-label="Open post 4">Post #4</button>
+                      </span>
+                      <strong class="assignment-card__name" data-assignee-name></strong>
+                    </span>
+                    <span class="assignment-card__actions">
+                      <button class="assignment-action" type="button" data-change-target="post-4">
+                        <svg class="icon assignment-action__change-icon" aria-hidden="true"><use href="#icon-change"></use></svg>
+                        <span class="assignment-action__label">Change</span>
+                      </button>
+                      <button class="assignment-action --remove" type="button" data-remove-target="post-4">
+                        <svg class="icon" aria-hidden="true"><use href="#icon-x"></use></svg>
+                        <span class="assignment-action__remove-label">Remove</span>
+                      </button>
+                    </span>
+                  </div>
+                </article>
+
+                <article class="post-assignment" data-post-assignment="post-7" hidden>
+                  <button class="post-assignment__target" type="button" data-open-post="7" aria-label="Open post 7">
+                    Post #7 <svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"></use></svg>
+                  </button>
+                  <div class="assignment-card --post" data-assignment-card="post-7">
+                    <span class="assignee-avatar" data-avatar aria-hidden="true">
+                      <span data-avatar-initials></span>
+                      <svg class="icon assignee-avatar__group-icon" data-avatar-group hidden><use href="#icon-users"></use></svg>
+                    </span>
+                    <span class="assignment-card__identity">
+                      <span class="assignment-card__eyebrow">
+                        <span>Assigned to</span>
+                        <span class="post-assignment__separator" aria-hidden="true">·</span>
+                        <button class="post-assignment__target --inline" type="button" data-open-post="7" aria-label="Open post 7">Post #7</button>
+                      </span>
+                      <strong class="assignment-card__name" data-assignee-name></strong>
+                    </span>
+                    <span class="assignment-card__actions">
+                      <button class="assignment-action" type="button" data-change-target="post-7">
+                        <svg class="icon assignment-action__change-icon" aria-hidden="true"><use href="#icon-change"></use></svg>
+                        <span class="assignment-action__label">Change</span>
+                      </button>
+                      <button class="assignment-action --remove" type="button" data-remove-target="post-7">
+                        <svg class="icon" aria-hidden="true"><use href="#icon-x"></use></svg>
+                        <span class="assignment-action__remove-label">Remove</span>
+                      </button>
+                    </span>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="sidebar-after" aria-label="Related topics">
+              <p class="sidebar-after__title">More topics</p>
+              <div class="related-topic"><strong>Improving the native topic sidebar</strong><span>product · 8 posts</span></div>
+              <div class="related-topic"><strong>Keyboard navigation in topic lists</strong><span>ux · 5 posts</span></div>
+            </section>
+
+            <div class="assignment-picker" id="assignment-picker" role="dialog" aria-modal="false" aria-labelledby="picker-title" hidden>
+              <header class="assignment-picker__header">
+                <strong id="picker-title">Assign topic</strong>
+                <button class="assignment-picker__close" id="close-picker" type="button" aria-label="Close assignee picker">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-x"></use></svg>
+                </button>
+              </header>
+              <label class="assignment-search">
+                <span class="sr-only">Search users and groups</span>
+                <svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg>
+                <input id="assignment-search" type="search" placeholder="Search users and groups" autocomplete="off" />
+              </label>
+              <div class="assignee-options" id="assignee-options" aria-label="Users and groups">
+                <button class="assignee-option" type="button" data-assignee="sam">
+                  <span class="assignee-option__avatar">SA</span>
+                  <span class="assignee-option__identity"><strong>Sam Example</strong><span>@sam</span></span>
+                  <span class="assignee-option__type">User</span>
+                </button>
+                <button class="assignee-option" type="button" data-assignee="mina">
+                  <span class="assignee-option__avatar --warm">MI</span>
+                  <span class="assignee-option__identity"><strong>Mina Ibrahim</strong><span>@mina</span></span>
+                  <span class="assignee-option__type">User</span>
+                </button>
+                <button class="assignee-option" type="button" data-assignee="leah">
+                  <span class="assignee-option__avatar --green">LE</span>
+                  <span class="assignee-option__identity"><strong>Leah Ellis</strong><span>@leah</span></span>
+                  <span class="assignee-option__type">User</span>
+                </button>
+                <button class="assignee-option" type="button" data-assignee="support">
+                  <span class="assignee-option__avatar --group"><svg class="icon"><use href="#icon-users"></use></svg></span>
+                  <span class="assignee-option__identity"><strong>Support</strong><span>@support</span></span>
+                  <span class="assignee-option__type">Group</span>
+                </button>
+                <p class="assignee-options__empty" id="assignee-empty" hidden>No matching users or groups</p>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="design-note">No generic “Assignments” heading</div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite">
+      <span class="toast__message" id="toast-message"></span>
+      <button class="toast__undo" id="toast-undo" type="button" hidden>Undo</button>
+    </div>
+
+    <script>
+      const concepts = {
+        card: {
+          index: "Option 01 · Recommended",
+          title: "A clear CTA that becomes an identity card",
+          description: "The empty state has one unmistakable action. Once assigned, the same space becomes a calm, avatar-led summary with persistent Change and Remove controls.",
+          traits: ["clearest hierarchy", "touch friendly", "low ambiguity"],
+        },
+        field: {
+          index: "Option 02 · Direct",
+          title: "A compact edit card with labeled actions",
+          description: "The assigned person and both actions share one efficient row. It fits a narrow sidebar while keeping Change and Remove explicit instead of relying on ambiguous icons.",
+          traits: ["compact", "fully labeled", "fast to edit"],
+        },
+        spotlight: {
+          index: "Option 03 · Profile forward",
+          title: "A generous spotlight for clear ownership",
+          description: "The primary assignee gets stronger visual presence and large equal-weight actions. Post assignments stay compact underneath and only appear when they actually exist.",
+          traits: ["warmest", "strong ownership", "more vertical space"],
+        },
+        ledger: {
+          index: "Option 04 · Dense",
+          title: "A compact ledger for assignment-heavy topics",
+          description: "Topic ownership stays readable without becoming a card. Assigned posts line up below as a quiet ledger, with each post reference folded into the ownership line.",
+          traits: ["space efficient", "scannable list", "lower emphasis"],
+        },
+      };
+
+      const assignees = {
+        sam: { name: "Sam Example", handle: "@sam", initials: "SA", tone: "", group: false },
+        mina: { name: "Mina Ibrahim", handle: "@mina", initials: "MI", tone: "--warm", group: false },
+        leah: { name: "Leah Ellis", handle: "@leah", initials: "LE", tone: "--green", group: false },
+        support: { name: "Support", handle: "@support", initials: "", tone: "--group", group: true },
+      };
+
+      const presetAssignments = {
+        empty: () => ({ topic: null, posts: new Map() }),
+        assigned: () => ({ topic: assignees.sam, posts: new Map() }),
+        posts: () => ({
+          topic: assignees.sam,
+          posts: new Map([
+            ["post-4", assignees.support],
+            ["post-7", assignees.leah],
+          ]),
+        }),
+      };
+
+      const body = document.body;
+      const conceptIndex = document.querySelector("#concept-index");
+      const conceptTitle = document.querySelector("#concept-title");
+      const conceptDescription = document.querySelector("#concept-description");
+      const conceptTraits = document.querySelector("#concept-traits");
+      const topicEmpty = document.querySelector("#topic-empty");
+      const topicAssignment = document.querySelector("#topic-assignment");
+      const postAssignments = document.querySelector("#post-assignments");
+      const picker = document.querySelector("#assignment-picker");
+      const pickerTitle = document.querySelector("#picker-title");
+      const pickerSearch = document.querySelector("#assignment-search");
+      const toast = document.querySelector("#toast");
+      const toastMessage = document.querySelector("#toast-message");
+      const toastUndo = document.querySelector("#toast-undo");
+
+      let assignments = presetAssignments.posts();
+      let pickerTarget = "topic";
+      let pickerTrigger = null;
+      let toastTimer;
+      let postHighlightTimer;
+      let undoAction = null;
+
+      function targetLabel(target) {
+        return target === "topic" ? "Topic" : `Post #${target.split("-")[1]}`;
+      }
+
+      function openDemoPost(number) {
+        const post = document.querySelector(`[data-demo-post="${number}"]`);
+        if (!post) return;
+        window.clearTimeout(postHighlightTimer);
+        document.querySelectorAll("[data-demo-post]").forEach((candidate) => {
+          candidate.classList.remove("is-highlighted");
+        });
+        post.classList.add("is-highlighted");
+        post.scrollIntoView({
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+          block: "center",
+        });
+        showToast(`Post ${number} highlighted in the topic.`);
+        postHighlightTimer = window.setTimeout(() => post.classList.remove("is-highlighted"), 2200);
+      }
+
+      function markCustomState() {
+        document.querySelectorAll("[data-state-button]").forEach((button) => {
+          button.setAttribute("aria-pressed", "false");
+        });
+      }
+
+      function updateAssignmentCard(card, assignee, target) {
+        const avatar = card.querySelector("[data-avatar]");
+        const initials = card.querySelector("[data-avatar-initials]");
+        const groupIcon = card.querySelector("[data-avatar-group]");
+        const name = card.querySelector("[data-assignee-name]");
+        const change = card.querySelector("[data-change-target]");
+        const remove = card.querySelector("[data-remove-target]");
+
+        avatar.className = `assignee-avatar ${assignee.tone}`.trim();
+        initials.textContent = assignee.initials;
+        initials.hidden = assignee.group;
+        groupIcon.hidden = !assignee.group;
+        name.textContent = assignee.handle;
+        change.setAttribute("aria-label", `Change assignee for ${targetLabel(target).toLowerCase()}`);
+        remove.setAttribute("aria-label", `Remove ${targetLabel(target).toLowerCase()} assignment for ${assignee.handle}`);
+      }
+
+      function renderAssignments() {
+        topicEmpty.hidden = assignments.topic !== null;
+        topicAssignment.hidden = assignments.topic === null;
+        if (assignments.topic) {
+          updateAssignmentCard(topicAssignment, assignments.topic, "topic");
+        }
+
+        postAssignments.hidden = assignments.posts.size === 0;
+        document.querySelectorAll("[data-post-assignment]").forEach((row) => {
+          const target = row.dataset.postAssignment;
+          const assignee = assignments.posts.get(target);
+          row.hidden = !assignee;
+          if (assignee) {
+            updateAssignmentCard(row.querySelector("[data-assignment-card]"), assignee, target);
+          }
+        });
+      }
+
+      function setPreset(name) {
+        assignments = presetAssignments[name]();
+        closePicker({ restoreFocus: false });
+        renderAssignments();
+        document.querySelectorAll("[data-state-button]").forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.stateButton === name));
+        });
+      }
+
+      function currentAssignee(target) {
+        return target === "topic" ? assignments.topic : assignments.posts.get(target);
+      }
+
+      function openPicker(target, trigger) {
+        pickerTarget = target;
+        pickerTrigger = trigger;
+        const existing = currentAssignee(target);
+        pickerTitle.textContent = existing ? `Change ${targetLabel(target).toLowerCase()} assignee` : `Assign ${targetLabel(target).toLowerCase()}`;
+        picker.hidden = false;
+        pickerSearch.value = "";
+        filterOptions("");
+        document.querySelectorAll("[data-assignee]").forEach((option) => {
+          option.classList.toggle("is-selected", assignees[option.dataset.assignee] === existing);
+          option.setAttribute(
+            "aria-label",
+            `${assignees[option.dataset.assignee].name}, ${assignees[option.dataset.assignee].handle}${assignees[option.dataset.assignee] === existing ? ", current assignee" : ""}`,
+          );
+        });
+        requestAnimationFrame(() => pickerSearch.focus());
+      }
+
+      function closePicker({ restoreFocus = true } = {}) {
+        picker.hidden = true;
+        if (restoreFocus && pickerTrigger?.isConnected) {
+          requestAnimationFrame(() => pickerTrigger.focus());
+        }
+      }
+
+      function filterOptions(value) {
+        const query = value.trim().toLowerCase();
+        let visible = 0;
+        document.querySelectorAll("[data-assignee]").forEach((option) => {
+          const assignee = assignees[option.dataset.assignee];
+          const matches = `${assignee.name} ${assignee.handle} ${assignee.group ? "group" : "user"}`.toLowerCase().includes(query);
+          option.hidden = !matches;
+          if (matches) visible += 1;
+        });
+        document.querySelector("#assignee-empty").hidden = visible !== 0;
+      }
+
+      function fallbackAction() {
+        return document.querySelector("[data-change-target=\"topic\"]:not([hidden])") || document.querySelector("#assign-topic");
+      }
+
+      function dismissToast() {
+        window.clearTimeout(toastTimer);
+        const hadFocus = toast.contains(document.activeElement);
+        toast.classList.remove("is-visible");
+        toastUndo.hidden = true;
+        undoAction = null;
+        if (hadFocus) {
+          requestAnimationFrame(() => fallbackAction()?.focus());
+        }
+      }
+
+      function showToast(message, onUndo) {
+        window.clearTimeout(toastTimer);
+        toastMessage.textContent = message;
+        undoAction = onUndo || null;
+        toastUndo.hidden = !undoAction;
+        toast.classList.add("is-visible");
+        toastTimer = window.setTimeout(dismissToast, 5200);
+      }
+
+      function assignTo(target, assignee) {
+        if (target === "topic") {
+          assignments.topic = assignee;
+        } else {
+          assignments.posts.set(target, assignee);
+        }
+        markCustomState();
+        renderAssignments();
+        closePicker({ restoreFocus: false });
+        showToast(`${targetLabel(target)} assigned to ${assignee.handle}.`);
+        requestAnimationFrame(() => {
+          document.querySelector(`[data-change-target="${target}"]`)?.focus();
+        });
+      }
+
+      function removeAssignment(target) {
+        const previous = currentAssignee(target);
+        if (!previous) return;
+        if (target === "topic") {
+          assignments.topic = null;
+        } else {
+          assignments.posts.delete(target);
+        }
+        markCustomState();
+        renderAssignments();
+        showToast(`${targetLabel(target)} assignment removed.`, () => {
+          if (target === "topic") {
+            assignments.topic = previous;
+          } else {
+            assignments.posts.set(target, previous);
+          }
+          renderAssignments();
+          showToast(`${targetLabel(target)} assignment restored.`);
+          requestAnimationFrame(() => {
+            document.querySelector(`[data-change-target="${target}"]`)?.focus();
+          });
+        });
+        requestAnimationFrame(() => {
+          if (target === "topic") {
+            document.querySelector("#assign-topic")?.focus();
+          } else {
+            document.querySelector("[data-change-target=\"topic\"]")?.focus();
+          }
+        });
+      }
+
+      document.querySelectorAll("[data-concept-button]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const conceptName = button.dataset.conceptButton;
+          const concept = concepts[conceptName];
+          body.dataset.concept = conceptName;
+          document.querySelectorAll("[data-concept-button]").forEach((candidate) => {
+            candidate.setAttribute("aria-pressed", String(candidate === button));
+          });
+          conceptIndex.textContent = concept.index;
+          conceptTitle.textContent = concept.title;
+          conceptDescription.textContent = concept.description;
+          conceptTraits.replaceChildren(...concept.traits.map((trait) => {
+            const item = document.createElement("span");
+            item.textContent = trait;
+            return item;
+          }));
+        });
+      });
+
+      document.querySelectorAll("[data-state-button]").forEach((button) => {
+        button.addEventListener("click", () => setPreset(button.dataset.stateButton));
+      });
+
+      document.querySelectorAll("[data-open-picker]").forEach((button) => {
+        button.addEventListener("click", () => openPicker(button.dataset.openPicker, button));
+      });
+
+      document.querySelectorAll("[data-change-target]").forEach((button) => {
+        button.addEventListener("click", () => openPicker(button.dataset.changeTarget, button));
+      });
+
+      document.querySelectorAll("[data-remove-target]").forEach((button) => {
+        button.addEventListener("click", () => removeAssignment(button.dataset.removeTarget));
+      });
+
+      document.querySelectorAll("[data-open-post]").forEach((button) => {
+        button.addEventListener("click", () => openDemoPost(button.dataset.openPost));
+      });
+
+      document.querySelectorAll("[data-assignee]").forEach((option) => {
+        option.addEventListener("click", () => assignTo(pickerTarget, assignees[option.dataset.assignee]));
+      });
+
+      document.querySelector("#close-picker").addEventListener("click", closePicker);
+      pickerSearch.addEventListener("input", () => filterOptions(pickerSearch.value));
+      toastUndo.addEventListener("click", () => {
+        const action = undoAction;
+        dismissToast();
+        if (action) action();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !picker.hidden) {
+          closePicker();
+        }
+      });
+
+      document.addEventListener("pointerdown", (event) => {
+        if (picker.hidden || picker.contains(event.target) || event.target.closest("[data-open-picker], [data-change-target]")) return;
+        closePicker({ restoreFocus: false });
+      });
+
+      renderAssignments();
+    </script>
+  </body>
+</html>

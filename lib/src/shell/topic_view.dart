@@ -1431,6 +1431,18 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (snapshot.siteUrl case final siteUrl?) {
       _syncRecommendationsSite(siteUrl);
     }
+    final incomingIdentity = switch ((snapshot.siteUrl, snapshot.topicId)) {
+      (final String siteUrl, final int topicId) => (
+        siteUrl,
+        topicId,
+        snapshot.navigationRevision,
+      ),
+      _ => null,
+    };
+    if (incomingIdentity != null && incomingIdentity != _topicIdentity) {
+      // A transient sidebar must not cover content selected from within it.
+      _sidebarOverlayOpen = false;
+    }
     final canPinSidebar =
         widget.showSidebar &&
         viewportWidth >= _TopicSidebarPanel.minimumPinnedViewportWidth;
@@ -2886,21 +2898,27 @@ class _TopicStandalonePropertyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return _TopicSidebarCard(
+    final card = _TopicSidebarCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 13, 14, 8),
-            child: Text(
-              section.label,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
+          if (section.showHeader)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 13, 14, 8),
+              child: Text(
+                section.label,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+            padding: EdgeInsets.fromLTRB(
+              14,
+              section.showHeader ? 0 : 13,
+              14,
+              8,
+            ),
             child: section.values.isEmpty
                 ? const _EmptyTopicProperty('None')
                 : Column(
@@ -2919,6 +2937,13 @@ class _TopicStandalonePropertyCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+    if (section.showHeader) return card;
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      label: section.label,
+      child: card,
     );
   }
 }
@@ -3407,22 +3432,48 @@ class _StoredPost extends StatelessWidget {
         if (post == null) return const SizedBox.shrink();
         final registry =
             PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-        if (post.isSmallAction || registry.isSmallAction(post)) {
-          return SmallActionTile(post: post, siteUrl: siteUrl);
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _PostTile(siteUrl: siteUrl, topic: topic, post: post),
-            if (post.postNumber == 1)
-              _TopicMap(
-                siteUrl: siteUrl,
-                topic: topic,
-                summary: summary,
-                summaryLoading: summaryLoading,
-                readTimeWordCount: readTimeWordCount,
+        final content = post.isSmallAction || registry.isSmallAction(post)
+            ? SmallActionTile(post: post, siteUrl: siteUrl)
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _PostTile(siteUrl: siteUrl, topic: topic, post: post),
+                  if (post.postNumber == 1)
+                    _TopicMap(
+                      siteUrl: siteUrl,
+                      topic: topic,
+                      summary: summary,
+                      summaryLoading: summaryLoading,
+                      readTimeWordCount: readTimeWordCount,
+                    ),
+                ],
+              );
+        return ShellSelector<bool>(
+          select: (controller) => controller.isTopicPostHighlighted(
+            siteUrl,
+            topic.id,
+            post.postNumber,
+          ),
+          builder: (context, highlighted, _) {
+            final primary = Theme.of(context).colorScheme.primary;
+            return AnimatedContainer(
+              key: ValueKey('topic-post-highlight-${post.id}'),
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: highlighted
+                    ? primary.withValues(alpha: 0.10)
+                    : Colors.transparent,
+                border: Border.all(
+                  color: highlighted
+                      ? primary.withValues(alpha: 0.28)
+                      : Colors.transparent,
+                ),
+                borderRadius: BorderRadius.circular(8),
               ),
-          ],
+              child: content,
+            );
+          },
         );
       },
     );

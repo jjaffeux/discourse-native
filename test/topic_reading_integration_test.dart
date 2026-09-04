@@ -2745,8 +2745,19 @@ void _registerTopicReadingTests() {
           find.descendant(of: sidebarScroll, matching: topicAssignment),
           findsOneWidget,
         );
-        expect(find.text('Assignments'), findsOneWidget);
-        expect(find.text('Topic · Sam Example'), findsOneWidget);
+        expect(find.text('Assignments'), findsNothing);
+        expect(find.bySemanticsLabel('Assignments'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: topicAssignment,
+            matching: find.text('Assigned to'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: topicAssignment, matching: find.text('@sam')),
+          findsOneWidget,
+        );
         expect(
           tester.getRect(topicAssignment).top,
           greaterThan(tester.getRect(properties).bottom),

@@ -165,6 +165,88 @@ void main() {
       expect(api.topicsOpened, [7, 7]);
     });
 
+    testWidgets('manage a known assigned post outside the loaded window', (
+      tester,
+    ) async {
+      const assignment = Assignment(
+        assignee: AssignmentUser(username: 'sam'),
+        postId: 12,
+        postNumber: 2,
+      );
+      final api = FakeDiscourseApi(
+        user: _assignUser(),
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {
+          7: _payload(
+            canAssignTopic: true,
+            canAssignPost: false,
+            postAssignment: assignment,
+            loadAssignedPost: false,
+          ),
+        },
+        siteConfigs: const {_site: SiteConfig.unknown()},
+        pluginResponses: const {
+          'PUT /assign/unassign.json': {'success': 'OK'},
+          'PUT /assign/assign.json': {'success': 'OK'},
+        },
+      );
+      final shell = (await tester.runAsync(() => _loadShell(api)))!;
+      addTearDown(shell.dispose);
+      const target = AssignmentTarget.post(12, topicId: 7);
+
+      expect(_assignments(shell).canAssign(_site, target), isTrue);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: Builder(
+                builder: (context) => Column(
+                  children: [
+                    for (final section
+                        in PluginScope.of(context).registry.topicProperties(
+                          context,
+                          _site,
+                          shell.currentTopic!,
+                        ))
+                      ...section.values,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('assign-post-12-change')), findsOneWidget);
+      expect(find.byKey(const Key('assign-post-12-remove')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('assign-post-12-remove')));
+      await tester.pumpAndSettle();
+
+      api.topics[7] = _payload(
+        canAssignTopic: true,
+        canAssignPost: false,
+        loadAssignedPost: false,
+      );
+      await tester.runAsync(() => shell.loadTopic(7, 'topic', force: true));
+      await tester.pump();
+      expect(_assignments(shell).canAssign(_site, target), isFalse);
+
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+
+      expect(api.pluginWrites.map((write) => write.body), [
+        {'target_id': 12, 'target_type': 'Post'},
+        {
+          'target_id': 12,
+          'target_type': 'Post',
+          'username': 'sam',
+          'should_notify': 'false',
+        },
+      ]);
+    });
+
     test('reject post #1 even when its serializer says assignable', () async {
       final api = FakeDiscourseApi(
         user: _assignUser(),
@@ -415,12 +497,323 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byKey(const Key('assign-topic-property-post-12')));
+      final postTarget = find.byKey(const Key('assign-post-12-target'));
+      expect(tester.getSize(postTarget).height, greaterThanOrEqualTo(40));
+      expect(
+        tester.getSemantics(postTarget),
+        isSemantics(
+          label: 'Open Post #2',
+          isButton: false,
+          isLink: true,
+          hasTapAction: true,
+        ),
+      );
+
+      await tester.tap(postTarget);
       await tester.pumpAndSettle();
 
       expect(api.topicsOpened, [7, 7]);
       expect(api.topicPostNumbersOpened, [null, 2]);
       expect(shell.currentContent?.postNumber, 2);
+      expect(shell.isTopicPostHighlighted(_site, 7, 2), isTrue);
+
+      await tester.pump(const Duration(milliseconds: 2200));
+      expect(shell.isTopicPostHighlighted(_site, 7, 2), isFalse);
+    });
+
+    testWidgets(
+      'open separate Change editors for exact topic and post targets',
+      (tester) async {
+        const topicAssignment = Assignment(
+          assignee: AssignmentUser(username: 'lead', name: 'Topic lead'),
+          note: 'Own the topic',
+        );
+        const postAssignment = Assignment(
+          assignee: AssignmentUser(username: 'sam', name: 'Sam'),
+          postId: 12,
+          postNumber: 2,
+        );
+        final api = FakeDiscourseApi(
+          user: _assignUser(),
+          feeds: const {'/latest.json': <Topic>[]},
+          topics: {
+            7: _payload(
+              canAssignTopic: true,
+              canAssignPost: true,
+              topicAssignment: topicAssignment,
+              postAssignment: postAssignment,
+            ),
+          },
+          siteConfigs: const {_site: SiteConfig.unknown()},
+          pluginResponses: const {
+            'GET /assign/suggestions.json?target_id=7&target_type=Topic': {},
+            'GET /assign/suggestions.json?target_id=12&target_type=Post': {},
+          },
+        );
+        final shell = (await tester.runAsync(() => _loadShell(api)))!;
+        addTearDown(shell.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: ShellScope(
+              controller: shell,
+              child: Scaffold(
+                body: Builder(
+                  builder: (context) => Column(
+                    children: [
+                      for (final section
+                          in PluginScope.of(context).registry.topicProperties(
+                            context,
+                            _site,
+                            shell.currentTopic!,
+                          ))
+                        ...section.values,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.byKey(const Key('assign-topic-change')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Edit topic assignment'), findsOneWidget);
+        expect(api.pluginReadPaths, [
+          '/assign/suggestions.json?target_id=7&target_type=Topic',
+        ]);
+
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('assign-post-12-change')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Edit post assignment'), findsOneWidget);
+        expect(api.pluginReadPaths, [
+          '/assign/suggestions.json?target_id=7&target_type=Topic',
+          '/assign/suggestions.json?target_id=12&target_type=Post',
+        ]);
+      },
+    );
+
+    testWidgets('remove topic and post assignments through exact controls', (
+      tester,
+    ) async {
+      const topicAssignment = Assignment(
+        assignee: AssignmentUser(username: 'lead', name: 'Topic lead'),
+      );
+      const postAssignment = Assignment(
+        assignee: AssignmentUser(username: 'sam', name: 'Sam'),
+        postId: 12,
+        postNumber: 2,
+      );
+      final api = FakeDiscourseApi(
+        user: _assignUser(),
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {
+          7: _payload(
+            canAssignTopic: true,
+            canAssignPost: true,
+            topicAssignment: topicAssignment,
+            postAssignment: postAssignment,
+          ),
+        },
+        siteConfigs: const {_site: SiteConfig.unknown()},
+        pluginResponses: const {
+          'PUT /assign/unassign.json': {'success': 'OK'},
+        },
+      );
+      final shell = (await tester.runAsync(() => _loadShell(api)))!;
+      addTearDown(shell.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: Builder(
+                builder: (context) => Column(
+                  children: [
+                    for (final section
+                        in PluginScope.of(context).registry.topicProperties(
+                          context,
+                          _site,
+                          shell.currentTopic!,
+                        ))
+                      ...section.values,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('assign-topic-remove')));
+      await tester.pumpAndSettle();
+      expect(find.text('Topic assignment removed'), findsOneWidget);
+      expect(find.text('Undo'), findsOneWidget);
+      tester
+          .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
+          .removeCurrentSnackBar();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('assign-post-12-remove')));
+      await tester.pumpAndSettle();
+      expect(find.text('Post #2 assignment removed'), findsOneWidget);
+      expect(find.text('Undo'), findsOneWidget);
+
+      expect(api.pluginWrites.map((write) => write.body), [
+        {'target_id': 7, 'target_type': 'Topic'},
+        {'target_id': 12, 'target_type': 'Post'},
+      ]);
+      expect(api.pluginWrites.map((write) => '${write.method} ${write.path}'), [
+        'PUT /assign/unassign.json',
+        'PUT /assign/unassign.json',
+      ]);
+      expect(api.topicPostNumbersOpened, everyElement(isNull));
+    });
+
+    testWidgets('Undo restores the exact assignment and its details', (
+      tester,
+    ) async {
+      const topicAssignment = Assignment(
+        assignee: AssignmentUser(username: 'lead', name: 'Topic lead'),
+        note: 'Own the topic',
+        status: 'New',
+      );
+      final api = FakeDiscourseApi(
+        user: _assignUser(),
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {
+          7: _payload(
+            canAssignTopic: true,
+            canAssignPost: false,
+            topicAssignment: topicAssignment,
+          ),
+        },
+        siteConfigs: const {_site: SiteConfig.unknown()},
+        pluginResponses: const {
+          'PUT /assign/unassign.json': {'success': 'OK'},
+          'PUT /assign/assign.json': {'success': 'OK'},
+        },
+      );
+      final shell = (await tester.runAsync(() => _loadShell(api)))!;
+      addTearDown(shell.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: Builder(
+                builder: (context) => Column(
+                  children: [
+                    for (final section
+                        in PluginScope.of(context).registry.topicProperties(
+                          context,
+                          _site,
+                          shell.currentTopic!,
+                        ))
+                      ...section.values,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('assign-topic-remove')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+
+      expect(api.pluginWrites, hasLength(2));
+      expect(api.pluginWrites.first.body, {
+        'target_id': 7,
+        'target_type': 'Topic',
+      });
+      expect(api.pluginWrites.last.body, {
+        'target_id': 7,
+        'target_type': 'Topic',
+        'username': 'lead',
+        'note': 'Own the topic',
+        'status': 'New',
+        'should_notify': 'false',
+      });
+    });
+
+    testWidgets('announces a Remove error after its action is rebuilt away', (
+      tester,
+    ) async {
+      const topicAssignment = Assignment(
+        assignee: AssignmentUser(username: 'lead', name: 'Topic lead'),
+      );
+      final api = FakeDiscourseApi(
+        user: _assignUser(),
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {
+          7: _payload(
+            canAssignTopic: null,
+            canAssignPost: false,
+            topicAssignment: topicAssignment,
+          ),
+        },
+        siteConfigs: const {_site: SiteConfig.unknown()},
+        pluginWriteFailures: {
+          'PUT /assign/unassign.json': const WriteException(
+            WriteFailure.unreachable,
+            statusCode: 404,
+          ),
+        },
+      );
+      final shell = (await tester.runAsync(() => _loadShell(api)))!;
+      addTearDown(shell.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: Builder(
+                builder: (context) {
+                  final registry = PluginScope.of(context).registry;
+                  final assignments = shell.pluginSession.require(
+                    assignmentControllerService,
+                  );
+                  return ListenableBuilder(
+                    listenable: assignments,
+                    builder: (context, _) => Column(
+                      children: [
+                        for (final section in registry.topicProperties(
+                          context,
+                          _site,
+                          shell.currentTopic!,
+                        ))
+                          ...section.values,
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('assign-topic-remove')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('assign-topic-remove')), findsNothing);
+      expect(
+        find.text('This assignment target is no longer available.'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('remove topic and post-menu actions after a legacy 404', (
@@ -484,11 +877,14 @@ void main() {
                             _site,
                             topic,
                           );
-                          return Row(
-                            children: [
-                              for (final section in properties)
-                                ...section.values,
-                            ],
+                          return SizedBox(
+                            width: 320,
+                            child: Column(
+                              children: [
+                                for (final section in properties)
+                                  ...section.values,
+                              ],
+                            ),
                           );
                         },
                       ),
@@ -568,6 +964,9 @@ void main() {
       );
       final shell = (await tester.runAsync(() => _loadShell(api)))!;
       addTearDown(shell.dispose);
+      final assignments = shell.pluginSession.require(
+        assignmentControllerService,
+      );
 
       await tester.pumpWidget(
         MaterialApp(
@@ -577,12 +976,29 @@ void main() {
             child: Scaffold(
               body: Builder(
                 builder: (context) {
-                  final topic = shell.currentTopic!;
-                  final post = shell.store.read<Post>(_site, 12)!;
-                  return Column(
-                    children: PluginScope.of(
-                      context,
-                    ).registry.postDecorations(context, _site, topic, post),
+                  final registry = PluginScope.of(context).registry;
+                  return ListenableBuilder(
+                    listenable: assignments,
+                    builder: (context, _) {
+                      final topic = shell.currentTopic!;
+                      final post = shell.store.read<Post>(_site, 12)!;
+                      return Column(
+                        children: [
+                          for (final section in registry.topicProperties(
+                            context,
+                            _site,
+                            topic,
+                          ))
+                            ...section.values,
+                          ...registry.postDecorations(
+                            context,
+                            _site,
+                            topic,
+                            post,
+                          ),
+                        ],
+                      );
+                    },
                   );
                 },
               ),
@@ -591,6 +1007,7 @@ void main() {
         ),
       );
 
+      final sidebarRow = find.byKey(const Key('assign-topic-property-post-12'));
       final assignmentRow = find.byKey(const Key('assign-post-12-assignment'));
       Finder editIcon() => find.descendant(
         of: assignmentRow,
@@ -598,6 +1015,9 @@ void main() {
           (widget) => widget is DIcon && widget.icon == DIcons.pencil,
         ),
       );
+      expect(sidebarRow, findsOneWidget);
+      expect(find.byKey(const Key('assign-post-12-change')), findsOneWidget);
+      expect(find.byKey(const Key('assign-post-12-remove')), findsOneWidget);
       expect(assignmentRow, findsOneWidget);
       expect(editIcon(), findsOneWidget);
 
@@ -609,6 +1029,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(error, 'This assignment target is no longer available.');
+      expect(sidebarRow, findsOneWidget);
+      expect(find.byKey(const Key('assign-post-12-change')), findsNothing);
+      expect(find.byKey(const Key('assign-post-12-remove')), findsNothing);
       expect(assignmentRow, findsOneWidget);
       expect(find.text('Post #2 assigned to Sam'), findsOneWidget);
       expect(editIcon(), findsNothing);
@@ -685,7 +1108,9 @@ Future<ShellController> _loadShell(FakeDiscourseApi api) async {
 TopicPayload _payload({
   required bool? canAssignPost,
   bool? canAssignTopic = true,
+  Assignment? topicAssignment,
   Assignment? postAssignment,
+  bool loadAssignedPost = true,
 }) {
   PluginData assignmentData(
     bool? canAssign, {
@@ -722,12 +1147,13 @@ TopicPayload _payload({
       postsCount: 2,
       plugins: assignmentData(
         canAssignTopic,
+        direct: topicAssignment,
         postAssignments: postAssignment == null
             ? const {}
             : {12: postAssignment},
       ),
     ),
-    posts: [first, reply],
+    posts: [first, if (loadAssignedPost) reply],
   );
 }
 
