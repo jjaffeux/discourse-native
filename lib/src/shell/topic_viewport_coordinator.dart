@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
@@ -840,20 +841,26 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     }
     scheduleLook(saveAnchor: notification is ScrollEndNotification);
 
-    if (notification is ScrollStartNotification && !_restoring) {
+    // Failed pages stay suppressed until the reader scrolls again. Flutter
+    // also emits start/update/end notifications for jumpTo and other extent
+    // corrections; treating those as a retry makes an async row relayout or
+    // a disappearing pagination skeleton request the same failed page again.
+    final readerRequestedRetry =
+        !_restoring &&
+        ((notification is ScrollStartNotification &&
+                notification.dragDetails != null) ||
+            (notification is UserScrollNotification &&
+                notification.direction != ScrollDirection.idle));
+    if (readerRequestedRetry) {
       allowLoadEarlierRetry(snapshot);
       allowLoadMoreRetry(snapshot);
     }
     final threshold = thresholdFor(notification.metrics);
     if (notification.metrics.extentBefore < threshold) {
       scheduleLoadEarlier(snapshot);
-    } else if (!snapshot.loadingEarlier) {
-      allowLoadEarlierRetry(snapshot);
     }
     if (notification.metrics.extentAfter < threshold) {
       scheduleLoadMore(snapshot);
-    } else if (!snapshot.loadingMore) {
-      allowLoadMoreRetry(snapshot);
     }
   }
 

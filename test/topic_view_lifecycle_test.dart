@@ -1860,7 +1860,7 @@ void main() {
       });
 
       testWidgets(
-        'retries a failed next page on a later scroll without looping',
+        'retries a failed next page only after the reader scrolls',
         (tester) async {
           final site = instance('meta.example');
           final posts = {
@@ -1908,6 +1908,17 @@ void main() {
             for (var id = 1; id <= 20; id++) id,
           ]);
           expect(controller.currentTopicHasMore, isTrue);
+
+          // List extent corrections use programmatic jumps. They are not a
+          // reader asking to retry the page that just failed.
+          list.controller!.jumpTo(
+            list.controller!.position.maxScrollExtent - 1,
+          );
+          await tester.pumpAndSettle();
+
+          expect(api.postFetches, [
+            [for (var id = 21; id <= 26; id++) id],
+          ]);
 
           final vertical = find.byWidgetPredicate(
             (widget) =>
