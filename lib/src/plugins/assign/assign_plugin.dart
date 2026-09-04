@@ -792,30 +792,17 @@ class _TopicAssignmentPropertyRow extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (onChange != null)
-                      if (isPost)
-                        DButton.iconOnly(
-                          key: changeKey,
-                          icon: const DIcon(DIcons.arrowsRotate, size: 13),
-                          tooltip: 'Change assignee',
-                          semanticLabel: 'Change $actionTarget assignment',
-                          variant: DButtonVariant.transparent,
-                          size: DButtonSize.small,
-                          onPressed: writing
-                              ? null
-                              : () => onChange!(anchorContext),
-                        )
-                      else
-                        DButton(
-                          key: changeKey,
-                          label: const Text('Change'),
-                          tooltip: 'Change assignee',
-                          semanticLabel: 'Change topic assignment',
-                          variant: DButtonVariant.transparent,
-                          size: DButtonSize.small,
-                          onPressed: writing
-                              ? null
-                              : () => onChange!(anchorContext),
-                        ),
+                      DButton.iconOnly(
+                        key: changeKey,
+                        icon: const DIcon(DIcons.pencil, size: 13),
+                        tooltip: 'Change assignee',
+                        semanticLabel: 'Change $actionTarget assignment',
+                        variant: DButtonVariant.transparent,
+                        size: DButtonSize.small,
+                        onPressed: writing
+                            ? null
+                            : () => onChange!(anchorContext),
+                      ),
                     if (onRemove != null)
                       DButton.iconOnly(
                         key: removeKey,
