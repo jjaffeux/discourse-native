@@ -479,58 +479,67 @@ class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
       color: theme.discourse.primaryVeryHigh,
     );
 
-    return Scaffold(
-      key: const ValueKey('code-block-fullscreen-view'),
-      backgroundColor: theme.code.blockBackground,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _CodeBlockHeader(
-              language: widget.data.language,
-              centerLanguage: true,
-              languageKey: const ValueKey('code-block-fullscreen-language'),
-              actions: [
-                _CodeCopyButton(text: widget.data.clipboardText),
-                DButton.iconOnly(
-                  key: const ValueKey('code-block-fullscreen-close'),
-                  onPressed: Navigator.of(context).pop,
-                  tooltip: 'Close',
-                  semanticLabel: 'Close code viewer',
-                  variant: DButtonVariant.flat,
-                  size: DButtonSize.small,
-                  icon: const DIcon(DIcons.xmark, size: 18),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () =>
+            Navigator.of(context).maybePop(),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          key: const ValueKey('code-block-fullscreen-view'),
+          backgroundColor: theme.code.blockBackground,
+          body: SafeArea(
+            child: Column(
+              children: [
+                _CodeBlockHeader(
+                  language: widget.data.language,
+                  centerLanguage: true,
+                  languageKey: const ValueKey('code-block-fullscreen-language'),
+                  actions: [
+                    _CodeCopyButton(text: widget.data.clipboardText),
+                    DButton.iconOnly(
+                      key: const ValueKey('code-block-fullscreen-close'),
+                      onPressed: Navigator.of(context).pop,
+                      tooltip: 'Close',
+                      semanticLabel: 'Close code viewer',
+                      variant: DButtonVariant.flat,
+                      size: DButtonSize.small,
+                      icon: const DIcon(DIcons.xmark, size: 18),
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: editor.CodeTheme(
+                    data: editor.CodeThemeData(styles: _editorStyles(theme)),
+                    child: editor.CodeField(
+                      key: const ValueKey('code-block-fullscreen-editor'),
+                      controller: _controller,
+                      readOnly: true,
+                      expands: true,
+                      wrap: false,
+                      background: theme.code.blockBackground,
+                      textStyle: style,
+                      gutterStyle: editor.GutterStyle(
+                        width: 56,
+                        margin: 12,
+                        showErrors: false,
+                        showFoldingHandles: false,
+                        textStyle: style.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      textSelectionTheme: TextSelectionThemeData(
+                        selectionColor: theme.colorScheme.primary.withValues(
+                          alpha: 0.28,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
-            Expanded(
-              child: editor.CodeTheme(
-                data: editor.CodeThemeData(styles: _editorStyles(theme)),
-                child: editor.CodeField(
-                  key: const ValueKey('code-block-fullscreen-editor'),
-                  controller: _controller,
-                  readOnly: true,
-                  expands: true,
-                  wrap: false,
-                  background: theme.code.blockBackground,
-                  textStyle: style,
-                  gutterStyle: editor.GutterStyle(
-                    width: 56,
-                    margin: 12,
-                    showErrors: false,
-                    showFoldingHandles: false,
-                    textStyle: style.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  textSelectionTheme: TextSelectionThemeData(
-                    selectionColor: theme.colorScheme.primary.withValues(
-                      alpha: 0.28,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
