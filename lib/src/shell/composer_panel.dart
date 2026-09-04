@@ -417,6 +417,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   static const double _edgeHandleExtent = 16;
   static const double _cornerHandleExtent =
       _edgeHandleExtent + _composerPanelRadius;
+  static const Duration _geometryRestoreDeadline = Duration(milliseconds: 100);
 
   final GlobalKey _panelKey = GlobalKey();
 
@@ -424,6 +425,7 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   Offset? _position;
   ComposerGeometryPreference? _restoredPreference;
   bool _geometryChanged = false;
+  bool _geometryLoaded = false;
   bool _minimized = false;
   bool _geometryReportScheduled = false;
   Rect? _reportedGeometry;
@@ -444,6 +446,8 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      if (!_geometryLoaded) return const SizedBox.shrink();
+
       final bounds = Size(constraints.maxWidth, constraints.maxHeight);
       final expandedGeometry = _geometryFor(bounds);
       final geometry = _minimized
@@ -842,9 +846,18 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   }
 
   Future<void> _restoreGeometry() async {
-    final preference = await widget.geometryStore.read();
-    if (!mounted || _geometryChanged || preference == null) return;
-    setState(() => _restoredPreference = preference);
+    // The panel must not paint its default geometry and then jump when the
+    // persisted geometry arrives. Storage is optional, so bound how long it
+    // can delay the first correctly positioned frame.
+    final preference = await widget.geometryStore.read().timeout(
+      _geometryRestoreDeadline,
+      onTimeout: () => null,
+    );
+    if (!mounted) return;
+    setState(() {
+      if (!_geometryChanged) _restoredPreference = preference;
+      _geometryLoaded = true;
+    });
   }
 
   void _persistGeometry(Size bounds) {
