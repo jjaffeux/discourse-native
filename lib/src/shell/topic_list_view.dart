@@ -1494,7 +1494,7 @@ class _TopicTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = theme.textTheme.labelMedium?.copyWith(
+    final style = theme.textTheme.labelSmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
 
@@ -1505,8 +1505,8 @@ class _TopicTag extends StatelessWidget {
         semanticLabel: 'Tag: ${tag.name}',
         excludeChildSemantics: true,
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 160, minHeight: 22),
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          constraints: const BoxConstraints(maxWidth: 160, minHeight: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: theme.shell.mention,
             borderRadius: BorderRadius.circular(5),
@@ -1547,9 +1547,9 @@ class _TopicTagOverflow extends StatelessWidget {
       child: ExcludeSemantics(
         child: Container(
           key: const ValueKey('topic-row-tag-overflow'),
-          constraints: const BoxConstraints(minHeight: 22),
+          constraints: const BoxConstraints(minHeight: 20),
           margin: const EdgeInsets.only(right: 5),
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: theme.shell.mention,
             borderRadius: BorderRadius.circular(5),
@@ -1560,7 +1560,7 @@ class _TopicTagOverflow extends StatelessWidget {
             heightFactor: 1,
             child: Text(
               '+$count',
-              style: theme.textTheme.labelMedium?.copyWith(
+              style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1,
               ),
