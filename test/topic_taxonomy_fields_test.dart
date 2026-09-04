@@ -6,6 +6,58 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('editable category row aligns its label, value, and controls', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 320,
+              height: 48,
+              child: TopicPropertyRow(
+                label: 'Category',
+                alignLabelToControl: true,
+                child: TopicCategoryValue(
+                  label: 'Uncategorized',
+                  color: const Color(0xFF888888),
+                  valueKey: const ValueKey('category-value'),
+                  colorKey: const ValueKey('category-color'),
+                  editActionKey: const ValueKey('category-edit-action'),
+                  editIconKey: const ValueKey('category-edit-icon'),
+                  onEdit: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final propertyLabelRect = tester.getRect(find.text('Category'));
+    final categoryLabelRect = tester.getRect(find.text('Uncategorized'));
+    final categoryValueRect = tester.getRect(
+      find.byKey(const ValueKey('category-value')),
+    );
+    final colorRect = tester.getRect(
+      find.byKey(const ValueKey('category-color')),
+    );
+    final editActionRect = tester.getRect(
+      find.byKey(const ValueKey('category-edit-action')),
+    );
+    final editIconRect = tester.getRect(
+      find.byKey(const ValueKey('category-edit-icon')),
+    );
+
+    expect(propertyLabelRect.center.dy, categoryLabelRect.center.dy);
+    expect(colorRect.top - categoryValueRect.top, 4);
+    expect(editActionRect.center.dy, categoryLabelRect.center.dy);
+    expect(editIconRect.center.dy, categoryLabelRect.center.dy);
+  });
+
   testWidgets('a long category path wraps instead of ellipsizing', (
     tester,
   ) async {
