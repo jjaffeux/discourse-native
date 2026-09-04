@@ -1381,7 +1381,11 @@ void _registerTopicReadingTests() {
         tester.getSize(find.bySemanticsLabel('Category: Feature')).height,
         greaterThanOrEqualTo(24),
       );
-      expect(tester.getSize(firstTagLink).height, greaterThanOrEqualTo(22));
+      expect(tester.getSize(firstTagLink).height, closeTo(20, 0.01));
+      expect(
+        tester.widget<Text>(firstTag).style?.fontSize,
+        DiscourseTypography.fontDown2,
+      );
       expect(
         tester.getTopLeft(secondTagLink).dx -
             tester.getTopRight(firstTagLink).dx,
@@ -1701,6 +1705,11 @@ void _registerTopicReadingTests() {
       expect(tester.getSize(firstTag).width, lessThan(80));
       expect(tester.getSize(secondTag).width, lessThan(80));
       expect(tester.getSize(overflow).width, lessThan(80));
+      expect(tester.getSize(overflow).height, tester.getSize(firstTag).height);
+      expect(
+        tester.widget<Text>(find.text('+12')).style?.fontSize,
+        DiscourseTypography.fontDown2,
+      );
       expect(tester.getCenter(secondTag).dy, tester.getCenter(firstTag).dy);
       expect(
         tester.getSemantics(find.text('+12')).label,
