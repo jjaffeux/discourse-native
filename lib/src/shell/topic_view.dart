@@ -1439,10 +1439,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final pinnedSidebarInset = showPinnedSidebar
         ? _TopicSidebarPanel.dockedWidth
         : 0.0;
+    final topicContentWidth = math.max(0.0, viewportWidth - pinnedSidebarInset);
     final readingLane = ContentReadingLane.geometryFor(
       context,
-      availableWidth: viewportWidth,
-      basePadding: EdgeInsets.only(right: pinnedSidebarInset),
+      availableWidth: topicContentWidth,
     );
     _laidOutPostWidth = readingLane.width;
 
@@ -1451,64 +1451,71 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         const topicSkeleton = _TopicLoadingSkeleton(
           key: ValueKey('topic-loading-skeleton'),
         );
-        return Column(
+        return Stack(
           children: [
-            _TopicViewHeader(
-              title: widget.route?.title ?? 'Topic',
-              siteUrl: snapshot.siteUrl,
-              route: widget.route,
-              canReturnToSidebar: widget.canReturnToSidebar,
-              sidebarVisible: showPinnedSidebar || showOverlaySidebar,
-              onToggleSidebar: showOverlaySidebar
-                  ? null
-                  : () => _toggleSidebar(canPinSidebar: canPinSidebar),
-            ),
-            Expanded(
-              child: Stack(
+            Positioned.fill(
+              right: pinnedSidebarInset,
+              child: Column(
                 children: [
-                  Positioned.fill(
-                    child: Padding(
-                      padding: readingLane.padding,
-                      child: topicSkeleton,
+                  _TopicViewHeader(
+                    title: widget.route?.title ?? 'Topic',
+                    siteUrl: snapshot.siteUrl,
+                    route: widget.route,
+                    canReturnToSidebar: widget.canReturnToSidebar,
+                    sidebarVisible: showPinnedSidebar || showOverlaySidebar,
+                    onToggleSidebar: showOverlaySidebar
+                        ? null
+                        : () => _toggleSidebar(canPinSidebar: canPinSidebar),
+                  ),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Padding(
+                            padding: readingLane.padding,
+                            child: topicSkeleton,
+                          ),
+                        ),
+                        if (showOverlaySidebar)
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: _TopicSidebarPanel(
+                              width: _sidebarOverlayWidth(context),
+                              siteUrl: snapshot.siteUrl,
+                              topic: null,
+                              recommendations: null,
+                              loading: true,
+                              selected: _recommendationsSourceId,
+                              onSelected: _setRecommendationsSource,
+                              onCollapsed: () => _setSidebarOverlayOpen(false),
+                              route: widget.route,
+                              registry: widget.registry,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  if (showPinnedSidebar)
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: _TopicSidebarPanel(
-                        siteUrl: snapshot.siteUrl,
-                        topic: null,
-                        recommendations: null,
-                        loading: true,
-                        selected: _recommendationsSourceId,
-                        onSelected: _setRecommendationsSource,
-                        route: widget.route,
-                        registry: widget.registry,
-                      ),
-                    ),
-                  if (showOverlaySidebar)
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: _TopicSidebarPanel(
-                        width: _sidebarOverlayWidth(context),
-                        siteUrl: snapshot.siteUrl,
-                        topic: null,
-                        recommendations: null,
-                        loading: true,
-                        selected: _recommendationsSourceId,
-                        onSelected: _setRecommendationsSource,
-                        onCollapsed: () => _setSidebarOverlayOpen(false),
-                        route: widget.route,
-                        registry: widget.registry,
-                      ),
-                    ),
                 ],
               ),
             ),
+            if (showPinnedSidebar)
+              Positioned(
+                top: 0,
+                right: 0,
+                bottom: 0,
+                child: _TopicSidebarPanel(
+                  siteUrl: snapshot.siteUrl,
+                  topic: null,
+                  recommendations: null,
+                  loading: true,
+                  selected: _recommendationsSourceId,
+                  onSelected: _setRecommendationsSource,
+                  route: widget.route,
+                  registry: widget.registry,
+                ),
+              ),
           ],
         );
       }
@@ -1638,9 +1645,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           )),
           controller: _scroll,
           listController: _list,
-          // The post viewport itself stays full width so it owns the only
-          // vertical scrollbar. The pinned sidebar floats above its right
-          // edge; this inner inset keeps post content from sitting beneath it.
+          // The viewport owns the topic column only. A pinned sidebar is a
+          // separate structural column, so no compensating inset is needed.
           padding: readingLane.padding,
           // A short around-post window still needs to accept a pull toward the
           // top, both to fetch and to retry an earlier page. Once post one is in
@@ -1798,119 +1804,121 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final showProgress =
         progressPosition != null && snapshot.streamIds.length > 1;
     final showBottomBar = showProgress || widget.canReply;
-    return Column(
+    return Stack(
       children: [
-        _TopicViewHeader(
-          title: snapshot.topic!.title,
-          siteUrl: siteUrl,
-          route: widget.route,
-          topic: snapshot.topic!,
-          isConnected: widget.isConnected,
-          bookmarkBusy: widget.bookmarkBusy,
-          canReturnToSidebar: widget.canReturnToSidebar,
-          sidebarVisible: showPinnedSidebar || showOverlaySidebar,
-          onToggleSidebar: showOverlaySidebar
-              ? null
-              : () => _toggleSidebar(canPinSidebar: canPinSidebar),
-        ),
-        Expanded(
-          child: Stack(
+        Positioned.fill(
+          right: pinnedSidebarInset,
+          child: Column(
             children: [
-              Positioned.fill(
-                child: Column(
+              _TopicViewHeader(
+                title: snapshot.topic!.title,
+                siteUrl: siteUrl,
+                route: widget.route,
+                topic: snapshot.topic!,
+                isConnected: widget.isConnected,
+                bookmarkBusy: widget.bookmarkBusy,
+                canReturnToSidebar: widget.canReturnToSidebar,
+                sidebarVisible: showPinnedSidebar || showOverlaySidebar,
+                onToggleSidebar: showOverlaySidebar
+                    ? null
+                    : () => _toggleSidebar(canPinSidebar: canPinSidebar),
+              ),
+              Expanded(
+                child: Stack(
                   children: [
-                    Padding(
-                      padding: EdgeInsets.only(right: pinnedSidebarInset),
-                      child: _TopicPostSelectionToolbar(
-                        siteUrl: siteUrl,
-                        topic: snapshot.topic!,
-                      ),
-                    ),
-                    Expanded(
-                      child: Stack(
-                        clipBehavior: Clip.hardEdge,
+                    Positioned.fill(
+                      child: Column(
                         children: [
-                          Positioned.fill(child: postStream),
-                          if (floatingDay != null)
-                            Positioned(
-                              left: readingLane.padding.left,
-                              right: readingLane.padding.right,
-                              top: _floatingDayOffset,
-                              child: StreamDaySeparator(
-                                key: ValueKey((
-                                  'topic-floating-day',
-                                  floatingDay,
-                                )),
-                                day: floatingDay,
-                                floating: true,
-                                onTap: () => _jumpToDayStart(floatingDay),
-                              ),
+                          _TopicPostSelectionToolbar(
+                            siteUrl: siteUrl,
+                            topic: snapshot.topic!,
+                          ),
+                          Expanded(
+                            child: Stack(
+                              clipBehavior: Clip.hardEdge,
+                              children: [
+                                Positioned.fill(child: postStream),
+                                if (floatingDay != null)
+                                  Positioned(
+                                    left: readingLane.padding.left,
+                                    right: readingLane.padding.right,
+                                    top: _floatingDayOffset,
+                                    child: StreamDaySeparator(
+                                      key: ValueKey((
+                                        'topic-floating-day',
+                                        floatingDay,
+                                      )),
+                                      day: floatingDay,
+                                      floating: true,
+                                      onTap: () => _jumpToDayStart(floatingDay),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (showBottomBar)
+                            _TopicBottomBar(
+                              progressPosition: showProgress
+                                  ? progressPosition
+                                  : null,
+                              totalPosts: snapshot.streamIds.length,
+                              canReply: widget.canReply,
+                              onProgressPressed: showProgress
+                                  ? () => unawaited(
+                                      showTopicProgress(
+                                        context: context,
+                                        controller: controller,
+                                        position: progressPosition,
+                                        total: snapshot.streamIds.length,
+                                      ),
+                                    )
+                                  : null,
+                              onReplyPressed: controller.openReply,
                             ),
                         ],
                       ),
                     ),
-                    if (showBottomBar)
-                      Padding(
-                        padding: EdgeInsets.only(right: pinnedSidebarInset),
-                        child: _TopicBottomBar(
-                          progressPosition: showProgress
-                              ? progressPosition
-                              : null,
-                          totalPosts: snapshot.streamIds.length,
-                          canReply: widget.canReply,
-                          onProgressPressed: showProgress
-                              ? () => unawaited(
-                                  showTopicProgress(
-                                    context: context,
-                                    controller: controller,
-                                    position: progressPosition,
-                                    total: snapshot.streamIds.length,
-                                  ),
-                                )
-                              : null,
-                          onReplyPressed: controller.openReply,
+                    if (showOverlaySidebar)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: _TopicSidebarPanel(
+                          width: _sidebarOverlayWidth(context),
+                          siteUrl: siteUrl,
+                          topic: snapshot.topic!,
+                          recommendations: snapshot.recommendations,
+                          loading:
+                              recommendationsPending || snapshot.loadingMore,
+                          selected: _recommendationsSourceId,
+                          onSelected: _setRecommendationsSource,
+                          onCollapsed: () => _setSidebarOverlayOpen(false),
+                          route: widget.route,
+                          registry: widget.registry,
                         ),
                       ),
                   ],
                 ),
               ),
-              if (showPinnedSidebar)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: _TopicSidebarPanel(
-                    siteUrl: siteUrl,
-                    topic: snapshot.topic!,
-                    recommendations: snapshot.recommendations,
-                    loading: recommendationsPending || snapshot.loadingMore,
-                    selected: _recommendationsSourceId,
-                    onSelected: _setRecommendationsSource,
-                    route: widget.route,
-                    registry: widget.registry,
-                  ),
-                ),
-              if (showOverlaySidebar)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: _TopicSidebarPanel(
-                    width: _sidebarOverlayWidth(context),
-                    siteUrl: siteUrl,
-                    topic: snapshot.topic!,
-                    recommendations: snapshot.recommendations,
-                    loading: recommendationsPending || snapshot.loadingMore,
-                    selected: _recommendationsSourceId,
-                    onSelected: _setRecommendationsSource,
-                    onCollapsed: () => _setSidebarOverlayOpen(false),
-                    route: widget.route,
-                    registry: widget.registry,
-                  ),
-                ),
             ],
           ),
         ),
+        if (showPinnedSidebar)
+          Positioned(
+            top: 0,
+            right: 0,
+            bottom: 0,
+            child: _TopicSidebarPanel(
+              siteUrl: siteUrl,
+              topic: snapshot.topic!,
+              recommendations: snapshot.recommendations,
+              loading: recommendationsPending || snapshot.loadingMore,
+              selected: _recommendationsSourceId,
+              onSelected: _setRecommendationsSource,
+              route: widget.route,
+              registry: widget.registry,
+            ),
+          ),
       ],
     );
   }
@@ -2522,9 +2530,12 @@ class _TopicSidebarPanel extends StatelessWidget {
     return SizedBox(
       key: const ValueKey('topic-sidebar-panel'),
       width: width,
-      child: Padding(
+      child: DecoratedBox(
         key: const ValueKey('topic-sidebar-surface'),
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+        decoration: BoxDecoration(
+          color: theme.shell.panel,
+          border: Border(left: BorderSide(color: theme.shell.divider)),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -2549,7 +2560,6 @@ class _TopicSidebarPanel extends StatelessWidget {
                         registry: registry,
                       ),
                     if (recommendations?.isNotEmpty == true || loading) ...[
-                      const SizedBox(height: 12),
                       _TopicSidebarCard(
                         key: const ValueKey('topic-more-topics-card'),
                         child: switch (recommendations) {
@@ -2628,26 +2638,30 @@ class _TopicSidebarActions extends StatelessWidget {
               UserMenuButton(ringColor: theme.shell.panel),
             ],
           ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (onCollapsed != null)
-          Row(
-            children: [
-              const Spacer(),
-              if (onCollapsed case final onPressed?) ...[
-                const SizedBox(width: 4),
-                _TopicSidebarToggle(showSidebar: false, onPressed: onPressed),
+    if (onCollapsed == null && secondaryActions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (onCollapsed != null)
+            Row(
+              children: [
+                const Spacer(),
+                if (onCollapsed case final onPressed?) ...[
+                  const SizedBox(width: 4),
+                  _TopicSidebarToggle(showSidebar: false, onPressed: onPressed),
+                ],
               ],
-            ],
-          ),
-        if (secondaryActions.isNotEmpty) ...[
-          if (onCollapsed != null) const SizedBox(height: 8),
-          Row(children: secondaryActions),
+            ),
+          if (secondaryActions.isNotEmpty) ...[
+            if (onCollapsed != null) const SizedBox(height: 8),
+            Row(children: secondaryActions),
+          ],
         ],
-        if (onCollapsed != null || secondaryActions.isNotEmpty)
-          const SizedBox(height: 12),
-      ],
+      ),
     );
   }
 }
@@ -2838,10 +2852,8 @@ class _TopicPropertiesCard extends StatelessWidget {
               ),
             ),
           ),
-          for (final section in standaloneSections) ...[
-            const SizedBox(height: 12),
+          for (final section in standaloneSections)
             _TopicStandalonePropertyCard(section: section),
-          ],
         ],
       );
     }
@@ -2910,11 +2922,9 @@ class _TopicSidebarCard extends StatelessWidget {
     final theme = Theme.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainer,
-        border: Border.all(color: theme.shell.divider),
-        borderRadius: BorderRadius.circular(12),
+        border: Border(bottom: BorderSide(color: theme.shell.divider)),
       ),
-      child: ClipRRect(borderRadius: BorderRadius.circular(11), child: child),
+      child: child,
     );
   }
 }

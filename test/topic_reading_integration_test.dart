@@ -2450,7 +2450,7 @@ void _registerTopicReadingTests() {
     );
 
     testWidgets(
-      'lays the header across the sidebar and keeps topic actions in a safe bottom bar',
+      'separates the header and bottom bar from the structural sidebar',
       (tester) async {
         const longTitle =
             'Chris weekly update for 2026 with roadmap decisions, operational '
@@ -2588,14 +2588,19 @@ void _registerTopicReadingTests() {
         final replyRect = tester.getRect(replyButton);
         final bottomBarRect = tester.getRect(bottomBar);
         final moreRect = tester.getRect(more);
-        expect(sidebarRect.top, headerRect.bottom);
+        expect(sidebarRect.top, topicRect.top);
         expect(sidebarRect.bottom, topicRect.bottom);
         expect(headerRect.left, topicRect.left);
-        expect(headerRect.right, topicRect.right);
+        expect(headerRect.right, sidebarRect.left);
         expect(surfaceRect, sidebarRect);
+        final sidebarDecoration =
+            tester.widget<DecoratedBox>(sidebarSurface).decoration
+                as BoxDecoration;
+        final sidebarTheme = Theme.of(tester.element(sidebarSurface));
+        expect(sidebarDecoration.color, sidebarTheme.shell.panel);
         expect(
-          tester.widget<Padding>(sidebarSurface).padding,
-          const EdgeInsets.fromLTRB(12, 12, 12, 16),
+          sidebarDecoration.border,
+          Border(left: BorderSide(color: sidebarTheme.shell.divider)),
         );
         final sidebarScroll = find.byKey(
           const ValueKey('topic-sidebar-scroll-view'),
@@ -2618,11 +2623,11 @@ void _registerTopicReadingTests() {
         );
         expect(
           tester.getRect(find.byType(SuperListView)).right,
-          topicRect.right,
+          sidebarRect.left,
         );
         expect(
           tester.widget<SuperListView>(find.byType(SuperListView)).padding,
-          const EdgeInsets.only(right: 344),
+          EdgeInsets.zero,
         );
         expect(titleRect.right, lessThanOrEqualTo(moreRect.left));
         expect(shareRect.right, lessThanOrEqualTo(bookmarkRect.left));
@@ -5018,7 +5023,7 @@ void _registerTopicReadingTests() {
       expect(find.text('A suggested topic'), findsOneWidget);
       expect(
         tester.getSize(find.byType(SuperListView)).width,
-        loadingPostWidth + 344,
+        loadingPostWidth,
       );
       semantics.dispose();
     });
@@ -5092,7 +5097,7 @@ void _registerTopicReadingTests() {
           .width;
       expect(
         tester.widget<SuperListView>(find.byType(SuperListView)).padding,
-        const EdgeInsets.only(right: 344),
+        EdgeInsets.zero,
       );
 
       await tester.tap(find.byTooltip('Hide topic sidebar'));
@@ -5102,7 +5107,7 @@ void _registerTopicReadingTests() {
       expect(find.text('Remembered suggestion'), findsNothing);
       expect(
         tester.getSize(find.byType(SuperListView)).width,
-        postViewportWidth,
+        postViewportWidth + 344,
       );
       expect(
         tester.widget<SuperListView>(find.byType(SuperListView)).padding,
