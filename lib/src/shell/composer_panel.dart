@@ -164,6 +164,7 @@ class ComposerPanel extends StatelessWidget {
                   children: [
                     _Header(
                       composer: composer,
+                      minimized: minimized,
                       onClose: close,
                       closeTooltip: composer.canSaveDraft
                           ? 'Save and close'
@@ -2989,6 +2990,7 @@ class _ExistingGalleryImagesDialogState
 class _Header extends StatelessWidget {
   const _Header({
     required this.composer,
+    required this.minimized,
     required this.onClose,
     required this.closeTooltip,
     this.onMinimize,
@@ -2998,6 +3000,7 @@ class _Header extends StatelessWidget {
   });
 
   final ComposerController composer;
+  final bool minimized;
   final VoidCallback onClose;
   final String closeTooltip;
   final VoidCallback? onMinimize;
@@ -3039,7 +3042,9 @@ class _Header extends StatelessWidget {
         !target.replyingToWhisper;
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-    final pluginControls = registry.composerHeader(context, composer);
+    final pluginControls = minimized
+        ? const <Widget>[]
+        : registry.composerHeader(context, composer);
 
     final header = SizedBox(
       key: const ValueKey('composer-drag-handle'),
