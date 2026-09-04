@@ -282,7 +282,7 @@ void main() {
         expect(api.topicReadsRecorded.last, (topicId: 1, postNumber: 2));
       });
 
-      testWidgets('boundary shortcuts jump to the start and end of the topic', (
+      testWidgets('keyboard navigation scrolls and jumps through the topic', (
         tester,
       ) async {
         final site = instance('meta.example');
@@ -303,6 +303,16 @@ void main() {
         expect(position.maxScrollExtent, greaterThan(0));
 
         position.jumpTo(position.maxScrollExtent / 2);
+        final middle = position.pixels;
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown), isTrue);
+        await tester.pumpAndSettle();
+        expect(position.pixels, greaterThan(middle));
+
+        final afterDown = position.pixels;
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp), isTrue);
+        await tester.pumpAndSettle();
+        expect(position.pixels, lessThan(afterDown));
+
         expect(await tester.sendKeyEvent(LogicalKeyboardKey.home), isTrue);
         await tester.pump();
         expect(position.pixels, position.minScrollExtent);

@@ -335,6 +335,7 @@ class _TopicListViewState extends State<TopicListView> {
                     key: ValueKey(('topic-list-boundary', feedIdentity)),
                     debugLabel: 'topic list',
                     initiallyActive: true,
+                    scrollController: _scroll!,
                     onStart: () => _jumpToBoundary(end: false),
                     onEnd: () => _jumpToBoundary(end: true),
                     child: SuperListView.separated(
