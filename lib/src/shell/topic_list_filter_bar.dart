@@ -215,6 +215,7 @@ class _SubcategoryFilterAnchor extends StatelessWidget {
     final optionTextStyle = Theme.of(context).textTheme.bodySmall;
     return ChoiceMenuAnchor<int>(
       title: 'Subcategories of ${parent.name}',
+      showPopoverTitle: false,
       value: selected?.id ?? 0,
       options: [
         ChoiceMenuOption<int>(
