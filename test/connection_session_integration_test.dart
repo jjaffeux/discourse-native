@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/notification_type_counts.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -423,6 +424,12 @@ void _registerConnectionSessionTests() {
       await tester.pumpAndSettle();
     }
 
+    Future<void> openOther(WidgetTester tester) async {
+      await openMenu(tester);
+      await tester.tap(find.text('Other'));
+      await tester.pumpAndSettle();
+    }
+
     Future<void> openChat(WidgetTester tester) async {
       await openMenu(tester);
       await tester.tap(find.text('Chat'));
@@ -514,6 +521,138 @@ void _registerConnectionSessionTests() {
 
       expect(find.text('Profile'), findsOneWidget);
       expect(find.textContaining('sam replied to'), findsNothing);
+    });
+
+    testWidgets('Other renders notification types not claimed by another tab', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        totals: chatEnabledTotals,
+        siteNotificationTypeList: const [
+          CoreNotificationTypes.replied,
+          CoreNotificationTypes.liked,
+          NotificationWireType(25, 'reaction'),
+          CoreNotificationTypes.privateMessage,
+          CoreNotificationTypes.bookmarkReminder,
+          NotificationWireType(29, 'chat_mention'),
+          NotificationWireType(34, 'assigned'),
+          CoreNotificationTypes.grantedBadge,
+          CoreNotificationTypes.custom,
+          NotificationWireType(4242, 'plugin_alert'),
+        ],
+        otherNotificationList: [notifications[2], notifications[3]],
+      );
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openOther(tester);
+
+      expect(api.siteNotificationTypesRequested, [
+        'https://meta.discourse.org',
+      ]);
+      expect(api.otherNotificationCalls, 1);
+      expect(api.notificationFilters.single, const [
+        NotificationTypeName('assigned'),
+        NotificationTypeName('granted_badge'),
+        NotificationTypeName('custom'),
+        NotificationTypeName('plugin_alert'),
+      ]);
+      expect(
+        find.textContaining('You earned the Nice Reply badge'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Something from a plugin'), findsOneWidget);
+      expect(
+        find.textContaining('posts waiting in the review queue'),
+        findsNothing,
+      );
+      expect(find.byType(OtherNotificationsSection), findsOneWidget);
+    });
+
+    testWidgets('Other counts only unread types that belong to that tab', (
+      tester,
+    ) async {
+      final withCounts = connected.single.copyWith(
+        notificationTotals: chatNotificationTotals(unseenReviewables: 9)
+            .copyWith(
+              groupedUnreadNotifications: NotificationTypeCounts.fromWire(
+                const {'2': 2, '5': 3, '12': 4, '29': 6, '4242': 7},
+              ),
+            ),
+      );
+
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [withCounts],
+          api: FakeDiscourseApi(notificationList: const []),
+          authenticator: signedIn(),
+        );
+        await openMenu(tester);
+
+        final otherTab = find.byKey(const ValueKey('user-menu-tab-other'));
+        expect(
+          find.descendant(of: otherTab, matching: find.text('11')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: otherTab, matching: find.text('9')),
+          findsNothing,
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+
+    testWidgets('Other can retry a failed filtered request', (tester) async {
+      final api = FakeDiscourseApi();
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openOther(tester);
+
+      expect(find.textContaining("Couldn't reach"), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+
+      expect(api.otherNotificationCalls, 2);
+      expect(api.siteNotificationTypesRequested, [
+        'https://meta.discourse.org',
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an empty Other tab explains that there is no activity', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(otherNotificationList: const []);
+
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        api: api,
+        authenticator: signedIn(),
+      );
+      await openOther(tester);
+
+      expect(
+        find.text('You don’t have any other notifications yet.'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a title bar takes the avatar off the columns', (tester) async {

@@ -174,12 +174,19 @@ final class PluginUserMenuSection {
     required this.builder,
     this.badge = 0,
     this.linkWhenActive,
+    this.notificationTypes = const [],
   });
 
   final PluginUserMenuSectionId id;
   final DIconData icon;
   final String label;
   final int badge;
+
+  /// Notification types claimed by this section while it is visible.
+  ///
+  /// The core user menu subtracts the types owned by visible tabs when it
+  /// builds the Other notifications feed.
+  final List<NotificationTypeName> notificationTypes;
 
   /// Relative forum path opened when an already-selected desktop tab is
   /// selected again. This mirrors Discourse's user-menu tab contract while

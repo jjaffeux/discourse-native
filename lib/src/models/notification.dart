@@ -158,6 +158,20 @@ const userMenuReplyNotificationTypes = <NotificationTypeName>[
   NotificationTypeName('replied'),
 ];
 
+/// Notification types already owned by a dedicated core user-menu tab.
+///
+/// Discourse builds the Other tab by subtracting these names, plus the names
+/// claimed by plugin tabs, from the site's live notification-type catalog.
+const userMenuDedicatedNotificationTypes = <NotificationTypeName>[
+  ...userMenuReplyNotificationTypes,
+  NotificationTypeName('liked'),
+  NotificationTypeName('liked_consolidated'),
+  NotificationTypeName('reaction'),
+  NotificationTypeName('private_message'),
+  NotificationTypeName('group_message_summary'),
+  NotificationTypeName('bookmark_reminder'),
+];
+
 @immutable
 final class DiscourseNotification {
   factory DiscourseNotification({

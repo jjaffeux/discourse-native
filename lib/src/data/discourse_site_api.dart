@@ -208,6 +208,25 @@ final class DiscourseSiteApi {
     }
   }
 
+  Future<List<NotificationWireType>> siteNotificationTypes({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final body = await _getObject(
+      Uri.parse('$siteUrl/site.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    final types = jsonObject(body['notification_types']);
+    return List.unmodifiable([
+      for (final entry in types.entries)
+        if (jsonIntOrNull(entry.value) case final id? when id > 0)
+          NotificationWireType(id, entry.key),
+    ]);
+  }
+
   Future<Map<String, String>> customEmojis({
     required String siteUrl,
     String? apiKey,

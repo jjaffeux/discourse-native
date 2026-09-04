@@ -1440,6 +1440,7 @@ final class PluginRegistry
             label: section.label,
             badge: section.badge,
             linkWhenActive: linkWhenActive,
+            notificationTypes: List.unmodifiable(section.notificationTypes),
             builder: (buildContext, actions) => PluginUiScope.own(
               owner,
               section.builder(

@@ -184,6 +184,7 @@ class ChatPlugin
             icon: DIcons.comment,
             label: 'Chat',
             badge: context.totals?.chatNotifications ?? 0,
+            notificationTypes: chatNotificationFeed.filterByTypes,
             builder: (buildContext, actions) => ChatUserMenuNotifications(
               siteUrl: context.siteUrl,
               onOpened: actions.onDismiss,

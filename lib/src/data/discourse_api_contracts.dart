@@ -292,6 +292,12 @@ abstract interface class ShellSiteApi {
     String? clientId,
   });
 
+  Future<List<NotificationWireType>> siteNotificationTypes({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  });
+
   Future<Map<String, String>> customEmojis({
     required String siteUrl,
     String? apiKey,

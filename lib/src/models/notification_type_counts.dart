@@ -35,6 +35,15 @@ final class NotificationTypeCounts {
   int count(NotificationWireType type) =>
       _counts?[NotificationTypeId(type.wireId)] ?? 0;
 
+  int totalExcluding(Iterable<NotificationTypeId> excluded) {
+    final counts = _counts;
+    if (counts == null) return 0;
+    final omitted = excluded.toSet();
+    return counts.entries
+        .where((entry) => !omitted.contains(entry.key))
+        .fold(0, (total, entry) => total + entry.value);
+  }
+
   Map<String, int>? toJson() {
     final counts = _counts;
     if (counts == null) return null;
