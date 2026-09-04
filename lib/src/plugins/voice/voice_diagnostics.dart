@@ -116,6 +116,7 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
   VoiceDiagnosticsController._({
     required this._reporter,
     required this._persistence,
+    required this._hydration,
     required this._clock,
     required this._timerFactory,
     required this._captureIdFactory,
@@ -161,7 +162,8 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
   static const Duration retentionRetryDelay = Duration(minutes: 1);
 
   final PluginDiagnosticsReporter _reporter;
-  final VoiceDiagnosticsPersistence _persistence;
+  VoiceDiagnosticsPersistence _persistence;
+  final Completer<void> _hydration;
   final DateTime Function() _clock;
   final VoiceDiagnosticsTimerFactory _timerFactory;
   final String Function() _captureIdFactory;
@@ -171,7 +173,7 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
   final String _writerId;
   final List<VoiceDiagnosticsSdkLogBridge> _sdkLogBridges;
   final String? _homeDirectory;
-  final bool _durableStorageUnavailable;
+  bool _durableStorageUnavailable;
   VoiceDiagnosticsState _state;
   final ValueNotifier<VoiceDiagnosticsState> _stateNotifier;
   final ValueNotifier<List<VoiceDiagnosticRecord>> _eventsNotifier;
@@ -210,6 +212,43 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
     Iterable<VoiceDiagnosticsSdkLogBridge> sdkLogBridges = const [],
     String? homeDirectory,
   }) async {
+    final controller = createDeferred(
+      reporter: reporter,
+      persistence: persistence,
+      persistenceFactory: persistenceFactory,
+      clock: clock,
+      timerFactory: timerFactory,
+      captureIdFactory: captureIdFactory,
+      eventsTailLimit: eventsTailLimit,
+      eventsTailBytesLimit: eventsTailBytesLimit,
+      pendingWritesBytesLimit: pendingWritesBytesLimit,
+      writerIdFactory: writerIdFactory,
+      sdkLogBridges: sdkLogBridges,
+      homeDirectory: homeDirectory,
+    );
+    await controller.flush();
+    return controller;
+  }
+
+  /// Creates an immediately usable recorder while retained history hydrates.
+  ///
+  /// Ordinary diagnostics are forwarded synchronously from [record]. Deep
+  /// capture records remain memory-bounded and are serialized behind the
+  /// hydration read, so they cannot overtake retained history on disk.
+  static VoiceDiagnosticsController createDeferred({
+    PluginDiagnosticsReporter reporter = const PluginDiagnosticsReporter.noop(),
+    VoiceDiagnosticsPersistence? persistence,
+    Future<VoiceDiagnosticsPersistence> Function()? persistenceFactory,
+    DateTime Function()? clock,
+    VoiceDiagnosticsTimerFactory? timerFactory,
+    String Function()? captureIdFactory,
+    int eventsTailLimit = defaultEventsTailLimit,
+    int eventsTailBytesLimit = defaultEventsTailBytesLimit,
+    int pendingWritesBytesLimit = defaultPendingWritesBytesLimit,
+    String Function()? writerIdFactory,
+    Iterable<VoiceDiagnosticsSdkLogBridge> sdkLogBridges = const [],
+    String? homeDirectory,
+  }) {
     if (eventsTailLimit <= 0) {
       throw ArgumentError.value(
         eventsTailLimit,
@@ -237,33 +276,11 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
       homeDirectory: homeDirectory,
       maximumLength: 256,
     );
-    VoiceDiagnosticsPersistence resolvedPersistence;
-    Object? persistenceError;
-    String? persistenceErrorOperation;
-    var durableStorageUnavailable = false;
-    try {
-      resolvedPersistence =
-          persistence ??
-          await (persistenceFactory?.call() ??
-              FileVoiceDiagnosticsPersistence.applicationSupport());
-    } on Object catch (error) {
-      resolvedPersistence = MemoryVoiceDiagnosticsPersistence();
-      durableStorageUnavailable = true;
-      persistenceError = error;
-      persistenceErrorOperation = 'voice.deep_capture.create';
-    }
-
-    VoiceDiagnosticsPersistenceState stored;
-    try {
-      stored = await resolvedPersistence.load(nowUtc: resolvedClock());
-    } on Object catch (error) {
-      stored = const VoiceDiagnosticsPersistenceState();
-      persistenceError = error;
-      persistenceErrorOperation = 'voice.deep_capture.load';
-    }
+    final hydration = Completer<void>();
     final controller = VoiceDiagnosticsController._(
       reporter: reporter,
-      persistence: resolvedPersistence,
+      persistence: MemoryVoiceDiagnosticsPersistence(),
+      hydration: hydration,
       clock: resolvedClock,
       timerFactory: timerFactory ?? Timer.new,
       captureIdFactory: captureIdFactory ?? _newCaptureId,
@@ -273,43 +290,87 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
       writerId: writerId,
       sdkLogBridges: List.unmodifiable(sdkLogBridges),
       homeDirectory: homeDirectory,
-      durableStorageUnavailable: durableStorageUnavailable,
-      stored: stored,
+      durableStorageUnavailable: false,
+      stored: const VoiceDiagnosticsPersistenceState(),
     );
     _liveVoiceDiagnosticsWriterIds.add(writerId);
-    if (persistenceError != null) {
-      controller._reportPersistenceError(
-        persistenceError,
-        operation: persistenceErrorOperation ?? 'voice.deep_capture.create',
-      );
-    }
-    final outstandingCaptures = stored.activeCaptures.isNotEmpty
-        ? stored.activeCaptures.values
-        : [
-            if (stored.activeCaptureId case final captureId?)
-              VoiceDiagnosticsActiveCapture(
-                writerId: 'legacy',
-                captureId: captureId,
-                startedAtUtc:
-                    stored.activeCaptureStartedAtUtc ?? resolvedClock(),
-              ),
-          ];
-    for (final outstanding in outstandingCaptures) {
-      if (_isVoiceDiagnosticsWriterAlive(outstanding.writerId)) continue;
-      controller._recordCaptured(
-        event: 'capture.interrupted',
-        component: 'capture',
-        severity: DiagnosticSeverity.warning,
-        correlationId: null,
-        message: 'The previous capture ended without a stop marker.',
-        data: {
-          'startedAtUtc': outstanding.startedAtUtc.toUtc().toIso8601String(),
-        },
-        captureId: outstanding.captureId,
-      );
-    }
-    await controller.flush();
+    unawaited(
+      Future<void>.microtask(
+        () => controller._hydrate(
+          persistence: persistence,
+          persistenceFactory: persistenceFactory,
+        ),
+      ),
+    );
     return controller;
+  }
+
+  Future<void> _hydrate({
+    required VoiceDiagnosticsPersistence? persistence,
+    required Future<VoiceDiagnosticsPersistence> Function()? persistenceFactory,
+  }) async {
+    try {
+      VoiceDiagnosticsPersistence resolvedPersistence;
+      Object? persistenceError;
+      var persistenceErrorOperation = 'voice.deep_capture.create';
+      var durableStorageUnavailable = false;
+      try {
+        resolvedPersistence =
+            persistence ??
+            await (persistenceFactory?.call() ??
+                FileVoiceDiagnosticsPersistence.applicationSupport());
+      } on Object catch (error) {
+        resolvedPersistence = MemoryVoiceDiagnosticsPersistence();
+        durableStorageUnavailable = true;
+        persistenceError = error;
+      }
+
+      VoiceDiagnosticsPersistenceState stored;
+      try {
+        stored = await resolvedPersistence.load(nowUtc: _clock());
+      } on Object catch (error) {
+        stored = const VoiceDiagnosticsPersistenceState();
+        persistenceError = error;
+        persistenceErrorOperation = 'voice.deep_capture.load';
+      }
+      _persistence = resolvedPersistence;
+      _durableStorageUnavailable = durableStorageUnavailable;
+      _adoptHydratedState(stored);
+      if (persistenceError != null) {
+        _reportPersistenceError(
+          persistenceError,
+          operation: persistenceErrorOperation,
+        );
+      }
+      final outstandingCaptures = stored.activeCaptures.isNotEmpty
+          ? stored.activeCaptures.values
+          : [
+              if (stored.activeCaptureId case final captureId?)
+                VoiceDiagnosticsActiveCapture(
+                  writerId: 'legacy',
+                  captureId: captureId,
+                  startedAtUtc: stored.activeCaptureStartedAtUtc ?? _clock(),
+                ),
+            ];
+      for (final outstanding in outstandingCaptures) {
+        if (_isVoiceDiagnosticsWriterAlive(outstanding.writerId)) continue;
+        _recordCaptured(
+          event: 'capture.interrupted',
+          component: 'capture',
+          severity: DiagnosticSeverity.warning,
+          correlationId: null,
+          message: 'The previous capture ended without a stop marker.',
+          data: {
+            'startedAtUtc': outstanding.startedAtUtc.toUtc().toIso8601String(),
+          },
+          captureId: outstanding.captureId,
+        );
+      }
+    } on Object catch (error) {
+      _reportPersistenceError(error, operation: 'voice.deep_capture.load');
+    } finally {
+      _hydration.complete();
+    }
   }
 
   ValueListenable<VoiceDiagnosticsState> get stateListenable => _stateNotifier;
@@ -546,6 +607,7 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
   }
 
   Future<void> flush() async {
+    await _hydration.future;
     await _drainPendingWrites();
     await _persistenceTail;
     try {
@@ -689,6 +751,7 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
     if (state.enabled || _installedSdkLogBridges.isNotEmpty) {
       await _stopCapture();
     }
+    await _hydration.future;
     _retentionExpiryTimer?.cancel();
     _retentionExpiryTimer = null;
     _closed = true;
@@ -898,6 +961,7 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
 
   Future<void> _runWriteWorker() async {
     try {
+      await _hydration.future;
       while (_pendingWrites.isNotEmpty) {
         final batch = List<VoiceDiagnosticRecord>.of(_pendingWrites);
         _pendingWrites.clear();
@@ -944,6 +1008,45 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
       _eventsTailBytes += bytes;
     }
     _lastRecordTimestampUtc = records.lastOrNull?.timestampUtc;
+  }
+
+  void _adoptHydratedState(VoiceDiagnosticsPersistenceState stored) {
+    final localDroppedRecords = state.droppedRecords;
+    final localTruncated = state.truncated;
+    final pending = <VoiceDiagnosticRecord>[];
+    var timestampHighWater = stored.records.lastOrNull?.timestampUtc;
+    for (final original in _pendingWrites) {
+      final record =
+          timestampHighWater != null &&
+              original.timestampUtc.isBefore(timestampHighWater)
+          ? original.copyWith(timestampUtc: timestampHighWater)
+          : original;
+      pending.add(record);
+      timestampHighWater = record.timestampUtc;
+    }
+    _pendingWrites
+      ..clear()
+      ..addAll(pending);
+    _pendingWritesBytes = pending.fold<int>(
+      0,
+      (total, record) => total + voiceDiagnosticSerializedBytes(record),
+    );
+    _adoptTail([...stored.records, ...pending]);
+    _retainedBytes = stored.retainedBytes + _pendingWritesBytes;
+    _oldestRetainedTimestampUtc = stored.oldestTimestampUtc;
+    if (_oldestRetainedTimestampUtc == null && pending.isNotEmpty) {
+      _oldestRetainedTimestampUtc = pending.first.timestampUtc;
+    }
+    _setState(
+      state.copyWith(
+        retainedBytes: _retainedBytes,
+        droppedRecords: stored.droppedRecords + localDroppedRecords,
+        truncated: stored.truncated || localTruncated,
+      ),
+    );
+    _eventsDirty = true;
+    _publishUiNow();
+    _scheduleRetentionExpiry();
   }
 
   void _adoptPersistenceState(VoiceDiagnosticsPersistenceState persisted) {

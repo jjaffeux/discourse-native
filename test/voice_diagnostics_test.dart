@@ -199,6 +199,66 @@ void main() {
   });
 
   group('diagnostics persistence', () {
+    test(
+      'deferred hydration merges retained history with concurrent capture events',
+      () async {
+        final now = DateTime.utc(2026, 8, 11, 13, 30);
+        final persistence = _GatedLoadPersistence();
+        await persistence.seed(
+          _record(
+            1,
+            now.subtract(const Duration(minutes: 1)),
+            writerId: 'history-writer',
+            event: 'history.before-hydration',
+          ),
+          nowUtc: now,
+        );
+        final controller = VoiceDiagnosticsController.createDeferred(
+          persistence: persistence,
+          clock: () => now,
+          captureIdFactory: () => 'capture-during-hydration',
+          writerIdFactory: () => 'current-writer',
+        );
+        addTearDown(() async {
+          persistence.release();
+          await controller.close();
+        });
+
+        await persistence.loadStarted.future;
+        final starting = controller.startCapture();
+        await pumpEventQueue(times: 1);
+        expect(controller.captureEnabled, isTrue);
+        controller.recordRaw('capture.during-hydration');
+        expect(persistence.appendCalls, 0);
+
+        persistence.release();
+        await starting;
+        await controller.stopCapture();
+
+        expect(
+          controller.events.map((record) => record.event),
+          containsAllInOrder([
+            'history.before-hydration',
+            'capture.started',
+            'capture.during-hydration',
+            'capture.stopped',
+          ]),
+        );
+        expect(persistence.appendCalls, 2);
+        expect(
+          (await persistence.snapshot(nowUtc: now)).records.map(
+            (record) => record.event,
+          ),
+          containsAllInOrder([
+            'history.before-hydration',
+            'capture.started',
+            'capture.during-hydration',
+            'capture.stopped',
+          ]),
+        );
+      },
+    );
+
     test('caps each JSONL record at 256 KiB and marks truncation', () async {
       final now = DateTime.utc(2026, 8, 11, 14);
       final deep = await VoiceDiagnosticsController.create(
@@ -1923,6 +1983,68 @@ final class _CountingPersistence implements VoiceDiagnosticsPersistence {
     if (loadError case final error?) {
       return Future.error(error, StackTrace.current);
     }
+    return _delegate.load(nowUtc: nowUtc);
+  }
+}
+
+final class _GatedLoadPersistence implements VoiceDiagnosticsPersistence {
+  final MemoryVoiceDiagnosticsPersistence _delegate =
+      MemoryVoiceDiagnosticsPersistence();
+  final Completer<void> loadStarted = Completer<void>();
+  final Completer<void> _releaseLoad = Completer<void>();
+  int appendCalls = 0;
+
+  void release() {
+    if (!_releaseLoad.isCompleted) _releaseLoad.complete();
+  }
+
+  Future<void> seed(VoiceDiagnosticRecord record, {required DateTime nowUtc}) =>
+      _delegate.append([record], nowUtc: nowUtc);
+
+  Future<VoiceDiagnosticsPersistenceState> snapshot({
+    required DateTime nowUtc,
+  }) => _delegate.load(nowUtc: nowUtc);
+
+  @override
+  Future<VoiceDiagnosticsPersistenceState> append(
+    List<VoiceDiagnosticRecord> records, {
+    required DateTime nowUtc,
+  }) {
+    appendCalls += 1;
+    return _delegate.append(records, nowUtc: nowUtc);
+  }
+
+  @override
+  Future<String> buildJsonReport({
+    required DateTime generatedAtUtc,
+    required int reportFormatVersion,
+    required Map<String, Object?> state,
+  }) => _delegate.buildJsonReport(
+    generatedAtUtc: generatedAtUtc,
+    reportFormatVersion: reportFormatVersion,
+    state: state,
+  );
+
+  @override
+  Future<void> clear() => _delegate.clear();
+
+  @override
+  Future<void> close() => _delegate.close();
+
+  @override
+  Future<VoiceDiagnosticsPersistenceState> compact({
+    required DateTime nowUtc,
+  }) => _delegate.compact(nowUtc: nowUtc);
+
+  @override
+  Future<void> flush() => _delegate.flush();
+
+  @override
+  Future<VoiceDiagnosticsPersistenceState> load({
+    required DateTime nowUtc,
+  }) async {
+    if (!loadStarted.isCompleted) loadStarted.complete();
+    await _releaseLoad.future;
     return _delegate.load(nowUtc: nowUtc);
   }
 }
