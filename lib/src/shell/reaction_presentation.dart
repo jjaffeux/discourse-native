@@ -104,11 +104,11 @@ class ReactionPill extends StatefulWidget {
     required this.reaction,
     required this.count,
     required this.selected,
-    required this.onTapHint,
     required this.interactionOwner,
     required this.loadReactors,
     required this.reactorsBuilder,
     this.enabled = true,
+    this.onTapHint,
     this.onToggle,
     this.visualKey,
   });
@@ -119,7 +119,7 @@ class ReactionPill extends StatefulWidget {
   final String reaction;
   final int count;
   final bool selected;
-  final String onTapHint;
+  final String? onTapHint;
 
   final Object interactionOwner;
 
@@ -168,10 +168,7 @@ class _ReactionPillState extends State<ReactionPill> {
   Future<void> _toggle() async {
     if (_toggling || !widget.enabled) return;
     final toggle = widget.onToggle;
-    if (toggle == null) {
-      await _openSheet();
-      return;
-    }
+    if (toggle == null) return;
 
     setState(() => _toggling = true);
     final owner = widget.interactionOwner;
@@ -197,6 +194,7 @@ class _ReactionPillState extends State<ReactionPill> {
         ? '1 ${widget.reaction} reaction'
         : '${widget.count} ${widget.reaction} reactions';
     final enabled = widget.enabled && !_toggling;
+    final canToggle = enabled && widget.onToggle != null;
     final background = enabled && (_hovered || _focused)
         ? Color.alphaBlend(
             theme.colorScheme.onSurface.withValues(alpha: 0.08),
@@ -216,7 +214,8 @@ class _ReactionPillState extends State<ReactionPill> {
         enabled: enabled,
         selected: widget.selected,
         label: label,
-        onTapHint: enabled ? widget.onTapHint : null,
+        onTapHint: canToggle ? widget.onTapHint : null,
+        onLongPressHint: enabled && context.isTouch ? 'show who reacted' : null,
         child: ConstrainedBox(
           constraints: const BoxConstraints(
             minWidth: ReactionPill.minTarget,
@@ -231,10 +230,10 @@ class _ReactionPillState extends State<ReactionPill> {
                 onEnter: enabled ? (_) => _setHovered(true) : null,
                 onExit: enabled ? (_) => _setHovered(false) : null,
                 child: InkWell(
-                  mouseCursor: enabled
+                  mouseCursor: canToggle
                       ? SystemMouseCursors.click
                       : SystemMouseCursors.basic,
-                  onTap: enabled ? _toggle : null,
+                  onTap: canToggle ? _toggle : null,
                   onLongPress: enabled && context.isTouch ? _openSheet : null,
                   onFocusChange: _setFocused,
                   borderRadius: BorderRadius.circular(14),

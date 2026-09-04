@@ -94,8 +94,8 @@ class ReactionsRow extends StatelessWidget {
     );
   }
 
-  String _tapHint(String reaction) {
-    if (!post.canReact) return 'show who reacted';
+  String? _tapHint(String reaction) {
+    if (!post.canReact) return null;
     return switch (post.reactions?.mine?.id) {
       final id when id == reaction => 'remove your reaction',
       null => 'add this reaction',

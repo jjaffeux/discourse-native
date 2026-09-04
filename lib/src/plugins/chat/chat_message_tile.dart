@@ -1446,11 +1446,11 @@ class _Reactions extends StatelessWidget {
             reaction: reaction.emoji,
             count: reaction.count,
             selected: reaction.reacted,
-            onTapHint: !canToggle(reaction)
-                ? 'show who reacted'
-                : reaction.reacted
-                ? 'remove your reaction'
-                : 'add this reaction',
+            onTapHint: canToggle(reaction)
+                ? reaction.reacted
+                      ? 'remove your reaction'
+                      : 'add this reaction'
+                : null,
             interactionOwner: chat,
             onToggle: canToggle(reaction)
                 ? () => chat.toggleMessageReaction(

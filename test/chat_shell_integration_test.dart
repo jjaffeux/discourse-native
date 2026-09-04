@@ -4959,6 +4959,7 @@ void _registerChatShellTests() {
             isButton: true,
             isSelected: true,
             onTapHint: 'remove your reaction',
+            onLongPressHint: 'show who reacted',
           ),
         );
         expect(
@@ -4967,6 +4968,7 @@ void _registerChatShellTests() {
             isButton: true,
             isSelected: false,
             onTapHint: 'add this reaction',
+            onLongPressHint: 'show who reacted',
           ),
         );
 
@@ -5151,7 +5153,7 @@ void _registerChatShellTests() {
         expect(find.byType(ReactionPickerButton), findsNothing);
         expect(
           tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
-          isSemantics(onTapHint: 'show who reacted'),
+          isSemantics(hasTapAction: false, onLongPressHint: 'show who reacted'),
         );
       });
 
@@ -5186,11 +5188,14 @@ void _registerChatShellTests() {
         expect(find.byType(ReactionPickerButton), findsNothing);
         expect(
           tester.getSemantics(find.bySemanticsLabel('2 heart reactions')),
-          isSemantics(onTapHint: 'remove your reaction'),
+          isSemantics(
+            onTapHint: 'remove your reaction',
+            onLongPressHint: 'show who reacted',
+          ),
         );
         expect(
           tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
-          isSemantics(onTapHint: 'show who reacted'),
+          isSemantics(hasTapAction: false, onLongPressHint: 'show who reacted'),
         );
 
         await tester.tap(find.bySemanticsLabel('2 heart reactions'));

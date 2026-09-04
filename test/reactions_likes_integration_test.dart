@@ -426,6 +426,7 @@ void _registerReactionAndLikeTests() {
 
     Post post({
       int id = 1,
+      String username = 'sam',
       List<({String id, int count})> reactions = const [],
       String? mine,
       int userCount = 0,
@@ -437,7 +438,7 @@ void _registerReactionAndLikeTests() {
       {
         'id': id,
         'post_number': id,
-        'username': 'sam',
+        'username': username,
         'cooked': id == 1 ? '<p>First post body</p>' : '<p>Post $id body</p>',
         if (canEdit) 'can_edit': true,
         'actions_summary': [
@@ -762,7 +763,7 @@ void _registerReactionAndLikeTests() {
       semantics.dispose();
     });
 
-    testWidgets('a read-only reaction still opens its reactor list', (
+    testWidgets('tapping a reaction on your post does not open reactors', (
       tester,
     ) async {
       final api = await openTopic(
@@ -770,6 +771,7 @@ void _registerReactionAndLikeTests() {
         config: configured,
         posts: [
           post(
+            username: me.username,
             reactions: [(id: 'clap', count: 2)],
             userCount: 2,
             canAct: false,
@@ -791,9 +793,13 @@ void _registerReactionAndLikeTests() {
       await tester.tap(find.bySemanticsLabel('2 clap reactions'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ReactorList), findsOneWidget);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
+        isSemantics(hasTapAction: false),
+      );
+      expect(find.byType(ReactorList), findsNothing);
       expect(find.byType(ReactionPickerButton), findsNothing);
-      expect(api.reactorsRequested, [(postId: 1, filter: 'clap')]);
+      expect(api.reactorsRequested, isEmpty);
       expect(api.reacted, isEmpty);
     });
 
@@ -807,7 +813,12 @@ void _registerReactionAndLikeTests() {
           tester,
           config: configured,
           posts: [
-            post(reactions: [(id: 'clap', count: 2)], userCount: 2),
+            post(
+              username: me.username,
+              reactions: [(id: 'clap', count: 2)],
+              userCount: 2,
+              canAct: false,
+            ),
           ],
           reactorsById: {
             '1:clap': const PostReactors(
@@ -825,6 +836,10 @@ void _registerReactionAndLikeTests() {
         await tester.longPress(find.bySemanticsLabel('2 clap reactions'));
         await tester.pumpAndSettle();
 
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
+          isSemantics(onLongPressHint: 'show who reacted'),
+        );
         expect(find.byType(ReactorList), findsOneWidget);
         expect(api.reactorsRequested, [(postId: 1, filter: 'clap')]);
         expect(api.reacted, isEmpty);

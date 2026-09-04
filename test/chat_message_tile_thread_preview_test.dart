@@ -611,7 +611,7 @@ void main() {
       expect(find.bySemanticsLabel('Add reaction'), findsNothing);
       expect(
         tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
-        isSemantics(onTapHint: 'show who reacted'),
+        isSemantics(hasTapAction: false),
       );
     });
 
