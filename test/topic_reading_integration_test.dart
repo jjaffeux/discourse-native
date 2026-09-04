@@ -2450,7 +2450,7 @@ void _registerTopicReadingTests() {
     );
 
     testWidgets(
-      'lays the header across the floating sidebar and keeps actions ordered',
+      'lays the header across the sidebar and keeps topic actions in a safe bottom bar',
       (tester) async {
         const longTitle =
             'Chris weekly update for 2026 with roadmap decisions, operational '
@@ -2583,12 +2583,10 @@ void _registerTopicReadingTests() {
         final notificationRect = tester.getRect(notificationLevel);
         final bookmarkRect = tester.getRect(bookmark);
         final shareRect = tester.getRect(share);
+        final bottomBar = find.byKey(const ValueKey('topic-bottom-bar'));
         final replyButton = find.byKey(const ValueKey('topic-reply-button'));
         final replyRect = tester.getRect(replyButton);
-        expect(
-          tester.widget<DButton>(replyButton).alignment,
-          Alignment.centerLeft,
-        );
+        final bottomBarRect = tester.getRect(bottomBar);
         final moreRect = tester.getRect(more);
         expect(sidebarRect.top, headerRect.bottom);
         expect(sidebarRect.bottom, topicRect.bottom);
@@ -2612,6 +2610,10 @@ void _registerTopicReadingTests() {
         );
         expect(
           find.descendant(of: sidebarScroll, matching: replyButton),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: bottomBar, matching: replyButton),
           findsOneWidget,
         );
         expect(
@@ -2627,8 +2629,12 @@ void _registerTopicReadingTests() {
         expect(bookmarkRect.right, lessThanOrEqualTo(notificationRect.left));
         expect(notificationRect.right, lessThanOrEqualTo(toggleRect.left));
         expect(headerRect.right - toggleRect.right, lessThanOrEqualTo(8.1));
-        expect(replyRect.left, greaterThan(surfaceRect.left));
-        expect(replyRect.right, lessThan(surfaceRect.right));
+        expect(bottomBarRect.right, sidebarRect.left);
+        expect(
+          tester.getRect(find.byType(SuperListView)).bottom,
+          bottomBarRect.top,
+        );
+        expect(replyRect.right, lessThan(bottomBarRect.right));
         expect(
           find.descendant(of: more, matching: find.dIcon(DIcons.ellipsis)),
           findsOneWidget,
@@ -2709,7 +2715,7 @@ void _registerTopicReadingTests() {
             of: sidebar,
             matching: find.byKey(const ValueKey('topic-reply-button')),
           ),
-          findsOneWidget,
+          findsNothing,
         );
         expect(
           find.descendant(of: sidebar, matching: notificationLevel),
@@ -2776,7 +2782,7 @@ void _registerTopicReadingTests() {
     });
 
     testWidgets(
-      'scrolls the maximum assignment card together with sidebar actions',
+      'scrolls the maximum assignment card without moving the bottom actions',
       (tester) async {
         final plugins = PluginData.none.withValue(
           assignmentsDataKey,
@@ -2854,6 +2860,13 @@ void _registerTopicReadingTests() {
         expect(sidebarPosition.maxScrollExtent, greaterThan(0));
         expect(
           find.descendant(of: sidebarScroll, matching: reply),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('topic-bottom-bar')),
+            matching: reply,
+          ),
           findsOneWidget,
         );
         expect(reply.hitTestable(), findsOneWidget);
@@ -2864,8 +2877,8 @@ void _registerTopicReadingTests() {
 
         expect(sidebarPosition.pixels, greaterThan(0));
         expect(moreTopics.hitTestable(), findsOneWidget);
-        expect(reply.hitTestable(), findsNothing);
-        expect(tester.getRect(reply).top, lessThan(replyRect.top));
+        expect(reply.hitTestable(), findsOneWidget);
+        expect(tester.getRect(reply), replyRect);
         expect(postPosition.pixels, postPixels);
         expect(tester.takeException(), isNull);
       },

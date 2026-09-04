@@ -1485,7 +1485,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                         selected: _recommendationsSourceId,
                         onSelected: _setRecommendationsSource,
                         route: widget.route,
-                        canReply: false,
                         registry: widget.registry,
                       ),
                     ),
@@ -1504,7 +1503,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                         onSelected: _setRecommendationsSource,
                         onCollapsed: () => _setSidebarOverlayOpen(false),
                         route: widget.route,
-                        canReply: false,
                         registry: widget.registry,
                       ),
                     ),
@@ -1795,6 +1793,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
 
     final floatingDay = _floatingDay;
+    final progressPosition = _progressPosition;
+    final showProgress =
+        progressPosition != null && snapshot.streamIds.length > 1;
+    final showBottomBar = showProgress || widget.canReply;
     return Column(
       children: [
         _TopicViewHeader(
@@ -1843,27 +1845,31 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                                 onTap: () => _jumpToDayStart(floatingDay),
                               ),
                             ),
-                          if (_progressPosition case final position?
-                              when snapshot.streamIds.length > 1)
-                            Positioned(
-                              right: readingLane.padding.right + 16,
-                              bottom: 16,
-                              child: TopicProgressButton(
-                                position: position,
-                                total: snapshot.streamIds.length,
-                                onPressed: () => unawaited(
-                                  showTopicProgress(
-                                    context: context,
-                                    controller: controller,
-                                    position: position,
-                                    total: snapshot.streamIds.length,
-                                  ),
-                                ),
-                              ),
-                            ),
                         ],
                       ),
                     ),
+                    if (showBottomBar)
+                      Padding(
+                        padding: EdgeInsets.only(right: pinnedSidebarInset),
+                        child: _TopicBottomBar(
+                          progressPosition: showProgress
+                              ? progressPosition
+                              : null,
+                          totalPosts: snapshot.streamIds.length,
+                          canReply: widget.canReply,
+                          onProgressPressed: showProgress
+                              ? () => unawaited(
+                                  showTopicProgress(
+                                    context: context,
+                                    controller: controller,
+                                    position: progressPosition,
+                                    total: snapshot.streamIds.length,
+                                  ),
+                                )
+                              : null,
+                          onReplyPressed: controller.openReply,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -1880,7 +1886,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                     selected: _recommendationsSourceId,
                     onSelected: _setRecommendationsSource,
                     route: widget.route,
-                    canReply: widget.canReply,
                     registry: widget.registry,
                   ),
                 ),
@@ -1899,7 +1904,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                     onSelected: _setRecommendationsSource,
                     onCollapsed: () => _setSidebarOverlayOpen(false),
                     route: widget.route,
-                    canReply: widget.canReply,
                     registry: widget.registry,
                   ),
                 ),
@@ -1907,6 +1911,67 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TopicBottomBar extends StatelessWidget {
+  const _TopicBottomBar({
+    required this.progressPosition,
+    required this.totalPosts,
+    required this.canReply,
+    required this.onProgressPressed,
+    required this.onReplyPressed,
+  });
+
+  final int? progressPosition;
+  final int totalPosts;
+  final bool canReply;
+  final VoidCallback? onProgressPressed;
+  final VoidCallback onReplyPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      key: const ValueKey('topic-bottom-bar'),
+      color: theme.shell.panel,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: theme.shell.divider)),
+        ),
+        child: SizedBox(
+          height: 64,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                if (progressPosition case final position?)
+                  TopicProgressButton(
+                    position: position,
+                    total: totalPosts,
+                    onPressed: onProgressPressed!,
+                  ),
+                const Spacer(),
+                if (canReply)
+                  SizedBox(
+                    height: DButton.iconOnlyDimensionFor(DButtonSize.small),
+                    child: DButton(
+                      key: const ValueKey('topic-reply-button'),
+                      onPressed: onReplyPressed,
+                      icon: const DIcon(DIcons.reply, size: 18),
+                      label: const Text('Reply'),
+                      tooltip: 'Reply to this topic',
+                      shortcut: const DShortcut(topicReplyShortcut),
+                      variant: DButtonVariant.primary,
+                      size: DButtonSize.small,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2430,7 +2495,6 @@ class _TopicSidebarPanel extends StatelessWidget {
     required this.onSelected,
     this.onCollapsed,
     required this.route,
-    required this.canReply,
     required this.registry,
     this.width = dockedWidth,
   }) : assert(recommendations == null || siteUrl != null);
@@ -2448,7 +2512,6 @@ class _TopicSidebarPanel extends StatelessWidget {
   final ValueChanged<TopicRecommendationSourceId> onSelected;
   final VoidCallback? onCollapsed;
   final ContentRoute? route;
-  final bool canReply;
   final PluginRegistry registry;
   final double width;
 
@@ -2474,19 +2537,16 @@ class _TopicSidebarPanel extends StatelessWidget {
                     _TopicSidebarActions(
                       siteUrl: siteUrl,
                       topic: topic,
-                      canReply: canReply,
                       registry: registry,
                       onCollapsed: onCollapsed,
                     ),
-                    if (topic case final topic? when siteUrl != null) ...[
-                      const SizedBox(height: 12),
+                    if (topic case final topic? when siteUrl != null)
                       _TopicPropertiesCard(
                         siteUrl: siteUrl!,
                         topic: topic,
                         route: route,
                         registry: registry,
                       ),
-                    ],
                     if (recommendations?.isNotEmpty == true || loading) ...[
                       const SizedBox(height: 12),
                       _TopicSidebarCard(
@@ -2540,20 +2600,17 @@ class _TopicSidebarActions extends StatelessWidget {
   const _TopicSidebarActions({
     required this.siteUrl,
     required this.topic,
-    required this.canReply,
     required this.registry,
     this.onCollapsed,
   });
 
   final String? siteUrl;
   final TopicDetail? topic;
-  final bool canReply;
   final PluginRegistry registry;
   final VoidCallback? onCollapsed;
 
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.read(context);
     final topic = this.topic;
     final siteUrl = this.siteUrl;
     final theme = Theme.of(context);
@@ -2570,30 +2627,13 @@ class _TopicSidebarActions extends StatelessWidget {
               UserMenuButton(ringColor: theme.shell.panel),
             ],
           ];
-    Widget replyButton() => SizedBox(
-      height: DButton.iconOnlyDimensionFor(DButtonSize.small),
-      child: DButton(
-        key: const ValueKey('topic-reply-button'),
-        onPressed: controller.openReply,
-        icon: const DIcon(DIcons.reply, size: 18),
-        label: const Text('Reply'),
-        tooltip: 'Reply to this topic',
-        shortcut: const DShortcut(topicReplyShortcut),
-        variant: DButtonVariant.primary,
-        size: DButtonSize.small,
-        alignment: Alignment.centerLeft,
-      ),
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if ((topic != null && canReply) || onCollapsed != null)
+        if (onCollapsed != null)
           Row(
             children: [
-              if (topic != null && canReply)
-                Expanded(child: replyButton())
-              else
-                const Spacer(),
+              const Spacer(),
               if (onCollapsed case final onPressed?) ...[
                 const SizedBox(width: 4),
                 _TopicSidebarToggle(showSidebar: false, onPressed: onPressed),
@@ -2601,9 +2641,11 @@ class _TopicSidebarActions extends StatelessWidget {
             ],
           ),
         if (secondaryActions.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          if (onCollapsed != null) const SizedBox(height: 8),
           Row(children: secondaryActions),
         ],
+        if (onCollapsed != null || secondaryActions.isNotEmpty)
+          const SizedBox(height: 12),
       ],
     );
   }

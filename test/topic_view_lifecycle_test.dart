@@ -1251,7 +1251,7 @@ void main() {
             final candidate = find.byKey(ValueKey(id));
             if (candidate.evaluate().isEmpty) continue;
             final rect = tester.getRect(candidate);
-            if (rect.top >= viewport.top && rect.bottom <= viewport.bottom) {
+            if (rect.top >= viewport.top && rect.top < viewport.bottom) {
               anchor = candidate;
               break;
             }
@@ -2309,6 +2309,12 @@ void main() {
         await tester.pumpAndSettle();
 
         final progress = find.byKey(const ValueKey('topic-progress-button'));
+        final bottomBar = find.byKey(const ValueKey('topic-bottom-bar'));
+        expect(bottomBar, findsOneWidget);
+        expect(
+          find.descendant(of: bottomBar, matching: progress),
+          findsOneWidget,
+        );
         expect(progress, findsOneWidget);
         expect(find.textContaining('/ 30'), findsOneWidget);
 

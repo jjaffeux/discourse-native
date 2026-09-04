@@ -30,7 +30,6 @@ class TopicProgressButton extends StatelessWidget {
         label: 'Topic progress, post $boundedPosition of $total',
         child: Material(
           color: theme.shell.floating,
-          elevation: 3,
           borderRadius: BorderRadius.circular(4),
           clipBehavior: Clip.antiAlias,
           child: InkWell(

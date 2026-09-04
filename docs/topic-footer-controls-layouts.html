@@ -1,0 +1,1078 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Topic footer controls — layout studies</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #111315;
+        --chrome: #1c1e20;
+        --rail: #17191b;
+        --sidebar: #202224;
+        --content: #202224;
+        --surface: #272a2d;
+        --surface-raised: #2d3034;
+        --surface-hover: #34383d;
+        --line: #34373a;
+        --line-strong: #42464b;
+        --text: #f1f2f3;
+        --text-soft: #c9cdd1;
+        --muted: #92979d;
+        --muted-2: #70767c;
+        --blue: #11a7df;
+        --blue-hover: #25b7ec;
+        --blue-soft: rgb(17 167 223 / 13%);
+        --green: #4bc17c;
+        --orange: #f2a45b;
+        --purple: #a887ed;
+        --radius-sm: 7px;
+        --radius: 11px;
+        --radius-lg: 16px;
+        --shadow: 0 22px 70px rgb(0 0 0 / 38%);
+        font-family:
+          Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--page);
+      }
+
+      body {
+        min-width: 1080px;
+        min-height: 100vh;
+        margin: 0;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 50% -20%, rgb(17 167 223 / 11%), transparent 38%),
+          var(--page);
+      }
+
+      button {
+        color: inherit;
+        font: inherit;
+      }
+
+      button:focus-visible {
+        outline: 2px solid var(--blue);
+        outline-offset: 2px;
+      }
+
+      svg {
+        display: block;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .study-header {
+        position: sticky;
+        z-index: 50;
+        top: 0;
+        display: grid;
+        grid-template-columns: minmax(210px, 1fr) auto minmax(210px, 1fr);
+        align-items: center;
+        min-height: 70px;
+        padding: 12px 24px;
+        border-bottom: 1px solid rgb(255 255 255 / 7%);
+        background: rgb(17 19 21 / 90%);
+        backdrop-filter: blur(18px);
+      }
+
+      .study-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .study-brand__mark {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid rgb(17 167 223 / 36%);
+        border-radius: 9px;
+        color: #91ddf8;
+        background: var(--blue-soft);
+      }
+
+      .study-brand__eyebrow,
+      .study-brand__title {
+        overflow: hidden;
+        margin: 0;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .study-brand__eyebrow {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .study-brand__title {
+        margin-top: 3px;
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .layout-switcher {
+        display: flex;
+        gap: 3px;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #181a1c;
+      }
+
+      .layout-switcher button {
+        min-width: 124px;
+        padding: 9px 11px;
+        border: 0;
+        border-radius: 7px;
+        color: var(--muted);
+        background: transparent;
+        font-size: 12px;
+        cursor: pointer;
+        transition: 140ms ease;
+      }
+
+      .layout-switcher button:hover {
+        color: var(--text-soft);
+        background: rgb(255 255 255 / 4%);
+      }
+
+      .layout-switcher button[aria-pressed="true"] {
+        color: var(--text);
+        background: var(--surface-raised);
+        box-shadow:
+          inset 0 0 0 1px rgb(255 255 255 / 7%),
+          0 2px 7px rgb(0 0 0 / 20%);
+      }
+
+      .length-toggle {
+        display: flex;
+        justify-self: end;
+        gap: 2px;
+        padding: 3px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: #181a1c;
+      }
+
+      .length-toggle button {
+        padding: 7px 10px;
+        border: 0;
+        border-radius: 6px;
+        color: var(--muted);
+        background: transparent;
+        font-size: 11px;
+        cursor: pointer;
+      }
+
+      .length-toggle button[aria-pressed="true"] {
+        color: var(--text-soft);
+        background: var(--surface);
+      }
+
+      .study-main {
+        width: min(1540px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 25px 0 42px;
+      }
+
+      .concept-intro {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 28px;
+        align-items: end;
+        width: min(1200px, 100%);
+        min-height: 82px;
+        margin: 0 auto 20px;
+      }
+
+      .concept-intro__index {
+        display: block;
+        margin-bottom: 7px;
+        color: #70d0f4;
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .concept-intro h1 {
+        margin: 0;
+        font-size: clamp(22px, 2vw, 30px);
+        font-weight: 680;
+        letter-spacing: -0.025em;
+      }
+
+      .concept-intro p {
+        max-width: 760px;
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .concept-traits {
+        display: flex;
+        gap: 7px;
+        justify-content: flex-end;
+        padding-bottom: 2px;
+      }
+
+      .concept-traits span {
+        padding: 5px 8px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        background: rgb(255 255 255 / 2%);
+        font-size: 10px;
+        font-weight: 650;
+      }
+
+      .app-frame {
+        overflow: hidden;
+        width: 100%;
+        height: min(790px, calc(100vh - 205px));
+        min-height: 650px;
+        border: 1px solid #303438;
+        border-radius: var(--radius-lg);
+        background: var(--content);
+        box-shadow: var(--shadow);
+      }
+
+      .window-strip {
+        display: grid;
+        grid-template-columns: 88px 1fr 88px;
+        align-items: center;
+        height: 35px;
+        border-bottom: 1px solid #282b2e;
+        background: #17191b;
+      }
+
+      .traffic-lights {
+        display: flex;
+        gap: 7px;
+        padding-left: 14px;
+      }
+
+      .traffic-lights i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #5b6065;
+      }
+
+      .traffic-lights i:first-child { background: #ff5f57; }
+      .traffic-lights i:nth-child(2) { background: #febc2e; }
+      .traffic-lights i:nth-child(3) { background: #28c840; }
+
+      .search {
+        display: flex;
+        align-items: center;
+        justify-self: center;
+        gap: 8px;
+        width: 380px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        color: var(--muted);
+        background: #292c2f;
+        font-size: 11px;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-columns: 48px 224px minmax(0, 1fr);
+        height: calc(100% - 35px);
+      }
+
+      .app-rail {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 0;
+        border-right: 1px solid #282b2e;
+        background: var(--rail);
+      }
+
+      .rail-icon {
+        display: grid;
+        width: 29px;
+        height: 29px;
+        place-items: center;
+        border-radius: 8px;
+        color: var(--muted);
+        background: #2b2e31;
+        font-size: 11px;
+        font-weight: 750;
+      }
+
+      .rail-icon--active {
+        color: #111;
+        background: #f3f3f3;
+        box-shadow: inset 0 -3px 0 var(--blue);
+      }
+
+      .rail-spacer { flex: 1; }
+
+      .app-nav {
+        overflow: hidden;
+        border-right: 1px solid #303336;
+        background: var(--sidebar);
+      }
+
+      .nav-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 49px;
+        padding: 0 14px;
+        border-bottom: 1px solid #303336;
+        font-size: 14px;
+        font-weight: 680;
+      }
+
+      .nav-list {
+        display: grid;
+        gap: 4px;
+        padding: 9px 8px;
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 32px;
+        padding: 0 9px;
+        border-radius: 7px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .nav-item--active {
+        color: var(--text-soft);
+        background: #2b2e31;
+        font-weight: 650;
+      }
+
+      .nav-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 2px;
+        background: var(--muted-2);
+      }
+
+      .nav-dot--orange { background: var(--orange); }
+      .nav-dot--purple { background: var(--purple); }
+
+      .nav-section {
+        margin: 7px 8px 0;
+        padding: 11px 8px 5px;
+        border-top: 1px solid #303336;
+        color: var(--muted-2);
+        font-size: 9px;
+        font-weight: 750;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-rows: 49px minmax(0, 1fr);
+        min-width: 0;
+      }
+
+      .topic-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 18px;
+        border-bottom: 1px solid #303336;
+        background: #1f2123;
+      }
+
+      .topic-header__back {
+        color: var(--muted);
+        font-size: 20px;
+      }
+
+      .topic-header__title {
+        overflow: hidden;
+        color: var(--text-soft);
+        font-size: 13px;
+        font-weight: 680;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .topic-header__actions {
+        display: flex;
+        gap: 14px;
+        margin-left: auto;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .topic-layout {
+        display: grid;
+        grid-template-columns: minmax(460px, 1fr) 278px;
+        min-height: 0;
+      }
+
+      .topic-stage {
+        position: relative;
+        display: grid;
+        min-width: 0;
+        min-height: 0;
+        background: var(--content);
+      }
+
+      .topic-scroller {
+        overflow: auto;
+        min-height: 0;
+        scrollbar-color: #4b5055 transparent;
+        scrollbar-width: thin;
+      }
+
+      .topic-stream {
+        width: min(720px, calc(100% - 48px));
+        margin: 0 auto;
+        padding: 24px 0 30px;
+      }
+
+      .topic-lead {
+        padding: 0 8px 21px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .topic-lead h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 680;
+        line-height: 1.35;
+        letter-spacing: -0.015em;
+      }
+
+      .topic-lead p {
+        margin: 9px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .post {
+        padding: 22px 8px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .post__head {
+        display: grid;
+        grid-template-columns: 33px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .avatar {
+        display: grid;
+        width: 33px;
+        height: 33px;
+        place-items: center;
+        border-radius: 50%;
+        color: #162025;
+        background: linear-gradient(145deg, #70d0f4, #d7f39e);
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .avatar--warm {
+        color: #fff;
+        background: linear-gradient(145deg, #f16c62, #f2ad58);
+      }
+
+      .post__identity strong {
+        display: block;
+        color: var(--text-soft);
+        font-size: 12px;
+      }
+
+      .post__identity span,
+      .post__time {
+        color: var(--muted-2);
+        font-size: 10px;
+      }
+
+      .post__body {
+        padding: 10px 4px 0 43px;
+        color: var(--text-soft);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .post__body p { margin: 0 0 10px; }
+      .post__body p:last-child { margin-bottom: 0; }
+
+      .post__actions {
+        display: flex;
+        gap: 5px;
+        justify-content: flex-end;
+        padding: 13px 0 0 43px;
+      }
+
+      .post__actions button {
+        padding: 5px 8px;
+        border: 0;
+        border-radius: 6px;
+        color: var(--muted);
+        background: transparent;
+        font-size: 10px;
+        cursor: pointer;
+      }
+
+      .post__actions button:hover { background: var(--surface); }
+
+      .long-copy { display: none; }
+      body[data-length="long"] .long-copy { display: block; }
+
+      .topic-sidebar {
+        overflow: auto;
+        padding: 14px;
+        border-left: 1px solid #303336;
+        background: #1e2022;
+      }
+
+      .side-card {
+        margin-bottom: 11px;
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #242628;
+      }
+
+      .side-card h3 {
+        margin: 0 0 11px;
+        color: var(--text-soft);
+        font-size: 13px;
+      }
+
+      .side-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 0;
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .side-row + .side-row { border-top: 1px solid var(--line); }
+
+      .suggestion {
+        padding: 9px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .suggestion:first-of-type { border-top: 0; }
+
+      .suggestion strong {
+        display: block;
+        color: var(--text-soft);
+        font-size: 11px;
+        line-height: 1.3;
+      }
+
+      .suggestion span {
+        color: var(--muted-2);
+        font-size: 9px;
+      }
+
+      .footer-study { display: none; }
+      body[data-layout="endcap"] .footer-study--endcap,
+      body[data-layout="bar"] .footer-study--bar,
+      body[data-layout="dock"] .footer-study--dock,
+      body[data-layout="card"] .footer-study--card { display: flex; }
+
+      .reply-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 38px;
+        padding: 0 17px;
+        border: 0;
+        border-radius: 8px;
+        color: #071116;
+        background: var(--blue);
+        font-size: 12px;
+        font-weight: 720;
+        cursor: pointer;
+        transition: 140ms ease;
+      }
+
+      .reply-button:hover {
+        background: var(--blue-hover);
+        transform: translateY(-1px);
+      }
+
+      .reply-button--quiet {
+        color: var(--text-soft);
+        background: var(--surface-raised);
+        box-shadow: inset 0 0 0 1px var(--line-strong);
+      }
+
+      .reply-button--quiet:hover { background: var(--surface-hover); }
+
+      .position-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+
+      .position-control strong {
+        color: var(--text-soft);
+        font-size: 12px;
+      }
+
+      .position-control__track {
+        overflow: hidden;
+        width: 54px;
+        height: 3px;
+        border-radius: 99px;
+        background: #45494e;
+      }
+
+      .position-control__track i {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--blue);
+      }
+
+      /* 01 — A conventional, in-flow end cap. */
+      .footer-study--endcap {
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin: 20px 8px 0 51px;
+        padding-top: 18px;
+      }
+
+      .endcap-copy strong {
+        display: block;
+        color: var(--text-soft);
+        font-size: 12px;
+      }
+
+      .endcap-copy span {
+        color: var(--muted-2);
+        font-size: 10px;
+      }
+
+      .endcap-actions {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      /* 02 — A dedicated viewport row: persistent but unable to cover content. */
+      body[data-layout="bar"] .topic-stage {
+        grid-template-rows: minmax(0, 1fr) auto;
+      }
+
+      body[data-layout="bar"] .topic-stream {
+        padding-bottom: 26px;
+      }
+
+      .footer-study--bar {
+        z-index: 5;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 61px;
+        padding: 10px 22px;
+        border-top: 1px solid var(--line-strong);
+        background: rgb(31 33 35 / 96%);
+        box-shadow: 0 -12px 30px rgb(0 0 0 / 18%);
+        backdrop-filter: blur(16px);
+      }
+
+      .bar-context {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+      }
+
+      .bar-context__label {
+        color: var(--muted-2);
+        font-size: 10px;
+      }
+
+      .bar-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* 03 — A floating visual treatment, still kept in document flow. */
+      .footer-study--dock {
+        align-items: center;
+        justify-content: space-between;
+        gap: 17px;
+        width: fit-content;
+        margin: 22px auto 2px;
+        padding: 7px 8px 7px 14px;
+        border: 1px solid var(--line-strong);
+        border-radius: 14px;
+        background: var(--surface);
+        box-shadow: 0 12px 32px rgb(0 0 0 / 26%);
+      }
+
+      .dock-divider {
+        width: 1px;
+        height: 24px;
+        background: var(--line-strong);
+      }
+
+      .footer-study--dock .reply-button {
+        min-height: 34px;
+        padding-inline: 14px;
+      }
+
+      /* 04 — A conversational continuation card. */
+      .footer-study--card {
+        position: relative;
+        align-items: center;
+        gap: 15px;
+        margin: 20px 8px 2px 51px;
+        padding: 15px;
+        border: 1px solid #3a454a;
+        border-radius: 12px;
+        background:
+          linear-gradient(110deg, rgb(17 167 223 / 10%), transparent 56%),
+          #272a2d;
+      }
+
+      .card-avatar {
+        display: grid;
+        width: 36px;
+        height: 36px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px dashed #687078;
+        border-radius: 50%;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .card-copy {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .card-copy strong {
+        display: block;
+        color: var(--text-soft);
+        font-size: 12px;
+      }
+
+      .card-copy span {
+        color: var(--muted-2);
+        font-size: 10px;
+      }
+
+      .card-position {
+        position: absolute;
+        top: -11px;
+        right: 12px;
+        padding: 4px 8px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        color: var(--muted);
+        background: var(--content);
+        font-size: 9px;
+      }
+
+      .safety-note {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 14px 8px 0 51px;
+        color: #75c995;
+        font-size: 9px;
+      }
+
+      .safety-note::before {
+        display: inline-block;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--green);
+        content: "";
+      }
+
+      @media (max-width: 1260px) {
+        .study-header { grid-template-columns: 185px auto 185px; }
+        .layout-switcher button { min-width: 105px; }
+        .topic-layout { grid-template-columns: minmax(430px, 1fr) 240px; }
+        .concept-traits span:nth-child(3) { display: none; }
+      }
+    </style>
+  </head>
+  <body data-layout="endcap" data-length="short">
+    <header class="study-header">
+      <div class="study-brand">
+        <div class="study-brand__mark" aria-hidden="true">↳</div>
+        <div>
+          <p class="study-brand__eyebrow">Discourse Native · UX study</p>
+          <p class="study-brand__title">Bottom-of-topic controls</p>
+        </div>
+      </div>
+
+      <nav class="layout-switcher" aria-label="Choose a layout study">
+        <button type="button" data-layout-button="endcap" aria-pressed="true">01 · End cap</button>
+        <button type="button" data-layout-button="bar" aria-pressed="false">02 · Safe bar</button>
+        <button type="button" data-layout-button="dock" aria-pressed="false">03 · Compact dock</button>
+        <button type="button" data-layout-button="card" aria-pressed="false">04 · Reply card</button>
+      </nav>
+
+      <div class="length-toggle" aria-label="Post length">
+        <button type="button" data-length-button="short" aria-pressed="true">Short post</button>
+        <button type="button" data-length-button="long" aria-pressed="false">Long post</button>
+      </div>
+    </header>
+
+    <main class="study-main">
+      <section class="concept-intro" aria-live="polite">
+        <div>
+          <span class="concept-intro__index" id="concept-index">Option 01 · Recommended</span>
+          <h1 id="concept-title">A quiet end cap in the reading flow</h1>
+          <p id="concept-description">Both controls appear after the final post, where the reader naturally needs them. Nothing is fixed or absolute, so even a one-line post remains fully readable.</p>
+        </div>
+        <div class="concept-traits" id="concept-traits" aria-label="Layout characteristics">
+          <span>zero overlap</span><span>familiar pattern</span><span>low visual weight</span>
+        </div>
+      </section>
+
+      <section class="app-frame" aria-label="Discourse Native topic page concept">
+        <div class="window-strip">
+          <div class="traffic-lights" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="search" aria-hidden="true">⌕&nbsp;&nbsp; Search this forum</div>
+        </div>
+
+        <div class="app-shell">
+          <aside class="app-rail" aria-label="Application rail">
+            <span class="rail-icon">⌂</span>
+            <span class="rail-icon rail-icon--active">◉</span>
+            <span class="rail-icon">D</span>
+            <span class="rail-icon">◎</span>
+            <span class="rail-spacer"></span>
+            <span class="rail-icon">＋</span>
+            <span class="rail-icon">⚙</span>
+          </aside>
+
+          <aside class="app-nav" aria-label="Site navigation">
+            <div class="nav-title"><span>Discourse Dev</span><span>⌄</span></div>
+            <div class="nav-list">
+              <div class="nav-item">●&nbsp; Chat</div>
+              <div class="nav-item nav-item--active">▰&nbsp; Topics</div>
+              <div class="nav-item">▣&nbsp; Messages</div>
+              <div class="nav-item">＋&nbsp; New Topic</div>
+              <div class="nav-item">✎&nbsp; Drafts</div>
+            </div>
+            <div class="nav-section">Categories</div>
+            <div class="nav-list">
+              <div class="nav-item"><i class="nav-dot nav-dot--orange"></i>alerts</div>
+              <div class="nav-item"><i class="nav-dot nav-dot--purple"></i>Discourse Native App</div>
+              <div class="nav-item"><i class="nav-dot"></i>All categories</div>
+            </div>
+            <div class="nav-section">Tags</div>
+          </aside>
+
+          <section class="workspace">
+            <header class="topic-header">
+              <span class="topic-header__back">‹</span>
+              <span class="topic-header__title">Topic timeline control covers post at bottom of page</span>
+              <div class="topic-header__actions"><span>↗</span><span>♧</span><span>●</span><span>▣</span></div>
+            </header>
+
+            <div class="topic-layout">
+              <div class="topic-stage">
+                <div class="topic-scroller" id="topic-scroller">
+                  <div class="topic-stream">
+                    <section class="topic-lead">
+                      <h2>Controls should support the reading flow, not compete with it</h2>
+                      <p>A focused study of the final-post state, using the narrow content geometry from the desktop application.</p>
+                    </section>
+
+                    <article class="post">
+                      <div class="post__head">
+                        <span class="avatar">MB</span>
+                        <div class="post__identity"><strong>Martin Brennan</strong><span>Self-Serve XP Team</span></div>
+                        <span class="post__time">7h</span>
+                      </div>
+                      <div class="post__body">
+                        <p>Especially apparent on small posts: a floating position indicator can sit directly over the last sentence.</p>
+                        <p class="long-copy">The same control feels less disruptive on a long topic, but its placement still makes the content area unpredictable. The final reading line should never need to negotiate with navigation controls.</p>
+                      </div>
+                      <div class="post__actions"><button>♡ Like</button><button>Reply</button><button>•••</button></div>
+                    </article>
+
+                    <article class="post">
+                      <div class="post__head">
+                        <span class="avatar avatar--warm">JJ</span>
+                        <div class="post__identity"><strong>Joffrey Jaffeux</strong><span>staff</span></div>
+                        <span class="post__time">now</span>
+                      </div>
+                      <div class="post__body">
+                        <p>Yes, I have been thinking of different solutions to this. A small bottom treatment could make the end of the conversation feel intentional.</p>
+                        <p class="long-copy">It should preserve the full width of the reading column, stay visually connected to the topic, and make Reply feel like the obvious next action without turning it into a persistent distraction.</p>
+                        <p class="long-copy">Keeping the position indicator beside the action also removes one more floating element from the post itself.</p>
+                      </div>
+                      <div class="post__actions"><button>♡ Like</button><button>Reply</button><button>•••</button></div>
+                    </article>
+
+                    <footer class="footer-study footer-study--endcap">
+                      <div class="endcap-copy"><strong>You’re all caught up</strong><span>End of this conversation</span></div>
+                      <div class="endcap-actions">
+                        <div class="position-control"><span class="position-control__track"><i></i></span><strong>3 / 3</strong></div>
+                        <button class="reply-button" type="button"><span>↩</span> Reply</button>
+                      </div>
+                    </footer>
+
+                    <footer class="footer-study footer-study--dock">
+                      <div class="position-control"><span class="position-control__track"><i></i></span><strong>3 / 3</strong></div>
+                      <span class="dock-divider" aria-hidden="true"></span>
+                      <button class="reply-button" type="button"><span>↩</span> Reply to topic</button>
+                    </footer>
+
+                    <footer class="footer-study footer-study--card">
+                      <span class="card-avatar" aria-hidden="true">＋</span>
+                      <div class="card-copy"><strong>Continue the conversation</strong><span>Your reply will be post 4</span></div>
+                      <button class="reply-button" type="button"><span>↩</span> Reply</button>
+                      <span class="card-position">3 of 3 posts read</span>
+                    </footer>
+
+                    <div class="safety-note">Controls occupy their own layout space — no text can render underneath.</div>
+                  </div>
+                </div>
+
+                <footer class="footer-study footer-study--bar">
+                  <div class="bar-context">
+                    <div class="position-control"><span class="position-control__track"><i></i></span><strong>3 / 3</strong></div>
+                    <span class="bar-context__label">All posts read</span>
+                  </div>
+                  <div class="bar-actions">
+                    <button class="reply-button reply-button--quiet" type="button">Share</button>
+                    <button class="reply-button" type="button"><span>↩</span> Reply</button>
+                  </div>
+                </footer>
+              </div>
+
+              <aside class="topic-sidebar" aria-label="Topic details">
+                <section class="side-card">
+                  <h3>Topic details</h3>
+                  <div class="side-row"><span>Category</span><strong>Uncategorized</strong></div>
+                  <div class="side-row"><span>Tags</span><strong>native · ux</strong></div>
+                </section>
+                <section class="side-card">
+                  <h3>Assignments</h3>
+                  <div class="side-row"><span>Owner</span><strong>Unassigned</strong></div>
+                </section>
+                <section class="side-card">
+                  <h3>More topics</h3>
+                  <div class="suggestion"><strong>Sorting chat channels by unread state</strong><span>product · 12 replies</span></div>
+                  <div class="suggestion"><strong>Keyboard navigation in topic lists</strong><span>ux · 8 replies</span></div>
+                  <div class="suggestion"><strong>Native window title controls</strong><span>dev · 5 replies</span></div>
+                </section>
+              </aside>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const concepts = {
+        endcap: {
+          index: "Option 01 · Recommended",
+          title: "A quiet end cap in the reading flow",
+          description: "Both controls appear after the final post, where the reader naturally needs them. Nothing is fixed or absolute, so even a one-line post remains fully readable.",
+          traits: ["zero overlap", "familiar pattern", "low visual weight"],
+        },
+        bar: {
+          index: "Option 02 · Persistent",
+          title: "A bottom bar with reserved layout space",
+          description: "The controls stay available while reading, but live in a dedicated grid row outside the scrollable post area. This keeps the convenience of sticky UI without covering content.",
+          traits: ["always available", "zero overlap", "stronger chrome"],
+        },
+        dock: {
+          index: "Option 03 · Minimal",
+          title: "A compact dock after the last post",
+          description: "Reply and position become one small object centered below the conversation. It looks floating, but remains in normal flow and therefore cannot obscure a post.",
+          traits: ["compact", "single focus", "clear grouping"],
+        },
+        card: {
+          index: "Option 04 · Conversational",
+          title: "A continuation card that invites a reply",
+          description: "The end state becomes an intentional transition from reading to writing. The post count is secondary context, while Reply is framed as the next step.",
+          traits: ["welcoming", "high clarity", "more visual weight"],
+        },
+      };
+
+      const body = document.body;
+      const index = document.querySelector("#concept-index");
+      const title = document.querySelector("#concept-title");
+      const description = document.querySelector("#concept-description");
+      const traits = document.querySelector("#concept-traits");
+      const scroller = document.querySelector("#topic-scroller");
+
+      document.querySelectorAll("[data-layout-button]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const layout = button.dataset.layoutButton;
+          const concept = concepts[layout];
+          body.dataset.layout = layout;
+          document.querySelectorAll("[data-layout-button]").forEach((candidate) => {
+            candidate.setAttribute("aria-pressed", String(candidate === button));
+          });
+          index.textContent = concept.index;
+          title.textContent = concept.title;
+          description.textContent = concept.description;
+          traits.replaceChildren(...concept.traits.map((trait) => {
+            const item = document.createElement("span");
+            item.textContent = trait;
+            return item;
+          }));
+          requestAnimationFrame(() => { scroller.scrollTop = scroller.scrollHeight; });
+        });
+      });
+
+      document.querySelectorAll("[data-length-button]").forEach((button) => {
+        button.addEventListener("click", () => {
+          body.dataset.length = button.dataset.lengthButton;
+          document.querySelectorAll("[data-length-button]").forEach((candidate) => {
+            candidate.setAttribute("aria-pressed", String(candidate === button));
+          });
+          requestAnimationFrame(() => { scroller.scrollTop = scroller.scrollHeight; });
+        });
+      });
+
+      requestAnimationFrame(() => { scroller.scrollTop = scroller.scrollHeight; });
+    </script>
+  </body>
+</html>
