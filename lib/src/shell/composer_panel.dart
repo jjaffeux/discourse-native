@@ -210,7 +210,9 @@ class ComposerPanel extends StatelessWidget {
                                     ),
                                     child: TextField(
                                       controller: composer.title,
-                                      readOnly: composer.discarding,
+                                      readOnly:
+                                          composer.discarding ||
+                                          composer.submitting,
                                       textInputAction: TextInputAction.next,
                                       style: theme.textTheme.bodyMedium,
                                       decoration: InputDecoration(
@@ -1527,7 +1529,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
                     // back into a reply that has already been sent.
                     key: ValueKey(widget.composer.fieldGeneration),
                     controller: widget.composer.text,
-                    readOnly: widget.composer.discarding,
+                    readOnly:
+                        widget.composer.discarding ||
+                        widget.composer.submitting,
                     scrollController: _scroll,
                     focusNode: widget.composer.focus,
                     autofocus: widget.autofocus,
@@ -3002,11 +3006,19 @@ class _Header extends StatelessWidget {
   final VoidCallback? onMoveEnd;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<bool>(
-    select: (controller) =>
-        controller.currentUserFor(composer.target.siteUrl)?.whisperer == true,
-    builder: (context, whisperer, _) => _buildHeader(context, whisperer),
-  );
+  Widget build(BuildContext context) =>
+      ShellSelector<({bool whisperer, int pluginState})>(
+        select: (controller) => (
+          whisperer:
+              controller.currentUserFor(composer.target.siteUrl)?.whisperer ==
+              true,
+          pluginState: Object.hash(
+            controller.siteConfigFor(composer.target.siteUrl),
+            controller.freshCurrentUserFor(composer.target.siteUrl),
+          ),
+        ),
+        builder: (context, state, _) => _buildHeader(context, state.whisperer),
+      );
 
   Widget _buildHeader(BuildContext context, bool whisperer) {
     final theme = Theme.of(context);
@@ -3025,6 +3037,9 @@ class _Header extends StatelessWidget {
         whisperer &&
         target.mode == ComposerMode.reply &&
         !target.replyingToWhisper;
+    final registry =
+        PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
+    final pluginControls = registry.composerHeader(context, composer);
 
     final header = SizedBox(
       key: const ValueKey('composer-drag-handle'),
@@ -3138,6 +3153,7 @@ class _Header extends StatelessWidget {
                 ),
               ),
             ),
+            for (final control in pluginControls) control,
             if (onRestore case final restore?)
               IconButton(
                 key: const ValueKey('composer-restore'),

@@ -581,6 +581,16 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   bool get isEdit => _target.isEdit;
 
   @override
+  bool get isNewTopic => _target.isNewTopic;
+
+  @override
+  bool get isReply => _target.mode == ComposerMode.reply;
+
+  @override
+  bool get isEditing =>
+      _state == ComposerState.editing || _state == ComposerState.unresolved;
+
+  @override
   PluginData get siteSettings =>
       pluginStateReader?.call().siteSettings ?? PluginData.none;
 

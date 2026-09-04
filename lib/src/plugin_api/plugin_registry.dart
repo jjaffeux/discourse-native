@@ -1294,6 +1294,17 @@ final class PluginRegistry
       ...plugin.composerToolbar(_uiContext(context, plugin), editor),
   ];
 
+  List<Widget> composerHeader(
+    BuildContext context,
+    ComposerEditorHost editor,
+  ) => [
+    for (final plugin in plugins.whereType<ComposerHeaderPlugin>())
+      ..._ownedAll(
+        plugin,
+        plugin.composerHeader(_uiContext(context, plugin), editor),
+      ),
+  ];
+
   ComposerTargetPolicy? composerTarget(
     ComposerTargetRequest request,
     ComposerTargetContext context,

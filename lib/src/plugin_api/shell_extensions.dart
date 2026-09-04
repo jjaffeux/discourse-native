@@ -3,6 +3,7 @@ import 'dart:ui' show Rect;
 
 import 'package:flutter/foundation.dart';
 
+import '../data/discourse_api_contracts.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
@@ -10,6 +11,7 @@ import '../models/discourse_user.dart';
 import '../models/notification_totals.dart';
 import '../models/sidebar.dart';
 import '../models/user_preferences.dart';
+import 'composer_syntax.dart';
 import 'live_channels.dart';
 import 'plugin_manifest.dart';
 
@@ -166,6 +168,28 @@ abstract interface class PluginTrackerAttachment
 abstract interface class PluginCurrentUserObserver
     implements PluginSessionCapability {
   void pluginCurrentUserRefreshed(String siteUrl);
+}
+
+/// Lets an installed plugin finish an author-requested transformation before
+/// the shell captures the body and sends the post request.
+@immutable
+final class PluginComposerSubmitPreparation {
+  const PluginComposerSubmitPreparation.proceed({this.changed = false})
+    : failure = null;
+
+  const PluginComposerSubmitPreparation.failed(this.failure)
+    : assert(failure != null),
+      changed = false;
+
+  final bool changed;
+  final WriteException? failure;
+}
+
+abstract interface class PluginComposerSubmitPreparer
+    implements PluginSessionCapability {
+  FutureOr<PluginComposerSubmitPreparation> prepareComposerSubmit(
+    ComposerEditorHost composer,
+  );
 }
 
 abstract interface class PluginUserPreferenceMirror
