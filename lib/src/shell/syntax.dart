@@ -3,7 +3,8 @@ library;
 import 'dart:collection';
 
 import 'package:flutter/foundation.dart' show compute, visibleForTesting;
-import 'package:highlight/highlight.dart' show highlight, Node;
+import 'package:highlight/highlight.dart' show highlight, Mode, Node;
+import 'package:highlight/languages/all.dart' show allLanguages;
 
 class CodeToken {
   const CodeToken(this.text, [this.scope]);
@@ -104,6 +105,23 @@ bool highlightNeedsParse(String source, String? language) {
 bool highlightShouldRunInBackground(String source, String? language) =>
     source.length > backgroundSyntaxHighlightThreshold &&
     highlightNeedsParse(source, language);
+
+/// The grammar used by editor-style code surfaces.
+///
+/// The highlighter accepts aliases such as `rb`, but [allLanguages] is keyed by
+/// canonical names, so resolve aliases here before handing a [Mode] to clients.
+Mode? highlightMode(String source, String? language) {
+  final resolved = _resolve(language, source);
+  if (resolved == null) return null;
+
+  final direct = allLanguages[resolved];
+  if (direct != null) return direct;
+
+  for (final mode in allLanguages.values) {
+    if (mode.aliases?.contains(resolved) ?? false) return mode;
+  }
+  return null;
+}
 
 List<List<CodeToken>> cacheHighlightedLines(
   String source,

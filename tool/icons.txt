@@ -46,6 +46,7 @@ triangle-exclamation
 exclamation
 magnifying-glass
 filter
+code
 copy
 play
 snowflake

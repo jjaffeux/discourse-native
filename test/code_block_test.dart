@@ -2,8 +2,11 @@ import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_code_editor/flutter_code_editor.dart' as editor;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
@@ -120,6 +123,40 @@ void main() {
       expect(find.text('def self.get_from_url(url)'), findsOneWidget);
       expect(find.text('78'), findsOneWidget);
       expect(find.text('81'), findsOneWidget);
+    });
+
+    testWidgets('shows the language and flat actions in a header', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: CodeBlock(data: parseBlock(codeFence))),
+        ),
+      );
+
+      expect(find.text('Ruby'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.code,
+        ),
+        findsOneWidget,
+      );
+
+      for (final key in const [
+        ValueKey('code-block-copy'),
+        ValueKey('code-block-fullscreen'),
+      ]) {
+        expect(
+          tester.widget<DButton>(find.byKey(key)).variant,
+          DButtonVariant.flat,
+        );
+      }
+
+      expect(
+        tester.getCenter(find.text('Ruby')).dy,
+        lessThan(tester.getCenter(find.text('def hello').first).dy),
+      );
     });
 
     testWidgets('paints keywords in the theme colour', (tester) async {
@@ -301,14 +338,28 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(CodeBlockFullscreen), findsOneWidget);
-      expect(find.text('View code'), findsOneWidget);
+      expect(find.text('Ruby'), findsOneWidget);
       expect(find.byKey(const ValueKey('code-block-copy')), findsOneWidget);
       expect(find.byKey(fullscreenButton), findsNothing);
-      expect(find.text('def hello'), findsOneWidget);
 
-      await tester.tap(
-        find.byKey(const ValueKey('code-block-fullscreen-close')),
+      final editorField = tester.widget<editor.CodeField>(
+        find.byKey(const ValueKey('code-block-fullscreen-editor')),
       );
+      expect(editorField.readOnly, isTrue);
+      expect(editorField.wrap, isFalse);
+      expect(editorField.expands, isTrue);
+      expect(editorField.controller.readOnly, isTrue);
+      expect(editorField.controller.text, 'def hello\n  puts "hi"\nend');
+      expect(editorField.controller.language, isNotNull);
+
+      final close = find.byKey(const ValueKey('code-block-fullscreen-close'));
+      final viewer = find.byKey(const ValueKey('code-block-fullscreen-view'));
+      expect(
+        tester.getRect(viewer).right - tester.getRect(close).right,
+        lessThanOrEqualTo(8),
+      );
+
+      await tester.tap(close);
       await tester.pumpAndSettle();
 
       expect(find.byType(CodeBlockFullscreen), findsNothing);
