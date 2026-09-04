@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:html/parser.dart' as html;
 
 import '../models/discourse_user.dart';
@@ -61,25 +62,22 @@ final class SiteMessageBusBootstrap {
 
   /// Reads core's `PreloadStore` wire format: one outer JSON object whose
   /// values are themselves JSON strings.
-  static SiteMessageBusBootstrap? fromHtml(
+  static Future<SiteMessageBusBootstrap?> fromHtml(
     String source, {
     required String siteUrl,
     required DiscourseModelCodec models,
-  }) {
-    final script = html
-        .parse(source)
-        .querySelector('script#data-preloaded[type="application/json"]');
-    if (script == null) return null;
+  }) async {
+    final decoded = await compute<String, Map<String, Object?>?>(
+      _decodePreloadedDocument,
+      source,
+      debugLabel: 'Discourse MessageBus bootstrap decode',
+    );
+    if (decoded == null) return null;
 
-    final Map<String, dynamic> preloaded;
-    try {
-      preloaded = jsonObject(jsonDecode(script.text));
-    } on Object {
-      return null;
-    }
-    if (preloaded.isEmpty) return null;
-
-    final currentUserState = _objectEntry(preloaded, 'currentUser');
+    final currentUserValue = decoded['currentUser'];
+    final currentUserState = currentUserValue is Map<String, dynamic>
+        ? currentUserValue
+        : null;
     DiscourseUser? currentUser;
     if (currentUserState != null) {
       try {
@@ -90,11 +88,14 @@ final class SiteMessageBusBootstrap {
       }
     }
 
-    final trackingRows = _entry(preloaded, 'topicTrackingStates');
+    final trackingRows = decoded['topicTrackingStates'];
     final trackingState = trackingRows is List
         ? TopicTrackingState.fromJson(trackingRows)
         : null;
-    final trackingMeta = _objectEntry(preloaded, 'topicTrackingStateMeta');
+    final trackingMetaValue = decoded['topicTrackingStateMeta'];
+    final trackingMeta = trackingMetaValue is Map<String, dynamic>
+        ? trackingMetaValue
+        : null;
     final rawLastIds = jsonObject(trackingMeta?['message_bus_last_ids']);
     final lastIds = <String, int>{};
     for (final entry in rawLastIds.entries) {
@@ -118,6 +119,31 @@ final class SiteMessageBusBootstrap {
           : null,
     );
   }
+}
+
+/// Extracts and decodes the sendable portion of the bootstrap document.
+///
+/// This top-level boundary runs in a worker isolate. Model construction stays
+/// with the caller because plugin codecs may retain isolate-local state.
+Map<String, Object?>? _decodePreloadedDocument(String source) {
+  final script = html
+      .parse(source)
+      .querySelector('script#data-preloaded[type="application/json"]');
+  if (script == null) return null;
+
+  final Map<String, dynamic> preloaded;
+  try {
+    preloaded = jsonObject(jsonDecode(script.text));
+  } on Object {
+    return null;
+  }
+  if (preloaded.isEmpty) return null;
+
+  return <String, Object?>{
+    'currentUser': _objectEntry(preloaded, 'currentUser'),
+    'topicTrackingStates': _entry(preloaded, 'topicTrackingStates'),
+    'topicTrackingStateMeta': _objectEntry(preloaded, 'topicTrackingStateMeta'),
+  };
 }
 
 Object? _entry(Map<String, dynamic> preloaded, String key) {
