@@ -1686,6 +1686,13 @@ void _registerTopicReadingTests() {
       expect(find.text('sea2'), findsOneWidget);
       expect(find.text('sea1'), findsOneWidget);
       expect(find.text('+12'), findsOneWidget);
+      final firstTag = find.bySemanticsLabel('Tag: sea2');
+      final secondTag = find.bySemanticsLabel('Tag: sea1');
+      final overflow = find.byKey(const ValueKey('topic-row-tag-overflow'));
+      expect(tester.getSize(firstTag).width, lessThan(80));
+      expect(tester.getSize(secondTag).width, lessThan(80));
+      expect(tester.getSize(overflow).width, lessThan(80));
+      expect(tester.getCenter(secondTag).dy, tester.getCenter(firstTag).dy);
       expect(
         tester.getSemantics(find.text('+12')).label,
         contains('12 more tags'),
