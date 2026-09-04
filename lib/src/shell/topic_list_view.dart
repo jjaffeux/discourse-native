@@ -1496,13 +1496,17 @@ class _TopicTag extends StatelessWidget {
             color: theme.shell.mention,
             borderRadius: BorderRadius.circular(5),
           ),
-          alignment: Alignment.center,
-          child: Text(
-            tag.name,
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.ellipsis,
-            style: style?.copyWith(height: 1),
+          child: Align(
+            alignment: Alignment.center,
+            widthFactor: 1,
+            heightFactor: 1,
+            child: Text(
+              tag.name,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: style?.copyWith(height: 1),
+            ),
           ),
         ),
       ),
@@ -1527,6 +1531,7 @@ class _TopicTagOverflow extends StatelessWidget {
       label: '$count more ${count == 1 ? 'tag' : 'tags'}',
       child: ExcludeSemantics(
         child: Container(
+          key: const ValueKey('topic-row-tag-overflow'),
           constraints: const BoxConstraints(minHeight: 22),
           margin: const EdgeInsets.only(right: 5),
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -1534,12 +1539,16 @@ class _TopicTagOverflow extends StatelessWidget {
             color: theme.shell.mention,
             borderRadius: BorderRadius.circular(5),
           ),
-          alignment: Alignment.center,
-          child: Text(
-            '+$count',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1,
+          child: Align(
+            alignment: Alignment.center,
+            widthFactor: 1,
+            heightFactor: 1,
+            child: Text(
+              '+$count',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1,
+              ),
             ),
           ),
         ),
