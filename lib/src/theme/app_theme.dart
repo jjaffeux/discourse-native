@@ -290,7 +290,7 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
   /// `--primary-low-mid` role.
   final Color primaryLowMid;
 
-  /// Muted foregrounds such as legacy GitHub onebox SVGs, matching core's
+  /// Muted foregrounds such as GitHub onebox icons, matching core's
   /// `--primary-high` role.
   final Color primaryHigh;
 

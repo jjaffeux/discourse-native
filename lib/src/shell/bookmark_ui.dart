@@ -672,6 +672,8 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
       ),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 3653)),
+      switchToInputEntryModeIcon: Icon(DIcons.keyboard.data),
+      switchToCalendarEntryModeIcon: Icon(DIcons.calendar.data),
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(
@@ -680,6 +682,8 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
         hour: wallInitial.hour,
         minute: wallInitial.minute,
       ),
+      switchToInputEntryModeIcon: Icon(DIcons.keyboard.data),
+      switchToTimerEntryModeIcon: Icon(DIcons.farClock.data),
     );
     if (time == null || !mounted) return;
     final instant = BookmarkReminderCalculator.resolveWallTime(
@@ -790,6 +794,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
           DropdownButtonFormField<BookmarkAutoDeletePreference>(
             initialValue: _preference,
             isExpanded: true,
+            icon: const DIcon(DIcons.chevronDown, size: 16),
             decoration: const InputDecoration(labelText: 'Afterward'),
             items: [
               for (final preference in BookmarkAutoDeletePreference.values)
@@ -864,6 +869,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
               Expanded(
                 child: DropdownButtonFormField<_RelativeUnit>(
                   initialValue: _relativeUnit,
+                  icon: const DIcon(DIcons.chevronDown, size: 16),
                   items: [
                     for (final unit in _RelativeUnit.values)
                       DropdownMenuItem(value: unit, child: Text(unit.label)),
@@ -1053,6 +1059,7 @@ class _TopicBookmarksSheet extends StatelessWidget {
                     ),
               trailing: PopupMenuButton<_TopicBookmarksActionKind>(
                 tooltip: 'Post bookmark actions',
+                icon: const DIcon(DIcons.ellipsisVertical, size: 16),
                 enabled: !snapshot.busyTargets
                     .split(',')
                     .contains('${bookmark.bookmarkableId}'),

@@ -102,6 +102,7 @@ class _DesktopChannelMenu extends StatelessWidget {
         SubmenuButton(
           key: ValueKey('chat-channel-notifications-${channel.id}'),
           leadingIcon: const DIcon(DIcons.bell, size: 16),
+          trailingIcon: const DIcon(DIcons.chevronRight, size: 16),
           menuStyle: menuStyle,
           menuChildren: [
             for (final action in const [

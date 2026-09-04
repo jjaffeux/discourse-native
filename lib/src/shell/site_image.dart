@@ -9,6 +9,8 @@ import 'package:html/dom.dart' as dom;
 import '../data/site_image_repository.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../theme/d_button.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'image_decode.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
@@ -351,7 +353,7 @@ class _GifPlaybackControlState extends State<_GifPlaybackControl> {
           bottom: 4,
           child: DButton.iconOnly(
             key: const ValueKey('gif-playback-toggle'),
-            icon: Icon(_playing ? Icons.pause : Icons.play_arrow, size: 18),
+            icon: DIcon(_playing ? DIcons.pause : DIcons.play, size: 18),
             tooltip: action,
             semanticLabel: action,
             size: DButtonSize.small,

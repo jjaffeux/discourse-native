@@ -1136,16 +1136,11 @@ class _TopicCopy extends StatelessWidget {
             if (topic.closed)
               Padding(
                 padding: const EdgeInsets.only(right: 6),
-                child: Transform.translate(
-                  // Remove DIcon's scale inset and the portrait lock SVG's
-                  // remaining horizontal letterbox.
-                  offset: const Offset(-1.640625, 0),
-                  child: DIcon(
-                    DIcons.lock,
-                    size: 14,
-                    color: theme.colorScheme.onSurfaceVariant,
-                    semanticLabel: 'Closed',
-                  ),
+                child: DIcon(
+                  DIcons.lock,
+                  size: 14,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  semanticLabel: 'Closed',
                 ),
               ),
             if (topic.pinned)

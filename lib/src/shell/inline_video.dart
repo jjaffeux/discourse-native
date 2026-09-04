@@ -622,9 +622,7 @@ class _PlaybackControls extends StatelessWidget {
             tooltip: state.isPlaying ? 'Pause' : 'Play',
             color: Colors.white,
             onPressed: onTogglePlayback,
-            icon: Icon(
-              state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-            ),
+            icon: DIcon(state.isPlaying ? DIcons.pause : DIcons.play),
           ),
           Expanded(
             child: SliderTheme(
@@ -670,7 +668,7 @@ class _PlaybackControls extends StatelessWidget {
               tooltip: 'Exit full screen',
               color: Colors.white,
               onPressed: exit,
-              icon: const Icon(Icons.fullscreen_exit_rounded),
+              icon: const DIcon(DIcons.discourseCompress),
             )
           else
             const SizedBox(width: 12),

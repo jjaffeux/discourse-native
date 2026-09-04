@@ -1004,8 +1004,8 @@ void main() {
     testWidgets('an icon the app does not carry falls back to the kind', (
       tester,
     ) async {
-      // `data-icon` is whatever an admin picked, and the sprite here holds
-      // what this app draws rather than all of Font Awesome.
+      // `data-icon` is whatever an admin picked, while this catalog carries
+      // only the Lucide mappings the app supports.
       await pumpCookedInShell(
         tester,
         cooked(

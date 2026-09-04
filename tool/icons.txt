@@ -1,129 +1,149 @@
 # The icons this app draws, named the way Discourse names them.
 #
-# `dart run tool/gen_icons.dart` reads this list, pulls each symbol out of
-# Discourse's own sprites and writes lib/src/theme/d_icons.dart. Add a line
-# here and re-run it rather than hand-editing the generated file.
+# `dart run tool/gen_icons.dart` maps each stable Discourse-facing name to a
+# glyph from `lucide_flutter` and writes lib/src/theme/d_icons.dart. Add a
+# `discourse-name: lucideIdentifier` line here and re-run it rather than
+# hand-editing the generated file.
 #
-# Naming follows SvgSprite.prepare_symbol: a bare name is Font Awesome solid,
-# `far-` is regular, `fab-` is brands, and anything else comes from
-# discourse-additional.svg. `name = other` records one of Discourse's own icon
-# aliases (its REPLACEMENTS table) so payloads that use the alias resolve too.
+# The names on the left remain stable because API payloads and persisted routes
+# use them. The identifiers on the right are members of LucideIcons.
 
 # --- Sidebar and navigation
-layer-group
-house
-asterisk
-circle
-fire
-envelope
-inbox
-list
-globe
+layer-group: layers
+house: house
+asterisk: asterisk
+circle: circle
+fire: flame
+envelope: mail
+inbox: inbox
+list: list
+globe: globe
 
 # --- Shell chrome
-gear
-bug
-wrench
-ellipsis
-ellipsis-vertical
-far-pen-to-square
-chevron-right
-chevron-left
-chevron-down
-xmark
-arrow-left
-arrow-up
-arrow-rotate-left
-up-right-from-square
-right-from-bracket
-shuffle
-plus
-minus
-circle-plus
-circle-minus
-circle-info
-triangle-exclamation
-exclamation
-magnifying-glass
-filter
-copy
-play
-snowflake
-microphone-lines
-microphone-slash
-closed-captioning
-video
-video-slash
-display
-ear-listen
-hand
-phone-slash
-expand
-discourse-compress
-discourse-expand
+gear: settings
+bug: bug
+wrench: wrench
+ellipsis: ellipsis
+ellipsis-vertical: ellipsisVertical
+far-pen-to-square: squarePen
+chevron-right: chevronRight
+chevron-left: chevronLeft
+chevron-down: chevronDown
+chevron-up: chevronUp
+xmark: x
+arrow-left: arrowLeft
+arrow-up: arrowUp
+arrow-down: arrowDown
+arrow-rotate-left: rotateCcw
+up-right-from-square: externalLink
+right-from-bracket: logOut
+shuffle: shuffle
+plus: plus
+minus: minus
+circle-plus: circlePlus
+circle-minus: circleMinus
+circle-info: info
+triangle-exclamation: triangleAlert
+exclamation: circleAlert
+magnifying-glass: search
+filter: filter
+copy: copy
+play: play
+pause: pause
+snowflake: snowflake
+microphone-lines: micAudioLines
+microphone-slash: micOff
+closed-captioning: captions
+video: video
+video-slash: videoOff
+display: monitor
+ear-listen: ear
+hand: hand
+phone-slash: phoneOff
+expand: maximize2
+discourse-compress: minimize2
+discourse-expand: maximize2
+chevrons-left: chevronsLeft
+chevrons-right: chevronsRight
 
 # --- Topics and posts
-far-file-lines
-comment
-comments
-quote-left
-reply
-share
-thumbtack
-lock
-unlock
-folder
-folder-open
-far-eye
-far-eye-slash
-hand-point-right
-trash-can
-pencil
-flag
-certificate
-bookmark
-far-bookmark
-heart
-far-heart
-star
-far-star
-user
-users
-user-plus
-at
-bell
-far-bell
-discourse-bell-exclamation
-discourse-bell-slash
-paper-plane
-toggle-on
-toggle-off
-far-face-smile
-paperclip
+far-file-lines: fileText
+comment: messageCircle
+comments: messagesSquare
+quote-left: quote
+reply: reply
+share: share2
+thumbtack: pin
+lock: lock
+unlock: lockOpen
+folder: folder
+folder-open: folderOpen
+far-eye: eye
+far-eye-slash: eyeOff
+hand-point-right: pointer
+trash-can: trash2
+pencil: pencil
+flag: flag
+certificate: award
+bookmark: bookmark
+far-bookmark: bookmark
+heart: heart
+far-heart: heart
+star: star
+far-star: star
+user: user
+users: users
+user-plus: userPlus
+at: atSign
+bell: bellRing
+far-bell: bell
+discourse-bell-exclamation: bellDot
+discourse-bell-slash: bellOff
+paper-plane: send
+toggle-on: toggleRight
+toggle-off: toggleLeft
+far-face-smile: smile
+paperclip: paperclip
+map-pin: mapPin
 
 # --- Notifications
 # What Discourse's own reactions plugin gives a reaction notification.
-discourse-emojis
-flask
-discourse-flask-check
-quote-right
-link
-check
-far-clock
-discourse-bookmark-clock
+discourse-emojis: smilePlus
+flask: flaskConical
+discourse-flask-check: flaskConical
+quote-right: quote
+link: link
+check: check
+far-clock: clock
+discourse-bookmark-clock: alarmClock
 
-# --- Composer
-bold
-italic
-upload
+# --- Composer and media
+bold: bold
+italic: italic
+upload: upload
+calendar: calendar
+keyboard: keyboard
+image: image
+image-off: imageOff
+images: images
+image-plus: imagePlus
+sliders-horizontal: slidersHorizontal
+zoom-in: zoomIn
+zoom-out: zoomOut
+grid-2x2-x: grid2x2X
+grid-3x3: grid3x3
+gallery-horizontal: galleryHorizontal
+square-check: squareCheck
+square: square
+circle-dot: circleDot
 
 # --- Oneboxes
-tag
+tag: tag
 
 # --- Updates
-arrows-rotate
-download
-far-circle-check
+arrows-rotate: refreshCw
+download: download
+far-circle-check: circleCheckBig
 
 # --- Aliases, from Discourse's REPLACEMENTS in lib/icon-library.js
 d-liked = heart
@@ -165,6 +185,5 @@ notification.votes_released = plus
 notification.upcoming_change_available = flask
 notification.upcoming_change_automatically_promoted = discourse-flask-check
 # Discourse also maps notification.posted, .watching_category_or_tag and
-# .watching_first_post onto discourse-bell-exclamation and discourse-bell-one,
-# which are not in the sprites this generator reads. NotificationDescription
-# names an icon for those three itself.
+# .watching_first_post onto discourse-bell-exclamation and discourse-bell-one.
+# NotificationDescription names an icon for those three itself.

@@ -720,10 +720,23 @@ class _MultiSelectMenu extends StatelessWidget {
       onSelected: onToggle,
       itemBuilder: (context) => [
         for (final value in values)
-          CheckedPopupMenuItem(
+          PopupMenuItem(
             value: value,
-            checked: selected.contains(value),
-            child: Text(sentenceCase(value)),
+            child: Semantics(
+              checked: selected.contains(value),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    child: selected.contains(value)
+                        ? const DIcon(DIcons.check, size: 14)
+                        : null,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(sentenceCase(value)),
+                ],
+              ),
+            ),
           ),
       ],
       child: Semantics(
