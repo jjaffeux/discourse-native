@@ -451,6 +451,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   bool _hasUnappliedDraft = false;
   bool get hasUnappliedDraft => _hasUnappliedDraft;
+  bool _restoredDraft = false;
   bool _unappliedDraftOverwritten = false;
   bool get unappliedDraftOverwritten => _unappliedDraftOverwritten;
   ComposerDraft? _unappliedDraft;
@@ -480,6 +481,22 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   bool _discarding = false;
   bool get discarding => _discarding;
+
+  bool _closing = false;
+  bool get closing => _closing;
+
+  bool beginClose() {
+    if (_disposed || _discarding || _closing) return false;
+    _closing = true;
+    _notify();
+    return true;
+  }
+
+  void cancelClose() {
+    if (_disposed || !_closing) return;
+    _closing = false;
+    _notify();
+  }
 
   bool _discardPromptOpen = false;
 
@@ -541,6 +558,21 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (_disposed || listEquals(next, _tags)) return;
     _tags = next;
     _onMetadataChanged();
+  }
+
+  void applyInitialTagsIfUntouched(Iterable<TopicTag> value) {
+    if (_disposed ||
+        _draftRevision != 0 ||
+        _restoredDraft ||
+        _hasUnappliedDraft) {
+      return;
+    }
+    final next = List<TopicTag>.unmodifiable(value);
+    if (listEquals(next, _tags)) return;
+    _tags = next;
+    _originalTags = next;
+    _recomputeCanSubmit();
+    _notify();
   }
 
   void metadataSettled() {
@@ -1966,6 +1998,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       return false;
     }
     if (!canRestoreDraft(draft)) return false;
+    _restoredDraft = true;
     _replaceDocument(
       TextEditingValue(
         text: draft.reply,

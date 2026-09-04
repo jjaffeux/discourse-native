@@ -417,14 +417,12 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   static const double _edgeHandleExtent = 16;
   static const double _cornerHandleExtent =
       _edgeHandleExtent + _composerPanelRadius;
-  static const Duration _geometryRestoreDeadline = Duration(milliseconds: 100);
 
   final GlobalKey _panelKey = GlobalKey();
 
   Size? _size;
   Offset? _position;
   ComposerGeometryPreference? _restoredPreference;
-  bool _geometryLoaded = false;
   bool _geometryChanged = false;
   bool _minimized = false;
   bool _geometryReportScheduled = false;
@@ -446,8 +444,6 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      if (!_geometryLoaded) return const SizedBox.shrink();
-
       final bounds = Size(constraints.maxWidth, constraints.maxHeight);
       final expandedGeometry = _geometryFor(bounds);
       final geometry = _minimized
@@ -846,18 +842,9 @@ class _FloatingComposerPanelState extends State<FloatingComposerPanel> {
   }
 
   Future<void> _restoreGeometry() async {
-    // Restored geometry is optional presentation state. A platform preferences
-    // channel that never answers must not leave a successfully opened composer
-    // permanently represented by an empty overlay.
-    final preference = await widget.geometryStore.read().timeout(
-      _geometryRestoreDeadline,
-      onTimeout: () => null,
-    );
-    if (!mounted) return;
-    setState(() {
-      if (!_geometryChanged) _restoredPreference = preference;
-      _geometryLoaded = true;
-    });
+    final preference = await widget.geometryStore.read();
+    if (!mounted || _geometryChanged || preference == null) return;
+    setState(() => _restoredPreference = preference);
   }
 
   void _persistGeometry(Size bounds) {

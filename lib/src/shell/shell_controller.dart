@@ -5797,6 +5797,7 @@ class ShellController extends FrameSafeNotifier
     final instance = currentInstance;
     if (_rootMode != ShellRootMode.forum ||
         composer == null ||
+        composer.closing ||
         instance == null) {
       return null;
     }
@@ -6012,63 +6013,13 @@ class ShellController extends FrameSafeNotifier
     final originFeedId = revealContent && !canCreateTopicHere
         ? instance.defaultDestination.id
         : feedId;
-
-    final lease = lifecycle.capture(instance.url);
-    if (!_topicComposerCapabilities.containsKey(instance.url) ||
-        !_categorised.contains(instance.url)) {
-      // These lookups enrich the composer; a temporary metadata failure must
-      // not prevent an account that can post from opening it. The loaders keep
-      // successful results and leave failures retryable on the next open.
-      await Future.wait<void>([
-        if (!_topicComposerCapabilities.containsKey(instance.url))
-          _ensureTopicComposerCapabilities(instance.url),
-        if (!_categorised.contains(instance.url)) loadCategories(instance.url),
-      ]);
-    }
-    if (!lease.isCurrent || currentFeedId != feedId || activeTabId != tabId) {
-      return;
-    }
-
-    final capabilities = topicComposerCapabilities(instance.url);
-    var categories = topicComposerCategories(instance.url);
-    String? apiKey;
     final path = route.feedPath;
     final link = path == null
         ? null
         : ListLink.parse(path.replaceFirst(RegExp(r'\.json$'), ''));
     final categoryId = canCreateTopicHere ? route.categoryId : null;
     var selectedCategory = categoryFor(categoryId, siteUrl: instance.url);
-    if (categoryId != null && selectedCategory == null) {
-      final credential = await _credentialForWrite(instance.url);
-      if (!lease.isCurrent || currentFeedId != feedId || activeTabId != tabId) {
-        return;
-      }
-      apiKey = credential.apiKey;
-      if (apiKey != null) {
-        try {
-          final found = await api.categories.findCategories(
-            siteUrl: instance.url,
-            ids: [categoryId],
-            apiKey: apiKey,
-          );
-          selectedCategory = found
-              .where((category) => category.id == categoryId)
-              .firstOrNull;
-        } catch (error, stackTrace) {
-          if (lease.isCurrent) {
-            _reportOperationalError(
-              error,
-              stackTrace,
-              'composer.category',
-              severity: DiagnosticSeverity.warning,
-            );
-          }
-        }
-      }
-      if (!lease.isCurrent || currentFeedId != feedId || activeTabId != tabId) {
-        return;
-      }
-    }
+    final categoryNeedsLookup = categoryId != null && selectedCategory == null;
     if (selectedCategory == null &&
         categoryId != null &&
         link?.kind == ListKind.category) {
@@ -6085,42 +6036,9 @@ class ShellController extends FrameSafeNotifier
         slug: link!.slug,
       );
     }
-    // A topic feed can expose a restricted or later-page category before the
-    // category directory has loaded it. Keep that selected route available to
-    // the composer so its id can be rendered and edited instead of appearing
-    // as an empty category selection.
-    if (selectedCategory case final selected?
-        when categories.every((category) => category.id != selected.id)) {
-      categories = [...categories, selected];
+    if (categoryNeedsLookup && selectedCategory != null) {
+      _mergeCategories(instance.url, [selectedCategory]);
     }
-    var tags = const <TopicTag>[];
-    if (link?.kind == ListKind.tag && capabilities.canTagTopics) {
-      try {
-        if (apiKey == null) {
-          final credential = await _credentialForWrite(instance.url);
-          apiKey = credential.apiKey;
-        }
-        if (apiKey == null) return;
-        final result = await api.topicComposerQueries.searchTopicTags(
-          siteUrl: instance.url,
-          apiKey: apiKey,
-          term: link!.slug,
-          categoryId: categoryId,
-        );
-        final exact = result.results.where(
-          (tag) =>
-              tag.id == link.id ||
-              tag.name.toLowerCase() == link.slug.toLowerCase() ||
-              tag.slug?.toLowerCase() == link.slug.toLowerCase(),
-        );
-        if (exact.isNotEmpty && !exact.first.disabled) tags = [exact.first];
-      } catch (_) {}
-    }
-    if (!lease.isCurrent || currentFeedId != feedId || activeTabId != tabId) {
-      return;
-    }
-
-    if (categories.isNotEmpty) _mergeCategories(instance.url, categories);
     if (!_replaceComposer()) return;
     final target = ComposerTarget(
       siteUrl: instance.url,
@@ -6131,22 +6049,124 @@ class ShellController extends FrameSafeNotifier
       mode: ComposerMode.newTopic,
       originFeedId: originFeedId,
       initialCategoryId: categoryId,
-      initialTags: tags,
     );
     final composer = _buildTextComposer(
       target,
       persistsDraft: true,
-      minimumRequiredTags:
-          categories
-              .where((category) => category.id == categoryId)
-              .firstOrNull
-              ?.minimumRequiredTags ??
-          0,
+      minimumRequiredTags: selectedCategory?.minimumRequiredTags ?? 0,
     );
     _composer = composer;
     if (revealContent) _mobilePane = MobilePane.content;
-    _notify();
     _composerDrafts.startRestore(composer);
+    final enrichment = _enrichNewTopicComposer(
+      composer,
+      instance: instance,
+      link: link,
+      categoryId: categoryId,
+      placeholderCategory: categoryNeedsLookup ? selectedCategory : null,
+    );
+    _notify();
+    await enrichment;
+  }
+
+  Future<void> _enrichNewTopicComposer(
+    ComposerController composer, {
+    required DiscourseInstance instance,
+    required ListLink? link,
+    required int? categoryId,
+    required TopicCategory? placeholderCategory,
+  }) async {
+    final siteUrl = instance.url;
+    final lease = lifecycle.capture(siteUrl);
+    bool isCurrent() =>
+        lease.isCurrent &&
+        identical(_composer, composer) &&
+        !composer.isDisposed;
+
+    // Categories and capabilities refine an already usable composer. Keeping
+    // them off the presentation path makes the first frame independent of the
+    // network while retaining retryable failures and late-arriving metadata.
+    await Future.wait<void>([
+      if (!_topicComposerCapabilities.containsKey(siteUrl))
+        _ensureTopicComposerCapabilities(siteUrl),
+      if (!_categorised.contains(siteUrl)) loadCategories(siteUrl),
+    ]);
+    if (!isCurrent()) return;
+
+    String? apiKey;
+    var apiKeyRead = false;
+    Future<String?> readApiKey() async {
+      if (apiKeyRead) return apiKey;
+      apiKeyRead = true;
+      final credential = await _credentialForWrite(siteUrl);
+      if (!isCurrent() || credential.failure != null) return null;
+      return apiKey = credential.apiKey;
+    }
+
+    final loadedCategory = categoryFor(categoryId, siteUrl: siteUrl);
+    final stillHasPlaceholder =
+        placeholderCategory != null &&
+        identical(loadedCategory, placeholderCategory);
+    if (categoryId != null && (loadedCategory == null || stillHasPlaceholder)) {
+      final key = await readApiKey();
+      if (!isCurrent()) return;
+      if (key != null) {
+        try {
+          final found = await api.categories.findCategories(
+            siteUrl: siteUrl,
+            ids: [categoryId],
+            apiKey: key,
+          );
+          if (!isCurrent()) return;
+          if (found.isNotEmpty) {
+            _mergeCategories(siteUrl, found);
+            _notify();
+          }
+        } catch (error, stackTrace) {
+          if (isCurrent()) {
+            _reportOperationalError(
+              error,
+              stackTrace,
+              'composer.category',
+              severity: DiagnosticSeverity.warning,
+            );
+          }
+        }
+      }
+    }
+    if (!isCurrent()) return;
+
+    final capabilities = topicComposerCapabilities(siteUrl);
+    if (link?.kind == ListKind.tag && capabilities.canTagTopics) {
+      final key = await readApiKey();
+      if (!isCurrent()) return;
+      if (key != null) {
+        try {
+          final result = await api.topicComposerQueries.searchTopicTags(
+            siteUrl: siteUrl,
+            apiKey: key,
+            term: link!.slug,
+            categoryId: categoryId,
+          );
+          if (!isCurrent()) return;
+          final exact = result.results.where(
+            (tag) =>
+                tag.id == link.id ||
+                tag.name.toLowerCase() == link.slug.toLowerCase() ||
+                tag.slug?.toLowerCase() == link.slug.toLowerCase(),
+          );
+          if (exact.isNotEmpty && !exact.first.disabled) {
+            composer.applyInitialTagsIfUntouched([exact.first]);
+          }
+        } catch (_) {}
+      }
+    }
+    if (!isCurrent()) return;
+
+    composer.setMinimumRequiredTags(
+      categoryFor(composer.categoryId, siteUrl: siteUrl)?.minimumRequiredTags ??
+          0,
+    );
   }
 
   Future<void> openReplyAsNewTopic(String continuation) async {
@@ -9139,6 +9159,18 @@ class ShellController extends FrameSafeNotifier
     composer.dispose();
     _composer = null;
     _composerDrafts.detach(composer);
+    _notify();
+  }
+
+  bool hideComposerForClose(ComposerController composer) {
+    if (!identical(_composer, composer) || !composer.beginClose()) return false;
+    _notify();
+    return true;
+  }
+
+  void restoreComposerAfterFailedClose(ComposerController composer) {
+    if (!identical(_composer, composer) || composer.isDisposed) return;
+    composer.cancelClose();
     _notify();
   }
 
