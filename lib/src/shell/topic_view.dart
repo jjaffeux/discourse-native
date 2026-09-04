@@ -1117,10 +1117,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       if (post == null) continue;
       final bounds = _postViewportBounds(post.id);
       if (bounds == null || bounds.bottom > viewportExtent + 0.5) continue;
+      final caughtUp =
+          !snapshot.hasMore && postIndex == snapshot.postIds.length - 1;
       readablePost = (
         postId: post.id,
-        postNumber: post.postNumber,
-        caughtUp: !snapshot.hasMore && postIndex == snapshot.postIds.length - 1,
+        postNumber: caughtUp
+            ? _terminalReadPostNumber(controller, snapshot, post, postIndex)
+            : post.postNumber,
+        caughtUp: caughtUp,
       );
       break;
     }
@@ -1150,6 +1154,40 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         'saveAfterScrollEnd': saveAnchor,
       });
     }
+  }
+
+  int _terminalReadPostNumber(
+    ShellController controller,
+    TopicViewportSnapshot snapshot,
+    Post post,
+    int postIndex,
+  ) {
+    if (!post.isSmallAction) return post.postNumber;
+
+    // Discourse numbers small actions in the stream but deliberately leaves
+    // them above the topic's highest_post_number. Its timings endpoint rejects
+    // those numbers, so reading a trailing close/pin/etc. action must advance
+    // through the last real post instead.
+    for (var index = postIndex - 1; index >= 0; index--) {
+      final previous = controller.store.read<Post>(
+        snapshot.siteUrl!,
+        snapshot.postIds[index],
+      );
+      if (previous != null && !previous.isSmallAction) {
+        return previous.postNumber;
+      }
+    }
+
+    final tracked = controller.store.read<Topic>(
+      snapshot.siteUrl!,
+      snapshot.topicId!,
+    );
+    if (tracked != null &&
+        tracked.highestPostNumber > 0 &&
+        tracked.highestPostNumber < post.postNumber) {
+      return tracked.highestPostNumber;
+    }
+    return post.postNumber;
   }
 
   /// Matches web chat context: the current intersecting post and the nearest

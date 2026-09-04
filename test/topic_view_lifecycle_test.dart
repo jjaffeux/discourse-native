@@ -472,6 +472,76 @@ void main() {
         expect(controller.currentContent?.postNumber, 30);
       });
 
+      testWidgets('a terminal small action marks the last regular post read', (
+        tester,
+      ) async {
+        final site = instance('meta.example');
+        final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+        final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([site]),
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+        controller.store
+          ..put(
+            site.url,
+            const TopicDetail(
+              id: 1,
+              title: 'Closed topic',
+              stream: [100, 101],
+              postsCount: 1,
+              closed: true,
+            ),
+          )
+          ..putAll(site.url, const [
+            Post(
+              id: 100,
+              postNumber: 1,
+              username: 'sam',
+              cooked: '<p>The final reply</p>',
+            ),
+            Post(
+              id: 101,
+              postNumber: 2,
+              username: 'moderator',
+              cooked: '',
+              postType: Post.smallActionPostType,
+              actionCode: 'closed.enabled',
+            ),
+          ])
+          ..put(
+            site.url,
+            const Topic(
+              id: 1,
+              title: 'Closed topic',
+              slug: 'closed-topic',
+              closed: true,
+              unreadPosts: 1,
+              highestPostNumber: 1,
+            ),
+          );
+        controller.pushContent(
+          ContentRoute.topic(
+            topicId: 1,
+            slug: 'closed-topic',
+            title: 'Closed topic',
+          ),
+        );
+
+        await tester.pumpWidget(_topicView(controller));
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 600));
+
+        expect(find.textContaining('closed this topic'), findsOneWidget);
+        expect(api.topicReadsRecorded, [(topicId: 1, postNumber: 1)]);
+        expect(controller.store.read<Topic>(site.url, 1)!.hasUnread, isFalse);
+      });
+
       testWidgets('restores the position inside a long final post on reopen', (
         tester,
       ) async {

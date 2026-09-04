@@ -51,6 +51,17 @@ final class TopicReadController {
     final local = _positions[key] ?? 0;
     final server = held?.lastReadPostNumber ?? 0;
     if ((local > server ? local : server) >= postNumber) {
+      if (caughtUp) {
+        store.update<Topic>(
+          siteUrl,
+          topicId,
+          (row) => row.copyWith(
+            markRead:
+                row.highestPostNumber <= 0 ||
+                postNumber >= row.highestPostNumber,
+          ),
+        );
+      }
       return Future.value();
     }
 
