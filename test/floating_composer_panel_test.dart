@@ -838,7 +838,7 @@ void main() {
       expect(restored, preferred);
     });
 
-    testWidgets('waits for restored geometry before showing the panel', (
+    testWidgets('shows immediately while restored geometry is loading', (
       tester,
     ) async {
       final persistence = _DelayedComposerGeometryPersistence();
@@ -853,7 +853,11 @@ void main() {
         geometryStore: ComposerGeometryStore(persistence: persistence),
       );
 
-      expect(find.byType(ComposerPanel), findsNothing);
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(
+        tester.getRect(find.byType(ComposerPanel)),
+        isNot(const Rect.fromLTWH(16, 145, 640, 360)),
+      );
 
       const preference = ComposerGeometryPreference(
         width: 640,
@@ -868,7 +872,7 @@ void main() {
       expect(restored, const Rect.fromLTWH(16, 145, 640, 360));
     });
 
-    testWidgets('shows the default panel when geometry storage never answers', (
+    testWidgets('stays visible when geometry storage never answers', (
       tester,
     ) async {
       final persistence = _DelayedComposerGeometryPersistence();
@@ -882,10 +886,6 @@ void main() {
         composer,
         geometryStore: ComposerGeometryStore(persistence: persistence),
       );
-
-      expect(find.byType(ComposerPanel), findsNothing);
-
-      await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byType(ComposerPanel), findsOneWidget);
     });

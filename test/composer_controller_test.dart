@@ -644,6 +644,53 @@ void main() {
       expect(composer.canSubmit, isFalse);
       expect(notifications, 2);
     });
+
+    test('late route tags become the untouched composer baseline', () {
+      final composer = ComposerController(
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 0,
+          slug: '',
+          topicTitle: 'New topic',
+          mode: ComposerMode.newTopic,
+        ),
+      );
+      addTearDown(composer.dispose);
+
+      composer.applyInitialTagsIfUntouched(const [
+        TopicTag(id: 7, name: 'feature'),
+      ]);
+
+      expect(composer.tags, const [TopicTag(id: 7, name: 'feature')]);
+      expect(composer.metadataChanged, isFalse);
+      expect(composer.draftPending, isFalse);
+    });
+
+    test('late route tags do not replace a restored draft', () {
+      final composer = ComposerController(
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 0,
+          slug: '',
+          topicTitle: 'New topic',
+          mode: ComposerMode.newTopic,
+        ),
+      );
+      addTearDown(composer.dispose);
+      composer.restore(
+        const ComposerDraft(
+          reply: '',
+          action: ComposerDraft.createTopicAction,
+          tags: [TopicTag(id: 8, name: 'mobile')],
+        ),
+      );
+
+      composer.applyInitialTagsIfUntouched(const [
+        TopicTag(id: 7, name: 'feature'),
+      ]);
+
+      expect(composer.tags, const [TopicTag(id: 8, name: 'mobile')]);
+    });
   });
 
   group('private message drafts', () {

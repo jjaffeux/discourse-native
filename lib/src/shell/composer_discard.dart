@@ -13,22 +13,30 @@ Future<void> closeComposerFromPanel({
   ShellController? controller,
 }) async {
   final shell = controller ?? ShellScope.read(context);
-  if (composer.discarding ||
-      (composer.canSaveDraft &&
-          !await shell.finishComposerDraftRestore(composer))) {
-    return;
-  }
-  if (!context.mounted) return;
-  if (composer.hasUnappliedDraft && !composer.hasChanges) {
-    shell.closeComposer();
-    return;
-  }
-  if (composer.hasChanges) {
-    if (composer.canSaveDraft) {
+  if (composer.discarding || composer.closing) return;
+  if (composer.canSaveDraft) {
+    if (!shell.hideComposerForClose(composer)) return;
+    if (!await shell.finishComposerDraftRestore(composer)) {
+      shell.restoreComposerAfterFailedClose(composer);
+      return;
+    }
+    if (composer.hasUnappliedDraft && !composer.hasChanges) {
       shell.closeComposer();
       return;
     }
-  } else if (!composer.canSaveDraft) {
+    if (composer.hasChanges) {
+      shell.closeComposer();
+      return;
+    }
+    final error = await shell.discardComposer(composer);
+    if (!composer.isDisposed) {
+      if (error != null) composer.showNotice(error);
+      shell.restoreComposerAfterFailedClose(composer);
+    }
+    return;
+  }
+  if (!context.mounted) return;
+  if (!composer.hasChanges) {
     shell.closeComposer();
     return;
   }

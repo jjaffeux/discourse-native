@@ -1559,38 +1559,40 @@ void _registerComposerAndDraftTests() {
       ]);
     });
 
-    testWidgets('close waits for draft restoration before choosing an action', (
-      tester,
-    ) async {
-      final drafts = _GatedDraftReadStore();
-      addTearDown(() {
-        if (!drafts.release.isCompleted) drafts.release.complete();
-      });
-      await drafts.write(
-        'https://meta.discourse.org',
-        'topic_7',
-        const ComposerDraft(reply: 'Restored after close was pressed').encode(),
-      );
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail()},
-      );
+    testWidgets(
+      'save and close is immediate while draft restoration finishes',
+      (tester) async {
+        final drafts = _GatedDraftReadStore();
+        addTearDown(() {
+          if (!drafts.release.isCompleted) drafts.release.complete();
+        });
+        await drafts.write(
+          'https://meta.discourse.org',
+          'topic_7',
+          const ComposerDraft(
+            reply: 'Restored after close was pressed',
+          ).encode(),
+        );
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail()},
+        );
 
-      await openComposer(tester, api, drafts: drafts);
-      expect(drafts.started.isCompleted, isTrue);
-      await tester.tap(find.byTooltip('Save and close'));
-      await tester.pump();
+        await openComposer(tester, api, drafts: drafts);
+        expect(drafts.started.isCompleted, isTrue);
+        await tester.tap(find.byTooltip('Save and close'));
+        await tester.pump();
 
-      expect(find.byType(ComposerPanel), findsOneWidget);
-      expect(api.userDraftsDeleted, isEmpty);
+        expect(find.byType(ComposerPanel), findsNothing);
+        expect(api.userDraftsDeleted, isEmpty);
 
-      drafts.release.complete();
-      await tester.pumpAndSettle();
+        drafts.release.complete();
+        await tester.pumpAndSettle();
 
-      expect(find.byType(ComposerPanel), findsNothing);
-      expect(api.userDraftsDeleted, isEmpty);
-      expect(drafts.saved.values.single, contains('Restored after close'));
-    });
+        expect(api.userDraftsDeleted, isEmpty);
+        expect(drafts.saved.values.single, contains('Restored after close'));
+      },
+    );
 
     testWidgets('a failed local read is retried before close can delete', (
       tester,

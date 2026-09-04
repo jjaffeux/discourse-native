@@ -499,6 +499,41 @@ void _registerTopicReadingTests() {
       expect(find.text('Tags'), findsOneWidget);
     });
 
+    testWidgets('New Topic is visible before metadata requests finish', (
+      tester,
+    ) async {
+      const user = DiscourseUser(
+        id: 7,
+        username: 'joffreyj',
+        canCreateTopic: true,
+      );
+      final api = _FailingNewTopicMetadataApi(user: user);
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: user)],
+        api: api,
+        authenticator: authenticator,
+      );
+      final metadata = Completer<void>();
+      api.capabilityGate = metadata;
+      addTearDown(() {
+        if (!metadata.isCompleted) metadata.complete();
+      });
+
+      await tester.tap(sidebarDestination('New Topic'));
+      await tester.pump();
+
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(metadata.isCompleted, isFalse);
+
+      metadata.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('Tags'), findsOneWidget);
+    });
+
     for (final failedMetadata in ['settings', 'categories']) {
       testWidgets(
         'New Topic opens after a $failedMetadata failure and retries later',
@@ -5512,6 +5547,7 @@ class _FailingNewTopicMetadataApi extends FakeDiscourseApi {
 
   bool failCapabilities = false;
   bool failCategoryLoad = false;
+  Completer<void>? capabilityGate;
 
   @override
   Future<CategoryLoadResult> loadCategories({
@@ -5553,6 +5589,7 @@ class _FailingNewTopicMetadataApi extends FakeDiscourseApi {
       apiKey: apiKey,
       clientId: clientId,
     );
+    await capabilityGate?.future;
     if (failCapabilities) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
