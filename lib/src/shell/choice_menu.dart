@@ -17,12 +17,16 @@ final class ChoiceMenuOption<T> {
     required this.title,
     required this.description,
     this.icon,
-  });
+    this.leading,
+    this.titleStyle,
+  }) : assert(icon == null || leading == null);
 
   final T value;
   final String title;
   final String description;
   final DIconData? icon;
+  final Widget? leading;
+  final TextStyle? titleStyle;
 }
 
 typedef ChoiceMenuAnchorBuilder =
@@ -761,7 +765,13 @@ class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
                   ),
                   child: Row(
                     children: [
-                      if (widget.option.icon case final icon?) ...[
+                      if (widget.option.leading case final leading?) ...[
+                        SizedBox.square(
+                          dimension: 24,
+                          child: Center(child: leading),
+                        ),
+                        const SizedBox(width: 10),
+                      ] else if (widget.option.icon case final icon?) ...[
                         SizedBox.square(
                           dimension: 24,
                           child: Center(
@@ -777,9 +787,11 @@ class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
                           children: [
                             Text(
                               widget.option.title,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style:
+                                  widget.option.titleStyle ??
+                                  theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                             ),
                             if (hasDescription) ...[
                               const SizedBox(height: 2),
