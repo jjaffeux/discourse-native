@@ -405,7 +405,12 @@ class _GroupHeader extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 22, 16, 18),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxWidth < _groupDesktopBreakpoint;
+            final compact =
+                ContentReadingLane.breakpointWidthOf(
+                  context,
+                  constraints.maxWidth,
+                ) <
+                _groupDesktopBreakpoint;
             final actions = Wrap(
               alignment: WrapAlignment.end,
               spacing: 8,
@@ -707,7 +712,12 @@ class _PrimaryTabs extends StatelessWidget {
       color: Theme.of(context).colorScheme.surface,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < _groupDesktopBreakpoint;
+          final compact =
+              ContentReadingLane.breakpointWidthOf(
+                context,
+                constraints.maxWidth,
+              ) <
+              _groupDesktopBreakpoint;
           return Container(
             decoration: BoxDecoration(
               border: Border(

@@ -182,7 +182,12 @@ class _MembersSectionState extends State<_MembersSection> {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final desktop = constraints.maxWidth >= 760;
+        final desktop =
+            ContentReadingLane.breakpointWidthOf(
+              context,
+              constraints.maxWidth,
+            ) >=
+            760;
         final extra = widget.loadingMore ? 1 : 0;
         return ContentReadingLane(
           basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
@@ -307,7 +312,11 @@ class _MembersToolbar extends StatelessWidget {
               ),
           ];
           if (actions.isEmpty) return search;
-          if (constraints.maxWidth < 600) {
+          if (ContentReadingLane.breakpointWidthOf(
+                context,
+                constraints.maxWidth,
+              ) <
+              600) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

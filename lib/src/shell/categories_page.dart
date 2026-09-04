@@ -129,7 +129,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
       basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       builder: (context, lane) {
         const gap = 12.0;
-        final columns = _columnsFor(lane.width);
+        final columns = _columnsFor(
+          ContentReadingLane.breakpointWidthOf(context, lane.width),
+        );
         final cardWidth = (lane.width - gap * (columns - 1)) / columns;
 
         return NotificationListener<ScrollNotification>(
