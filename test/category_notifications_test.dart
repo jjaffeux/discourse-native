@@ -65,10 +65,11 @@ void main() {
     expect(button, findsOneWidget);
     expect(find.byTooltip('Category notifications: Normal'), findsOneWidget);
     expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
-    expect(
-      tester.getCenter(button).dx,
-      lessThan(tester.getCenter(find.byKey(TopicCreateButton.buttonKey)).dx),
+    final notificationButtonRect = tester.getRect(button);
+    final newTopicButtonRect = tester.getRect(
+      find.byKey(TopicCreateButton.buttonKey),
     );
+    expect(newTopicButtonRect.left - notificationButtonRect.right, 8);
 
     await tester.tap(button);
     await tester.pumpAndSettle();

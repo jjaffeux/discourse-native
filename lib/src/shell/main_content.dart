@@ -705,9 +705,12 @@ class _TopicCreateAction extends StatelessWidget {
     controller: controller,
     select: (controller) => controller.canCreateTopicHere,
     builder: (context, canCreateTopic, _) => canCreateTopic
-        ? TopicCreateButton(
-            showLabel: MediaQuery.sizeOf(context).width >= 640,
-            onPressed: () => unawaited(controller.openNewTopic()),
+        ? Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: TopicCreateButton(
+              showLabel: MediaQuery.sizeOf(context).width >= 640,
+              onPressed: () => unawaited(controller.openNewTopic()),
+            ),
           )
         : const SizedBox.shrink(),
   );
