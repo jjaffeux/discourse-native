@@ -780,6 +780,9 @@ new-topic composer over the source topic. It prepends core's canonical
 Each post's hover, keyboard, and touch actions also open that share surface
 with its post-number URL. Its Reply as new topic action keeps the backlink
 post-specific while the one-tap Copy link remains available beside it.
+Small topic-action rows join that interaction layer only when core grants their
+post-level `can_delete` permission, and expose Delete without ordinary post
+actions such as Reply, Bookmark, or Share.
 
 Whole-topic flagging is distinct from flagging the opening post. The sidebar
 action requires `details.can_flag_topic`, intersects the topic's top-level
