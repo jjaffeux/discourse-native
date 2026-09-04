@@ -258,113 +258,55 @@ class _ChannelSettings extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _InfoSection(
-                            title: 'Title',
-                            children: [
-                              _InfoRow(
-                                value: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(channel.title),
-                                    if (channel.isCategoryChannel)
-                                      InkWell(
-                                        key: const ValueKey(
-                                          'chat-channel-settings-channel-link',
-                                        ),
-                                        onTap: () => PluginUiScope.require(
-                                          context,
-                                          chatShellService,
-                                        ).openChannel(channel.id),
-                                        child: Text(
-                                          '/chat/c/${channel.slug ?? '-'}/${channel.id}',
-                                          style: TextStyle(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.primary,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                action: canEdit
-                                    ? DButton(
-                                        key: const ValueKey(
-                                          'chat-channel-edit-title',
-                                        ),
-                                        label: const Text('Edit'),
-                                        onPressed: () => unawaited(
-                                          showChatChannelTitleEditor(
-                                            context: context,
-                                            chat: chat,
-                                            siteUrl: siteUrl,
-                                            channel: channel,
-                                          ),
-                                        ),
-                                        variant: DButtonVariant.link,
-                                      )
-                                    : null,
-                              ),
-                            ],
+                          _ChannelSummary(
+                            channel: channel,
+                            onOpenChannel: channel.isCategoryChannel
+                                ? () => PluginUiScope.require(
+                                    context,
+                                    chatShellService,
+                                  ).openChannel(channel.id)
+                                : null,
+                            onEdit: canEdit
+                                ? () => unawaited(
+                                    showChatChannelDetailsEditor(
+                                      context: context,
+                                      chat: chat,
+                                      siteUrl: siteUrl,
+                                      channel: channel,
+                                    ),
+                                  )
+                                : null,
                           ),
-                          if (channel.isCategoryChannel)
+                          if (channel.status == ChatChannelStatus.open &&
+                              membership.following)
                             _InfoSection(
-                              title: 'Description',
+                              title: 'Your notifications',
+                              scope: 'Only affects you',
                               children: [
                                 _InfoRow(
-                                  value: Text(
-                                    channel.description ??
-                                        'Tell people what this channel is about.',
-                                  ),
-                                  action: canEdit
-                                      ? DButton(
-                                          key: const ValueKey(
-                                            'chat-channel-edit-description',
-                                          ),
-                                          label: Text(
-                                            channel.description == null
-                                                ? 'Add'
-                                                : 'Edit',
-                                          ),
-                                          onPressed: () => unawaited(
-                                            showChatChannelDescriptionEditor(
-                                              context: context,
-                                              chat: chat,
-                                              siteUrl: siteUrl,
-                                              channel: channel,
-                                            ),
-                                          ),
-                                          variant: DButtonVariant.link,
-                                        )
-                                      : null,
-                                ),
-                              ],
-                            ),
-                          if (channel.status == ChatChannelStatus.open &&
-                              (membership.following || canEdit))
-                            _InfoSection(
-                              title: 'Settings',
-                              children: [
-                                if (membership.following)
-                                  _InfoRow(
-                                    label: 'Mute channel',
-                                    action: Switch.adaptive(
-                                      key: const ValueKey(
-                                        'chat-channel-muted-setting',
-                                      ),
-                                      value: membership.muted,
-                                      onChanged: notificationBusy
-                                          ? null
-                                          : (muted) => unawaited(
-                                              _changeNotifications(
-                                                context,
-                                                muted: muted,
-                                              ),
-                                            ),
+                                  label: 'Mute channel',
+                                  description:
+                                      'Hide unread indicators and stop channel notifications.',
+                                  action: Switch.adaptive(
+                                    key: const ValueKey(
+                                      'chat-channel-muted-setting',
                                     ),
+                                    value: membership.muted,
+                                    onChanged: notificationBusy
+                                        ? null
+                                        : (muted) => unawaited(
+                                            _changeNotifications(
+                                              context,
+                                              muted: muted,
+                                            ),
+                                          ),
                                   ),
-                                if (membership.following && !membership.muted)
+                                ),
+                                if (!membership.muted)
                                   _InfoRow(
                                     label: 'Push notifications',
+                                    description:
+                                        'Choose which channel activity sends a push notification.',
                                     action:
                                         DropdownButton<
                                           ChatChannelNotificationLevel
@@ -408,26 +350,30 @@ class _ChannelSettings extends StatelessWidget {
                                           ],
                                         ),
                                   ),
-                                if (canEdit)
-                                  _InfoRow(
-                                    label: 'Threading',
-                                    description:
-                                        'Replies create separate conversations alongside the main channel.',
-                                    action: Switch.adaptive(
-                                      key: const ValueKey(
-                                        'chat-channel-threading-switch',
-                                      ),
-                                      value: channel.threadingEnabled,
-                                      onChanged: settingsBusy
-                                          ? null
-                                          : (enabled) => unawaited(
-                                              _toggleThreading(
-                                                context,
-                                                enabled,
-                                              ),
-                                            ),
+                              ],
+                            ),
+                          if (channel.status == ChatChannelStatus.open &&
+                              canEdit)
+                            _InfoSection(
+                              title: 'Conversation',
+                              scope: 'Shared setting',
+                              children: [
+                                _InfoRow(
+                                  label: 'Threaded replies',
+                                  description:
+                                      'Replies create separate conversations alongside the main channel.',
+                                  action: Switch.adaptive(
+                                    key: const ValueKey(
+                                      'chat-channel-threading-switch',
                                     ),
+                                    value: channel.threadingEnabled,
+                                    onChanged: settingsBusy
+                                        ? null
+                                        : (enabled) => unawaited(
+                                            _toggleThreading(context, enabled),
+                                          ),
                                   ),
+                                ),
                               ],
                             ),
                           _InfoSection(
@@ -466,7 +412,9 @@ class _ChannelSettings extends StatelessWidget {
                                   ),
                                 ),
                               _InfoRow(
-                                label: 'History',
+                                label: 'Message history',
+                                description:
+                                    'Messages are retained for this long.',
                                 action: Text(
                                   _retentionLabel(
                                     channel.isDirectMessage
@@ -479,9 +427,22 @@ class _ChannelSettings extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              if (canChangeStatus)
+                            ],
+                          ),
+                          if (canChangeStatus)
+                            _InfoSection(
+                              title: 'Channel management',
+                              scope: 'Staff',
+                              children: [
                                 _InfoRow(
-                                  label: 'Status',
+                                  label:
+                                      channel.status == ChatChannelStatus.closed
+                                      ? 'Channel is closed'
+                                      : 'Channel is open',
+                                  description:
+                                      channel.status == ChatChannelStatus.closed
+                                      ? 'Opening lets members post in this channel again.'
+                                      : 'Closing prevents non-staff members from posting.',
                                   action: DButton(
                                     key: const ValueKey(
                                       'chat-channel-toggle-status',
@@ -499,28 +460,43 @@ class _ChannelSettings extends StatelessWidget {
                                         channel: channel,
                                       ),
                                     ),
-                                    variant: DButtonVariant.link,
+                                    variant: DButtonVariant.standard,
+                                    size: DButtonSize.small,
                                   ),
                                 ),
-                            ],
-                          ),
-                          if (membership.following &&
-                              channel.isCategoryChannel) ...[
-                            const SizedBox(height: 8),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: DButton(
-                                key: const ValueKey('chat-channel-leave'),
-                                label: const Text('Leave channel'),
-                                onPressed: () =>
-                                    unawaited(_leave(context, channel)),
-                                icon: const DIcon(DIcons.rightFromBracket),
-                                variant: DButtonVariant.danger,
-                                loading: followingBusy,
-                                loadingLabel: const Text('Leaving…'),
-                              ),
+                              ],
                             ),
-                          ],
+                          if (membership.following && channel.isCategoryChannel)
+                            _InfoSection(
+                              title: 'Leave this channel',
+                              children: [
+                                _InfoRow(
+                                  value: Text(
+                                    'Remove ${channel.title} from your sidebar and stop following its conversations.',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                  action: DButton(
+                                    key: const ValueKey('chat-channel-leave'),
+                                    label: const Text('Leave channel'),
+                                    onPressed: () =>
+                                        unawaited(_leave(context, channel)),
+                                    icon: const DIcon(
+                                      DIcons.rightFromBracket,
+                                      size: 16,
+                                    ),
+                                    variant: DButtonVariant.danger,
+                                    size: DButtonSize.small,
+                                    loading: followingBusy,
+                                    loadingLabel: const Text('Leaving…'),
+                                  ),
+                                ),
+                              ],
+                            ),
                         ],
                       ),
                     ),
@@ -538,29 +514,171 @@ class _ChannelSettings extends StatelessWidget {
       days > 0 ? '$days days' : 'Forever';
 }
 
+class _ChannelSummary extends StatelessWidget {
+  const _ChannelSummary({
+    required this.channel,
+    this.onOpenChannel,
+    this.onEdit,
+  });
+
+  final ChatChannel channel;
+  final VoidCallback? onOpenChannel;
+  final VoidCallback? onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final identity = Row(
+      key: const ValueKey('chat-channel-summary-identity'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: DIcon(
+              DIcons.comment,
+              size: 18,
+              color: theme.colorScheme.onPrimaryContainer,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                channel.title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (channel.isCategoryChannel) ...[
+                const SizedBox(height: 2),
+                Text(
+                  channel.description ??
+                      'Tell people what this channel is about.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                InkWell(
+                  key: const ValueKey('chat-channel-settings-channel-link'),
+                  onTap: onOpenChannel,
+                  child: Text(
+                    '/chat/c/${channel.slug ?? '-'}/${channel.id}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+
+    Widget editButton() => DButton(
+      key: const ValueKey('chat-channel-edit-details'),
+      label: const Text('Edit details'),
+      onPressed: onEdit,
+      icon: const DIcon(DIcons.pencil, size: 14),
+      variant: DButtonVariant.standard,
+      size: DButtonSize.small,
+    );
+
+    return Padding(
+      key: const ValueKey('chat-channel-summary'),
+      padding: const EdgeInsets.only(bottom: 24),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (onEdit == null) return identity;
+          final width = ContentReadingLane.breakpointWidthOf(
+            context,
+            constraints.maxWidth,
+          );
+          if (width < 480) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                identity,
+                const SizedBox(height: 12),
+                Align(alignment: Alignment.centerLeft, child: editButton()),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: identity),
+              const SizedBox(width: 16),
+              editButton(),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _InfoSection extends StatelessWidget {
-  const _InfoSection({required this.title, required this.children});
+  const _InfoSection({required this.title, required this.children, this.scope});
 
   final String title;
   final List<Widget> children;
+  final String? scope;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 28),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 10),
-        ...children,
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: theme.dividerColor)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              Semantics(
+                header: true,
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (scope case final scope?)
+                Text(
+                  scope,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (var index = 0; index < children.length; index++) ...[
+            if (index > 0) Divider(height: 1, color: theme.dividerColor),
+            children[index],
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _InfoRow extends StatelessWidget {
@@ -573,32 +691,48 @@ class _InfoRow extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 7),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child:
-              value ??
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label!),
-                  if (description case final description?)
-                    Text(
-                      description,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 56),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child:
+                  value ??
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                ],
-              ),
+                      if (description case final description?) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          description,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+            ),
+            if (action case final action?) ...[
+              const SizedBox(width: 16),
+              action,
+            ],
+          ],
         ),
-        if (action case final action?) ...[const SizedBox(width: 16), action],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _ChannelMembers extends StatefulWidget {

@@ -4000,6 +4000,51 @@ void _registerChatShellTests() {
         expect(find.byType(ChatChannelView), findsOneWidget);
       });
 
+      testWidgets('stacks grouped channel details on a phone', (tester) async {
+        const staff = DiscourseUser(
+          id: 7,
+          username: 'joffreyj',
+          name: 'Joffrey',
+          staff: true,
+        );
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: staff,
+          chatChannelsBySite: {
+            site: ChatChannels(
+              public: [
+                channel(9, description: 'A place to discuss bug reports.'),
+              ],
+              direct: const [],
+            ),
+          },
+          chatMessagesByKey: {key(9): page(const [])},
+        );
+        await pumpChat(tester, api: api, user: staff, size: phone);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        expect(
+          shell.pluginSession
+              .require(chatShellService)
+              .openChannelInfo(siteUrl: site, channelId: 9),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+
+        final identity = find.byKey(
+          const ValueKey('chat-channel-summary-identity'),
+        );
+        final edit = find.byKey(const ValueKey('chat-channel-edit-details'));
+        expect(
+          tester.getTopLeft(edit).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(identity).dy),
+        );
+        expect(find.text('Your notifications'), findsOneWidget);
+        expect(find.text('Conversation'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
       testWidgets('shows and filters the channel member directory', (
         tester,
       ) async {
@@ -4054,9 +4099,12 @@ void _registerChatShellTests() {
 
         expect(find.text('A place to discuss bug reports.'), findsOneWidget);
         expect(
-          find.byKey(const ValueKey('chat-channel-edit-title')),
+          find.byKey(const ValueKey('chat-channel-edit-details')),
           findsNothing,
         );
+        expect(find.text('Your notifications'), findsOneWidget);
+        expect(find.text('Only affects you'), findsOneWidget);
+        expect(find.text('Message history'), findsOneWidget);
         expect(find.text('Members (2)'), findsOneWidget);
         expect(find.text('Sam'), findsNothing);
 
@@ -4215,7 +4263,9 @@ void _registerChatShellTests() {
           find.byKey(const ValueKey('content-header-title-action')),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('chat-channel-edit-title')));
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-edit-details')),
+        );
         await tester.pumpAndSettle();
 
         await tester.enterText(
@@ -4226,7 +4276,9 @@ void _registerChatShellTests() {
           find.byKey(const ValueKey('chat-channel-slug-input')),
           'bug-reports',
         );
-        await tester.tap(find.byKey(const ValueKey('chat-channel-title-save')));
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-details-save')),
+        );
         await tester.pumpAndSettle();
 
         expect(api.chatChannelMetadataUpdates, const [
@@ -4278,7 +4330,7 @@ void _registerChatShellTests() {
         );
         await tester.pumpAndSettle();
         await tester.tap(
-          find.byKey(const ValueKey('chat-channel-edit-description')),
+          find.byKey(const ValueKey('chat-channel-edit-details')),
         );
         await tester.pumpAndSettle();
 
@@ -4288,7 +4340,7 @@ void _registerChatShellTests() {
         await tester.enterText(descriptionInput, 'x');
         await tester.enterText(descriptionInput, '');
         await tester.tap(
-          find.byKey(const ValueKey('chat-channel-description-save')),
+          find.byKey(const ValueKey('chat-channel-details-save')),
         );
         await tester.pumpAndSettle();
 
@@ -4344,6 +4396,11 @@ void _registerChatShellTests() {
         final threadingSwitch = find.byKey(
           const ValueKey('chat-channel-threading-switch'),
         );
+        expect(find.text('Conversation'), findsOneWidget);
+        expect(find.text('Shared setting'), findsOneWidget);
+        expect(find.text('Channel management'), findsOneWidget);
+        expect(find.text('Staff'), findsOneWidget);
+        expect(find.text('Leave this channel'), findsOneWidget);
         expect(threadingSwitch, findsOneWidget);
         expect(tester.widget<Switch>(threadingSwitch).value, isFalse);
 
@@ -4393,9 +4450,12 @@ void _registerChatShellTests() {
           find.byKey(const ValueKey('content-header-title-action')),
         );
         await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey('chat-channel-toggle-status')),
+        final statusButton = find.byKey(
+          const ValueKey('chat-channel-toggle-status'),
         );
+        await tester.ensureVisible(statusButton);
+        await tester.pumpAndSettle();
+        await tester.tap(statusButton);
         await tester.pumpAndSettle();
 
         final statusDialog = find.byKey(
@@ -4505,7 +4565,10 @@ void _registerChatShellTests() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byKey(const ValueKey('chat-channel-leave')));
+        final leaveButton = find.byKey(const ValueKey('chat-channel-leave'));
+        await tester.ensureVisible(leaveButton);
+        await tester.pumpAndSettle();
+        await tester.tap(leaveButton);
         await tester.pumpAndSettle();
 
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
