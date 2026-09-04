@@ -267,52 +267,38 @@ class ChatPlugin
         authenticatedChatAvailable &&
         (shell.currentUser?.staff == true ||
             shell.currentUser?.canDirectMessage == true);
-
-    return [
+    final navigationDestinations = [
       if (authenticatedChatAvailable && settings.publicChannelsEnabled)
-        SidebarSection(
-          id: 'chat-browse',
-          title: '',
-          showHeader: false,
-          collapsible: false,
-          destinations: [
-            SidebarDestination(
-              id: browseRouteId,
-              label: 'Browse channels',
-              icon: DIcons.list,
-              onTap: shell.openBrowseChannels,
-            ),
-          ],
+        SidebarDestination(
+          id: browseRouteId,
+          label: 'Browse channels',
+          icon: DIcons.list,
+          onTap: shell.openBrowseChannels,
         ),
       if (myThreadsEnabled)
-        SidebarSection(
-          id: 'chat-my-threads',
-          title: '',
-          showHeader: false,
-          collapsible: false,
-          destinations: [
-            SidebarDestination(
-              id: myThreadsRouteId,
-              label: 'My threads',
-              icon: DIcons.comments,
-              onTap: shell.openMyThreads,
-            ),
-          ],
+        SidebarDestination(
+          id: myThreadsRouteId,
+          label: 'My threads',
+          icon: DIcons.comments,
+          onTap: shell.openMyThreads,
         ),
       if (searchEnabled)
+        SidebarDestination(
+          id: searchRouteId,
+          label: 'Search',
+          icon: DIcons.magnifyingGlass,
+          onTap: shell.openSearch,
+        ),
+    ];
+
+    return [
+      if (navigationDestinations.isNotEmpty)
         SidebarSection(
-          id: 'chat-search',
+          id: 'chat-navigation',
           title: '',
           showHeader: false,
           collapsible: false,
-          destinations: [
-            SidebarDestination(
-              id: searchRouteId,
-              label: 'Search',
-              icon: DIcons.magnifyingGlass,
-              onTap: shell.openSearch,
-            ),
-          ],
+          destinations: navigationDestinations,
         ),
       if (authenticatedChatAvailable && starred.isNotEmpty)
         SidebarSection(

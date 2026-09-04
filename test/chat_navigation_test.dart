@@ -4,6 +4,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
@@ -225,7 +226,15 @@ void main() {
     shell = ShellController(
       plugins: installedPlugins,
       instanceStore: FakeInstanceStore([
-        instance('meta.discourse.org').copyWith(user: _user),
+        instance('meta.discourse.org').copyWith(
+          user: _user,
+          config: SiteConfig(
+            plugins: PluginData.none.withValue(
+              chatSettingsDataKey,
+              const ChatSettings(searchEnabled: true),
+            ),
+          ),
+        ),
         instance('other.example').copyWith(user: _user),
       ]),
       api: api,
@@ -790,6 +799,41 @@ void main() {
     });
 
     group('sidebar workflows', () {
+      testWidgets('groups primary chat links into one sidebar section', (
+        tester,
+      ) async {
+        await shell.chat.loadChannels(_site);
+        late List<SidebarSection> sections;
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: PluginUiScope.own(
+                chatPluginId,
+                Builder(
+                  builder: (context) {
+                    sections = const ChatPlugin().sidebarSections(context);
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final navigation = sections.singleWhere(
+          (section) => section.id == 'chat-navigation',
+        );
+        expect(navigation.showHeader, isFalse);
+        expect(navigation.collapsible, isFalse);
+        expect(navigation.destinations.map((destination) => destination.id), [
+          ChatPlugin.browseRouteId,
+          ChatPlugin.myThreadsRouteId,
+          ChatPlugin.searchRouteId,
+        ]);
+      });
+
       testWidgets(
         'opens a new direct message with Command+K and shows the shortcut',
         (tester) async {
