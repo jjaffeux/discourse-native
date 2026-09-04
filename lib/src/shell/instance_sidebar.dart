@@ -338,7 +338,6 @@ class _SidebarPanelBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (showUserMenu && showCoreSections) const _SidebarSearchRow(),
-        _SidebarPanelSwitchRow(panels: panels, selectedPanel: selectedPanel),
         Expanded(
           child: ScrollbarTheme(
             data: const ScrollbarThemeData(
@@ -452,6 +451,7 @@ class _SidebarPanelBody extends StatelessWidget {
             ),
           ),
         ),
+        _SidebarPanelSwitchRow(panels: panels, selectedPanel: selectedPanel),
       ],
     );
   }
@@ -522,7 +522,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: theme.shell.divider)),
+        border: Border(top: BorderSide(color: theme.shell.divider)),
       ),
       child: Row(spacing: 6, children: targets),
     );
