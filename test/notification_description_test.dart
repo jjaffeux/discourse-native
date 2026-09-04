@@ -160,6 +160,17 @@ void main() {
     expect(describe(CoreNotificationTypes.liked).icon, DIcons.heart);
     expect(describe(CoreNotificationTypes.mentioned).icon, DIcons.at);
     expect(describe(CoreNotificationTypes.quoted).icon, DIcons.quoteRight);
+    for (final type in [
+      CoreNotificationTypes.posted,
+      CoreNotificationTypes.watchingFirstPost,
+      CoreNotificationTypes.watchingCategoryOrTag,
+    ]) {
+      expect(
+        describe(type).icon,
+        DIcons.discourseBellExclamation,
+        reason: 'unexpected icon for ${type.wireName}',
+      );
+    }
     expect(
       describe(CoreNotificationTypes.grantedBadge).icon,
       DIcons.certificate,

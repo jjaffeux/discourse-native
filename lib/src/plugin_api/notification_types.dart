@@ -415,7 +415,7 @@ DIconData _coreIcon(int type) {
   };
   return DIcons.byName['notification.$wireName'] ??
       switch (type) {
-        9 || 17 || 36 => DIcons.comment,
+        9 || 17 || 36 => DIcons.discourseBellExclamation,
         37 => DIcons.asterisk,
         41 => DIcons.flask,
         42 => DIcons.discourseFlaskCheck,
