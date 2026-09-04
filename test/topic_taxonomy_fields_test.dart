@@ -170,9 +170,12 @@ void main() {
 
   testWidgets('topic tag edit button wraps with the final tag', (tester) async {
     const tags = [
-      TopicTag(name: 'data-explorer'),
-      TopicTag(name: 'workflows'),
-      TopicTag(name: 'ask'),
+      TopicTag(name: 'blz-prod-eu'),
+      TopicTag(name: 'blz-prod-us'),
+      TopicTag(name: 'epic-prod-us2'),
+      TopicTag(name: 'googc-prod-us'),
+      TopicTag(name: 'hspot-prod-us'),
+      TopicTag(name: 'gcl-prod-us'),
     ];
 
     await tester.pumpWidget(
@@ -198,18 +201,23 @@ void main() {
     );
 
     final firstTag = tester.getRect(
-      find.byKey(const ValueKey('data-explorer')),
+      find.byKey(const ValueKey('blz-prod-eu')),
     );
-    final finalTag = tester.getRect(find.byKey(const ValueKey('ask')));
+    final finalTag = tester.getRect(find.byKey(const ValueKey('gcl-prod-us')));
     final editButton = tester.getRect(find.byKey(const ValueKey('edit-tags')));
     final editIcon = tester.getRect(
       find.byKey(const ValueKey('edit-tags-icon')),
     );
+    final precedingRunBottom = tags
+        .map((tag) => tester.getRect(find.byKey(ValueKey(tag.name))))
+        .where((rect) => rect.top < finalTag.top)
+        .map((rect) => rect.bottom)
+        .reduce((highest, bottom) => highest > bottom ? highest : bottom);
 
     expect(finalTag.center.dy, editIcon.center.dy);
-    expect(editButton.size, const Size.square(32));
+    expect(editButton.size, const Size.square(24));
     expect(finalTag.top, greaterThan(firstTag.top));
-    expect(finalTag.top - firstTag.bottom, lessThan(8));
+    expect(finalTag.top - precedingRunBottom, lessThan(8));
     expect(tester.takeException(), isNull);
   });
 }

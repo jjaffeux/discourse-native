@@ -3201,7 +3201,7 @@ void _registerTopicReadingTests() {
         );
         expect(
           tester.getSize(find.byKey(const ValueKey('topic-sidebar-add-tag'))),
-          const Size.square(32),
+          const Size.square(24),
         );
 
         final controller = ShellScope.read(

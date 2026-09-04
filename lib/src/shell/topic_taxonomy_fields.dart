@@ -260,7 +260,7 @@ class TopicTagsValue extends StatelessWidget {
       trailingAction = _TopicTaxonomyEditButton(
         actionKey: addKey,
         iconKey: addIconKey,
-        iconVerticalOffset: -4,
+        dimension: 24,
         tooltip: editTooltip,
         onTap: onEdit,
       );
@@ -282,33 +282,21 @@ class TopicTagsValue extends StatelessWidget {
           ? pills
           : [
               ...pills.take(pills.length - 1),
-              _TopicTagTrailingAction(
-                tag: pills.last,
-                action: trailingAction,
-                alignToTop: !saving && onEdit != null,
-              ),
+              _TopicTagTrailingAction(tag: pills.last, action: trailingAction),
             ],
     );
   }
 }
 
 class _TopicTagTrailingAction extends StatelessWidget {
-  const _TopicTagTrailingAction({
-    required this.tag,
-    required this.action,
-    required this.alignToTop,
-  });
+  const _TopicTagTrailingAction({required this.tag, required this.action});
 
   final Widget tag;
   final Widget action;
-  final bool alignToTop;
 
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: alignToTop
-        ? CrossAxisAlignment.start
-        : CrossAxisAlignment.center,
     children: [
       Flexible(child: tag),
       const SizedBox(width: 4),
@@ -392,14 +380,14 @@ class _TopicTaxonomyEditButton extends StatelessWidget {
     required this.iconKey,
     required this.tooltip,
     required this.onTap,
-    this.iconVerticalOffset = 0,
+    this.dimension = 32,
   });
 
   final Key? actionKey;
   final Key? iconKey;
   final String tooltip;
   final VoidCallback onTap;
-  final double iconVerticalOffset;
+  final double dimension;
 
   @override
   Widget build(BuildContext context) => Tooltip(
@@ -411,16 +399,13 @@ class _TopicTaxonomyEditButton extends StatelessWidget {
       excludeChildSemantics: true,
       borderRadius: BorderRadius.circular(999),
       child: SizedBox.square(
-        dimension: 32,
+        dimension: dimension,
         child: Center(
-          child: Transform.translate(
-            offset: Offset(0, iconVerticalOffset),
-            child: DIcon(
-              DIcons.pencil,
-              key: iconKey,
-              size: 12,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+          child: DIcon(
+            DIcons.pencil,
+            key: iconKey,
+            size: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       ),
