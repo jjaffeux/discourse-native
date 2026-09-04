@@ -108,13 +108,96 @@ void main() {
         matching: find.byWidgetPredicate(
           (widget) =>
               widget is ConstrainedBox &&
-              widget.constraints.minHeight == TopicListRow.minimumHeight,
+              widget.constraints.minHeight == TopicListRow.compactMinimumHeight,
         ),
       );
-      expect(tester.getSize(topicRow.first).height, TopicListRow.minimumHeight);
+      expect(
+        tester.getSize(topicRow.first).height,
+        TopicListRow.compactMinimumHeight,
+      );
     } finally {
       semantics.dispose();
     }
+  });
+
+  testWidgets('desktop rows compact only when their context line is empty', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const ui.Size(900, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    const topics = [
+      Topic(
+        id: 7,
+        title: 'Daily Log',
+        slug: 'daily-log',
+        replyCount: 2,
+        views: 14,
+        posterAvatars: ['', ''],
+      ),
+      Topic(
+        id: 8,
+        title: 'A contextual topic',
+        slug: 'a-contextual-topic',
+        tags: [TopicTag(id: 3, name: 'design', slug: 'design')],
+      ),
+    ];
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([sites.first]),
+      api: FakeDiscourseApi(feeds: {'/latest.json': topics}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    for (final topic in topics) {
+      controller.store.put(sites.first.url, topic);
+    }
+
+    await tester.pumpWidget(
+      _TestList(
+        controller: controller,
+        feed: const TopicFeed(topicIds: [7, 8], loaded: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final compactRow = find.ancestor(
+      of: find.text('Daily Log'),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is ConstrainedBox &&
+            widget.constraints.minHeight == TopicListRow.compactMinimumHeight,
+      ),
+    );
+    final contextualRow = find.ancestor(
+      of: find.text('A contextual topic'),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is ConstrainedBox &&
+            widget.constraints.minHeight == TopicListRow.minimumHeight,
+      ),
+    );
+    expect(tester.getSize(compactRow), const Size(900, 50));
+    expect(tester.getSize(contextualRow), const Size(900, 68));
+    expect(find.text('design'), findsOneWidget);
+
+    final titleCenter = tester.getCenter(find.text('Daily Log')).dy;
+    expect(
+      tester
+          .getCenter(find.byKey(const ValueKey('topic-ledger-participants-7')))
+          .dy,
+      closeTo(titleCenter, 0.01),
+    );
+    expect(
+      tester
+          .getCenter(find.byKey(const ValueKey('topic-ledger-activity-7')))
+          .dy,
+      closeTo(titleCenter, 0.01),
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('narrow rows fold participants and activity into metadata', (
@@ -561,6 +644,7 @@ void main() {
     expect(position.maxScrollExtent, greaterThan(0));
 
     position.jumpTo(position.maxScrollExtent / 2);
+    await tester.pumpAndSettle();
     final middle = position.pixels;
     expect(await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown), isTrue);
     await tester.pumpAndSettle();

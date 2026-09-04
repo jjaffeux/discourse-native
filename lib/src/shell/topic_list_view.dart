@@ -809,6 +809,7 @@ class TopicListRow extends StatelessWidget {
   }) : assert(forum == null || siteUrl == null);
 
   static const double minimumHeight = 68;
+  static const double compactMinimumHeight = 50;
 
   final Topic topic;
   final DiscourseInstance? forum;
@@ -944,10 +945,20 @@ class _TopicRowBody extends StatelessWidget {
           final layout = _TopicLedgerLayout.forWidth(
             ContentReadingLane.breakpointWidthOf(context, constraints.maxWidth),
           );
-          return Padding(
-            padding: const EdgeInsets.symmetric(
+          final showInlineParticipants = !layout.showParticipants;
+          final showInlineActivity = !layout.showActivity;
+          final hasContextLine =
+              forum != null ||
+              (showCategoryBreadcrumb && category != null) ||
+              topic.tags.isNotEmpty ||
+              pluginMetadata.isNotEmpty ||
+              (showInlineParticipants && topic.posterAvatars.isNotEmpty) ||
+              showInlineActivity;
+
+          final content = Padding(
+            padding: EdgeInsets.symmetric(
               horizontal: _TopicLedgerLayout.horizontalPadding,
-              vertical: 9,
+              vertical: hasContextLine ? 9 : 7,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -963,8 +974,9 @@ class _TopicRowBody extends StatelessWidget {
                     forum: forum,
                     titleStyle: effectiveTitleStyle,
                     pluginMetadata: pluginMetadata,
-                    showInlineParticipants: !layout.showParticipants,
-                    showInlineActivity: !layout.showActivity,
+                    showContextLine: hasContextLine,
+                    showInlineParticipants: showInlineParticipants,
+                    showInlineActivity: showInlineActivity,
                   ),
                 ),
                 if (layout.showParticipants) ...[
@@ -989,22 +1001,28 @@ class _TopicRowBody extends StatelessWidget {
               ],
             ),
           );
+
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: hasContextLine
+                  ? TopicListRow.minimumHeight
+                  : TopicListRow.compactMinimumHeight,
+            ),
+            child: content,
+          );
         },
       ),
     );
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: TopicListRow.minimumHeight),
-      child: LinkTarget(
-        url: '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
-        title: topic.title,
-        siteUrl: siteUrl,
-        child: Material(
-          // Ink features paint on their Material rather than with the row.
-          // Keeping that surface local lets the scroll viewport clip them.
-          type: MaterialType.transparency,
-          child: row,
-        ),
+    return LinkTarget(
+      url: '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
+      title: topic.title,
+      siteUrl: siteUrl,
+      child: Material(
+        // Ink features paint on their Material rather than with the row.
+        // Keeping that surface local lets the scroll viewport clip them.
+        type: MaterialType.transparency,
+        child: row,
       ),
     );
   }
@@ -1020,6 +1038,7 @@ class _TopicIdentity extends StatelessWidget {
     required this.forum,
     required this.titleStyle,
     required this.pluginMetadata,
+    required this.showContextLine,
     required this.showInlineParticipants,
     required this.showInlineActivity,
   });
@@ -1032,6 +1051,7 @@ class _TopicIdentity extends StatelessWidget {
   final DiscourseInstance? forum;
   final TextStyle? titleStyle;
   final List<Widget> pluginMetadata;
+  final bool showContextLine;
   final bool showInlineParticipants;
   final bool showInlineActivity;
 
@@ -1055,6 +1075,7 @@ class _TopicIdentity extends StatelessWidget {
             forum: forum,
             titleStyle: titleStyle,
             pluginMetadata: pluginMetadata,
+            showContextLine: showContextLine,
             showInlineParticipants: showInlineParticipants,
             showInlineActivity: showInlineActivity,
           ),
@@ -1112,6 +1133,7 @@ class _TopicCopy extends StatelessWidget {
     required this.forum,
     required this.titleStyle,
     required this.pluginMetadata,
+    required this.showContextLine,
     required this.showInlineParticipants,
     required this.showInlineActivity,
   });
@@ -1126,6 +1148,7 @@ class _TopicCopy extends StatelessWidget {
   final DiscourseInstance? forum;
   final TextStyle? titleStyle;
   final List<Widget> pluginMetadata;
+  final bool showContextLine;
   final bool showInlineParticipants;
   final bool showInlineActivity;
 
@@ -1211,7 +1234,7 @@ class _TopicCopy extends StatelessWidget {
             ],
           ],
         ),
-        const SizedBox(height: 5),
+        if (showContextLine) const SizedBox(height: 5),
         Wrap(
           runSpacing: 3,
           crossAxisAlignment: WrapCrossAlignment.center,
