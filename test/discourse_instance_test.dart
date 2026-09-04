@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,7 +24,7 @@ void main() {
   });
 
   group('DiscourseInstance.sections', () {
-    test('keeps core secondary community links in More', () {
+    test('keeps Filter visible and Groups in More', () {
       final section = const DiscourseInstance(
         url: 'https://example.com',
         title: 'Example',
@@ -31,10 +32,10 @@ void main() {
 
       expect(section.destinations.map((destination) => destination.id), [
         'latest',
+        'filter',
       ]);
       expect(section.moreDestinations.map((destination) => destination.id), [
         'groups',
-        'filter',
       ]);
     });
 
@@ -45,8 +46,28 @@ void main() {
         config: SiteConfig(groupDirectoryEnabled: false),
       ).sections.single;
 
-      expect(section.moreDestinations.map((destination) => destination.id), [
+      expect(section.destinations.map((destination) => destination.id), [
+        'latest',
         'filter',
+      ]);
+      expect(section.moreDestinations, isEmpty);
+    });
+
+    test('keeps Filter visible for connected accounts', () {
+      final section = const DiscourseInstance(
+        url: 'https://example.com',
+        title: 'Example',
+        user: DiscourseUser(id: 1, username: 'reader'),
+      ).sections.single;
+
+      expect(section.destinations.map((destination) => destination.id), [
+        'latest',
+        'messages',
+        'drafts',
+        'filter',
+      ]);
+      expect(section.moreDestinations.map((destination) => destination.id), [
+        'groups',
       ]);
     });
   });

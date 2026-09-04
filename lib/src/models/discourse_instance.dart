@@ -275,10 +275,10 @@ class DiscourseInstance {
           label: 'Topics',
           icon: DIcons.layerGroup,
         ),
+        SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
       ],
       moreDestinations: [
         SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
-        SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
       ],
     ),
   ];
@@ -301,10 +301,10 @@ class DiscourseInstance {
           icon: DIcons.inbox,
         ),
         SidebarDestination(id: 'drafts', label: 'Drafts', icon: DIcons.pencil),
+        SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
       ],
       moreDestinations: [
         SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
-        SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
       ],
     ),
   ];
