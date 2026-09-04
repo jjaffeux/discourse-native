@@ -627,14 +627,6 @@
         transform: translateY(-1px);
       }
 
-      .reply-button--quiet {
-        color: var(--text-soft);
-        background: var(--surface-raised);
-        box-shadow: inset 0 0 0 1px var(--line-strong);
-      }
-
-      .reply-button--quiet:hover { background: var(--surface-hover); }
-
       .position-control {
         display: inline-flex;
         align-items: center;
@@ -716,11 +708,6 @@
         display: flex;
         align-items: center;
         gap: 13px;
-      }
-
-      .bar-context__label {
-        color: var(--muted-2);
-        font-size: 10px;
       }
 
       .bar-actions {
@@ -973,13 +960,11 @@
                 </div>
 
                 <footer class="footer-study footer-study--bar">
+                  <div class="bar-actions">
+                    <button class="reply-button" type="button"><span>↩</span> Reply</button>
+                  </div>
                   <div class="bar-context">
                     <div class="position-control"><span class="position-control__track"><i></i></span><strong>3 / 3</strong></div>
-                    <span class="bar-context__label">All posts read</span>
-                  </div>
-                  <div class="bar-actions">
-                    <button class="reply-button reply-button--quiet" type="button">Share</button>
-                    <button class="reply-button" type="button"><span>↩</span> Reply</button>
                   </div>
                 </footer>
               </div>

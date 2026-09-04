@@ -1946,13 +1946,6 @@ class _TopicBottomBar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                if (progressPosition case final position?)
-                  TopicProgressButton(
-                    position: position,
-                    total: totalPosts,
-                    onPressed: onProgressPressed!,
-                  ),
-                const Spacer(),
                 if (canReply)
                   SizedBox(
                     height: DButton.iconOnlyDimensionFor(DButtonSize.small),
@@ -1966,6 +1959,13 @@ class _TopicBottomBar extends StatelessWidget {
                       variant: DButtonVariant.primary,
                       size: DButtonSize.small,
                     ),
+                  ),
+                const Spacer(),
+                if (progressPosition case final position?)
+                  TopicProgressButton(
+                    position: position,
+                    total: totalPosts,
+                    onPressed: onProgressPressed!,
                   ),
               ],
             ),

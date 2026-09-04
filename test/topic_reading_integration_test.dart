@@ -2488,7 +2488,10 @@ void _registerTopicReadingTests() {
             7: topicPayload(
               id: 7,
               title: longTitle,
-              posts: [post(1, 1, 'First post body')],
+              posts: [
+                post(1, 1, 'First post body'),
+                post(2, 2, 'Second post body'),
+              ],
               categoryId: 5,
               tags: tags,
               canCreatePost: true,
@@ -2585,6 +2588,9 @@ void _registerTopicReadingTests() {
         final shareRect = tester.getRect(share);
         final bottomBar = find.byKey(const ValueKey('topic-bottom-bar'));
         final replyButton = find.byKey(const ValueKey('topic-reply-button'));
+        final progressButton = find.byKey(
+          const ValueKey('topic-progress-button'),
+        );
         final replyRect = tester.getRect(replyButton);
         final bottomBarRect = tester.getRect(bottomBar);
         final moreRect = tester.getRect(more);
@@ -2634,7 +2640,11 @@ void _registerTopicReadingTests() {
           tester.getRect(find.byType(SuperListView)).bottom,
           bottomBarRect.top,
         );
-        expect(replyRect.right, lessThan(bottomBarRect.right));
+        expect(replyRect.left, greaterThan(bottomBarRect.left));
+        expect(
+          replyRect.right,
+          lessThan(tester.getRect(progressButton).left),
+        );
         expect(
           find.descendant(of: more, matching: find.dIcon(DIcons.ellipsis)),
           findsOneWidget,
