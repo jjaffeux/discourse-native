@@ -3,12 +3,15 @@ import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/notification_type_counts.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_icons.dart';
 import 'package:discourse_native/src/plugins/assign/assign_notifications.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/plugins/assign/assign_user_menu.dart';
+import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
+import 'package:discourse_native/src/shell/pill.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -431,6 +434,82 @@ void main() {
   });
 
   group('topic assignment presentation', () {
+    testWidgets(
+      'renders one neutral avatar-and-name token for every list assignment',
+      (tester) async {
+        final semanticsHandle = tester.ensureSemantics();
+        try {
+          const registry = PluginRegistry([AssignPlugin()]);
+          final plugins = registry.readTopic(const {
+            'can_assign': false,
+            'assigned_to_user': {
+              'username': 'sam',
+              'name': 'Sam',
+              'avatar_template':
+                  '/user_avatar/forum.example.com/sam/{size}/1.png',
+            },
+            'assignment_status': 'In progress',
+            'assignment_note': 'Hidden from the compact token',
+            'indirectly_assigned_to': {
+              '22': {
+                'assigned_to': {'name': 'support'},
+                'post_number': 2,
+                'assignment_status': 'Waiting',
+              },
+            },
+          }, _siteUrl);
+          final topic = Topic(
+            id: 10,
+            title: 'Assigned topic',
+            slug: 'assigned-topic',
+            plugins: plugins,
+          );
+
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => Wrap(
+                    children: _plugin.topicListMetadata(
+                      context,
+                      _siteUrl,
+                      topic,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          expect(find.byType(Pill), findsNWidgets(2));
+          expect(find.byType(AssignmentAssigneeAvatar), findsNWidgets(2));
+          expect(find.text('Sam'), findsOneWidget);
+          expect(find.text('support'), findsOneWidget);
+          expect(find.textContaining('Topic'), findsNothing);
+          expect(find.textContaining('Post'), findsNothing);
+          expect(find.textContaining('In progress'), findsNothing);
+          expect(find.textContaining('Waiting'), findsNothing);
+          expect(find.textContaining('Hidden from'), findsNothing);
+          expect(
+            find.bySemanticsLabel(
+              'Topic assigned to Sam, user @sam, status In progress, '
+              'note Hidden from the compact token',
+            ),
+            findsOneWidget,
+          );
+          expect(
+            find.bySemanticsLabel(
+              'Post #2 assigned to support, group @support, status Waiting',
+            ),
+            findsOneWidget,
+          );
+        } finally {
+          semanticsHandle.dispose();
+        }
+      },
+    );
+
     testWidgets('uses an Assign button for an unassigned topic', (
       tester,
     ) async {

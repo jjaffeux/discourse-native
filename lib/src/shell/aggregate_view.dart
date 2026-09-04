@@ -259,11 +259,24 @@ class AggregateViewState extends State<AggregateView> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: lane.padding,
           itemCount:
+              1 +
               state.topics.length +
               (state.failures.isNotEmpty ? 1 : 0) +
               (state.loadingMore ? 1 : 0),
-          separatorBuilder: (context, index) => const SizedBox(height: 9),
+          separatorBuilder: (context, index) {
+            final firstTopicIndex = 1 + (state.failures.isNotEmpty ? 1 : 0);
+            final lastTopicIndex = firstTopicIndex + state.topics.length - 1;
+            if (index >= firstTopicIndex && index < lastTopicIndex) {
+              return Divider(height: 1, color: Theme.of(context).shell.divider);
+            }
+            if (index == 0 && state.failures.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return const SizedBox(height: 9);
+          },
           itemBuilder: (context, index) {
+            if (index == 0) return const TopicListHeader();
+            index--;
             if (state.failures.isNotEmpty) {
               if (index == 0) {
                 return _AggregateCard(
@@ -288,14 +301,11 @@ class AggregateViewState extends State<AggregateView> {
               );
             }
             final reference = state.topics[index];
-            return _AggregateCard(
+            return _AggregateTopicRow(
               key: ValueKey(
                 'aggregate-topic-card-${reference.siteUrl}-${reference.topicId}',
               ),
-              child: _AggregateTopicRow(
-                key: ValueKey(reference),
-                reference: reference,
-              ),
+              reference: reference,
             );
           },
         ),
@@ -680,7 +690,7 @@ class _AggregateTabToolbar extends StatelessWidget {
 }
 
 class _AggregateCard extends StatelessWidget {
-  const _AggregateCard({super.key, required this.child});
+  const _AggregateCard({required this.child});
 
   final Widget child;
 

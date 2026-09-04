@@ -9,7 +9,9 @@ import 'package:discourse_native/src/shell/list_boundary_shortcuts.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
+import 'support/finders.dart';
 
 void main() {
   final sites = [instance('one.example'), instance('two.example')];
@@ -75,6 +78,31 @@ void main() {
         findsNothing,
       );
       expect(find.text('Topic 1'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('topic-list-ledger-header')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-ledger-state-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-ledger-topic-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-ledger-participants-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-ledger-activity-1')),
+        findsOneWidget,
+      );
+      final compactTitle = tester.widget<TopicTitle>(
+        find.byType(TopicTitle).first,
+      );
+      expect(compactTitle.maxLines, 1);
+      expect(compactTitle.overflow, TextOverflow.ellipsis);
       final topicRow = find.descendant(
         of: find.byType(TopicListView),
         matching: find.byWidgetPredicate(
@@ -87,6 +115,67 @@ void main() {
     } finally {
       semantics.dispose();
     }
+  });
+
+  testWidgets('narrow rows fold participants and activity into metadata', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const ui.Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final topic = Topic(
+      id: 7,
+      title: 'A compact topic',
+      slug: 'a-compact-topic',
+      replyCount: 2,
+      views: 14,
+      bumpedAt: DateTime(2026, 9, 4),
+      posterAvatars: const [''],
+    );
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([sites.first]),
+      api: FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [topic],
+        },
+      ),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store.put(sites.first.url, topic);
+
+    await tester.pumpWidget(
+      _TestList(
+        controller: controller,
+        feed: const TopicFeed(topicIds: [7], loaded: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final topicColumn = find.byKey(const ValueKey('topic-ledger-topic-7'));
+    expect(topicColumn, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topic-ledger-participants-7')),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('topic-ledger-activity-7')), findsNothing);
+    expect(
+      find.descendant(of: topicColumn, matching: find.dIcon(DIcons.user)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: topicColumn, matching: find.dIcon(DIcons.reply)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: topicColumn, matching: find.dIcon(DIcons.farEye)),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('failed first load retries once from the empty state', (

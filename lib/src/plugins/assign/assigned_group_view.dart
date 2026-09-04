@@ -6,6 +6,7 @@ import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/content_reading_lane.dart';
+import '../../shell/topic_list_view.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
@@ -131,6 +132,7 @@ class _AssignedGroupViewState extends State<AssignedGroupView> {
     return ListenableBuilder(
       listenable: presentation,
       builder: (context, _) => AssignedGroupPresentationView(
+        siteUrl: widget.siteUrl,
         state: presentation.state,
         onRefresh: () => presentation.load(refresh: true),
         onSelect: presentation.selectFilter,
@@ -147,6 +149,7 @@ class _AssignedGroupViewState extends State<AssignedGroupView> {
 class AssignedGroupPresentationView extends StatelessWidget {
   const AssignedGroupPresentationView({
     super.key,
+    required this.siteUrl,
     required this.state,
     required this.onRefresh,
     required this.onSelect,
@@ -157,6 +160,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
     required this.onOpenTopic,
   });
 
+  final String siteUrl;
   final AssignedGroupPresentationState state;
   final RefreshCallback onRefresh;
   final ValueChanged<AssignedGroupFilter> onSelect;
@@ -264,13 +268,22 @@ class AssignedGroupPresentationView extends StatelessWidget {
                     horizontalPadding,
                     28,
                   ),
-                  sliver: SliverList.separated(
-                    itemCount: topics.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) => _AssignedTopicRow(
-                      topic: topics[index],
-                      onTap: () => onOpenTopic(topics[index]),
-                    ),
+                  sliver: SliverMainAxisGroup(
+                    slivers: [
+                      const SliverToBoxAdapter(child: TopicListHeader()),
+                      SliverList.separated(
+                        itemCount: topics.length,
+                        separatorBuilder: (context, _) => Divider(
+                          height: 1,
+                          color: Theme.of(context).shell.divider,
+                        ),
+                        itemBuilder: (context, index) => TopicListRow(
+                          topic: topics[index],
+                          siteUrl: siteUrl,
+                          onTap: () => onOpenTopic(topics[index]),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               if (feed.hasMore || feed.loadingMore)
@@ -749,34 +762,6 @@ class _AssignedQueryControls extends StatelessWidget {
       ),
     );
   }
-}
-
-class _AssignedTopicRow extends StatelessWidget {
-  const _AssignedTopicRow({required this.topic, required this.onTap});
-
-  final Topic topic;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 1000),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: ListTile(
-          onTap: onTap,
-          leading: const DIcon(DIcons.userPlus, size: 18),
-          title: Text(
-            topic.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text('${topic.postsCount} posts · ${topic.views} views'),
-          trailing: const DIcon(DIcons.chevronRight, size: 14),
-        ),
-      ),
-    ),
-  );
 }
 
 class _AssignedError extends StatelessWidget {

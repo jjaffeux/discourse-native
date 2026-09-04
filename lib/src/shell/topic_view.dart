@@ -3097,6 +3097,7 @@ class _MoreTopics extends StatelessWidget {
                 ],
               ),
             ),
+          const TopicListHeader(),
           for (var index = 0; index < selection.topics.length; index++) ...[
             TopicListRow(
               topic: selection.topics[index],

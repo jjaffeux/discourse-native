@@ -42,7 +42,6 @@ import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1108,7 +1107,7 @@ void _registerTopicReadingTests() {
       expect(dot.left - titleEnd, moreOrLessEquals(8, epsilon: 0.5));
     });
 
-    testWidgets('topic state follows the end of a wrapped title', (
+    testWidgets('topic state stays inline with a compact title', (
       tester,
     ) async {
       const title = 'Footnotes can scroll?';
@@ -1131,13 +1130,13 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       final titleRect = tester.getRect(find.text(title));
-      final dot = _inlineWidgetBoxes(tester, find.text(title)).last;
-      expect(titleRect.height, greaterThan(24));
-      expect(dot.center.dy, greaterThan(titleRect.center.dy));
+      final dot = tester.getRect(find.byKey(const ValueKey('new-topic-dot')));
+      expect(titleRect.height, lessThanOrEqualTo(24));
+      expect(dot.center.dy, closeTo(titleRect.center.dy, 0.5));
       expect(dot.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
 
-    testWidgets('unread count follows the end of a wrapped title', (
+    testWidgets('unread count stays inline with a compact title', (
       tester,
     ) async {
       const title = 'Footnotes can scroll?';
@@ -1160,9 +1159,9 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       final titleRect = tester.getRect(find.text(title));
-      final count = _inlineWidgetBoxes(tester, find.text(title)).last;
-      expect(titleRect.height, greaterThan(24));
-      expect(count.center.dy, greaterThan(titleRect.center.dy));
+      final count = tester.getRect(find.text('3'));
+      expect(titleRect.height, lessThanOrEqualTo(24));
+      expect(count.center.dy, closeTo(titleRect.center.dy, 0.5));
       expect(count.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
 
@@ -1301,9 +1300,7 @@ void _registerTopicReadingTests() {
       );
     });
 
-    testWidgets('short topic tags use the intended inline gap', (
-      tester,
-    ) async {
+    testWidgets('topic tag tokens use the intended inline gap', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {
           '/latest.json': [
@@ -1333,23 +1330,23 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      final firstTag = find.text('ai,');
+      final firstTag = find.text('ai');
       final secondTag = find.text('in-progress');
+      final firstTagLink = find.bySemanticsLabel('Tag: ai');
+      final secondTagLink = find.bySemanticsLabel('Tag: in-progress');
       expect(firstTag, findsOneWidget);
       expect(secondTag, findsOneWidget);
-      expect(find.bySemanticsLabel('Tag: ai'), findsOneWidget);
-      expect(find.bySemanticsLabel('Tag: in-progress'), findsOneWidget);
+      expect(firstTagLink, findsOneWidget);
+      expect(secondTagLink, findsOneWidget);
       expect(
         tester.getSize(find.bySemanticsLabel('Category: Feature')).height,
         greaterThanOrEqualTo(24),
       );
+      expect(tester.getSize(firstTagLink).height, greaterThanOrEqualTo(22));
       expect(
-        tester.getSize(find.bySemanticsLabel('Tag: ai')).height,
-        greaterThanOrEqualTo(24),
-      );
-      expect(
-        tester.getTopLeft(secondTag).dx - tester.getTopRight(firstTag).dx,
-        closeTo(3, 0.01),
+        tester.getTopLeft(secondTagLink).dx -
+            tester.getTopRight(firstTagLink).dx,
+        closeTo(5, 0.01),
       );
       final category = find.descendant(
         of: find.byType(TopicListView),
@@ -1557,7 +1554,7 @@ void _registerTopicReadingTests() {
       expect(api.topicsOpened, isEmpty);
     });
 
-    testWidgets('long topic tags wrap without overflowing a phone row', (
+    testWidgets('long topic tags compact without overflowing a phone row', (
       tester,
     ) async {
       final longName = 'a-very-long-${List.filled(30, 'tag-name-').join()}';
@@ -1584,9 +1581,14 @@ void _registerTopicReadingTests() {
       await tester.tap(sidebarDestination('Topics'));
       await tester.pumpAndSettle();
 
-      expect(find.text('design,'), findsOneWidget);
+      expect(find.text('design'), findsOneWidget);
       expect(find.textContaining(longName), findsOneWidget);
-      expect(find.text('support'), findsOneWidget);
+      expect(find.text('+3'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.text('+3')).label,
+        contains('3 more tags'),
+      );
+      expect(find.text('support'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -1611,7 +1613,7 @@ void _registerTopicReadingTests() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('many topic tags stay inline and wrap from the row edge', (
+    testWidgets('many topic tags compact into an overflow token', (
       tester,
     ) async {
       const tags = [
@@ -1651,27 +1653,16 @@ void _registerTopicReadingTests() {
       await tester.tap(sidebarDestination('Topics'));
       await tester.pumpAndSettle();
 
-      final category = tester.getTopLeft(find.text('Alerts'));
-      final tagPositions = [
-        for (var index = 0; index < tags.length; index++)
-          tester.getTopLeft(
-            find.text(
-              '${tags[index].name}${index == tags.length - 1 ? '' : ','}',
-            ),
-          ),
-      ];
-
-      expect(tagPositions.first.dy, closeTo(category.dy, 0.01));
-      final nextRunTop = tagPositions
-          .map((position) => position.dy)
-          .firstWhere((top) => top > tagPositions.first.dy);
-      final nextRunLeft = tagPositions
-          .where((position) => position.dy == nextRunTop)
-          .map((position) => position.dx)
-          .reduce((left, right) => left < right ? left : right);
-      final rowLeft = tester.getTopLeft(find.text('A heavily tagged topic')).dx;
-      expect(nextRunTop - tagPositions.first.dy, lessThanOrEqualTo(24));
-      expect(nextRunLeft, closeTo(rowLeft, 0.01));
+      expect(find.text('sea2'), findsOneWidget);
+      expect(find.text('sea1'), findsOneWidget);
+      expect(find.text('+12'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.text('+12')).label,
+        contains('12 more tags'),
+      );
+      for (final tag in tags.skip(2)) {
+        expect(find.text(tag.name), findsNothing);
+      }
       expect(tester.takeException(), isNull);
     });
 
@@ -2696,10 +2687,7 @@ void _registerTopicReadingTests() {
           bottomBarRect.top,
         );
         expect(replyRect.left, greaterThan(bottomBarRect.left));
-        expect(
-          replyRect.right,
-          lessThan(tester.getRect(progressButton).left),
-        );
+        expect(replyRect.right, lessThan(tester.getRect(progressButton).left));
         expect(moreIcon, findsOneWidget);
         expect(tester.getSize(moreIcon), const Size.square(16));
         expect(properties, findsOneWidget);
@@ -4936,6 +4924,7 @@ void _registerTopicReadingTests() {
 
       expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsOneWidget);
       expect(find.text('More topics'), findsOneWidget);
+      expect(find.byType(TopicListHeader), findsOneWidget);
       final moreTopicsCard = find.byKey(
         const ValueKey('topic-more-topics-card'),
       );
@@ -4975,7 +4964,13 @@ void _registerTopicReadingTests() {
       expect(earth, findsNothing);
       expect(sparkles, findsOneWidget);
 
-      await tester.tap(sparkles);
+      final relatedRow = find
+          .ancestor(
+            of: find.byKey(const ValueKey('topic-ledger-topic-9')),
+            matching: find.byType(InkWell),
+          )
+          .first;
+      await tester.tap(relatedRow);
       await tester.pumpAndSettle();
 
       expect(api.topicsOpened, [7, 9]);
@@ -5012,7 +5007,16 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('More topics'), findsOneWidget);
+      expect(find.byType(TopicListHeader), findsOneWidget);
       expect(find.text('Suggested'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('topic-ledger-state-8')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-ledger-topic-8')),
+        findsOneWidget,
+      );
       final compactTitle = tester.widget<TopicTitle>(
         find.byWidgetPredicate(
           (widget) =>
@@ -5607,7 +5611,10 @@ double _textWidth(WidgetTester tester, Finder text) {
   final widget = tester.widget<Text>(text);
   final context = tester.element(text);
   final painter = TextPainter(
-    text: TextSpan(text: widget.textSpan!.toPlainText(), style: widget.style),
+    text: TextSpan(
+      text: widget.textSpan?.toPlainText() ?? widget.data,
+      style: widget.style,
+    ),
     textDirection: Directionality.of(context),
     textScaler: MediaQuery.textScalerOf(context),
   )..layout();
@@ -5626,13 +5633,3 @@ Color _postBackground(WidgetTester tester) => tester
           .first,
     )
     .color;
-
-List<Rect> _inlineWidgetBoxes(WidgetTester tester, Finder text) {
-  final paragraph = tester.renderObject<RenderParagraph>(text);
-  final boxes = <Rect>[];
-  paragraph.visitChildren((child) {
-    final box = child as RenderBox;
-    boxes.add(box.localToGlobal(Offset.zero) & box.size);
-  });
-  return boxes;
-}
