@@ -3362,30 +3362,41 @@ class _PostGapState extends State<_PostGap> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final label = _loading ? 'Loading…' : _label;
-    final left = MediaQuery.sizeOf(context).width < 600 ? 16.0 : 58.0;
 
-    return Semantics(
-      button: true,
-      label: label,
-      onTap: _loading ? null : _expand,
-      child: ExcludeSemantics(
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: _loading ? null : _expand,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(left, 8, 16, 12),
-              child: Text(
-                label.toUpperCase(),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final left =
+            ContentReadingLane.breakpointWidthOf(
+                  context,
+                  constraints.maxWidth,
+                ) <
+                600
+            ? 16.0
+            : 58.0;
+        return Semantics(
+          button: true,
+          label: label,
+          onTap: _loading ? null : _expand,
+          child: ExcludeSemantics(
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: _loading ? null : _expand,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(left, 8, 16, 12),
+                  child: Text(
+                    label.toUpperCase(),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -4045,8 +4056,12 @@ class _TopicMap extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final breakpointWidth = ContentReadingLane.breakpointWidthOf(
+            context,
+            constraints.maxWidth,
+          );
           final showAvatars =
-              constraints.maxWidth >= 520 &&
+              breakpointWidth >= 520 &&
               topic.postsCount >= _minimumPostsForMapDetails &&
               topic.participants.length >= 2;
           final details = Wrap(
@@ -4086,7 +4101,7 @@ class _TopicMap extends StatelessWidget {
             ],
           );
 
-          if (constraints.maxWidth < 560) {
+          if (breakpointWidth < 560) {
             return Wrap(
               spacing: 16,
               runSpacing: 10,

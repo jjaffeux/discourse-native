@@ -1,13 +1,17 @@
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/categories_page.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -61,17 +65,24 @@ Future<void> _pumpPage(
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    ShellScope(
-      controller: controller,
-      child: MaterialApp(
-        theme: AppTheme.light,
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.topLeft,
-            child: SizedBox(
-              width: width,
-              height: _viewport.height,
-              child: const MainContent(layout: ShellLayout.expanded),
+    ContentAlignmentScope(
+      controller: controller.appSettings,
+      child: ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          builder: (context, child) => AppTextScaleRegion(
+            controller: controller.appSettings,
+            child: child!,
+          ),
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: width,
+                height: _viewport.height,
+                child: const MainContent(layout: ShellLayout.expanded),
+              ),
             ),
           ),
         ),
@@ -420,6 +431,44 @@ void main() {
         tester.getTopLeft(_card(3)).dy,
         greaterThan(tester.getTopLeft(_card(2)).dy),
       );
+    });
+
+    testWidgets('keeps column breakpoints relative to app text zoom', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': []},
+        categoryList: const [
+          TopicCategory(id: 1, name: 'One', color: '111111'),
+          TopicCategory(id: 2, name: 'Two', color: '222222'),
+          TopicCategory(id: 3, name: 'Three', color: '333333'),
+        ],
+      );
+      final controller = await _loadCategories(api);
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await _pumpPage(tester, controller, width: 1200);
+        expect(tester.getTopLeft(_card(1)).dy, tester.getTopLeft(_card(2)).dy);
+        expect(
+          tester.getTopLeft(_card(3)).dy,
+          greaterThan(tester.getTopLeft(_card(2)).dy),
+        );
+
+        await controller.appSettings.setTextScale(AppTextScale.percent200);
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getTopLeft(_card(2)).dy,
+          greaterThan(tester.getTopLeft(_card(1)).dy),
+        );
+        expect(
+          tester.getTopLeft(_card(3)).dy,
+          greaterThan(tester.getTopLeft(_card(2)).dy),
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = previousPlatform;
+      }
     });
   });
 

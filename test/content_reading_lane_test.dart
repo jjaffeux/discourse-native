@@ -42,6 +42,42 @@ void main() {
     });
   });
 
+  testWidgets('scales the desktop lane cap with app text zoom', (tester) async {
+    await _withPlatform(TargetPlatform.macOS, () async {
+      await _setViewport(tester, const Size(2000, 600));
+      final controller = _controller();
+      late double breakpointWidth;
+
+      await tester.pumpWidget(
+        _harness(
+          controller,
+          onBreakpointWidth: (value) => breakpointWidth = value,
+        ),
+      );
+
+      for (final (scale, expectedWidth) in [
+        (AppTextScale.percent80, 660.0),
+        (AppTextScale.percent150, 1237.5),
+        (AppTextScale.percent200, 1650.0),
+      ]) {
+        await controller.setTextScale(scale);
+        await tester.pump();
+
+        _expectLane(
+          tester,
+          left: 10 + (1970 - expectedWidth) / 2,
+          width: expectedWidth,
+        );
+        expect(breakpointWidth, 825);
+      }
+
+      await _setViewport(tester, const Size(1200, 600));
+      await tester.pump();
+      _expectLane(tester, left: 10, width: 1170);
+      expect(breakpointWidth, 585);
+    });
+  });
+
   testWidgets('physically aligns content with a narrower existing limit', (
     tester,
   ) async {
@@ -83,10 +119,18 @@ void main() {
     await _withPlatform(TargetPlatform.iOS, () async {
       await _setViewport(tester, const Size(1200, 600));
       final controller = _controller();
+      late double breakpointWidth;
+      await controller.setTextScale(AppTextScale.percent200);
 
-      await tester.pumpWidget(_harness(controller));
+      await tester.pumpWidget(
+        _harness(
+          controller,
+          onBreakpointWidth: (value) => breakpointWidth = value,
+        ),
+      );
 
       _expectLane(tester, left: 10, width: 1170);
+      expect(breakpointWidth, 1170);
     });
   });
 
@@ -123,25 +167,31 @@ AppSettingsController _controller() {
 Widget _harness(
   AppSettingsController controller, {
   EdgeInsets basePadding = const EdgeInsets.fromLTRB(10, 2, 20, 4),
+  ValueChanged<double>? onBreakpointWidth,
 }) => MaterialApp(
   home: ContentAlignmentScope(
     controller: controller,
     child: Scaffold(
       body: ContentReadingLane(
         basePadding: basePadding,
-        builder: (context, lane) => ColoredBox(
-          key: _viewportKey,
-          color: Colors.black,
-          child: Padding(
-            padding: lane.padding,
-            child: const SizedBox(
-              key: _contentKey,
-              width: double.infinity,
-              height: double.infinity,
-              child: ColoredBox(color: Colors.white),
+        builder: (context, lane) {
+          onBreakpointWidth?.call(
+            ContentReadingLane.breakpointWidthOf(context, lane.width),
+          );
+          return ColoredBox(
+            key: _viewportKey,
+            color: Colors.black,
+            child: Padding(
+              padding: lane.padding,
+              child: const SizedBox(
+                key: _contentKey,
+                width: double.infinity,
+                height: double.infinity,
+                child: ColoredBox(color: Colors.white),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     ),
   ),

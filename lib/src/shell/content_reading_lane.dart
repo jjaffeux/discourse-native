@@ -17,10 +17,15 @@ class ContentAlignmentScope extends InheritedNotifier<AppSettingsController> {
   }) : super(notifier: controller);
 
   static ContentAlignment of(BuildContext context) {
-    final scope = context
-        .dependOnInheritedWidgetOfExactType<ContentAlignmentScope>();
-    return scope?.notifier?.contentAlignment ?? ContentAlignment.center;
+    return _controllerOf(context)?.contentAlignment ?? ContentAlignment.center;
   }
+
+  static double appTextScaleFactorOf(BuildContext context) =>
+      _controllerOf(context)?.textScaleFactor ?? 1.0;
+
+  static AppSettingsController? _controllerOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<ContentAlignmentScope>()
+      ?.notifier;
 }
 
 @immutable
@@ -51,7 +56,8 @@ class ContentReadingLaneGeometry {
 /// full-width chrome.
 ///
 /// The scroll viewport remains full width, so wheel and trackpad events in the
-/// empty space still reach it. Only its children are constrained to [maxWidth].
+/// empty space still reach it. Only its children are constrained to the
+/// text-zoom-adjusted [maxWidth].
 class ContentReadingLane extends StatelessWidget {
   const ContentReadingLane({
     super.key,
@@ -59,6 +65,7 @@ class ContentReadingLane extends StatelessWidget {
     required this.builder,
   });
 
+  /// Reading-lane width at 100% app text zoom.
   static const double maxWidth = 825;
 
   final EdgeInsets basePadding;
@@ -71,7 +78,12 @@ class ContentReadingLane extends StatelessWidget {
   }) {
     final contentWidth = math.max(0.0, availableWidth - basePadding.horizontal);
     final constrained = _usesDesktopLane && contentWidth.isFinite;
-    final width = constrained ? math.min(maxWidth, contentWidth) : contentWidth;
+    final appTextScaleFactor = constrained
+        ? ContentAlignmentScope.appTextScaleFactorOf(context)
+        : 1.0;
+    final width = constrained
+        ? math.min(maxWidth * appTextScaleFactor, contentWidth)
+        : contentWidth;
     final extra = constrained ? contentWidth - width : 0.0;
     final (leftInset, rightInset, alignment) = constrained
         ? switch (ContentAlignmentScope.of(context)) {
@@ -91,6 +103,21 @@ class ContentReadingLane extends StatelessWidget {
       ),
     );
   }
+
+  /// Converts a physical width governing reading-lane content to its
+  /// 100%-text-size equivalent for responsive breakpoint decisions.
+  ///
+  /// The width is unchanged on mobile, web, and for unbounded constraints.
+  static double breakpointWidthOf(BuildContext context, double width) {
+    return width / _desktopAppTextScaleFactorOf(context, width);
+  }
+
+  static double _desktopAppTextScaleFactorOf(
+    BuildContext context,
+    double width,
+  ) => _usesDesktopLane && width.isFinite
+      ? ContentAlignmentScope.appTextScaleFactorOf(context)
+      : 1.0;
 
   @override
   Widget build(BuildContext context) {

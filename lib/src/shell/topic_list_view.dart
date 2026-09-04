@@ -511,7 +511,9 @@ class _TopicListSkeletonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final row = LayoutBuilder(
       builder: (context, constraints) {
-        final layout = _TopicLedgerLayout.forWidth(constraints.maxWidth);
+        final layout = _TopicLedgerLayout.forWidth(
+          ContentReadingLane.breakpointWidthOf(context, constraints.maxWidth),
+        );
         return Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: _TopicLedgerLayout.horizontalPadding,
@@ -936,7 +938,9 @@ class _TopicRowBody extends StatelessWidget {
       onTap: onTap,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final layout = _TopicLedgerLayout.forWidth(constraints.maxWidth);
+          final layout = _TopicLedgerLayout.forWidth(
+            ContentReadingLane.breakpointWidthOf(context, constraints.maxWidth),
+          );
           return Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: _TopicLedgerLayout.horizontalPadding,

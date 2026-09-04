@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/app_shortcuts.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -22,6 +23,7 @@ import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_tooltip.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart'
     show
         ConstrainedBox,
@@ -576,6 +578,62 @@ void main() {
         if (!gate.isCompleted) {
           gate.complete();
           await tester.pumpAndSettle();
+        }
+      }
+    });
+
+    testWidgets('uses base-scale breakpoints for zoomed draft rows', (
+      tester,
+    ) async {
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final gate = Completer<void>();
+
+      try {
+        await _pump(tester, size: const Size(1300, 900), userDraftGate: gate);
+        final controller = ShellScope.read(
+          tester.element(find.byType(MaterialApp)),
+        );
+        await controller.appSettings.setTextScale(AppTextScale.percent200);
+        await tester.pump();
+        controller.openDrafts(_siteUrl);
+        expect(controller.destinationId, 'drafts');
+        await tester.pump();
+        await tester.pump();
+        expect(find.byType(DraftListView), findsOneWidget);
+
+        final skeletonRows = find.descendant(
+          of: find.byKey(const ValueKey('draft-list-loading-skeleton')),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is ConstrainedBox &&
+                widget.constraints.minHeight ==
+                    DraftListView.compactRowMinimumHeight,
+          ),
+        );
+        expect(skeletonRows, findsWidgets);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        final draftRow = find.ancestor(
+          of: find.byTooltip('Edit draft'),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is ConstrainedBox &&
+                widget.constraints.minHeight ==
+                    DraftListView.compactRowMinimumHeight,
+          ),
+        );
+        expect(draftRow, findsOneWidget);
+      } finally {
+        try {
+          if (!gate.isCompleted) {
+            gate.complete();
+            await tester.pumpAndSettle();
+          }
+        } finally {
+          debugDefaultTargetPlatformOverride = previousPlatform;
         }
       }
     });

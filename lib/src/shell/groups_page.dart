@@ -197,7 +197,10 @@ class _GroupsPageState extends State<GroupsPage> {
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
                         sliver: SliverLayoutBuilder(
                           builder: (context, constraints) {
-                            final width = constraints.crossAxisExtent;
+                            final width = ContentReadingLane.breakpointWidthOf(
+                              context,
+                              constraints.crossAxisExtent,
+                            );
                             final columns = width >= 980
                                 ? 3
                                 : width >= 620
@@ -351,7 +354,11 @@ class _DirectoryControls extends StatelessWidget {
       policy: WidgetOrderTraversalPolicy(),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          if (constraints.maxWidth < 600) {
+          if (ContentReadingLane.breakpointWidthOf(
+                context,
+                constraints.maxWidth,
+              ) <
+              600) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

@@ -164,7 +164,8 @@ class _DraftListLoadingSkeleton extends StatelessWidget {
         basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         builder: (context, lane) => LayoutBuilder(
           builder: (context, constraints) {
-            final compact = lane.width < 520;
+            final compact =
+                ContentReadingLane.breakpointWidthOf(context, lane.width) < 520;
             final rowHeight = compact ? _compactRowHeight : _wideRowHeight;
             final availableHeight = constraints.hasBoundedHeight
                 ? constraints.maxHeight - _outerVerticalPadding
@@ -232,7 +233,12 @@ class _DraftSkeletonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 520;
+        final compact =
+            ContentReadingLane.breakpointWidthOf(
+              context,
+              constraints.maxWidth,
+            ) <
+            520;
         final row = Padding(
           padding: EdgeInsets.fromLTRB(
             compact ? 8 : 16,
@@ -454,7 +460,12 @@ class _DraftRow extends StatelessWidget {
           onResume: onResume,
           onOpenForum: onOpenForum,
           onRemove: onRemove,
-          compact: constraints.maxWidth < 520,
+          compact:
+              ContentReadingLane.breakpointWidthOf(
+                context,
+                constraints.maxWidth,
+              ) <
+              520,
         ),
       ),
     );

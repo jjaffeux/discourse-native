@@ -175,7 +175,9 @@ class AssignedGroupPresentationView extends StatelessWidget {
     return ContentReadingLane(
       basePadding: const EdgeInsets.symmetric(horizontal: 16),
       builder: (context, lane) {
-        final desktop = lane.width >= _assignedDesktopBreakpoint;
+        final desktop =
+            ContentReadingLane.breakpointWidthOf(context, lane.width) >=
+            _assignedDesktopBreakpoint;
         if (!desktop) {
           return _buildFeed(
             horizontalPadding: 16,
@@ -728,7 +730,11 @@ class _AssignedQueryControls extends StatelessWidget {
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            if (constraints.maxWidth >= 520) {
+            if (ContentReadingLane.breakpointWidthOf(
+                  context,
+                  constraints.maxWidth,
+                ) >=
+                520) {
               return Row(
                 children: [
                   Expanded(child: search),

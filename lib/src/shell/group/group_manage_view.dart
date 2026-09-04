@@ -68,7 +68,11 @@ class _ManageSection extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= _groupDesktopBreakpoint) {
+        if (ContentReadingLane.breakpointWidthOf(
+              context,
+              constraints.maxWidth,
+            ) >=
+            _groupDesktopBreakpoint) {
           return ContentReadingLaneBox(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(

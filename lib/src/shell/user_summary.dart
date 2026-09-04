@@ -414,7 +414,8 @@ class _PairedSections extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      if (constraints.maxWidth <= 600) {
+      if (ContentReadingLane.breakpointWidthOf(context, constraints.maxWidth) <=
+          600) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [left, const SizedBox(height: 28), right],
