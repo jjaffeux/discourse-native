@@ -16,6 +16,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
 import 'categories_page.dart';
+import 'category_icon.dart';
 import 'category_notifications.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
@@ -403,6 +404,16 @@ class _ContentHeader extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 8),
                     child: leading,
                   )
+                else if (route.categoryId != null && siteUrl != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _CategoryHeaderIcon(
+                      siteUrl: siteUrl!,
+                      categoryId: route.categoryId!,
+                      fallbackColor: route.color,
+                      fallbackIcon: route.icon,
+                    ),
+                  )
                 else if (route.color case final color?)
                   Container(
                     width: 12,
@@ -530,6 +541,41 @@ class _ContentHeader extends StatelessWidget {
   }
 }
 
+class _CategoryHeaderIcon extends StatelessWidget {
+  const _CategoryHeaderIcon({
+    required this.siteUrl,
+    required this.categoryId,
+    required this.fallbackColor,
+    required this.fallbackIcon,
+  });
+
+  final String siteUrl;
+  final int categoryId;
+  final Color? fallbackColor;
+  final DIconData fallbackIcon;
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<TopicCategory?>(
+    select: (controller) =>
+        controller.categoryFor(categoryId, siteUrl: siteUrl),
+    builder: (context, category, _) {
+      if (category != null) {
+        return CategoryIcon(
+          key: const ValueKey('content-header-category-icon'),
+          category: category,
+          siteUrl: siteUrl,
+          size: 18,
+          squareSize: 12,
+        );
+      }
+      final fallbackColor = this.fallbackColor;
+      return fallbackColor == null
+          ? DIcon(fallbackIcon, size: 18)
+          : CategorySquare(color: fallbackColor, size: 12);
+    },
+  );
+}
+
 class _CategoryHeaderIdentity extends StatelessWidget {
   const _CategoryHeaderIdentity({
     required this.route,
@@ -583,6 +629,16 @@ class _CategoryHeaderIdentity extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      CategoryIcon(
+                        key: const ValueKey(
+                          'content-header-parent-category-icon',
+                        ),
+                        category: parent,
+                        siteUrl: siteUrl,
+                        size: 15,
+                        squareSize: 10,
+                      ),
+                      const SizedBox(width: 5),
                       Flexible(
                         child: Text(
                           parent.name,

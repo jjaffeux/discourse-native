@@ -2807,6 +2807,8 @@ class _TopicPropertiesCard extends StatelessWidget {
                                 category,
                                 siteUrl: siteUrl,
                               ),
+                        category: category,
+                        siteUrl: siteUrl,
                         color: category == null
                             ? route?.color
                             : Color(category.colorValue),

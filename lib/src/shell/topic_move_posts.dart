@@ -7,6 +7,7 @@ import '../models/topic.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'category_icon.dart';
 import 'shell_controller.dart';
 
 Future<void> showTopicMovePosts({
@@ -260,7 +261,22 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
         items: [
           const DropdownMenuItem(value: null, child: Text('Default category')),
           for (final category in widget.categories)
-            DropdownMenuItem(value: category.id, child: Text(category.name)),
+            DropdownMenuItem(
+              value: category.id,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CategoryIcon(
+                    category: category,
+                    siteUrl: widget.siteUrl,
+                    size: 16,
+                    squareSize: 11,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(child: Text(category.name)),
+                ],
+              ),
+            ),
         ],
         onChanged: _saving
             ? null

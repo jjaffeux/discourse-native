@@ -12,6 +12,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_loader.dart';
 import 'avatar_image.dart';
+import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
 import 'loading_skeleton.dart';
@@ -305,7 +306,10 @@ class UserActivityRow extends StatelessWidget {
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               if (category != null)
-                                _ActivityCategory(category: category),
+                                _ActivityCategory(
+                                  siteUrl: siteUrl,
+                                  category: category,
+                                ),
                               if (when != null)
                                 Text(
                                   when,
@@ -348,8 +352,9 @@ class UserActivityRow extends StatelessWidget {
 }
 
 class _ActivityCategory extends StatelessWidget {
-  const _ActivityCategory({required this.category});
+  const _ActivityCategory({required this.siteUrl, required this.category});
 
+  final String siteUrl;
   final TopicCategory category;
 
   @override
@@ -358,13 +363,11 @@ class _ActivityCategory extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 9,
-          height: 9,
-          decoration: BoxDecoration(
-            color: Color(category.colorValue),
-            borderRadius: BorderRadius.circular(2),
-          ),
+        CategoryIcon(
+          category: category,
+          siteUrl: siteUrl,
+          size: 13,
+          squareSize: 9,
         ),
         const SizedBox(width: 5),
         Text(

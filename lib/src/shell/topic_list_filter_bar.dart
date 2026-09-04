@@ -11,6 +11,7 @@ import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_picker.dart';
+import 'category_icon.dart';
 import 'choice_menu.dart';
 import 'content_reading_lane.dart';
 
@@ -20,6 +21,7 @@ typedef TopicListTagSearch =
 class TopicListFilterBar extends StatelessWidget {
   const TopicListFilterBar({
     super.key,
+    required this.siteUrl,
     required this.categories,
     required this.knownTags,
     required this.selectedCategoryId,
@@ -31,6 +33,7 @@ class TopicListFilterBar extends StatelessWidget {
     required this.onReset,
   });
 
+  final String siteUrl;
   final List<TopicCategory> categories;
   final List<SidebarTag> knownTags;
   final int? selectedCategoryId;
@@ -86,6 +89,7 @@ class TopicListFilterBar extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _CategoryFilterAnchor(
+                      siteUrl: siteUrl,
                       categories: rootCategories,
                       selected: rootCategory,
                       onSelected: onCategorySelected,
@@ -93,6 +97,7 @@ class TopicListFilterBar extends StatelessWidget {
                     if (subcategories.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       _SubcategoryFilterAnchor(
+                        siteUrl: siteUrl,
                         parent: rootCategory!,
                         subcategories: subcategories,
                         selected: selectedCategory?.parentCategoryId == null
@@ -138,11 +143,13 @@ class TopicListFilterBar extends StatelessWidget {
 
 class _CategoryFilterAnchor extends StatelessWidget {
   const _CategoryFilterAnchor({
+    required this.siteUrl,
     required this.categories,
     required this.selected,
     required this.onSelected,
   });
 
+  final String siteUrl;
   final List<TopicCategory> categories;
   final TopicCategory? selected;
   final ValueChanged<TopicCategory?> onSelected;
@@ -168,9 +175,12 @@ class _CategoryFilterAnchor extends StatelessWidget {
             value: category.id,
             title: category.name,
             description: '',
-            leading: _ColorSquare(
+            leading: CategoryIcon(
               key: ValueKey(('topic-list-category-indicator', category.id)),
-              color: Color(category.colorValue),
+              category: category,
+              siteUrl: siteUrl,
+              size: 14,
+              squareSize: 10,
             ),
             titleStyle: optionTextStyle,
             compact: true,
@@ -187,7 +197,14 @@ class _CategoryFilterAnchor extends StatelessWidget {
       builder: (context, openMenu) => _FilterButton(
         key: const ValueKey('topic-list-category-filter'),
         label: selected?.name ?? 'All categories',
-        color: selected == null ? null : Color(selected!.colorValue),
+        icon: selected == null
+            ? null
+            : CategoryIcon(
+                category: selected!,
+                siteUrl: siteUrl,
+                size: 14,
+                squareSize: 10,
+              ),
         semanticLabel: selected == null
             ? 'Filter by category'
             : 'Category: ${selected!.name}',
@@ -201,12 +218,14 @@ class _CategoryFilterAnchor extends StatelessWidget {
 
 class _SubcategoryFilterAnchor extends StatelessWidget {
   const _SubcategoryFilterAnchor({
+    required this.siteUrl,
     required this.parent,
     required this.subcategories,
     required this.selected,
     required this.onSelected,
   });
 
+  final String siteUrl;
   final TopicCategory parent;
   final List<TopicCategory> subcategories;
   final TopicCategory? selected;
@@ -233,9 +252,12 @@ class _SubcategoryFilterAnchor extends StatelessWidget {
             value: category.id,
             title: category.name,
             description: '',
-            leading: _ColorSquare(
+            leading: CategoryIcon(
               key: ValueKey(('topic-list-category-indicator', category.id)),
-              color: Color(category.colorValue),
+              category: category,
+              siteUrl: siteUrl,
+              size: 14,
+              squareSize: 10,
             ),
             titleStyle: optionTextStyle,
             compact: true,
@@ -252,7 +274,14 @@ class _SubcategoryFilterAnchor extends StatelessWidget {
       builder: (context, openMenu) => _FilterButton(
         key: const ValueKey('topic-list-subcategory-filter'),
         label: selected?.name ?? 'Subcategories',
-        color: selected == null ? null : Color(selected!.colorValue),
+        icon: selected == null
+            ? null
+            : CategoryIcon(
+                category: selected!,
+                siteUrl: siteUrl,
+                size: 14,
+                squareSize: 10,
+              ),
         semanticLabel: selected == null
             ? 'Filter by subcategory of ${parent.name}'
             : 'Subcategory: ${selected!.name}',
@@ -342,7 +371,6 @@ class _FilterButton extends StatelessWidget {
     required this.onPressed,
     required this.minimumWidth,
     required this.maximumWidth,
-    this.color,
     this.icon,
   });
 
@@ -351,7 +379,6 @@ class _FilterButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final double minimumWidth;
   final double maximumWidth;
-  final Color? color;
   final Widget? icon;
 
   @override
@@ -372,27 +399,11 @@ class _FilterButton extends StatelessWidget {
           const DIcon(DIcons.chevronRight, size: 12),
         ],
       ),
-      icon: icon ?? (color == null ? null : _ColorSquare(color: color!)),
+      icon: icon,
       semanticLabel: semanticLabel,
       onPressed: onPressed,
       alignment: Alignment.centerLeft,
       size: DButtonSize.small,
-    ),
-  );
-}
-
-class _ColorSquare extends StatelessWidget {
-  const _ColorSquare({super.key, required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 10,
-    height: 10,
-    decoration: BoxDecoration(
-      color: color,
-      borderRadius: BorderRadius.circular(2),
     ),
   );
 }

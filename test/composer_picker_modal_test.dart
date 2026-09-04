@@ -9,6 +9,8 @@ import 'package:discourse_native/src/shell/topic_category_picker.dart';
 import 'package:discourse_native/src/shell/topic_tag_picker.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -250,6 +252,51 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('topic-category-option-5')));
     await tester.pump();
     expect(shell.visibleComposer!.categoryId, 5);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('uses the configured icon in the category value and picker', (
+    tester,
+  ) async {
+    const category = TopicCategory(
+      id: 5,
+      name: 'General',
+      color: '3498DB',
+      permission: 1,
+      styleType: 'icon',
+      icon: 'folder-open',
+    );
+    final shell = await pumpComposer(
+      tester,
+      platform: TargetPlatform.macOS,
+      categories: const [category],
+      categorySearches: const {
+        '': [category],
+      },
+    );
+    shell.visibleComposer!.setCategory(category.id);
+    await tester.pump();
+
+    Finder configuredIcon(Finder ancestor) => find.descendant(
+      of: ancestor,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is DIcon && widget.icon == DIcons.folderOpen,
+      ),
+    );
+
+    expect(
+      configuredIcon(find.byKey(const ValueKey('composer-category'))),
+      findsOneWidget,
+    );
+
+    await open(tester, const ValueKey('composer-category-action'));
+
+    expect(
+      configuredIcon(
+        find.byKey(const ValueKey(('topic-category-option-icon', 5))),
+      ),
+      findsOneWidget,
+    );
     await tester.pump(const Duration(seconds: 2));
   });
 

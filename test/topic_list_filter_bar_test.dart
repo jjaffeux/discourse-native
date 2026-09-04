@@ -39,6 +39,7 @@ void main() {
 
   Future<void> pumpBar(
     WidgetTester tester, {
+    List<TopicCategory>? categories,
     int? selectedCategoryId,
     String? selectedTagName,
     ValueChanged<TopicCategory?>? onCategorySelected,
@@ -57,7 +58,8 @@ void main() {
           body: Align(
             alignment: Alignment.topLeft,
             child: TopicListFilterBar(
-              categories: const [parent, child, other],
+              siteUrl: 'https://example.com',
+              categories: categories ?? const [parent, child, other],
               knownTags: knownTags,
               selectedCategoryId: selectedCategoryId,
               selectedTagName: selectedTagName,
@@ -276,6 +278,44 @@ void main() {
       tester.getTopLeft(childRow).dy -
           tester.getBottomLeft(allSubcategoriesRow).dy,
       4,
+    );
+  });
+
+  testWidgets('uses configured icons in the selected filter and menu', (
+    tester,
+  ) async {
+    const iconCategory = TopicCategory(
+      id: 4,
+      name: 'General',
+      color: '3498DB',
+      styleType: 'icon',
+      icon: 'folder-open',
+    );
+    await pumpBar(
+      tester,
+      categories: const [iconCategory],
+      selectedCategoryId: iconCategory.id,
+      platform: TargetPlatform.macOS,
+    );
+
+    Finder configuredIcon(Finder ancestor) => find.descendant(
+      of: ancestor,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is DIcon && widget.icon == DIcons.folderOpen,
+      ),
+    );
+
+    final filter = find.byKey(const ValueKey('topic-list-category-filter'));
+    expect(configuredIcon(filter), findsOneWidget);
+
+    await tester.tap(filter);
+    await tester.pumpAndSettle();
+
+    expect(
+      configuredIcon(
+        find.byKey(const ValueKey(('topic-list-category-indicator', 4))),
+      ),
+      findsOneWidget,
     );
   });
 

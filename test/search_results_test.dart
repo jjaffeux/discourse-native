@@ -180,7 +180,14 @@ void main() {
           },
         ],
         'categories': [
-          {'id': 3, 'name': 'Development', 'slug': 'dev', 'color': '0088CC'},
+          {
+            'id': 3,
+            'name': 'Development',
+            'slug': 'dev',
+            'color': '0088CC',
+            'style_type': 'icon',
+            'icon': 'folder-open',
+          },
         ],
         'tags': [
           {'id': 7, 'name': 'flutter', 'slug': 'flutter'},
@@ -234,6 +241,10 @@ void main() {
       expect(group.flairUrl, 'shield-halved');
       expect(group.flairColor, 'FFFFFF');
       expect(group.flairBackgroundColor, '0088CC');
+      final category = results.results[1] as SearchCategoryHit;
+      expect(category.styleType, 'icon');
+      expect(category.icon, 'folder-open');
+      expect(category.emoji, isNull);
     });
 
     test('normalizes CSS shorthand category hit colors', () {

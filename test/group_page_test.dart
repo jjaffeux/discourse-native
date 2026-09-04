@@ -3,6 +3,7 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/models/group_route.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/app_settings_controller.dart';
@@ -333,6 +334,55 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('permissions use configured category icons', (tester) async {
+    await _pump(
+      tester,
+      GroupPage(
+        siteUrl: 'https://meta.discourse.org',
+        route: GroupRoute.detail('support', section: GroupRoute.permissions),
+        registry: PluginRegistry.empty,
+        data: const GroupPageData(
+          detail: _detail,
+          loaded: true,
+          permissions: [
+            GroupPermission(
+              category: TopicCategory(
+                id: 5,
+                name: 'General',
+                color: '3498DB',
+                styleType: 'icon',
+                icon: 'folder-open',
+              ),
+              type: GroupPermissionType.readOnly,
+            ),
+          ],
+        ),
+        onOpenMember: _ignoreMember,
+      ),
+    );
+
+    final tile = find.widgetWithText(ListTile, 'General');
+    expect(tile, findsOneWidget);
+    expect(
+      find.descendant(
+        of: tile,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.folderOpen,
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: tile,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.lock,
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('activity, messages and requests expose their native subtabs', (
     tester,

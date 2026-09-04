@@ -272,6 +272,9 @@ final class UserSummaryCategory {
     required this.slug,
     required this.color,
     this.parentCategoryId,
+    this.styleType = 'square',
+    this.icon,
+    this.emoji,
     this.readRestricted = false,
     this.topicCount = 0,
     this.postCount = 0,
@@ -286,6 +289,9 @@ final class UserSummaryCategory {
       slug: jsonString(json['slug']),
       color: jsonString(json['color'], fallback: '888888'),
       parentCategoryId: jsonIntOrNull(json['parent_category_id']),
+      styleType: jsonText(json['style_type']) ?? 'square',
+      icon: jsonText(json['icon']),
+      emoji: jsonText(json['emoji']),
       readRestricted: json['read_restricted'] == true,
       topicCount: jsonInt(json['topic_count']),
       postCount: jsonInt(json['post_count']),
@@ -297,6 +303,9 @@ final class UserSummaryCategory {
   final String slug;
   final String color;
   final int? parentCategoryId;
+  final String styleType;
+  final String? icon;
+  final String? emoji;
   final bool readRestricted;
   final int topicCount;
   final int postCount;

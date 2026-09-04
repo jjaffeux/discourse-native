@@ -6,12 +6,15 @@ import '../models/topic.dart';
 import '../plugin_api/hashtag_kind.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'category_icon.dart';
 import 'composer_autocomplete.dart';
 import 'emoji.dart';
 import 'open_link.dart';
 import 'pill.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+
+export 'category_icon.dart' show CategorySquare;
 
 HashtagPresentation resolveHashtagPresentation(
   HashtagPresentationRequest request, {
@@ -79,43 +82,6 @@ int? _hashtagColorValue(HashtagPresentation presentation) =>
         presentation.colorValues.isEmpty
     ? null
     : presentation.colorValues.last;
-
-class CategorySquare extends StatelessWidget {
-  const CategorySquare({
-    super.key,
-    required this.color,
-    required this.size,
-    this.parentColor,
-  });
-
-  final Color? color;
-  final Color? parentColor;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final fill = color ?? theme.colorScheme.onSurfaceVariant;
-    final parent = parentColor;
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: parent == null ? fill : null,
-        gradient: parent == null
-            ? null
-            : LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [parent, parent, fill, fill],
-                stops: const [0, 0.5, 0.5, 1],
-              ),
-        borderRadius: BorderRadius.circular(size * 0.15),
-      ),
-    );
-  }
-}
 
 class HashtagPill extends StatelessWidget {
   const HashtagPill({

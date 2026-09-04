@@ -14,6 +14,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
 import 'avatar_image.dart';
+import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'inline_action.dart';
 import 'list_boundary_shortcuts.dart';
@@ -1365,6 +1366,7 @@ class _CategoryBreadcrumb extends StatelessWidget {
             child: _CategoryBadge(
               key: ValueKey(('topic-row-parent-category', parent.id)),
               category: parent,
+              siteUrl: siteUrl,
               label: parent.name,
               semanticLabel: 'Parent category: ${parent.name}',
               onTap: () => onOpen(parent),
@@ -1397,6 +1399,7 @@ class _CategoryBreadcrumb extends StatelessWidget {
           child: _CategoryBadge(
             key: ValueKey(('topic-row-category', category.id)),
             category: category,
+            siteUrl: siteUrl,
             label: category.name,
             semanticLabel: 'Category: ${category.name}',
             onTap: () => onOpen(category),
@@ -1411,12 +1414,14 @@ class _CategoryBadge extends StatelessWidget {
   const _CategoryBadge({
     super.key,
     required this.category,
+    required this.siteUrl,
     required this.label,
     required this.semanticLabel,
     required this.onTap,
   });
 
   final TopicCategory category;
+  final String siteUrl;
   final String label;
   final String semanticLabel;
   final VoidCallback onTap;
@@ -1439,14 +1444,12 @@ class _CategoryBadge extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
+              CategoryIcon(
                 key: ValueKey(('topic-row-category-swatch', category.id)),
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: Color(category.colorValue),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                category: category,
+                siteUrl: siteUrl,
+                size: 13,
+                squareSize: 9,
               ),
               const SizedBox(width: 5),
               Flexible(

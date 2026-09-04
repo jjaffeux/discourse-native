@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/topic.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'category_icon.dart';
 import 'inline_action.dart';
 
 class TopicPropertyRow extends StatelessWidget {
@@ -49,6 +50,8 @@ class TopicCategoryValue extends StatelessWidget {
     super.key,
     required this.label,
     required this.color,
+    this.category,
+    this.siteUrl,
     this.valueKey,
     this.colorKey,
     this.actionKey,
@@ -65,6 +68,8 @@ class TopicCategoryValue extends StatelessWidget {
 
   final String label;
   final Color? color;
+  final TopicCategory? category;
+  final String? siteUrl;
   final Key? valueKey;
   final Key? colorKey;
   final Key? actionKey;
@@ -81,22 +86,30 @@ class TopicCategoryValue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final category = Row(
+    final categoryValue = Row(
       key: valueKey,
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Container(
-            key: colorKey,
-            width: 9,
-            height: 9,
-            decoration: BoxDecoration(
-              color: color ?? theme.colorScheme.outline,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+          padding: const EdgeInsets.only(top: 2),
+          child: category == null
+              ? Container(
+                  key: colorKey,
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: color ?? theme.colorScheme.outline,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                )
+              : CategoryIcon(
+                  key: colorKey,
+                  category: category!,
+                  siteUrl: siteUrl,
+                  size: 13,
+                  squareSize: 9,
+                ),
         ),
         const SizedBox(width: 7),
         Flexible(
@@ -111,7 +124,7 @@ class TopicCategoryValue extends StatelessWidget {
       ],
     );
 
-    Widget value = category;
+    Widget value = categoryValue;
     if (onNavigate case final onNavigate?) {
       final message = navigationTooltip ?? 'Open category $label';
       value = Tooltip(
@@ -130,7 +143,7 @@ class TopicCategoryValue extends StatelessWidget {
               heightFactor: 1,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 3),
-                child: category,
+                child: categoryValue,
               ),
             ),
           ),
@@ -145,7 +158,7 @@ class TopicCategoryValue extends StatelessWidget {
           borderRadius: BorderRadius.circular(5),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 3),
-            child: category,
+            child: categoryValue,
           ),
         ),
       );

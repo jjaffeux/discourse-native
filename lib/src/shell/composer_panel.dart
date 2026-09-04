@@ -21,6 +21,7 @@ import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
+import 'category_icon.dart';
 import 'composer_autocomplete.dart';
 import 'composer_blockquote.dart';
 import 'composer_clipboard.dart';
@@ -978,17 +979,26 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
                             ? 'Choose category'
                             : 'Choose category: $categoryLabel',
                         outlined: true,
-                        leading: Container(
-                          key: const ValueKey('composer-category-color'),
-                          width: 9,
-                          height: 9,
-                          decoration: BoxDecoration(
-                            color: category == null
-                                ? theme.colorScheme.onSurfaceVariant
-                                : Color(category.colorValue),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
+                        leading:
+                            category == null || category.styleType == 'square'
+                            ? Container(
+                                key: const ValueKey('composer-category-color'),
+                                width: 9,
+                                height: 9,
+                                decoration: BoxDecoration(
+                                  color: category == null
+                                      ? theme.colorScheme.onSurfaceVariant
+                                      : Color(category.colorValue),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              )
+                            : CategoryIcon(
+                                key: const ValueKey('composer-category-color'),
+                                category: category,
+                                siteUrl: composer.target.siteUrl,
+                                size: 14,
+                                squareSize: 9,
+                              ),
                         trailing: DIcons.chevronDown,
                         onPressed: () => _pickCategory(context, shell),
                       ),
@@ -1031,6 +1041,7 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
       final selected = await showTopicCategoryPicker(
         context: context,
         anchorContext: anchorContext,
+        siteUrl: composer.target.siteUrl,
         selectedCategoryId: composer.categoryId,
         search: (term) async => (await shell.searchTopicCategoriesForEditor(
           siteUrl: composer.target.siteUrl,

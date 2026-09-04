@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
 import 'anchored_picker.dart';
+import 'category_icon.dart';
 import 'shell_scope.dart';
 
 typedef TopicCategoryMenuAnchorBuilder =
@@ -53,6 +54,7 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
       final selected = await showTopicCategoryPicker(
         context: context,
         anchorContext: anchorContext,
+        siteUrl: widget.siteUrl,
         selectedCategoryId: widget.categoryId,
         search: (term) => shell.searchTopicCategoriesForEditor(
           siteUrl: widget.siteUrl,
@@ -96,6 +98,7 @@ typedef TopicCategorySearchCallback =
 Future<int?> showTopicCategoryPicker({
   required BuildContext context,
   required BuildContext anchorContext,
+  required String siteUrl,
   required int? selectedCategoryId,
   required TopicCategorySearchCallback search,
   required String Function(TopicCategory category) pathLabelFor,
@@ -106,6 +109,7 @@ Future<int?> showTopicCategoryPicker({
   barrierLabel: 'Dismiss category picker',
   popoverKey: const ValueKey('topic-category-picker-popover'),
   builder: (pickerContext) => TopicCategoryPicker(
+    siteUrl: siteUrl,
     selectedCategoryId: selectedCategoryId,
     search: search,
     pathLabelFor: pathLabelFor,
@@ -116,12 +120,14 @@ Future<int?> showTopicCategoryPicker({
 class TopicCategoryPicker extends StatefulWidget {
   const TopicCategoryPicker({
     super.key,
+    required this.siteUrl,
     required this.selectedCategoryId,
     required this.search,
     required this.onSelected,
     required this.pathLabelFor,
   });
 
+  final String siteUrl;
   final int? selectedCategoryId;
   final TopicCategorySearchCallback search;
   final ValueChanged<int> onSelected;
@@ -209,13 +215,12 @@ class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
               indent: category.parentCategoryId == null ? 0 : 16,
               selected: category.id == widget.selectedCategoryId,
               showSelectionIndicator: true,
-              leading: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: Color(category.colorValue),
-                  borderRadius: BorderRadius.circular(5),
-                ),
+              leading: CategoryIcon(
+                key: ValueKey(('topic-category-option-icon', category.id)),
+                category: category,
+                siteUrl: widget.siteUrl,
+                size: 14,
+                squareSize: 10,
               ),
               title: Text(widget.pathLabelFor(category)),
               onTap: () => widget.onSelected(category.id),

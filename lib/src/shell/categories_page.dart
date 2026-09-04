@@ -8,10 +8,10 @@ import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'site_emoji_image.dart';
 import 'topic_title.dart';
 
 class CategoriesPage extends StatefulWidget {
@@ -322,7 +322,13 @@ class _CategoryCard extends StatelessWidget {
                         alignment: WrapAlignment.center,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          _CategoryArt(category: category, siteUrl: siteUrl),
+                          CategoryIcon(
+                            key: ValueKey(('category-card-icon', category.id)),
+                            category: category,
+                            siteUrl: siteUrl,
+                            size: 15,
+                            squareSize: 12,
+                          ),
                           Text(
                             category.name,
                             maxLines: 2,
@@ -354,43 +360,6 @@ class _CategoryCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CategoryArt extends StatelessWidget {
-  const _CategoryArt({required this.category, required this.siteUrl});
-
-  final TopicCategory category;
-  final String siteUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Color(category.colorValue);
-    final emoji = category.emoji;
-    if (category.styleType == 'emoji' && emoji != null) {
-      return SiteEmojiImage(
-        siteUrl: siteUrl,
-        name: emoji,
-        size: 15,
-        alt: ':$emoji:',
-        style: Theme.of(context).textTheme.labelSmall,
-      );
-    }
-    if (category.styleType == 'icon') {
-      return DIcon(
-        DIcons.byName[category.icon] ?? DIcons.folder,
-        size: 15,
-        color: color,
-      );
-    }
-    return Container(
-      width: 12,
-      height: 12,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(2),
       ),
     );
   }
