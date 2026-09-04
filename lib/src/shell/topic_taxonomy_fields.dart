@@ -227,40 +227,65 @@ class TopicTagsValue extends StatelessWidget {
             );
     }
 
+    Widget pill(TopicTag tag) => _TopicTagPill(
+      pillKey: tagKey?.call(tag),
+      tag: tag,
+      onTap: onTagNavigate == null ? onTap : () => onTagNavigate!(tag),
+      isLink: onTagNavigate != null,
+      semanticLabel: onTagNavigate == null ? null : 'Tag: ${tag.name}',
+      tooltip: onTagNavigate == null ? editTooltip : 'Open tag ${tag.name}',
+    );
+
+    final pills = [for (final tag in tags) pill(tag)];
+    final Widget? trailingAction;
+    if (saving) {
+      trailingAction = const _TopicTagsSavingIndicator();
+    } else if (onEdit case final onEdit?) {
+      trailingAction = _TopicTaxonomyEditButton(
+        actionKey: addKey,
+        iconKey: addIconKey,
+        tooltip: editTooltip,
+        onTap: onEdit,
+      );
+    } else if (onTap case final onTap?) {
+      trailingAction = _TopicTagsAddButton(
+        actionKey: addKey,
+        iconKey: addIconKey,
+        onTap: onTap,
+      );
+    } else {
+      trailingAction = null;
+    }
+
     return Wrap(
       spacing: 4,
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        for (final tag in tags)
-          _TopicTagPill(
-            pillKey: tagKey?.call(tag),
-            tag: tag,
-            onTap: onTagNavigate == null ? onTap : () => onTagNavigate!(tag),
-            isLink: onTagNavigate != null,
-            semanticLabel: onTagNavigate == null ? null : 'Tag: ${tag.name}',
-            tooltip: onTagNavigate == null
-                ? editTooltip
-                : 'Open tag ${tag.name}',
-          ),
-        if (saving)
-          const _TopicTagsSavingIndicator()
-        else if (onEdit case final onEdit?)
-          _TopicTaxonomyEditButton(
-            actionKey: addKey,
-            iconKey: addIconKey,
-            tooltip: editTooltip,
-            onTap: onEdit,
-          )
-        else if (onTap != null)
-          _TopicTagsAddButton(
-            actionKey: addKey,
-            iconKey: addIconKey,
-            onTap: onTap,
-          ),
-      ],
+      children: trailingAction == null
+          ? pills
+          : [
+              ...pills.take(pills.length - 1),
+              _TopicTagTrailingAction(tag: pills.last, action: trailingAction),
+            ],
     );
   }
+}
+
+class _TopicTagTrailingAction extends StatelessWidget {
+  const _TopicTagTrailingAction({required this.tag, required this.action});
+
+  final Widget tag;
+  final Widget action;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Flexible(child: tag),
+      const SizedBox(width: 4),
+      action,
+    ],
+  );
 }
 
 class _TopicTagPill extends StatelessWidget {
@@ -497,8 +522,7 @@ class _EmptyTopicProperty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     label,
-    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-    ),
+    style: Theme.of(context).textTheme.labelMedium
+        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
   );
 }
