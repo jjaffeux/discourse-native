@@ -513,10 +513,10 @@ extension is required because native requests do not carry core's AJAX header.
 An empty array shows core's “There are no categories associated with this
 group.” message; request failures retain the error state.
 
-Like core, Groups and Filter are secondary Community links in the sidebar's
-**More** menu. A secondary link is promoted to a selected row immediately above
-More while its route is active; that includes every nested group route, even
-when a group link was opened over another sidebar destination.
+Filter is a top-level Community link in the sidebar, while Groups remains in
+the **More** menu. A secondary link is promoted to a selected row immediately
+above More while its route is active; that includes every nested group route,
+even when a group link was opened over another sidebar destination.
 
 Core parses only the built-in group namespace: Members, Activity
 (Posts/Topics/Mentions), Requests, Messages (Inbox/Archive), Permissions, and

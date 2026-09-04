@@ -454,7 +454,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(InstanceSidebar),
-          matching: find.text('More'),
+          matching: find.text('Filter'),
         ),
         findsOneWidget,
       );
@@ -755,8 +755,6 @@ Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
 }
 
 Future<void> _openFilter(WidgetTester tester, {bool settle = true}) async {
-  await tester.tap(find.text('More'));
-  await tester.pumpAndSettle();
   await tester.tap(find.text('Filter'));
   if (settle) {
     await tester.pumpAndSettle();
