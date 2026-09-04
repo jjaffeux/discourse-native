@@ -268,22 +268,17 @@ class AssignedGroupPresentationView extends StatelessWidget {
                     horizontalPadding,
                     28,
                   ),
-                  sliver: SliverMainAxisGroup(
-                    slivers: [
-                      const SliverToBoxAdapter(child: TopicListHeader()),
-                      SliverList.separated(
-                        itemCount: topics.length,
-                        separatorBuilder: (context, _) => Divider(
-                          height: 1,
-                          color: Theme.of(context).shell.divider,
-                        ),
-                        itemBuilder: (context, index) => TopicListRow(
-                          topic: topics[index],
-                          siteUrl: siteUrl,
-                          onTap: () => onOpenTopic(topics[index]),
-                        ),
-                      ),
-                    ],
+                  sliver: SliverList.separated(
+                    itemCount: topics.length,
+                    separatorBuilder: (context, _) => Divider(
+                      height: 1,
+                      color: Theme.of(context).shell.divider,
+                    ),
+                    itemBuilder: (context, index) => TopicListRow(
+                      topic: topics[index],
+                      siteUrl: siteUrl,
+                      onTap: () => onOpenTopic(topics[index]),
+                    ),
                   ),
                 ),
               if (feed.hasMore || feed.loadingMore)

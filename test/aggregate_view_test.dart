@@ -129,12 +129,12 @@ void main() {
       ),
       findsNothing,
     );
-    expect(find.byType(TopicListHeader), findsOneWidget);
-    expect(find.byType(TopicListRow), findsNWidgets(2));
     expect(
-      find.byKey(const ValueKey('topic-ledger-state-42')),
-      findsNWidgets(2),
+      find.byKey(const ValueKey('topic-list-ledger-header')),
+      findsNothing,
     );
+    expect(find.byType(TopicListRow), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('topic-ledger-state-42')), findsNothing);
     expect(
       find.byKey(const ValueKey('topic-ledger-topic-42')),
       findsNWidgets(2),

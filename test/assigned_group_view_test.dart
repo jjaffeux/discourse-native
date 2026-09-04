@@ -423,7 +423,10 @@ void main() {
       );
       await _pumpView(tester, presentation);
 
-      expect(find.byType(TopicListHeader), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('topic-list-ledger-header')),
+        findsNothing,
+      );
       expect(find.byType(TopicListRow), findsOneWidget);
       expect(find.text('91'), findsOneWidget);
       await tester.tap(find.text(_topic.title));

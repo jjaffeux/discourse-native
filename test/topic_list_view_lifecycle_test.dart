@@ -80,12 +80,9 @@ void main() {
       expect(find.text('Topic 1'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('topic-list-ledger-header')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(
-        find.byKey(const ValueKey('topic-ledger-state-1')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('topic-ledger-state-1')), findsNothing);
       expect(
         find.byKey(const ValueKey('topic-ledger-topic-1')),
         findsOneWidget,
