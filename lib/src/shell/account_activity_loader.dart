@@ -11,6 +11,7 @@ typedef AccountActivityBuilder =
 enum _AccountActivityRequest {
   notifications,
   replyNotifications,
+  likeNotifications,
   otherNotifications,
   bookmarks,
   userActivity;
@@ -19,6 +20,7 @@ enum _AccountActivityRequest {
       switch (this) {
         notifications => controller.loadNotifications(siteUrl),
         replyNotifications => controller.loadReplyNotifications(siteUrl),
+        likeNotifications => controller.loadLikeNotifications(siteUrl),
         otherNotifications => controller.loadOtherNotifications(siteUrl),
         bookmarks => controller.loadBookmarks(siteUrl),
         userActivity => controller.loadUserActivity(siteUrl),
@@ -43,6 +45,12 @@ class AccountActivityLoader extends StatelessWidget {
     required this.siteUrl,
     required this.builder,
   }) : _request = _AccountActivityRequest.replyNotifications;
+
+  const AccountActivityLoader.likeNotifications({
+    super.key,
+    required this.siteUrl,
+    required this.builder,
+  }) : _request = _AccountActivityRequest.likeNotifications;
 
   const AccountActivityLoader.otherNotifications({
     super.key,

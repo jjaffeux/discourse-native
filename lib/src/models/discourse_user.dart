@@ -31,6 +31,7 @@ class DiscourseUser {
     this.displaySidebarTags = false,
     this.unifiedNewEnabled = false,
     this.sidebarShowCountOfNewItems = false,
+    this.likesNotificationsDisabled = false,
     this.trackedCategoryIds,
     this.watchedCategoryIds,
     this.watchedFirstPostCategoryIds,
@@ -80,6 +81,7 @@ class DiscourseUser {
     displaySidebarTags: json['displaySidebarTags'] == true,
     unifiedNewEnabled: json['unifiedNewEnabled'] == true,
     sidebarShowCountOfNewItems: json['sidebarShowCountOfNewItems'] == true,
+    likesNotificationsDisabled: json['likesNotificationsDisabled'] == true,
     trackedCategoryIds: _storedCategoryIds(json, 'trackedCategoryIds'),
     watchedCategoryIds: _storedCategoryIds(json, 'watchedCategoryIds'),
     watchedFirstPostCategoryIds: _storedCategoryIds(
@@ -139,6 +141,8 @@ class DiscourseUser {
   final bool unifiedNewEnabled;
 
   final bool sidebarShowCountOfNewItems;
+
+  final bool likesNotificationsDisabled;
 
   final List<int>? trackedCategoryIds;
   final List<int>? watchedCategoryIds;
@@ -200,6 +204,7 @@ class DiscourseUser {
       'displaySidebarTags': displaySidebarTags,
       'unifiedNewEnabled': unifiedNewEnabled,
       'sidebarShowCountOfNewItems': sidebarShowCountOfNewItems,
+      'likesNotificationsDisabled': likesNotificationsDisabled,
       if (trackedCategoryIds != null) 'trackedCategoryIds': trackedCategoryIds,
       if (watchedCategoryIds != null) 'watchedCategoryIds': watchedCategoryIds,
       if (watchedFirstPostCategoryIds != null)
@@ -238,6 +243,7 @@ class DiscourseUser {
     displaySidebarTags: displaySidebarTags,
     unifiedNewEnabled: unifiedNewEnabled,
     sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
+    likesNotificationsDisabled: likesNotificationsDisabled,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -272,6 +278,7 @@ class DiscourseUser {
     displaySidebarTags: displaySidebarTags,
     unifiedNewEnabled: unifiedNewEnabled,
     sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
+    likesNotificationsDisabled: likesNotificationsDisabled,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -306,6 +313,7 @@ class DiscourseUser {
     displaySidebarTags: displaySidebarTags,
     unifiedNewEnabled: unifiedNewEnabled,
     sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
+    likesNotificationsDisabled: likesNotificationsDisabled,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -341,6 +349,7 @@ class DiscourseUser {
         displaySidebarTags: displaySidebarTags,
         unifiedNewEnabled: unifiedNewEnabled,
         sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
+        likesNotificationsDisabled: likesNotificationsDisabled,
         trackedCategoryIds: trackedCategoryIds,
         watchedCategoryIds: watchedCategoryIds,
         watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -355,6 +364,7 @@ class DiscourseUser {
 
   DiscourseUser withPreferences({
     String? timezone,
+    bool? likesNotificationsDisabled,
     BookmarkAutoDeletePreference? bookmarkAutoDeletePreference,
   }) => DiscourseUser(
     username: username,
@@ -378,6 +388,8 @@ class DiscourseUser {
     displaySidebarTags: displaySidebarTags,
     unifiedNewEnabled: unifiedNewEnabled,
     sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
+    likesNotificationsDisabled:
+        likesNotificationsDisabled ?? this.likesNotificationsDisabled,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -413,6 +425,7 @@ class DiscourseUser {
     displaySidebarTags: displaySidebarTags,
     unifiedNewEnabled: unifiedNewEnabled,
     sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
+    likesNotificationsDisabled: likesNotificationsDisabled,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -447,6 +460,7 @@ class DiscourseUser {
     displaySidebarTags: displaySidebarTags,
     unifiedNewEnabled: unifiedNewEnabled,
     sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,
+    likesNotificationsDisabled: likesNotificationsDisabled,
     trackedCategoryIds: trackedCategoryIds,
     watchedCategoryIds: watchedCategoryIds,
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
@@ -483,6 +497,7 @@ class DiscourseUser {
       other.displaySidebarTags == displaySidebarTags &&
       other.unifiedNewEnabled == unifiedNewEnabled &&
       other.sidebarShowCountOfNewItems == sidebarShowCountOfNewItems &&
+      other.likesNotificationsDisabled == likesNotificationsDisabled &&
       listEquals(other.trackedCategoryIds, trackedCategoryIds) &&
       listEquals(other.watchedCategoryIds, watchedCategoryIds) &&
       listEquals(
@@ -520,6 +535,7 @@ class DiscourseUser {
     displaySidebarTags,
     unifiedNewEnabled,
     sidebarShowCountOfNewItems,
+    likesNotificationsDisabled,
     Object.hashAll(trackedCategoryIds ?? const <int>[]),
     Object.hashAll(watchedCategoryIds ?? const <int>[]),
     Object.hashAll(watchedFirstPostCategoryIds ?? const <int>[]),

@@ -43,7 +43,7 @@ class NotificationDescription {
   final String phrase;
 }
 
-enum _NotificationFeedKind { all, replies, other }
+enum _NotificationFeedKind { all, replies, likes, other }
 
 class NotificationSection extends StatelessWidget {
   const NotificationSection({
@@ -89,6 +89,28 @@ class RepliesSection extends StatelessWidget {
           kind: _NotificationFeedKind.replies,
         ),
       );
+}
+
+class LikesSection extends StatelessWidget {
+  const LikesSection({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+  });
+
+  final String siteUrl;
+  final VoidCallback onOpened;
+
+  @override
+  Widget build(BuildContext context) => AccountActivityLoader.likeNotifications(
+    siteUrl: siteUrl,
+    builder: (context, controller) => _NotificationSectionView(
+      controller: controller,
+      siteUrl: siteUrl,
+      onOpened: onOpened,
+      kind: _NotificationFeedKind.likes,
+    ),
+  );
 }
 
 class OtherNotificationsSection extends StatelessWidget {
@@ -411,6 +433,10 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         controller.accountActivity.replyNotificationsListenable,
         () => controller.loadReplyNotifications(widget.siteUrl),
       ),
+      _NotificationFeedKind.likes => (
+        controller.accountActivity.likeNotificationsListenable,
+        () => controller.loadLikeNotifications(widget.siteUrl),
+      ),
       _NotificationFeedKind.other => (
         controller.accountActivity.otherNotificationsListenable,
         () => controller.loadOtherNotifications(widget.siteUrl),
@@ -426,6 +452,9 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
           _NotificationFeedKind.replies => controller.replyNotificationsFor(
             widget.siteUrl,
           ),
+          _NotificationFeedKind.likes => controller.likeNotificationsFor(
+            widget.siteUrl,
+          ),
           _NotificationFeedKind.other => controller.otherNotificationsFor(
             widget.siteUrl,
           ),
@@ -437,9 +466,13 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         if (!currentFeed.loaded) return const UserMenuMessage(text: null);
         if (currentFeed.isEmpty) {
           return UserMenuMessage(
-            text: widget.kind == _NotificationFeedKind.other
-                ? 'You don’t have any other notifications yet.'
-                : 'Nothing new.',
+            text: switch (widget.kind) {
+              _NotificationFeedKind.likes =>
+                "You haven't received any likes yet.",
+              _NotificationFeedKind.other =>
+                'You don’t have any other notifications yet.',
+              _ => 'Nothing new.',
+            },
           );
         }
 

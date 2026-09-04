@@ -1887,6 +1887,9 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     var updated = switch (section) {
+      PreferenceSection.notifications => user.withPreferences(
+        likesNotificationsDisabled: preferences.likeNotificationFrequency == 3,
+      ),
       PreferenceSection.profile => user.withPreferences(
         timezone: preferences.timezone,
       ),
@@ -1968,6 +1971,25 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
+  NotificationFeed likeNotificationsFor(String siteUrl) =>
+      accountActivity.likeNotificationsFor(siteUrl);
+
+  Future<void> loadLikeNotifications(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance != null) {
+      await accountActivity.loadLikeNotifications(instance);
+    }
+  }
+
+  int likeNotificationUnreadCount(String siteUrl) {
+    final counts = _groupedUnreadNotificationCountsFor(siteUrl);
+    if (counts == null) return 0;
+    final names = userMenuLikeNotificationTypes.toSet();
+    return _registeredNotificationTypes
+        .where((type) => names.contains(NotificationTypeName(type.wireName)))
+        .fold(0, (total, type) => total + counts.count(type));
+  }
+
   NotificationFeed otherNotificationsFor(String siteUrl) =>
       accountActivity.otherNotificationsFor(siteUrl);
 
@@ -1986,24 +2008,34 @@ class ShellController extends FrameSafeNotifier
     List<PluginUserMenuSection>? pluginSections,
   }) {
     final instance = _instanceAt(siteUrl);
-    final live = accountActivity.totalsFor(siteUrl)?.groupedUnreadNotifications;
-    final counts = live?.isAvailable == true
-        ? live!
-        : instance?.user?.groupedUnreadNotifications;
-    if (counts == null || !counts.isAvailable) return 0;
+    final counts = _groupedUnreadNotificationCountsFor(siteUrl);
+    if (counts == null) return 0;
 
     final claimedNames = _claimedUserMenuNotificationTypes(
       pluginSections ?? _pluginUserMenuSectionsFor(instance),
     );
     final claimedIds = <NotificationTypeId>{
-      for (final definition in <NotificationWireType>[
-        ...CoreNotificationTypes.values,
-        for (final type in plugins.registry.notificationTypes) type.wireType,
-      ])
+      for (final definition in _registeredNotificationTypes)
         if (claimedNames.contains(NotificationTypeName(definition.wireName)))
           NotificationTypeId(definition.wireId),
     };
     return counts.totalExcluding(claimedIds);
+  }
+
+  NotificationTypeCounts? _groupedUnreadNotificationCountsFor(String siteUrl) {
+    final instance = _instanceAt(siteUrl);
+    final live = accountActivity.totalsFor(siteUrl)?.groupedUnreadNotifications;
+    final counts = live?.isAvailable == true
+        ? live!
+        : instance?.user?.groupedUnreadNotifications;
+    return counts?.isAvailable == true ? counts : null;
+  }
+
+  Iterable<NotificationWireType> get _registeredNotificationTypes sync* {
+    yield* CoreNotificationTypes.values;
+    for (final type in plugins.registry.notificationTypes) {
+      yield type.wireType;
+    }
   }
 
   final Map<String, List<NotificationWireType>> _siteNotificationTypes = {};

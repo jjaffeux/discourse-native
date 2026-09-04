@@ -3326,7 +3326,10 @@ void _writeGroups() {
                 'id': 7,
                 'username': 'sam',
                 'unified_new_enabled': true,
-                'user_option': {'sidebar_show_count_of_new_items': true},
+                'user_option': {
+                  'sidebar_show_count_of_new_items': true,
+                  'likes_notifications_disabled': true,
+                },
               },
             }),
             200,
@@ -3342,6 +3345,7 @@ void _writeGroups() {
 
       expect(user.unifiedNewEnabled, isTrue);
       expect(user.sidebarShowCountOfNewItems, isTrue);
+      expect(user.likesNotificationsDisabled, isTrue);
       expect(stored, user);
     });
 
