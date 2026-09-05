@@ -29,7 +29,11 @@ class TopicFilterInput extends StatefulWidget {
     this.padding = const EdgeInsets.fromLTRB(12, 12, 12, 8),
     this.enabled = true,
     this.preferSuggestionsAbove = false,
-  });
+    this.minLines = 1,
+    this.maxLines = 1,
+    this.submitOnEnter = true,
+  }) : assert(minLines > 0),
+       assert(maxLines == null || maxLines >= minLines);
 
   final String siteUrl;
   final String initialQuery;
@@ -43,6 +47,9 @@ class TopicFilterInput extends StatefulWidget {
   final EdgeInsetsGeometry padding;
   final bool enabled;
   final bool preferSuggestionsAbove;
+  final int minLines;
+  final int? maxLines;
+  final bool submitOnEnter;
 
   @override
   State<TopicFilterInput> createState() => _TopicFilterInputState();
@@ -194,8 +201,10 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
               (_) => filter.acceptSelected(),
             ),
           );
-        } else {
+        } else if (widget.submitOnEnter) {
           unawaited(filter.submit());
+        } else {
+          return KeyEventResult.ignored;
         }
         return KeyEventResult.handled;
       default:
@@ -248,7 +257,14 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
               enabled: widget.enabled,
               autocorrect: false,
               enableSuggestions: false,
-              textInputAction: TextInputAction.search,
+              keyboardType: widget.maxLines == 1
+                  ? null
+                  : TextInputType.multiline,
+              minLines: widget.minLines,
+              maxLines: widget.maxLines,
+              textInputAction: widget.submitOnEnter
+                  ? TextInputAction.search
+                  : TextInputAction.newline,
               decoration: InputDecoration(
                 hintText: widget.hintText,
                 prefixIcon: const Padding(
