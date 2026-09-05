@@ -564,6 +564,7 @@ class TopicDetail with Storable<TopicDetail> {
     this.gapsBefore = const {},
     this.gapsAfter = const {},
     this.postsCount = 0,
+    this.lastReadPostNumber,
     this.replyCount = 0,
     this.views = 0,
     this.likeCount = 0,
@@ -632,6 +633,7 @@ class TopicDetail with Storable<TopicDetail> {
         gapsBefore: _parsePostGaps(gaps['before']),
         gapsAfter: _parsePostGaps(gaps['after']),
         postsCount: jsonInt(json['posts_count']),
+        lastReadPostNumber: jsonIntOrNull(json['last_read_post_number']),
         replyCount: jsonInt(json['reply_count']),
         views: jsonInt(json['views']),
         likeCount: jsonInt(json['like_count']),
@@ -723,6 +725,7 @@ class TopicDetail with Storable<TopicDetail> {
   final Map<int, List<int>> gapsAfter;
 
   final int postsCount;
+  final int? lastReadPostNumber;
   final int replyCount;
   final int views;
   final int likeCount;
@@ -732,6 +735,17 @@ class TopicDetail with Storable<TopicDetail> {
   final bool isNestedView;
   final bool privateMessage;
   final int? categoryId;
+
+  int? get resumePostNumber {
+    // Nested topics deliberately avoid flat numbered post routes. Post one is
+    // already the unpositioned response, so it needs no second request.
+    if (isNestedView ||
+        lastReadPostNumber == null ||
+        lastReadPostNumber! <= 1) {
+      return null;
+    }
+    return lastReadPostNumber;
+  }
 
   final bool canCreatePost;
   final bool canEdit;
@@ -952,6 +966,7 @@ class TopicDetail with Storable<TopicDetail> {
     gapsBefore: gapsBefore,
     gapsAfter: gapsAfter,
     postsCount: postsCount,
+    lastReadPostNumber: lastReadPostNumber,
     replyCount: replyCount,
     views: views,
     likeCount: likeCount,
@@ -1059,6 +1074,7 @@ class TopicDetail with Storable<TopicDetail> {
         : _freezePostGaps(gapsBefore),
     gapsAfter: gapsAfter == null ? this.gapsAfter : _freezePostGaps(gapsAfter),
     postsCount: postsCount ?? this.postsCount,
+    lastReadPostNumber: lastReadPostNumber,
     replyCount: replyCount,
     views: views,
     likeCount: likeCount,
@@ -1116,6 +1132,7 @@ class TopicDetail with Storable<TopicDetail> {
           _postGapsEqual(other.gapsBefore, gapsBefore) &&
           _postGapsEqual(other.gapsAfter, gapsAfter) &&
           other.postsCount == postsCount &&
+          other.lastReadPostNumber == lastReadPostNumber &&
           other.replyCount == replyCount &&
           other.views == views &&
           other.likeCount == likeCount &&
@@ -1166,6 +1183,7 @@ class TopicDetail with Storable<TopicDetail> {
     _postGapsHash(gapsBefore),
     _postGapsHash(gapsAfter),
     postsCount,
+    lastReadPostNumber,
     replyCount,
     views,
     likeCount,

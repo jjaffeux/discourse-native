@@ -4671,6 +4671,19 @@ class ShellController extends FrameSafeNotifier
   }
 
   void openCurrentTopicPost(int postNumber, {bool loadAroundPost = false}) {
+    final target = _targetCurrentTopicPost(postNumber);
+    if (target == null) return;
+    unawaited(
+      loadTopic(
+        target.topicId,
+        target.slug,
+        force: loadAroundPost,
+        postNumber: postNumber,
+      ),
+    );
+  }
+
+  ({int topicId, String slug})? _targetCurrentTopicPost(int postNumber) {
     final route = currentContent;
     final tab = activeTab;
     if (route?.topicId case final topicId? when tab != null && postNumber > 0) {
@@ -4695,15 +4708,9 @@ class ShellController extends FrameSafeNotifier
         ),
       );
       _notify();
-      unawaited(
-        loadTopic(
-          topicId,
-          route.slug ?? '',
-          force: loadAroundPost,
-          postNumber: postNumber,
-        ),
-      );
+      return (topicId: topicId, slug: route.slug ?? '');
     }
+    return null;
   }
 
   @override
@@ -4926,6 +4933,7 @@ class ShellController extends FrameSafeNotifier
     final instance = currentInstance;
     if (instance == null) return;
     if (instance.loginRequired && !instance.isConnected) return;
+    final requestedPostNumber = postNumber ?? topicScrollPostNumber(topicId);
 
     // Start presentation fetches before cache/in-flight guards so failures stay
     // retryable even for topics already in the store.
@@ -4937,21 +4945,38 @@ class ShellController extends FrameSafeNotifier
 
     final key = _topicKey(instance.url, topicId);
     if (_topicsLoading.contains(key)) {
-      if (force || postNumber != null) {
+      if (force || requestedPostNumber != null) {
         _topicRefreshPending.add(key);
-        if (postNumber != null) {
-          _topicRefreshPostNumbers[key] = postNumber;
+        if (requestedPostNumber != null) {
+          _topicRefreshPostNumbers[key] = requestedPostNumber;
         }
       }
       return;
     }
     final held = store.read<TopicDetail>(instance.url, topicId);
+    final heldResumePostNumber = held?.resumePostNumber;
+    if (requestedPostNumber == null &&
+        !force &&
+        !_topicsStale.contains(key) &&
+        heldResumePostNumber != null &&
+        topicScrollPostNumber(topicId) == null) {
+      final target = _targetCurrentTopicPost(heldResumePostNumber);
+      if (target != null) {
+        await _loadTopic(
+          target.topicId,
+          target.slug,
+          force: false,
+          postNumber: heldResumePostNumber,
+        );
+        return;
+      }
+    }
     if (held != null && !force && !_topicsStale.contains(key)) {
-      final targetHeld = postNumber == null
+      final targetHeld = requestedPostNumber == null
           ? true
           : held.stream.any((id) {
               final post = store.read<Post>(instance.url, id);
-              return post?.postNumber == postNumber;
+              return post?.postNumber == requestedPostNumber;
             });
       if (targetHeld) return;
     }
@@ -4962,6 +4987,9 @@ class ShellController extends FrameSafeNotifier
     _topicsLoading.add(key);
     _notify();
 
+    int? resumePostNumber;
+    var replayRefresh = false;
+    int? replayPostNumber;
     try {
       final credential = await _awaitTopicLoadStage(
         _readSessionValue(lease, () => authenticator.apiKeyFor(instance.url)),
@@ -4974,14 +5002,14 @@ class ShellController extends FrameSafeNotifier
           siteUrl: instance.url,
           slug: slug,
           id: topicId,
-          postNumber: postNumber,
+          postNumber: requestedPostNumber,
           apiKey: credential.value,
         ),
         elapsed,
         'loading topic $topicId',
       );
       lease.commit(() {
-        _absorb(
+        final detail = _absorb(
           instance.url,
           fetched,
           bookmarkVersionAtDispatch: bookmarkVersion,
@@ -4989,13 +5017,17 @@ class ShellController extends FrameSafeNotifier
         if (currentInstance?.url == instance.url) {
           _retitle(topicId, fetched.detail.title);
         }
+        if (requestedPostNumber == null &&
+            currentInstance?.url == instance.url &&
+            currentContent?.topicId == topicId &&
+            topicScrollPostNumber(topicId) == null) {
+          resumePostNumber = detail.resumePostNumber;
+        }
       });
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _reportOperationalError(error, stackTrace, 'topic.load', degraded: false);
     } finally {
-      var replayRefresh = false;
-      int? replayPostNumber;
       lease.commit(() {
         _topicsLoading.remove(key);
         replayRefresh = _topicRefreshPending.remove(key);
@@ -5005,13 +5037,35 @@ class ShellController extends FrameSafeNotifier
         _notify();
       });
       if (replayRefresh && lease.isCurrent) {
+        var replaySlug = '';
+        final fallbackPostNumber = resumePostNumber;
+        if (replayPostNumber == null && fallbackPostNumber != null) {
+          final target = _targetCurrentTopicPost(fallbackPostNumber);
+          if (target != null) {
+            replayPostNumber = fallbackPostNumber;
+            replaySlug = target.slug;
+          }
+        }
         unawaited(
           _refetchTopic(
             instance.url,
             topicId,
-            '',
+            replaySlug,
             postNumber: replayPostNumber,
           ),
+        );
+      }
+    }
+
+    final targetPostNumber = resumePostNumber;
+    if (!replayRefresh && lease.isCurrent && targetPostNumber != null) {
+      final target = _targetCurrentTopicPost(targetPostNumber);
+      if (target != null) {
+        await _loadTopic(
+          target.topicId,
+          target.slug,
+          force: false,
+          postNumber: targetPostNumber,
         );
       }
     }
