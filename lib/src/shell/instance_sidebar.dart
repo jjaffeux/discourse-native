@@ -603,7 +603,7 @@ class _ForumIdentityFooter extends StatelessWidget {
 
     return Padding(
       key: const ValueKey('forum-identity-footer'),
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: MenuAnchor(
         alignmentOffset: const Offset(0, 6),
         style: MenuStyle(
@@ -635,11 +635,14 @@ class _ForumIdentityFooter extends StatelessWidget {
         ],
         builder: (context, menu, child) => Material(
           key: const ValueKey('forum-identity-button'),
-          color: theme.shell.sidebar,
-          borderRadius: BorderRadius.circular(6),
+          color: theme.shell.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: theme.shell.divider),
+          ),
           child: InkWell(
             onTap: menu.open,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(10),
             hoverColor: theme.colorScheme.primaryContainer,
             child: child,
           ),
@@ -648,17 +651,17 @@ class _ForumIdentityFooter extends StatelessWidget {
           constraints: BoxConstraints(
             minHeight: _SidebarSpacing.rowHeight(context) + 12,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Row(
             children: [
               ClipRRect(
                 key: const ValueKey('forum-identity-logo'),
-                borderRadius: BorderRadius.circular(7),
+                borderRadius: BorderRadius.circular(6),
                 child: SizedBox.square(
-                  dimension: 28,
+                  dimension: 24,
                   child: AvatarImage(
                     url: iconUrl,
-                    size: 28,
+                    size: 24,
                     fallback: ColoredBox(
                       color: accentColor,
                       child: Center(
@@ -686,11 +689,12 @@ class _ForumIdentityFooter extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
               RotatedBox(
                 quarterTurns: 2,
                 child: DIcon(
                   DIcons.chevronDown,
-                  size: 15,
+                  size: 12,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
