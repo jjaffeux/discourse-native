@@ -136,49 +136,63 @@ class _CategoriesPageState extends State<CategoriesPage> {
 
         return NotificationListener<ScrollNotification>(
           onNotification: _onScroll,
-          child: SingleChildScrollView(
+          child: CustomScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: lane.padding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (feed.loading)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
-                    child: LinearProgressIndicator(minHeight: 2),
-                  ),
-                if (!feed.pageError && feed.error != null)
-                  _CategoryErrorBanner(message: feed.error!, onRetry: _retry),
-                _CategoryGrid(
-                  siteUrl: widget.siteUrl,
-                  categoryIds: feed.categoryIds,
-                  columns: columns,
-                  cardWidth: cardWidth,
-                  gap: gap,
-                ),
-                if (feed.loadingMore)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 20),
-                    child: Center(
-                      child: SizedBox.square(
-                        dimension: 22,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
+            slivers: [
+              SliverPadding(
+                padding: lane.padding,
+                sliver: SliverMainAxisGroup(
+                  slivers: [
+                    if (feed.loading)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: 12),
+                          child: LinearProgressIndicator(minHeight: 2),
                         ),
                       ),
+                    if (!feed.pageError && feed.error != null)
+                      SliverToBoxAdapter(
+                        child: _CategoryErrorBanner(
+                          message: feed.error!,
+                          onRetry: _retry,
+                        ),
+                      ),
+                    _CategoryGrid(
+                      siteUrl: widget.siteUrl,
+                      categoryIds: feed.categoryIds,
+                      columns: columns,
+                      cardWidth: cardWidth,
+                      gap: gap,
                     ),
-                  ),
-                if (feed.pageError && feed.error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: _CategoryErrorBanner(
-                      message: feed.error!,
-                      onRetry: _retry,
-                    ),
-                  ),
-              ],
-            ),
+                    if (feed.loadingMore)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 20),
+                          child: Center(
+                            child: SizedBox.square(
+                              dimension: 22,
+                              child: CircularProgressIndicator.adaptive(
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (feed.pageError && feed.error != null)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: _CategoryErrorBanner(
+                            message: feed.error!,
+                            onRetry: _retry,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -209,16 +223,15 @@ class _CategoryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rows = <List<int>>[];
-    for (var start = 0; start < categoryIds.length; start += columns) {
-      rows.add(categoryIds.skip(start).take(columns).toList(growable: false));
-    }
+    final rowCount = (categoryIds.length + columns - 1) ~/ columns;
 
-    return Column(
-      children: [
-        for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
-          if (rowIndex > 0) SizedBox(height: gap),
-          IntrinsicHeight(
+    return SliverList.builder(
+      itemCount: rowCount,
+      itemBuilder: (context, rowIndex) {
+        final start = rowIndex * columns;
+        return Padding(
+          padding: EdgeInsets.only(top: rowIndex == 0 ? 0 : gap),
+          child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -226,13 +239,13 @@ class _CategoryGrid extends StatelessWidget {
                   if (column > 0) SizedBox(width: gap),
                   SizedBox(
                     width: cardWidth,
-                    child: column < rows[rowIndex].length
+                    child: start + column < categoryIds.length
                         ? _CategoryCardSlot(
                             key: ValueKey(
-                              'category-card-${rows[rowIndex][column]}',
+                              'category-card-${categoryIds[start + column]}',
                             ),
                             siteUrl: siteUrl,
-                            categoryId: rows[rowIndex][column],
+                            categoryId: categoryIds[start + column],
                           )
                         : null,
                   ),
@@ -240,8 +253,8 @@ class _CategoryGrid extends StatelessWidget {
               ],
             ),
           ),
-        ],
-      ],
+        );
+      },
     );
   }
 }
