@@ -345,6 +345,41 @@ void main() {
         ]),
       );
     });
+
+    test('a boundary-aligned anchor does not recycle its detached target', () {
+      final frames = _FrameQueue();
+      final geometry = _Geometry()
+        ..offsets[11] = 300
+        ..position = (pixels: 1000, minScrollExtent: 0, maxScrollExtent: 1000);
+      final diagnostics = <String>[];
+      final subject = _coordinator(
+        frames: frames,
+        geometry: geometry,
+        diagnostics: diagnostics,
+      );
+      _disposeAfter(subject, frames);
+      final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]));
+      subject
+        ..bind(owner.binding)
+        ..updateLaidOutSnapshot(owner.snapshot)
+        ..holdViewportAnchor(11, 0, token: Object());
+
+      frames.flushFrame();
+      expect(geometry.itemJumps, isEmpty);
+
+      // A tall async row above the target can increase the end extent while
+      // briefly recycling the final row. Keep the established end boundary
+      // instead of asking the list to rebuild the detached target by index.
+      geometry
+        ..offsets.remove(11)
+        ..position = (pixels: 1000, minScrollExtent: 0, maxScrollExtent: 1400);
+      subject.onListLayoutChanged();
+      frames.flushFrame();
+
+      expect(geometry.itemJumps, isEmpty);
+      expect(geometry.pixelJumps, [1400]);
+      expect(diagnostics, contains('viewport.anchor.boundaryCorrecting'));
+    });
   });
 }
 
