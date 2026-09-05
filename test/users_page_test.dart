@@ -41,7 +41,7 @@ const _hawk = UserDirectoryItem(
 
 void main() {
   testWidgets(
-    'Matrix supports search, periods, sorting, columns, and selection',
+    'Matrix supports search, periods, sorting, columns, and omits selection',
     (tester) async {
       String? search;
       UserDirectoryPeriod? period;
@@ -131,6 +131,15 @@ void main() {
         AppTheme.light.shell.content,
       );
       expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
+      expect(find.byKey(const ValueKey('users-select-all')), findsNothing);
+      expect(find.byKey(const ValueKey('user-select-sam')), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('users-table')),
+          matching: find.byType(Checkbox),
+        ),
+        findsNothing,
+      );
       expect(find.text('1'), findsNothing);
       expect(find.text('2'), findsNothing);
       expect(find.text('290'), findsOneWidget);
@@ -153,15 +162,6 @@ void main() {
       expect(sort, ('likes_received', true));
       await tester.tap(find.byKey(const ValueKey('users-sort-direction')));
       expect(sort, ('likes_received', true));
-
-      await tester.tap(find.byKey(const ValueKey('user-select-sam')));
-      await tester.pump();
-      expect(
-        tester
-            .widget<Checkbox>(find.byKey(const ValueKey('user-select-sam')))
-            .value,
-        isTrue,
-      );
 
       await tester.tap(find.byKey(const ValueKey('users-columns')));
       await tester.pumpAndSettle();

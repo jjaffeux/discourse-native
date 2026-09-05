@@ -184,7 +184,6 @@ class _UsersPageState extends State<UsersPage> {
   final ScrollController _metricsVertical = ScrollController();
   Timer? _searchDebounce;
   Set<int>? _visibleColumnIds;
-  final Set<int> _selectedIds = {};
   int? _hoveredId;
   bool _syncingVerticalScroll = false;
   bool _loadMoreCheckScheduled = false;
@@ -209,12 +208,6 @@ class _UsersPageState extends State<UsersPage> {
           offset: widget.data.query.search.length,
         ),
       );
-    }
-    if (oldWidget.data.query != widget.data.query) {
-      _selectedIds.clear();
-    } else {
-      final currentIds = {for (final item in widget.data.items) item.id};
-      _selectedIds.removeWhere((id) => !currentIds.contains(id));
     }
     final oldIds = {for (final column in oldWidget.data.columns) column.id};
     final newIds = {for (final column in widget.data.columns) column.id};
@@ -386,26 +379,6 @@ class _UsersPageState extends State<UsersPage> {
     setState(() => _visibleColumnIds = result);
   }
 
-  void _toggleRow(int id, bool selected) {
-    setState(() {
-      if (selected) {
-        _selectedIds.add(id);
-      } else {
-        _selectedIds.remove(id);
-      }
-    });
-  }
-
-  void _toggleAll(bool selected) {
-    setState(() {
-      if (selected) {
-        _selectedIds.addAll(widget.data.items.map((item) => item.id));
-      } else {
-        _selectedIds.clear();
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final palette = _MatrixPalette.of(context);
@@ -429,7 +402,6 @@ class _UsersPageState extends State<UsersPage> {
           rowHeight: _rowHeight,
           headerHeight: _headerHeight,
           metricWidth: _metricWidth,
-          selectedIds: _selectedIds,
           hoveredId: _hoveredId,
           onHover: (id) {
             if (_hoveredId == id) return;
@@ -450,8 +422,6 @@ class _UsersPageState extends State<UsersPage> {
             !widget.data.query.ascending,
           ),
           onChooseColumns: _chooseColumns,
-          onToggleRow: _toggleRow,
-          onToggleAll: _toggleAll,
           onRefresh: widget.onRefresh,
         ),
       ),
@@ -474,7 +444,6 @@ class _DirectorySurface extends StatelessWidget {
     required this.rowHeight,
     required this.headerHeight,
     required this.metricWidth,
-    required this.selectedIds,
     required this.hoveredId,
     required this.onHover,
     required this.onSearchChanged,
@@ -485,8 +454,6 @@ class _DirectorySurface extends StatelessWidget {
     required this.onSort,
     required this.onDirectionChanged,
     required this.onChooseColumns,
-    required this.onToggleRow,
-    required this.onToggleAll,
     required this.onRefresh,
   });
 
@@ -503,7 +470,6 @@ class _DirectorySurface extends StatelessWidget {
   final double rowHeight;
   final double headerHeight;
   final double metricWidth;
-  final Set<int> selectedIds;
   final int? hoveredId;
   final ValueChanged<int?> onHover;
   final ValueChanged<String> onSearchChanged;
@@ -514,8 +480,6 @@ class _DirectorySurface extends StatelessWidget {
   final ValueChanged<String> onSort;
   final VoidCallback onDirectionChanged;
   final VoidCallback onChooseColumns;
-  final void Function(int id, bool selected) onToggleRow;
-  final ValueChanged<bool> onToggleAll;
   final Future<void> Function()? onRefresh;
 
   @override
@@ -559,12 +523,9 @@ class _DirectorySurface extends StatelessWidget {
             rowHeight: rowHeight,
             headerHeight: headerHeight,
             metricWidth: metricWidth,
-            selectedIds: selectedIds,
             hoveredId: hoveredId,
             onHover: onHover,
             onSort: onSort,
-            onToggleRow: onToggleRow,
-            onToggleAll: onToggleAll,
           ),
         ),
       ),
@@ -960,12 +921,9 @@ class _TableBody extends StatelessWidget {
     required this.rowHeight,
     required this.headerHeight,
     required this.metricWidth,
-    required this.selectedIds,
     required this.hoveredId,
     required this.onHover,
     required this.onSort,
-    required this.onToggleRow,
-    required this.onToggleAll,
   });
 
   final _MatrixPalette palette;
@@ -978,12 +936,9 @@ class _TableBody extends StatelessWidget {
   final double rowHeight;
   final double headerHeight;
   final double metricWidth;
-  final Set<int> selectedIds;
   final int? hoveredId;
   final ValueChanged<int?> onHover;
   final ValueChanged<String> onSort;
-  final void Function(int id, bool selected) onToggleRow;
-  final ValueChanged<bool> onToggleAll;
 
   @override
   Widget build(BuildContext context) {
@@ -1016,10 +971,6 @@ class _TableBody extends StatelessWidget {
       );
     }
 
-    final allSelected = data.items.every(
-      (item) => selectedIds.contains(item.id),
-    );
-    final someSelected = selectedIds.isNotEmpty && !allSelected;
     final maxima = <int, double>{};
     for (final column in columns) {
       var maximum = 0.0;
@@ -1049,16 +1000,10 @@ class _TableBody extends StatelessWidget {
                     _IdentityHeader(
                       palette: palette,
                       height: headerHeight,
-                      checked: allSelected
-                          ? true
-                          : someSelected
-                          ? null
-                          : false,
                       ascending:
                           data.query.order == 'username' &&
                           data.query.ascending,
                       sorted: data.query.order == 'username',
-                      onToggleAll: onToggleAll,
                       onSort: () => onSort('username'),
                     ),
                     Expanded(
@@ -1083,11 +1028,8 @@ class _TableBody extends StatelessWidget {
                               item: item,
                               siteUrl: siteUrl,
                               currentUser: currentUser,
-                              selected: selectedIds.contains(item.id),
                               hovered: hoveredId == item.id,
                               onHover: onHover,
-                              onSelected: (value) =>
-                                  onToggleRow(item.id, value),
                             );
                           },
                         ),
@@ -1184,9 +1126,6 @@ class _TableBody extends StatelessWidget {
                                             color: _rowColor(
                                               palette,
                                               currentUser: currentUser,
-                                              selected: selectedIds.contains(
-                                                item.id,
-                                              ),
                                               hovered: hoveredId == item.id,
                                             ),
                                             child: Row(
@@ -1232,19 +1171,15 @@ class _IdentityHeader extends StatelessWidget {
   const _IdentityHeader({
     required this.palette,
     required this.height,
-    required this.checked,
     required this.ascending,
     required this.sorted,
-    required this.onToggleAll,
     required this.onSort,
   });
 
   final _MatrixPalette palette;
   final double height;
-  final bool? checked;
   final bool ascending;
   final bool sorted;
-  final ValueChanged<bool> onToggleAll;
   final VoidCallback onSort;
 
   @override
@@ -1257,32 +1192,16 @@ class _IdentityHeader extends StatelessWidget {
         bottom: BorderSide(color: palette.line),
       ),
     ),
-    child: Row(
-      children: [
-        SizedBox(
-          width: 38,
-          child: Transform.scale(
-            scale: .82,
-            child: Checkbox(
-              key: const ValueKey('users-select-all'),
-              value: checked,
-              tristate: true,
-              activeColor: palette.green,
-              onChanged: (value) => onToggleAll(value ?? true),
-            ),
-          ),
-        ),
-        Expanded(
-          child: _HeaderButton(
-            label: 'User',
-            sorted: sorted,
-            ascending: ascending,
-            palette: palette,
-            onPressed: onSort,
-            alignment: Alignment.centerLeft,
-          ),
-        ),
-      ],
+    child: Padding(
+      padding: const EdgeInsets.only(left: 12, right: 8),
+      child: _HeaderButton(
+        label: 'User',
+        sorted: sorted,
+        ascending: ascending,
+        palette: palette,
+        onPressed: onSort,
+        alignment: Alignment.centerLeft,
+      ),
     ),
   );
 }
@@ -1393,20 +1312,16 @@ class _IdentityRow extends StatelessWidget {
     required this.item,
     required this.siteUrl,
     required this.currentUser,
-    required this.selected,
     required this.hovered,
     required this.onHover,
-    required this.onSelected,
   });
 
   final _MatrixPalette palette;
   final UserDirectoryItem item;
   final String siteUrl;
   final bool currentUser;
-  final bool selected;
   final bool hovered;
   final ValueChanged<int?> onHover;
-  final ValueChanged<bool> onSelected;
 
   @override
   Widget build(BuildContext context) => MouseRegion(
@@ -1415,12 +1330,7 @@ class _IdentityRow extends StatelessWidget {
     child: Container(
       key: ValueKey('user-identity-background-${item.user.username}'),
       decoration: BoxDecoration(
-        color: _rowColor(
-          palette,
-          currentUser: currentUser,
-          selected: selected,
-          hovered: hovered,
-        ),
+        color: _rowColor(palette, currentUser: currentUser, hovered: hovered),
         border: Border(
           right: BorderSide(color: palette.line),
           bottom: BorderSide(color: palette.rowLine),
@@ -1428,21 +1338,9 @@ class _IdentityRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 38,
-            child: Transform.scale(
-              scale: .78,
-              child: Checkbox(
-                key: ValueKey('user-select-${item.user.username}'),
-                value: selected,
-                activeColor: palette.green,
-                onChanged: (value) => onSelected(value ?? false),
-              ),
-            ),
-          ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(left: 12, right: 8),
               child: UserCardTarget(
                 username: item.user.username,
                 siteUrl: siteUrl.isEmpty ? null : siteUrl,
@@ -1698,7 +1596,6 @@ final class _MatrixPalette {
     required this.accentSoft,
     required this.green,
     required this.hover,
-    required this.selected,
     required this.currentUser,
     required this.avatarBackground,
   });
@@ -1720,7 +1617,6 @@ final class _MatrixPalette {
       accentSoft: colors.primaryContainer,
       green: colors.primary,
       hover: theme.shell.hover,
-      selected: theme.shell.selected,
       currentUser: colors.tertiaryContainer,
       avatarBackground: colors.secondaryContainer,
     );
@@ -1739,7 +1635,6 @@ final class _MatrixPalette {
   final Color accentSoft;
   final Color green;
   final Color hover;
-  final Color selected;
   final Color currentUser;
   final Color avatarBackground;
 
@@ -1749,10 +1644,8 @@ final class _MatrixPalette {
 Color _rowColor(
   _MatrixPalette palette, {
   required bool currentUser,
-  required bool selected,
   required bool hovered,
 }) {
-  if (selected) return palette.selected;
   if (hovered) return palette.hover;
   if (currentUser) return palette.currentUser;
   return palette.surface;
