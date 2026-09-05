@@ -140,12 +140,18 @@ void main() {
       expect(ordinaryRect.top, selectedRect.top);
       expect(ordinaryRect.bottom, selectedRect.bottom);
 
-      final selectedDecoration = _decoration(tester, selected);
-      final ordinaryDecoration = _decoration(tester, ordinary);
+      final selectedDecoration = _tabDecoration(tester, selected);
+      final ordinaryDecoration = _tabDecoration(tester, ordinary);
       expect(selectedDecoration.color, theme.shell.content);
-      expect(selectedDecoration.border, isNull);
+      expect(
+        (selectedDecoration.shape as OutlinedBorder).side,
+        BorderSide.none,
+      );
       expect(ordinaryDecoration.color, Colors.transparent);
-      expect(ordinaryDecoration.border, isNull);
+      expect(
+        (ordinaryDecoration.shape as OutlinedBorder).side,
+        BorderSide.none,
+      );
       expect(
         find.byKey(const ValueKey('forum-tab-indicator-topic-1')),
         findsNothing,
@@ -160,34 +166,27 @@ void main() {
 
       // Check the painted bottom edge as well as layout: the active tab must
       // connect to the page without adding a separator beneath inactive tabs.
-      final boundary = tester.renderObject<RenderRepaintBoundary>(
-        find.byKey(const ValueKey('forum-tabs-paint-boundary')),
-      );
-      await tester.runAsync(() async {
-        final image = await boundary.toImage();
-        try {
-          final bytes = (await image.toByteData(
-            format: ImageByteFormat.rawRgba,
-          ))!;
-          for (final (rect, color) in [
-            (selectedRect, theme.shell.content),
-            (ordinaryRect, theme.shell.sidebar),
-          ]) {
-            final x = (rect.center.dx - barRect.left).floor();
-            final y = (barRect.height - 1).floor();
-            final offset = (y * image.width + x) * 4;
-            final pixel = Color.fromARGB(
-              bytes.getUint8(offset + 3),
-              bytes.getUint8(offset),
-              bytes.getUint8(offset + 1),
-              bytes.getUint8(offset + 2),
-            );
-            expect(pixel, color);
-          }
-        } finally {
-          image.dispose();
-        }
-      });
+      await _expectTabPixels(tester, [
+        (
+          Offset(selectedRect.center.dx, selectedRect.bottom - 1),
+          theme.shell.content,
+        ),
+        (
+          Offset(ordinaryRect.center.dx, ordinaryRect.bottom - 1),
+          theme.shell.sidebar,
+        ),
+        // The active tab widens into the page at its feet, with cutouts beside
+        // its body and rounded upper corners rather than a rectangle.
+        for (final x in [selectedRect.left + 5, selectedRect.right - 6]) ...[
+          (Offset(x, selectedRect.bottom - 1), theme.shell.content),
+          (Offset(x, selectedRect.center.dy), theme.shell.sidebar),
+        ],
+        (selectedRect.topLeft + const Offset(9, 1), theme.shell.sidebar),
+        (
+          Offset(selectedRect.center.dx, selectedRect.top + 1),
+          theme.shell.content,
+        ),
+      ]);
 
       final close = find.byKey(const ValueKey('forum-tab-close-topic-1'));
       expect(tester.getSize(close).width, ForumTabsBar.closeTargetWidth);
@@ -226,35 +225,69 @@ void main() {
         find.byKey(const ValueKey('forum-tab-divider-chat-2')),
         findsNothing,
       );
-      expect(_decoration(tester, firstTab).border, isNull);
-      expect(_decoration(tester, secondTab).border, isNull);
-      expect(_decoration(tester, selectedTab).border, isNull);
-    });
+      for (final tab in [firstTab, secondTab, selectedTab]) {
+        expect(
+          (_tabDecoration(tester, tab).shape as OutlinedBorder).side,
+          BorderSide.none,
+        );
+      }
 
-    testWidgets('keeps tab geometry fixed while using tertiary-low hover', (
-      tester,
-    ) async {
-      await _pumpBar(
-        tester,
-        items: const [first, second],
-        selectedId: first.id,
-      );
-
-      final tab = find.byKey(const ValueKey('forum-tab-item-chat-2'));
-      final before = tester.getRect(tab);
-      final theme = Theme.of(tester.element(tab));
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(pointer.removePointer);
       await pointer.addPointer();
-      await pointer.moveTo(tester.getCenter(tab));
+      for (final tab in [firstTab, secondTab]) {
+        await pointer.moveTo(tester.getCenter(tab));
+        await tester.pumpAndSettle();
+        expect(tester.widget<Container>(divider).color, Colors.transparent);
+      }
+      await pointer.moveTo(Offset.zero);
       await tester.pumpAndSettle();
-
-      expect(tester.getRect(tab), before);
-      expect(
-        _decoration(tester, tab).color,
-        theme.colorScheme.primaryContainer,
-      );
+      expect(tester.widget<Container>(divider).color, theme.shell.divider);
     });
+
+    testWidgets(
+      'shows an inset tertiary-low hover pill without moving the tab',
+      (tester) async {
+        await _pumpBar(
+          tester,
+          items: const [first, second],
+          selectedId: first.id,
+        );
+
+        final tab = find.byKey(const ValueKey('forum-tab-item-chat-2'));
+        final before = tester.getRect(tab);
+        final theme = Theme.of(tester.element(tab));
+        final pointer = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        addTearDown(pointer.removePointer);
+        await pointer.addPointer();
+        await pointer.moveTo(tester.getCenter(tab));
+        await tester.pumpAndSettle();
+
+        expect(tester.getRect(tab), before);
+        expect(
+          _tabDecoration(tester, tab).color,
+          theme.colorScheme.primaryContainer,
+        );
+        await _expectTabPixels(tester, [
+          (before.topLeft + const Offset(5, 3), theme.shell.sidebar),
+          (
+            Offset(before.center.dx, before.top + 3),
+            theme.colorScheme.primaryContainer,
+          ),
+          (
+            Offset(before.left + 5, before.center.dy),
+            theme.colorScheme.primaryContainer,
+          ),
+          (
+            Offset(before.center.dx, before.bottom - 6),
+            theme.colorScheme.primaryContainer,
+          ),
+          (Offset(before.center.dx, before.bottom - 1), theme.shell.sidebar),
+        ]);
+      },
+    );
   });
 
   group('pointer and editing interactions', () {
@@ -286,7 +319,10 @@ void main() {
       await selectionGesture.up();
       expect(selected, [second.id]);
 
-      await tester.tap(find.byKey(const ValueKey('forum-tab-close-topic-1')));
+      final closeRect = tester.getRect(
+        find.byKey(const ValueKey('forum-tab-close-topic-1')),
+      );
+      await tester.tapAt(Offset(closeRect.left + 1, closeRect.center.dy));
       expect(closed, [first.id]);
       expect(selected, [second.id]);
 
@@ -351,8 +387,10 @@ void main() {
       await drag.moveTo(tester.getCenter(secondTab));
       await tester.pump();
 
-      final targetDecoration = _decoration(tester, secondTab);
-      expect(targetDecoration.border, isNotNull);
+      final targetOutline =
+          _tabDecoration(tester, secondTab).shape as OutlinedBorder;
+      expect(targetOutline.side.width, 2);
+      expect(targetOutline.side.style, BorderStyle.solid);
 
       await drag.up();
       await tester.pumpAndSettle();
@@ -624,9 +662,7 @@ void main() {
       expect(find.text('Recently closed  1'), findsOneWidget);
       final rowTitle = tester.widget<Text>(
         find.descendant(
-          of: find.byKey(
-            const ValueKey('forum-tabs-switcher-open-topic-1'),
-          ),
+          of: find.byKey(const ValueKey('forum-tabs-switcher-open-topic-1')),
           matching: find.text(first.title),
         ),
       );
@@ -1046,6 +1082,41 @@ void main() {
     });
   });
 }
+
+Future<void> _expectTabPixels(
+  WidgetTester tester,
+  List<(Offset, Color)> samples,
+) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(const ValueKey('forum-tabs-paint-boundary')),
+  );
+  final origin = boundary.localToGlobal(Offset.zero);
+  await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    try {
+      final bytes = (await image.toByteData(format: ImageByteFormat.rawRgba))!;
+      for (final (point, color) in samples) {
+        final local = point - origin;
+        final offset = (local.dy.floor() * image.width + local.dx.floor()) * 4;
+        expect(
+          Color.fromARGB(
+            bytes.getUint8(offset + 3),
+            bytes.getUint8(offset),
+            bytes.getUint8(offset + 1),
+            bytes.getUint8(offset + 2),
+          ),
+          color,
+          reason: 'Tab surface at $point',
+        );
+      }
+    } finally {
+      image.dispose();
+    }
+  });
+}
+
+ShapeDecoration _tabDecoration(WidgetTester tester, Finder finder) =>
+    tester.widget<AnimatedContainer>(finder).decoration! as ShapeDecoration;
 
 double _closeOpacity(WidgetTester tester, String tabId) => tester
     .widget<AnimatedOpacity>(

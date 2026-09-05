@@ -78,9 +78,11 @@ class ForumTabsBar extends StatefulWidget {
 
   static const double minimumActionTarget = 34;
 
-  static const double minimumTabWidth = 112;
+  static const double _tabContentInset = 6;
 
-  static const double maximumTabWidth = 184;
+  static const double minimumTabWidth = 112 + 2 * _tabContentInset;
+
+  static const double maximumTabWidth = 184 + 2 * _tabContentInset;
 
   static const double closeTargetWidth = 30;
 
@@ -107,6 +109,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
 
   final Map<String, GlobalKey> _itemKeys = {};
   final GlobalKey _addKey = GlobalKey();
+  final ValueNotifier<String?> _hoveredTab = ValueNotifier(null);
   double? _lastViewportWidth;
 
   @override
@@ -116,10 +119,25 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   }
 
   @override
+  void dispose() {
+    _hoveredTab.dispose();
+    super.dispose();
+  }
+
+  void _handleTabHover(String id, bool hovered) {
+    if (hovered) {
+      _hoveredTab.value = id;
+    } else if (_hoveredTab.value == id) {
+      _hoveredTab.value = null;
+    }
+  }
+
+  @override
   void didUpdateWidget(ForumTabsBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     final liveIds = {for (final item in widget.items) item.id};
     _itemKeys.removeWhere((id, _) => !liveIds.contains(id));
+    if (!liveIds.contains(_hoveredTab.value)) _hoveredTab.value = null;
     var sameIds = oldWidget.items.length == widget.items.length;
     for (var index = 0; sameIds && index < widget.items.length; index++) {
       sameIds = oldWidget.items[index].id == widget.items[index].id;
@@ -158,11 +176,16 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
       return const SizedBox(width: _tabGap);
     }
 
-    return Container(
-      key: ValueKey('forum-tab-divider-${left.id}'),
-      width: _tabGap,
-      height: _inactiveTabDividerHeight,
-      color: dividerColor,
+    return ValueListenableBuilder<String?>(
+      valueListenable: _hoveredTab,
+      builder: (context, hoveredId, _) => Container(
+        key: ValueKey('forum-tab-divider-${left.id}'),
+        width: _tabGap,
+        height: _inactiveTabDividerHeight,
+        color: hoveredId == left.id || hoveredId == right.id
+            ? Colors.transparent
+            : dividerColor,
+      ),
     );
   }
 
@@ -257,6 +280,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                       onClose: () => widget.onClose(
                                         widget.items[index].id,
                                       ),
+                                      onHoverChanged: _handleTabHover,
                                       onReorder: widget.onReorder,
                                       onCloseOthers: widget.items.length == 1
                                           ? null
@@ -668,6 +692,7 @@ class _ReorderableForumTab extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     required this.onClose,
+    required this.onHoverChanged,
     required this.onReorder,
     required this.onCloseOthers,
     this.onRename,
@@ -680,6 +705,7 @@ class _ReorderableForumTab extends StatelessWidget {
   final bool selected;
   final VoidCallback onSelect;
   final VoidCallback onClose;
+  final void Function(String id, bool hovered) onHoverChanged;
   final void Function(String id, int newIndex) onReorder;
   final VoidCallback? onCloseOthers;
   final ValueChanged<String>? onRename;
@@ -692,6 +718,7 @@ class _ReorderableForumTab extends StatelessWidget {
       selected: selected,
       onSelect: onSelect,
       onClose: onClose,
+      onHoverChanged: (hovered) => onHoverChanged(item.id, hovered),
       onCloseOthers: onCloseOthers,
       onRename: onRename,
       onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
@@ -704,7 +731,10 @@ class _ReorderableForumTab extends StatelessWidget {
     return Listener(
       onPointerDown: (event) {
         if (event.buttons == kPrimaryButton &&
-            event.localPosition.dx < width - ForumTabsBar.closeTargetWidth) {
+            event.localPosition.dx <
+                width -
+                    ForumTabsBar.closeTargetWidth -
+                    ForumTabsBar._tabContentInset) {
           onSelect();
         }
       },
@@ -721,6 +751,7 @@ class _ReorderableForumTab extends StatelessWidget {
             selectOnPointerDown: false,
             onSelect: onSelect,
             onClose: onClose,
+            onHoverChanged: (hovered) => onHoverChanged(item.id, hovered),
             onCloseOthers: onCloseOthers,
             onRename: onRename,
             onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
@@ -754,7 +785,7 @@ class _ForumTabDragFeedback extends StatelessWidget {
     return Material(
       elevation: 8,
       color: theme.shell.content,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+      shape: const _ForumTabShape(selected: true),
       child: SizedBox(
         width: width,
         height: ForumTabsBar.height - 3,
@@ -894,6 +925,7 @@ class _ForumTab extends StatefulWidget {
     required this.selected,
     required this.onSelect,
     required this.onClose,
+    required this.onHoverChanged,
     required this.onCloseOthers,
     this.dropTarget = false,
     this.selectOnPointerDown = true,
@@ -906,6 +938,7 @@ class _ForumTab extends StatefulWidget {
   final bool selected;
   final VoidCallback onSelect;
   final VoidCallback onClose;
+  final ValueChanged<bool> onHoverChanged;
   final VoidCallback? onCloseOthers;
   final bool dropTarget;
   final bool selectOnPointerDown;
@@ -1222,8 +1255,10 @@ class _ForumTabState extends State<_ForumTab> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final foreground = widget.selected || _hovered
+    final foreground = widget.selected
         ? theme.colorScheme.onSurface
+        : _hovered
+        ? theme.colorScheme.onPrimaryContainer
         : theme.colorScheme.onSurfaceVariant;
     final closeLabel = 'Close ${widget.item.title}';
 
@@ -1242,24 +1277,35 @@ class _ForumTabState extends State<_ForumTab> {
       child: MouseRegion(
         key: ValueKey('forum-tab-pointer-${widget.item.id}'),
         cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
+        onEnter: (_) {
+          setState(() => _hovered = true);
+          widget.onHoverChanged(true);
+        },
+        onExit: (_) {
+          setState(() => _hovered = false);
+          widget.onHoverChanged(false);
+        },
         child: AnimatedContainer(
           key: ValueKey('forum-tab-item-${widget.item.id}'),
+          padding: const EdgeInsets.symmetric(
+            horizontal: ForumTabsBar._tabContentInset,
+          ),
           duration: MediaQuery.maybeOf(context)?.disableAnimations ?? false
               ? Duration.zero
               : const Duration(milliseconds: 100),
           curve: Curves.easeOutCubic,
-          decoration: BoxDecoration(
+          decoration: ShapeDecoration(
             color: widget.selected
                 ? theme.shell.content
                 : _hovered
                 ? theme.colorScheme.primaryContainer
                 : Colors.transparent,
-            border: widget.dropTarget
-                ? Border.all(color: theme.colorScheme.primary, width: 2)
-                : null,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+            shape: _ForumTabShape(
+              selected: widget.selected,
+              side: widget.dropTarget
+                  ? BorderSide(color: theme.colorScheme.primary, width: 2)
+                  : BorderSide.none,
+            ),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1278,9 +1324,8 @@ class _ForumTabState extends State<_ForumTab> {
                               ? null
                               : _startRenaming,
                           onTapCancel: _handleTapCancel,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(9),
-                          ),
+                          hoverColor: Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
                           child: LayoutBuilder(
                             builder: (context, constraints) =>
                                 _tabContents(context, foreground, constraints),
@@ -1307,6 +1352,82 @@ class _ForumTabState extends State<_ForumTab> {
       ),
     );
   }
+}
+
+class _ForumTabShape extends OutlinedBorder {
+  const _ForumTabShape({required this.selected, super.side});
+
+  final bool selected;
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.zero;
+
+  @override
+  _ForumTabShape copyWith({BorderSide? side}) =>
+      _ForumTabShape(selected: selected, side: side ?? this.side);
+
+  @override
+  ShapeBorder scale(double t) => copyWith(side: side.scale(t));
+
+  @override
+  ShapeBorder? lerpFrom(ShapeBorder? a, double t) => a is _ForumTabShape
+      ? copyWith(side: BorderSide.lerp(a.side, side, t))
+      : super.lerpFrom(a, t);
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) {
+    if (!selected) {
+      return Path()..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTRB(
+            rect.left + 4,
+            rect.top + 2,
+            rect.right - 4,
+            rect.bottom - 3,
+          ),
+          const Radius.circular(12),
+        ),
+      );
+    }
+
+    // Keep the outward feet inside the tab's bounds so scrolling and adjacent
+    // hover surfaces cannot clip or paint over the connection to the content.
+    const foot = 8.0;
+    const radius = 12.0;
+    final Rect(:left, :top, :right, :bottom) = rect;
+    return Path()
+      ..moveTo(left, bottom)
+      ..quadraticBezierTo(left + foot, bottom, left + foot, bottom - foot)
+      ..lineTo(left + foot, top + radius)
+      ..quadraticBezierTo(left + foot, top, left + foot + radius, top)
+      ..lineTo(right - foot - radius, top)
+      ..quadraticBezierTo(right - foot, top, right - foot, top + radius)
+      ..lineTo(right - foot, bottom - foot)
+      ..quadraticBezierTo(right - foot, bottom, right, bottom)
+      ..close();
+  }
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
+      getOuterPath(rect.deflate(side.width), textDirection: textDirection);
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
+    if (side.style == BorderStyle.none) return;
+    canvas.drawPath(
+      getOuterPath(rect.deflate(side.width / 2), textDirection: textDirection),
+      side.toPaint(),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ForumTabShape &&
+      other.selected == selected &&
+      other.side == side;
+
+  @override
+  int get hashCode => Object.hash(selected, side);
 }
 
 class _ForumTabActions extends StatefulWidget {

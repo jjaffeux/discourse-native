@@ -2511,6 +2511,11 @@ another to reorder them; the active context stays selected and the new order
 is restored after launch. The app-wide Aggregate workspace uses the same tab
 ordering interaction.
 
+Active tabs join the content with rounded top corners and curved feet. Inactive
+tabs use an inset, rounded tertiary-low hover surface; adjacent dividers
+disappear while hovered. Close icons appear on tab hover or when the close
+action has keyboard focus, with their space reserved so labels do not move.
+
 Workspaces are isolated by forum and account. Switching forums restores that
 workspace's tab list and active tab, and versioned local persistence restores
 route stacks and logical scroll anchors after launch. A composer belongs to
