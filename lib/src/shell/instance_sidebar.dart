@@ -271,19 +271,19 @@ class InstanceSidebar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (showUserMenu) const _SidebarUserHeader(),
-              _ForumIdentityHeader(
-                siteUrl: sidebar.siteUrl!,
-                name: sidebar.name!,
-                iconUrl: sidebar.iconUrl,
-                monogram: sidebar.monogram!,
-                accentColor: sidebar.accentColor!,
-              ),
               Expanded(
                 child: _SidebarPanelBody(
                   sidebar: sidebar,
                   showUserMenu: showUserMenu,
                   sectionStore: sectionStore,
                 ),
+              ),
+              _ForumIdentityFooter(
+                siteUrl: sidebar.siteUrl!,
+                name: sidebar.name!,
+                iconUrl: sidebar.iconUrl,
+                monogram: sidebar.monogram!,
+                accentColor: sidebar.accentColor!,
               ),
             ],
           ),
@@ -578,8 +578,8 @@ class _SidebarUserHeader extends StatelessWidget {
   }
 }
 
-class _ForumIdentityHeader extends StatelessWidget {
-  const _ForumIdentityHeader({
+class _ForumIdentityFooter extends StatelessWidget {
+  const _ForumIdentityFooter({
     required this.siteUrl,
     required this.name,
     required this.iconUrl,
@@ -602,9 +602,10 @@ class _ForumIdentityHeader extends StatelessWidget {
         : Colors.black;
 
     return Padding(
-      key: const ValueKey('forum-identity-header'),
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+      key: const ValueKey('forum-identity-footer'),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
       child: MenuAnchor(
+        alignmentOffset: const Offset(0, 6),
         style: MenuStyle(
           backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
           surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
@@ -685,10 +686,13 @@ class _ForumIdentityHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              DIcon(
-                DIcons.chevronDown,
-                size: 15,
-                color: theme.colorScheme.onSurfaceVariant,
+              RotatedBox(
+                quarterTurns: 2,
+                child: DIcon(
+                  DIcons.chevronDown,
+                  size: 15,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),

@@ -173,7 +173,7 @@ void _registerShellNavigationTests() {
       }
     });
 
-    testWidgets('keeps compact forum identity above its search field', (
+    testWidgets('keeps compact search above the forum identity footer', (
       tester,
     ) async {
       await pumpShell(tester, phone);
@@ -186,7 +186,7 @@ void _registerShellNavigationTests() {
             matching: find.byType(GestureDetector),
           )
           .first;
-      expect(title.bottom, lessThanOrEqualTo(field.top));
+      expect(field.bottom, lessThan(title.top));
       expect(searchTarget, findsOneWidget);
       expect(tester.getSize(searchTarget).width, greaterThanOrEqualTo(44));
       expect(find.byType(InstanceSidebar), findsOneWidget);
@@ -1054,14 +1054,17 @@ void _registerShellNavigationTests() {
       final userHeader = tester.getRect(
         find.byKey(const ValueKey('sidebar-user-header')),
       );
-      final forumHeader = tester.getRect(
-        find.byKey(const ValueKey('forum-identity-header')),
+      final forumFooter = tester.getRect(
+        find.byKey(const ValueKey('forum-identity-footer')),
       );
       expect(userHeader.contains(onSidebar.center), isTrue);
-      expect(forumHeader.top, greaterThanOrEqualTo(userHeader.bottom));
+      expect(
+        forumFooter.bottom,
+        tester.getRect(find.byType(InstanceSidebar)).bottom,
+      );
       expect(
         find.descendant(
-          of: find.byKey(const ValueKey('forum-identity-header')),
+          of: find.byKey(const ValueKey('forum-identity-footer')),
           matching: userMenu,
         ),
         findsNothing,
@@ -2219,31 +2222,79 @@ void _registerShellNavigationTests() {
     );
   });
 
-  testWidgets('the sidebar header shows only the forum identity', (
-    tester,
-  ) async {
-    await pumpShell(tester, desktop);
+  testWidgets(
+    'the forum identity stays at the bottom while navigation scrolls',
+    (tester) async {
+      final site = instance(
+        'meta.discourse.org',
+        title: 'Discourse Meta',
+      ).copyWith(user: const DiscourseUser(id: 7, username: 'sam'));
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [site],
+        authenticator: FakeAuthenticator()..keys[site.url] = 'api-key',
+        api: FakeDiscourseApi(
+          customSidebarSectionsBySite: {
+            site.url: [
+              SidebarSection(
+                id: 'projects',
+                title: 'Projects',
+                collapsible: false,
+                destinations: [
+                  for (var index = 0; index < 40; index++)
+                    SidebarDestination(
+                      id: 'project-$index',
+                      label: 'Project $index',
+                      icon: DIcons.comment,
+                    ),
+                ],
+              ),
+            ],
+          },
+        ),
+      );
 
-    final sidebar = find.byType(InstanceSidebar);
-    final header = find.byKey(const ValueKey('forum-identity-header'));
-    expect(header, findsOneWidget);
-    expect(
-      find.descendant(of: header, matching: find.text('Discourse Meta')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: sidebar, matching: find.text('meta.discourse.org')),
-      findsNothing,
-    );
-    expect(
-      find.descendant(
-        of: header,
-        matching: find.byKey(const ValueKey('forum-identity-logo')),
-      ),
-      findsOneWidget,
-    );
-    expect(tester.getRect(header).top, tester.getRect(sidebar).top);
-  });
+      final sidebar = find.byType(InstanceSidebar);
+      final footer = find.byKey(const ValueKey('forum-identity-footer'));
+      expect(footer, findsOneWidget);
+      expect(
+        find.descendant(of: footer, matching: find.text('Discourse Meta')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: sidebar, matching: find.text('meta.discourse.org')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: footer,
+          matching: find.byKey(const ValueKey('forum-identity-logo')),
+        ),
+        findsOneWidget,
+      );
+      final footerRect = tester.getRect(footer);
+      expect(footerRect.bottom, tester.getRect(sidebar).bottom);
+      final navigation = find.descendant(
+        of: sidebar,
+        matching: find.byType(CustomScrollView),
+      );
+      expect(
+        tester.getRect(navigation).bottom,
+        lessThanOrEqualTo(footerRect.top),
+      );
+      final scrollPosition = tester
+          .state<ScrollableState>(
+            find.descendant(of: navigation, matching: find.byType(Scrollable)),
+          )
+          .position;
+      expect(scrollPosition.maxScrollExtent, greaterThan(0));
+      await tester.drag(navigation, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(scrollPosition.pixels, greaterThan(0));
+      expect(tester.getRect(footer), footerRect);
+    },
+  );
 
   testWidgets('the community section is headerless and always expanded', (
     tester,
@@ -2263,10 +2314,7 @@ void _registerShellNavigationTests() {
         .first;
     final sidebar = tester.getRect(find.byType(InstanceSidebar));
     final tile = tester.getRect(topicsTile);
-    final forumHeader = tester.getRect(
-      find.byKey(const ValueKey('forum-identity-header')),
-    );
-    expect(tile.top - forumHeader.bottom, closeTo(10, 0.01));
+    expect(tile.top - sidebar.top, closeTo(10, 0.01));
     expect(tile.left - sidebar.left, closeTo(6, 0.01));
     expect(sidebar.right - tile.right, closeTo(6, 0.01));
     expect(tile.height, closeTo(30, 0.01));
@@ -2307,7 +2355,9 @@ void _registerShellNavigationTests() {
     expect(background(), isNull);
   });
 
-  testWidgets('the sidebar header opens forum-only actions', (tester) async {
+  testWidgets('the sidebar footer opens forum actions above its button', (
+    tester,
+  ) async {
     await pumpShell(tester, desktop);
 
     await tester.tap(find.byKey(const ValueKey('forum-identity-button')));
@@ -2317,6 +2367,10 @@ void _registerShellNavigationTests() {
     expect(remove, findsOneWidget);
     expect(find.text('Open forum in browser'), findsOneWidget);
     expect(find.text('More Options'), findsNothing);
+    final anchor = tester.getRect(
+      find.byKey(const ValueKey('forum-identity-button')),
+    );
+    expect(tester.getRect(remove).bottom, lessThan(anchor.top));
 
     final button = tester.widget<MenuItemButton>(remove);
     final theme = Theme.of(tester.element(remove));
