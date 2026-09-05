@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../data/emoji_cache.dart';
 import '../data/media_pipeline.dart';
 import '../foundation/diagnostic_errors.dart';
 import '../theme/discourse_typography.dart';
@@ -31,7 +32,8 @@ class EmojiImage extends StatefulWidget {
 }
 
 class _EmojiImageState extends State<EmojiImage> {
-  Uint8List? _bytes;
+  EmojiBytes? _bytes;
+  EmojiCache? _sourceCache;
   bool _resolved = false;
 
   @override
@@ -50,6 +52,7 @@ class _EmojiImageState extends State<EmojiImage> {
     final url = widget.url;
     final pipeline = MediaPipeline.instance;
     final cache = pipeline.emoji;
+    _sourceCache = cache;
 
     if (cache.isCached(url)) {
       // Paint synchronously on rebuild. Emoji repeat across every post on a
@@ -78,30 +81,59 @@ class _EmojiImageState extends State<EmojiImage> {
 
   @override
   Widget build(BuildContext context) {
-    final bytes = _bytes;
+    final image = _bytes;
 
     // Nothing yet: hold the space rather than drawing the shortcode, so a
     // paragraph does not reflow under the reader when the images land.
     if (!_resolved) return SizedBox(width: widget.size, height: widget.size);
 
-    if (bytes == null) return Text(widget.alt, style: widget.style);
+    if (image == null) return _fallback();
+
+    final url = widget.url;
+    final cache = _sourceCache;
+    if (image.isSvg) {
+      return SvgPicture.memory(
+        image.bytes,
+        width: widget.size,
+        height: widget.size,
+        fit: BoxFit.contain,
+        placeholderBuilder: (context) =>
+            SizedBox.square(dimension: widget.size),
+        errorBuilder: (context, error, stackTrace) =>
+            _decodeFallback(cache, url, image, error, stackTrace),
+      );
+    }
 
     return Image(
       image: memoryImageForLayout(
         context,
-        bytes,
+        image.bytes,
         logicalSize: Size.square(widget.size),
       ),
       width: widget.size,
       height: widget.size,
       fit: BoxFit.contain,
       gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) {
-        reportImageError(error, stackTrace, operation: 'emoji.decode');
-        return Text(widget.alt, style: widget.style);
-      },
+      errorBuilder: (context, error, stackTrace) =>
+          _decodeFallback(cache, url, image, error, stackTrace),
     );
   }
+
+  Widget _decodeFallback(
+    EmojiCache? cache,
+    String url,
+    EmojiBytes image,
+    Object error,
+    StackTrace? stackTrace,
+  ) {
+    if (cache?.rejectAfterDecodeFailure(url, image) != false) {
+      reportImageError(error, stackTrace, operation: 'emoji.decode');
+    }
+    if (widget.url == url && identical(_bytes, image)) _bytes = null;
+    return _fallback();
+  }
+
+  Widget _fallback() => Text(widget.alt, style: widget.style);
 }
 
 const double emojiScale = 1;

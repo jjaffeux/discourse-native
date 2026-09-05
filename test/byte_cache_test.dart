@@ -661,6 +661,33 @@ void main() {
   });
 
   group('persistent cache policy and lifecycle', () {
+    test('discards decoder-rejected bytes from memory and storage', () async {
+      final store = _RecordingByteCacheStore();
+      final cache = _TestByteCache(
+        store: store,
+        client: MockClient(
+          (_) async => http.Response.bytes(
+            [1, 2, 3],
+            200,
+            headers: {'cache-control': 'public, max-age=3600, immutable'},
+          ),
+        ),
+      );
+      const url = 'https://site.test/emoji.png';
+
+      final value = await cache.load(url);
+      expect(value, isNotNull);
+      expect(store.writes, hasLength(1));
+
+      expect(cache.discard(url, value!), isTrue);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cache.isCached(url), isTrue);
+      expect(cache.cached(url), isNull);
+      expect(store.removals, [url]);
+      expect(cache.discard(url, value), isFalse);
+    });
+
     test('bounds persistent reads with the cache work semaphore', () async {
       final store = _BlockingByteCacheStore();
       final cache = _TestByteCache(
@@ -914,6 +941,8 @@ class _TestByteCache extends ByteCache<Uint8List> {
 
   @override
   Uint8List? decode(http.Response response) => response.bodyBytes;
+
+  bool discard(String url, Uint8List value) => discardCachedValue(url, value);
 }
 
 final class _BlockingByteCacheStore implements ByteCacheStore {
@@ -942,10 +971,14 @@ final class _BlockingByteCacheStore implements ByteCacheStore {
     Uint8List bytes, {
     required DateTime expiresAt,
   }) async {}
+
+  @override
+  Future<void> remove(String url) async {}
 }
 
 final class _RecordingByteCacheStore implements ByteCacheStore {
   final List<({String url, Uint8List bytes})> writes = [];
+  final List<String> removals = [];
 
   @override
   Future<Uint8List?> read(String url) async => null;
@@ -957,6 +990,11 @@ final class _RecordingByteCacheStore implements ByteCacheStore {
     required DateTime expiresAt,
   }) async {
     writes.add((url: url, bytes: bytes));
+  }
+
+  @override
+  Future<void> remove(String url) async {
+    removals.add(url);
   }
 }
 
@@ -977,6 +1015,11 @@ final class _SeededByteCacheStore implements ByteCacheStore {
     required DateTime expiresAt,
   }) async {
     entries[url] = bytes;
+  }
+
+  @override
+  Future<void> remove(String url) async {
+    entries.remove(url);
   }
 }
 
