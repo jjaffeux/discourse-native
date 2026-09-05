@@ -227,6 +227,8 @@ final class TopicViewportBinding {
 
 enum TopicViewportExtentAction { none, invalidate, replace }
 
+enum _TopicViewportAnchorBoundary { leading, trailing }
+
 /// The independently changing viewport values consumed while rendering.
 ///
 /// Each listenable is intentionally narrower than the coordinator itself so a
@@ -341,6 +343,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   Object? _anchorRestoreToken;
   int? _anchorRestorePostId;
   double _anchorRestoreViewportOffset = 0;
+  _TopicViewportAnchorBoundary? _anchorRestoreBoundary;
   bool _anchorCorrectionScheduled = false;
   bool _restored = false;
   bool _restoring = false;
@@ -453,6 +456,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _anchorRestoreToken = null;
     _anchorRestorePostId = null;
     _anchorRestoreViewportOffset = 0;
+    _anchorRestoreBoundary = null;
     _anchorCorrectionScheduled = false;
     _laidOutSnapshot = null;
     _laidOutPostIds = const [];
@@ -703,6 +707,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _anchorRestoreToken = token;
     _anchorRestorePostId = postId;
     _anchorRestoreViewportOffset = viewportOffset;
+    _anchorRestoreBoundary = null;
     _record('viewport.anchor.held', {
       'postId': postId,
       'viewportOffset': viewportOffset,
@@ -720,6 +725,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     }
     _anchorRestoreToken = null;
     _anchorRestorePostId = null;
+    _anchorRestoreBoundary = null;
     _anchorCorrectionScheduled = false;
   }
 
@@ -758,6 +764,32 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
 
     final currentOffset = _geometry.postViewportOffset(postId);
     if (currentOffset == null) {
+      final boundary = _anchorRestoreBoundary;
+      if (boundary != null) {
+        // The target was last reachable only by clamping to a boundary. If a
+        // tall async row briefly pushes it out of the laid-out range, follow
+        // that moving boundary instead of recycling the target by item index.
+        final position = _geometry.scrollPosition;
+        final target = switch (boundary) {
+          _TopicViewportAnchorBoundary.leading => position.minScrollExtent,
+          _TopicViewportAnchorBoundary.trailing => position.maxScrollExtent,
+        };
+        if ((target - position.pixels).abs() >= 0.5) {
+          _applyingAnchorRestore = true;
+          try {
+            _record('viewport.anchor.boundaryCorrecting', {
+              'postId': postId,
+              'boundary': boundary.name,
+              'fromPixels': position.pixels,
+              'toPixels': target,
+            });
+            _geometry.jumpToPixels(target);
+          } finally {
+            _applyingAnchorRestore = false;
+          }
+        }
+        return;
+      }
       final postIndex = snapshot.postIds.indexOf(postId);
       if (postIndex < 0) return;
       final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
@@ -780,16 +812,24 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     }
 
     final position = _geometry.scrollPosition;
-    final target =
-        (position.pixels + currentOffset - _anchorRestoreViewportOffset)
-            .clamp(position.minScrollExtent, position.maxScrollExtent)
-            .toDouble();
+    final requestedTarget =
+        position.pixels + currentOffset - _anchorRestoreViewportOffset;
+    final target = requestedTarget
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    _anchorRestoreBoundary = requestedTarget < position.minScrollExtent - 0.5
+        ? _TopicViewportAnchorBoundary.leading
+        : requestedTarget > position.maxScrollExtent + 0.5
+        ? _TopicViewportAnchorBoundary.trailing
+        : null;
     if ((target - position.pixels).abs() < 0.5) {
       _record('viewport.anchor.aligned', {
         'postId': postId,
         'pixels': position.pixels,
         'currentViewportOffset': currentOffset,
         'requestedViewportOffset': _anchorRestoreViewportOffset,
+        if (_anchorRestoreBoundary case final boundary?)
+          'boundary': boundary.name,
       });
       return;
     }
@@ -1220,6 +1260,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _loadMoreToken = null;
     _loadEarlierToken = null;
     _anchorRestoreToken = null;
+    _anchorRestoreBoundary = null;
     _readTimer?.cancel();
     _readTimer = null;
     _retireControllers();

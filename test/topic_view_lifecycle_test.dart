@@ -942,6 +942,86 @@ void main() {
         diagnostics.topicScrollCapture.stop();
         await diagnostics.close();
       });
+
+      testWidgets(
+        'keeps the latest target stable while an earlier long post builds',
+        (tester) async {
+          final site = instance('meta.example');
+          final controller = ShellController(
+            instanceStore: FakeInstanceStore([site]),
+            api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+            authenticator: FakeAuthenticator(),
+            drafts: FakeDraftStore(),
+            trackers: FakeSiteTracker.reset(),
+          );
+          final diagnostics = await DiagnosticsController.create(
+            persistence: MemoryDiagnosticsPersistence(),
+            sessionId: 'topic-scroll-latest-long-post-test',
+          );
+          addTearDown(controller.dispose);
+          addTearDown(diagnostics.close);
+          await controller.load();
+          final posts = [
+            for (var number = 35; number <= 74; number++)
+              Post(
+                id: number,
+                postNumber: number,
+                username: 'sam',
+                cooked: number == 70
+                    ? List.filled(
+                        600,
+                        '<p>A very long earlier post</p>',
+                      ).join()
+                    : '<p>Post $number</p>',
+              ),
+          ];
+          controller.store
+            ..put(
+              site.url,
+              TopicDetail(
+                id: 1,
+                title: 'One',
+                stream: [for (var number = 1; number <= 74; number++) number],
+                postsCount: 74,
+              ),
+            )
+            ..putAll(site.url, posts);
+          controller.pushContent(
+            ContentRoute.topic(
+              topicId: 1,
+              slug: 'one',
+              title: 'One',
+              postNumber: 74,
+            ),
+          );
+          diagnostics.topicScrollCapture.start();
+
+          await tester.pumpWidget(
+            _topicView(controller, diagnostics: diagnostics),
+          );
+          for (var frame = 0; frame < 120; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+
+          expect(tester.takeException(), isNull);
+          final itemJumps = diagnostics.topicScrollCapture.events.where(
+            (event) => event.name == 'viewport.anchor.jumpToItem',
+          );
+          final progressChanges = diagnostics.topicScrollCapture.events
+              .where((event) => event.name == 'topic.progress.changed')
+              .length;
+          expect(
+            itemJumps.length,
+            lessThanOrEqualTo(2),
+            reason: '$progressChanges progress changes',
+          );
+          expect(find.textContaining('74 / 74'), findsOneWidget);
+
+          diagnostics.topicScrollCapture.stop();
+          await tester.pumpWidget(const SizedBox.shrink());
+          await diagnostics.close();
+        },
+      );
     });
 
     group('scroll attachment lifecycle', () {
