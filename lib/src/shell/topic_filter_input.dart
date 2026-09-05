@@ -279,7 +279,10 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.tab when filter.isOpen:
         unawaited(
-          filter.ensureFreshSuggestions().then((_) => filter.acceptSelected()),
+          filter.ensureFreshSuggestions().then((_) async {
+            if (!mounted) return;
+            await _acceptSelectedSuggestion();
+          }),
         );
         return KeyEventResult.handled;
       case LogicalKeyboardKey.backspace
@@ -307,12 +310,36 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     await filter.ensureFreshSuggestions();
     if (!mounted) return;
     if (filter.isOpen) {
-      await filter.acceptSelected();
+      await _acceptSelectedSuggestion();
     } else if (widget.tokenized) {
       _commitTokenDraft();
     } else {
       await filter.submit();
     }
+  }
+
+  Future<void> _acceptSelectedSuggestion() async {
+    final suggestion =
+        filter.selected ??
+        (filter.suggestions.isEmpty ? null : filter.suggestions.first);
+    if (suggestion != null) await _acceptSuggestion(suggestion);
+  }
+
+  Future<void> _acceptSuggestion(TopicFilterSuggestion suggestion) async {
+    final acceptance = filter.accept(suggestion);
+    if (widget.tokenized && _completesClause(suggestion)) {
+      _commitTokenDraft();
+    }
+    await acceptance;
+  }
+
+  bool _completesClause(TopicFilterSuggestion suggestion) {
+    final replacement = suggestion.name.trimRight();
+    if (replacement.isEmpty || replacement.endsWith(':')) return false;
+    return !suggestion.delimiters.any(
+      (delimiter) =>
+          delimiter.name.isNotEmpty && replacement.endsWith(delimiter.name),
+    );
   }
 
   @override
@@ -504,7 +531,11 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
               child: child!,
             ),
             child: TextFieldTapRegion(
-              child: _SuggestionList(siteUrl: widget.siteUrl, filter: filter),
+              child: _SuggestionList(
+                siteUrl: widget.siteUrl,
+                filter: filter,
+                onAccept: _acceptSuggestion,
+              ),
             ),
           ),
           child: KeyedSubtree(
@@ -653,10 +684,15 @@ String _titleCaseTopicFilterValue(String value) => value
     .join(' ');
 
 class _SuggestionList extends StatelessWidget {
-  const _SuggestionList({required this.siteUrl, required this.filter});
+  const _SuggestionList({
+    required this.siteUrl,
+    required this.filter,
+    required this.onAccept,
+  });
 
   final String siteUrl;
   final TopicFilterController filter;
+  final Future<void> Function(TopicFilterSuggestion suggestion) onAccept;
 
   @override
   Widget build(BuildContext context) {
@@ -692,7 +728,7 @@ class _SuggestionList extends StatelessWidget {
                     selected: isSelected,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: () => unawaited(filter.accept(suggestion)),
+                      onTap: () => unawaited(onAccept(suggestion)),
                       child: Container(
                         key: ValueKey('topic-filter-suggestion-$index'),
                         constraints: const BoxConstraints(minHeight: 44),
