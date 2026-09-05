@@ -177,11 +177,11 @@ void main() {
         ),
         // The active tab widens into the page at its feet, with cutouts beside
         // its body and rounded upper corners rather than a rectangle.
-        for (final x in [selectedRect.left + 5, selectedRect.right - 6]) ...[
+        for (final x in [selectedRect.left + 3, selectedRect.right - 4]) ...[
           (Offset(x, selectedRect.bottom - 1), theme.shell.content),
           (Offset(x, selectedRect.center.dy), theme.shell.sidebar),
         ],
-        (selectedRect.topLeft + const Offset(9, 1), theme.shell.sidebar),
+        (selectedRect.topLeft + const Offset(5, 1), theme.shell.sidebar),
         (
           Offset(selectedRect.center.dx, selectedRect.top + 1),
           theme.shell.content,
@@ -277,7 +277,7 @@ void main() {
             theme.colorScheme.primaryContainer,
           ),
           (
-            Offset(before.left + 5, before.center.dy),
+            Offset(before.left + 3, before.center.dy),
             theme.colorScheme.primaryContainer,
           ),
           (

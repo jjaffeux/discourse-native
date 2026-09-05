@@ -78,7 +78,7 @@ class ForumTabsBar extends StatefulWidget {
 
   static const double minimumActionTarget = 34;
 
-  static const double _tabContentInset = 6;
+  static const double _tabContentInset = 4;
 
   static const double minimumTabWidth = 112 + 2 * _tabContentInset;
 
@@ -1380,9 +1380,9 @@ class _ForumTabShape extends OutlinedBorder {
       return Path()..addRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTRB(
-            rect.left + 4,
+            rect.left + 2,
             rect.top + 2,
-            rect.right - 4,
+            rect.right - 2,
             rect.bottom - 3,
           ),
           const Radius.circular(12),
@@ -1392,7 +1392,7 @@ class _ForumTabShape extends OutlinedBorder {
 
     // Keep the outward feet inside the tab's bounds so scrolling and adjacent
     // hover surfaces cannot clip or paint over the connection to the content.
-    const foot = 8.0;
+    const foot = 4.0;
     const radius = 12.0;
     final Rect(:left, :top, :right, :bottom) = rect;
     return Path()
