@@ -18,7 +18,6 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 
@@ -356,7 +355,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('desktop toolbar keeps actions and density across topic views', (
+  testWidgets('desktop toolbar keeps topic actions aligned across views', (
     tester,
   ) async {
     final previousPlatform = debugDefaultTargetPlatformOverride;
@@ -365,20 +364,7 @@ void main() {
       tester.view.physicalSize = const Size(1000, 700);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final setup = await _controller(
-        canCreateTopics: true,
-        extraFeeds: {
-          '/latest.json': [
-            for (var id = 1; id <= 40; id++)
-              Topic(
-                id: id,
-                title: 'Topic $id with a detailed title to read in the list',
-                slug: 'topic-$id',
-                tags: const [TopicTag(id: 1, name: 'design', slug: 'design')],
-              ),
-          ],
-        },
-      );
+      final setup = await _controller(canCreateTopics: true);
       addTearDown(setup.controller.dispose);
       await tester.pumpWidget(
         ShellScope(
@@ -418,42 +404,16 @@ void main() {
       expect(find.text('Top'), findsOneWidget);
       expect(find.byTooltip('Hide topic sidebar'), findsNothing);
 
-      final list = find.byType(SuperListView);
-      final scroll = tester.widget<SuperListView>(list).controller!;
-      final comfortableHeight = tester
-          .getSize(find.byKey(const ValueKey(1)))
-          .height;
       expect(
         tester.widget<TopicTitle>(find.byType(TopicTitle).first).maxLines,
         2,
       );
-      await tester.tap(find.byTooltip('Compact rows'));
-      await tester.pumpAndSettle();
-      expect(
-        tester.getSize(find.byKey(const ValueKey(1))).height,
-        lessThan(comfortableHeight),
-      );
-      expect(
-        tester.widget<TopicTitle>(find.byType(TopicTitle).first).maxLines,
-        1,
-      );
-
-      scroll.jumpTo(150);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Comfortable rows'));
-      await tester.pumpAndSettle();
-      expect(tester.widget<SuperListView>(list).controller, same(scroll));
-      expect(scroll.offset, 150);
-
-      await tester.tap(find.byTooltip('Compact rows'));
-      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-list-top')));
       await tester.pumpAndSettle();
       expect(find.text('Top'), findsOneWidget);
-      expect(find.byTooltip('Comfortable rows'), findsOneWidget);
       expect(
         tester.widget<TopicTitle>(find.byType(TopicTitle).first).maxLines,
-        1,
+        2,
       );
       expect(tester.takeException(), isNull);
     } finally {

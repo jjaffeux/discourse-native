@@ -580,16 +580,15 @@ class _TopicListSkeletonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = TopicListDensityScope.isCompact(context);
     final row = LayoutBuilder(
       builder: (context, constraints) {
         final layout = _TopicLedgerLayout.forWidth(
           ContentReadingLane.breakpointWidthOf(context, constraints.maxWidth),
         );
         return Padding(
-          padding: EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             horizontal: _TopicLedgerLayout.horizontalPadding,
-            vertical: compact ? 5 : 9,
+            vertical: 9,
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -634,11 +633,7 @@ class _TopicListSkeletonRow extends StatelessWidget {
     );
 
     return ConstrainedBox(
-      constraints: BoxConstraints(
-        minHeight: compact
-            ? TopicListRow.compactMinimumHeight
-            : TopicListRow.minimumHeight,
-      ),
+      constraints: const BoxConstraints(minHeight: TopicListRow.minimumHeight),
       child: row,
     );
   }
@@ -1008,7 +1003,6 @@ class _TopicRowBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final effectiveTitleStyle = titleStyle ?? theme.textTheme.titleSmall;
-    final compact = TopicListDensityScope.isCompact(context);
     final pluginMetadata =
         (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
             .topicListMetadata(context, siteUrl, topic);
@@ -1033,7 +1027,7 @@ class _TopicRowBody extends StatelessWidget {
           final content = Padding(
             padding: EdgeInsets.symmetric(
               horizontal: _TopicLedgerLayout.horizontalPadding,
-              vertical: compact ? 5 : (hasContextLine ? 9 : 7),
+              vertical: hasContextLine ? 9 : 7,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -1079,9 +1073,7 @@ class _TopicRowBody extends StatelessWidget {
 
           return ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: compact
-                  ? TopicListRow.compactMinimumHeight
-                  : hasContextLine
+              minHeight: hasContextLine
                   ? TopicListRow.minimumHeight
                   : TopicListRow.compactMinimumHeight,
             ),
@@ -1196,7 +1188,6 @@ class _TopicCopy extends StatelessWidget {
     final theme = Theme.of(context);
     final controller = ShellScope.maybeRead(context);
     final visibleTags = topic.tags.take(maximumVisibleTags).toList();
-    final compact = TopicListDensityScope.isCompact(context);
     final titleLineHeight =
         MediaQuery.textScalerOf(
           context,
@@ -1278,7 +1269,7 @@ class _TopicCopy extends StatelessWidget {
                     child: TopicTitle(
                       topic.title,
                       siteUrl: siteUrl,
-                      maxLines: compact ? 1 : 2,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: titleStyle?.copyWith(
                         color: topic.visited

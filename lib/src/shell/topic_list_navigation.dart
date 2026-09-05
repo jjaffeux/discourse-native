@@ -6,9 +6,6 @@ import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
-import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
 import 'select.dart';
 import 'shell_scope.dart';
@@ -183,12 +180,6 @@ class _TopicListNavigationControls extends StatelessWidget {
                             ],
                           ),
                   ),
-                  if (!showsFilters &&
-                      TopicListDensityScope.maybeOf(context) != null)
-                    const Padding(
-                      padding: EdgeInsets.only(right: 8),
-                      child: _TopicListDensityButton(),
-                    ),
                   if (trailing != null)
                     Padding(
                       padding: const EdgeInsets.only(
@@ -267,31 +258,8 @@ class _TopicListNavigationControls extends StatelessWidget {
               onCategorySelected: controller.selectTopicListCategory,
               onTagSelected: controller.selectTopicListTag,
               onReset: controller.clearTopicListFilters,
-              trailing: TopicListDensityScope.maybeOf(context) == null
-                  ? null
-                  : const _TopicListDensityButton(),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _TopicListDensityButton extends StatelessWidget {
-  const _TopicListDensityButton();
-
-  @override
-  Widget build(BuildContext context) {
-    final compact = TopicListDensityScope.maybeOf(context)!;
-    return Semantics(
-      toggled: compact.value,
-      child: DButton.iconOnly(
-        key: const ValueKey('topic-list-density'),
-        icon: const DIcon(DIcons.list, size: 16),
-        tooltip: compact.value ? 'Comfortable rows' : 'Compact rows',
-        onPressed: () => compact.value = !compact.value,
-        variant: DButtonVariant.flat,
-        size: DButtonSize.small,
       ),
     );
   }

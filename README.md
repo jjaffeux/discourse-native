@@ -480,9 +480,8 @@ keep their contextual headers and actions.
 The list and its controls share a 1120px lane at normal text size. Wide lists
 label the people, replies, views, and activity columns; narrow lists move
 metadata beneath the title. Unread dots occupy a consistent leading gutter.
-Titles can wrap to two lines, and the row-density control switches to tighter,
-single-line rows without resetting the scroll position. Density is local to
-the content pane and survives switching discovery views.
+Titles can wrap to two lines, with consistent row spacing across discovery
+views.
 
 `latest`, `new`, `unread`, `top` and `messages` all share one envelope
 (`topic_list.topics` plus a `users` array), so they go through a single
