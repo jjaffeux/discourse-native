@@ -276,64 +276,102 @@ void main() {
     expect(find.text('Refresh'), findsOneWidget);
   });
 
-  testWidgets('saves exact per-forum filters and can exclude every forum', (
-    tester,
-  ) async {
-    final fixture = await _pumpMixedAggregateView(tester);
-    final api = fixture.api;
-    final forumUrls = fixture.forumUrls;
+  testWidgets(
+    'focused editor preserves per-forum drafts and can exclude every forum',
+    (tester) async {
+      final fixture = await _pumpMixedAggregateView(tester);
+      final api = fixture.api;
+      final forumUrls = fixture.forumUrls;
 
-    await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
-    await tester.pumpAndSettle();
-    expect(find.text('Aggregate filters'), findsOneWidget);
-    expect(
-      find.byKey(ValueKey('aggregate-filter-${forumUrls[0]}')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(ValueKey('aggregate-filter-${forumUrls[1]}')),
-      findsOneWidget,
-    );
-    expect(find.byType(TopicFilterInput), findsNWidgets(5));
-    expect(find.text('Save filters').hitTestable(), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Aggregate filters'), findsOneWidget);
+      expect(
+        find.byKey(ValueKey('aggregate-filter-${forumUrls[0]}')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(ValueKey('aggregate-filter-${forumUrls[1]}')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('aggregate-filter-wide-layout')),
+        findsOneWidget,
+      );
+      expect(find.byType(TopicFilterInput), findsOneWidget);
+      expect(
+        find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
+        findsOneWidget,
+      );
+      expect(find.text('Save filters').hitTestable(), findsOneWidget);
 
-    await tester.enterText(
-      find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
-      'status:open',
-    );
-    await tester.enterText(
-      find.byKey(ValueKey('aggregate-query-${forumUrls[1]}')),
-      'tag:ux',
-    );
-    final requestsBeforeSave = api.feedPaths.length;
-    await tester.tap(find.text('Save filters'));
-    await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
+        'status:open',
+      );
+      await tester.tap(
+        find.byKey(ValueKey('aggregate-filter-focus-${forumUrls[1]}')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('aggregate-filter-editor-title')),
+            )
+            .data,
+        'Two',
+      );
+      expect(
+        find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
+        findsNothing,
+      );
+      await tester.enterText(
+        find.byKey(ValueKey('aggregate-query-${forumUrls[1]}')),
+        'tag:ux',
+      );
+      await tester.tap(
+        find.byKey(ValueKey('aggregate-filter-focus-${forumUrls[0]}')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
+            )
+            .controller!
+            .text,
+        'status:open',
+      );
+      final requestsBeforeSave = api.feedPaths.length;
+      await tester.tap(find.text('Save filters'));
+      await tester.pumpAndSettle();
 
-    expect(
-      api.feedPaths.skip(requestsBeforeSave),
-      unorderedEquals([_firstFilterPath, _secondFilterPath]),
-    );
+      expect(
+        api.feedPaths.skip(requestsBeforeSave),
+        unorderedEquals([_firstFilterPath, _secondFilterPath]),
+      );
 
-    await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<TextField>(
-            find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
-          )
-          .controller!
-          .text,
-      'status:open',
-    );
+      await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
+            )
+            .controller!
+            .text,
+        'status:open',
+      );
 
-    await tester.tap(find.text('None'));
-    expect(find.text('Save filters').hitTestable(), findsOneWidget);
-    await tester.tap(find.text('Save filters'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('aggregate-filter-clear')));
+      expect(find.text('Save filters').hitTestable(), findsOneWidget);
+      await tester.tap(find.text('Save filters'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('No forums selected'), findsOneWidget);
-    expect(find.byType(TopicListRow), findsNothing);
-  });
+      expect(find.text('No forums selected'), findsOneWidget);
+      expect(find.byType(TopicListRow), findsNothing);
+    },
+  );
 
   testWidgets(
     'finds uncached subcategories and inserts their qualified paths',
@@ -362,6 +400,28 @@ void main() {
       );
     },
   );
+
+  testWidgets('stacks the focused filter editor at narrow widths', (
+    tester,
+  ) async {
+    await _pumpMixedAggregateView(tester);
+    tester.view.physicalSize = const Size(390, 800);
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('aggregate-filter-narrow-layout')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('aggregate-filter-wide-layout')),
+      findsNothing,
+    );
+    expect(find.byType(TopicFilterInput), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('desktop exposes aggregate tab lifecycle', (tester) async {
     SharedPreferences.setMockInitialValues({});
