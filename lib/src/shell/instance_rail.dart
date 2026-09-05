@@ -123,7 +123,7 @@ class InstanceRail extends StatelessWidget {
 }
 
 const double _railListPadding = 8;
-const double _railItemExtent = 44;
+const double _railItemExtent = 48;
 const double _railControlExtent = 44;
 const double _railVisualSize = 36;
 const double _railAddVisualSize = 38;
