@@ -148,6 +148,7 @@ class ChatMessageTile extends StatelessWidget {
         final canBookmark = chat.canBookmarkMessage(siteUrl, message);
         final canEdit = onEdit != null && chat.canEditMessage(siteUrl, message);
         final canDelete = chat.canDeleteMessage(siteUrl, message);
+        final canRestore = chat.canRestoreMessage(siteUrl, message);
         final canPin = chat.canPinMessage(siteUrl, message);
         final canRebake = chat.canRebakeMessage(siteUrl, message);
         final canAddReaction = chat.canAddReactionToMessage(siteUrl, message);
@@ -170,6 +171,7 @@ class ChatMessageTile extends StatelessWidget {
                 canBookmark ||
                 canEdit ||
                 canDelete ||
+                canRestore ||
                 canPin ||
                 canRebake ||
                 canAddReaction ||
@@ -242,6 +244,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   bool _moreActionsOpen = false;
   bool _pinning = false;
   bool _rebaking = false;
+  bool _restoring = false;
   bool _reactionPickerOpening = false;
   ScrollPosition? _scroll;
 
@@ -388,6 +391,18 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     )?.showSnackBar(SnackBar(content: Text(error)));
   }
 
+  Future<void> _restore() async {
+    if (_restoring) return;
+    setState(() => _restoring = true);
+    final chat = PluginUiScope.require(context, chatControllerService);
+    final error = await chat.restoreMessage(widget.siteUrl, widget.message.id);
+    if (!mounted) return;
+    setState(() => _restoring = false);
+    if (error == null) return;
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(SnackBar(content: Text(error)));
+  }
+
   Future<void> _togglePin() async {
     if (_pinning) return;
     setState(() => _pinning = true);
@@ -449,6 +464,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     final chat = PluginUiScope.require(context, chatControllerService);
     final canEdit = chat.canEditMessage(widget.siteUrl, widget.message);
     final canDelete = chat.canDeleteMessage(widget.siteUrl, widget.message);
+    final canRestore = chat.canRestoreMessage(widget.siteUrl, widget.message);
     final canPin = chat.canPinMessage(widget.siteUrl, widget.message);
     final canRebake = chat.canRebakeMessage(widget.siteUrl, widget.message);
     final canAddReaction = chat.canAddReactionToMessage(
@@ -604,6 +620,25 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                 unawaited(_delete());
               },
             ),
+          if (canRestore)
+            ListTile(
+              minTileHeight: 52,
+              leading: _restoring
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                    )
+                  : const DIcon(DIcons.arrowRotateLeft, size: 18),
+              title: const Text('Restore deleted message'),
+              subtitle: _restoring ? const Text('Restoring…') : null,
+              enabled: !_restoring,
+              onTap: _restoring
+                  ? null
+                  : () {
+                      Navigator.of(sheetContext).pop();
+                      unawaited(_restore());
+                    },
+            ),
           if (canRebake)
             ListTile(
               minTileHeight: 52,
@@ -651,6 +686,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
             bookmarkBusy: bookmarkBusy,
             canEdit: chat.canEditMessage(widget.siteUrl, widget.message),
             canDelete: chat.canDeleteMessage(widget.siteUrl, widget.message),
+            canRestore: chat.canRestoreMessage(widget.siteUrl, widget.message),
             canPin: chat.canPinMessage(widget.siteUrl, widget.message),
             canRebake: chat.canRebakeMessage(widget.siteUrl, widget.message),
             flagTypes: chat.availableChatFlagTypes(
@@ -669,6 +705,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     required bool bookmarkBusy,
     required bool canEdit,
     required bool canDelete,
+    required bool canRestore,
     required bool canPin,
     required bool canRebake,
     required List<PostFlagType> flagTypes,
@@ -688,6 +725,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         canPin ||
         flagTypes.isNotEmpty ||
         canDelete ||
+        canRestore ||
         canRebake;
     final semanticsActions = <CustomSemanticsAction, VoidCallback>{
       if (canAddReaction && !_reactionPickerOpening)
@@ -704,6 +742,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       if (canDelete)
         const CustomSemanticsAction(label: 'Delete'): () =>
             unawaited(_delete()),
+      if (canRestore && !_restoring)
+        const CustomSemanticsAction(label: 'Restore deleted message'): () =>
+            unawaited(_restore()),
       if (canRebake && !_rebaking)
         const CustomSemanticsAction(label: 'Rebuild HTML'): () =>
             unawaited(_rebake()),
@@ -916,6 +957,30 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                                         ).colorScheme.error,
                                       ),
                                       child: const Text('Delete'),
+                                    ),
+                                  if (canRestore)
+                                    MenuItemButton(
+                                      key: ValueKey(
+                                        'chat-message-restore-${widget.message.id}',
+                                      ),
+                                      onPressed: _restoring
+                                          ? null
+                                          : () => unawaited(_restore()),
+                                      leadingIcon: _restoring
+                                          ? const SizedBox.square(
+                                              dimension: 16,
+                                              child:
+                                                  CircularProgressIndicator.adaptive(
+                                                    strokeWidth: 2,
+                                                  ),
+                                            )
+                                          : const DIcon(
+                                              DIcons.arrowRotateLeft,
+                                              size: 16,
+                                            ),
+                                      child: const Text(
+                                        'Restore deleted message',
+                                      ),
                                     ),
                                   if (canRebake)
                                     MenuItemButton(

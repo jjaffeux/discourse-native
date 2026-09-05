@@ -285,7 +285,7 @@ void main() {
 
       expect(api.chatMessageBatchesDeleted.single.channelId, 9);
       expect(api.chatMessageBatchesDeleted.single.messageIds, [1, 2]);
-      expect(find.text('2 messages deleted'), findsOne);
+      expect(find.text('2 messages were deleted. [view all]'), findsOne);
       expect(find.text('Messages deleted.'), findsOne);
       expect(tester.widget<IconButton>(deleteButton).onPressed, isNull);
     });
@@ -1424,8 +1424,81 @@ void main() {
         find.textContaining('Message 2', findRichText: true),
         findsNothing,
       );
-      expect(find.text('1 message deleted'), findsOneWidget);
+      final deleted = find.text('A message was deleted. [view]');
+      expect(deleted, findsOneWidget);
+
+      await tester.tap(deleted);
+      await tester.pumpAndSettle();
+
+      expect(deleted, findsNothing);
+      expect(
+        find.textContaining('Message 2', findRichText: true),
+        findsOneWidget,
+      );
     });
+
+    for (final target in const <ChatStreamTarget>[
+      ChatChannelTarget(9),
+      ChatThreadTarget(channelId: 9, threadId: 3),
+    ]) {
+      testWidgets(
+        'a deleted run follows core in a ${target.isThread ? 'thread' : 'channel'}',
+        (tester) async {
+          final api = _ChatApi(openPages: const {});
+          final controller = await _controller(api, sites: const [firstSite]);
+          addTearDown(controller.dispose);
+          final messages = [
+            _message(1, deletedAt: DateTime.utc(2026, 8, 25)),
+            _message(2, deletedAt: DateTime.utc(2026, 8, 25)),
+          ];
+          controller.chatRecords
+            ..put(firstSite, _channel(lastRead: 2))
+            ..putAll(firstSite, messages);
+
+          await tester.pumpWidget(
+            _TestStreamView(
+              controller: controller,
+              messages: messages,
+              target: target,
+              stream: const ChatStreamState(
+                messageIds: [1, 2],
+                fetchedOnce: true,
+                fetches: 1,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final deleted = find.text('2 messages were deleted. [view all]');
+          expect(deleted, findsOneWidget);
+          final background = tester.widget<ColoredBox>(
+            find.ancestor(of: deleted, matching: find.byType(ColoredBox)).first,
+          );
+          expect(background.color, AppTheme.light.colorScheme.errorContainer);
+          final button = tester.widget<TextButton>(
+            find.ancestor(of: deleted, matching: find.byType(TextButton)),
+          );
+          expect(
+            button.style?.foregroundColor?.resolve(const <WidgetState>{}),
+            AppTheme.light.discourse.primaryHigh,
+          );
+
+          await tester.tap(deleted);
+          await tester.pumpAndSettle();
+
+          expect(deleted, findsNothing);
+          expect(find.byType(ChatMessageTile), findsNWidgets(2));
+          expect(
+            find.textContaining('Message 1', findRichText: true),
+            findsOneWidget,
+          );
+          expect(
+            find.textContaining('Message 2', findRichText: true),
+            findsOneWidget,
+          );
+        },
+      );
+    }
 
     testWidgets('a deleted run restores the exact message it retained', (
       tester,
@@ -1465,13 +1538,25 @@ void main() {
       await tester.pumpWidget(_TestView(controller: controller));
       await tester.pumpAndSettle();
 
-      expect(find.text('1 message deleted'), findsOneWidget);
-      expect(find.text('Restore'), findsOneWidget);
-      await tester.tap(find.text('Restore'));
+      final deletedLabel = find.text('A message was deleted. [view]');
+      expect(deletedLabel, findsOneWidget);
+      expect(find.text('Restore deleted message'), findsNothing);
+
+      await tester.tap(deletedLabel);
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Message 2', findRichText: true),
+        findsOneWidget,
+      );
+
+      await tester.longPress(find.byType(ChatMessageTile));
+      await tester.pumpAndSettle();
+      expect(find.text('Restore deleted message'), findsOneWidget);
+      await tester.tap(find.text('Restore deleted message'));
       await tester.pumpAndSettle();
 
       expect(api.chatMessagesRestored, [(channelId: 9, messageId: 2)]);
-      expect(find.text('1 message deleted'), findsNothing);
+      expect(deletedLabel, findsNothing);
       expect(
         find.textContaining('Message 2', findRichText: true),
         findsOneWidget,

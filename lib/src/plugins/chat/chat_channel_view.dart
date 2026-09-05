@@ -10,7 +10,6 @@ import '../../shell/adaptive_dialog_action.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/list_boundary_shortcuts.dart';
 import '../../shell/loading_skeleton.dart';
-import '../../shell/shell_sheet.dart';
 import '../../shell/stream_day_separator.dart';
 import '../../shell/time_gap.dart';
 import '../../theme/app_theme.dart';
@@ -670,6 +669,8 @@ class _StreamState extends State<ChatMessageStream>
 
   final ScrollController _scroll = ScrollController();
 
+  final Set<int> _expandedDeletedMessageIds = {};
+
   Timer? _readTimer;
   DateTime? _readTimerStartedAt;
   Duration _readTimeRemaining = _readInterval;
@@ -728,6 +729,7 @@ class _StreamState extends State<ChatMessageStream>
       _unseenLiveMessages = 0;
       _floatingDay = null;
       _floatingDayOffset = 0;
+      _expandedDeletedMessageIds.clear();
       _clearHighlight(notify: false);
       // Core rechecks the visible edge when tracking changes so a delayed
       // aggregate cannot restore unread state after that edge was credited.
@@ -1380,6 +1382,16 @@ class _StreamState extends State<ChatMessageStream>
                     ChatStreamDeleted(:final messageIds) => _DeletedRun(
                       siteUrl: siteUrl,
                       messageIds: messageIds,
+                      expanded: messageIds.every(
+                        _expandedDeletedMessageIds.contains,
+                      ),
+                      contextThreadId: widget.target.threadId,
+                      onOpenThread: widget.onOpenThread,
+                      onJumpToMessage: widget.onJumpToMessage,
+                      showThreadSummaries: widget.showThreadSummaries,
+                      onExpand: () => setState(
+                        () => _expandedDeletedMessageIds.addAll(messageIds),
+                      ),
                     ),
                     ChatStreamNewDivider() => const _NewDivider(),
                     null => const SizedBox.shrink(),
@@ -1950,10 +1962,25 @@ class _NewDivider extends StatelessWidget {
 }
 
 class _DeletedRun extends StatelessWidget {
-  const _DeletedRun({required this.siteUrl, required this.messageIds});
+  const _DeletedRun({
+    required this.siteUrl,
+    required this.messageIds,
+    required this.expanded,
+    required this.contextThreadId,
+    required this.onOpenThread,
+    required this.onJumpToMessage,
+    required this.showThreadSummaries,
+    required this.onExpand,
+  });
 
   final String siteUrl;
   final List<int> messageIds;
+  final bool expanded;
+  final int? contextThreadId;
+  final ValueChanged<ChatThreadPreview>? onOpenThread;
+  final ValueChanged<int>? onJumpToMessage;
+  final bool showThreadSummaries;
+  final VoidCallback onExpand;
 
   @override
   Widget build(BuildContext context) {
@@ -1963,81 +1990,70 @@ class _DeletedRun extends StatelessWidget {
     return ListenableBuilder(
       listenable: chat,
       builder: (context, _) {
-        final restorable = [
-          for (final id in messageIds)
-            if (chat.messageRef(siteUrl, id).value case final message?
-                when chat.canRestoreMessage(siteUrl, message))
-              message,
-        ];
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 2, 12, 2),
-          child: Row(
+        if (expanded) {
+          return Column(
             children: [
-              Expanded(
-                child: Text(
-                  messageIds.length == 1
-                      ? '1 message deleted'
-                      : '${messageIds.length} messages deleted',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.error,
-                    fontStyle: FontStyle.italic,
+              for (final messageId in messageIds)
+                ColoredBox(
+                  color: theme.colorScheme.errorContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: ChatMessageTile(
+                      siteUrl: siteUrl,
+                      messageId: messageId,
+                      chained: false,
+                      contextThreadId: contextThreadId,
+                      onOpenThread: onOpenThread,
+                      onJumpToMessage: onJumpToMessage,
+                      showThreadSummary: showThreadSummaries,
+                    ),
                   ),
                 ),
-              ),
-              if (restorable.isNotEmpty)
-                TextButton.icon(
-                  onPressed: () => _restore(context, chat, restorable),
-                  icon: const DIcon(DIcons.arrowRotateLeft, size: 14),
-                  label: Text(restorable.length == 1 ? 'Restore' : 'Restore…'),
-                ),
             ],
+          );
+        }
+
+        final label = messageIds.length == 1
+            ? 'A message was deleted. [view]'
+            : '${messageIds.length} messages were deleted. [view all]';
+        return ColoredBox(
+          color: theme.colorScheme.errorContainer,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              16 + ChatMessageTile.gutter,
+              4,
+              16,
+              4,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: onExpand,
+                style: ButtonStyle(
+                  alignment: Alignment.centerLeft,
+                  minimumSize: const WidgetStatePropertyAll(Size.zero),
+                  padding: const WidgetStatePropertyAll(EdgeInsets.all(4)),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  overlayColor: const WidgetStatePropertyAll(
+                    Colors.transparent,
+                  ),
+                  foregroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.hovered) ||
+                        states.contains(WidgetState.focused) ||
+                        states.contains(WidgetState.pressed)) {
+                      return theme.colorScheme.error;
+                    }
+                    return theme.discourse.primaryHigh;
+                  }),
+                  textStyle: WidgetStatePropertyAll(theme.textTheme.bodyMedium),
+                ),
+                child: Text(label),
+              ),
+            ),
           ),
         );
       },
     );
-  }
-
-  Future<void> _restore(
-    BuildContext context,
-    ChatController chat,
-    List<ChatMessage> messages,
-  ) async {
-    if (messages.length > 1) {
-      await showShellSheet<void>(
-        context: context,
-        title: 'Restore deleted message',
-        padding: EdgeInsets.zero,
-        builder: (sheetContext) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final message in messages)
-              ListTile(
-                leading: const DIcon(DIcons.arrowRotateLeft, size: 18),
-                title: Text('Message by ${message.author.displayName}'),
-                subtitle: Text('Message ${message.id}'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  unawaited(_restoreOne(context, chat, message.id));
-                },
-              ),
-          ],
-        ),
-      );
-      return;
-    }
-    await _restoreOne(context, chat, messages.single.id);
-  }
-
-  Future<void> _restoreOne(
-    BuildContext context,
-    ChatController chat,
-    int messageId,
-  ) async {
-    final error = await chat.restoreMessage(siteUrl, messageId);
-    if (!context.mounted || error == null) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(error)));
   }
 }
 
