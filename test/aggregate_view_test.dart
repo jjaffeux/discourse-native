@@ -319,6 +319,19 @@ void main() {
         find.descendant(of: firstForumRow, matching: find.text('one.example')),
         findsNothing,
       );
+      final firstForumTitle = find.descendant(
+        of: firstForumRow,
+        matching: find.text('One'),
+      );
+      final titleTheme = Theme.of(tester.element(firstForumTitle));
+      expect(
+        tester.widget<Text>(firstForumTitle).style?.fontSize,
+        titleTheme.textTheme.bodySmall?.fontSize,
+      );
+      expect(
+        tester.widget<Text>(firstForumTitle).style?.fontSize,
+        lessThan(titleTheme.textTheme.bodyMedium!.fontSize!),
+      );
       expect(
         find.textContaining('Select forums, then edit one topic filter'),
         findsNothing,

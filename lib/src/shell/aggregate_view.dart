@@ -603,7 +603,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
                                       forum.title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodyMedium
+                                      style: theme.textTheme.bodySmall
                                           ?.copyWith(
                                             color: forum.isConnected
                                                 ? null
