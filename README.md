@@ -1735,8 +1735,9 @@ authoritative.
 Delete and Restore use the channel serializer's `can_delete_self`,
 `can_delete_others` and `can_moderate` gates plus each message's
 `deleted_by_id`, then call core's message DELETE and `/restore` routes. Deleted
-runs retain their message ids, so a permitted reader can restore one collapsed
-message directly or choose the exact message from a longer run.
+runs retain their message ids and use core's collapsed “deleted [view]” row.
+Opening that row reveals every deleted message in the run; a permitted reader
+can then Restore the exact message from its normal action surface.
 Channel pin managers get the web client's Pin/Unpin action and pinned-message
 badge. It projects immediately, writes POST or DELETE to the shared
 `/chat/api/channels/{channel}/messages/{message}/pin` route, rolls back only pin
