@@ -1,5 +1,10 @@
 import 'dart:ui'
-    show PointerDeviceKind, SemanticsAction, SemanticsRole, Tristate;
+    show
+        ImageByteFormat,
+        PointerDeviceKind,
+        SemanticsAction,
+        SemanticsRole,
+        Tristate;
 
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
@@ -13,6 +18,7 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_tooltip.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -121,9 +127,6 @@ void main() {
 
       final barDecoration = _decoration(tester, bar);
       expect(barDecoration.color, theme.shell.sidebar);
-      final bottomDivider = (barDecoration.border! as Border).bottom;
-      expect(bottomDivider.color, theme.shell.divider);
-      expect(bottomDivider.width, 1);
 
       final barRect = tester.getRect(bar);
       final selectedRect = tester.getRect(selected);
@@ -133,7 +136,7 @@ void main() {
         barRect.left + 4 + ForumTabsBar.minimumActionTarget + 4,
       );
       expect(selectedRect.top, barRect.top + 3);
-      expect(selectedRect.bottom, barRect.bottom - bottomDivider.width);
+      expect(selectedRect.bottom, barRect.bottom);
       expect(ordinaryRect.top, selectedRect.top);
       expect(ordinaryRect.bottom, selectedRect.bottom);
 
@@ -152,8 +155,39 @@ void main() {
       expect(addRect.left, ordinaryRect.right + 4);
       expect(
         addRect.center.dy,
-        barRect.top + 3 + (ForumTabsBar.height - 3 - bottomDivider.width) / 2,
+        barRect.top + 3 + (ForumTabsBar.height - 3) / 2,
       );
+
+      // Check the painted seam as well as layout: the active tab must connect
+      // to the page, while the separator remains beneath inactive tabs.
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('forum-tabs-paint-boundary')),
+      );
+      await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        try {
+          final bytes = (await image.toByteData(
+            format: ImageByteFormat.rawRgba,
+          ))!;
+          for (final (rect, color) in [
+            (selectedRect, theme.shell.content),
+            (ordinaryRect, theme.shell.divider),
+          ]) {
+            final x = (rect.center.dx - barRect.left).floor();
+            final y = (barRect.height - 1).floor();
+            final offset = (y * image.width + x) * 4;
+            final pixel = Color.fromARGB(
+              bytes.getUint8(offset + 3),
+              bytes.getUint8(offset),
+              bytes.getUint8(offset + 1),
+              bytes.getUint8(offset + 2),
+            );
+            expect(pixel, color);
+          }
+        } finally {
+          image.dispose();
+        }
+      });
 
       final close = find.byKey(const ValueKey('forum-tab-close-topic-1'));
       expect(tester.getSize(close).width, ForumTabsBar.closeTargetWidth);
@@ -987,18 +1021,21 @@ Future<void> _pumpBar(
           width: width,
           child: Column(
             children: [
-              ForumTabsBar(
-                forumName: 'Discourse Meta',
-                items: items,
-                selectedId: selectedId,
-                onAdd: addEnabled ? (onAdd ?? () {}) : null,
-                onSelect: onSelect ?? (_) {},
-                onClose: onClose ?? (_) {},
-                onReorder: onReorder ?? (_, _) {},
-                onCloseOthers: onCloseOthers ?? (_) {},
-                recentlyClosedItems: recentlyClosedItems,
-                onReopen: onReopen,
-                onRename: onRename,
+              RepaintBoundary(
+                key: const ValueKey('forum-tabs-paint-boundary'),
+                child: ForumTabsBar(
+                  forumName: 'Discourse Meta',
+                  items: items,
+                  selectedId: selectedId,
+                  onAdd: addEnabled ? (onAdd ?? () {}) : null,
+                  onSelect: onSelect ?? (_) {},
+                  onClose: onClose ?? (_) {},
+                  onReorder: onReorder ?? (_, _) {},
+                  onCloseOthers: onCloseOthers ?? (_) {},
+                  recentlyClosedItems: recentlyClosedItems,
+                  onReopen: onReopen,
+                  onRename: onRename,
+                ),
               ),
             ],
           ),

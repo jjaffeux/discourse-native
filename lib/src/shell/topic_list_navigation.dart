@@ -126,7 +126,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                     child: !showsTabs
                         ? const SizedBox.shrink()
                         : _TopicListTabStrip(
-                            height: 48,
+                            height: 52,
                             background: theme.shell.content,
                             scrollable: true,
                             items: [
@@ -145,6 +145,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                                 controlKey: const ValueKey('topic-list-new'),
                                 label: 'New',
                                 count: state.allCount,
+                                showCountBadge: true,
                                 textStyle: primaryTextStyle,
                                 selected: mode.isNew,
                                 onTap: () => unawaited(
@@ -190,7 +191,9 @@ class _TopicListNavigationControls extends StatelessWidget {
                     ),
                   if (trailing != null)
                     Padding(
-                      padding: const EdgeInsets.only(right: 16),
+                      padding: const EdgeInsets.only(
+                        right: topicListHorizontalPadding,
+                      ),
                       child: trailing,
                     ),
                 ],
@@ -304,7 +307,9 @@ class _TopPeriodChooser extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: topicListHorizontalPadding,
+      ),
       alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         color: theme.shell.sidebar,
@@ -355,7 +360,9 @@ class _TopicListTabStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: topicListHorizontalPadding,
+      ),
       color: background,
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -366,13 +373,15 @@ class _TopicListTabStrip extends StatelessWidget {
                 constraints: BoxConstraints(minWidth: constraints.maxWidth),
                 child: Row(
                   children: [
-                    for (final item in items)
+                    for (var index = 0; index < items.length; index++) ...[
+                      if (index > 0) const SizedBox(width: 3),
                       IntrinsicWidth(
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(minWidth: 48),
-                          child: item,
+                          child: items[index],
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -406,19 +415,35 @@ class _TopicListTabItem extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.count = 0,
+    this.showCountBadge = false,
   });
 
   final Key controlKey;
   final String label;
   final TextStyle? textStyle;
   final int count;
+  final bool showCountBadge;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayLabel = count > 0 ? '$label ($count)' : label;
+    final displayLabel = count > 0 && !showCountBadge
+        ? '$label ($count)'
+        : label;
+    final labelWidget = Text(
+      displayLabel,
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.visible,
+      style: textStyle?.copyWith(
+        color: selected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.onSurfaceVariant,
+        fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+      ),
+    );
     return Semantics(
       button: true,
       selected: selected,
@@ -432,23 +457,38 @@ class _TopicListTabItem extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
             alignment: Alignment.center,
-            margin: const EdgeInsets.symmetric(vertical: 7),
+            margin: const EdgeInsets.symmetric(vertical: 9),
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: selected ? theme.shell.selected : Colors.transparent,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Text(
-              displayLabel,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.visible,
-              style: textStyle?.copyWith(
-                color: selected
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
+            child: showCountBadge && count > 0
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      labelWidget,
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.shell.hover,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '$count',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : labelWidget,
           ),
         ),
       ),

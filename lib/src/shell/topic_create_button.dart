@@ -20,12 +20,14 @@ class TopicCreateButton extends StatefulWidget {
     super.key,
     required this.showLabel,
     required this.onPressed,
+    this.compact = false,
   });
 
   static const Key buttonKey = ValueKey('new-topic-button');
   static const Key draftsButtonKey = ValueKey('new-topic-drafts-button');
 
   final bool showLabel;
+  final bool compact;
   final VoidCallback onPressed;
 
   @override
@@ -82,6 +84,7 @@ class _TopicCreateButtonState extends State<TopicCreateButton> {
           ],
           builder: (context, menu, child) => _TopicCreateControl(
             showLabel: widget.showLabel,
+            compact: widget.compact,
             showDraftsButton: hasDrafts,
             onPressed: widget.onPressed,
             onDraftsPressed: instance == null
@@ -97,19 +100,26 @@ class _TopicCreateButtonState extends State<TopicCreateButton> {
 class _TopicCreateControl extends StatelessWidget {
   const _TopicCreateControl({
     required this.showLabel,
+    required this.compact,
     required this.showDraftsButton,
     required this.onPressed,
     required this.onDraftsPressed,
   });
 
   final bool showLabel;
+  final bool compact;
   final bool showDraftsButton;
   final VoidCallback onPressed;
   final VoidCallback? onDraftsPressed;
 
   @override
   Widget build(BuildContext context) {
-    final dimension = DButton.iconOnlyDimensionFor(DButtonSize.small);
+    final labelHeight =
+        MediaQuery.textScalerOf(context).scale(DiscourseTypography.fontDown1) *
+        1.2;
+    final dimension = compact
+        ? math.max(36.0, labelHeight + 18)
+        : DButton.iconOnlyDimensionFor(DButtonSize.small);
     final radius = Radius.circular(
       Theme.of(context).discourseButtons.borderRadius,
     );
@@ -120,8 +130,13 @@ class _TopicCreateControl extends StatelessWidget {
     final mainButton = showLabel
         ? DButton(
             key: TopicCreateButton.buttonKey,
-            label: const Text('New topic'),
-            icon: const DIcon(DIcons.farPenToSquare, size: 18),
+            label: Text(
+              'New topic',
+              style: compact
+                  ? const TextStyle(fontWeight: FontWeight.w500)
+                  : null,
+            ),
+            icon: DIcon(DIcons.farPenToSquare, size: compact ? 16 : 18),
             tooltip: 'New topic',
             shortcut: const DShortcut(newTopicShortcut),
             semanticLabel: 'New topic',
@@ -141,7 +156,11 @@ class _TopicCreateControl extends StatelessWidget {
             size: DButtonSize.small,
             borderRadius: mainRadius,
           );
-    final sizedMainButton = SizedBox(height: dimension, child: mainButton);
+    final sizedMainButton = SizedBox(
+      height: dimension,
+      width: showLabel ? null : dimension,
+      child: mainButton,
+    );
 
     if (!showDraftsButton) return sizedMainButton;
 
@@ -150,15 +169,18 @@ class _TopicCreateControl extends StatelessWidget {
       children: [
         sizedMainButton,
         const SizedBox(width: 2),
-        DButton.iconOnly(
-          key: TopicCreateButton.draftsButtonKey,
-          icon: const DIcon(DIcons.chevronDown, size: 16),
-          tooltip: 'Open the latest drafts menu',
-          semanticLabel: 'Open the latest drafts menu',
-          onPressed: onDraftsPressed,
-          variant: DButtonVariant.primary,
-          size: DButtonSize.small,
-          borderRadius: BorderRadius.horizontal(right: radius),
+        SizedBox.square(
+          dimension: dimension,
+          child: DButton.iconOnly(
+            key: TopicCreateButton.draftsButtonKey,
+            icon: const DIcon(DIcons.chevronDown, size: 16),
+            tooltip: 'Open the latest drafts menu',
+            semanticLabel: 'Open the latest drafts menu',
+            onPressed: onDraftsPressed,
+            variant: DButtonVariant.primary,
+            size: DButtonSize.small,
+            borderRadius: BorderRadius.horizontal(right: radius),
+          ),
         ),
       ],
     );

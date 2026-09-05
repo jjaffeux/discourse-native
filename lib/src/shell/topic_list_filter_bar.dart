@@ -82,7 +82,9 @@ class TopicListFilterBar extends StatelessWidget {
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: topicListHorizontalPadding,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -134,7 +136,9 @@ class TopicListFilterBar extends StatelessWidget {
             ),
             if (trailing != null)
               Padding(
-                padding: const EdgeInsets.only(right: 16, bottom: 10),
+                padding: const EdgeInsets.only(
+                  right: topicListHorizontalPadding,
+                ),
                 child: trailing,
               ),
           ],
