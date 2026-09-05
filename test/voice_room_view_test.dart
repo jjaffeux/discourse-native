@@ -152,6 +152,152 @@ void main() {
 
   group('call, media, and moderation', () {
     testWidgets(
+      'media changes rebuild only affected tiles until room state changes',
+      (tester) async {
+        final room = _room(
+          participants: const [
+            VoiceParticipant(
+              id: 1,
+              username: 'sam',
+              role: VoiceRole.participant,
+            ),
+            VoiceParticipant(
+              id: 2,
+              username: 'lee',
+              name: 'Lee',
+              role: VoiceRole.participant,
+            ),
+          ],
+        );
+        final harness = _Harness(joinRoom: room);
+        addTearDown(harness.dispose);
+        await _join(harness, room);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: VoiceRoomView(
+              roomId: room.id,
+              controller: harness.controller,
+              shell: _voiceShell(
+                harness.controller,
+                site: const PluginRouteSite(
+                  url: _siteUrl,
+                  title: 'Voice',
+                  isConnected: true,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final roomContent = tester.element(find.byType(VoiceRoomContent));
+        final samTile = tester.element(
+          find.byKey(const ValueKey(('voice-participant', 1))),
+        );
+        final leeTile = tester.element(
+          find.byKey(const ValueKey(('voice-participant', 2))),
+        );
+        final rebuilt = <Element>{};
+        final previousRebuildHook = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previousRebuildHook?.call(element, builtOnce);
+          rebuilt.add(element);
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildHook);
+
+        final media = harness.media.sessions.single;
+        media.setSpeakingParticipantIds(const {2});
+        await tester.pump();
+
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Semantics &&
+                widget.properties.label == 'Lee, speaking',
+          ),
+          findsOneWidget,
+        );
+        expect(rebuilt, contains(leeTile));
+        expect(rebuilt, isNot(contains(samTile)));
+        expect(rebuilt, isNot(contains(roomContent)));
+
+        rebuilt.clear();
+        media.notifyUnchanged();
+        await tester.pump();
+
+        expect(rebuilt, isNot(contains(leeTile)));
+        expect(rebuilt, isNot(contains(samTile)));
+        expect(rebuilt, isNot(contains(roomContent)));
+
+        rebuilt.clear();
+        media.setVideoTrack(2, Object());
+        await tester.pump();
+
+        expect(find.byType(VoiceVideoSurface), findsOneWidget);
+        expect(rebuilt, contains(leeTile));
+        expect(rebuilt, isNot(contains(samTile)));
+        expect(rebuilt, isNot(contains(roomContent)));
+
+        rebuilt.clear();
+        await harness.controller.setMuted(true);
+        await tester.pump();
+
+        expect(find.byTooltip('Unmute'), findsOneWidget);
+        expect(rebuilt, contains(roomContent));
+
+        await harness.controller.leave();
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+
+    testWidgets('participant tiles replace their media subscription', (
+      tester,
+    ) async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final room = _room(
+        participants: const [
+          VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.participant),
+        ],
+      );
+      final first = harness.media.createSession();
+      final replacement = harness.media.createSession();
+      addTearDown(first.dispose);
+      addTearDown(replacement.dispose);
+
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, call: _call(room, first)),
+      );
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, call: _call(room, replacement)),
+      );
+
+      first.setSpeakingParticipantIds(const {1});
+      first.setVideoTrack(1, Object());
+      await tester.pump();
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.label == 'sam, speaking',
+        ),
+        findsNothing,
+      );
+      expect(find.byType(VoiceVideoSurface), findsNothing);
+
+      replacement.setSpeakingParticipantIds(const {1});
+      replacement.setVideoTrack(1, Object());
+      await tester.pump();
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.label == 'sam, speaking',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(VoiceVideoSurface), findsOneWidget);
+    });
+
+    testWidgets(
       'keeps borrowed WebRTC tracks out of streams during renderer replacement',
       (tester) async {
         const webRtcChannel = MethodChannel('FlutterWebRTC.Method');
@@ -1912,6 +2058,7 @@ Widget _app(
           siteName: 'Voice',
           currentUserId: 1,
           recordingEnabled: true,
+          error: active?.error ?? controller.errorFor(_siteUrl),
           meshPrivacyWarningEnabled: meshPrivacyWarningEnabled,
           autoStatusAvailable: autoStatusAvailable,
           inviteLink: inviteLink,
@@ -2213,12 +2360,15 @@ final class _MediaFactory implements VoiceMediaFactory {
 }
 
 final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
-  _MediaSession(this.transport, this.speakingParticipantIds);
+  _MediaSession(this.transport, Set<int> speakingParticipantIds)
+    : _speakingParticipantIds = Set.unmodifiable(speakingParticipantIds);
 
   @override
   final VoiceTransport transport;
+  Set<int> _speakingParticipantIds;
+  final Map<int, Object> _videoTracks = {};
   @override
-  final Set<int> speakingParticipantIds;
+  Set<int> get speakingParticipantIds => _speakingParticipantIds;
   int connectCount = 0;
   int disposeCount = 0;
   Object? connectFailure;
@@ -2238,7 +2388,24 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   @override
   bool get screenSharing => false;
   @override
-  Object? videoTrackFor(int participantId) => null;
+  Object? videoTrackFor(int participantId) => _videoTracks[participantId];
+
+  void setSpeakingParticipantIds(Set<int> value) {
+    _speakingParticipantIds = Set.unmodifiable(value);
+    notifyListeners();
+  }
+
+  void setVideoTrack(int participantId, Object? track) {
+    if (track == null) {
+      _videoTracks.remove(participantId);
+    } else {
+      _videoTracks[participantId] = track;
+    }
+    notifyListeners();
+  }
+
+  void notifyUnchanged() => notifyListeners();
+
   @override
   Future<void> connect() async {
     connectCount++;

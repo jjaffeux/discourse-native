@@ -13,6 +13,7 @@ import 'voice_controller.dart';
 import 'voice_icons.dart';
 import 'voice_incoming_call.dart';
 import 'voice_join.dart';
+import 'voice_media.dart';
 import 'voice_models.dart';
 import 'voice_room_editor.dart';
 import 'voice_services.dart';
@@ -42,52 +43,159 @@ class VoiceRoomView extends StatelessWidget {
             PluginUiScope.require(context, voiceControllerService));
     final site = shell.currentInstance;
     if (site == null) return const SizedBox.shrink();
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        final room = controller.room(site.url, roomId);
-        if (room == null) {
-          return const Center(child: Text('This voice room is unavailable.'));
-        }
-        final call = controller.call;
-        final inRoom = call?.siteUrl == site.url && call?.room.id == room.id;
-        final recordingEnabled =
-            inRoom &&
-            call!.room.canManage &&
-            call.media.transport == VoiceTransport.livekit &&
-            shell.recordingEnabledFor(site.url);
-        return Focus(
-          autofocus: true,
-          onKeyEvent: (_, event) {
-            if (!controller.pushToTalkEnabled ||
-                (!Platform.isMacOS && !Platform.isLinux) ||
-                event.logicalKey != LogicalKeyboardKey.space) {
-              return KeyEventResult.ignored;
-            }
-            if (event is KeyDownEvent) {
-              unawaited(controller.setMuted(false));
-            } else if (event is KeyUpEvent) {
-              unawaited(controller.setMuted(true));
-            }
-            return KeyEventResult.handled;
-          },
-          child: VoiceRoomContent(
-            controller: controller,
-            room: inRoom ? call!.room : room,
-            call: inRoom ? call : null,
-            siteUrl: site.url,
-            siteName: site.title,
-            currentUserId: shell.currentUserIdFor(site.url),
-            recordingEnabled: recordingEnabled,
-            meshPrivacyWarningEnabled: shell.meshPrivacyWarningEnabledFor(
-              site.url,
-            ),
-            autoStatusAvailable: shell.autoStatusEnabledFor(site.url),
-            inviteLink: shell.inviteLinkFor(site.url, room),
-          ),
-        );
-      },
+    return _VoiceRoomControllerView(
+      controller: controller,
+      shell: shell,
+      roomId: roomId,
+      siteUrl: site.url,
+      siteName: site.title,
     );
+  }
+}
+
+typedef _VoiceRoomPresentation = ({
+  VoiceRoom? room,
+  VoiceCallSnapshot? call,
+  int? currentUserId,
+  bool recordingEnabled,
+  bool meshPrivacyWarningEnabled,
+  bool autoStatusAvailable,
+  String? inviteLink,
+  String? error,
+});
+
+/// Selects room-wide state out of the controller's broad notification stream.
+/// Media sessions still notify the controller for idle tracking and connection
+/// recovery, while speaker and track-only events update participant tiles.
+class _VoiceRoomControllerView extends StatefulWidget {
+  const _VoiceRoomControllerView({
+    required this.controller,
+    required this.shell,
+    required this.roomId,
+    required this.siteUrl,
+    required this.siteName,
+  });
+
+  final VoiceController controller;
+  final VoiceShellService shell;
+  final int roomId;
+  final String siteUrl;
+  final String siteName;
+
+  @override
+  State<_VoiceRoomControllerView> createState() =>
+      _VoiceRoomControllerViewState();
+}
+
+class _VoiceRoomControllerViewState extends State<_VoiceRoomControllerView> {
+  late _VoiceRoomPresentation _presentation;
+
+  @override
+  void initState() {
+    super.initState();
+    _presentation = _select();
+    widget.controller.addListener(_controllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(_VoiceRoomControllerView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller)) {
+      oldWidget.controller.removeListener(_controllerChanged);
+      widget.controller.addListener(_controllerChanged);
+    }
+    _presentation = _select();
+  }
+
+  _VoiceRoomPresentation _select() {
+    final directoryRoom = widget.controller.room(widget.siteUrl, widget.roomId);
+    if (directoryRoom == null) {
+      return (
+        room: null,
+        call: null,
+        currentUserId: widget.shell.currentUserIdFor(widget.siteUrl),
+        recordingEnabled: false,
+        meshPrivacyWarningEnabled: widget.shell.meshPrivacyWarningEnabledFor(
+          widget.siteUrl,
+        ),
+        autoStatusAvailable: widget.shell.autoStatusEnabledFor(widget.siteUrl),
+        inviteLink: null,
+        error: widget.controller.errorFor(widget.siteUrl),
+      );
+    }
+    final heldCall = widget.controller.call;
+    final call =
+        heldCall?.siteUrl == widget.siteUrl &&
+            heldCall?.room.id == directoryRoom.id
+        ? heldCall
+        : null;
+    final room = call?.room ?? directoryRoom;
+    return (
+      room: room,
+      call: call,
+      currentUserId: widget.shell.currentUserIdFor(widget.siteUrl),
+      recordingEnabled:
+          call != null &&
+          room.canManage &&
+          call.media.transport == VoiceTransport.livekit &&
+          widget.shell.recordingEnabledFor(widget.siteUrl),
+      meshPrivacyWarningEnabled: widget.shell.meshPrivacyWarningEnabledFor(
+        widget.siteUrl,
+      ),
+      autoStatusAvailable: widget.shell.autoStatusEnabledFor(widget.siteUrl),
+      inviteLink: widget.shell.inviteLinkFor(widget.siteUrl, directoryRoom),
+      error: call?.error ?? widget.controller.errorFor(widget.siteUrl),
+    );
+  }
+
+  void _controllerChanged() {
+    final next = _select();
+    if (next == _presentation) return;
+    setState(() => _presentation = next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final presentation = _presentation;
+    final room = presentation.room;
+    if (room == null) {
+      return const Center(child: Text('This voice room is unavailable.'));
+    }
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (_, event) {
+        if (!widget.controller.pushToTalkEnabled ||
+            (!Platform.isMacOS && !Platform.isLinux) ||
+            event.logicalKey != LogicalKeyboardKey.space) {
+          return KeyEventResult.ignored;
+        }
+        if (event is KeyDownEvent) {
+          unawaited(widget.controller.setMuted(false));
+        } else if (event is KeyUpEvent) {
+          unawaited(widget.controller.setMuted(true));
+        }
+        return KeyEventResult.handled;
+      },
+      child: VoiceRoomContent(
+        controller: widget.controller,
+        room: room,
+        call: presentation.call,
+        siteUrl: widget.siteUrl,
+        siteName: widget.siteName,
+        currentUserId: presentation.currentUserId,
+        recordingEnabled: presentation.recordingEnabled,
+        meshPrivacyWarningEnabled: presentation.meshPrivacyWarningEnabled,
+        autoStatusAvailable: presentation.autoStatusAvailable,
+        inviteLink: presentation.inviteLink,
+        error: presentation.error,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_controllerChanged);
+    super.dispose();
   }
 }
 
@@ -101,6 +209,7 @@ class VoiceRoomContent extends StatefulWidget {
     required this.siteName,
     required this.currentUserId,
     required this.recordingEnabled,
+    required this.error,
     this.meshPrivacyWarningEnabled = false,
     this.autoStatusAvailable = false,
     this.inviteLink,
@@ -114,6 +223,7 @@ class VoiceRoomContent extends StatefulWidget {
   final String siteName;
   final int? currentUserId;
   final bool recordingEnabled;
+  final String? error;
   final bool meshPrivacyWarningEnabled;
   final bool autoStatusAvailable;
   final String? inviteLink;
@@ -179,7 +289,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
     final currentUserId = widget.currentUserId;
     final recordingEnabled = widget.recordingEnabled;
     final controllerResolver = widget.controllerResolver;
-    final error = active?.error ?? controller.errorFor(siteUrl);
+    final error = widget.error;
     final recording = room.recording;
     return Column(
       children: [
@@ -229,15 +339,11 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
                     }
                     final participant = participants[index];
                     return _ParticipantTile(
+                      key: ValueKey(('voice-participant', participant.id)),
                       controller: controller,
                       participant: participant,
                       siteUrl: siteUrl,
-                      videoTrack: active?.media.videoTrackFor(participant.id),
-                      speaking:
-                          active?.media.speakingParticipantIds.contains(
-                            participant.id,
-                          ) ??
-                          false,
+                      media: active?.media,
                       canManage: active?.room.canManage ?? false,
                       canKick:
                           active?.room.canManage == true &&
@@ -440,13 +546,13 @@ class _EmptyRoom extends StatelessWidget {
   );
 }
 
-class _ParticipantTile extends StatelessWidget {
+class _ParticipantTile extends StatefulWidget {
   const _ParticipantTile({
+    super.key,
     required this.controller,
     required this.participant,
     required this.siteUrl,
-    required this.videoTrack,
-    required this.speaking,
+    required this.media,
     required this.canManage,
     required this.canKick,
     required this.canAdjustLocally,
@@ -457,8 +563,7 @@ class _ParticipantTile extends StatelessWidget {
   final VoiceController controller;
   final VoiceParticipant participant;
   final String siteUrl;
-  final Object? videoTrack;
-  final bool speaking;
+  final VoiceMediaSession? media;
   final bool canManage;
   final bool canKick;
   final bool canAdjustLocally;
@@ -466,7 +571,61 @@ class _ParticipantTile extends StatelessWidget {
   final VoiceController Function()? controllerResolver;
 
   @override
+  State<_ParticipantTile> createState() => _ParticipantTileState();
+}
+
+class _ParticipantTileState extends State<_ParticipantTile> {
+  Object? _videoTrack;
+  bool _speaking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.media?.addListener(_mediaChanged);
+    _readMedia();
+  }
+
+  @override
+  void didUpdateWidget(_ParticipantTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.media, widget.media)) {
+      oldWidget.media?.removeListener(_mediaChanged);
+      widget.media?.addListener(_mediaChanged);
+    }
+    _readMedia();
+  }
+
+  void _readMedia() {
+    _videoTrack = widget.media?.videoTrackFor(widget.participant.id);
+    _speaking =
+        widget.media?.speakingParticipantIds.contains(widget.participant.id) ??
+        false;
+  }
+
+  void _mediaChanged() {
+    final videoTrack = widget.media?.videoTrackFor(widget.participant.id);
+    final speaking =
+        widget.media?.speakingParticipantIds.contains(widget.participant.id) ??
+        false;
+    if (identical(videoTrack, _videoTrack) && speaking == _speaking) return;
+    setState(() {
+      _videoTrack = videoTrack;
+      _speaking = speaking;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final participant = widget.participant;
+    final siteUrl = widget.siteUrl;
+    final videoTrack = _videoTrack;
+    final speaking = _speaking;
+    final canManage = widget.canManage;
+    final canKick = widget.canKick;
+    final canAdjustLocally = widget.canAdjustLocally;
+    final stageRoleChange = widget.stageRoleChange;
+    final controllerResolver = widget.controllerResolver;
     final theme = Theme.of(context);
     return Semantics(
       label: [
@@ -489,7 +648,7 @@ class _ParticipantTile extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (videoTrack != null)
-                VoiceVideoSurface(track: videoTrack!)
+                VoiceVideoSurface(track: videoTrack)
               else
                 Center(
                   child: ClipOval(
@@ -561,7 +720,7 @@ class _ParticipantTile extends StatelessWidget {
                       if (action == 'role' && stageRoleChange != null) {
                         await controller.setParticipantRole(
                           participant.id,
-                          stageRoleChange!,
+                          stageRoleChange,
                         );
                       }
                       if (action == 'volume' && context.mounted) {
@@ -621,6 +780,12 @@ class _ParticipantTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    widget.media?.removeListener(_mediaChanged);
+    super.dispose();
   }
 }
 
