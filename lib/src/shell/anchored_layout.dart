@@ -21,6 +21,7 @@ class AnchoredLayout extends SingleChildLayoutDelegate {
     this.gap = 8,
     this.margin = 12,
     this.preferAbove = false,
+    this.keepPreferredPlacement = false,
   });
 
   final Rect? anchor;
@@ -33,14 +34,21 @@ class AnchoredLayout extends SingleChildLayoutDelegate {
 
   final bool preferAbove;
 
+  final bool keepPreferredPlacement;
+
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
     final available = constraints.maxWidth - margin * 2;
+    var availableHeight = math.max(0.0, constraints.maxHeight - margin * 2);
+    final target = anchor;
+    if (preferAbove && keepPreferredPlacement && target != null) {
+      availableHeight = math.min(
+        availableHeight,
+        math.max(0.0, target.top - gap - margin),
+      );
+    }
     return BoxConstraints.loose(
-      Size(
-        math.min(maxWidth, math.max(0, available)),
-        math.max(0, constraints.maxHeight - margin * 2),
-      ),
+      Size(math.min(maxWidth, math.max(0, available)), availableHeight),
     );
   }
 
@@ -61,7 +69,9 @@ class AnchoredLayout extends SingleChildLayoutDelegate {
 
     final double top;
     if (preferAbove) {
-      top = fitsAbove
+      top = keepPreferredPlacement
+          ? math.max(margin, above)
+          : fitsAbove
           ? above
           : math.min(below, size.height - margin - childSize.height);
     } else {
@@ -78,5 +88,6 @@ class AnchoredLayout extends SingleChildLayoutDelegate {
       oldDelegate.maxWidth != maxWidth ||
       oldDelegate.gap != gap ||
       oldDelegate.margin != margin ||
-      oldDelegate.preferAbove != preferAbove;
+      oldDelegate.preferAbove != preferAbove ||
+      oldDelegate.keepPreferredPlacement != keepPreferredPlacement;
 }

@@ -426,14 +426,40 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
       await tester.pumpAndSettle();
       final field = find.byKey(ValueKey('aggregate-query-$siteUrl'));
-      await tester.enterText(field, 'category:bugs');
-      await tester.pump(const Duration(milliseconds: 350));
+      final tokenField = find.byKey(const ValueKey('topic-filter-token-field'));
+      final suggestions = find.byKey(
+        const ValueKey('topic-filter-suggestions'),
+      );
+
+      await tester.tap(field);
       await tester.pumpAndSettle();
+      expect(suggestions, findsOneWidget);
+      expect(
+        tester.getBottomLeft(suggestions).dy,
+        lessThan(tester.getTopLeft(tokenField).dy),
+      );
+
+      await tester.enterText(field, 'categ');
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      expect(find.text('category:'), findsOneWidget);
+      expect(
+        tester.getBottomLeft(suggestions).dy,
+        lessThan(tester.getTopLeft(tokenField).dy),
+      );
+
+      await tester.enterText(field, 'category:bugs');
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
 
       expect(find.text('Design › Bugs'), findsOneWidget);
       expect(find.text('Discourse Native App › Bugs'), findsOneWidget);
       expect(api.categorySearchTerms, contains('bugs'));
       expect(api.categorySearchIncludeAncestors, contains(true));
+      expect(
+        tester.getBottomLeft(suggestions).dy,
+        lessThan(tester.getTopLeft(tokenField).dy),
+      );
 
       await tester.tap(find.text('Discourse Native App › Bugs'));
       await tester.pumpAndSettle();
@@ -447,10 +473,15 @@ void main() {
       );
       expect(
         tester
-            .widget<InputChip>(
-              find.byKey(const ValueKey('topic-filter-token-0')),
+            .widget<Tooltip>(
+              find
+                  .ancestor(
+                    of: find.byKey(const ValueKey('topic-filter-token-0')),
+                    matching: find.byType(Tooltip),
+                  )
+                  .first,
             )
-            .tooltip,
+            .message,
         'category:discourse-native-app:bugs',
       );
     },
@@ -485,7 +516,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(InputChip), findsNWidgets(3));
+    for (var index = 0; index < 3; index++) {
+      expect(
+        tester
+            .getSize(find.byKey(ValueKey('topic-filter-token-$index')))
+            .height,
+        28,
+      );
+    }
+    final tokenField = find.byKey(const ValueKey('topic-filter-token-field'));
+    final focusedSize = tester.getSize(tokenField);
+    await tester.tap(find.text('Topic filter query'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(tokenField), focusedSize);
     expect(tester.takeException(), isNull);
   });
 
