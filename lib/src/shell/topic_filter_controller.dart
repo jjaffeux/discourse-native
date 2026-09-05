@@ -642,19 +642,17 @@ class _ValueSuggester {
 
 class _FilterInput {
   _FilterInput(this.text) {
-    final matches = RegExp(
-      r'''(?:-=|=-|-|=)?[\w-]+:(?:"[^"]*"|'[^']*'|\S+)|"[^"]*"|'[^']*'|\S+''',
-    ).allMatches(text).toList();
-    _lastMatch = RegExp(r'\s$').hasMatch(text) || matches.isEmpty
+    final terms = _scanTopicFilterQuery(text).terms;
+    _lastMatch = topicFilterQueryEndsWithSeparator(text) || terms.isEmpty
         ? null
-        : matches.last;
+        : terms.last;
   }
 
   final String text;
-  late final RegExpMatch? _lastMatch;
+  late final _TopicFilterTerm? _lastMatch;
 
   _FilterSegment get lastSegment {
-    final word = _lastMatch?.group(0) ?? '';
+    final word = _lastMatch?.value ?? '';
     final prefix = RegExp(r'^(-=|=-|-|=)').firstMatch(word)?.group(0) ?? '';
     final withoutPrefix = word.substring(prefix.length);
     final colon = withoutPrefix.indexOf(':');
@@ -672,6 +670,102 @@ class _FilterInput {
     if (match == null) return '$text$replacement';
     return text.replaceRange(match.start, match.end, replacement);
   }
+}
+
+/// Splits a Discourse topic-filter query into clauses without breaking quoted
+/// values. Whitespace outside a quoted value is treated as a separator.
+List<String> splitTopicFilterQuery(String query) => [
+  for (final term in _scanTopicFilterQuery(query).terms) term.value,
+];
+
+/// Whether [query] ends at a clause boundary rather than inside a quoted
+/// value.
+bool topicFilterQueryEndsWithSeparator(String query) {
+  if (query.isEmpty ||
+      !_isTopicFilterWhitespace(query.codeUnitAt(query.length - 1))) {
+    return false;
+  }
+  return !_scanTopicFilterQuery(query).hasOpenQuote;
+}
+
+_TopicFilterScan _scanTopicFilterQuery(String query) {
+  final terms = <_TopicFilterTerm>[];
+  int? start;
+  int? quote;
+  var escaped = false;
+
+  for (var index = 0; index < query.length; index++) {
+    final character = query.codeUnitAt(index);
+    if (start == null) {
+      if (_isTopicFilterWhitespace(character)) continue;
+      start = index;
+    }
+
+    if (quote != null) {
+      if (escaped) {
+        escaped = false;
+      } else if (character == 0x5C) {
+        escaped = true;
+      } else if (character == quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    final startsQuotedValue = character == 0x22 || character == 0x27;
+    final atQuoteBoundary =
+        index == start || query.codeUnitAt(index - 1) == 0x3A;
+    if (startsQuotedValue && atQuoteBoundary) {
+      quote = character;
+      continue;
+    }
+
+    if (_isTopicFilterWhitespace(character)) {
+      terms.add(
+        _TopicFilterTerm(
+          value: query.substring(start, index),
+          start: start,
+          end: index,
+        ),
+      );
+      start = null;
+    }
+  }
+
+  if (start != null) {
+    terms.add(
+      _TopicFilterTerm(
+        value: query.substring(start),
+        start: start,
+        end: query.length,
+      ),
+    );
+  }
+  return _TopicFilterScan(terms: terms, hasOpenQuote: quote != null);
+}
+
+bool _isTopicFilterWhitespace(int character) => switch (character) {
+  0x09 || 0x0A || 0x0B || 0x0C || 0x0D || 0x20 => true,
+  _ => false,
+};
+
+class _TopicFilterScan {
+  const _TopicFilterScan({required this.terms, required this.hasOpenQuote});
+
+  final List<_TopicFilterTerm> terms;
+  final bool hasOpenQuote;
+}
+
+class _TopicFilterTerm {
+  const _TopicFilterTerm({
+    required this.value,
+    required this.start,
+    required this.end,
+  });
+
+  final String value;
+  final int start;
+  final int end;
 }
 
 @immutable

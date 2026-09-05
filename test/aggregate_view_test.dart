@@ -315,13 +315,21 @@ void main() {
         find.byKey(const ValueKey('aggregate-filter-editor-host')),
         findsNothing,
       );
+      expect(
+        tester
+            .widget<TopicFilterInput>(find.byType(TopicFilterInput))
+            .tokenized,
+        isTrue,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-filter-token-field')),
+        findsOneWidget,
+      );
       final queryField = tester.widget<TextField>(
         find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
       );
-      expect(queryField.minLines, 3);
-      expect(queryField.maxLines, 5);
-      expect(queryField.keyboardType, TextInputType.multiline);
-      expect(queryField.textInputAction, TextInputAction.newline);
+      expect(queryField.maxLines, 1);
+      expect(queryField.textInputAction, TextInputAction.done);
       expect(find.text('Save filters').hitTestable(), findsOneWidget);
 
       await tester.enterText(
@@ -349,13 +357,20 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('topic-filter-token-0')),
+          matching: find.text('Status · Open'),
+        ),
+        findsOneWidget,
+      );
+      expect(
         tester
             .widget<TextField>(
               find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
             )
             .controller!
             .text,
-        'status:open',
+        isEmpty,
       );
       final requestsBeforeSave = api.feedPaths.length;
       await tester.tap(find.text('Save filters'));
@@ -369,14 +384,27 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
       await tester.pumpAndSettle();
       expect(
-        tester
-            .widget<TextField>(
-              find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
-            )
-            .controller!
-            .text,
-        'status:open',
+        find.descendant(
+          of: find.byKey(const ValueKey('topic-filter-token-0')),
+          matching: find.text('Status · Open'),
+        ),
+        findsOneWidget,
       );
+
+      await tester.tap(
+        find.byKey(const ValueKey('topic-filter-token-remove-0')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-filter-token-0')), findsNothing);
+      await tester.tap(
+        find.byKey(ValueKey('aggregate-filter-focus-${forumUrls[1]}')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(ValueKey('aggregate-filter-focus-${forumUrls[0]}')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-filter-token-0')), findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('aggregate-filter-clear')));
       expect(find.text('Save filters').hitTestable(), findsOneWidget);
@@ -409,9 +437,21 @@ void main() {
 
       await tester.tap(find.text('Discourse Native App › Bugs'));
       await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(field).controller!.text, isEmpty);
       expect(
-        tester.widget<TextField>(field).controller!.text,
-        'category:discourse-native-app:bugs ',
+        find.descendant(
+          of: find.byKey(const ValueKey('topic-filter-token-0')),
+          matching: find.text('Category · Discourse Native App › Bugs'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<InputChip>(
+              find.byKey(const ValueKey('topic-filter-token-0')),
+            )
+            .tooltip,
+        'category:discourse-native-app:bugs',
       );
     },
   );
@@ -419,7 +459,7 @@ void main() {
   testWidgets('stacks the focused filter editor at narrow widths', (
     tester,
   ) async {
-    await _pumpMixedAggregateView(tester);
+    final fixture = await _pumpMixedAggregateView(tester);
     tester.view.physicalSize = const Size(390, 800);
     await tester.pump();
 
@@ -435,6 +475,17 @@ void main() {
       findsNothing,
     );
     expect(find.byType(TopicFilterInput), findsOneWidget);
+    final field = find.byKey(
+      ValueKey('aggregate-query-${fixture.forumUrls.first}'),
+    );
+    await tester.enterText(
+      field,
+      'category:discourse-native-app:bugs status:open '
+      'category:discourse-native-app:features ',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(InputChip), findsNWidgets(3));
     expect(tester.takeException(), isNull);
   });
 
