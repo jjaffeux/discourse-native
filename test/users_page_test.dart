@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
@@ -198,6 +201,140 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('every column resizes and restores its forum-specific width', (
+    tester,
+  ) async {
+    final persistence = _ColumnWidthMemoryPersistence();
+    final store = UserDirectoryColumnWidthStore(persistence: persistence);
+
+    UsersPage page(String siteUrl) => UsersPage(
+      siteUrl: siteUrl,
+      columnWidthStore: store,
+      data: const UsersPageData(
+        items: [_sam, _hawk],
+        columns: [_likes, _replies, _days],
+        loaded: true,
+      ),
+    );
+
+    await _pump(
+      tester,
+      page('https://example.com'),
+      size: const Size(1100, 820),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('users-resize-identity-handle')),
+      findsOneWidget,
+    );
+    for (final column in const [_likes, _replies, _days]) {
+      expect(
+        find.byKey(ValueKey('users-resize-${column.id}-handle')),
+        findsOneWidget,
+      );
+    }
+
+    final identityColumn = find.byKey(
+      const ValueKey('users-identity-column-width'),
+    );
+    final firstMetric = find.byKey(
+      const ValueKey('users-metric-column-width-1'),
+    );
+    final initialIdentityWidth = tester.getSize(identityColumn).width;
+
+    await tester.drag(
+      find.byKey(const ValueKey('users-resize-identity-handle')),
+      const Offset(42, 0),
+    );
+    await tester.pumpAndSettle();
+    final resizedIdentityWidth = tester.getSize(identityColumn).width;
+    expect(resizedIdentityWidth, closeTo(initialIdentityWidth + 42, .01));
+
+    await tester.drag(
+      find.byKey(const ValueKey('users-resize-1-handle')),
+      const Offset(-1000, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getSize(firstMetric).width, 88);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await _pump(
+      tester,
+      page('https://example.com'),
+      size: const Size(1100, 820),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.getSize(identityColumn).width, resizedIdentityWidth);
+    expect(tester.getSize(firstMetric).width, 88);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await _pump(
+      tester,
+      page('https://another.example'),
+      size: const Size(1100, 820),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.getSize(identityColumn).width, initialIdentityWidth);
+    expect(tester.getSize(firstMetric).width, greaterThan(88));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a resize wins over a delayed width restoration', (tester) async {
+    final persistence = _DelayedColumnWidthPersistence(
+      UserDirectoryColumnWidths(const {
+        'identity': 420,
+        'metric.automatic.1': 200,
+      }).encode(),
+    );
+    final store = UserDirectoryColumnWidthStore(persistence: persistence);
+    await _pump(
+      tester,
+      UsersPage(
+        siteUrl: 'https://example.com',
+        columnWidthStore: store,
+        data: const UsersPageData(
+          items: [_sam, _hawk],
+          columns: [_likes, _replies, _days],
+          loaded: true,
+        ),
+      ),
+      size: const Size(1100, 820),
+    );
+
+    final identityColumn = find.byKey(
+      const ValueKey('users-identity-column-width'),
+    );
+    final initialWidth = tester.getSize(identityColumn).width;
+    await tester.drag(
+      find.byKey(const ValueKey('users-resize-identity-handle')),
+      const Offset(32, 0),
+    );
+    await tester.pumpAndSettle();
+    final resizedWidth = tester.getSize(identityColumn).width;
+    expect(resizedWidth, initialWidth + 32);
+
+    persistence.completeRead();
+    await tester.pumpAndSettle();
+
+    expect(tester.getSize(identityColumn).width, resizedWidth);
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('users-metric-column-width-1')))
+          .width,
+      200,
+    );
+    expect(UserDirectoryColumnWidths.decode(persistence.writes.last).widths, {
+      'identity': resizedWidth,
+      'metric.automatic.1': 200,
+    });
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'staff column editor includes disabled plugin and user-field columns',
@@ -429,4 +566,45 @@ Future<void> _pump(
     ),
   );
   await tester.pump();
+}
+
+final class _ColumnWidthMemoryPersistence
+    implements UserDirectoryColumnWidthPersistence {
+  final Map<String, String> _values = {};
+
+  @override
+  Future<String?> readWidths({required String siteUrl}) async =>
+      _values[siteUrl];
+
+  @override
+  Future<bool> writeWidths({
+    required String siteUrl,
+    required String encoded,
+  }) async {
+    _values[siteUrl] = encoded;
+    return true;
+  }
+}
+
+final class _DelayedColumnWidthPersistence
+    implements UserDirectoryColumnWidthPersistence {
+  _DelayedColumnWidthPersistence(this._initialValue);
+
+  final String _initialValue;
+  final Completer<String?> _read = Completer<String?>();
+  final List<String> writes = [];
+
+  void completeRead() => _read.complete(_initialValue);
+
+  @override
+  Future<String?> readWidths({required String siteUrl}) => _read.future;
+
+  @override
+  Future<bool> writeWidths({
+    required String siteUrl,
+    required String encoded,
+  }) async {
+    writes.add(encoded);
+    return true;
+  }
 }

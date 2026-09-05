@@ -4,7 +4,9 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 
+import '../data/user_directory_column_width_store.dart';
 import '../models/user_directory.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
@@ -15,6 +17,11 @@ import 'choice_menu.dart';
 import 'shell_scope.dart';
 import 'user_card.dart';
 import 'user_directory_controller.dart';
+
+const String _identityColumnWidthKey = 'identity';
+
+String _metricColumnWidthKey(UserDirectoryColumn column) =>
+    'metric.${column.type.name}.${column.id}';
 
 @immutable
 final class UsersPageData {
@@ -173,6 +180,7 @@ class UsersPage extends StatefulWidget {
     this.onManageColumns,
     this.onRefresh,
     this.onLoadMore,
+    this.columnWidthStore = const UserDirectoryColumnWidthStore(),
   });
 
   final String siteUrl;
@@ -184,6 +192,7 @@ class UsersPage extends StatefulWidget {
   final Future<bool> Function(List<UserDirectoryColumn>)? onManageColumns;
   final Future<void> Function()? onRefresh;
   final VoidCallback? onLoadMore;
+  final UserDirectoryColumnWidthStore columnWidthStore;
 
   @override
   State<UsersPage> createState() => _UsersPageState();
@@ -205,6 +214,10 @@ class _UsersPageState extends State<UsersPage> {
   bool _syncingVerticalScroll = false;
   bool _loadMoreCheckScheduled = false;
   bool _loadMoreRequested = false;
+  Map<String, double> _columnWidths = const {};
+  bool _columnWidthsDirty = false;
+  int _columnWidthRestoreGeneration = 0;
+  int _columnWidthInteractionGeneration = 0;
 
   @override
   void initState() {
@@ -212,11 +225,22 @@ class _UsersPageState extends State<UsersPage> {
     _searchController = TextEditingController(text: widget.data.query.search);
     _identityVertical.addListener(_identityScrolled);
     _metricsVertical.addListener(_metricsScrolled);
+    _restoreColumnWidths();
   }
 
   @override
   void didUpdateWidget(UsersPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        !identical(oldWidget.columnWidthStore, widget.columnWidthStore)) {
+      _flushColumnWidths(
+        siteUrl: oldWidget.siteUrl,
+        store: oldWidget.columnWidthStore,
+      );
+      _columnWidths = const {};
+      _columnWidthsDirty = false;
+      _restoreColumnWidths();
+    }
     if (!_searchFocus.hasFocus &&
         widget.data.query.search != _searchController.text) {
       _searchController.value = TextEditingValue(
@@ -246,12 +270,77 @@ class _UsersPageState extends State<UsersPage> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _flushColumnWidths();
     _searchController.dispose();
     _searchFocus.dispose();
     _horizontal.dispose();
     _identityVertical.dispose();
     _metricsVertical.dispose();
     super.dispose();
+  }
+
+  void _restoreColumnWidths() {
+    final restoreGeneration = ++_columnWidthRestoreGeneration;
+    final interactionGeneration = _columnWidthInteractionGeneration;
+    final siteUrl = widget.siteUrl;
+    final store = widget.columnWidthStore;
+    unawaited(() async {
+      final restored = await store.read(siteUrl: siteUrl);
+      if (!mounted ||
+          restoreGeneration != _columnWidthRestoreGeneration ||
+          siteUrl != widget.siteUrl ||
+          !identical(store, widget.columnWidthStore)) {
+        return;
+      }
+      final interacted =
+          interactionGeneration != _columnWidthInteractionGeneration;
+      final resolved = interacted
+          ? {...restored.widths, ..._columnWidths}
+          : restored.widths;
+      setState(() => _columnWidths = Map.unmodifiable(resolved));
+      if (interacted &&
+          !_columnWidthsDirty &&
+          !mapEquals(resolved, restored.widths)) {
+        unawaited(
+          store.write(
+            siteUrl: siteUrl,
+            widths: UserDirectoryColumnWidths(resolved),
+          ),
+        );
+      }
+    }());
+  }
+
+  void _beginColumnResize() {
+    _columnWidthInteractionGeneration++;
+  }
+
+  void _resizeColumn(String key, double width) {
+    if (!width.isFinite || _columnWidths[key] == width) return;
+    _columnWidthInteractionGeneration++;
+    setState(() {
+      _columnWidths = {..._columnWidths, key: width};
+      _columnWidthsDirty = true;
+    });
+  }
+
+  void _finishColumnResize() {
+    _flushColumnWidths();
+  }
+
+  void _flushColumnWidths({
+    String? siteUrl,
+    UserDirectoryColumnWidthStore? store,
+  }) {
+    if (!_columnWidthsDirty) return;
+    final snapshot = UserDirectoryColumnWidths(_columnWidths);
+    _columnWidthsDirty = false;
+    unawaited(
+      (store ?? widget.columnWidthStore).write(
+        siteUrl: siteUrl ?? widget.siteUrl,
+        widths: snapshot,
+      ),
+    );
   }
 
   void _syncVertical(ScrollController source, ScrollController target) {
@@ -562,6 +651,7 @@ class _UsersPageState extends State<UsersPage> {
           rowHeight: _rowHeight,
           headerHeight: _headerHeight,
           metricWidth: _metricWidth,
+          columnWidths: _columnWidths,
           hoveredId: _hoveredId,
           onHover: (id) {
             if (_hoveredId == id) return;
@@ -577,6 +667,9 @@ class _UsersPageState extends State<UsersPage> {
           onPeriodChanged: widget.onPeriodChanged,
           onGroupChanged: widget.onGroupChanged,
           onSort: _sort,
+          onColumnResizeStart: _beginColumnResize,
+          onColumnResize: _resizeColumn,
+          onColumnResizeEnd: _finishColumnResize,
           onChooseColumns: widget.data.updatingColumns ? null : _chooseColumns,
           onRefresh: widget.onRefresh,
         ),
@@ -600,6 +693,7 @@ class _DirectorySurface extends StatelessWidget {
     required this.rowHeight,
     required this.headerHeight,
     required this.metricWidth,
+    required this.columnWidths,
     required this.hoveredId,
     required this.onHover,
     required this.onSearchChanged,
@@ -608,6 +702,9 @@ class _DirectorySurface extends StatelessWidget {
     required this.onPeriodChanged,
     required this.onGroupChanged,
     required this.onSort,
+    required this.onColumnResizeStart,
+    required this.onColumnResize,
+    required this.onColumnResizeEnd,
     required this.onChooseColumns,
     required this.onRefresh,
   });
@@ -625,6 +722,7 @@ class _DirectorySurface extends StatelessWidget {
   final double rowHeight;
   final double headerHeight;
   final double metricWidth;
+  final Map<String, double> columnWidths;
   final int? hoveredId;
   final ValueChanged<int?> onHover;
   final ValueChanged<String> onSearchChanged;
@@ -633,6 +731,9 @@ class _DirectorySurface extends StatelessWidget {
   final ValueChanged<UserDirectoryPeriod>? onPeriodChanged;
   final ValueChanged<String?>? onGroupChanged;
   final ValueChanged<String> onSort;
+  final VoidCallback onColumnResizeStart;
+  final void Function(String key, double width) onColumnResize;
+  final VoidCallback onColumnResizeEnd;
   final VoidCallback? onChooseColumns;
   final Future<void> Function()? onRefresh;
 
@@ -675,9 +776,13 @@ class _DirectorySurface extends StatelessWidget {
             rowHeight: rowHeight,
             headerHeight: headerHeight,
             metricWidth: metricWidth,
+            columnWidths: columnWidths,
             hoveredId: hoveredId,
             onHover: onHover,
             onSort: onSort,
+            onColumnResizeStart: onColumnResizeStart,
+            onColumnResize: onColumnResize,
+            onColumnResizeEnd: onColumnResizeEnd,
           ),
         ),
       ),
@@ -1016,10 +1121,20 @@ class _TableBody extends StatelessWidget {
     required this.rowHeight,
     required this.headerHeight,
     required this.metricWidth,
+    required this.columnWidths,
     required this.hoveredId,
     required this.onHover,
     required this.onSort,
+    required this.onColumnResizeStart,
+    required this.onColumnResize,
+    required this.onColumnResizeEnd,
   });
+
+  static const double _minimumIdentityWidth = 180;
+  static const double _maximumIdentityWidth = 520;
+  static const double _minimumMetricsViewportWidth = 72;
+  static const double _minimumMetricWidth = 88;
+  static const double _maximumMetricWidth = 4096;
 
   final _MatrixPalette palette;
   final UsersPageData data;
@@ -1031,9 +1146,13 @@ class _TableBody extends StatelessWidget {
   final double rowHeight;
   final double headerHeight;
   final double metricWidth;
+  final Map<String, double> columnWidths;
   final int? hoveredId;
   final ValueChanged<int?> onHover;
   final ValueChanged<String> onSort;
+  final VoidCallback onColumnResizeStart;
+  final void Function(String key, double width) onColumnResize;
+  final VoidCallback onColumnResizeEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -1080,7 +1199,22 @@ class _TableBody extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final identityWidth = constraints.maxWidth < 560 ? 220.0 : 258.0;
+        final defaultIdentityWidth = constraints.maxWidth < 560 ? 220.0 : 258.0;
+        final maximumIdentityWidth = math.max(
+          0.0,
+          math.min(
+            _maximumIdentityWidth,
+            constraints.maxWidth - _minimumMetricsViewportWidth,
+          ),
+        );
+        final minimumIdentityWidth = math.min(
+          _minimumIdentityWidth,
+          maximumIdentityWidth,
+        );
+        final identityWidth =
+            (columnWidths[_identityColumnWidthKey] ?? defaultIdentityWidth)
+                .clamp(minimumIdentityWidth, maximumIdentityWidth)
+                .toDouble();
         return DecoratedBox(
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: palette.line)),
@@ -1089,7 +1223,8 @@ class _TableBody extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(
-                width: math.min(identityWidth, constraints.maxWidth - 72),
+                key: const ValueKey('users-identity-column-width'),
+                width: identityWidth,
                 child: Column(
                   children: [
                     _IdentityHeader(
@@ -1100,6 +1235,13 @@ class _TableBody extends StatelessWidget {
                           data.query.ascending,
                       sorted: data.query.order == 'username',
                       onSort: () => onSort('username'),
+                      width: identityWidth,
+                      minimumWidth: minimumIdentityWidth,
+                      maximumWidth: maximumIdentityWidth,
+                      onResizeStart: onColumnResizeStart,
+                      onResize: (width) =>
+                          onColumnResize(_identityColumnWidthKey, width),
+                      onResizeEnd: onColumnResizeEnd,
                     ),
                     Expanded(
                       child: ScrollConfiguration(
@@ -1136,16 +1278,47 @@ class _TableBody extends StatelessWidget {
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, metricConstraints) {
-                    final resolvedMetricWidth = columns.isEmpty
+                    final explicitWidthTotal = columns.fold<double>(0, (
+                      total,
+                      column,
+                    ) {
+                      final stored =
+                          columnWidths[_metricColumnWidthKey(column)];
+                      if (stored == null) return total;
+                      return total +
+                          stored
+                              .clamp(_minimumMetricWidth, _maximumMetricWidth)
+                              .toDouble();
+                    });
+                    final automaticColumnCount = columns
+                        .where(
+                          (column) =>
+                              columnWidths[_metricColumnWidthKey(column)] ==
+                              null,
+                        )
+                        .length;
+                    final automaticWidth = automaticColumnCount == 0
                         ? metricWidth
                         : math.max(
                             metricWidth,
-                            metricConstraints.maxWidth / columns.length,
+                            (metricConstraints.maxWidth - explicitWidthTotal) /
+                                automaticColumnCount,
                           );
+                    final resolvedMetricWidths = [
+                      for (final column in columns)
+                        (columnWidths[_metricColumnWidthKey(column)] ??
+                                automaticWidth)
+                            .clamp(_minimumMetricWidth, _maximumMetricWidth)
+                            .toDouble(),
+                    ];
+                    final resolvedMetricWidthTotal = resolvedMetricWidths
+                        .fold<double>(0, (total, width) => total + width);
                     final contentWidth = math.max(
                       metricConstraints.maxWidth,
-                      columns.length * resolvedMetricWidth,
+                      resolvedMetricWidthTotal,
                     );
+                    final hasFiller =
+                        resolvedMetricWidthTotal < contentWidth - .01;
                     return Scrollbar(
                       controller: horizontal,
                       notificationPredicate: (notification) =>
@@ -1162,16 +1335,36 @@ class _TableBody extends StatelessWidget {
                                 height: headerHeight,
                                 child: Row(
                                   children: [
-                                    for (final column in columns)
+                                    for (
+                                      var index = 0;
+                                      index < columns.length;
+                                      index++
+                                    )
                                       SizedBox(
-                                        width: resolvedMetricWidth,
+                                        key: ValueKey(
+                                          'users-metric-column-width-${columns[index].id}',
+                                        ),
+                                        width: resolvedMetricWidths[index],
                                         child: _MetricHeader(
                                           palette: palette,
-                                          column: column,
+                                          column: columns[index],
                                           sorted:
-                                              data.query.order == column.name,
+                                              data.query.order ==
+                                              columns[index].name,
                                           ascending: data.query.ascending,
-                                          onSort: () => onSort(column.name),
+                                          onSort: () =>
+                                              onSort(columns[index].name),
+                                          width: resolvedMetricWidths[index],
+                                          minimumWidth: _minimumMetricWidth,
+                                          maximumWidth: _maximumMetricWidth,
+                                          onResizeStart: onColumnResizeStart,
+                                          onResize: (width) => onColumnResize(
+                                            _metricColumnWidthKey(
+                                              columns[index],
+                                            ),
+                                            width,
+                                          ),
+                                          onResizeEnd: onColumnResizeEnd,
                                         ),
                                       ),
                                     if (columns.isEmpty)
@@ -1185,6 +1378,19 @@ class _TableBody extends StatelessWidget {
                                                 ?.copyWith(
                                                   color: palette.faint,
                                                 ),
+                                          ),
+                                        ),
+                                      ),
+                                    if (columns.isNotEmpty && hasFiller)
+                                      Expanded(
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: palette.tableHeader,
+                                            border: Border(
+                                              bottom: BorderSide(
+                                                color: palette.line,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -1225,16 +1431,36 @@ class _TableBody extends StatelessWidget {
                                             ),
                                             child: Row(
                                               children: [
-                                                for (final column in columns)
+                                                for (
+                                                  var columnIndex = 0;
+                                                  columnIndex < columns.length;
+                                                  columnIndex++
+                                                )
                                                   SizedBox(
-                                                    width: resolvedMetricWidth,
+                                                    width:
+                                                        resolvedMetricWidths[columnIndex],
                                                     child: _MetricCell(
                                                       palette: palette,
                                                       item: item,
-                                                      column: column,
+                                                      column:
+                                                          columns[columnIndex],
                                                       maximum:
-                                                          maxima[column.id] ??
+                                                          maxima[columns[columnIndex]
+                                                              .id] ??
                                                           0,
+                                                    ),
+                                                  ),
+                                                if (hasFiller)
+                                                  Expanded(
+                                                    child: DecoratedBox(
+                                                      decoration: BoxDecoration(
+                                                        border: Border(
+                                                          bottom: BorderSide(
+                                                            color:
+                                                                palette.rowLine,
+                                                          ),
+                                                        ),
+                                                      ),
                                                     ),
                                                   ),
                                               ],
@@ -1269,6 +1495,12 @@ class _IdentityHeader extends StatelessWidget {
     required this.ascending,
     required this.sorted,
     required this.onSort,
+    required this.width,
+    required this.minimumWidth,
+    required this.maximumWidth,
+    required this.onResizeStart,
+    required this.onResize,
+    required this.onResizeEnd,
   });
 
   final _MatrixPalette palette;
@@ -1276,6 +1508,12 @@ class _IdentityHeader extends StatelessWidget {
   final bool ascending;
   final bool sorted;
   final VoidCallback onSort;
+  final double width;
+  final double minimumWidth;
+  final double maximumWidth;
+  final VoidCallback onResizeStart;
+  final ValueChanged<double> onResize;
+  final VoidCallback onResizeEnd;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -1287,16 +1525,32 @@ class _IdentityHeader extends StatelessWidget {
         bottom: BorderSide(color: palette.line),
       ),
     ),
-    child: Padding(
-      padding: const EdgeInsets.only(left: 12, right: 8),
-      child: _HeaderButton(
-        label: 'User',
-        sorted: sorted,
-        ascending: ascending,
-        palette: palette,
-        onPressed: onSort,
-        alignment: Alignment.centerLeft,
-      ),
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: 12, end: 14),
+          child: _HeaderButton(
+            label: 'User',
+            sorted: sorted,
+            ascending: ascending,
+            palette: palette,
+            onPressed: onSort,
+            alignment: AlignmentDirectional.centerStart,
+          ),
+        ),
+        _ColumnResizeHandle(
+          resizeKey: 'users-resize-identity',
+          semanticsLabel: 'Resize User column',
+          palette: palette,
+          width: width,
+          minimumWidth: minimumWidth,
+          maximumWidth: maximumWidth,
+          onResizeStart: onResizeStart,
+          onResize: onResize,
+          onResizeEnd: onResizeEnd,
+        ),
+      ],
     ),
   );
 }
@@ -1308,6 +1562,12 @@ class _MetricHeader extends StatelessWidget {
     required this.sorted,
     required this.ascending,
     required this.onSort,
+    required this.width,
+    required this.minimumWidth,
+    required this.maximumWidth,
+    required this.onResizeStart,
+    required this.onResize,
+    required this.onResizeEnd,
   });
 
   final _MatrixPalette palette;
@@ -1315,6 +1575,12 @@ class _MetricHeader extends StatelessWidget {
   final bool sorted;
   final bool ascending;
   final VoidCallback onSort;
+  final double width;
+  final double minimumWidth;
+  final double maximumWidth;
+  final VoidCallback onResizeStart;
+  final ValueChanged<double> onResize;
+  final VoidCallback onResizeEnd;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -1325,18 +1591,238 @@ class _MetricHeader extends StatelessWidget {
         bottom: BorderSide(color: palette.line),
       ),
     ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: _HeaderButton(
-        label: column.label,
-        sorted: sorted,
-        ascending: ascending,
-        palette: palette,
-        onPressed: onSort,
-        alignment: Alignment.centerRight,
-      ),
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: 8, end: 14),
+          child: _HeaderButton(
+            label: column.label,
+            sorted: sorted,
+            ascending: ascending,
+            palette: palette,
+            onPressed: onSort,
+            alignment: AlignmentDirectional.centerEnd,
+          ),
+        ),
+        _ColumnResizeHandle(
+          key: ValueKey('users-resize-${column.id}'),
+          resizeKey: 'users-resize-${column.id}',
+          semanticsLabel: 'Resize ${column.label} column',
+          palette: palette,
+          width: width,
+          minimumWidth: minimumWidth,
+          maximumWidth: maximumWidth,
+          onResizeStart: onResizeStart,
+          onResize: onResize,
+          onResizeEnd: onResizeEnd,
+        ),
+      ],
     ),
   );
+}
+
+class _ColumnResizeHandle extends StatefulWidget {
+  const _ColumnResizeHandle({
+    super.key,
+    required this.resizeKey,
+    required this.semanticsLabel,
+    required this.palette,
+    required this.width,
+    required this.minimumWidth,
+    required this.maximumWidth,
+    required this.onResizeStart,
+    required this.onResize,
+    required this.onResizeEnd,
+  });
+
+  static const double keyboardStep = 16;
+
+  final String resizeKey;
+  final String semanticsLabel;
+  final _MatrixPalette palette;
+  final double width;
+  final double minimumWidth;
+  final double maximumWidth;
+  final VoidCallback onResizeStart;
+  final ValueChanged<double> onResize;
+  final VoidCallback onResizeEnd;
+
+  @override
+  State<_ColumnResizeHandle> createState() => _ColumnResizeHandleState();
+}
+
+class _ColumnResizeHandleState extends State<_ColumnResizeHandle> {
+  late final FocusNode _focus = FocusNode(
+    debugLabel: '${widget.resizeKey} column resize',
+  );
+  double? _dragWidth;
+  double? _keyboardWidth;
+  bool _dragging = false;
+  bool _focused = false;
+  bool _hovered = false;
+
+  double _clamp(double width) =>
+      width.clamp(widget.minimumWidth, widget.maximumWidth).toDouble();
+
+  double _widthDelta(double horizontalDelta) =>
+      Directionality.of(context) == TextDirection.ltr
+      ? horizontalDelta
+      : -horizontalDelta;
+
+  void _startDrag(DragStartDetails _) {
+    widget.onResizeStart();
+    _dragWidth = widget.width;
+    _focus.requestFocus();
+    setState(() => _dragging = true);
+  }
+
+  void _updateDrag(DragUpdateDetails details) {
+    final next = _clamp(
+      (_dragWidth ?? widget.width) + _widthDelta(details.delta.dx),
+    );
+    _dragWidth = next;
+    if (next != widget.width) widget.onResize(next);
+  }
+
+  void _endDrag() {
+    _dragWidth = null;
+    if (_dragging) setState(() => _dragging = false);
+    widget.onResizeEnd();
+    _focus.unfocus();
+  }
+
+  void _resizeOnce(double delta) {
+    final next = _clamp(widget.width + delta);
+    if (next == widget.width) return;
+    widget.onResizeStart();
+    widget.onResize(next);
+    widget.onResizeEnd();
+  }
+
+  KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
+    final horizontalDelta = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowLeft => -_ColumnResizeHandle.keyboardStep,
+      LogicalKeyboardKey.arrowRight => _ColumnResizeHandle.keyboardStep,
+      _ => null,
+    };
+    if (horizontalDelta == null) return KeyEventResult.ignored;
+
+    final isPress = event is KeyDownEvent || event is KeyRepeatEvent;
+    final keyboard = HardwareKeyboard.instance;
+    if (isPress &&
+        (keyboard.isAltPressed ||
+            keyboard.isControlPressed ||
+            keyboard.isMetaPressed ||
+            keyboard.isShiftPressed)) {
+      _focus.unfocus();
+      return KeyEventResult.ignored;
+    }
+
+    if (isPress) {
+      final next = _clamp(
+        (_keyboardWidth ?? widget.width) + _widthDelta(horizontalDelta),
+      );
+      if (next != (_keyboardWidth ?? widget.width)) {
+        if (_keyboardWidth == null) widget.onResizeStart();
+        _keyboardWidth = next;
+        widget.onResize(next);
+      }
+    } else if (event is KeyUpEvent) {
+      _commitKeyboardResize();
+    }
+    return KeyEventResult.handled;
+  }
+
+  void _commitKeyboardResize() {
+    if (_keyboardWidth == null) return;
+    _keyboardWidth = null;
+    widget.onResizeEnd();
+  }
+
+  void _focusChanged(bool focused) {
+    if (_focused == focused) return;
+    if (!focused) _commitKeyboardResize();
+    setState(() => _focused = focused);
+  }
+
+  void _hoverChanged(bool hovered) {
+    if (_hovered == hovered) return;
+    setState(() => _hovered = hovered);
+  }
+
+  @override
+  void dispose() {
+    _commitKeyboardResize();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final increasedWidth = _clamp(
+      widget.width + _ColumnResizeHandle.keyboardStep,
+    );
+    final decreasedWidth = _clamp(
+      widget.width - _ColumnResizeHandle.keyboardStep,
+    );
+    final active = _dragging || _focused || _hovered;
+    return PositionedDirectional(
+      end: 0,
+      top: 0,
+      bottom: 0,
+      width: 12,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeColumn,
+        onEnter: (_) => _hoverChanged(true),
+        onExit: (_) => _hoverChanged(false),
+        child: Focus(
+          key: ValueKey('${widget.resizeKey}-focus'),
+          focusNode: _focus,
+          onFocusChange: _focusChanged,
+          onKeyEvent: _handleKey,
+          child: Semantics(
+            key: ValueKey('${widget.resizeKey}-semantics'),
+            container: true,
+            focusable: true,
+            focused: _focused,
+            slider: true,
+            label: widget.semanticsLabel,
+            value: '${widget.width.round()} pixels wide',
+            increasedValue: increasedWidth == widget.width
+                ? null
+                : '${increasedWidth.round()} pixels wide',
+            decreasedValue: decreasedWidth == widget.width
+                ? null
+                : '${decreasedWidth.round()} pixels wide',
+            onIncrease: increasedWidth == widget.width
+                ? null
+                : () => _resizeOnce(_ColumnResizeHandle.keyboardStep),
+            onDecrease: decreasedWidth == widget.width
+                ? null
+                : () => _resizeOnce(-_ColumnResizeHandle.keyboardStep),
+            child: GestureDetector(
+              key: ValueKey('${widget.resizeKey}-handle'),
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragStart: _startDrag,
+              onHorizontalDragUpdate: _updateDrag,
+              onHorizontalDragEnd: (_) => _endDrag(),
+              onHorizontalDragCancel: _endDrag,
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 100),
+                  width: active ? 2 : 1,
+                  height: double.infinity,
+                  color: active ? widget.palette.green : Colors.transparent,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _HeaderButton extends StatelessWidget {
@@ -1354,7 +1840,7 @@ class _HeaderButton extends StatelessWidget {
   final bool ascending;
   final _MatrixPalette palette;
   final VoidCallback onPressed;
-  final Alignment alignment;
+  final AlignmentGeometry alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -1376,7 +1862,9 @@ class _HeaderButton extends StatelessWidget {
                   label,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  textAlign: alignment == Alignment.centerRight
+                  textAlign:
+                      alignment == Alignment.centerRight ||
+                          alignment == AlignmentDirectional.centerEnd
                       ? TextAlign.right
                       : TextAlign.left,
                   style: theme.textTheme.labelSmall?.copyWith(
