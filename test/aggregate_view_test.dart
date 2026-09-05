@@ -327,6 +327,44 @@ void main() {
         find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
         findsOneWidget,
       );
+      final signedOutUrl = forumUrls[2];
+      final signedOutTarget = find.byKey(
+        ValueKey('aggregate-filter-focus-$signedOutUrl'),
+      );
+      final signedOutRow = find.byKey(
+        ValueKey('aggregate-filter-row-$signedOutUrl'),
+      );
+      expect(tester.widget<InkWell>(signedOutTarget).onTap, isNull);
+      expect(
+        tester
+            .widget<Checkbox>(
+              find.byKey(ValueKey('aggregate-filter-$signedOutUrl')),
+            )
+            .onChanged,
+        isNull,
+      );
+      final signedOutTitle = find.descendant(
+        of: signedOutRow,
+        matching: find.text('Signed out one'),
+      );
+      final disabledColor = Theme.of(
+        tester.element(signedOutTitle),
+      ).disabledColor;
+      expect(tester.widget<Text>(signedOutTitle).style?.color, disabledColor);
+      expect(
+        tester
+            .widget<DIcon>(
+              find.descendant(of: signedOutRow, matching: find.byType(DIcon)),
+            )
+            .color,
+        disabledColor,
+      );
+      await tester.tap(signedOutTarget);
+      await tester.pump();
+      expect(
+        find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey('aggregate-filter-included-count')),
         findsNothing,
