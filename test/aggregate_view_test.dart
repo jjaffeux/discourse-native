@@ -302,6 +302,26 @@ void main() {
         find.textContaining('Select forums, then edit one topic filter'),
         findsNothing,
       );
+      final forumControls = find.byKey(
+        const ValueKey('aggregate-filter-forum-controls'),
+      );
+      final forumList = find.byKey(
+        const ValueKey('aggregate-filter-forum-list'),
+      );
+      expect(
+        tester.getBottomLeft(forumControls).dy,
+        lessThan(tester.getTopLeft(forumList).dy),
+      );
+      expect(
+        tester.getTopRight(forumControls).dx,
+        lessThanOrEqualTo(
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey('aggregate-filter-editor-panel')),
+              )
+              .dx,
+        ),
+      );
       expect(find.byType(TopicFilterInput), findsOneWidget);
       expect(
         find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
@@ -512,6 +532,20 @@ void main() {
       findsNothing,
     );
     expect(find.byType(TopicFilterInput), findsOneWidget);
+    expect(
+      tester
+          .getBottomLeft(
+            find.byKey(const ValueKey('aggregate-filter-forum-controls')),
+          )
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey('aggregate-filter-forum-list')),
+            )
+            .dy,
+      ),
+    );
     final field = find.byKey(
       ValueKey('aggregate-query-${fixture.forumUrls.first}'),
     );
