@@ -178,6 +178,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Matrix keeps the scrollbar out of the pinned user column', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const UsersPage(
+        siteUrl: 'https://example.com',
+        data: UsersPageData(
+          items: [_sam, _hawk],
+          columns: [_likes, _replies, _days],
+          totalRows: 2,
+          loaded: true,
+        ),
+      ),
+      theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+    );
+
+    final identity = tester.widget<ListView>(
+      find.byKey(const PageStorageKey<String>('users-identity-scroll')),
+    );
+    final metrics = tester.widget<ListView>(
+      find.byKey(const PageStorageKey<String>('users-metrics-scroll')),
+    );
+    final scrollbars = tester.widgetList<Scrollbar>(find.byType(Scrollbar));
+
+    expect(
+      scrollbars.where(
+        (scrollbar) => identical(scrollbar.controller, identity.controller),
+      ),
+      isEmpty,
+    );
+    expect(
+      scrollbars.where(
+        (scrollbar) => identical(scrollbar.controller, metrics.controller),
+      ),
+      hasLength(1),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Matrix remains usable in a narrow content lane', (tester) async {
     await _pump(
       tester,
@@ -234,13 +274,14 @@ Future<void> _pump(
   WidgetTester tester,
   Widget child, {
   Size size = const Size(1000, 760),
+  ThemeData? theme,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light,
+      theme: theme ?? AppTheme.light,
       home: Scaffold(body: child),
     ),
   );
