@@ -45,8 +45,9 @@ Flutter hot reload does not rebuild the native bundle.
 
 ## Connecting a site
 
-The `+` in the rail resolves whatever you type to a real Discourse. The lookup
-mirrors DiscourseMobile's `Site.fromTerm` (`js/site.js` in that repo):
+The dashed `+` at the end of the rail's scrolling forum list resolves whatever
+you type to a real Discourse. The lookup mirrors DiscourseMobile's
+`Site.fromTerm` (`js/site.js` in that repo):
 
 1. Bare hosts get `https://`. Explicit `http://` is accepted only for loopback
    development hosts; remote sites must use HTTPS.
