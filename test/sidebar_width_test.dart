@@ -110,6 +110,11 @@ void main() {
         );
         final url = find.byKey(const ValueKey('forum-identity-url'));
         final headerRect = tester.getRect(header);
+        final cardRect = tester.getRect(
+          find.byKey(const ValueKey('forum-identity-button')),
+        );
+        expect(cardRect.left, rowRect.left);
+        expect(cardRect.right, rowRect.right);
         expect(tester.widget<Text>(url).data, site.url);
         expect(tester.getRect(name).bottom, lessThan(tester.getRect(url).top));
         for (final label in [name, url]) {
