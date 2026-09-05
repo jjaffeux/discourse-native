@@ -503,9 +503,48 @@ class _UsersPageState extends State<UsersPage> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, updateDialog) {
           final canSave = draft.any((column) => column.enabled);
+          final enabledCount = draft.where((column) => column.enabled).length;
+          final theme = Theme.of(context);
+          final showEnabledCount = MediaQuery.sizeOf(context).width >= 480;
           return AlertDialog(
-            title: const Text('Directory columns'),
-            contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+            key: const ValueKey('users-manage-columns-dialog'),
+            titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Directory columns',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (showEnabledCount) ...[
+                  const SizedBox(width: 12),
+                  Semantics(
+                    liveRegion: true,
+                    child: Container(
+                      key: const ValueKey('users-enabled-columns-count'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '$enabledCount shown',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             content: SizedBox(
               width: 440,
               child: ConstrainedBox(
@@ -514,26 +553,49 @@ class _UsersPageState extends State<UsersPage> {
                   shrinkWrap: true,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: Text(
                         'Choose which columns everyone sees and arrange their order.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
-                    for (var index = 0; index < draft.length; index++)
+                    for (var index = 0; index < draft.length; index++) ...[
+                      if (index > 0) const Divider(height: 1),
                       CheckboxListTile(
                         key: ValueKey('users-manage-column-${draft[index].id}'),
                         value: draft[index].enabled,
                         dense: true,
+                        visualDensity: VisualDensity.compact,
+                        minTileHeight: 48,
+                        minVerticalPadding: 6,
+                        horizontalTitleGap: 12,
+                        contentPadding: EdgeInsets.zero,
                         controlAffinity: ListTileControlAffinity.leading,
-                        title: Text(draft[index].label),
-                        subtitle: Text(switch (draft[index].type) {
-                          UserDirectoryColumnType.automatic => 'Activity',
-                          UserDirectoryColumnType.userField => 'User field',
-                          UserDirectoryColumnType.plugin => 'Plugin',
-                        }),
+                        titleAlignment: ListTileTitleAlignment.center,
+                        title: Text(
+                          draft[index].label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                          ),
+                        ),
+                        subtitle: Text(
+                          switch (draft[index].type) {
+                            UserDirectoryColumnType.automatic => 'Activity',
+                            UserDirectoryColumnType.userField => 'User field',
+                            UserDirectoryColumnType.plugin => 'Plugin',
+                          },
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            height: 1.2,
+                          ),
+                        ),
                         secondary: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -559,9 +621,9 @@ class _UsersPageState extends State<UsersPage> {
                                       ];
                                     }),
                               size: DButtonSize.small,
+                              variant: DButtonVariant.transparent,
                               icon: const DIcon(DIcons.arrowUp, size: 13),
                             ),
-                            const SizedBox(width: 6),
                             DButton.iconOnly(
                               key: ValueKey(
                                 'users-column-down-${draft[index].id}',
@@ -584,6 +646,7 @@ class _UsersPageState extends State<UsersPage> {
                                       ];
                                     }),
                               size: DButtonSize.small,
+                              variant: DButtonVariant.transparent,
                               icon: Transform.rotate(
                                 angle: math.pi,
                                 child: const DIcon(DIcons.arrowUp, size: 13),
@@ -597,10 +660,12 @@ class _UsersPageState extends State<UsersPage> {
                           );
                         }),
                       ),
+                    ],
                   ],
                 ),
               ),
             ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             actions: [
               DButton(
                 onPressed: () => Navigator.pop(dialogContext),
@@ -612,7 +677,7 @@ class _UsersPageState extends State<UsersPage> {
                 onPressed: canSave
                     ? () => Navigator.pop(dialogContext, draft)
                     : null,
-                label: const Text('Save'),
+                label: const Text('Save changes'),
                 variant: DButtonVariant.primary,
               ),
             ],
