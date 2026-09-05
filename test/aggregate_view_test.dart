@@ -298,6 +298,10 @@ void main() {
         find.byKey(const ValueKey('aggregate-filter-wide-layout')),
         findsOneWidget,
       );
+      expect(
+        find.textContaining('Select forums, then edit one topic filter'),
+        findsNothing,
+      );
       expect(find.byType(TopicFilterInput), findsOneWidget);
       expect(
         find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
