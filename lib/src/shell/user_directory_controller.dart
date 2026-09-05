@@ -60,7 +60,9 @@ final class UserDirectoryState {
   factory UserDirectoryState({
     List<UserDirectoryItem> items = const [],
     List<UserDirectoryColumn> columns = const [],
+    List<UserDirectoryColumn> availableColumns = const [],
     List<String> groupNames = const [],
+    bool canManageColumns = false,
     int totalRows = 0,
     int nextPage = 0,
     DateTime? lastUpdatedAt,
@@ -73,7 +75,9 @@ final class UserDirectoryState {
   }) => UserDirectoryState._(
     items: List.unmodifiable(items),
     columns: List.unmodifiable(columns),
+    availableColumns: List.unmodifiable(availableColumns),
     groupNames: List.unmodifiable(groupNames),
+    canManageColumns: canManageColumns,
     totalRows: totalRows,
     nextPage: nextPage,
     lastUpdatedAt: lastUpdatedAt,
@@ -90,7 +94,9 @@ final class UserDirectoryState {
   const UserDirectoryState._({
     this.items = const [],
     this.columns = const [],
+    this.availableColumns = const [],
     this.groupNames = const [],
+    this.canManageColumns = false,
     this.totalRows = 0,
     this.nextPage = 0,
     this.lastUpdatedAt,
@@ -104,7 +110,9 @@ final class UserDirectoryState {
 
   final List<UserDirectoryItem> items;
   final List<UserDirectoryColumn> columns;
+  final List<UserDirectoryColumn> availableColumns;
   final List<String> groupNames;
+  final bool canManageColumns;
   final int totalRows;
   final int nextPage;
   final DateTime? lastUpdatedAt;
@@ -136,6 +144,7 @@ final class UserDirectoryController extends FrameSafeNotifier {
   final Map<String, Future<UserDirectoryMetadata>> _metadataLoads = {};
   final Map<_DirectoryKey, Object> _requests = {};
   final Map<_DirectoryKey, SiteLease> _leases = {};
+  final Map<String, Object> _columnUpdates = {};
 
   UserDirectoryQuery queryFor(String siteUrl) =>
       _queries[siteUrl] ?? const UserDirectoryQuery();
@@ -149,9 +158,14 @@ final class UserDirectoryController extends FrameSafeNotifier {
         ? const UserDirectoryState.empty()
         : UserDirectoryState(
             columns: metadata.columns,
+            availableColumns: metadata.availableColumns,
             groupNames: metadata.groupNames,
+            canManageColumns: metadata.canManageColumns,
           );
   }
+
+  bool updatingColumnsFor(String siteUrl) =>
+      _columnUpdates.containsKey(siteUrl);
 
   bool replaceQuery(String siteUrl, UserDirectoryQuery query) {
     final normalized = query.copyWith(
@@ -186,7 +200,9 @@ final class UserDirectoryController extends FrameSafeNotifier {
     _states[key] = UserDirectoryState(
       items: held.items,
       columns: held.columns,
+      availableColumns: held.availableColumns,
       groupNames: held.groupNames,
+      canManageColumns: held.canManageColumns,
       totalRows: held.totalRows,
       nextPage: held.nextPage,
       lastUpdatedAt: held.lastUpdatedAt,
@@ -227,7 +243,9 @@ final class UserDirectoryController extends FrameSafeNotifier {
         _states[key] = UserDirectoryState(
           items: rows,
           columns: metadata.columns,
+          availableColumns: metadata.availableColumns,
           groupNames: metadata.groupNames,
+          canManageColumns: metadata.canManageColumns,
           totalRows: page.totalRows,
           nextPage: requestedPage + 1,
           lastUpdatedAt: page.lastUpdatedAt,
@@ -256,7 +274,9 @@ final class UserDirectoryController extends FrameSafeNotifier {
         _states[key] = UserDirectoryState(
           items: current.items,
           columns: current.columns,
+          availableColumns: current.availableColumns,
           groupNames: current.groupNames,
+          canManageColumns: current.canManageColumns,
           totalRows: current.totalRows,
           nextPage: current.nextPage,
           lastUpdatedAt: current.lastUpdatedAt,
@@ -277,6 +297,67 @@ final class UserDirectoryController extends FrameSafeNotifier {
     }
   }
 
+  Future<bool> updateColumns(
+    DiscourseInstance instance,
+    List<UserDirectoryColumn> columns,
+  ) async {
+    if (isDisposed ||
+        instance.user?.staff != true ||
+        _columnUpdates.containsKey(instance.url)) {
+      return false;
+    }
+    final token = Object();
+    final lease = lifecycle.capture(instance.url);
+    _columnUpdates[instance.url] = token;
+    notifySafely();
+    bool isCurrent() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_columnUpdates[instance.url], token);
+
+    try {
+      final apiKey = await credentials.apiKeyFor(instance.url);
+      if (!isCurrent() || apiKey == null) return false;
+      final clientId = await credentials.clientId();
+      if (!isCurrent()) return false;
+      await api.updateColumns(
+        siteUrl: instance.url,
+        apiKey: apiKey,
+        clientId: clientId,
+        columns: columns,
+      );
+      if (!isCurrent()) return false;
+
+      _metadata.remove(instance.url);
+      for (final key
+          in _requests.keys
+              .where((key) => key.siteUrl == instance.url)
+              .toList()) {
+        _requests.remove(key);
+        _leases.remove(key);
+      }
+      await load(instance, refresh: true);
+      return isCurrent();
+    } catch (error, stackTrace) {
+      if (isCurrent()) {
+        DiagnosticsSink.current.reportError(
+          error,
+          stackTrace,
+          operation: 'users.directory.columns.update',
+          source: 'users-directory',
+          handled: true,
+          degraded: true,
+        );
+      }
+      return false;
+    } finally {
+      if (!isDisposed && identical(_columnUpdates[instance.url], token)) {
+        _columnUpdates.remove(instance.url);
+        notifySafely();
+      }
+    }
+  }
+
   Future<UserDirectoryMetadata> _ensureMetadata(
     DiscourseInstance instance,
     _DirectoryCredentials auth,
@@ -291,6 +372,7 @@ final class UserDirectoryController extends FrameSafeNotifier {
       apiKey: auth.apiKey,
       clientId: auth.clientId,
       fallbackGroupNames: instance.user?.groups ?? const [],
+      canManageColumns: instance.user?.staff == true,
     );
     _metadataLoads[instance.url] = future;
     try {
@@ -337,6 +419,7 @@ final class UserDirectoryController extends FrameSafeNotifier {
     _metadataLoads.remove(siteUrl)?.ignore();
     _requests.removeWhere((key, _) => key.siteUrl == siteUrl);
     _leases.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _columnUpdates.remove(siteUrl);
     notifySafely();
   }
 
@@ -348,6 +431,7 @@ final class UserDirectoryController extends FrameSafeNotifier {
     _metadataLoads.clear();
     _requests.clear();
     _leases.clear();
+    _columnUpdates.clear();
     super.dispose();
   }
 }

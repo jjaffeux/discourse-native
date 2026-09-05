@@ -21,7 +21,10 @@ final class UsersPageData {
   const UsersPageData({
     this.items = const [],
     this.columns = const [],
+    this.availableColumns = const [],
     this.groupNames = const [],
+    this.canManageColumns = false,
+    this.updatingColumns = false,
     this.currentUsername,
     this.totalRows = 0,
     this.lastUpdatedAt,
@@ -36,7 +39,10 @@ final class UsersPageData {
 
   final List<UserDirectoryItem> items;
   final List<UserDirectoryColumn> columns;
+  final List<UserDirectoryColumn> availableColumns;
   final List<String> groupNames;
+  final bool canManageColumns;
+  final bool updatingColumns;
   final String? currentUsername;
   final int totalRows;
   final DateTime? lastUpdatedAt;
@@ -117,7 +123,12 @@ class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
           data: UsersPageData(
             items: state.items,
             columns: state.columns,
+            availableColumns: state.availableColumns,
             groupNames: state.groupNames,
+            canManageColumns: state.canManageColumns,
+            updatingColumns: shell.userDirectory.updatingColumnsFor(
+              widget.siteUrl,
+            ),
             currentUsername: instance?.user?.username,
             totalRows: state.totalRows,
             lastUpdatedAt: state.lastUpdatedAt,
@@ -138,6 +149,10 @@ class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
           ),
           onSortChanged: (order, ascending) =>
               replaceQuery(query.copyWith(order: order, ascending: ascending)),
+          onManageColumns: state.canManageColumns && instance != null
+              ? (columns) =>
+                    shell.userDirectory.updateColumns(instance, columns)
+              : null,
           onRefresh: reload,
           onLoadMore: () => unawaited(reload(refresh: false, more: true)),
         );
@@ -155,6 +170,7 @@ class UsersPage extends StatefulWidget {
     this.onSearchChanged,
     this.onGroupChanged,
     this.onSortChanged,
+    this.onManageColumns,
     this.onRefresh,
     this.onLoadMore,
   });
@@ -165,6 +181,7 @@ class UsersPage extends StatefulWidget {
   final ValueChanged<String>? onSearchChanged;
   final ValueChanged<String?>? onGroupChanged;
   final void Function(String order, bool ascending)? onSortChanged;
+  final Future<bool> Function(List<UserDirectoryColumn>)? onManageColumns;
   final Future<void> Function()? onRefresh;
   final VoidCallback? onLoadMore;
 
@@ -321,6 +338,16 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   Future<void> _chooseColumns() async {
+    if (widget.data.canManageColumns &&
+        widget.data.availableColumns.isNotEmpty &&
+        widget.onManageColumns != null) {
+      await _manageColumns();
+      return;
+    }
+    await _chooseVisibleColumns();
+  }
+
+  Future<void> _chooseVisibleColumns() async {
     final draft = Set<int>.from(
       _visibleColumnIds ?? widget.data.columns.map((column) => column.id),
     );
@@ -379,6 +406,139 @@ class _UsersPageState extends State<UsersPage> {
     setState(() => _visibleColumnIds = result);
   }
 
+  Future<void> _manageColumns() async {
+    var draft = [...widget.data.availableColumns]
+      ..sort((a, b) => a.position.compareTo(b.position));
+    final result = await showDialog<List<UserDirectoryColumn>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, updateDialog) {
+          final canSave = draft.any((column) => column.enabled);
+          return AlertDialog(
+            title: const Text('Directory columns'),
+            contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+            content: SizedBox(
+              width: 440,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 520),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: Text(
+                        'Choose which columns everyone sees and arrange their order.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    for (var index = 0; index < draft.length; index++)
+                      CheckboxListTile(
+                        key: ValueKey('users-manage-column-${draft[index].id}'),
+                        value: draft[index].enabled,
+                        dense: true,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(draft[index].label),
+                        subtitle: Text(switch (draft[index].type) {
+                          UserDirectoryColumnType.automatic => 'Activity',
+                          UserDirectoryColumnType.userField => 'User field',
+                          UserDirectoryColumnType.plugin => 'Plugin',
+                        }),
+                        secondary: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            DButton.iconOnly(
+                              key: ValueKey(
+                                'users-column-up-${draft[index].id}',
+                              ),
+                              tooltip: 'Move ${draft[index].label} up',
+                              onPressed: index == 0
+                                  ? null
+                                  : () => updateDialog(() {
+                                      final moved = draft.removeAt(index);
+                                      draft.insert(index - 1, moved);
+                                      draft = [
+                                        for (
+                                          var draftIndex = 0;
+                                          draftIndex < draft.length;
+                                          draftIndex++
+                                        )
+                                          draft[draftIndex].copyWith(
+                                            position: draftIndex + 1,
+                                          ),
+                                      ];
+                                    }),
+                              size: DButtonSize.small,
+                              icon: const DIcon(DIcons.arrowUp, size: 13),
+                            ),
+                            const SizedBox(width: 6),
+                            DButton.iconOnly(
+                              key: ValueKey(
+                                'users-column-down-${draft[index].id}',
+                              ),
+                              tooltip: 'Move ${draft[index].label} down',
+                              onPressed: index == draft.length - 1
+                                  ? null
+                                  : () => updateDialog(() {
+                                      final moved = draft.removeAt(index);
+                                      draft.insert(index + 1, moved);
+                                      draft = [
+                                        for (
+                                          var draftIndex = 0;
+                                          draftIndex < draft.length;
+                                          draftIndex++
+                                        )
+                                          draft[draftIndex].copyWith(
+                                            position: draftIndex + 1,
+                                          ),
+                                      ];
+                                    }),
+                              size: DButtonSize.small,
+                              icon: Transform.rotate(
+                                angle: math.pi,
+                                child: const DIcon(DIcons.arrowUp, size: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                        onChanged: (enabled) => updateDialog(() {
+                          draft[index] = draft[index].copyWith(
+                            enabled: enabled ?? false,
+                          );
+                        }),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              DButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                label: const Text('Cancel'),
+                variant: DButtonVariant.transparent,
+              ),
+              DButton(
+                key: const ValueKey('users-save-columns'),
+                onPressed: canSave
+                    ? () => Navigator.pop(dialogContext, draft)
+                    : null,
+                label: const Text('Save'),
+                variant: DButtonVariant.primary,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (!mounted || result == null) return;
+    final saved = await widget.onManageColumns!(List.unmodifiable(result));
+    if (!mounted || saved) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Couldn't update directory columns.")),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = _MatrixPalette.of(context);
@@ -421,7 +581,7 @@ class _UsersPageState extends State<UsersPage> {
             widget.data.query.order,
             !widget.data.query.ascending,
           ),
-          onChooseColumns: _chooseColumns,
+          onChooseColumns: widget.data.updatingColumns ? null : _chooseColumns,
           onRefresh: widget.onRefresh,
         ),
       ),
@@ -479,7 +639,7 @@ class _DirectorySurface extends StatelessWidget {
   final ValueChanged<String?>? onGroupChanged;
   final ValueChanged<String> onSort;
   final VoidCallback onDirectionChanged;
-  final VoidCallback onChooseColumns;
+  final VoidCallback? onChooseColumns;
   final Future<void> Function()? onRefresh;
 
   @override
@@ -504,7 +664,7 @@ class _DirectorySurface extends StatelessWidget {
         onChooseColumns: onChooseColumns,
         onRefresh: onRefresh,
       ),
-      if (data.loading || data.loadingMore)
+      if (data.loading || data.loadingMore || data.updatingColumns)
         const LinearProgressIndicator(
           key: ValueKey('users-directory-progress'),
           minHeight: 2,
@@ -565,7 +725,7 @@ class _DirectoryToolbar extends StatelessWidget {
   final ValueChanged<String?>? onGroupChanged;
   final ValueChanged<String> onSort;
   final VoidCallback onDirectionChanged;
-  final VoidCallback onChooseColumns;
+  final VoidCallback? onChooseColumns;
   final Future<void> Function()? onRefresh;
 
   @override

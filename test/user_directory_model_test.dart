@@ -94,4 +94,51 @@ void main() {
     });
     expect(metadata.columns.single.name, 'post_count');
   });
+
+  test('decodes the complete editable column configuration', () {
+    final metadata = UserDirectoryMetadata.fromColumns(const {
+      'directory_columns': [
+        {
+          'id': 1,
+          'name': 'likes_received',
+          'type': 'automatic',
+          'position': 1,
+          'enabled': true,
+        },
+        {
+          'id': 9,
+          'name': 'solutions',
+          'type': 'plugin',
+          'position': 2,
+          'enabled': false,
+        },
+        {
+          'id': 14,
+          'name': 'GitHub Username',
+          'type': 'user_field',
+          'position': 3,
+          'user_field_id': 42,
+          'enabled': false,
+        },
+      ],
+    }, editable: true);
+
+    expect(metadata.canManageColumns, isTrue);
+    expect(metadata.columns.map((column) => column.name), ['likes_received']);
+    expect(metadata.availableColumns.map((column) => column.name), [
+      'likes_received',
+      'solutions',
+      'GitHub Username',
+    ]);
+    final configured = metadata.availableColumns.last.copyWith(
+      enabled: true,
+      position: 2,
+    );
+    expect(configured.userFieldId, 42);
+    expect(configured.toConfigurationWire(), {
+      'id': 14,
+      'enabled': true,
+      'position': 2,
+    });
+  });
 }

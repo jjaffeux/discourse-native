@@ -22,6 +22,21 @@ const _days = UserDirectoryColumn(
   type: UserDirectoryColumnType.automatic,
   position: 3,
 );
+const _solutions = UserDirectoryColumn(
+  id: 9,
+  name: 'solutions',
+  type: UserDirectoryColumnType.plugin,
+  position: 4,
+  enabled: false,
+);
+const _github = UserDirectoryColumn(
+  id: 14,
+  name: 'GitHub Username',
+  type: UserDirectoryColumnType.userField,
+  position: 5,
+  userFieldId: 42,
+  enabled: false,
+);
 
 const _sam = UserDirectoryItem(
   id: 1,
@@ -174,6 +189,60 @@ void main() {
       await tester.pump();
       expect(refreshes, 1);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'staff column editor includes disabled plugin and user-field columns',
+    (tester) async {
+      List<UserDirectoryColumn>? saved;
+      await _pump(
+        tester,
+        UsersPage(
+          siteUrl: 'https://example.com',
+          data: const UsersPageData(
+            items: [_sam],
+            columns: [_likes],
+            availableColumns: [_likes, _solutions, _github],
+            canManageColumns: true,
+            loaded: true,
+          ),
+          onManageColumns: (columns) async {
+            saved = columns;
+            return true;
+          },
+        ),
+        size: const Size(1100, 820),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('users-columns')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Directory columns'), findsOneWidget);
+      expect(find.text('Solutions'), findsOneWidget);
+      expect(find.text('GitHub Username'), findsOneWidget);
+      expect(
+        tester
+            .widget<CheckboxListTile>(
+              find.byKey(const ValueKey('users-manage-column-9')),
+            )
+            .value,
+        isFalse,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('users-manage-column-9')));
+      await tester.tap(find.byKey(const ValueKey('users-column-up-14')));
+      await tester.tap(find.byKey(const ValueKey('users-save-columns')));
+      await tester.pumpAndSettle();
+
+      expect(saved, isNotNull);
+      expect(saved!.map((column) => column.name), [
+        'likes_received',
+        'GitHub Username',
+        'solutions',
+      ]);
+      expect(saved!.last.enabled, isTrue);
+      expect(saved!.map((column) => column.position), [1, 2, 3]);
     },
   );
 
