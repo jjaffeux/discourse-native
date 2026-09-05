@@ -595,6 +595,7 @@ class FakeDiscourseApi
     this.customEmojiGate,
     this.userSearches = const {},
     this.filterTagSearches = const {},
+    this.filterGroupSearches = const {},
     this.hashtagSearches = const {},
     this.hashtagSearchGate,
     this.realUsernames = const {},
@@ -982,6 +983,7 @@ class FakeDiscourseApi
   final List<({String term, int? topicId})> userSearchesRequested = [];
 
   final Map<String, List<TopicFilterLookupValue>> filterTagSearches;
+  final Map<String, List<TopicFilterLookupValue>> filterGroupSearches;
 
   final Map<String, List<FoundHashtag>> hashtagSearches;
   final Completer<void>? hashtagSearchGate;
@@ -2139,7 +2141,7 @@ class FakeDiscourseApi
     String? apiKey,
     String? clientId,
   }) async {
-    return const [];
+    return filterGroupSearches[term] ?? const [];
   }
 
   @override
