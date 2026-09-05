@@ -200,50 +200,56 @@ class _TopicListNavigationControls extends StatelessWidget {
               ),
             ),
           if (showsTabs && mode.isNew && state.unifiedNew)
-            _TopicListTabStrip(
-              height: 44,
-              background: theme.shell.sidebar,
-              compactWidth: 480,
-              items: [
-                _TopicListTabItem(
-                  controlKey: const ValueKey('topic-list-new-all'),
-                  label: 'All',
-                  count: state.allCount,
-                  textStyle: secondaryTextStyle,
-                  selected: mode == TopicListMode.newActivity,
-                  onTap: () => unawaited(
-                    controller.selectTopicListMode(TopicListMode.newActivity),
+            ContentReadingLaneBox(
+              widthLimit: topicListContentWidth,
+              child: _TopicListTabStrip(
+                height: 44,
+                background: theme.shell.sidebar,
+                compactWidth: 480,
+                items: [
+                  _TopicListTabItem(
+                    controlKey: const ValueKey('topic-list-new-all'),
+                    label: 'All',
+                    count: state.allCount,
+                    textStyle: secondaryTextStyle,
+                    selected: mode == TopicListMode.newActivity,
+                    onTap: () => unawaited(
+                      controller.selectTopicListMode(TopicListMode.newActivity),
+                    ),
                   ),
-                ),
-                _TopicListTabItem(
-                  controlKey: const ValueKey('topic-list-new-topics'),
-                  label: 'Topics',
-                  count: state.topicCount,
-                  textStyle: secondaryTextStyle,
-                  selected: mode == TopicListMode.newTopics,
-                  onTap: () => unawaited(
-                    controller.selectTopicListMode(TopicListMode.newTopics),
+                  _TopicListTabItem(
+                    controlKey: const ValueKey('topic-list-new-topics'),
+                    label: 'Topics',
+                    count: state.topicCount,
+                    textStyle: secondaryTextStyle,
+                    selected: mode == TopicListMode.newTopics,
+                    onTap: () => unawaited(
+                      controller.selectTopicListMode(TopicListMode.newTopics),
+                    ),
                   ),
-                ),
-                _TopicListTabItem(
-                  controlKey: const ValueKey('topic-list-new-replies'),
-                  label: 'Replies',
-                  count: state.replyCount,
-                  textStyle: secondaryTextStyle,
-                  selected: mode == TopicListMode.newReplies,
-                  onTap: () => unawaited(
-                    controller.selectTopicListMode(TopicListMode.newReplies),
+                  _TopicListTabItem(
+                    controlKey: const ValueKey('topic-list-new-replies'),
+                    label: 'Replies',
+                    count: state.replyCount,
+                    textStyle: secondaryTextStyle,
+                    selected: mode == TopicListMode.newReplies,
+                    onTap: () => unawaited(
+                      controller.selectTopicListMode(TopicListMode.newReplies),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           if (showsTabs)
             if (mode.topPeriod case final period?)
-              _TopPeriodChooser(
-                period: period,
-                textStyle: secondaryTextStyle,
-                onSelected: (value) => unawaited(
-                  controller.selectTopicListMode(TopicListMode.top(value)),
+              ContentReadingLaneBox(
+                widthLimit: topicListContentWidth,
+                child: _TopPeriodChooser(
+                  period: period,
+                  textStyle: secondaryTextStyle,
+                  onSelected: (value) => unawaited(
+                    controller.selectTopicListMode(TopicListMode.top(value)),
+                  ),
                 ),
               ),
           if (showsFilters)
