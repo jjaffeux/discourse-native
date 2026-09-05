@@ -1190,14 +1190,15 @@ void _registerShellNavigationTests() {
     await pumpShell(tester, desktop);
 
     expect(sidebarDestination('Groups'), findsNothing);
-    expect(sidebarDestination('Filter'), findsNothing);
+    expect(sidebarDestination('Users'), findsOneWidget);
+    expect(sidebarDestination('Filter'), findsOneWidget);
     expect(sidebarDestination('More'), findsOneWidget);
 
     await tester.tap(sidebarDestination('More'));
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(MenuItemButton, 'Groups'), findsOneWidget);
-    expect(find.widgetWithText(MenuItemButton, 'Filter'), findsOneWidget);
+    expect(find.widgetWithText(MenuItemButton, 'Filter'), findsNothing);
 
     await tester.tap(find.widgetWithText(MenuItemButton, 'Groups'));
     await tester.pumpAndSettle();
@@ -1209,7 +1210,7 @@ void _registerShellNavigationTests() {
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(MenuItemButton, 'Groups'), findsNothing);
-    expect(find.widgetWithText(MenuItemButton, 'Filter'), findsOneWidget);
+    expect(find.widgetWithText(MenuItemButton, 'Filter'), findsNothing);
   });
 
   testWidgets('promotes Groups for a group detail opened over another route', (

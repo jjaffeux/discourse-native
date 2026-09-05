@@ -24,7 +24,7 @@ void main() {
   });
 
   group('DiscourseInstance.sections', () {
-    test('keeps Filter visible and Groups in More', () {
+    test('keeps Users and Filter visible and Groups in More', () {
       final section = const DiscourseInstance(
         url: 'https://example.com',
         title: 'Example',
@@ -32,6 +32,7 @@ void main() {
 
       expect(section.destinations.map((destination) => destination.id), [
         'latest',
+        'users',
         'filter',
       ]);
       expect(section.moreDestinations.map((destination) => destination.id), [
@@ -48,6 +49,7 @@ void main() {
 
       expect(section.destinations.map((destination) => destination.id), [
         'latest',
+        'users',
         'filter',
       ]);
       expect(section.moreDestinations, isEmpty);
@@ -64,11 +66,28 @@ void main() {
         'latest',
         'messages',
         'drafts',
+        'users',
         'filter',
       ]);
       expect(section.moreDestinations.map((destination) => destination.id), [
         'groups',
       ]);
     });
+
+    test(
+      'keeps Users prominent and removes it when its directory is disabled',
+      () {
+        final connected = const DiscourseInstance(
+          url: 'https://example.com',
+          title: 'Example',
+          config: SiteConfig(userDirectoryEnabled: false),
+        ).sections.single;
+
+        expect(connected.destinations.map((destination) => destination.id), [
+          'latest',
+          'filter',
+        ]);
+      },
+    );
   });
 }

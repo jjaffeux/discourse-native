@@ -44,6 +44,7 @@ import 'topic_view.dart';
 import 'user_activity.dart';
 import 'user_menu_button.dart';
 import 'user_summary.dart';
+import 'users_page.dart';
 
 class MainContent extends StatefulWidget {
   const MainContent({super.key, required this.layout, this.registry});
@@ -232,6 +233,9 @@ class _ContentViewport extends StatelessWidget {
     }
     if (!route.isTopic && route.id == 'activity' && siteUrl != null) {
       return UserActivityView(siteUrl: siteUrl!);
+    }
+    if (route.isUsers && siteUrl != null) {
+      return UsersDirectoryHost(siteUrl: siteUrl!);
     }
     if (groupPages.page.isOwned && siteUrl != null) {
       return GroupPagesHost(
@@ -522,6 +526,7 @@ class _ContentHeader extends StatelessWidget {
                 ),
               if (!route.isTopic &&
                   route.id != 'activity' &&
+                  !route.isUsers &&
                   showCreateTopicAction)
                 _TopicCreateAction(controller: controller),
               if (ShellTitleBar.columnsCarryUserMenu) ...[
@@ -742,9 +747,8 @@ class _GroupsDirectoryCount extends StatelessWidget {
           count == 1 ? '1 group' : '$count groups',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         );
       },
     );

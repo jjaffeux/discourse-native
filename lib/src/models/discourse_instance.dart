@@ -229,39 +229,37 @@ class DiscourseInstance {
 
   List<SidebarSection> get sections {
     final base = isConnected ? _connectedSections : _anonymousSections;
-    if (config.groupDirectoryEnabled || user?.staff == true) return base;
-    return isConnected
-        ? _connectedSectionsWithoutGroups
-        : _anonymousSectionsWithoutGroups;
+    final hidden = <String>{
+      if (!config.groupDirectoryEnabled && user?.staff != true) 'groups',
+      if (!config.userDirectoryEnabled) 'users',
+    };
+    return hidden.isEmpty ? base : _withoutDestinations(base, hidden);
   }
 
-  static final List<SidebarSection> _anonymousSectionsWithoutGroups =
-      _withoutGroups(_anonymousSections);
-  static final List<SidebarSection> _connectedSectionsWithoutGroups =
-      _withoutGroups(_connectedSections);
-
-  static List<SidebarSection> _withoutGroups(List<SidebarSection> sections) =>
-      List.unmodifiable([
-        for (final section in sections)
-          SidebarSection(
-            id: section.id,
-            title: section.title,
-            destinations: [
-              for (final destination in section.destinations)
-                if (destination.id != 'groups') destination,
-            ],
-            moreDestinations: [
-              for (final destination in section.moreDestinations)
-                if (destination.id != 'groups') destination,
-            ],
-            showHeader: section.showHeader,
-            collapsible: section.collapsible,
-            actionIcon: section.actionIcon,
-            actionLabel: section.actionLabel,
-            actionShortcut: section.actionShortcut,
-            onAction: section.onAction,
-          ),
-      ]);
+  static List<SidebarSection> _withoutDestinations(
+    List<SidebarSection> sections,
+    Set<String> hidden,
+  ) => List.unmodifiable([
+    for (final section in sections)
+      SidebarSection(
+        id: section.id,
+        title: section.title,
+        destinations: [
+          for (final destination in section.destinations)
+            if (!hidden.contains(destination.id)) destination,
+        ],
+        moreDestinations: [
+          for (final destination in section.moreDestinations)
+            if (!hidden.contains(destination.id)) destination,
+        ],
+        showHeader: section.showHeader,
+        collapsible: section.collapsible,
+        actionIcon: section.actionIcon,
+        actionLabel: section.actionLabel,
+        actionShortcut: section.actionShortcut,
+        onAction: section.onAction,
+      ),
+  ]);
 
   static const List<SidebarSection> _anonymousSections = [
     SidebarSection(
@@ -275,6 +273,7 @@ class DiscourseInstance {
           label: 'Topics',
           icon: DIcons.layerGroup,
         ),
+        SidebarDestination(id: 'users', label: 'Users', icon: DIcons.user),
         SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
       ],
       moreDestinations: [
@@ -301,6 +300,7 @@ class DiscourseInstance {
           icon: DIcons.inbox,
         ),
         SidebarDestination(id: 'drafts', label: 'Drafts', icon: DIcons.pencil),
+        SidebarDestination(id: 'users', label: 'Users', icon: DIcons.user),
         SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
       ],
       moreDestinations: [

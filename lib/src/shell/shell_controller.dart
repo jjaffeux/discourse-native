@@ -24,6 +24,7 @@ import '../data/site_tracker.dart';
 import '../data/store.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
+import '../data/user_directory_api.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/bounded_lru_cache.dart';
 import '../foundation/frame_safe_notifier.dart';
@@ -100,6 +101,7 @@ import 'topic_category_path.dart' as category_path;
 import 'topic_feed_controller.dart';
 import 'topic_read_controller.dart';
 import 'update_controller.dart';
+import 'user_directory_controller.dart';
 import 'user_summary_controller.dart';
 
 enum MobilePane { sidebar, content }
@@ -663,6 +665,12 @@ class ShellController extends FrameSafeNotifier
 
   late final GroupsController groups = GroupsController(
     api: GroupsApi(api.pluginTransport, api.models),
+    credentials: authenticator,
+    lifecycle: lifecycle,
+  );
+
+  late final UserDirectoryController userDirectory = UserDirectoryController(
+    api: UserDirectoryApi(api.pluginTransport, api.models),
     credentials: authenticator,
     lifecycle: lifecycle,
   );
@@ -3542,6 +3550,7 @@ class ShellController extends FrameSafeNotifier
         if (accountChanged) {
           accountActivity.forget(siteUrl);
           groups.forget(siteUrl);
+          userDirectory.forget(siteUrl);
           _topicTrackingBySite.remove(siteUrl);
           _topicTrackingSnapshotsLoaded.remove(siteUrl);
           _topicTrackingRevisions.remove(siteUrl);
@@ -11180,6 +11189,7 @@ class ShellController extends FrameSafeNotifier
     draftList.forget(siteUrl);
     userSummary.forget(siteUrl);
     groups.forget(siteUrl);
+    userDirectory.forget(siteUrl);
     preferences.forget(siteUrl);
     store.forget(siteUrl);
 
@@ -11620,7 +11630,9 @@ class ShellController extends FrameSafeNotifier
     _syncTopicChannels();
     _notify();
 
-    if (destination.id == 'all-tags') {
+    if (destination.id == 'users') {
+      unawaited(userDirectory.load(instance, refresh: refresh));
+    } else if (destination.id == 'all-tags') {
       if (refresh) unawaited(loadTags(instance.url, force: true));
     } else {
       unawaited(loadFeed(destination.id, force: refresh));
@@ -12393,6 +12405,7 @@ class ShellController extends FrameSafeNotifier
     draftList.dispose();
     userSummary.dispose();
     groups.dispose();
+    userDirectory.dispose();
     preferences.dispose();
     topicFeeds.dispose();
     aggregate.dispose();

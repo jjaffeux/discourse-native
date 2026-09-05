@@ -37,6 +37,7 @@ Map<String, dynamic> settings({
   int? minSearchTermLength,
   bool? logSearchQueries,
   bool? groupDirectoryEnabled,
+  bool? userDirectoryEnabled,
   bool? mentionsEnabled,
   bool? smtpEnabled,
   bool? chatSearchEnabled,
@@ -84,6 +85,7 @@ Map<String, dynamic> settings({
   'min_search_term_length': ?minSearchTermLength,
   'log_search_queries': ?logSearchQueries,
   'enable_group_directory': ?groupDirectoryEnabled,
+  'enable_user_directory': ?userDirectoryEnabled,
   'enable_mentions': ?mentionsEnabled,
   'enable_smtp': ?smtpEnabled,
   'chat_search_enabled': ?chatSearchEnabled,
@@ -192,16 +194,19 @@ void main() {
       final config = SiteConfig.fromSettings(
         settings(
           groupDirectoryEnabled: false,
+          userDirectoryEnabled: false,
           mentionsEnabled: false,
           smtpEnabled: true,
         ),
       );
 
       expect(config.groupDirectoryEnabled, isFalse);
+      expect(config.userDirectoryEnabled, isFalse);
       expect(config.mentionsEnabled, isFalse);
       expect(config.smtpEnabled, isTrue);
       final restored = SiteConfig.fromJson(config.toJson());
       expect(restored.groupDirectoryEnabled, isFalse);
+      expect(restored.userDirectoryEnabled, isFalse);
       expect(restored.mentionsEnabled, isFalse);
       expect(restored.smtpEnabled, isTrue);
     });
@@ -222,6 +227,7 @@ void main() {
       expect(unknown.offeredReactions, isEmpty);
       expect(unknown.minSearchTermLength, 3);
       expect(unknown.logSearchQueries, isTrue);
+      expect(unknown.userDirectoryEnabled, isTrue);
       expect(unknown.chatSearchEnabled, isFalse);
       expect(unknown.taggingEnabled, isTrue);
       expect(unknown.maxTagSearchResults, 5);
