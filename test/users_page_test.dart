@@ -94,6 +94,10 @@ void main() {
       expect(find.byKey(const ValueKey('users-sort')), findsNothing);
       expect(find.byKey(const ValueKey('users-sort-direction')), findsNothing);
       expect(find.byKey(const ValueKey('users-load-more')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('users-directory-progress')),
+        findsNothing,
+      );
       final pageRect = tester.getRect(find.byKey(const ValueKey('users-page')));
       final tableRect = tester.getRect(
         find.byKey(const ValueKey('users-table')),
@@ -546,6 +550,31 @@ void main() {
     );
     await tester.pump();
     expect(find.byKey(const ValueKey('users-error')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Matrix does not show a progress strip while rows update', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const UsersPage(
+        siteUrl: 'https://example.com',
+        data: UsersPageData(
+          items: [_sam],
+          columns: [_likes],
+          loadingMore: true,
+          updatingColumns: true,
+          loaded: true,
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('users-directory-progress')),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

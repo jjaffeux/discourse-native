@@ -757,11 +757,6 @@ class _DirectorySurface extends StatelessWidget {
         onChooseColumns: onChooseColumns,
         onRefresh: onRefresh,
       ),
-      if (data.loading || data.loadingMore || data.updatingColumns)
-        const LinearProgressIndicator(
-          key: ValueKey('users-directory-progress'),
-          minHeight: 2,
-        ),
       Expanded(
         child: KeyedSubtree(
           key: const ValueKey('users-table'),
