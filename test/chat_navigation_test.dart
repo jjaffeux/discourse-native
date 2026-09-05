@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -1020,6 +1021,71 @@ void main() {
         expect(find.text('Latest answer'), findsOneWidget);
         expect(find.text('4 replies'), findsOneWidget);
         expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('limit nested My threads hover feedback to the reply card', (
+        tester,
+      ) async {
+        await shell.chat.loadChannels(_site);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.dark,
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 900,
+                    child: PluginUiScope.own(
+                      chatPluginId,
+                      const ChatThreadListRow(
+                        siteUrl: _site,
+                        thread: _myThread,
+                        nestedPreview: true,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final row = find.byKey(const ValueKey('chat-my-thread-3'));
+        final surface = find.byKey(
+          const ValueKey('chat-my-thread-preview-surface-3'),
+        );
+        final ink = tester.widget<InkWell>(row);
+        final restingDecoration =
+            tester.widget<AnimatedContainer>(surface).decoration!
+                as BoxDecoration;
+
+        expect(ink.hoverColor, Colors.transparent);
+        expect(ink.focusColor, Colors.transparent);
+        expect(
+          restingDecoration.color,
+          AppTheme.dark.colorScheme.surfaceContainerHighest,
+        );
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(-10, -10));
+        await mouse.moveTo(tester.getCenter(row));
+        await tester.pumpAndSettle();
+
+        final hoveredDecoration =
+            tester.widget<AnimatedContainer>(surface).decoration!
+                as BoxDecoration;
+        expect(hoveredDecoration.color, isNot(restingDecoration.color));
+
+        await mouse.moveTo(const Offset(-10, -10));
+        await tester.pumpAndSettle();
+        final restoredDecoration =
+            tester.widget<AnimatedContainer>(surface).decoration!
+                as BoxDecoration;
+        expect(restoredDecoration.color, restingDecoration.color);
+        await mouse.removePointer();
       });
 
       testWidgets('open new and existing direct messages from search', (
