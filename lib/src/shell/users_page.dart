@@ -22,6 +22,7 @@ final class UsersPageData {
     this.items = const [],
     this.columns = const [],
     this.groupNames = const [],
+    this.currentUsername,
     this.totalRows = 0,
     this.lastUpdatedAt,
     this.query = const UserDirectoryQuery(),
@@ -36,6 +37,7 @@ final class UsersPageData {
   final List<UserDirectoryItem> items;
   final List<UserDirectoryColumn> columns;
   final List<String> groupNames;
+  final String? currentUsername;
   final int totalRows;
   final DateTime? lastUpdatedAt;
   final UserDirectoryQuery query;
@@ -116,6 +118,7 @@ class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
             items: state.items,
             columns: state.columns,
             groupNames: state.groupNames,
+            currentUsername: instance?.user?.username,
             totalRows: state.totalRows,
             lastUpdatedAt: state.lastUpdatedAt,
             query: query,
@@ -1070,12 +1073,17 @@ class _TableBody extends StatelessWidget {
                           itemCount: data.items.length,
                           itemBuilder: (context, index) {
                             final item = data.items[index];
+                            final currentUser = _sameUsername(
+                              item.user.username,
+                              data.currentUsername,
+                            );
                             return _IdentityRow(
                               key: ValueKey('user-row-${item.user.username}'),
                               palette: palette,
                               item: item,
                               siteUrl: siteUrl,
                               rank: index + 1,
+                              currentUser: currentUser,
                               selected: selectedIds.contains(item.id),
                               hovered: hoveredId == item.id,
                               onHover: onHover,
@@ -1163,12 +1171,20 @@ class _TableBody extends StatelessWidget {
                                       itemCount: data.items.length,
                                       itemBuilder: (context, index) {
                                         final item = data.items[index];
+                                        final currentUser = _sameUsername(
+                                          item.user.username,
+                                          data.currentUsername,
+                                        );
                                         return MouseRegion(
                                           onEnter: (_) => onHover(item.id),
                                           onExit: (_) => onHover(null),
                                           child: ColoredBox(
+                                            key: ValueKey(
+                                              'user-metrics-background-${item.user.username}',
+                                            ),
                                             color: _rowColor(
                                               palette,
+                                              currentUser: currentUser,
                                               selected: selectedIds.contains(
                                                 item.id,
                                               ),
@@ -1379,6 +1395,7 @@ class _IdentityRow extends StatelessWidget {
     required this.item,
     required this.siteUrl,
     required this.rank,
+    required this.currentUser,
     required this.selected,
     required this.hovered,
     required this.onHover,
@@ -1389,6 +1406,7 @@ class _IdentityRow extends StatelessWidget {
   final UserDirectoryItem item;
   final String siteUrl;
   final int rank;
+  final bool currentUser;
   final bool selected;
   final bool hovered;
   final ValueChanged<int?> onHover;
@@ -1399,8 +1417,14 @@ class _IdentityRow extends StatelessWidget {
     onEnter: (_) => onHover(item.id),
     onExit: (_) => onHover(null),
     child: Container(
+      key: ValueKey('user-identity-background-${item.user.username}'),
       decoration: BoxDecoration(
-        color: _rowColor(palette, selected: selected, hovered: hovered),
+        color: _rowColor(
+          palette,
+          currentUser: currentUser,
+          selected: selected,
+          hovered: hovered,
+        ),
         border: Border(
           right: BorderSide(color: palette.line),
           bottom: BorderSide(color: palette.rowLine),
@@ -1701,6 +1725,7 @@ final class _MatrixPalette {
     required this.green,
     required this.hover,
     required this.selected,
+    required this.currentUser,
     required this.avatarBackground,
   });
 
@@ -1722,6 +1747,7 @@ final class _MatrixPalette {
       green: colors.primary,
       hover: theme.shell.hover,
       selected: theme.shell.selected,
+      currentUser: colors.tertiaryContainer,
       avatarBackground: colors.secondaryContainer,
     );
   }
@@ -1740,6 +1766,7 @@ final class _MatrixPalette {
   final Color green;
   final Color hover;
   final Color selected;
+  final Color currentUser;
   final Color avatarBackground;
 
   Color avatarFor(int _) => avatarBackground;
@@ -1747,13 +1774,19 @@ final class _MatrixPalette {
 
 Color _rowColor(
   _MatrixPalette palette, {
+  required bool currentUser,
   required bool selected,
   required bool hovered,
 }) {
   if (selected) return palette.selected;
   if (hovered) return palette.hover;
+  if (currentUser) return palette.currentUser;
   return palette.surface;
 }
+
+bool _sameUsername(String username, String? currentUsername) =>
+    currentUsername != null &&
+    username.toLowerCase() == currentUsername.toLowerCase();
 
 String _formatValue(Object? value, UserDirectoryColumn column) {
   if (value == null) return '—';

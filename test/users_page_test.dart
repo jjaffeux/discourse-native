@@ -56,6 +56,7 @@ void main() {
             items: const [_sam, _hawk],
             columns: const [_likes, _replies, _days],
             groupNames: const ['design', 'staff'],
+            currentUsername: 'SAM',
             totalRows: 87,
             lastUpdatedAt: DateTime.utc(2026, 9, 4, 7, 6),
             loaded: true,
@@ -102,6 +103,33 @@ void main() {
       );
       expect(page.color, AppTheme.light.shell.content);
       expect(toolbar.color, AppTheme.light.shell.sidebar);
+      final currentUserColor = AppTheme.light.colorScheme.tertiaryContainer;
+      final currentIdentity = tester.widget<Container>(
+        find.byKey(const ValueKey('user-identity-background-sam')),
+      );
+      final currentIdentityDecoration =
+          currentIdentity.decoration! as BoxDecoration;
+      expect(currentIdentityDecoration.color, currentUserColor);
+      expect(
+        tester
+            .widget<ColoredBox>(
+              find.byKey(const ValueKey('user-metrics-background-sam')),
+            )
+            .color,
+        currentUserColor,
+      );
+      expect(
+        (tester
+                    .widget<Container>(
+                      find.byKey(
+                        const ValueKey('user-identity-background-hawk'),
+                      ),
+                    )
+                    .decoration!
+                as BoxDecoration)
+            .color,
+        AppTheme.light.shell.content,
+      );
       expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
       expect(find.text('290'), findsOneWidget);
       expect(find.text('121'), findsOneWidget);
