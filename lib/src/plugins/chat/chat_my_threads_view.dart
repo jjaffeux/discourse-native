@@ -7,7 +7,6 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/user_status.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -295,7 +294,7 @@ class ChatThreadListRow extends StatelessWidget {
   }
 }
 
-class _NestedThreadListRow extends StatelessWidget {
+class _NestedThreadListRow extends StatefulWidget {
   const _NestedThreadListRow({
     required this.rowKey,
     required this.siteUrl,
@@ -321,15 +320,52 @@ class _NestedThreadListRow extends StatelessWidget {
   static const double _compactBreakpoint = 560;
 
   @override
+  State<_NestedThreadListRow> createState() => _NestedThreadListRowState();
+}
+
+class _NestedThreadListRowState extends State<_NestedThreadListRow> {
+  bool _hovered = false;
+  bool _focused = false;
+  bool _pressed = false;
+
+  void _updateHovered(bool value) {
+    if (_hovered == value) return;
+    setState(() => _hovered = value);
+  }
+
+  void _updateFocused(bool value) {
+    if (_focused == value) return;
+    setState(() => _focused = value);
+  }
+
+  void _updatePressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final rowKey = widget.rowKey;
+    final siteUrl = widget.siteUrl;
+    final thread = widget.thread;
+    final channelTitle = widget.channelTitle;
+    final title = widget.title;
+    final unread = widget.unread;
+    final showChannel = widget.showChannel;
+    final keyPrefix = widget.keyPrefix;
     return InkWell(
       key: rowKey,
       excludeFromSemantics: true,
       mouseCursor: SystemMouseCursors.click,
-      hoverColor: theme.shell.hover,
-      focusColor: theme.shell.hover,
-      onTap: onTap,
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      onHover: _updateHovered,
+      onFocusChange: _updateFocused,
+      onHighlightChanged: _updatePressed,
+      onTap: widget.onTap,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 20, 12, 22),
         child: ExcludeSemantics(
@@ -339,7 +375,7 @@ class _NestedThreadListRow extends StatelessWidget {
                 context,
                 constraints.maxWidth,
               );
-              final compact = width < _compactBreakpoint;
+              final compact = width < _NestedThreadListRow._compactBreakpoint;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -402,6 +438,8 @@ class _NestedThreadListRow extends StatelessWidget {
                     thread: thread,
                     compact: compact,
                     keyPrefix: keyPrefix,
+                    emphasized: _hovered || _focused || _pressed,
+                    focused: _focused,
                   ),
                 ],
               );
@@ -420,12 +458,16 @@ class _LatestReplyCard extends StatelessWidget {
     required this.thread,
     required this.compact,
     required this.keyPrefix,
+    required this.emphasized,
+    required this.focused,
   });
 
   final String siteUrl;
   final ChatThread thread;
   final bool compact;
   final String keyPrefix;
+  final bool emphasized;
+  final bool focused;
 
   static const double _avatarSize = 40;
 
@@ -455,7 +497,20 @@ class _LatestReplyCard extends StatelessWidget {
         preview?.lastReplyAvatarUrl ??
         fallbackAuthor?.avatarUrl;
     final latestStatus = replyUser?.status ?? fallbackAuthor?.status;
-    final cardColor = theme.colorScheme.surfaceContainerHighest;
+    final baseCardColor = theme.colorScheme.surfaceContainerHighest;
+    final cardColor = emphasized
+        ? Color.alphaBlend(
+            theme.colorScheme.onSurface.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.055 : 0.035,
+            ),
+            baseCardColor,
+          )
+        : baseCardColor;
+    final borderColor = focused
+        ? theme.colorScheme.primary.withValues(alpha: 0.7)
+        : emphasized
+        ? theme.colorScheme.onSurface.withValues(alpha: 0.1)
+        : Colors.transparent;
     final avatar = ChatUserAvatar(
       siteUrl: siteUrl,
       userId: displayedUser?.id ?? 0,
@@ -481,9 +536,15 @@ class _LatestReplyCard extends StatelessWidget {
       background: cardColor,
     );
 
-    return DecoratedBox(
+    return AnimatedContainer(
+      key: ValueKey<String>('$keyPrefix-preview-surface-${thread.id}'),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 120),
+      curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: cardColor,
+        border: Border.all(color: borderColor),
         borderRadius: BorderRadius.circular(11),
       ),
       child: Padding(
