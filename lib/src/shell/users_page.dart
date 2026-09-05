@@ -891,6 +891,7 @@ class _DirectoryToolbar extends StatelessWidget {
           key: const ValueKey('users-refresh'),
           tooltip: 'Refresh directory',
           onPressed: onRefresh == null ? null : () => unawaited(onRefresh!()),
+          loading: data.loading,
           icon: const DIcon(DIcons.arrowsRotate, size: 14),
         ),
       ],
@@ -1089,17 +1090,20 @@ class _ToolbarIconButton extends StatelessWidget {
     required this.tooltip,
     required this.onPressed,
     required this.icon,
+    this.loading = false,
   });
 
   final String tooltip;
   final VoidCallback? onPressed;
   final Widget icon;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) => DButton.iconOnly(
     tooltip: tooltip,
     onPressed: onPressed,
     icon: icon,
+    loading: loading,
     size: DButtonSize.small,
   );
 }
