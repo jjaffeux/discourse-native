@@ -2260,7 +2260,7 @@ void _registerShellNavigationTests() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: header, matching: find.text(site.url)),
+        find.descendant(of: header, matching: find.text('meta.discourse.org')),
         findsOneWidget,
       );
       expect(

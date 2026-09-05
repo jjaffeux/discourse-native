@@ -2462,8 +2462,9 @@ with the available width.
 
 On medium and expanded layouts, drag the sidebar's right edge to resize it.
 The default width is 208px, with the forum identity fixed above the scrolling
-navigation. Its card shows the forum name and URL on separate lines, truncates
-both with an ellipsis, and uses a gear to open the forum actions below it.
+navigation. Its card shows the forum name and URL without the protocol on
+separate lines, truncates both with an ellipsis, and uses a gear to open the
+forum actions below it.
 Hovering the URL reveals its full value.
 The preferred width is stored once for the app, so it follows the reader when
 they switch forums and is restored after a relaunch. Narrow windows temporarily

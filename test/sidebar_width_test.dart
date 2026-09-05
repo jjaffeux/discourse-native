@@ -81,8 +81,10 @@ void main() {
         SharedPreferences.setMockInitialValues({
           SidebarWidthStore.storageKey: AdaptiveShell.sidebarMinWidth,
         });
+        const address =
+            'very-long-community-address.example.com/discussion/subfolder';
         final site = instance(
-          'very-long-community-address.example.com/discussion/subfolder',
+          address,
           title: 'A forum name that is much too long for the sidebar',
         );
         final controller = await _controller(store: FakeInstanceStore([site]));
@@ -115,7 +117,7 @@ void main() {
         );
         expect(cardRect.left, rowRect.left);
         expect(cardRect.right, rowRect.right);
-        expect(tester.widget<Text>(url).data, site.url);
+        expect(tester.widget<Text>(url).data, address);
         expect(tester.getRect(name).bottom, lessThan(tester.getRect(url).top));
         for (final label in [name, url]) {
           final paragraph = tester.renderObject<RenderParagraph>(label);
