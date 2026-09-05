@@ -343,6 +343,35 @@ void main() {
       },
     );
 
+    test('selects the first visible suggestion while input changes', () async {
+      final controller = TopicFilterController(
+        initialQuery: 'tag:b',
+        submitQuery: (_) async {},
+        engine: engine(
+          tags: (_) async => const [
+            TopicFilterLookupValue(name: 'bug'),
+            TopicFilterLookupValue(name: 'beta'),
+          ],
+        ),
+      );
+      addTearDown(controller.dispose);
+
+      await controller.openSuggestions();
+      expect(controller.selectedIndex, 0);
+      expect(controller.selected?.name, 'tag:bug');
+
+      controller.moveSelection(1);
+      expect(controller.selectedIndex, 1);
+
+      controller.text.text = 'tag:bu';
+      controller.inputChanged('tag:bu');
+      expect(controller.selectedIndex, 0);
+
+      await controller.ensureFreshSuggestions();
+      expect(controller.selectedIndex, 0);
+      expect(controller.selected?.name, 'tag:bug');
+    });
+
     test(
       'a failed lookup closes suggestions without failing the field',
       () async {
@@ -596,6 +625,8 @@ void main() {
       find.descendant(of: row, matching: find.text('Tokyo dinner on Tuesday')),
       findsNothing,
     );
+    _expectSelectedRow(tester, row);
+    _expectSuggestionSemantics(tester, row, label: groupName, selected: true);
 
     await tester.tap(find.descendant(of: row, matching: find.text(groupName)));
     await tester.pumpAndSettle();
@@ -672,6 +703,19 @@ void main() {
         expect(
           find.descendant(of: secondRow, matching: find.byType(DIcon)),
           findsNothing,
+        );
+        _expectSelectedRow(tester, firstRow);
+        _expectSuggestionSemantics(
+          tester,
+          firstRow,
+          label: 'status:',
+          selected: true,
+        );
+        _expectSuggestionSemantics(
+          tester,
+          secondRow,
+          label: 'tag:\nTopics carrying a tag',
+          selected: false,
         );
 
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);

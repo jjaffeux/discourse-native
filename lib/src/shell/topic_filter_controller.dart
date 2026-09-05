@@ -205,9 +205,10 @@ class TopicFilterController extends ChangeNotifier {
 
   void inputChanged(String value) {
     _open = true;
-    _selectedIndex = -1;
+    _selectedIndex = _suggestions.isEmpty ? -1 : 0;
     _timer?.cancel();
     _timer = Timer(debounce, refreshSuggestions);
+    notifyListeners();
   }
 
   Future<void> openSuggestions() async {
@@ -256,7 +257,7 @@ class TopicFilterController extends ChangeNotifier {
       // make ensureFreshSuggestions treat the failure as final and never retry.
       if (!failed) _lastSuggestionInput = queued.input;
       _suggestions = result;
-      _selectedIndex = -1;
+      _selectedIndex = result.isEmpty ? -1 : 0;
       notifyListeners();
     }
     queued.complete();
