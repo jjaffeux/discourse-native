@@ -58,6 +58,8 @@ void main() {
     final shell = ShellScope.read(tester.element(find.byType(MainContent)));
     expect(shell.currentContent?.id, 'users');
     expect(find.byType(UsersPage), findsOneWidget);
+    expect(find.text('Users'), findsNWidgets(2));
+    expect(find.text('Community signal'), findsNothing);
     expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
     expect(api.pluginReadPaths, contains('/directory-columns.json'));
     expect(
