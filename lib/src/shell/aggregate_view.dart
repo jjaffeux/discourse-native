@@ -484,41 +484,28 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Select forums, then edit one topic filter at a time. Leave '
-                'the filter empty to use that forum’s default list.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DButton(
+                  key: const ValueKey('aggregate-filter-select-all'),
+                  label: const Text('Select all'),
+                  onPressed: allIncluded ? null : _selectAll,
+                  variant: DButtonVariant.link,
+                  size: DButtonSize.small,
                 ),
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DButton(
-                      key: const ValueKey('aggregate-filter-select-all'),
-                      label: const Text('Select all'),
-                      onPressed: allIncluded ? null : _selectAll,
-                      variant: DButtonVariant.link,
-                      size: DButtonSize.small,
-                    ),
-                    DButton(
-                      key: const ValueKey('aggregate-filter-clear'),
-                      label: const Text('Clear'),
-                      onPressed: includedCount == 0 ? null : _clearSelection,
-                      variant: DButtonVariant.link,
-                      size: DButtonSize.small,
-                    ),
-                  ],
+                DButton(
+                  key: const ValueKey('aggregate-filter-clear'),
+                  label: const Text('Clear'),
+                  onPressed: includedCount == 0 ? null : _clearSelection,
+                  variant: DButtonVariant.link,
+                  size: DButtonSize.small,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         Divider(height: 1, color: theme.shell.divider),
