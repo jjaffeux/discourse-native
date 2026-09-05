@@ -16,6 +16,7 @@ import 'adaptive_activity_indicator.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
+import 'forum_icon.dart';
 import 'inline_action.dart';
 import 'list_boundary_shortcuts.dart';
 import 'loading_skeleton.dart';
@@ -1057,7 +1058,7 @@ class _TopicIdentity extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (forum != null) ...[
-          _TopicForumIcon(forum: forum),
+          ForumIcon(forum: forum),
           const SizedBox(width: 10),
         ],
         Expanded(
@@ -1076,44 +1077,6 @@ class _TopicIdentity extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _TopicForumIcon extends StatelessWidget {
-  const _TopicForumIcon({required this.forum});
-
-  final DiscourseInstance forum;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      label: forum.title,
-      image: true,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(7),
-        child: AvatarImage(
-          url: forum.iconUrl,
-          size: 28,
-          fit: BoxFit.contain,
-          fallback: ColoredBox(
-            color: forum.accentColor.withValues(alpha: 0.16),
-            child: SizedBox.square(
-              dimension: 28,
-              child: Center(
-                child: Text(
-                  forum.monogram,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
