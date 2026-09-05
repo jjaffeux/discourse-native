@@ -414,11 +414,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.only(top: 12),
-                child: DIcon(DIcons.filter, size: 17),
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
