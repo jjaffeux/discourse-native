@@ -2995,12 +2995,7 @@ class _TopicStandalonePropertyCard extends StatelessWidget {
               ),
             ),
           Padding(
-            padding: EdgeInsets.fromLTRB(
-              14,
-              section.showHeader ? 0 : 13,
-              14,
-              8,
-            ),
+            padding: EdgeInsets.fromLTRB(14, section.showHeader ? 0 : 8, 14, 8),
             child: section.values.isEmpty
                 ? const _EmptyTopicProperty('None')
                 : Column(
