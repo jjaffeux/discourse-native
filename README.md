@@ -472,6 +472,18 @@ DND through the normal endpoint, matching the web status service.
 
 ### Topic lists
 
+Desktop discovery lists put **Recent**, **New**, **Top**, **Trending**, and
+**New topic** in one toolbar. On macOS the window title bar carries forum
+search, so the list does not repeat a page heading. Category and nested routes
+keep their contextual headers and actions.
+
+The list and its controls share a 1120px lane at normal text size. Wide lists
+label the people, replies, views, and activity columns; narrow lists move
+metadata beneath the title. Unread dots occupy a consistent leading gutter.
+Titles can wrap to two lines, and the row-density control switches to tighter,
+single-line rows without resetting the scroll position. Density is local to
+the content pane and survives switching discovery views.
+
 `latest`, `new`, `unread`, `top` and `messages` all share one envelope
 (`topic_list.topics` plus a `users` array), so they go through a single
 `DiscourseApi.topicList(path:)`. `messages` is the exception only in that its
@@ -2449,6 +2461,7 @@ with the available width.
 | `expanded` | ≥ 1200   | rail + sidebar + content + topic sidebar       |
 
 On medium and expanded layouts, drag the sidebar's right edge to resize it.
+The default width is 208px, with the forum identity and its menu above navigation.
 The preferred width is stored once for the app, so it follows the reader when
 they switch forums and is restored after a relaunch. Narrow windows temporarily
 constrain it to preserve room for the main content without replacing the saved

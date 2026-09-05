@@ -173,7 +173,7 @@ void _registerShellNavigationTests() {
       }
     });
 
-    testWidgets('keeps compact forum identity below its search field', (
+    testWidgets('keeps compact forum identity above its search field', (
       tester,
     ) async {
       await pumpShell(tester, phone);
@@ -186,7 +186,7 @@ void _registerShellNavigationTests() {
             matching: find.byType(GestureDetector),
           )
           .first;
-      expect(title.top, greaterThanOrEqualTo(field.bottom));
+      expect(title.bottom, lessThanOrEqualTo(field.top));
       expect(searchTarget, findsOneWidget);
       expect(tester.getSize(searchTarget).width, greaterThanOrEqualTo(44));
       expect(find.byType(InstanceSidebar), findsOneWidget);
@@ -1054,14 +1054,14 @@ void _registerShellNavigationTests() {
       final userHeader = tester.getRect(
         find.byKey(const ValueKey('sidebar-user-header')),
       );
-      final forumFooter = tester.getRect(
-        find.byKey(const ValueKey('forum-identity-footer')),
+      final forumHeader = tester.getRect(
+        find.byKey(const ValueKey('forum-identity-header')),
       );
       expect(userHeader.contains(onSidebar.center), isTrue);
-      expect(forumFooter.top, greaterThan(userHeader.bottom));
+      expect(forumHeader.top, greaterThanOrEqualTo(userHeader.bottom));
       expect(
         find.descendant(
-          of: find.byKey(const ValueKey('forum-identity-footer')),
+          of: find.byKey(const ValueKey('forum-identity-header')),
           matching: userMenu,
         ),
         findsNothing,
@@ -1110,7 +1110,10 @@ void _registerShellNavigationTests() {
 
         Future<void> tapMouseButton(int button, {Finder? target}) async {
           await tester.tap(
-            target ?? contentText(shell.currentContent!.title).last,
+            target ??
+                (shell.currentContent!.id == 'latest'
+                    ? find.byKey(const ValueKey('topic-list-filter-bar'))
+                    : contentText(shell.currentContent!.title).last),
             buttons: button,
             kind: PointerDeviceKind.mouse,
           );
@@ -1277,10 +1280,7 @@ void _registerShellNavigationTests() {
       final theme = Theme.of(tester.element(rail));
 
       expect(tester.getSize(add), const Size.square(44));
-      expect(
-        tester.widget<InkWell>(add).mouseCursor,
-        SystemMouseCursors.click,
-      );
+      expect(tester.widget<InkWell>(add).mouseCursor, SystemMouseCursors.click);
       expect(tester.getSize(outline), const Size.square(38));
       expect(tester.getCenter(add).dx, tester.getCenter(lastForum).dx);
       expect(
@@ -2219,16 +2219,16 @@ void _registerShellNavigationTests() {
     );
   });
 
-  testWidgets('the sidebar footer shows only the forum identity', (
+  testWidgets('the sidebar header shows only the forum identity', (
     tester,
   ) async {
     await pumpShell(tester, desktop);
 
     final sidebar = find.byType(InstanceSidebar);
-    final footer = find.byKey(const ValueKey('forum-identity-footer'));
-    expect(footer, findsOneWidget);
+    final header = find.byKey(const ValueKey('forum-identity-header'));
+    expect(header, findsOneWidget);
     expect(
-      find.descendant(of: footer, matching: find.text('Discourse Meta')),
+      find.descendant(of: header, matching: find.text('Discourse Meta')),
       findsOneWidget,
     );
     expect(
@@ -2237,12 +2237,12 @@ void _registerShellNavigationTests() {
     );
     expect(
       find.descendant(
-        of: footer,
+        of: header,
         matching: find.byKey(const ValueKey('forum-identity-logo')),
       ),
       findsOneWidget,
     );
-    expect(tester.getRect(footer).bottom, tester.getRect(sidebar).bottom);
+    expect(tester.getRect(header).top, tester.getRect(sidebar).top);
   });
 
   testWidgets('the community section is headerless and always expanded', (
@@ -2263,7 +2263,10 @@ void _registerShellNavigationTests() {
         .first;
     final sidebar = tester.getRect(find.byType(InstanceSidebar));
     final tile = tester.getRect(topicsTile);
-    expect(tile.top - sidebar.top, closeTo(10, 0.01));
+    final forumHeader = tester.getRect(
+      find.byKey(const ValueKey('forum-identity-header')),
+    );
+    expect(tile.top - forumHeader.bottom, closeTo(10, 0.01));
     expect(tile.left - sidebar.left, closeTo(6, 0.01));
     expect(sidebar.right - tile.right, closeTo(6, 0.01));
     expect(tile.height, closeTo(30, 0.01));
@@ -2304,7 +2307,7 @@ void _registerShellNavigationTests() {
     expect(background(), isNull);
   });
 
-  testWidgets('the sidebar footer opens forum-only actions', (tester) async {
+  testWidgets('the sidebar header opens forum-only actions', (tester) async {
     await pumpShell(tester, desktop);
 
     await tester.tap(find.byKey(const ValueKey('forum-identity-button')));

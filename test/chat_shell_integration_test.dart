@@ -3643,18 +3643,16 @@ void _registerChatShellTests() {
         (tester) async {
           await pumpChat(tester, direct: [dm(12)]);
 
-          final avatar = find.descendant(
+          final chatAvatar = find.descendant(
             of: find.byType(InstanceSidebar),
+            matching: find.byType(ChatUserAvatar),
+          );
+          final avatar = find.descendant(
+            of: chatAvatar,
             matching: find.byType(AvatarImage),
           );
           expect(avatar, findsOneWidget);
-          expect(
-            find.descendant(
-              of: find.byType(InstanceSidebar),
-              matching: find.byType(ChatUserAvatar),
-            ),
-            findsOneWidget,
-          );
+          expect(chatAvatar, findsOneWidget);
           // The compact desktop sidebar leaves one pixel around each side of a
           // round avatar inside its 20-pixel prefix slot.
           final size = tester.getSize(avatar);

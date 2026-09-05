@@ -646,7 +646,8 @@ class _EmptyTopicProperty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     label,
-    style: Theme.of(context).textTheme.labelMedium
-        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
   );
 }

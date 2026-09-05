@@ -62,6 +62,7 @@ class ContentReadingLane extends StatelessWidget {
   const ContentReadingLane({
     super.key,
     this.basePadding = EdgeInsets.zero,
+    this.widthLimit = maxWidth,
     required this.builder,
   });
 
@@ -69,12 +70,14 @@ class ContentReadingLane extends StatelessWidget {
   static const double maxWidth = 825;
 
   final EdgeInsets basePadding;
+  final double widthLimit;
   final ContentReadingLaneBuilder builder;
 
   static ContentReadingLaneGeometry geometryFor(
     BuildContext context, {
     required double availableWidth,
     EdgeInsets basePadding = EdgeInsets.zero,
+    double widthLimit = maxWidth,
   }) {
     final contentWidth = math.max(0.0, availableWidth - basePadding.horizontal);
     final constrained = _usesDesktopLane && contentWidth.isFinite;
@@ -82,7 +85,7 @@ class ContentReadingLane extends StatelessWidget {
         ? ContentAlignmentScope.appTextScaleFactorOf(context)
         : 1.0;
     final width = constrained
-        ? math.min(maxWidth * appTextScaleFactor, contentWidth)
+        ? math.min(widthLimit * appTextScaleFactor, contentWidth)
         : contentWidth;
     final extra = constrained ? contentWidth - width : 0.0;
     final (leftInset, rightInset, alignment) = constrained
@@ -128,6 +131,7 @@ class ContentReadingLane extends StatelessWidget {
           context,
           availableWidth: constraints.maxWidth,
           basePadding: basePadding,
+          widthLimit: widthLimit,
         ),
       ),
     );
@@ -150,15 +154,18 @@ class ContentReadingLaneBox extends StatelessWidget {
   const ContentReadingLaneBox({
     super.key,
     this.padding = EdgeInsets.zero,
+    this.widthLimit = ContentReadingLane.maxWidth,
     required this.child,
   });
 
   final EdgeInsets padding;
+  final double widthLimit;
   final Widget child;
 
   @override
   Widget build(BuildContext context) => ContentReadingLane(
     basePadding: padding,
+    widthLimit: widthLimit,
     builder: (context, lane) => Padding(
       padding: lane.padding,
       child: SizedBox(width: double.infinity, child: child),

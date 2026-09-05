@@ -254,7 +254,12 @@ class _ForumSearchState extends State<ForumSearch> {
     final shortcut = defaultTargetPlatform == TargetPlatform.macOS
         ? '⌘F'
         : 'Ctrl F';
-    final searchLabel = topicScoped ? 'Search this topic' : 'Search this forum';
+    final forumName = ShellScope.read(
+      context,
+    ).instanceFor(search.siteUrl!)?.title;
+    final searchLabel = topicScoped
+        ? 'Search this topic'
+        : 'Search ${forumName ?? 'this forum'}';
 
     return LayoutBuilder(
       builder: (context, constraints) {

@@ -6,9 +6,14 @@ import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
+import 'content_reading_lane.dart';
 import 'select.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
+import 'topic_list_layout.dart';
 
 typedef _TopicListNavigationSnapshot = ({
   TopicListMode? mode,
@@ -25,9 +30,10 @@ typedef _TopicListNavigationSnapshot = ({
 });
 
 class TopicListNavigation extends StatelessWidget {
-  const TopicListNavigation({super.key, required this.child});
+  const TopicListNavigation({super.key, required this.child, this.trailing});
 
   final Widget child;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) =>
@@ -63,13 +69,14 @@ class TopicListNavigation extends StatelessWidget {
           final showsTabs = state.signedIn && state.mode != null;
           final showsFilters =
               state.siteUrl != null && state.route?.isTopicListFilter == true;
-          if (!showsTabs && !showsFilters) return child;
+          if (!showsTabs && !showsFilters && trailing == null) return child;
           return Column(
             children: [
               _TopicListNavigationControls(
                 state: state,
                 showsTabs: showsTabs,
                 showsFilters: showsFilters,
+                trailing: trailing,
               ),
               Expanded(child: child),
             ],
@@ -83,21 +90,23 @@ class _TopicListNavigationControls extends StatelessWidget {
     required this.state,
     required this.showsTabs,
     required this.showsFilters,
+    required this.trailing,
   });
 
   final _TopicListNavigationSnapshot state;
   final bool showsTabs;
   final bool showsFilters;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
     final mode = state.mode ?? TopicListMode.latest;
     final theme = Theme.of(context);
-    final primaryTextStyle = theme.textTheme.labelLarge?.copyWith(
+    final primaryTextStyle = theme.textTheme.bodySmall?.copyWith(
       fontWeight: FontWeight.w400,
     );
-    final secondaryTextStyle = theme.textTheme.labelMedium?.copyWith(
+    final secondaryTextStyle = theme.textTheme.labelSmall?.copyWith(
       fontWeight: FontWeight.w400,
     );
 
@@ -107,53 +116,85 @@ class _TopicListNavigationControls extends StatelessWidget {
       label: 'Topic lists',
       child: Column(
         children: [
-          if (showsTabs)
-            _TopicListTabStrip(
-              key: const ValueKey('topic-list-primary-row'),
-              height: 48,
-              background: theme.shell.content,
-              scrollable: true,
-              items: [
-                _TopicListTabItem(
-                  controlKey: const ValueKey('topic-list-latest'),
-                  label: 'Recent',
-                  textStyle: primaryTextStyle,
-                  selected: mode == TopicListMode.latest,
-                  onTap: () => unawaited(
-                    controller.selectTopicListMode(TopicListMode.latest),
+          if (showsTabs || trailing != null)
+            ContentReadingLaneBox(
+              widthLimit: topicListContentWidth,
+              child: Row(
+                key: const ValueKey('topic-list-primary-row'),
+                children: [
+                  Expanded(
+                    child: !showsTabs
+                        ? const SizedBox.shrink()
+                        : _TopicListTabStrip(
+                            height: 48,
+                            background: theme.shell.content,
+                            scrollable: true,
+                            items: [
+                              _TopicListTabItem(
+                                controlKey: const ValueKey('topic-list-latest'),
+                                label: 'Recent',
+                                textStyle: primaryTextStyle,
+                                selected: mode == TopicListMode.latest,
+                                onTap: () => unawaited(
+                                  controller.selectTopicListMode(
+                                    TopicListMode.latest,
+                                  ),
+                                ),
+                              ),
+                              _TopicListTabItem(
+                                controlKey: const ValueKey('topic-list-new'),
+                                label: 'New',
+                                count: state.allCount,
+                                textStyle: primaryTextStyle,
+                                selected: mode.isNew,
+                                onTap: () => unawaited(
+                                  controller.selectTopicListMode(
+                                    TopicListMode.newActivity,
+                                  ),
+                                ),
+                              ),
+                              _TopicListTabItem(
+                                controlKey: const ValueKey('topic-list-top'),
+                                label: 'Top',
+                                textStyle: primaryTextStyle,
+                                selected: mode.isTop,
+                                onTap: () => unawaited(
+                                  controller.selectTopicListMode(
+                                    mode.isTop
+                                        ? mode
+                                        : controller.defaultTopTopicListMode,
+                                  ),
+                                ),
+                              ),
+                              _TopicListTabItem(
+                                controlKey: const ValueKey(
+                                  'topic-list-popular',
+                                ),
+                                label: 'Trending',
+                                textStyle: primaryTextStyle,
+                                selected: mode == TopicListMode.popular,
+                                onTap: () => unawaited(
+                                  controller.selectTopicListMode(
+                                    TopicListMode.popular,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
-                ),
-                _TopicListTabItem(
-                  controlKey: const ValueKey('topic-list-new'),
-                  label: 'New',
-                  count: state.allCount,
-                  textStyle: primaryTextStyle,
-                  selected: mode.isNew,
-                  onTap: () => unawaited(
-                    controller.selectTopicListMode(TopicListMode.newActivity),
-                  ),
-                ),
-                _TopicListTabItem(
-                  controlKey: const ValueKey('topic-list-top'),
-                  label: 'Top',
-                  textStyle: primaryTextStyle,
-                  selected: mode.isTop,
-                  onTap: () => unawaited(
-                    controller.selectTopicListMode(
-                      mode.isTop ? mode : controller.defaultTopTopicListMode,
+                  if (!showsFilters &&
+                      TopicListDensityScope.maybeOf(context) != null)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: _TopicListDensityButton(),
                     ),
-                  ),
-                ),
-                _TopicListTabItem(
-                  controlKey: const ValueKey('topic-list-popular'),
-                  label: 'Popular',
-                  textStyle: primaryTextStyle,
-                  selected: mode == TopicListMode.popular,
-                  onTap: () => unawaited(
-                    controller.selectTopicListMode(TopicListMode.popular),
-                  ),
-                ),
-              ],
+                  if (trailing != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 16),
+                      child: trailing,
+                    ),
+                ],
+              ),
             ),
           if (showsTabs && mode.isNew && state.unifiedNew)
             _TopicListTabStrip(
@@ -217,8 +258,31 @@ class _TopicListNavigationControls extends StatelessWidget {
               onCategorySelected: controller.selectTopicListCategory,
               onTagSelected: controller.selectTopicListTag,
               onReset: controller.clearTopicListFilters,
+              trailing: TopicListDensityScope.maybeOf(context) == null
+                  ? null
+                  : const _TopicListDensityButton(),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _TopicListDensityButton extends StatelessWidget {
+  const _TopicListDensityButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = TopicListDensityScope.maybeOf(context)!;
+    return Semantics(
+      toggled: compact.value,
+      child: DButton.iconOnly(
+        key: const ValueKey('topic-list-density'),
+        icon: const DIcon(DIcons.list, size: 16),
+        tooltip: compact.value ? 'Comfortable rows' : 'Compact rows',
+        onPressed: () => compact.value = !compact.value,
+        variant: DButtonVariant.flat,
+        size: DButtonSize.small,
       ),
     );
   }
@@ -274,7 +338,6 @@ class _TopPeriodChooser extends StatelessWidget {
 
 class _TopicListTabStrip extends StatelessWidget {
   const _TopicListTabStrip({
-    super.key,
     required this.height,
     required this.background,
     required this.items,
@@ -290,14 +353,10 @@ class _TopicListTabStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final divider = Theme.of(context).shell.divider;
     return Container(
       height: height,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: background,
-        border: Border(bottom: BorderSide(color: divider)),
-      ),
+      color: background,
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (scrollable) {
@@ -369,19 +428,15 @@ class _TopicListTabItem extends StatelessWidget {
           key: controlKey,
           onTap: onTap,
           hoverColor: theme.shell.hover,
+          borderRadius: BorderRadius.circular(6),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
             alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            margin: const EdgeInsets.symmetric(vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: selected
-                      ? theme.colorScheme.primary
-                      : Colors.transparent,
-                  width: 3,
-                ),
-              ),
+              color: selected ? theme.shell.selected : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               displayLabel,

@@ -246,9 +246,9 @@ void main() {
         );
         expect(persistence.appendCalls, 2);
         expect(
-          (await persistence.snapshot(nowUtc: now)).records.map(
-            (record) => record.event,
-          ),
+          (await persistence.snapshot(
+            nowUtc: now,
+          )).records.map((record) => record.event),
           containsAllInOrder([
             'history.before-hydration',
             'capture.started',
