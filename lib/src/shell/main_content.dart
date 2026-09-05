@@ -37,7 +37,6 @@ import 'tags_page.dart';
 import 'title_bar.dart';
 import 'topic_create_button.dart';
 import 'topic_filter_page.dart';
-import 'topic_list_layout.dart';
 import 'topic_list_navigation.dart';
 import 'topic_list_view.dart';
 import 'topic_title.dart';
@@ -59,7 +58,6 @@ class MainContent extends StatefulWidget {
 
 class _MainContentState extends State<MainContent> {
   final GroupPagesCoordinator _groupPages = GroupPagesCoordinator();
-  final ValueNotifier<bool> _compactTopicRows = ValueNotifier(false);
 
   @override
   Widget build(BuildContext context) {
@@ -83,18 +81,15 @@ class _MainContentState extends State<MainContent> {
             canPopContent: state.canPop,
           ),
         );
-        return TopicListDensityScope(
-          compact: _compactTopicRows,
-          child: _MainContentBody(
-            layout: widget.layout,
-            state: state,
-            registry:
-                widget.registry ??
-                PluginScope.maybeOf(context)?.registry ??
-                PluginRegistry.empty,
-            groupPages: _groupPages,
-            groupPagesPort: port,
-          ),
+        return _MainContentBody(
+          layout: widget.layout,
+          state: state,
+          registry:
+              widget.registry ??
+              PluginScope.maybeOf(context)?.registry ??
+              PluginRegistry.empty,
+          groupPages: _groupPages,
+          groupPagesPort: port,
         );
       },
     );
@@ -103,7 +98,6 @@ class _MainContentState extends State<MainContent> {
   @override
   void dispose() {
     _groupPages.dispose();
-    _compactTopicRows.dispose();
     super.dispose();
   }
 }

@@ -32,7 +32,6 @@ class TopicListFilterBar extends StatelessWidget {
     required this.onCategorySelected,
     required this.onTagSelected,
     required this.onReset,
-    this.trailing,
   });
 
   final String siteUrl;
@@ -45,7 +44,6 @@ class TopicListFilterBar extends StatelessWidget {
   final ValueChanged<TopicCategory?> onCategorySelected;
   final ValueChanged<String?> onTagSelected;
   final VoidCallback onReset;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -134,13 +132,6 @@ class TopicListFilterBar extends StatelessWidget {
                 ),
               ),
             ),
-            if (trailing != null)
-              Padding(
-                padding: const EdgeInsets.only(
-                  right: topicListHorizontalPadding,
-                ),
-                child: trailing,
-              ),
           ],
         ),
       ),
