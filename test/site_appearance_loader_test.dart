@@ -207,9 +207,17 @@ void main() {
       expect(appearance?.base?.selected, const Color(0x267B5FE2));
       expect(appearance?.base?.hover, const Color(0x267B5FE2));
       expect(appearance?.base?.borderRadius, 8);
+      expect(
+        appearance?.base?.avatarBorderRadius,
+        const AvatarBorderRadius.pixels(6),
+      );
       expect(appearance?.alternate?.selected, const Color(0x267B5FE2));
       expect(appearance?.alternate?.hover, const Color(0x267B5FE2));
       expect(appearance?.alternate?.borderRadius, 8);
+      expect(
+        appearance?.alternate?.avatarBorderRadius,
+        const AvatarBorderRadius.pixels(6),
+      );
       final themeRequest = client.requests.singleWhere(
         (request) => request.url.path == '/theme.css',
       );
@@ -783,6 +791,7 @@ const String _metaThemeCss = '''
   --d-selected: var(--meta-color-surface-accent);
   --d-hover: var(--meta-color-surface-accent);
 }
+img.avatar { border-radius: 6px; }
 ''';
 
 const String _paletteCss = '''

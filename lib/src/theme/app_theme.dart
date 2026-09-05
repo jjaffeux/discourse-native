@@ -354,12 +354,51 @@ class DiscourseColors extends ThemeExtension<DiscourseColors> {
   }
 }
 
+@immutable
+class DiscourseAvatarTheme extends ThemeExtension<DiscourseAvatarTheme> {
+  const DiscourseAvatarTheme({required this.borderRadius});
+
+  final AvatarBorderRadius borderRadius;
+
+  BorderRadius borderRadiusFor(double diameter) =>
+      BorderRadius.circular(borderRadius.resolve(diameter));
+
+  static const DiscourseAvatarTheme standard = DiscourseAvatarTheme(
+    borderRadius: defaultDiscourseAvatarBorderRadius,
+  );
+
+  @override
+  DiscourseAvatarTheme copyWith({AvatarBorderRadius? borderRadius}) =>
+      DiscourseAvatarTheme(borderRadius: borderRadius ?? this.borderRadius);
+
+  @override
+  DiscourseAvatarTheme lerp(
+    ThemeExtension<DiscourseAvatarTheme>? other,
+    double t,
+  ) {
+    if (other is! DiscourseAvatarTheme) return this;
+    if (borderRadius.isPercent != other.borderRadius.isPercent) {
+      return t < 0.5 ? this : other;
+    }
+    final value =
+        borderRadius.value +
+        (other.borderRadius.value - borderRadius.value) * t;
+    return DiscourseAvatarTheme(
+      borderRadius: borderRadius.isPercent
+          ? AvatarBorderRadius.percent(value)
+          : AvatarBorderRadius.pixels(value),
+    );
+  }
+}
+
 extension ShellColorsAccess on ThemeData {
   ShellColors get shell => extension<ShellColors>()!;
 
   CodeColors get code => extension<CodeColors>()!;
 
   DiscourseColors get discourse => extension<DiscourseColors>()!;
+
+  DiscourseAvatarTheme get avatars => extension<DiscourseAvatarTheme>()!;
 }
 
 abstract final class AppTheme {
@@ -500,6 +539,7 @@ abstract final class AppTheme {
       discourse,
       colorScheme: colorScheme,
       borderRadius: palette.borderRadius,
+      avatarBorderRadius: palette.avatarBorderRadius,
     );
   }
 
@@ -513,6 +553,7 @@ abstract final class AppTheme {
     DiscourseColors discourse, {
     ColorScheme? colorScheme,
     double borderRadius = defaultDiscourseBorderRadius,
+    AvatarBorderRadius avatarBorderRadius = defaultDiscourseAvatarBorderRadius,
   }) {
     final resolvedColorScheme =
         colorScheme ?? _fallbackColorScheme(brightness, shell, discourse);
@@ -614,6 +655,7 @@ abstract final class AppTheme {
         shell,
         code,
         discourse,
+        DiscourseAvatarTheme(borderRadius: avatarBorderRadius),
         DiscourseButtonTheme.fromColors(
           resolvedColorScheme,
           borderRadius: borderRadius,

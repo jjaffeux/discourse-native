@@ -168,6 +168,7 @@ void main() {
 
       expect(palette?.brightness, Brightness.light);
       expect(palette?.borderRadius, defaultDiscourseBorderRadius);
+      expect(palette?.avatarBorderRadius, defaultDiscourseAvatarBorderRadius);
       expect(palette?.primary, const Color(0xFF111111));
       expect(palette?.secondary, const Color(0xFFFFFFFF));
       expect(palette?.tertiary, const Color(0xFF0088CC));
@@ -226,6 +227,45 @@ void main() {
       ]);
 
       expect(palette?.borderRadius, defaultDiscourseBorderRadius);
+    });
+
+    test('resolves an explicit global avatar radius from theme CSS', () {
+      final percent = parseSiteAppearanceStylesheets([
+        _stylesheet({'--avatar-radius': '37.5%'}),
+        'img.avatar { border-radius: var(--avatar-radius); }',
+      ]);
+      final pixels = parseSiteAppearanceStylesheets([
+        _stylesheet(),
+        'img.avatar { border-radius: .5rem; }',
+      ]);
+
+      expect(
+        percent?.avatarBorderRadius,
+        const AvatarBorderRadius.percent(37.5),
+      );
+      expect(pixels?.avatarBorderRadius, const AvatarBorderRadius.pixels(8));
+    });
+
+    test('keeps core specificity unless a theme avatar rule can win', () {
+      final weaker = parseSiteAppearanceStylesheets([
+        _stylesheet(),
+        '.avatar { border-radius: 0; }',
+      ]);
+      final important = parseSiteAppearanceStylesheets([
+        _stylesheet(),
+        '.avatar { border-radius: 0 !important; }',
+      ]);
+      final contextual = parseSiteAppearanceStylesheets([
+        _stylesheet(),
+        '.directory img.avatar { border-radius: 3px; }',
+      ]);
+
+      expect(weaker?.avatarBorderRadius, defaultDiscourseAvatarBorderRadius);
+      expect(important?.avatarBorderRadius, const AvatarBorderRadius.pixels(0));
+      expect(
+        contextual?.avatarBorderRadius,
+        defaultDiscourseAvatarBorderRadius,
+      );
     });
 
     test('honors important declarations across root rules', () {

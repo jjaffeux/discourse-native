@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -147,10 +148,10 @@ void main() {
       );
       expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
       expect(find.byKey(const ValueKey('user-avatar-sam')), findsOneWidget);
-      expect(
-        tester.widget(find.byKey(const ValueKey('user-avatar-sam'))),
-        isA<ClipOval>(),
+      final avatarClip = tester.widget<ClipRRect>(
+        find.byKey(const ValueKey('user-avatar-sam')),
       );
+      expect(avatarClip.borderRadius, BorderRadius.circular(16));
       expect(find.byKey(const ValueKey('users-select-all')), findsNothing);
       expect(find.byKey(const ValueKey('user-select-sam')), findsNothing);
       expect(
@@ -250,6 +251,30 @@ void main() {
       expect(saved!.map((column) => column.position), [1, 2, 3]);
     },
   );
+
+  testWidgets('Matrix follows an explicit theme avatar radius', (tester) async {
+    final theme = AppTheme.fromPalette(
+      ResolvedSitePalette.fromJson({
+        'primary': Colors.black.toARGB32(),
+        'secondary': Colors.white.toARGB32(),
+        'tertiary': discourseBlue.toARGB32(),
+        'avatarBorderRadius': const AvatarBorderRadius.pixels(5).toJson(),
+      }),
+    );
+    await _pump(
+      tester,
+      const UsersPage(
+        siteUrl: 'https://example.com',
+        data: UsersPageData(items: [_sam], loaded: true),
+      ),
+      theme: theme,
+    );
+
+    final avatarClip = tester.widget<ClipRRect>(
+      find.byKey(const ValueKey('user-avatar-sam')),
+    );
+    expect(avatarClip.borderRadius, BorderRadius.circular(5));
+  });
 
   testWidgets('Matrix loads the next page automatically near the end', (
     tester,

@@ -5,6 +5,40 @@ import 'package:flutter/foundation.dart';
 import 'json.dart';
 
 const double defaultDiscourseBorderRadius = 4;
+const AvatarBorderRadius defaultDiscourseAvatarBorderRadius =
+    AvatarBorderRadius.percent(50);
+
+@immutable
+class AvatarBorderRadius {
+  const AvatarBorderRadius.pixels(this.value) : isPercent = false;
+
+  const AvatarBorderRadius.percent(this.value) : isPercent = true;
+
+  final double value;
+  final bool isPercent;
+
+  double resolve(double diameter) {
+    if (!diameter.isFinite || diameter <= 0 || !value.isFinite || value < 0) {
+      return 0;
+    }
+    final radius = isPercent ? diameter * value / 100 : value;
+    return radius.clamp(0, diameter / 2).toDouble();
+  }
+
+  Map<String, dynamic> toJson() => {
+    'value': value,
+    'unit': isPercent ? 'percent' : 'pixels',
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is AvatarBorderRadius &&
+      other.value == value &&
+      other.isPercent == isPercent;
+
+  @override
+  int get hashCode => Object.hash(value, isPercent);
+}
 
 enum SiteAppearanceMode { followSystem, base, alternate }
 
@@ -69,6 +103,7 @@ class SiteAppearance {
 class ResolvedSitePalette {
   const ResolvedSitePalette({
     this.borderRadius = defaultDiscourseBorderRadius,
+    this.avatarBorderRadius = defaultDiscourseAvatarBorderRadius,
     required this.brightness,
     required this.primary,
     required this.secondary,
@@ -125,6 +160,9 @@ class ResolvedSitePalette {
       borderRadius:
           _nonNegativeDouble(json['borderRadius']) ??
           defaultDiscourseBorderRadius,
+      avatarBorderRadius:
+          _avatarBorderRadius(json['avatarBorderRadius']) ??
+          defaultDiscourseAvatarBorderRadius,
       brightness: switch (jsonText(json['brightness'])) {
         'dark' => Brightness.dark,
         'light' => Brightness.light,
@@ -175,6 +213,7 @@ class ResolvedSitePalette {
   }
 
   final double borderRadius;
+  final AvatarBorderRadius avatarBorderRadius;
   final Brightness brightness;
   final Color primary;
   final Color secondary;
@@ -217,6 +256,7 @@ class ResolvedSitePalette {
 
   Map<String, dynamic> toJson() => {
     'borderRadius': borderRadius,
+    'avatarBorderRadius': avatarBorderRadius.toJson(),
     'brightness': brightness.name,
     'primary': primary.toARGB32(),
     'secondary': secondary.toARGB32(),
@@ -260,6 +300,7 @@ class ResolvedSitePalette {
   bool operator ==(Object other) =>
       other is ResolvedSitePalette &&
       other.borderRadius == borderRadius &&
+      other.avatarBorderRadius == avatarBorderRadius &&
       other.brightness == brightness &&
       other.primary == primary &&
       other.secondary == secondary &&
@@ -301,6 +342,7 @@ class ResolvedSitePalette {
   @override
   int get hashCode => Object.hashAll([
     borderRadius,
+    avatarBorderRadius,
     brightness,
     primary,
     secondary,
@@ -339,6 +381,17 @@ class ResolvedSitePalette {
     codeName,
     codeMeta,
   ]);
+}
+
+AvatarBorderRadius? _avatarBorderRadius(Object? value) {
+  if (value is! Map) return null;
+  final amount = _nonNegativeDouble(value['value']);
+  if (amount == null) return null;
+  return switch (jsonText(value['unit'])) {
+    'percent' => AvatarBorderRadius.percent(amount),
+    'pixels' => AvatarBorderRadius.pixels(amount),
+    _ => null,
+  };
 }
 
 double? _nonNegativeDouble(Object? value) {

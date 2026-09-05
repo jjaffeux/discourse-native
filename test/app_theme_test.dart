@@ -11,8 +11,10 @@ import 'package:flutter_test/flutter_test.dart';
 ResolvedSitePalette palette({
   Brightness brightness = Brightness.light,
   double borderRadius = defaultDiscourseBorderRadius,
+  AvatarBorderRadius avatarBorderRadius = defaultDiscourseAvatarBorderRadius,
 }) => ResolvedSitePalette(
   borderRadius: borderRadius,
+  avatarBorderRadius: avatarBorderRadius,
   brightness: brightness,
   primary: const Color(0xFF111111),
   secondary: const Color(0xFFFDFDFD),
@@ -107,6 +109,15 @@ void main() {
       expect(scheme.surfaceTint, source.tertiary);
       expect(theme.discourse.primaryLowMid, source.primaryLowMid);
       expect(theme.discourse.primaryHigh, source.primaryHigh);
+      expect(theme.avatars.borderRadiusFor(32), BorderRadius.circular(16));
+    });
+
+    test('maps a theme avatar radius into native geometry', () {
+      final theme = AppTheme.fromPalette(
+        palette(avatarBorderRadius: const AvatarBorderRadius.pixels(6)),
+      );
+
+      expect(theme.avatars.borderRadiusFor(32), BorderRadius.circular(6));
     });
 
     test('repairs low-contrast Material foreground roles', () {
