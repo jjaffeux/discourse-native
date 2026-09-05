@@ -645,7 +645,9 @@ class _FilterInput {
     final matches = RegExp(
       r'''(?:-=|=-|-|=)?[\w-]+:(?:"[^"]*"|'[^']*'|\S+)|"[^"]*"|'[^']*'|\S+''',
     ).allMatches(text).toList();
-    _lastMatch = text.endsWith(' ') || matches.isEmpty ? null : matches.last;
+    _lastMatch = RegExp(r'\s$').hasMatch(text) || matches.isEmpty
+        ? null
+        : matches.last;
   }
 
   final String text;

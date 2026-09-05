@@ -496,49 +496,27 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
                 ),
               ),
               const SizedBox(height: 12),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final count = Text(
-                    '$includedCount of ${connectedForums.length} connected '
-                    'forums included',
-                    key: const ValueKey('aggregate-filter-included-count'),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+              Align(
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DButton(
+                      key: const ValueKey('aggregate-filter-select-all'),
+                      label: const Text('Select all'),
+                      onPressed: allIncluded ? null : _selectAll,
+                      variant: DButtonVariant.link,
+                      size: DButtonSize.small,
                     ),
-                  );
-                  final actions = Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DButton(
-                        key: const ValueKey('aggregate-filter-select-all'),
-                        label: const Text('Select all'),
-                        onPressed: allIncluded ? null : _selectAll,
-                        variant: DButtonVariant.link,
-                        size: DButtonSize.small,
-                      ),
-                      DButton(
-                        key: const ValueKey('aggregate-filter-clear'),
-                        label: const Text('Clear'),
-                        onPressed: includedCount == 0 ? null : _clearSelection,
-                        variant: DButtonVariant.link,
-                        size: DButtonSize.small,
-                      ),
-                    ],
-                  );
-                  if (constraints.maxWidth < 340) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [count, const SizedBox(height: 4), actions],
-                    );
-                  }
-                  return Row(
-                    children: [
-                      Expanded(child: count),
-                      const SizedBox(width: 8),
-                      actions,
-                    ],
-                  );
-                },
+                    DButton(
+                      key: const ValueKey('aggregate-filter-clear'),
+                      label: const Text('Clear'),
+                      onPressed: includedCount == 0 ? null : _clearSelection,
+                      variant: DButtonVariant.link,
+                      size: DButtonSize.small,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -729,31 +707,6 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Editing filter',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.35,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            forum.title,
-            key: const ValueKey('aggregate-filter-editor-title'),
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            forum.host,
-            key: const ValueKey('aggregate-filter-editor-host'),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 22),
-          Text(
             'Topic filter query',
             style: theme.textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.w600,
@@ -774,6 +727,9 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
             padding: EdgeInsets.zero,
             enabled: included,
             preferSuggestionsAbove: true,
+            minLines: 3,
+            maxLines: 5,
+            submitOnEnter: false,
           ),
           const SizedBox(height: 7),
           Text(

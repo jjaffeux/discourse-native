@@ -107,6 +107,15 @@ void main() {
       expect((await subject.suggestions('-tags')).single.name, '-tag:');
     });
 
+    test('starts a new suggestion segment after a line break', () async {
+      final subject = engine();
+
+      expect(
+        (await subject.suggestions('status:open\n')).map((item) => item.name),
+        ['tag:'],
+      );
+    });
+
     test(
       'completes multi-value tags and suppresses values already used',
       () async {

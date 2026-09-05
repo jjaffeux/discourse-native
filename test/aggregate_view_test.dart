@@ -303,6 +303,25 @@ void main() {
         find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey('aggregate-filter-included-count')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('aggregate-filter-editor-title')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('aggregate-filter-editor-host')),
+        findsNothing,
+      );
+      final queryField = tester.widget<TextField>(
+        find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
+      );
+      expect(queryField.minLines, 3);
+      expect(queryField.maxLines, 5);
+      expect(queryField.keyboardType, TextInputType.multiline);
+      expect(queryField.textInputAction, TextInputAction.newline);
       expect(find.text('Save filters').hitTestable(), findsOneWidget);
 
       await tester.enterText(
@@ -314,12 +333,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        tester
-            .widget<Text>(
-              find.byKey(const ValueKey('aggregate-filter-editor-title')),
-            )
-            .data,
-        'Two',
+        find.byKey(ValueKey('aggregate-query-${forumUrls[1]}')),
+        findsOneWidget,
       );
       expect(
         find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
