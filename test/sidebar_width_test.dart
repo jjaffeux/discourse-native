@@ -15,6 +15,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -75,9 +76,16 @@ void main() {
 
   for (final size in [const Size(390, 700), const Size(1200, 800)]) {
     testWidgets(
-      'scaled sidebar text remains inside expanded ${size.width}px rows',
+      'scaled sidebar labels and forum identity fit ${size.width}px layouts',
       (tester) async {
-        final controller = await _controller();
+        SharedPreferences.setMockInitialValues({
+          SidebarWidthStore.storageKey: AdaptiveShell.sidebarMinWidth,
+        });
+        final site = instance(
+          'very-long-community-address.example.com/discussion/subfolder',
+          title: 'A forum name that is much too long for the sidebar',
+        );
+        final controller = await _controller(store: FakeInstanceStore([site]));
         await controller.appSettings.setTextScale(AppTextScale.percent200);
         await _pumpShell(tester, controller, size);
 
@@ -94,6 +102,26 @@ void main() {
         expect(rowRect.height, greaterThan(size.width <= 640 ? 38.4 : 30));
         expect(textRect.top, greaterThanOrEqualTo(rowRect.top));
         expect(textRect.bottom, lessThanOrEqualTo(rowRect.bottom));
+
+        final header = find.byKey(const ValueKey('forum-identity-header'));
+        final name = find.descendant(
+          of: header,
+          matching: find.text(site.title),
+        );
+        final url = find.byKey(const ValueKey('forum-identity-url'));
+        final headerRect = tester.getRect(header);
+        expect(tester.widget<Text>(url).data, site.url);
+        expect(tester.getRect(name).bottom, lessThan(tester.getRect(url).top));
+        for (final label in [name, url]) {
+          final paragraph = tester.renderObject<RenderParagraph>(label);
+          expect(paragraph.maxLines, 1);
+          expect(paragraph.overflow, TextOverflow.ellipsis);
+          expect(paragraph.didExceedMaxLines, isTrue);
+          final labelRect = tester.getRect(label);
+          expect(labelRect.left, greaterThanOrEqualTo(headerRect.left));
+          expect(labelRect.right, lessThanOrEqualTo(headerRect.right));
+          expect(labelRect.bottom, lessThanOrEqualTo(headerRect.bottom));
+        }
       },
     );
   }

@@ -271,19 +271,19 @@ class InstanceSidebar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (showUserMenu) const _SidebarUserHeader(),
+              _ForumIdentityHeader(
+                siteUrl: sidebar.siteUrl!,
+                name: sidebar.name!,
+                iconUrl: sidebar.iconUrl,
+                monogram: sidebar.monogram!,
+                accentColor: sidebar.accentColor!,
+              ),
               Expanded(
                 child: _SidebarPanelBody(
                   sidebar: sidebar,
                   showUserMenu: showUserMenu,
                   sectionStore: sectionStore,
                 ),
-              ),
-              _ForumIdentityFooter(
-                siteUrl: sidebar.siteUrl!,
-                name: sidebar.name!,
-                iconUrl: sidebar.iconUrl,
-                monogram: sidebar.monogram!,
-                accentColor: sidebar.accentColor!,
               ),
             ],
           ),
@@ -578,8 +578,8 @@ class _SidebarUserHeader extends StatelessWidget {
   }
 }
 
-class _ForumIdentityFooter extends StatelessWidget {
-  const _ForumIdentityFooter({
+class _ForumIdentityHeader extends StatelessWidget {
+  const _ForumIdentityHeader({
     required this.siteUrl,
     required this.name,
     required this.iconUrl,
@@ -602,8 +602,8 @@ class _ForumIdentityFooter extends StatelessWidget {
         : Colors.black;
 
     return Padding(
-      key: const ValueKey('forum-identity-footer'),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      key: const ValueKey('forum-identity-header'),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: MenuAnchor(
         alignmentOffset: const Offset(0, 6),
         style: MenuStyle(
@@ -651,7 +651,7 @@ class _ForumIdentityFooter extends StatelessWidget {
           constraints: BoxConstraints(
             minHeight: _SidebarSpacing.rowHeight(context) + 12,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
             children: [
               ClipRRect(
@@ -680,21 +680,42 @@ class _ForumIdentityFooter extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 2,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    DTooltip(
+                      message: siteUrl,
+                      child: Text(
+                        siteUrl,
+                        key: const ValueKey('forum-identity-url'),
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
-              RotatedBox(
-                quarterTurns: 2,
+              DTooltip(
+                message: 'Forum options',
                 child: DIcon(
-                  DIcons.chevronDown,
-                  size: 12,
+                  DIcons.gear,
+                  size: 16,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
