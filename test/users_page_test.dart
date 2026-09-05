@@ -81,6 +81,19 @@ void main() {
       expect(tableRect.right, 1100);
       expect(tableRect.bottom, 820);
 
+      final searchFinder = find.byKey(const ValueKey('users-search'));
+      final periodFinder = find.byKey(const ValueKey('users-period-filter'));
+      final searchHeight = tester.getSize(searchFinder).height;
+      expect(searchHeight, tester.getSize(periodFinder).height);
+      expect(
+        tester
+            .widget<TextField>(searchFinder)
+            .decoration
+            ?.prefixIconConstraints
+            ?.minHeight,
+        searchHeight,
+      );
+
       final page = tester.widget<ColoredBox>(
         find.byKey(const ValueKey('users-page')),
       );
