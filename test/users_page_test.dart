@@ -368,18 +368,44 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Directory columns'), findsOneWidget);
+      expect(find.text('1 shown'), findsOneWidget);
+      expect(find.text('Save changes'), findsOneWidget);
       expect(find.text('Solutions'), findsOneWidget);
       expect(find.text('GitHub Username'), findsOneWidget);
+      final solutionsTile = tester.widget<CheckboxListTile>(
+        find.byKey(const ValueKey('users-manage-column-9')),
+      );
+      expect(solutionsTile.value, isFalse);
+      expect(solutionsTile.visualDensity, VisualDensity.compact);
+      expect(solutionsTile.minTileHeight, 48);
+      expect(solutionsTile.minVerticalPadding, 6);
+      expect(solutionsTile.contentPadding, EdgeInsets.zero);
+
+      final firstUp = find.byKey(const ValueKey('users-column-up-1'));
+      final firstDown = find.byKey(const ValueKey('users-column-down-1'));
       expect(
-        tester
-            .widget<CheckboxListTile>(
-              find.byKey(const ValueKey('users-manage-column-9')),
-            )
-            .value,
-        isFalse,
+        tester.widget<DButton>(firstUp).variant,
+        DButtonVariant.transparent,
+      );
+      expect(
+        tester.widget<DButton>(firstDown).variant,
+        DButtonVariant.transparent,
+      );
+      expect(tester.getSize(firstUp), const Size.square(40));
+      expect(tester.getSize(firstDown), const Size.square(40));
+      expect(tester.getTopRight(firstUp).dx, tester.getTopLeft(firstDown).dx);
+
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('users-manage-columns-dialog')),
+          matching: find.byType(Divider),
+        ),
+        findsNWidgets(2),
       );
 
       await tester.tap(find.byKey(const ValueKey('users-manage-column-9')));
+      await tester.pump();
+      expect(find.text('2 shown'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('users-column-up-14')));
       await tester.tap(find.byKey(const ValueKey('users-save-columns')));
       await tester.pumpAndSettle();
@@ -394,6 +420,48 @@ void main() {
       expect(saved!.map((column) => column.position), [1, 2, 3]);
     },
   );
+
+  testWidgets('staff column editor stays compact on narrow screens', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      UsersPage(
+        siteUrl: 'https://example.com',
+        data: const UsersPageData(
+          items: [_sam],
+          columns: [_likes],
+          availableColumns: [_likes, _solutions, _github],
+          canManageColumns: true,
+          loaded: true,
+        ),
+        onManageColumns: (_) async => true,
+      ),
+      size: const Size(1100, 700),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('users-columns')));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(390, 700);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('users-manage-columns-dialog')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('users-enabled-columns-count')),
+      findsNothing,
+    );
+    expect(find.text('Save changes'), findsOneWidget);
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('users-manage-column-1')))
+          .height,
+      48,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('Matrix follows an explicit theme avatar radius', (tester) async {
     final theme = AppTheme.fromPalette(
