@@ -407,7 +407,7 @@ class _TopicLedgerLayout {
   static const double horizontalPadding = topicListHorizontalPadding;
   static const double gap = 12;
   static const double participantsWidth = 64;
-  static const double activityWidth = 156;
+  static const double activityWidth = 180;
 
   static double participantsWidthOf(BuildContext context) =>
       participantsWidth * ContentAlignmentScope.appTextScaleFactorOf(context);
@@ -439,9 +439,9 @@ class _TopicListHeader extends StatelessWidget {
           key: const ValueKey('topic-list-ledger-header'),
           padding: const EdgeInsets.fromLTRB(
             _TopicLedgerLayout.horizontalPadding,
-            4,
+            12,
             _TopicLedgerLayout.horizontalPadding,
-            8,
+            12,
           ),
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: theme.shell.divider)),

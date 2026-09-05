@@ -311,7 +311,7 @@ void main() {
         tester
             .getSize(find.byKey(const ValueKey('topic-ledger-activity-8')))
             .width,
-        195,
+        225,
       );
       expect(tester.takeException(), isNull);
     } finally {
