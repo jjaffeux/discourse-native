@@ -425,7 +425,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
     for (final forum in widget.forums) {
       if (forum.isConnected) return forum.url;
     }
-    return widget.forums.isEmpty ? null : widget.forums.first.url;
+    return null;
   }
 
   void _notifyChanged() {
@@ -459,6 +459,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
   }
 
   void _focusForum(DiscourseInstance forum) {
+    if (!forum.isConnected) return;
     if (_focusedForumUrl == forum.url) return;
     setState(() => _focusedForumUrl = forum.url);
   }
@@ -547,6 +548,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
           final forum = widget.forums[index];
           final focused = forum.url == _focusedForumUrl;
           return Semantics(
+            enabled: forum.isConnected,
             selected: focused,
             container: true,
             child: Material(
@@ -569,7 +571,10 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
                     child: InkWell(
                       key: ValueKey('aggregate-filter-focus-${forum.url}'),
                       borderRadius: BorderRadius.circular(9),
-                      onTap: () => _focusForum(forum),
+                      canRequestFocus: forum.isConnected,
+                      onTap: forum.isConnected
+                          ? () => _focusForum(forum)
+                          : null,
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(minHeight: 54),
                         child: Padding(
@@ -587,6 +592,9 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
                                       overflow: TextOverflow.ellipsis,
                                       style: theme.textTheme.bodyMedium
                                           ?.copyWith(
+                                            color: forum.isConnected
+                                                ? null
+                                                : theme.disabledColor,
                                             fontWeight: FontWeight.w600,
                                           ),
                                     ),
@@ -599,9 +607,11 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
                                       overflow: TextOverflow.ellipsis,
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant,
+                                            color: forum.isConnected
+                                                ? theme
+                                                      .colorScheme
+                                                      .onSurfaceVariant
+                                                : theme.disabledColor,
                                           ),
                                     ),
                                   ],
@@ -611,7 +621,9 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
                               DIcon(
                                 DIcons.chevronRight,
                                 size: 13,
-                                color: focused
+                                color: !forum.isConnected
+                                    ? theme.disabledColor
+                                    : focused
                                     ? theme.colorScheme.primary
                                     : theme.colorScheme.onSurfaceVariant,
                               ),
