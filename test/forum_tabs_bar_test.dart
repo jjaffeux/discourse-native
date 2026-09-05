@@ -158,8 +158,8 @@ void main() {
         barRect.top + 3 + (ForumTabsBar.height - 3) / 2,
       );
 
-      // Check the painted seam as well as layout: the active tab must connect
-      // to the page, while the separator remains beneath inactive tabs.
+      // Check the painted bottom edge as well as layout: the active tab must
+      // connect to the page without adding a separator beneath inactive tabs.
       final boundary = tester.renderObject<RenderRepaintBoundary>(
         find.byKey(const ValueKey('forum-tabs-paint-boundary')),
       );
@@ -171,7 +171,7 @@ void main() {
           ))!;
           for (final (rect, color) in [
             (selectedRect, theme.shell.content),
-            (ordinaryRect, theme.shell.divider),
+            (ordinaryRect, theme.shell.sidebar),
           ]) {
             final x = (rect.center.dx - barRect.left).floor();
             final y = (barRect.height - 1).floor();
