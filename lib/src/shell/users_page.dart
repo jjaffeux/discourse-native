@@ -503,64 +503,30 @@ class _UsersPageState extends State<UsersPage> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, updateDialog) {
           final canSave = draft.any((column) => column.enabled);
-          final enabledCount = draft.where((column) => column.enabled).length;
           final theme = Theme.of(context);
-          final showEnabledCount = MediaQuery.sizeOf(context).width >= 480;
           return AlertDialog(
             key: const ValueKey('users-manage-columns-dialog'),
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 24,
+            ),
             titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-            title: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Directory columns',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (showEnabledCount) ...[
-                  const SizedBox(width: 12),
-                  Semantics(
-                    liveRegion: true,
-                    child: Container(
-                      key: const ValueKey('users-enabled-columns-count'),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '$enabledCount shown',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+            title: Text(
+              'Directory columns',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             content: SizedBox(
-              width: 440,
+              key: const ValueKey('users-manage-columns-content'),
+              width: 560,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 520),
+                key: const ValueKey('users-manage-columns-list'),
+                constraints: const BoxConstraints(maxHeight: 600),
                 child: ListView(
                   shrinkWrap: true,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Text(
-                        'Choose which columns everyone sees and arrange their order.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
                     for (var index = 0; index < draft.length; index++) ...[
                       if (index > 0) const Divider(height: 1),
                       CheckboxListTile(

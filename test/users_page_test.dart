@@ -368,10 +368,40 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Directory columns'), findsOneWidget);
-      expect(find.text('1 shown'), findsOneWidget);
       expect(find.text('Save changes'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('users-enabled-columns-count')),
+        findsNothing,
+      );
+      expect(
+        find.text(
+          'Choose which columns everyone sees and arrange their order.',
+        ),
+        findsNothing,
+      );
       expect(find.text('Solutions'), findsOneWidget);
       expect(find.text('GitHub Username'), findsOneWidget);
+      final dialog = tester.widget<AlertDialog>(
+        find.byKey(const ValueKey('users-manage-columns-dialog')),
+      );
+      expect(
+        dialog.insetPadding,
+        const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      );
+      final content = find.byKey(
+        const ValueKey('users-manage-columns-content'),
+      );
+      expect(tester.widget<SizedBox>(content).width, 560);
+      expect(tester.getSize(content).width, 560);
+      expect(
+        tester
+            .widget<ConstrainedBox>(
+              find.byKey(const ValueKey('users-manage-columns-list')),
+            )
+            .constraints
+            .maxHeight,
+        600,
+      );
       final solutionsTile = tester.widget<CheckboxListTile>(
         find.byKey(const ValueKey('users-manage-column-9')),
       );
@@ -405,7 +435,6 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('users-manage-column-9')));
       await tester.pump();
-      expect(find.text('2 shown'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('users-column-up-14')));
       await tester.tap(find.byKey(const ValueKey('users-save-columns')));
       await tester.pumpAndSettle();
@@ -450,8 +479,12 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('users-enabled-columns-count')),
-      findsNothing,
+      tester
+          .getSize(
+            find.byKey(const ValueKey('users-manage-columns-content')),
+          )
+          .width,
+      310,
     );
     expect(find.text('Save changes'), findsOneWidget);
     expect(
