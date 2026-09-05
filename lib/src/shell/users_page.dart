@@ -1506,8 +1506,8 @@ class _IdentityRow extends StatelessWidget {
                 siteUrl: siteUrl.isEmpty ? null : siteUrl,
                 child: Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(9),
+                    ClipOval(
+                      key: ValueKey('user-avatar-${item.user.username}'),
                       child: AvatarImage(
                         url: item.user.avatarUrl,
                         size: 32,

@@ -146,6 +146,11 @@ void main() {
         AppTheme.light.shell.content,
       );
       expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
+      expect(find.byKey(const ValueKey('user-avatar-sam')), findsOneWidget);
+      expect(
+        tester.widget(find.byKey(const ValueKey('user-avatar-sam'))),
+        isA<ClipOval>(),
+      );
       expect(find.byKey(const ValueKey('users-select-all')), findsNothing);
       expect(find.byKey(const ValueKey('user-select-sam')), findsNothing);
       expect(
