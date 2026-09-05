@@ -31,6 +31,15 @@ const _filterOptions = [
   TopicFilterOption(name: 'status:', priority: 1),
   TopicFilterOption(name: 'tag:', type: 'tag', priority: 2),
   TopicFilterOption(name: 'category:', type: 'category', priority: 3),
+  TopicFilterOption(
+    name: 'group:',
+    type: 'group',
+    priority: 4,
+    delimiters: [
+      TopicFilterModifier(name: ','),
+      TopicFilterModifier(name: '+'),
+    ],
+  ),
 ];
 
 void main() {
@@ -574,6 +583,35 @@ void main() {
     },
   );
 
+  testWidgets('selected suggestions become tokens without a separator', (
+    tester,
+  ) async {
+    final fixture = await _pumpMixedAggregateView(tester);
+    final siteUrl = fixture.forumUrls.first;
+
+    await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
+    await tester.pumpAndSettle();
+    final field = find.byKey(ValueKey('aggregate-query-$siteUrl'));
+
+    await tester.tap(field);
+    await tester.enterText(field, 'group:2023');
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
+
+    const groupName = '2023-cap-polo-order';
+    await tester.tap(find.text(groupName));
+    await tester.pump();
+
+    expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-filter-token-0')),
+        matching: find.text('group: $groupName'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('stacks the focused filter editor at narrow widths', (
     tester,
   ) async {
@@ -799,6 +837,9 @@ _pumpMixedAggregateView(WidgetTester tester) async {
       _defaultAggregatePath: _filterOptions,
       _firstFilterPath: _filterOptions,
       _secondFilterPath: _filterOptions,
+    },
+    filterGroupSearches: const {
+      '2023': [TopicFilterLookupValue(name: '2023-cap-polo-order')],
     },
     feedGates: <String, Completer<void>>{},
     categoryList: const [
