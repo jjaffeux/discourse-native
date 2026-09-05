@@ -25,6 +25,7 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
@@ -1215,6 +1216,30 @@ void main() {
         'https://meta.discourse.org/images/emoji/twitter/slight_smile.png?v=15',
       );
       expect(renderedText(':slight_smile:'), findsNothing);
+    });
+
+    testWidgets('render a custom SVG with the vector decoder', (tester) async {
+      final svg = Uint8List.fromList(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'
+                '<rect width="10" height="10" fill="red"/>'
+                '</svg>'
+            .codeUnits,
+      );
+      await pumpCookedInShell(
+        tester,
+        smile,
+        emoji: MockClient(
+          (_) async => http.Response.bytes(
+            svg,
+            200,
+            headers: {'content-type': 'image/svg+xml'},
+          ),
+        ),
+      );
+
+      expect(find.byType(SvgPicture), findsOneWidget);
+      expect(renderedText(':slight_smile:'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('a standalone emoji is large and stays at the leading edge', (

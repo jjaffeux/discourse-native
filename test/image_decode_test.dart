@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
@@ -160,4 +161,65 @@ void main() {
       everyElement(ResizeImagePolicy.fit),
     );
   });
+
+  testWidgets('quarantines invalid emoji bytes after one diagnostic', (
+    tester,
+  ) async {
+    final diagnostics = _RecordingDiagnosticsSink();
+    addTearDown(DiagnosticsSink.install(diagnostics).close);
+    const url = 'https://site.test/broken.png';
+    final pipeline = installTestMediaPipeline(
+      client: MockClient((_) async => http.Response.bytes([1, 2, 3], 200)),
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Row(
+          children: [
+            EmojiImage(url: url, size: 18, alt: ':broken:'),
+            EmojiImage(url: url, size: 20, alt: ':broken:'),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(':broken:'), findsNWidgets(2));
+    expect(pipeline.emoji.isCached(url), isTrue);
+    expect(pipeline.emoji.cached(url), isNull);
+    expect(diagnostics.operations, ['emoji.decode']);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+final class _RecordingDiagnosticsSink implements DiagnosticsSink {
+  final List<String?> operations = [];
+
+  @override
+  void reportError(
+    Object error,
+    StackTrace stackTrace, {
+    String? operation,
+    String source = 'application',
+    DiagnosticSeverity severity = DiagnosticSeverity.error,
+    bool handled = true,
+    bool degraded = true,
+    String? correlationId,
+  }) {
+    operations.add(operation);
+  }
+
+  @override
+  void recordLog({
+    required String name,
+    String source = 'application',
+    String? component,
+    String? message,
+    Map<String, Object?> attributes = const {},
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? operation,
+    String? correlationId,
+    bool handled = true,
+    bool degraded = false,
+  }) {}
 }

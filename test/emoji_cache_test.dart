@@ -63,6 +63,57 @@ void main() {
   });
 
   group('EmojiCache.load', () {
+    test('reports when the server supplied an SVG emoji', () async {
+      final svg = Uint8List.fromList(
+        '<svg xmlns="http://www.w3.org/2000/svg"></svg>'.codeUnits,
+      );
+      final cache = EmojiCache(
+        client: MockClient(
+          (_) async => http.Response.bytes(
+            svg,
+            200,
+            headers: {'content-type': 'image/svg+xml'},
+          ),
+        ),
+      );
+
+      final result = await cache.load('https://site/emoji/custom.png');
+
+      expect(result, isNotNull);
+      expect(result!.isSvg, isTrue);
+      expect(result.bytes, orderedEquals(svg));
+    });
+
+    test('sniffs an SVG restored without response headers', () async {
+      final cache = EmojiCache(
+        client: MockClient(
+          (_) async => http.Response.bytes(
+            Uint8List.fromList('<?xml version="1.0"?><svg></svg>'.codeUnits),
+            200,
+          ),
+        ),
+      );
+
+      final result = await cache.load('https://site/emoji/custom.png');
+
+      expect(result, isNotNull);
+      expect(result!.isSvg, isTrue);
+    });
+
+    test('remembers and discards a platform decoder rejection', () async {
+      final cache = EmojiCache(
+        client: MockClient((_) async => http.Response.bytes(pngBytes, 200)),
+      );
+      const url = 'https://site/emoji/custom.png';
+      final result = await cache.load(url);
+
+      expect(result, isNotNull);
+      expect(cache.rejectAfterDecodeFailure(url, result!), isTrue);
+      expect(cache.rejectAfterDecodeFailure(url, result), isFalse);
+      expect(cache.isCached(url), isTrue);
+      expect(cache.cached(url), isNull);
+    });
+
     test(
       'fetches a given URL once, however many times it is requested',
       () async {

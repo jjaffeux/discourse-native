@@ -14,6 +14,8 @@ abstract interface class ByteCacheStore {
     Uint8List bytes, {
     required DateTime expiresAt,
   });
+
+  Future<void> remove(String url);
 }
 
 /// The URL is hashed before it becomes a filename. Each file carries its
@@ -149,6 +151,9 @@ final class FileByteCacheStore implements ByteCacheStore {
       await _prune();
     }
   }
+
+  @override
+  Future<void> remove(String url) => _delete(File(_pathFor(url)));
 
   String _pathFor(String url) {
     final digest = SHA256Digest().process(Uint8List.fromList(utf8.encode(url)));

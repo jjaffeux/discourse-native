@@ -89,6 +89,36 @@ abstract class ByteCache<T extends Object> {
     return entry?.value;
   }
 
+  /// Forgets [value] after the platform image decoder rejects it.
+  ///
+  /// Decoder support belongs to the platform and cannot be determined while
+  /// [decode] synchronously classifies a response. Only discard the entry if
+  /// it is still the exact value the caller tried, so a late decoder failure
+  /// cannot replace newer bytes for the same URL.
+  @protected
+  bool discardCachedValue(String url, T value) {
+    final entry = _cache[url];
+    if (entry == null || !identical(entry.value, value)) return false;
+
+    _put(url, null, byteSize: 0);
+    final persistent = store;
+    if (persistent != null) {
+      unawaited(_discardStoredValue(persistent, url));
+    }
+    return true;
+  }
+
+  Future<void> _discardStoredValue(
+    ByteCacheStore persistent,
+    String url,
+  ) async {
+    try {
+      await persistent.remove(url);
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, url, 'image.cacheDelete');
+    }
+  }
+
   bool _cooledDown(String url) {
     final failedAt = _transientFailures[url];
     if (failedAt == null) return false;
