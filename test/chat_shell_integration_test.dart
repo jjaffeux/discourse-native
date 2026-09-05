@@ -2158,40 +2158,34 @@ void _registerChatShellTests() {
 
     group('in the sidebar', () {
       group('separate sidebar modes', () {
-        testWidgets(
-          'pads and centers the panel switcher above the forum footer',
-          (tester) async {
-            await pumpChat(
-              tester,
-              public: [channel(9)],
-              user: chatUser(
-                separateSidebarMode: ChatSeparateSidebarMode.always,
-              ),
-            );
+        testWidgets('pads and centers the panel switcher at the bottom', (
+          tester,
+        ) async {
+          await pumpChat(
+            tester,
+            public: [channel(9)],
+            user: chatUser(separateSidebarMode: ChatSeparateSidebarMode.always),
+          );
 
-            final switcher = find.byKey(
-              const ValueKey('sidebar-panel-switch-chat'),
-            );
-            final switcherRect = tester.getRect(switcher);
-            final sidebarRect = tester.getRect(find.byType(InstanceSidebar));
-            final forumFooterRect = tester.getRect(
-              find.byKey(const ValueKey('forum-identity-footer')),
-            );
-            final switcherContent = find.descendant(
-              of: switcher,
-              matching: find.byType(Row),
-            );
+          final switcher = find.byKey(
+            const ValueKey('sidebar-panel-switch-chat'),
+          );
+          final switcherRect = tester.getRect(switcher);
+          final sidebarRect = tester.getRect(find.byType(InstanceSidebar));
+          final switcherContent = find.descendant(
+            of: switcher,
+            matching: find.byType(Row),
+          );
 
-            expect(switcherContent, findsOneWidget);
-            expect(switcherRect.center.dy, greaterThan(sidebarRect.center.dy));
-            expect(forumFooterRect.top - switcherRect.bottom, 12);
-            expect(switcherRect.height, greaterThan(36));
-            expect(
-              tester.getRect(switcherContent).center.dx,
-              moreOrLessEquals(switcherRect.center.dx),
-            );
-          },
-        );
+          expect(switcherContent, findsOneWidget);
+          expect(switcherRect.center.dy, greaterThan(sidebarRect.center.dy));
+          expect(sidebarRect.bottom - switcherRect.bottom, 12);
+          expect(switcherRect.height, greaterThan(36));
+          expect(
+            tester.getRect(switcherContent).center.dx,
+            moreOrLessEquals(switcherRect.center.dx),
+          );
+        });
 
         for (final scenario in [
           (
