@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -39,6 +40,8 @@ void main() {
     String Function(String)? resolveEmoji,
     ComposerPills? pills,
     PluginHashtagPresentationResolver? pluginHashtagPresentation,
+    SyntaxHighlightBatcher backgroundSyntaxHighlighterForTesting =
+        highlightLinesBatchInBackground,
   }) async {
     controller = MarkdownEditingController(
       text: source,
@@ -46,6 +49,8 @@ void main() {
       pills: pills,
       pluginHashtagPresentation: pluginHashtagPresentation,
       syntaxPolicies: const [_FakeSyntaxPolicy()],
+      backgroundSyntaxHighlighterForTesting:
+          backgroundSyntaxHighlighterForTesting,
     );
     addTearDown(controller.dispose);
 
@@ -487,7 +492,11 @@ void main() {
     testWidgets('typing in a large fence paints plain now, colour later', (
       tester,
     ) async {
-      await pumpField(tester, largeSource);
+      await pumpField(
+        tester,
+        largeSource,
+        backgroundSyntaxHighlighterForTesting: _highlightImmediately,
+      );
       await tester.pump(MarkdownEditingController.fenceHighlightDebounce);
       await tester.pump();
 
@@ -526,8 +535,16 @@ void main() {
         for (var fence = 0; fence < syntaxHighlightCacheCapacity + 8; fence++)
           '```dart\n${List.generate(60, (line) => 'final v$fence$line = $line;').join('\n')}\n```',
       ].join('\n\n');
+      final batches = <List<SyntaxHighlightRequest>>[];
 
-      await pumpField(tester, crowded);
+      await pumpField(
+        tester,
+        crowded,
+        backgroundSyntaxHighlighterForTesting: (requests) {
+          batches.add(List.of(requests));
+          return _highlightImmediately(requests);
+        },
+      );
 
       // flutter_test also fails teardown if the debounce keeps a Timer alive.
       for (var round = 0; round < 6; round++) {
@@ -535,10 +552,74 @@ void main() {
         await tester.pump();
       }
 
+      expect(batches, hasLength(1));
+      expect(batches.single, hasLength(syntaxHighlightCacheCapacity + 8));
       final keyword = crowded.lastIndexOf('final v');
       expect(
         styleAt(tester, crowded, keyword).color,
         AppTheme.dark.code.keyword,
+      );
+    });
+
+    testWidgets('a stale batch cannot populate the shared cache', (
+      tester,
+    ) async {
+      final requests = <List<SyntaxHighlightRequest>>[];
+      final completions = <Completer<SyntaxHighlightBatch>>[];
+      Future<SyntaxHighlightBatch> controlledBatcher(
+        List<SyntaxHighlightRequest> batch,
+      ) {
+        requests.add(List.of(batch));
+        final completion = Completer<SyntaxHighlightBatch>();
+        completions.add(completion);
+        return completion.future;
+      }
+
+      await pumpField(
+        tester,
+        largeSource,
+        backgroundSyntaxHighlighterForTesting: controlledBatcher,
+      );
+      await tester.pump(MarkdownEditingController.fenceHighlightDebounce);
+      final staleRequest = requests.single.single;
+      expect(staleRequest.source, '$largeBody\n');
+
+      final currentBody = largeBody.replaceFirst('line 7', 'current line 7');
+      final currentSource = '```dart\n$currentBody\n```';
+      controller.value = TextEditingValue(
+        text: currentSource,
+        selection: TextSelection.collapsed(offset: currentSource.length),
+      );
+      await tester.pump();
+      await tester.pump(MarkdownEditingController.fenceHighlightDebounce);
+      expect(requests, hasLength(2));
+      final currentRequest = requests.last.single;
+      expect(currentRequest.source, '$currentBody\n');
+
+      completions.last.complete(_fakeHighlightedBatch(requests.last));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        highlightNeedsParse(currentRequest.source, currentRequest.language),
+        isFalse,
+      );
+      expect(
+        styleAt(tester, currentSource, currentSource.indexOf('final')).color,
+        AppTheme.dark.code.keyword,
+      );
+
+      completions.first.complete(_fakeHighlightedBatch(requests.first));
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        highlightNeedsParse(staleRequest.source, staleRequest.language),
+        isTrue,
+        reason: 'the obsolete result must never enter the process-wide cache',
+      );
+      expect(
+        highlightNeedsParse(currentRequest.source, currentRequest.language),
+        isFalse,
       );
     });
 
@@ -558,6 +639,46 @@ void main() {
 
       await tester.pumpWidget(const SizedBox());
       local.dispose();
+    });
+
+    testWidgets('disposal rejects tokenization already in flight', (
+      tester,
+    ) async {
+      final started = Completer<void>();
+      final result = Completer<SyntaxHighlightBatch>();
+      late List<SyntaxHighlightRequest> requests;
+      final local = MarkdownEditingController(
+        text: largeSource,
+        backgroundSyntaxHighlighterForTesting: (batch) {
+          requests = List.of(batch);
+          started.complete();
+          return result.future;
+        },
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: SizedBox(
+              width: 600,
+              child: TextField(controller: local, maxLines: null),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(MarkdownEditingController.fenceHighlightDebounce);
+      await started.future;
+
+      await tester.pumpWidget(const SizedBox());
+      local.dispose();
+      result.complete(_fakeHighlightedBatch(requests));
+      await tester.pump();
+
+      expect(
+        highlightNeedsParse(requests.single.source, requests.single.language),
+        isTrue,
+      );
     });
   });
 
@@ -1357,6 +1478,20 @@ void main() {
     });
   });
 }
+
+Future<SyntaxHighlightBatch> _highlightImmediately(
+  List<SyntaxHighlightRequest> requests,
+) => Future.value(_fakeHighlightedBatch(requests));
+
+SyntaxHighlightBatch _fakeHighlightedBatch(
+  List<SyntaxHighlightRequest> requests,
+) => [
+  for (final request in requests)
+    [
+      for (final line in request.source.split('\n'))
+        [CodeToken(line, line.contains('final ') ? 'keyword' : null)],
+    ],
+];
 
 const _fakeSyntaxKind = ComposerSyntaxKind(
   owner: PluginId('fake-syntax'),

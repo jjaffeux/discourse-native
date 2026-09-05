@@ -14,6 +14,14 @@ class CodeToken {
   final String? scope;
 }
 
+typedef SyntaxHighlightRequest = ({String source, String? language});
+typedef HighlightedCodeLines = List<List<CodeToken>>;
+typedef SyntaxHighlightBatch = List<HighlightedCodeLines>;
+typedef SyntaxHighlightBatcher =
+    Future<SyntaxHighlightBatch> Function(
+      List<SyntaxHighlightRequest> requests,
+    );
+
 const List<String> autoDetectCandidates = [
   'javascript',
   'ruby',
@@ -59,13 +67,11 @@ typedef _HighlightKey = ({String source, String language});
 final LinkedHashMap<_HighlightKey, List<List<CodeToken>>>
 _syntaxHighlightCache = LinkedHashMap();
 
-List<List<CodeToken>> highlightLines(String source, String? language) {
-  final lines = source.split('\n');
-  final plain = [
-    for (final line in lines) [CodeToken(line)],
-  ];
+HighlightedCodeLines highlightLines(String source, String? language) {
   final normalizedLanguage = language?.toLowerCase();
-  if (_bypassesParser(source, normalizedLanguage)) return plain;
+  if (_bypassesParser(source, normalizedLanguage)) {
+    return _plainLines(source);
+  }
 
   final key = (source: source, language: normalizedLanguage!);
   if (_syntaxHighlightCache.remove(key) case final cached?) {
@@ -73,24 +79,32 @@ List<List<CodeToken>> highlightLines(String source, String? language) {
     return _copyLines(cached);
   }
 
+  return _remember(key, _highlightLinesUncached(source, normalizedLanguage));
+}
+
+HighlightedCodeLines _highlightLinesUncached(String source, String? language) {
+  final lines = source.split('\n');
+  final plain = _plainLines(source);
+  final normalizedLanguage = language?.toLowerCase();
+  if (_bypassesParser(source, normalizedLanguage)) return plain;
+
   final resolved = _resolve(normalizedLanguage, source);
-  if (resolved == null) return _remember(key, plain);
+  if (resolved == null) return plain;
 
   final List<Node>? nodes;
   try {
     nodes = highlight.parse(source, language: resolved).nodes;
   } catch (_) {
     // A highlighter that trips over one post must not take the post with it.
-    return _remember(key, plain);
+    return plain;
   }
-  if (nodes == null) return _remember(key, plain);
+  if (nodes == null) return plain;
 
   final highlighted = _splitOnNewlines(_flatten(nodes, null));
 
   // Highlighting must not change the text. If it somehow did, the line numbers
   // and selection would no longer line up, so prefer the unhighlighted source.
-  final result = highlighted.length == lines.length ? highlighted : plain;
-  return _remember(key, result);
+  return highlighted.length == lines.length ? highlighted : plain;
 }
 
 bool highlightNeedsParse(String source, String? language) {
@@ -123,10 +137,10 @@ Mode? highlightMode(String source, String? language) {
   return null;
 }
 
-List<List<CodeToken>> cacheHighlightedLines(
+HighlightedCodeLines cacheHighlightedLines(
   String source,
   String? language,
-  List<List<CodeToken>> lines,
+  HighlightedCodeLines lines,
 ) {
   final normalizedLanguage = language?.toLowerCase();
   if (_bypassesParser(source, normalizedLanguage) ||
@@ -137,28 +151,55 @@ List<List<CodeToken>> cacheHighlightedLines(
   return _remember((source: source, language: normalizedLanguage!), lines);
 }
 
-Future<List<List<CodeToken>>> highlightLinesInBackground(
+Future<HighlightedCodeLines> highlightLinesInBackground(
   String source,
   String? language,
 ) async {
-  final portable = await compute<_HighlightRequest, _PortableHighlight>(
-    _portableHighlight,
+  final highlighted = await highlightLinesBatchInBackground([
     (source: source, language: language),
-    debugLabel: 'Discourse syntax highlight',
-  );
-  return cacheHighlightedLines(source, language, [
-    for (final line in portable)
-      [for (final token in line) CodeToken(token.text, token.scope)],
   ]);
+  return cacheHighlightedLines(source, language, highlighted.single);
 }
 
-typedef _HighlightRequest = ({String source, String? language});
+/// Parses a batch away from the UI isolate without changing its shared cache.
+///
+/// Callers that can become stale while this is running should validate their
+/// request before passing accepted results to [cacheHighlightedLines].
+Future<SyntaxHighlightBatch> highlightLinesBatchInBackground(
+  List<SyntaxHighlightRequest> requests,
+) async {
+  if (requests.isEmpty) return [];
+
+  final portable =
+      await compute<List<SyntaxHighlightRequest>, _PortableHighlightBatch>(
+        _portableHighlightBatch,
+        List<SyntaxHighlightRequest>.of(requests),
+        debugLabel: 'Discourse syntax highlight batch',
+      );
+  return [
+    for (final highlighted in portable)
+      [
+        for (final line in highlighted)
+          [for (final token in line) CodeToken(token.text, token.scope)],
+      ],
+  ];
+}
+
 typedef _PortableToken = ({String text, String? scope});
 typedef _PortableHighlight = List<List<_PortableToken>>;
+typedef _PortableHighlightBatch = List<_PortableHighlight>;
 
-_PortableHighlight _portableHighlight(_HighlightRequest request) => [
-  for (final line in highlightLines(request.source, request.language))
-    [for (final token in line) (text: token.text, scope: token.scope)],
+_PortableHighlightBatch _portableHighlightBatch(
+  List<SyntaxHighlightRequest> requests,
+) => [
+  for (final request in requests)
+    [
+      for (final line in _highlightLinesUncached(
+        request.source,
+        request.language,
+      ))
+        [for (final token in line) (text: token.text, scope: token.scope)],
+    ],
 ];
 
 bool _bypassesParser(String source, String? normalizedLanguage) =>
@@ -187,6 +228,10 @@ void clearSyntaxHighlightCacheForTesting() => _syntaxHighlightCache.clear();
 
 List<List<CodeToken>> _copyLines(List<List<CodeToken>> lines) => [
   for (final line in lines) List<CodeToken>.of(line),
+];
+
+HighlightedCodeLines _plainLines(String source) => [
+  for (final line in source.split('\n')) [CodeToken(line)],
 ];
 
 List<List<CodeToken>> _freezeLines(List<List<CodeToken>> lines) =>
