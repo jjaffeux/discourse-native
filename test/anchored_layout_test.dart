@@ -120,6 +120,31 @@ void main() {
       );
     });
 
+    test('keeps a preferred-above panel on that side as it grows', () {
+      const layout = AnchoredLayout(
+        anchor: Rect.fromLTWH(40, 180, 120, 20),
+        maxWidth: 300,
+        preferAbove: true,
+        keepPreferredPlacement: true,
+      );
+
+      final constraints = layout.getConstraintsForChild(
+        const BoxConstraints(maxWidth: 800, maxHeight: 600),
+      );
+      expect(constraints.maxHeight, 160);
+
+      final compact = layout.getPositionForChild(
+        const Size(800, 600),
+        const Size(200, 44),
+      );
+      final expanded = layout.getPositionForChild(
+        const Size(800, 600),
+        const Size(200, 160),
+      );
+      expect(compact.dy + 44, 172);
+      expect(expanded.dy + 160, 172);
+    });
+
     test('slides along the edge rather than past it', () {
       const layout = AnchoredLayout(
         anchor: Rect.fromLTWH(700, 100, 80, 20),

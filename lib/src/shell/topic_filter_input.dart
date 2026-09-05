@@ -145,6 +145,9 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         widget.tokenized ? _composeTokenQuery(query) : query,
       ),
       engine: _engine(shell),
+      debounce: widget.tokenized
+          ? const Duration(milliseconds: 75)
+          : const Duration(milliseconds: 300),
     );
     filter
       ..addListener(_onFilterChanged)
@@ -372,6 +375,9 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
           decoration: BoxDecoration(
             color: theme.shell.content,
+            borderRadius: BorderRadius.circular(7),
+          ),
+          foregroundDecoration: BoxDecoration(
             border: Border.all(
               color: borderColor,
               width: _focus.hasFocus ? 2 : 1,
@@ -398,8 +404,8 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
+                              spacing: 5,
+                              runSpacing: 5,
                               children: [
                                 for (
                                   var index = 0;
@@ -493,6 +499,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                 anchor: anchor,
                 maxWidth: anchor?.width ?? 720,
                 preferAbove: widget.preferSuggestionsAbove,
+                keepPreferredPlacement: widget.preferSuggestionsAbove,
               ),
               child: child!,
             ),
@@ -531,35 +538,62 @@ class _TopicFilterTokenChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final label = _topicFilterTokenLabel(raw, categories);
-    return InputChip(
-      key: ValueKey('topic-filter-token-$index'),
-      tooltip: raw,
-      label: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.onPrimaryContainer,
-          fontWeight: FontWeight.w600,
+    final foreground = theme.colorScheme.onPrimaryContainer;
+    return Tooltip(
+      message: raw,
+      child: Material(
+        key: ValueKey('topic-filter-token-$index'),
+        color: enabled
+            ? theme.colorScheme.primaryContainer
+            : theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
+        shape: RoundedRectangleBorder(
+          side: BorderSide(
+            color: theme.colorScheme.primary.withValues(alpha: 0.38),
+          ),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          height: 28,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: foreground,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              Semantics(
+                button: true,
+                label: 'Remove $label',
+                child: Tooltip(
+                  message: 'Remove $label',
+                  child: InkWell(
+                    key: ValueKey('topic-filter-token-remove-$index'),
+                    onTap: enabled ? onDeleted : null,
+                    child: SizedBox(
+                      width: 26,
+                      height: 28,
+                      child: Center(
+                        child: DIcon(DIcons.xmark, size: 10, color: foreground),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      onDeleted: enabled ? onDeleted : null,
-      deleteIcon: DIcon(
-        DIcons.xmark,
-        key: ValueKey('topic-filter-token-remove-$index'),
-        size: 12,
-      ),
-      deleteButtonTooltipMessage: 'Remove $label',
-      deleteIconColor: theme.colorScheme.onPrimaryContainer,
-      backgroundColor: theme.colorScheme.primaryContainer,
-      disabledColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
-      side: BorderSide(
-        color: theme.colorScheme.primary.withValues(alpha: 0.38),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-      labelPadding: const EdgeInsets.only(left: 4),
     );
   }
 }
@@ -635,6 +669,7 @@ class _SuggestionList extends StatelessWidget {
       builder: (context, _) {
         if (!filter.isOpen) return const SizedBox.shrink();
         return Material(
+          key: const ValueKey('topic-filter-suggestions'),
           color: theme.shell.floating,
           elevation: 8,
           borderRadius: BorderRadius.circular(10),
