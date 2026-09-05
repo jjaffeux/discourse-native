@@ -566,7 +566,7 @@ class _TabSwitcherHeading extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 5, 10, 6),
       child: Text(
-        '$label  $count',
+        count == 0 ? label : '$label  $count',
         style: theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
@@ -627,7 +627,7 @@ class _TabSwitcherRow extends StatelessWidget {
                   item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  style: theme.textTheme.bodySmall?.copyWith(
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),

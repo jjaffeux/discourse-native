@@ -597,6 +597,15 @@ void main() {
 
       expect(find.text('Open tabs  2'), findsOneWidget);
       expect(find.text('Recently closed  1'), findsOneWidget);
+      final rowTitle = tester.widget<Text>(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey('forum-tabs-switcher-open-topic-1'),
+          ),
+          matching: find.text(first.title),
+        ),
+      );
+      expect(rowTitle.style?.fontSize, DiscourseTypography.fontDown1);
       expect(find.textContaining('Scoped to'), findsNothing);
       expect(
         find.descendant(
@@ -642,6 +651,21 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(selected, [second.id]);
+    });
+
+    testWidgets('omits a zero count from an empty recently closed section', (
+      tester,
+    ) async {
+      await _pumpBar(tester, items: const [first], selectedId: first.id);
+
+      await tester.tap(
+        find.byKey(const ValueKey('forum-tabs-switcher-surface')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Recently closed'), findsOneWidget);
+      expect(find.text('Recently closed  0'), findsNothing);
+      expect(find.text('No matching recently closed tabs'), findsOneWidget);
     });
   });
 
