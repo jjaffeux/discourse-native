@@ -88,7 +88,7 @@ class InstanceRail extends StatelessWidget {
                     },
                   ),
                   _RailFooter(
-                    siteActionsAvailable:
+                    updatesAvailable:
                         state.loadStatus == InstanceLoadStatus.ready,
                   ),
                 ],
@@ -126,6 +126,7 @@ const double _railListPadding = 8;
 const double _railItemExtent = 44;
 const double _railControlExtent = 44;
 const double _railVisualSize = 36;
+const double _railAddVisualSize = 38;
 const double _railIconSize = 18;
 const double _railSelectedMarkerHeight = 32;
 const double _railHoveredMarkerHeight = 16;
@@ -482,7 +483,7 @@ class _InstanceRailListState extends State<_InstanceRailList> {
         builder: (context, candidates, rejected) => ListView.builder(
           padding: const EdgeInsets.symmetric(vertical: _railListPadding),
           itemExtent: _railItemExtent,
-          itemCount: widget.state.instances.length,
+          itemCount: widget.state.instances.length + 1,
           findChildIndexCallback: (key) {
             if (key is! ValueKey<String>) return null;
             final index = widget.state.instances.indexWhere(
@@ -491,6 +492,10 @@ class _InstanceRailListState extends State<_InstanceRailList> {
             return index < 0 ? null : index;
           },
           itemBuilder: (itemContext, index) {
+            if (index == widget.state.instances.length) {
+              return const Center(child: _AddInstanceButton());
+            }
+
             final instance = widget.state.instances[index];
             final moveUp = index == 0
                 ? null
@@ -948,9 +953,9 @@ class _RailLoadFailure extends StatelessWidget {
 }
 
 class _RailFooter extends StatelessWidget {
-  const _RailFooter({required this.siteActionsAvailable});
+  const _RailFooter({required this.updatesAvailable});
 
-  final bool siteActionsAvailable;
+  final bool updatesAvailable;
 
   @override
   Widget build(BuildContext context) {
@@ -959,17 +964,11 @@ class _RailFooter extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (siteActionsAvailable) ...[
+        if (updatesAvailable && updates.isSupported)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 2),
-            child: Center(child: _AddInstanceButton()),
+            child: Center(child: _UpdateButton()),
           ),
-          if (updates.isSupported)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 2),
-              child: Center(child: _UpdateButton()),
-            ),
-        ],
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Center(
@@ -1868,26 +1867,36 @@ class _AddInstanceButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Tooltip(
-      message: 'Add a Discourse site',
-      child: InkWell(
-        onTap: () => showAddInstanceSheet(context),
-        borderRadius: BorderRadius.circular(_railControlExtent / 2),
-        child: SizedBox.square(
-          dimension: _railControlExtent,
-          child: Center(
-            child: Container(
-              width: _railVisualSize,
-              height: _railVisualSize,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: theme.shell.railForeground.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: DIcon(
-                DIcons.plus,
-                size: 20,
-                color: theme.shell.railForeground,
+    const label = 'Add a Discourse site';
+    return Semantics(
+      button: true,
+      label: label,
+      child: Tooltip(
+        message: label,
+        excludeFromSemantics: true,
+        child: InkWell(
+          key: const ValueKey('add-instance-rail-button'),
+          onTap: () => showAddInstanceSheet(context),
+          borderRadius: BorderRadius.circular(11),
+          child: SizedBox.square(
+            dimension: _railControlExtent,
+            child: Center(
+              child: CustomPaint(
+                key: const ValueKey('add-instance-rail-outline'),
+                painter: _DashedRoundedRectPainter(
+                  color: theme.shell.marker.withValues(alpha: 0.35),
+                  radius: 10,
+                ),
+                child: SizedBox.square(
+                  dimension: _railAddVisualSize,
+                  child: Center(
+                    child: DIcon(
+                      DIcons.plus,
+                      size: 16,
+                      color: theme.shell.marker,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -1895,6 +1904,49 @@ class _AddInstanceButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DashedRoundedRectPainter extends CustomPainter {
+  const _DashedRoundedRectPainter({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const strokeWidth = 1.5;
+    const dashLength = 5.0;
+    const gapLength = 4.0;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Offset.zero & size,
+          Radius.circular(radius),
+        ).deflate(strokeWidth / 2),
+      );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+
+    for (final metric in path.computeMetrics()) {
+      var offset = 0.0;
+      while (offset < metric.length) {
+        canvas.drawPath(
+          metric.extractPath(
+            offset,
+            math.min(offset + dashLength, metric.length),
+          ),
+          paint,
+        );
+        offset += dashLength + gapLength;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedRoundedRectPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.radius != radius;
 }
 
 class _CountBadge extends StatelessWidget {
