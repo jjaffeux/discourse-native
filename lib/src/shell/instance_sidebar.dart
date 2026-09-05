@@ -603,7 +603,12 @@ class _ForumIdentityHeader extends StatelessWidget {
 
     return Padding(
       key: const ValueKey('forum-identity-header'),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(
+        _SidebarSpacing.wrapperHorizontalPadding,
+        12,
+        _SidebarSpacing.wrapperHorizontalPadding,
+        0,
+      ),
       child: MenuAnchor(
         alignmentOffset: const Offset(0, 6),
         style: MenuStyle(
