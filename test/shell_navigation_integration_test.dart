@@ -1256,6 +1256,7 @@ void _registerShellNavigationTests() {
 
       final add = find.byKey(const ValueKey('add-instance-rail-button'));
       final outline = find.byKey(const ValueKey('add-instance-rail-outline'));
+      final firstForum = find.byKey(ValueKey(twoSites.first.url));
       final lastForum = find.byKey(ValueKey(twoSites.last.url));
       final rail = find.byType(InstanceRail);
       final theme = Theme.of(tester.element(rail));
@@ -1267,7 +1268,11 @@ void _registerShellNavigationTests() {
       );
       expect(tester.getSize(outline), const Size.square(38));
       expect(tester.getCenter(add).dx, tester.getCenter(lastForum).dx);
-      expect(tester.getRect(add).top, tester.getRect(lastForum).bottom);
+      expect(
+        tester.getCenter(lastForum).dy - tester.getCenter(firstForum).dy,
+        48,
+      );
+      expect(tester.getCenter(add).dy - tester.getCenter(lastForum).dy, 48);
       expect(
         outline,
         paints
