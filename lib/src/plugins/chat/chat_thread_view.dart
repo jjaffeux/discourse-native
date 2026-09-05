@@ -362,10 +362,15 @@ class _ChatThreadViewState extends State<ChatThreadView> {
 
   void _syncViewing() {
     if (_viewerActive) {
-      _viewToken ??= widget.chat.beginViewingThread(
-        widget.siteUrl,
-        widget.target,
-      );
+      if (_viewToken == null) {
+        _viewToken = widget.chat.beginViewingThread(
+          widget.siteUrl,
+          widget.target,
+        );
+        if (_opened) {
+          unawaited(widget.chat.openThread(widget.siteUrl, widget.target));
+        }
+      }
       return;
     }
     final viewToken = _viewToken;
@@ -588,6 +593,20 @@ class _ChatThreadViewState extends State<ChatThreadView> {
     });
   }
 
+  void _retainMessageActionsIn(ChatStreamState stream) {
+    final retained = {...stream.messageIds, ...stream.localMessageIds};
+    _selectedMessageIds.removeWhere((id) => !retained.contains(id));
+    if (_selectedMessageIds.isEmpty) _selectingMessages = false;
+    if (_editingMessage case final editing?
+        when !retained.contains(editing.id)) {
+      _editingMessage = null;
+    }
+    if (_highlightMessageId case final highlighted?
+        when !retained.contains(highlighted)) {
+      _highlightMessageId = null;
+    }
+  }
+
   void _handleUnavailable(ChatStreamState stream) {
     if (!stream.threadUnavailable || _handledUnavailable) return;
     _handledUnavailable = true;
@@ -634,6 +653,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
         _projectedShowTimeGapDays == showTimeGapDays) {
       return;
     }
+    _retainMessageActionsIn(stream);
     _projectedMessageIds = stream.messageIds;
     _projectedLocalMessageIds = stream.localMessageIds;
     _projectedLastRead = stream.lastReadOnOpen;

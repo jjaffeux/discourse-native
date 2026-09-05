@@ -152,6 +152,9 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         widget.siteUrl,
         widget.channelId,
       );
+      if (_opened) {
+        unawaited(widget.chat.openChannel(widget.siteUrl, widget.channelId));
+      }
     });
   }
 
@@ -369,6 +372,20 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     });
   }
 
+  void _retainMessageActionsIn(ChatStreamState stream) {
+    final retained = {...stream.messageIds, ...stream.localMessageIds};
+    _selectedMessageIds.removeWhere((id) => !retained.contains(id));
+    if (_selectedMessageIds.isEmpty) _selectingMessages = false;
+    if (_editingMessage case final editing?
+        when !retained.contains(editing.id)) {
+      _editingMessage = null;
+    }
+    if (_highlightMessageId case final highlighted?
+        when !retained.contains(highlighted)) {
+      _highlightMessageId = null;
+    }
+  }
+
   void _clearHighlight(int request) {
     if (!mounted || request != _highlightRequest) return;
     setState(() => _highlightMessageId = null);
@@ -464,6 +481,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         _projectedShowTimeGapDays == widget.showTimeGapDays) {
       return;
     }
+
+    _retainMessageActionsIn(stream);
 
     final extended =
         _extendProjectionIntoPast(stream) ||
@@ -730,12 +749,23 @@ class _StreamState extends State<ChatMessageStream>
         widget.stream.atPresent &&
         oldWidget.stream.newestId != widget.stream.newestId) {
       // Within one fetch generation, present-window growth is live arrivals.
-      _unseenLiveMessages +=
-          widget.stream.messageIds.length - oldWidget.stream.messageIds.length;
+      _unseenLiveMessages += _messagesAfterHeldNewest(
+        oldWidget.stream.messageIds,
+        widget.stream.messageIds,
+      );
     }
 
     _holdStillThroughForwardPage(oldWidget);
     _scheduleLook();
+  }
+
+  int _messagesAfterHeldNewest(List<int> held, List<int> current) {
+    final newest = held.lastOrNull;
+    if (newest == null) return current.length;
+    final seam = current.lastIndexOf(newest);
+    if (seam >= 0) return current.length - seam - 1;
+    final previouslyHeld = held.toSet();
+    return current.where((id) => !previouslyHeld.contains(id)).length;
   }
 
   void _holdStillThroughForwardPage(ChatMessageStream oldWidget) {

@@ -18,6 +18,7 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
+import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -194,6 +195,8 @@ ChatChannel channel(
   ChatNotificationsDelta? onChatNotificationsDelta,
   void Function(String)? onSiteUnreachable,
   Duration minimumWindowRefreshInterval = const Duration(seconds: 30),
+  Store? store,
+  int? maxRetainedCanonicalMessageIdsPerSite,
   DateTime Function()? clock,
 }) {
   final api = FakeDiscourseApi(
@@ -246,7 +249,7 @@ ChatChannel channel(
   );
   final credentials = credentialReader ?? FakeApiCredentialReader();
   credentials.keys[site] = 'key';
-  final store = Store();
+  final resolvedStore = store ?? Store();
   return (
     chat: ChatController(
       api: api,
@@ -254,15 +257,17 @@ ChatChannel channel(
         credentials: credentials,
         lifecycle: lifecycle,
       ),
-      store: store,
+      store: resolvedStore,
       currentUserFor: (_) => currentUser,
       onChatNotificationsDelta: onChatNotificationsDelta,
       onSiteUnreachable: onSiteUnreachable,
       minimumWindowRefreshInterval: minimumWindowRefreshInterval,
+      maxRetainedCanonicalMessageIdsPerSite:
+          maxRetainedCanonicalMessageIdsPerSite,
       clock: clock,
     ),
     api: api,
-    store: store,
+    store: resolvedStore,
   );
 }
 
@@ -2607,6 +2612,160 @@ void main() {
     });
 
     test(
+      'bypasses the cooldown when a retained window lost its records',
+      () async {
+        final store = Store(
+          policy: const StorePolicy(
+            maxEntries: 2,
+            maxEntriesPerSite: 2,
+            maxEntriesPerSiteAndType: 2,
+          ),
+        );
+        final subject = build(
+          messages: {
+            key(9): page([message(1), message(2, minute: 1)]),
+            key(10): page([message(3, minute: 2), message(4, minute: 3)]),
+          },
+          store: store,
+        );
+        addTearDown(subject.chat.dispose);
+        final retained = subject.chat.streamListenable(site, 9);
+        void observeRetainedWindow() {}
+
+        retained.addListener(observeRetainedWindow);
+        addTearDown(() => retained.removeListener(observeRetainedWindow));
+        await subject.chat.openChannel(site, 9);
+        await subject.chat.openChannel(site, 10);
+
+        expect(subject.chat.stream(site, 9).messageIds, [1, 2]);
+        expect(subject.chat.messages(site, 9), isEmpty);
+
+        await subject.chat.openChannel(site, 9);
+
+        expect(subject.api.chatMessagesRequested, hasLength(3));
+        expect(subject.chat.stream(site, 9).messageIds, [1, 2]);
+        expect(subject.chat.messages(site, 9).map((item) => item.id), [1, 2]);
+      },
+    );
+
+    test('bounds a 500-target session in message-page units', () async {
+      final pages = <String, ChatMessagePage>{
+        for (var channelId = 1; channelId <= 500; channelId++)
+          key(channelId): page([message(1000 + channelId)]),
+      };
+      final subject = build(
+        messages: pages,
+        maxRetainedCanonicalMessageIdsPerSite: 100,
+      );
+      addTearDown(subject.chat.dispose);
+
+      for (var channelId = 1; channelId <= 500; channelId++) {
+        await subject.chat.openChannel(site, channelId);
+      }
+
+      expect(subject.chat.retainedTargetCountForTesting(site), 2);
+      expect(subject.chat.retainedCanonicalMessageIdCountForTesting(site), 2);
+      expect(subject.chat.stream(site, 1).fetchedOnce, isFalse);
+
+      await subject.chat.openChannel(site, 1);
+
+      expect(subject.api.chatMessagesRequested, hasLength(501));
+      expect(subject.chat.stream(site, 1).messageIds, [1001]);
+      expect(subject.chat.retainedTargetCountForTesting(site), 2);
+    });
+
+    test(
+      'protects an actively viewed window until its final token ends',
+      () async {
+        final store = Store(
+          policy: const StorePolicy(
+            maxEntries: 2,
+            maxEntriesPerSite: 2,
+            maxEntriesPerSiteAndType: 2,
+          ),
+        );
+        final subject = build(
+          messages: {
+            key(9): page([message(1), message(2, minute: 1)]),
+            key(10): page([message(3, minute: 2), message(4, minute: 3)]),
+          },
+          store: store,
+          maxRetainedCanonicalMessageIdsPerSite: 50,
+        );
+        addTearDown(subject.chat.dispose);
+        final view = subject.chat.beginViewingChannel(site, 9);
+
+        await subject.chat.openChannel(site, 9);
+        expect(subject.chat.pinnedMessageCountForTesting(site), 2);
+
+        await subject.chat.openChannel(site, 10);
+
+        expect(subject.chat.stream(site, 9).messageIds, [1, 2]);
+        expect(store.containsRecord<ChatMessage>(site, 1), isTrue);
+        expect(store.containsRecord<ChatMessage>(site, 2), isTrue);
+
+        subject.chat.endViewingChannel(site, 9, view);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(subject.chat.pinnedMessageCountForTesting(site), 0);
+        expect(subject.chat.retainedTargetCountForTesting(site), 1);
+      },
+    );
+
+    test(
+      'preserves a non-empty draft while reclaiming its empty shell',
+      () async {
+        final subject = build(
+          messages: {
+            key(2): page([message(2)]),
+            key(3): page([message(3)]),
+          },
+          maxRetainedCanonicalMessageIdsPerSite: 50,
+        );
+        addTearDown(subject.chat.dispose);
+        const draftTarget = ChatChannelTarget(1);
+
+        subject.chat.retainComposerDraft(
+          site,
+          draftTarget,
+          raw: 'unsent',
+          uploads: const [],
+        );
+        await subject.chat.openChannel(site, 2);
+        await subject.chat.openChannel(site, 3);
+
+        expect(subject.chat.composerDraftFor(site, draftTarget)?.raw, 'unsent');
+        expect(subject.chat.retainedTargetCountForTesting(site), 2);
+
+        subject.chat.retainComposerDraft(
+          site,
+          draftTarget,
+          raw: '',
+          uploads: const [],
+        );
+
+        expect(subject.chat.composerDraftFor(site, draftTarget), isNull);
+        expect(subject.chat.retainedTargetCountForTesting(site), 1);
+        expect(subject.chat.stream(site, 3).messageIds, [3]);
+      },
+    );
+
+    test('derives the production window budget with one page of reserve', () {
+      final subject = build(
+        store: Store(
+          policy: const StorePolicy(
+            maxEntries: 4096,
+            maxEntriesPerSite: 2048,
+            maxEntriesPerSiteAndType: 1536,
+          ),
+        ),
+      );
+      addTearDown(subject.chat.dispose);
+
+      expect(subject.chat.canonicalMessageRetentionBudgetForTesting, 1486);
+    });
+
+    test(
       'a disposed credential-gated window never reaches the message API',
       () async {
         final api = FakeDiscourseApi();
@@ -2833,6 +2992,47 @@ void main() {
 
       credentialsGate.complete();
       expect(await sending.settled, ChatSendResult.sent);
+    });
+
+    test('pins an optimistic row through unrelated store eviction', () async {
+      final sendGate = Completer<void>();
+      final store = Store(
+        policy: const StorePolicy(
+          maxEntries: 2,
+          maxEntriesPerSite: 2,
+          maxEntriesPerSiteAndType: 2,
+        ),
+      );
+      final subject = build(
+        store: store,
+        sendGate: sendGate,
+        sentMessageId: 42,
+        currentUser: currentUser,
+      );
+      addTearDown(subject.chat.dispose);
+
+      final sending = subject.chat.sendMessage(
+        site,
+        9,
+        OutgoingChatMessage.text('stay visible'),
+      )!;
+      await Future<void>.delayed(Duration.zero);
+      for (var id = 1; id <= 20; id++) {
+        subject.chat.putRecordForTesting(site, message(id));
+      }
+
+      expect(store.read<ChatMessage>(site, sending.localId), isNotNull);
+      expect(subject.chat.stream(site, 9).localMessageIds, [sending.localId]);
+      expect(subject.chat.pinnedMessageCountForTesting(site), 1);
+
+      sendGate.complete();
+
+      expect(await sending.settled, ChatSendResult.sent);
+      expect(
+        store.read<ChatMessage>(site, sending.localId)?.delivery,
+        ChatMessageDelivery.sent,
+      );
+      expect(subject.chat.pinnedMessageCountForTesting(site), 1);
     });
 
     test('stages a FIFO batch before credentials resolve', () async {
@@ -5116,6 +5316,61 @@ void main() {
   });
 
   group('paging into the past', () {
+    test(
+      'keeps a bounded contiguous window pageable in both directions',
+      () async {
+        final subject = build(
+          messages: {
+            key(9): page([
+              message(5, minute: 5),
+              message(6, minute: 6),
+            ], canLoadMorePast: true),
+            key(9, before: 5): page([
+              message(3, minute: 3),
+              message(4, minute: 4),
+            ], canLoadMorePast: true),
+            key(9, before: 3): page([
+              message(1, minute: 1),
+              message(2, minute: 2),
+            ]),
+            key(9, after: 4): page([
+              message(5, minute: 5),
+              message(6, minute: 6),
+            ]),
+          },
+          maxRetainedCanonicalMessageIdsPerSite: 4,
+        );
+        addTearDown(subject.chat.dispose);
+
+        await subject.chat.openChannel(site, 9);
+        await subject.chat.loadOlder(site, 9);
+        await subject.chat.loadOlder(site, 9);
+
+        var stream = subject.chat.stream(site, 9);
+        expect(stream.messageIds, [1, 2, 3, 4]);
+        expect(stream.canLoadMorePast, isFalse);
+        expect(stream.canLoadMoreFuture, isTrue);
+
+        await subject.chat.loadNewer(site, 9);
+
+        stream = subject.chat.stream(site, 9);
+        expect(stream.messageIds, [3, 4, 5, 6]);
+        expect(stream.canLoadMorePast, isTrue);
+        expect(stream.canLoadMoreFuture, isFalse);
+        expect(subject.chat.messages(site, 9).map((item) => item.id), [
+          3,
+          4,
+          5,
+          6,
+        ]);
+
+        await subject.chat.loadOlder(site, 9);
+
+        expect(subject.chat.stream(site, 9).messageIds, [1, 2, 3, 4]);
+        expect(subject.chat.retainedCanonicalMessageIdCountForTesting(site), 4);
+      },
+    );
+
     test('pages before the oldest message it holds', () async {
       final subject = build(
         messages: {

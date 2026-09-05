@@ -418,6 +418,16 @@ final class ChatLiveSyncCoordinator {
   bool isViewingChannel(String siteUrl, int channelId) =>
       _sites[siteUrl]?.activeChannelViews.containsKey(channelId) ?? false;
 
+  bool isViewingTarget(String siteUrl, ChatStreamTarget target) {
+    final site = _sites[siteUrl];
+    if (site == null) return false;
+    return switch (target) {
+      ChatChannelTarget(:final channelId) =>
+        site.activeChannelViews.containsKey(channelId),
+      ChatThreadTarget() => site.threadViewTokens.containsKey(target),
+    };
+  }
+
   Object beginViewingThread(String siteUrl, ChatThreadTarget target) {
     final token = Object();
     if (_disposed || _host.isDisposed()) return token;

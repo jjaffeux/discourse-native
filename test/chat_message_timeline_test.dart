@@ -114,6 +114,46 @@ void main() {
     });
   });
 
+  group('retaining a bounded window', () {
+    test('keeps the newly extended past edge pageable towards the future', () {
+      final retained = ChatMessageTimeline.retain(
+        ids: [1, 2, 3, 4, 5],
+        maxLength: 3,
+        edge: ChatTimelineRetainedEdge.past,
+      );
+
+      expect(retained.ids, [1, 2, 3]);
+      expect(retained.droppedPast, isFalse);
+      expect(retained.droppedFuture, isTrue);
+    });
+
+    test('keeps the newly extended future edge pageable towards the past', () {
+      final retained = ChatMessageTimeline.retain(
+        ids: [1, 2, 3, 4, 5],
+        maxLength: 3,
+        edge: ChatTimelineRetainedEdge.future,
+      );
+
+      expect(retained.ids, [3, 4, 5]);
+      expect(retained.droppedPast, isTrue);
+      expect(retained.droppedFuture, isFalse);
+    });
+
+    test('retains list identity when already within the bound', () {
+      final ids = [1, 2, 3];
+
+      final retained = ChatMessageTimeline.retain(
+        ids: ids,
+        maxLength: 3,
+        edge: ChatTimelineRetainedEdge.future,
+      );
+
+      expect(retained.ids, same(ids));
+      expect(retained.droppedPast, isFalse);
+      expect(retained.droppedFuture, isFalse);
+    });
+  });
+
   group('admitting a live message', () {
     test('appends an ordinary arrival after reading only the newest row', () {
       final reads = <int>[];
