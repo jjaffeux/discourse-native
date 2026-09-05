@@ -33,7 +33,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'TopicListView aligns its 825px child lane and keeps its offset',
+    'TopicListView aligns its 1120px child lane and keeps its offset',
     (tester) async {
       await _withDesktop(tester, const Size(1200, 800), () async {
         final site = instance('one.example');
@@ -64,10 +64,10 @@ void main() {
           await tester.pump();
           final row = find.byKey(const ValueKey(1));
           expect(tester.getSize(viewport).width, 1200);
-          expect(tester.getSize(row).width, closeTo(825, 0.001));
+          expect(tester.getSize(row).width, closeTo(1120, 0.001));
           expect(
             tester.getTopLeft(row).dx,
-            closeTo(_laneLeft(1200, alignment), 0.001),
+            closeTo(_laneLeft(1200, alignment, width: 1120), 0.001),
           );
           expect(
             tester.widget<SuperListView>(viewport).controller,
@@ -381,8 +381,12 @@ Future<void> _withDesktop(
   }
 }
 
-double _laneLeft(double availableWidth, ContentAlignment alignment) {
-  final extra = availableWidth - ContentReadingLane.maxWidth;
+double _laneLeft(
+  double availableWidth,
+  ContentAlignment alignment, {
+  double width = ContentReadingLane.maxWidth,
+}) {
+  final extra = availableWidth - width;
   return switch (alignment) {
     ContentAlignment.left => 0,
     ContentAlignment.center => extra / 2,

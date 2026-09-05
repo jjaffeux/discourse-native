@@ -271,19 +271,19 @@ class InstanceSidebar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (showUserMenu) const _SidebarUserHeader(),
+              _ForumIdentityHeader(
+                siteUrl: sidebar.siteUrl!,
+                name: sidebar.name!,
+                iconUrl: sidebar.iconUrl,
+                monogram: sidebar.monogram!,
+                accentColor: sidebar.accentColor!,
+              ),
               Expanded(
                 child: _SidebarPanelBody(
                   sidebar: sidebar,
                   showUserMenu: showUserMenu,
                   sectionStore: sectionStore,
                 ),
-              ),
-              _ForumIdentityFooter(
-                siteUrl: sidebar.siteUrl!,
-                name: sidebar.name!,
-                iconUrl: sidebar.iconUrl,
-                monogram: sidebar.monogram!,
-                accentColor: sidebar.accentColor!,
               ),
             ],
           ),
@@ -578,8 +578,8 @@ class _SidebarUserHeader extends StatelessWidget {
   }
 }
 
-class _ForumIdentityFooter extends StatelessWidget {
-  const _ForumIdentityFooter({
+class _ForumIdentityHeader extends StatelessWidget {
+  const _ForumIdentityHeader({
     required this.siteUrl,
     required this.name,
     required this.iconUrl,
@@ -602,8 +602,8 @@ class _ForumIdentityFooter extends StatelessWidget {
         : Colors.black;
 
     return Padding(
-      key: const ValueKey('forum-identity-footer'),
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+      key: const ValueKey('forum-identity-header'),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
       child: MenuAnchor(
         style: MenuStyle(
           backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
@@ -634,39 +634,30 @@ class _ForumIdentityFooter extends StatelessWidget {
         ],
         builder: (context, menu, child) => Material(
           key: const ValueKey('forum-identity-button'),
-          color: theme.shell.floating,
-          borderRadius: BorderRadius.circular(14),
+          color: theme.shell.sidebar,
+          borderRadius: BorderRadius.circular(6),
           child: InkWell(
             onTap: menu.open,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(6),
             hoverColor: theme.colorScheme.primaryContainer,
             child: child,
           ),
         ),
         child: Container(
-          height: 58,
-          padding: const EdgeInsets.symmetric(horizontal: 11),
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.shell.divider),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 14,
-                offset: const Offset(0, 5),
-              ),
-            ],
+          constraints: BoxConstraints(
+            minHeight: _SidebarSpacing.rowHeight(context) + 12,
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
           child: Row(
             children: [
               ClipRRect(
                 key: const ValueKey('forum-identity-logo'),
-                borderRadius: BorderRadius.circular(9),
+                borderRadius: BorderRadius.circular(7),
                 child: SizedBox.square(
-                  dimension: 36,
+                  dimension: 28,
                   child: AvatarImage(
                     url: iconUrl,
-                    size: 36,
+                    size: 28,
                     fallback: ColoredBox(
                       color: accentColor,
                       child: Center(
@@ -689,18 +680,15 @@ class _ForumIdentityFooter extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
+                  style: theme.textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              RotatedBox(
-                quarterTurns: 2,
-                child: DIcon(
-                  DIcons.chevronDown,
-                  size: 15,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+              DIcon(
+                DIcons.chevronDown,
+                size: 15,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ],
           ),
@@ -1272,7 +1260,11 @@ class _DestinationTileState extends State<_DestinationTile> {
     final foreground = selected
         ? theme.shell.selectedForeground
         : destination.enabled
-        ? theme.colorScheme.onSurfaceVariant
+        ? Color.lerp(
+            theme.colorScheme.onSurfaceVariant,
+            theme.colorScheme.onSurface,
+            0.35,
+          )!
         : theme.disabledColor;
 
     // A destination built fresh from live state already has the answer; core's

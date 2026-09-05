@@ -495,7 +495,7 @@ void _registerTopicReadingTests() {
 
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(api.categoryRequests, hasLength(categoryRequestCount));
-      expect(find.text('Tags'), findsOneWidget);
+      expect(find.byKey(const ValueKey('composer-tags')), findsOneWidget);
     });
 
     testWidgets('New Topic is visible before metadata requests finish', (
@@ -1113,7 +1113,7 @@ void _registerTopicReadingTests() {
       final theme = Theme.of(context);
       expect(
         tester.widget<Text>(find.text('Caught up')).style?.color,
-        theme.discourse.whisper,
+        Color.lerp(theme.discourse.whisper, theme.colorScheme.onSurface, 0.25),
       );
       expect(
         tester.widget<Text>(find.text('Not caught up')).style?.color,
@@ -1144,7 +1144,7 @@ void _registerTopicReadingTests() {
       expect(find.byKey(const ValueKey('new-replies-dot')), findsNothing);
     });
 
-    testWidgets('topic state follows the title instead of the row edge', (
+    testWidgets('unread dots align before titles of different lengths', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
@@ -1156,6 +1156,12 @@ void _registerTopicReadingTests() {
               slug: 'short-title',
               seen: false,
             ),
+            const Topic(
+              id: 10,
+              title: 'A longer title for the next unread topic',
+              slug: 'longer-title',
+              seen: false,
+            ),
           ],
         },
       );
@@ -1163,12 +1169,15 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
 
       final title = find.text('Short title');
-      final titleEnd = tester.getTopLeft(title).dx + _textWidth(tester, title);
-      final dot = tester.getRect(find.byKey(const ValueKey('new-topic-dot')));
-      expect(dot.left - titleEnd, moreOrLessEquals(8, epsilon: 0.5));
+      final dots = find.byKey(const ValueKey('new-topic-dot'));
+      expect(dots, findsNWidgets(2));
+      final firstDot = tester.getRect(dots.first);
+      final secondDot = tester.getRect(dots.last);
+      expect(firstDot.left, secondDot.left);
+      expect(tester.getRect(title).left - firstDot.right, closeTo(8, 0.5));
     });
 
-    testWidgets('topic state stays inline with a compact title', (
+    testWidgets('topic state aligns with the first line of a wrapped title', (
       tester,
     ) async {
       const title = 'Footnotes can scroll?';
@@ -1192,14 +1201,13 @@ void _registerTopicReadingTests() {
 
       final titleRect = tester.getRect(find.text(title));
       final dot = tester.getRect(find.byKey(const ValueKey('new-topic-dot')));
-      expect(titleRect.height, lessThanOrEqualTo(24));
-      expect(dot.center.dy, closeTo(titleRect.center.dy, 0.5));
+      expect(titleRect.height, inInclusiveRange(25, 48));
+      expect(dot.center.dy, lessThan(titleRect.center.dy));
+      expect(dot.top, greaterThanOrEqualTo(titleRect.top));
       expect(dot.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
 
-    testWidgets('unread count stays inline with a compact title', (
-      tester,
-    ) async {
+    testWidgets('unread count stays beside a wrapped title', (tester) async {
       const title = 'Footnotes can scroll?';
       final api = FakeDiscourseApi(
         feeds: {
@@ -1221,7 +1229,7 @@ void _registerTopicReadingTests() {
 
       final titleRect = tester.getRect(find.text(title));
       final count = tester.getRect(find.text('3'));
-      expect(titleRect.height, lessThanOrEqualTo(24));
+      expect(titleRect.height, inInclusiveRange(25, 48));
       expect(count.center.dy, closeTo(titleRect.center.dy, 0.5));
       expect(count.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
@@ -2803,10 +2811,7 @@ void _registerTopicReadingTests() {
           bottomBarRect.top,
         );
         expect(replyRect.left, greaterThan(bottomBarRect.left));
-        expect(
-          replyRect.right,
-          lessThan(tester.getRect(progressButton).left),
-        );
+        expect(replyRect.right, lessThan(tester.getRect(progressButton).left));
         expect(moreIcon, findsOneWidget);
         expect(tester.getSize(moreIcon), const Size.square(16));
         expect(properties, findsOneWidget);
@@ -5273,7 +5278,10 @@ void _registerTopicReadingTests() {
         findsNothing,
       );
       expect(find.text('Suggested'), findsNothing);
-      expect(find.byKey(const ValueKey('topic-ledger-state-8')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('topic-ledger-state-8')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey('topic-ledger-topic-8')),
         findsOneWidget,
@@ -5935,20 +5943,6 @@ class _FailingNewTopicMetadataApi extends FakeDiscourseApi {
     }
     return capabilities;
   }
-}
-
-double _textWidth(WidgetTester tester, Finder text) {
-  final widget = tester.widget<Text>(text);
-  final context = tester.element(text);
-  final painter = TextPainter(
-    text: TextSpan(
-      text: widget.textSpan?.toPlainText() ?? widget.data,
-      style: widget.style,
-    ),
-    textDirection: Directionality.of(context),
-    textScaler: MediaQuery.textScalerOf(context),
-  )..layout();
-  return painter.width;
 }
 
 /// The surface the first post paints for itself. The innermost [ColoredBox]

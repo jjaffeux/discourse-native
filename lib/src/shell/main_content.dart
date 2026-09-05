@@ -37,6 +37,7 @@ import 'tags_page.dart';
 import 'title_bar.dart';
 import 'topic_create_button.dart';
 import 'topic_filter_page.dart';
+import 'topic_list_layout.dart';
 import 'topic_list_navigation.dart';
 import 'topic_list_view.dart';
 import 'topic_title.dart';
@@ -58,6 +59,7 @@ class MainContent extends StatefulWidget {
 
 class _MainContentState extends State<MainContent> {
   final GroupPagesCoordinator _groupPages = GroupPagesCoordinator();
+  final ValueNotifier<bool> _compactTopicRows = ValueNotifier(false);
 
   @override
   Widget build(BuildContext context) {
@@ -81,15 +83,18 @@ class _MainContentState extends State<MainContent> {
             canPopContent: state.canPop,
           ),
         );
-        return _MainContentBody(
-          layout: widget.layout,
-          state: state,
-          registry:
-              widget.registry ??
-              PluginScope.maybeOf(context)?.registry ??
-              PluginRegistry.empty,
-          groupPages: _groupPages,
-          groupPagesPort: port,
+        return TopicListDensityScope(
+          compact: _compactTopicRows,
+          child: _MainContentBody(
+            layout: widget.layout,
+            state: state,
+            registry:
+                widget.registry ??
+                PluginScope.maybeOf(context)?.registry ??
+                PluginRegistry.empty,
+            groupPages: _groupPages,
+            groupPagesPort: port,
+          ),
         );
       },
     );
@@ -98,6 +103,7 @@ class _MainContentState extends State<MainContent> {
   @override
   void dispose() {
     _groupPages.dispose();
+    _compactTopicRows.dispose();
     super.dispose();
   }
 }
@@ -132,6 +138,25 @@ class _MainContentBody extends StatelessWidget {
     if (route == null) return ColoredBox(color: theme.shell.content);
     final pluginContent = registry.content(context, route);
     final pluginOwnsChrome = registry.ownsContentChrome(context, route);
+    final usesTopicToolbar =
+        !layout.isCompact &&
+        !pluginOwnsChrome &&
+        pluginContent == null &&
+        !state.canPop &&
+        route.categoryId == null &&
+        registry.contentHeaderLeading(context, route) == null &&
+        registry.contentHeaderTitleTrailing(context, route) == null &&
+        registry.contentHeaderTitleAction(context, route) == null &&
+        TopicListMode.fromRoute(route) != null;
+    final topicListActions = usesTopicToolbar
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ...registry.contentHeaderActions(context, route),
+              _TopicCreateAction(controller: ShellScope.read(context)),
+            ],
+          )
+        : null;
     final Key contentKey;
     if (groupPages.childIdentity case final childIdentity?) {
       contentKey = ValueKey<GroupPagesChildIdentity>(childIdentity);
@@ -151,13 +176,17 @@ class _MainContentBody extends StatelessWidget {
         child: Column(
           children: [
             if (forumTabsEnabled) const CurrentForumTabsBar(),
-            if (!pluginOwnsChrome && !route.isTopic)
+            if (!pluginOwnsChrome &&
+                !route.isTopic &&
+                !(usesTopicToolbar && ShellTitleBar.isSupported))
               _ContentHeader(
                 layout: layout,
                 route: route,
                 siteUrl: state.siteUrl,
                 canPop: state.canPop,
-                showCreateTopicAction: pluginContent == null,
+                showCreateTopicAction:
+                    pluginContent == null && !usesTopicToolbar,
+                searchOnly: usesTopicToolbar,
                 isConnected: state.isConnected,
                 registry: registry,
                 groupPages: groupPages,
@@ -178,6 +207,7 @@ class _MainContentBody extends StatelessWidget {
                   categoryFeed: state.categoryFeed,
                   groupPages: groupPages,
                   groupPagesPort: groupPagesPort,
+                  topicListActions: topicListActions,
                 ),
               ),
             ),
@@ -202,6 +232,7 @@ class _ContentViewport extends StatelessWidget {
     required this.categoryFeed,
     required this.groupPages,
     required this.groupPagesPort,
+    this.topicListActions,
   });
 
   final ShellLayout layout;
@@ -216,6 +247,7 @@ class _ContentViewport extends StatelessWidget {
   final CategoryFeed? categoryFeed;
   final GroupPagesCoordinator groupPages;
   final GroupPagesPort groupPagesPort;
+  final Widget? topicListActions;
 
   @override
   Widget build(BuildContext context) {
@@ -274,7 +306,11 @@ class _ContentViewport extends StatelessWidget {
     }
     if (pluginContent case final content?) return content;
 
-    return _FeedBackedContent(route: route, siteUrl: siteUrl);
+    return _FeedBackedContent(
+      route: route,
+      siteUrl: siteUrl,
+      topicListActions: topicListActions,
+    );
   }
 }
 
@@ -284,12 +320,14 @@ class _FeedBackedContent extends StatelessWidget {
     required this.siteUrl,
     this.filterCategories = const [],
     this.fallback,
+    this.topicListActions,
   });
 
   final ContentRoute route;
   final String? siteUrl;
   final List<TopicCategory> filterCategories;
   final Widget? fallback;
+  final Widget? topicListActions;
 
   @override
   Widget build(BuildContext context) {
@@ -314,7 +352,10 @@ class _FeedBackedContent extends StatelessWidget {
         }
 
         if (TopicListMode.fromRoute(route) != null || route.isTopicListFilter) {
-          return TopicListNavigation(child: content);
+          return TopicListNavigation(
+            trailing: topicListActions,
+            child: content,
+          );
         }
         return content;
       },
@@ -332,6 +373,7 @@ class _ContentHeader extends StatelessWidget {
     required this.isConnected,
     required this.registry,
     required this.groupPages,
+    this.searchOnly = false,
   });
 
   final ShellLayout layout;
@@ -342,6 +384,7 @@ class _ContentHeader extends StatelessWidget {
   final bool isConnected;
   final PluginRegistry registry;
   final GroupPagesCoordinator groupPages;
+  final bool searchOnly;
 
   static const _searchSlotKey = ValueKey('content-header-search-slot');
 
@@ -377,7 +420,7 @@ class _ContentHeader extends StatelessWidget {
           final carriesSearch =
               !ShellTitleBar.isSupported && !(layout.isCompact && !isConnected);
           final showRouteIdentity =
-              !carriesSearch || constraints.maxWidth >= 620;
+              !searchOnly && (!carriesSearch || constraints.maxWidth >= 620);
           final searchWidth = constraints.maxWidth >= 800 ? 360.0 : 260.0;
 
           return Row(
@@ -518,7 +561,7 @@ class _ContentHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
               ],
-              ...contentHeader,
+              if (!searchOnly) ...contentHeader,
               if (isConnected && siteUrl != null && route.categoryId != null)
                 CategoryNotificationLevelButton(
                   siteUrl: siteUrl!,
@@ -747,8 +790,9 @@ class _GroupsDirectoryCount extends StatelessWidget {
           count == 1 ? '1 group' : '$count groups',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelSmall
-              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         );
       },
     );

@@ -480,9 +480,7 @@ void main() {
     );
     expect(
       tester
-          .getSize(
-            find.byKey(const ValueKey('users-manage-columns-content')),
-          )
+          .getSize(find.byKey(const ValueKey('users-manage-columns-content')))
           .width,
       310,
     );

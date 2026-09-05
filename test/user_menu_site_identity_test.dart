@@ -645,7 +645,11 @@ Future<_MenuFixture> _pumpMenu(WidgetTester tester) async {
 Future<void> _openNestedSection(WidgetTester tester, String label) async {
   await tester.tap(find.byKey(UserMenuButton.avatarKey));
   await tester.pumpAndSettle();
-  await tester.tap(find.text(label));
+  final panel = find.byType(UserMenuPanel);
+  final menu = panel.evaluate().isNotEmpty
+      ? panel
+      : find.byKey(const ValueKey('shell-sheet-keyboard-inset'));
+  await tester.tap(find.descendant(of: menu, matching: find.text(label)));
   await tester.pumpAndSettle();
 }
 

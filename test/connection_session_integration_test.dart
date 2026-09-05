@@ -72,7 +72,12 @@ void _registerConnectionSessionTests() {
       expect(signUp.right - signUpLabel.right, moreOrLessEquals(11.4));
 
       final signIn = tester.getRect(find.byKey(UserMenuButton.signInKey));
-      final signInIcon = tester.getRect(find.dIcon(DIcons.user));
+      final signInIcon = tester.getRect(
+        find.descendant(
+          of: find.byKey(UserMenuButton.signInKey),
+          matching: find.dIcon(DIcons.user),
+        ),
+      );
       final signInLabel = tester.getRect(find.text('Sign in'));
       expect(signInIcon.left - signIn.left, moreOrLessEquals(11.4));
       expect(signIn.right - signInLabel.right, moreOrLessEquals(11.4));
@@ -603,10 +608,7 @@ void _registerConnectionSessionTests() {
           tester,
           desktop,
           instances: [connected.single.copyWith(notificationTotals: totals)],
-          api: FakeDiscourseApi(
-            totals: totals,
-            notificationList: const [],
-          ),
+          api: FakeDiscourseApi(totals: totals, notificationList: const []),
           authenticator: signedIn(),
         );
         await openMenu(tester);
@@ -684,10 +686,7 @@ void _registerConnectionSessionTests() {
       );
       await openLikes(tester);
 
-      expect(
-        find.text("You haven't received any likes yet."),
-        findsOneWidget,
-      );
+      expect(find.text("You haven't received any likes yet."), findsOneWidget);
     });
 
     testWidgets('Other renders notification types not claimed by another tab', (

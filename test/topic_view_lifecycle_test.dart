@@ -968,10 +968,7 @@ void main() {
                 postNumber: number,
                 username: 'sam',
                 cooked: number == 70
-                    ? List.filled(
-                        600,
-                        '<p>A very long earlier post</p>',
-                      ).join()
+                    ? List.filled(600, '<p>A very long earlier post</p>').join()
                     : '<p>Post $number</p>',
               ),
           ];
@@ -1939,85 +1936,82 @@ void main() {
         expect(replaced, [1, 2, 3, 4, 5, 6]);
       });
 
-      testWidgets(
-        'retries a failed next page only after the reader scrolls',
-        (tester) async {
-          final site = instance('meta.example');
-          final posts = {
-            for (var number = 1; number <= 26; number++)
-              number: Post(
-                id: number,
-                postNumber: number,
-                username: 'sam',
-                cooked: List.filled(8, '<p>Long post $number</p>').join(),
-              ),
-          };
-          final api = _FailingOncePostsApi(posts);
-          final controller = _controller(site, api);
-          addTearDown(controller.dispose);
-          await controller.load();
-          controller.store
-            ..put(
-              site.url,
-              TopicDetail(
-                id: 1,
-                title: 'One',
-                stream: [for (var id = 1; id <= 26; id++) id],
-                postsCount: 26,
-              ),
-            )
-            ..putAll(site.url, [for (var id = 1; id <= 20; id++) posts[id]!]);
-          controller.pushContent(
-            ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
-          );
+      testWidgets('retries a failed next page only after the reader scrolls', (
+        tester,
+      ) async {
+        final site = instance('meta.example');
+        final posts = {
+          for (var number = 1; number <= 26; number++)
+            number: Post(
+              id: number,
+              postNumber: number,
+              username: 'sam',
+              cooked: List.filled(8, '<p>Long post $number</p>').join(),
+            ),
+        };
+        final api = _FailingOncePostsApi(posts);
+        final controller = _controller(site, api);
+        addTearDown(controller.dispose);
+        await controller.load();
+        controller.store
+          ..put(
+            site.url,
+            TopicDetail(
+              id: 1,
+              title: 'One',
+              stream: [for (var id = 1; id <= 26; id++) id],
+              postsCount: 26,
+            ),
+          )
+          ..putAll(site.url, [for (var id = 1; id <= 20; id++) posts[id]!]);
+        controller.pushContent(
+          ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+        );
 
-          await tester.pumpWidget(_topicView(controller));
-          await tester.pumpAndSettle();
-          expect(api.postFetches, isEmpty);
+        await tester.pumpWidget(_topicView(controller));
+        await tester.pumpAndSettle();
+        expect(api.postFetches, isEmpty);
 
-          final list = tester.widget<SuperListView>(find.byType(SuperListView));
-          list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
-          await tester.pumpAndSettle();
+        final list = tester.widget<SuperListView>(find.byType(SuperListView));
+        list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
+        await tester.pumpAndSettle();
 
-          // The failed page rebuilds the last post, and that rebuild must not chain
-          // straight into another copy of the same request.
-          expect(api.postFetches, [
-            [for (var id = 21; id <= 26; id++) id],
-          ]);
-          expect(controller.currentPostIds, [
-            for (var id = 1; id <= 20; id++) id,
-          ]);
-          expect(controller.currentTopicHasMore, isTrue);
+        // The failed page rebuilds the last post, and that rebuild must not chain
+        // straight into another copy of the same request.
+        expect(api.postFetches, [
+          [for (var id = 21; id <= 26; id++) id],
+        ]);
+        expect(controller.currentPostIds, [
+          for (var id = 1; id <= 20; id++) id,
+        ]);
+        expect(controller.currentTopicHasMore, isTrue);
 
-          // List extent corrections use programmatic jumps. They are not a
-          // reader asking to retry the page that just failed.
-          list.controller!.jumpTo(
-            list.controller!.position.maxScrollExtent - 1,
-          );
-          await tester.pumpAndSettle();
+        // List extent corrections use programmatic jumps. They are not a
+        // reader asking to retry the page that just failed.
+        list.controller!.jumpTo(list.controller!.position.maxScrollExtent - 1);
+        await tester.pumpAndSettle();
 
-          expect(api.postFetches, [
-            [for (var id = 21; id <= 26; id++) id],
-          ]);
+        expect(api.postFetches, [
+          [for (var id = 21; id <= 26; id++) id],
+        ]);
 
-          final vertical = find.byWidgetPredicate(
-            (widget) =>
-                widget is Scrollable &&
-                widget.axisDirection == AxisDirection.down,
-          );
-          await tester.drag(vertical.first, const Offset(0, -200));
-          await tester.pumpAndSettle();
+        final vertical = find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        );
+        await tester.drag(vertical.first, const Offset(0, -200));
+        await tester.pumpAndSettle();
 
-          expect(api.postFetches, [
-            [for (var id = 21; id <= 26; id++) id],
-            [for (var id = 21; id <= 26; id++) id],
-          ]);
-          expect(controller.currentPostIds, [
-            for (var id = 1; id <= 26; id++) id,
-          ]);
-          expect(controller.currentTopicHasMore, isFalse);
-        },
-      );
+        expect(api.postFetches, [
+          [for (var id = 21; id <= 26; id++) id],
+          [for (var id = 21; id <= 26; id++) id],
+        ]);
+        expect(controller.currentPostIds, [
+          for (var id = 1; id <= 26; id++) id,
+        ]);
+        expect(controller.currentTopicHasMore, isFalse);
+      });
 
       testWidgets('does not refetch the first post when pulled past it', (
         tester,

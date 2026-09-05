@@ -189,21 +189,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(_sidebarWidth(tester), 360);
+    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 120);
     expect(
       (await SharedPreferences.getInstance()).getDouble(
         SidebarWidthStore.storageKey,
       ),
-      360,
+      AdaptiveShell.sidebarWidth + 120,
     );
 
     controller.selectInstance(1);
     await tester.pumpAndSettle();
-    expect(_sidebarWidth(tester), 360);
+    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 120);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await _pumpShell(tester, controller, const Size(1200, 800));
-    expect(_sidebarWidth(tester), 360);
+    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 120);
   });
 
   testWidgets('resize handle supports keyboard and semantics adjustment', (
@@ -227,7 +227,7 @@ void main() {
     );
     final data = tester.getSemantics(handle).getSemanticsData();
     expect(data.label, 'Resize sidebar');
-    expect(data.value, '240 pixels wide');
+    expect(data.value, '${AdaptiveShell.sidebarWidth.toInt()} pixels wide');
     expect(data.hasAction(SemanticsAction.increase), isTrue);
     expect(data.hasAction(SemanticsAction.decrease), isTrue);
 
@@ -239,17 +239,17 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
-    expect(_sidebarWidth(tester), 256);
+    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 16);
     expect(
       (await SharedPreferences.getInstance()).getDouble(
         SidebarWidthStore.storageKey,
       ),
-      256,
+      AdaptiveShell.sidebarWidth + 16,
     );
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
-    expect(_sidebarWidth(tester), 240);
+    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth);
     semantics.dispose();
   });
 
@@ -302,7 +302,7 @@ void main() {
       await drag.moveBy(const Offset(40, 0));
       await tester.pump();
 
-      expect(_sidebarWidth(tester), 280);
+      expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 40);
       for (final isolated in [shell, rail, sidebar, content]) {
         expect(rebuilt, isNot(contains(isolated)));
       }

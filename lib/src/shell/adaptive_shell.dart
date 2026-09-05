@@ -63,7 +63,7 @@ class AdaptiveShell extends StatefulWidget {
 
   static const double railWidth = 56;
   static const double compactRailWidth = 56;
-  static const double sidebarWidth = 240;
+  static const double sidebarWidth = 208;
   static const double sidebarMinWidth = 200;
   static const double sidebarMaxWidth = 480;
   static const double mainContentMinWidth = 320;

@@ -221,9 +221,7 @@ void main() {
       ),
     );
 
-    final firstTag = tester.getRect(
-      find.byKey(const ValueKey('blz-prod-eu')),
-    );
+    final firstTag = tester.getRect(find.byKey(const ValueKey('blz-prod-eu')));
     final finalTag = tester.getRect(find.byKey(const ValueKey('gcl-prod-us')));
     final editButton = tester.getRect(find.byKey(const ValueKey('edit-tags')));
     final editIcon = tester.getRect(

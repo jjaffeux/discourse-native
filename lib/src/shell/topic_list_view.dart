@@ -24,6 +24,7 @@ import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'topic_list_layout.dart';
 import 'topic_title.dart';
 
 class TopicListView extends StatefulWidget {
@@ -245,6 +246,7 @@ class _TopicListViewState extends State<TopicListView> {
 
     return Column(
       children: [
+        const _TopicListHeader(),
         if (state.incoming > 0)
           _IncomingBanner(
             count: state.incoming,
@@ -266,6 +268,7 @@ class _TopicListViewState extends State<TopicListView> {
 
     if (feed.loading && feed.topicIds.isEmpty) {
       return ContentReadingLaneBox(
+        widthLimit: topicListContentWidth,
         child: _TopicListLoadingSkeleton(
           key: const ValueKey('topic-list-loading-skeleton'),
           destination: destination,
@@ -297,6 +300,7 @@ class _TopicListViewState extends State<TopicListView> {
           ),
         Expanded(
           child: ContentReadingLane(
+            widthLimit: topicListContentWidth,
             basePadding: const EdgeInsets.symmetric(vertical: 4),
             builder: (context, lane) =>
                 NotificationListener<ScrollNotification>(
@@ -402,14 +406,82 @@ class _TopicLedgerLayout {
 
   static const double horizontalPadding = 14;
   static const double gap = 12;
-  static const double participantsWidth = 82;
-  static const double activityWidth = 180;
+  static const double participantsWidth = 64;
+  static const double activityWidth = 156;
+
+  static double participantsWidthOf(BuildContext context) =>
+      participantsWidth * ContentAlignmentScope.appTextScaleFactorOf(context);
 
   static double activityWidthOf(BuildContext context) =>
       activityWidth * ContentAlignmentScope.appTextScaleFactorOf(context);
 
   final bool showParticipants;
   final bool showActivity;
+}
+
+class _TopicListHeader extends StatelessWidget {
+  const _TopicListHeader();
+
+  @override
+  Widget build(BuildContext context) => ContentReadingLaneBox(
+    widthLimit: topicListContentWidth,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = _TopicLedgerLayout.forWidth(
+          ContentReadingLane.breakpointWidthOf(context, constraints.maxWidth),
+        );
+        if (!layout.showActivity) return const SizedBox.shrink();
+        final theme = Theme.of(context);
+        final style = theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        );
+        return Container(
+          key: const ValueKey('topic-list-ledger-header'),
+          padding: const EdgeInsets.fromLTRB(
+            _TopicLedgerLayout.horizontalPadding,
+            4,
+            _TopicLedgerLayout.horizontalPadding,
+            8,
+          ),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: theme.shell.divider)),
+          ),
+          child: DefaultTextStyle(
+            style: style!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            child: Row(
+              children: [
+                const Spacer(),
+                const SizedBox(width: _TopicLedgerLayout.gap),
+                SizedBox(
+                  width: _TopicLedgerLayout.participantsWidthOf(context),
+                  child: const Text('People', textAlign: TextAlign.right),
+                ),
+                const SizedBox(width: _TopicLedgerLayout.gap),
+                SizedBox(
+                  width: _TopicLedgerLayout.activityWidthOf(context),
+                  child: const Row(
+                    children: [
+                      Expanded(
+                        child: Text('Replies', textAlign: TextAlign.right),
+                      ),
+                      Expanded(
+                        child: Text('Views', textAlign: TextAlign.right),
+                      ),
+                      Expanded(
+                        child: Text('Activity', textAlign: TextAlign.right),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
 }
 
 class _TopicListLoadingSkeleton extends StatelessWidget {
@@ -508,19 +580,21 @@ class _TopicListSkeletonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = TopicListDensityScope.isCompact(context);
     final row = LayoutBuilder(
       builder: (context, constraints) {
         final layout = _TopicLedgerLayout.forWidth(
           ContentReadingLane.breakpointWidthOf(context, constraints.maxWidth),
         );
         return Padding(
-          padding: const EdgeInsets.symmetric(
+          padding: EdgeInsets.symmetric(
             horizontal: _TopicLedgerLayout.horizontalPadding,
-            vertical: 9,
+            vertical: compact ? 5 : 9,
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -534,7 +608,7 @@ class _TopicListSkeletonRow extends StatelessWidget {
               if (layout.showParticipants) ...[
                 const SizedBox(width: _TopicLedgerLayout.gap),
                 SizedBox(
-                  width: _TopicLedgerLayout.participantsWidth,
+                  width: _TopicLedgerLayout.participantsWidthOf(context),
                   child: _TopicListSkeletonPosters(count: posterCount),
                 ),
               ],
@@ -560,7 +634,11 @@ class _TopicListSkeletonRow extends StatelessWidget {
     );
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: TopicListRow.minimumHeight),
+      constraints: BoxConstraints(
+        minHeight: compact
+            ? TopicListRow.compactMinimumHeight
+            : TopicListRow.minimumHeight,
+      ),
       child: row,
     );
   }
@@ -930,6 +1008,7 @@ class _TopicRowBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final effectiveTitleStyle = titleStyle ?? theme.textTheme.titleSmall;
+    final compact = TopicListDensityScope.isCompact(context);
     final pluginMetadata =
         (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
             .topicListMetadata(context, siteUrl, topic);
@@ -954,7 +1033,7 @@ class _TopicRowBody extends StatelessWidget {
           final content = Padding(
             padding: EdgeInsets.symmetric(
               horizontal: _TopicLedgerLayout.horizontalPadding,
-              vertical: hasContextLine ? 9 : 7,
+              vertical: compact ? 5 : (hasContextLine ? 9 : 7),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -979,9 +1058,9 @@ class _TopicRowBody extends StatelessWidget {
                   const SizedBox(width: _TopicLedgerLayout.gap),
                   SizedBox(
                     key: ValueKey('topic-ledger-participants-${topic.id}'),
-                    width: _TopicLedgerLayout.participantsWidth,
+                    width: _TopicLedgerLayout.participantsWidthOf(context),
                     child: Align(
-                      alignment: AlignmentDirectional.centerStart,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: _Posters(avatars: topic.posterAvatars),
                     ),
                   ),
@@ -1000,7 +1079,9 @@ class _TopicRowBody extends StatelessWidget {
 
           return ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: hasContextLine
+              minHeight: compact
+                  ? TopicListRow.compactMinimumHeight
+                  : hasContextLine
                   ? TopicListRow.minimumHeight
                   : TopicListRow.compactMinimumHeight,
             ),
@@ -1115,178 +1196,216 @@ class _TopicCopy extends StatelessWidget {
     final theme = Theme.of(context);
     final controller = ShellScope.maybeRead(context);
     final visibleTags = topic.tags.take(maximumVisibleTags).toList();
+    final compact = TopicListDensityScope.isCompact(context);
+    final titleLineHeight =
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(titleStyle?.fontSize ?? DiscourseTypography.base) *
+        (titleStyle?.height ?? DiscourseTypography.lineHeightMedium);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            if (topic.closed)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Transform.translate(
-                  // Remove DIcon's scale inset and the portrait lock SVG's
-                  // remaining horizontal letterbox.
-                  offset: const Offset(-1.640625, 0),
-                  child: DIcon(
-                    DIcons.lock,
-                    size: 14,
-                    color: theme.colorScheme.onSurfaceVariant,
-                    semanticLabel: 'Closed',
-                  ),
-                ),
-              ),
-            if (topic.pinned)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: DIcon(
-                  DIcons.thumbtack,
-                  size: 14,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            if (topic.bookmarked)
-              Semantics(
-                label: 'Bookmarked',
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: DIcon(
-                    DIcons.bookmark,
-                    size: 14,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ),
-            Flexible(
-              child: TopicTitle(
-                topic.title,
-                siteUrl: siteUrl,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: titleStyle?.copyWith(
-                  color: topic.visited
-                      ? theme.discourse.whisper
-                      : theme.colorScheme.onSurface,
-                  fontWeight: topic.visited ? FontWeight.w400 : FontWeight.w500,
-                ),
-              ),
+        SizedBox(
+          key: ValueKey('topic-ledger-state-${topic.id}'),
+          width: 16,
+          child: Padding(
+            padding: EdgeInsets.only(
+              top: (titleLineHeight - 8).clamp(0, double.infinity) / 2,
             ),
-            if (topic.showUnreadCount) ...[
-              const SizedBox(width: 8),
-              _UnreadPill(count: topic.unreadCount),
-            ],
-            if (topic.showNewTopicDot) ...[
-              const SizedBox(width: 8),
-              const _TopicStateDot(
-                key: ValueKey('new-topic-dot'),
-                label: 'New topic',
-              ),
-            ],
-            if (topic.showNewRepliesDot) ...[
-              const SizedBox(width: 8),
-              const _TopicStateDot(
-                key: ValueKey('new-replies-dot'),
-                label: 'Topic has new replies',
-              ),
-            ],
-          ],
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: topic.showNewTopicDot
+                  ? const _TopicStateDot(
+                      key: ValueKey('new-topic-dot'),
+                      label: 'New topic',
+                    )
+                  : topic.showNewRepliesDot
+                  ? const _TopicStateDot(
+                      key: ValueKey('new-replies-dot'),
+                      label: 'Topic has new replies',
+                    )
+                  : topic.showUnreadCount
+                  ? const _TopicStateDot(label: 'Topic has unread replies')
+                  : const SizedBox.shrink(),
+            ),
+          ),
         ),
-        if (showContextLine) const SizedBox(height: 5),
-        Wrap(
-          runSpacing: 3,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            if (forum case final forum?)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ConstrainedBox(
-                  key: ValueKey(('topic-row-forum', forum.url)),
-                  constraints: const BoxConstraints(minHeight: 24),
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    widthFactor: 1,
-                    heightFactor: 1,
-                    child: Text(
-                      forum.title,
-                      maxLines: 1,
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  if (topic.closed)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Transform.translate(
+                        // Remove DIcon's scale inset and the portrait lock SVG's
+                        // remaining horizontal letterbox.
+                        offset: const Offset(-1.640625, 0),
+                        child: DIcon(
+                          DIcons.lock,
+                          size: 14,
+                          color: theme.colorScheme.onSurfaceVariant,
+                          semanticLabel: 'Closed',
+                        ),
+                      ),
+                    ),
+                  if (topic.pinned)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: DIcon(
+                        DIcons.thumbtack,
+                        size: 14,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  if (topic.bookmarked)
+                    Semantics(
+                      label: 'Bookmarked',
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: DIcon(
+                          DIcons.bookmark,
+                          size: 14,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  Flexible(
+                    child: TopicTitle(
+                      topic.title,
+                      siteUrl: siteUrl,
+                      maxLines: compact ? 1 : 2,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600,
+                      style: titleStyle?.copyWith(
+                        color: topic.visited
+                            ? Color.lerp(
+                                theme.discourse.whisper,
+                                theme.colorScheme.onSurface,
+                                0.25,
+                              )
+                            : theme.colorScheme.onSurface,
+                        fontWeight: topic.visited
+                            ? FontWeight.w400
+                            : FontWeight.w500,
                       ),
                     ),
                   ),
-                ),
+                  if (topic.showUnreadCount) ...[
+                    const SizedBox(width: 8),
+                    _UnreadPill(count: topic.unreadCount),
+                  ],
+                ],
               ),
-            if (showCategoryBreadcrumb)
-              if (category case final category?)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _CategoryBreadcrumb(
-                    parent: parentCategory,
-                    category: category,
-                    siteUrl: siteUrl,
-                    onOpen: (category) =>
-                        controller?.openCategory(category, siteUrl: siteUrl),
-                  ),
-                ),
-            for (final tag in visibleTags)
-              _TopicTag(
-                tag: tag,
-                onTap: () => controller?.openTopicTag(
-                  tag,
-                  siteUrl: siteUrl,
-                  privateMessage: topic.privateMessage,
-                ),
-                onMiddleClick: () async {
-                  if (controller == null) return;
-                  final opened = await controller.openTopicTag(
-                    tag,
-                    siteUrl: siteUrl,
-                    privateMessage: topic.privateMessage,
-                    newTab: true,
-                  );
-                  if (!opened && context.mounted) {
-                    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                      const SnackBar(
-                        content: Text('Could not open this tag in a new tab.'),
+              if (showContextLine) const SizedBox(height: 5),
+              Wrap(
+                runSpacing: 3,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (forum case final forum?)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ConstrainedBox(
+                        key: ValueKey(('topic-row-forum', forum.url)),
+                        constraints: const BoxConstraints(minHeight: 24),
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          widthFactor: 1,
+                          heightFactor: 1,
+                          child: Text(
+                            forum.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ),
-                    );
-                  }
-                },
+                    ),
+                  if (showCategoryBreadcrumb)
+                    if (category case final category?)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _CategoryBreadcrumb(
+                          parent: parentCategory,
+                          category: category,
+                          siteUrl: siteUrl,
+                          onOpen: (category) => controller?.openCategory(
+                            category,
+                            siteUrl: siteUrl,
+                          ),
+                        ),
+                      ),
+                  for (final tag in visibleTags)
+                    _TopicTag(
+                      tag: tag,
+                      onTap: () => controller?.openTopicTag(
+                        tag,
+                        siteUrl: siteUrl,
+                        privateMessage: topic.privateMessage,
+                      ),
+                      onMiddleClick: () async {
+                        if (controller == null) return;
+                        final opened = await controller.openTopicTag(
+                          tag,
+                          siteUrl: siteUrl,
+                          privateMessage: topic.privateMessage,
+                          newTab: true,
+                        );
+                        if (!opened && context.mounted) {
+                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Could not open this tag in a new tab.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  if (topic.tags.length > maximumVisibleTags)
+                    _TopicTagOverflow(
+                      count: topic.tags.length - maximumVisibleTags,
+                    ),
+                  for (final metadata in pluginMetadata)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 5),
+                      child: metadata,
+                    ),
+                  if (showInlineParticipants && topic.posterAvatars.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _Posters(avatars: topic.posterAvatars),
+                    ),
+                  if (showInlineActivity)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _Stat(icon: DIcons.reply, value: topic.replyCount),
+                    ),
+                  if (showInlineActivity)
+                    Padding(
+                      padding: EdgeInsets.only(
+                        right: topic.bumpedAt == null ? 0 : 8,
+                      ),
+                      child: _Stat(icon: DIcons.farEye, value: topic.views),
+                    ),
+                  if (showInlineActivity)
+                    if (topic.bumpedAt case final bumpedAt?)
+                      Text(
+                        relativeTime(bumpedAt),
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                ],
               ),
-            if (topic.tags.length > maximumVisibleTags)
-              _TopicTagOverflow(count: topic.tags.length - maximumVisibleTags),
-            for (final metadata in pluginMetadata)
-              Padding(
-                padding: const EdgeInsets.only(right: 5),
-                child: metadata,
-              ),
-            if (showInlineParticipants && topic.posterAvatars.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _Posters(avatars: topic.posterAvatars),
-              ),
-            if (showInlineActivity)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _Stat(icon: DIcons.reply, value: topic.replyCount),
-              ),
-            if (showInlineActivity)
-              Padding(
-                padding: EdgeInsets.only(right: topic.bumpedAt == null ? 0 : 8),
-                child: _Stat(icon: DIcons.farEye, value: topic.views),
-              ),
-            if (showInlineActivity)
-              if (topic.bumpedAt case final bumpedAt?)
-                Text(
-                  relativeTime(bumpedAt),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -1313,18 +1432,39 @@ class _TopicActivity extends StatelessWidget {
       child: ExcludeSemantics(
         child: Row(
           children: [
-            _Stat(icon: DIcons.reply, value: topic.replyCount),
-            const SizedBox(width: 8),
-            _Stat(icon: DIcons.farEye, value: topic.views),
-            if (age != null) ...[
-              const Spacer(),
-              Text(
-                age,
+            Expanded(
+              child: Text(
+                _Stat._short(topic.replyCount),
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            ],
+            ),
+            Expanded(
+              child: Text(
+                _Stat._short(topic.views),
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                age ?? '',
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -1489,8 +1629,11 @@ class _TopicTag extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 160, minHeight: 20),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: theme.shell.mention,
-            borderRadius: BorderRadius.circular(5),
+            color: Color.alphaBlend(
+              theme.shell.mention.withValues(alpha: 0.45),
+              theme.shell.content,
+            ),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Align(
             alignment: Alignment.center,
@@ -1532,8 +1675,11 @@ class _TopicTagOverflow extends StatelessWidget {
           margin: const EdgeInsets.only(right: 5),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: theme.shell.mention,
-            borderRadius: BorderRadius.circular(5),
+            color: Color.alphaBlend(
+              theme.shell.mention.withValues(alpha: 0.45),
+              theme.shell.content,
+            ),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Align(
             alignment: Alignment.center,

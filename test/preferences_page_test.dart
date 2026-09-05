@@ -826,13 +826,7 @@ void main() {
       );
       expect(fixture.store.saved, hasLength(1));
       expect(
-        fixture
-            .store
-            .saved
-            .single
-            .single
-            .user
-            ?.likesNotificationsDisabled,
+        fixture.store.saved.single.single.user?.likesNotificationsDisabled,
         isTrue,
       );
     });

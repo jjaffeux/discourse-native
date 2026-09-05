@@ -83,9 +83,12 @@ void main() {
       expect(find.text('Topic 1'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('topic-list-ledger-header')),
-        findsNothing,
+        findsOneWidget,
       );
-      expect(find.byKey(const ValueKey('topic-ledger-state-1')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('topic-ledger-state-1')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey('topic-ledger-topic-1')),
         findsOneWidget,
@@ -101,7 +104,7 @@ void main() {
       final compactTitle = tester.widget<TopicTitle>(
         find.byType(TopicTitle).first,
       );
-      expect(compactTitle.maxLines, 1);
+      expect(compactTitle.maxLines, 2);
       expect(compactTitle.overflow, TextOverflow.ellipsis);
       final topicRow = find.descendant(
         of: find.byType(TopicListView),
@@ -308,7 +311,7 @@ void main() {
         tester
             .getSize(find.byKey(const ValueKey('topic-ledger-activity-8')))
             .width,
-        225,
+        195,
       );
       expect(tester.takeException(), isNull);
     } finally {
@@ -503,10 +506,10 @@ void main() {
       final list = tester.widget<SuperListView>(viewport);
       final firstRow = find.byKey(const ValueKey(1));
       expect(tester.getSize(viewport).width, 1200);
-      expect(tester.getSize(firstRow).width, 825);
-      expect(tester.getTopLeft(firstRow).dx, 187.5);
+      expect(tester.getSize(firstRow).width, 1120);
+      expect(tester.getTopLeft(firstRow).dx, 40);
 
-      const gutterPoint = Offset(1100, 300);
+      const gutterPoint = Offset(1180, 300);
       expect(tester.getRect(firstRow).contains(gutterPoint), isFalse);
       await tester.sendEventToBinding(
         const PointerScrollEvent(

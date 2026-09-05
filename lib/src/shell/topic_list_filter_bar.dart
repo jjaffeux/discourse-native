@@ -14,6 +14,7 @@ import 'anchored_picker.dart';
 import 'category_icon.dart';
 import 'choice_menu.dart';
 import 'content_reading_lane.dart';
+import 'topic_list_layout.dart';
 
 typedef TopicListTagSearch =
     Future<List<TopicFilterLookupValue>> Function(String term);
@@ -31,6 +32,7 @@ class TopicListFilterBar extends StatelessWidget {
     required this.onCategorySelected,
     required this.onTagSelected,
     required this.onReset,
+    this.trailing,
   });
 
   final String siteUrl;
@@ -43,6 +45,7 @@ class TopicListFilterBar extends StatelessWidget {
   final ValueChanged<TopicCategory?> onCategorySelected;
   final ValueChanged<String?> onTagSelected;
   final VoidCallback onReset;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -71,20 +74,15 @@ class TopicListFilterBar extends StatelessWidget {
 
     return Material(
       key: const ValueKey('topic-list-filter-bar'),
-      color: theme.shell.sidebar,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: theme.shell.divider)),
-        ),
-        child: ContentReadingLaneBox(
-          child: LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: constraints.maxWidth - 32,
-                ),
+      color: theme.shell.content,
+      child: ContentReadingLaneBox(
+        widthLimit: topicListContentWidth,
+        child: Row(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -118,7 +116,7 @@ class TopicListFilterBar extends StatelessWidget {
                     if (hasFilters) ...[
                       const SizedBox(width: 4),
                       ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 40),
+                        constraints: const BoxConstraints(minHeight: 32),
                         child: DButton(
                           key: const ValueKey('topic-list-filter-reset'),
                           label: const Text('Reset'),
@@ -134,7 +132,12 @@ class TopicListFilterBar extends StatelessWidget {
                 ),
               ),
             ),
-          ),
+            if (trailing != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 16, bottom: 10),
+                child: trailing,
+              ),
+          ],
         ),
       ),
     );
@@ -209,7 +212,7 @@ class _CategoryFilterAnchor extends StatelessWidget {
             ? 'Filter by category'
             : 'Category: ${selected!.name}',
         onPressed: openMenu,
-        minimumWidth: 150,
+        minimumWidth: 132,
         maximumWidth: 260,
       ),
     );
@@ -286,7 +289,7 @@ class _SubcategoryFilterAnchor extends StatelessWidget {
             ? 'Filter by subcategory of ${parent.name}'
             : 'Subcategory: ${selected!.name}',
         onPressed: openMenu,
-        minimumWidth: 140,
+        minimumWidth: 128,
         maximumWidth: 230,
       ),
     );
@@ -350,13 +353,13 @@ class _TagFilterAnchorState extends State<_TagFilterAnchor> {
       key: _anchorKey,
       child: _FilterButton(
         key: const ValueKey('topic-list-tag-filter'),
-        label: selected?.name ?? widget.selectedTagName ?? 'Tags',
+        label: selected?.name ?? widget.selectedTagName ?? 'All tags',
         icon: const DIcon(DIcons.tag, size: 14),
         semanticLabel: widget.selectedTagName == null
             ? 'Filter by tag'
             : 'Tag: ${selected?.name ?? widget.selectedTagName}',
         onPressed: _show,
-        minimumWidth: 104,
+        minimumWidth: 92,
         maximumWidth: 210,
       ),
     );
@@ -386,24 +389,31 @@ class _FilterButton extends StatelessWidget {
     constraints: BoxConstraints(
       minWidth: minimumWidth,
       maxWidth: maximumWidth,
-      minHeight: 40,
+      minHeight: 32,
     ),
-    child: DButton(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-          const SizedBox(width: 8),
-          const DIcon(DIcons.chevronRight, size: 12),
-        ],
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).shell.divider),
+        borderRadius: BorderRadius.circular(5),
       ),
-      icon: icon,
-      semanticLabel: semanticLabel,
-      onPressed: onPressed,
-      alignment: Alignment.centerLeft,
-      size: DButtonSize.small,
+      child: DButton(
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(width: 8),
+            const DIcon(DIcons.chevronDown, size: 12),
+          ],
+        ),
+        icon: icon,
+        semanticLabel: semanticLabel,
+        onPressed: onPressed,
+        alignment: Alignment.centerLeft,
+        size: DButtonSize.small,
+        variant: DButtonVariant.flat,
+      ),
     ),
   );
 }

@@ -12,9 +12,13 @@ import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_create_button.dart';
+import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 
@@ -164,7 +168,7 @@ void main() {
     expect(find.byKey(const ValueKey('topic-list-unread')), findsNothing);
     expect(find.text('Unread (5)'), findsNothing);
     expect(find.text('Top'), findsOneWidget);
-    expect(find.text('Popular'), findsOneWidget);
+    expect(find.text('Trending'), findsOneWidget);
     expect(find.text('Latest topic'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
     expect(controller.sidebarBadgeFor('latest').count, 1059);
@@ -316,7 +320,7 @@ void main() {
     final recentLabel = tester.getRect(find.text('Recent'));
     final newLabel = tester.getRect(find.text('New (1059)'));
     final topLabel = tester.getRect(find.text('Top'));
-    final popularLabel = tester.getRect(find.text('Popular'));
+    final popularLabel = tester.getRect(find.text('Trending'));
 
     expect(row.left, 0);
     expect(row.right, 800);
@@ -332,6 +336,98 @@ void main() {
       expect(tabs[index].width, lessThanOrEqualTo(labels[index].width + 24));
     }
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('desktop toolbar keeps actions and density across topic views', (
+    tester,
+  ) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      tester.view.physicalSize = const Size(1000, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final setup = await _controller(
+        canCreateTopics: true,
+        extraFeeds: {
+          '/latest.json': [
+            for (var id = 1; id <= 40; id++)
+              Topic(
+                id: id,
+                title: 'Topic $id with a detailed title to read in the list',
+                slug: 'topic-$id',
+                tags: const [TopicTag(id: 1, name: 'design', slug: 'design')],
+              ),
+          ],
+        },
+      );
+      addTearDown(setup.controller.dispose);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: setup.controller,
+          child: MaterialApp(
+            theme: AppTheme.dark,
+            home: const Scaffold(
+              body: MainContent(layout: ShellLayout.expanded),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final toolbar = tester.getRect(
+        find.byKey(const ValueKey('topic-list-primary-row')),
+      );
+      final create = tester.getRect(find.byKey(TopicCreateButton.buttonKey));
+      expect(toolbar.contains(create.center), isTrue);
+      expect(toolbar.top, 0);
+      expect(find.text('Topics'), findsNothing);
+      expect(find.text('Topic'), findsNothing);
+      expect(find.text('Latest activity'), findsNothing);
+      expect(find.text('Top'), findsOneWidget);
+      expect(find.byTooltip('Hide topic sidebar'), findsNothing);
+
+      final list = find.byType(SuperListView);
+      final scroll = tester.widget<SuperListView>(list).controller!;
+      final comfortableHeight = tester
+          .getSize(find.byKey(const ValueKey(1)))
+          .height;
+      expect(
+        tester.widget<TopicTitle>(find.byType(TopicTitle).first).maxLines,
+        2,
+      );
+      await tester.tap(find.byTooltip('Compact rows'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byKey(const ValueKey(1))).height,
+        lessThan(comfortableHeight),
+      );
+      expect(
+        tester.widget<TopicTitle>(find.byType(TopicTitle).first).maxLines,
+        1,
+      );
+
+      scroll.jumpTo(150);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Comfortable rows'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<SuperListView>(list).controller, same(scroll));
+      expect(scroll.offset, 150);
+
+      await tester.tap(find.byTooltip('Compact rows'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-list-top')));
+      await tester.pumpAndSettle();
+      expect(find.text('Top'), findsOneWidget);
+      expect(find.byTooltip('Comfortable rows'), findsOneWidget);
+      expect(
+        tester.widget<TopicTitle>(find.byType(TopicTitle).first).maxLines,
+        1,
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
   });
 
   testWidgets('category and tag selections preserve each other in the feed', (
@@ -585,6 +681,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   List<TopicCategory> categoryList = const [],
   List<SidebarTag> categorySiteTopTags = const [],
   Map<String, List<Topic>> extraFeeds = const {},
+  bool canCreateTopics = false,
 }) async {
   final totals = user.unifiedNewEnabled ? _unifiedTotals : _legacyTotals;
   final site = instance(
@@ -593,6 +690,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   ).copyWith(user: user, notificationTotals: totals, config: config);
   final authenticator = FakeAuthenticator()..keys[site.url] = 'api-key';
   final api = FakeDiscourseApi(
+    creatableFeedPaths: canCreateTopics ? const {'/latest.json'} : const {},
     user: user,
     totals: totals,
     trackingStateGate: trackingStateGate,
