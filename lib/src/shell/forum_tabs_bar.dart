@@ -1297,6 +1297,7 @@ class _ForumTabState extends State<_ForumTab> {
               ),
               _ForumTabCloseButton(
                 tabId: widget.item.id,
+                tabHovered: _hovered,
                 label: closeLabel,
                 foreground: foreground,
                 shortcut: DShortcut(
@@ -1414,6 +1415,7 @@ class _ForumTabActionsState extends State<_ForumTabActions> {
 class _ForumTabCloseButton extends StatefulWidget {
   const _ForumTabCloseButton({
     required this.tabId,
+    required this.tabHovered,
     required this.label,
     required this.foreground,
     required this.shortcut,
@@ -1421,6 +1423,7 @@ class _ForumTabCloseButton extends StatefulWidget {
   });
 
   final String tabId;
+  final bool tabHovered;
   final String label;
   final Color foreground;
   final DShortcut? shortcut;
@@ -1475,27 +1478,33 @@ class _ForumTabCloseButtonState extends State<_ForumTabCloseButton> {
                       states.contains(WidgetState.hovered) ||
                       states.contains(WidgetState.focused) ||
                       states.contains(WidgetState.pressed);
-                  return AnimatedContainer(
-                    key: ValueKey('forum-tab-close-surface-${widget.tabId}'),
-                    width: 24,
-                    height: 24,
+                  return AnimatedOpacity(
+                    opacity: widget.tabHovered || emphasized ? 1 : 0,
                     duration: reduceMotion
                         ? Duration.zero
                         : const Duration(milliseconds: 100),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: emphasized
-                          ? theme.shell.selected
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: DIcon(
-                      DIcons.xmark,
-                      size: 12,
-                      color: emphasized
-                          ? theme.colorScheme.onSurface
-                          : widget.foreground,
+                    child: AnimatedContainer(
+                      key: ValueKey('forum-tab-close-surface-${widget.tabId}'),
+                      width: 24,
+                      height: 24,
+                      duration: reduceMotion
+                          ? Duration.zero
+                          : const Duration(milliseconds: 100),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: emphasized
+                            ? theme.shell.selected
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: DIcon(
+                        DIcons.xmark,
+                        size: 12,
+                        color: emphasized
+                            ? theme.colorScheme.onSurface
+                            : widget.foreground,
+                      ),
                     ),
                   );
                 },

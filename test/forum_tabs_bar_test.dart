@@ -410,16 +410,21 @@ void main() {
       await tester.pump(kDoubleTapTimeout);
     });
 
-    testWidgets('keep the close hover surface compact within its hit target', (
+    testWidgets('reveal close on tab hover without shifting the title', (
       tester,
     ) async {
-      await _pumpBar(tester, items: const [first], selectedId: first.id);
+      await _pumpBar(
+        tester,
+        items: const [first, second],
+        selectedId: first.id,
+      );
 
       const closeKey = ValueKey('forum-tab-close-topic-1');
       const surfaceKey = ValueKey('forum-tab-close-surface-topic-1');
       final close = find.byKey(closeKey);
       final surface = find.byKey(surfaceKey);
       final theme = Theme.of(tester.element(close));
+      final titleRect = tester.getRect(find.text(first.title));
 
       expect(tester.getSize(close).width, ForumTabsBar.closeTargetWidth);
       expect(
@@ -428,15 +433,35 @@ void main() {
       );
       expect(tester.getSize(surface), const Size.square(24));
       expect(_decoration(tester, surface).color, Colors.transparent);
+      expect(_closeOpacity(tester, first.id), 0);
+      expect(_closeOpacity(tester, second.id), 0);
 
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(pointer.removePointer);
       await pointer.addPointer();
+      await pointer.moveTo(tester.getCenter(find.text(first.title)));
+      await tester.pumpAndSettle();
+
+      expect(_closeOpacity(tester, first.id), 1);
+      expect(_closeOpacity(tester, second.id), 0);
+      expect(tester.getRect(find.text(first.title)), titleRect);
+
       await pointer.moveTo(tester.getCenter(close));
       await tester.pumpAndSettle();
 
       expect(_decoration(tester, surface).color, theme.shell.selected);
       expect(tester.getSize(surface), const Size.square(24));
+
+      await pointer.moveTo(tester.getCenter(find.text(second.title)));
+      await tester.pumpAndSettle();
+      expect(_closeOpacity(tester, first.id), 0);
+      expect(_closeOpacity(tester, second.id), 1);
+      expect(tester.getRect(find.text(first.title)), titleRect);
+
+      await pointer.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      expect(_closeOpacity(tester, first.id), 0);
+      expect(_closeOpacity(tester, second.id), 0);
     });
 
     testWidgets(
@@ -875,6 +900,39 @@ void main() {
   });
 
   group('accessibility', () {
+    testWidgets('keyboard focus reveals close and Enter closes the tab', (
+      tester,
+    ) async {
+      final closed = <String>[];
+      await _pumpBar(
+        tester,
+        items: const [first],
+        selectedId: first.id,
+        onClose: closed.add,
+      );
+      final button = tester.widget<IconButton>(
+        find.descendant(
+          of: find.byKey(const ValueKey('forum-tab-close-topic-1')),
+          matching: find.byType(IconButton),
+        ),
+      );
+      expect(_closeOpacity(tester, first.id), 0);
+      for (var step = 0; step < 6; step++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        if (button.statesController!.value.contains(WidgetState.focused)) break;
+      }
+      expect(button.statesController!.value, contains(WidgetState.focused));
+      expect(_closeOpacity(tester, first.id), 1);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(closed, [first.id]);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(_closeOpacity(tester, first.id), 0);
+    });
+
     testWidgets('exposes a named tab bar, selected states, and close actions', (
       tester,
     ) async {
@@ -964,6 +1022,17 @@ void main() {
     });
   });
 }
+
+double _closeOpacity(WidgetTester tester, String tabId) => tester
+    .widget<AnimatedOpacity>(
+      find
+          .ancestor(
+            of: find.byKey(ValueKey('forum-tab-close-surface-$tabId')),
+            matching: find.byType(AnimatedOpacity),
+          )
+          .first,
+    )
+    .opacity;
 
 BoxDecoration _decoration(WidgetTester tester, Finder finder) => switch (tester
     .widget(finder)) {
