@@ -1247,7 +1247,7 @@ void _registerShellNavigationTests() {
     );
   });
 
-  testWidgets('places the outlined add control after the connected forums', (
+  testWidgets('places the add control after forums with a hand cursor', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
@@ -1261,6 +1261,10 @@ void _registerShellNavigationTests() {
       final theme = Theme.of(tester.element(rail));
 
       expect(tester.getSize(add), const Size.square(44));
+      expect(
+        tester.widget<InkWell>(add).mouseCursor,
+        SystemMouseCursors.click,
+      );
       expect(tester.getSize(outline), const Size.square(38));
       expect(tester.getCenter(add).dx, tester.getCenter(lastForum).dx);
       expect(tester.getRect(add).top, tester.getRect(lastForum).bottom);
