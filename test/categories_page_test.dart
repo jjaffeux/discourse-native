@@ -537,34 +537,130 @@ void main() {
       },
     );
 
-    testWidgets('stops automatic paging once cards overflow the viewport', (
-      tester,
-    ) async {
-      final secondPage = [
-        for (var id = 2; id <= 51; id++)
-          TopicCategory(id: id, name: 'Category $id', color: '0088CC'),
-      ];
-      final api = FakeDiscourseApi(
-        feeds: const {'/latest.json': []},
-        categoryPages: {
-          1: const [TopicCategory(id: 1, name: 'Category 1', color: '0088CC')],
-          2: secondPage,
-          3: const [
-            TopicCategory(id: 52, name: 'Not loaded yet', color: '0088CC'),
-          ],
-        },
-      );
-      final controller = await _loadCategories(api);
+    testWidgets(
+      'preserves scroll position while appending and exposes lazy rows',
+      (tester) async {
+        final firstPage = [
+          for (var id = 1; id <= 60; id++)
+            TopicCategory(id: id, name: 'Category $id', color: '0088CC'),
+        ];
+        final secondPage = [
+          for (var id = 61; id < 80; id++)
+            TopicCategory(id: id, name: 'Category $id', color: '0088CC'),
+          const TopicCategory(
+            id: 80,
+            name: 'Category 80',
+            color: '0088CC',
+            featuredTopics: [
+              CategoryFeaturedTopic(
+                id: 800,
+                title: 'Lazy featured topic',
+                slug: 'lazy-featured-topic',
+              ),
+            ],
+          ),
+        ];
+        final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          categoryPages: {1: firstPage, 2: secondPage, 3: const []},
+        );
+        final controller = await _loadCategories(api);
+        final siteUrl = controller.currentInstance!.url;
+        final semantics = tester.ensureSemantics();
+        try {
+          await _pumpPage(tester, controller);
 
-      await _pumpPage(tester, controller);
+          expect(api.categoryPagesRequested, [1]);
+          expect(_card(80), findsNothing);
 
-      expect(api.categoryPagesRequested, [1, 2]);
-      expect(_card(51), findsOneWidget);
-      expect(_card(52), findsNothing);
-      expect(
-        controller.categoryFeedFor(controller.currentInstance!.url).nextPage,
-        3,
-      );
-    });
+          final scrollView = tester.widget<CustomScrollView>(
+            find.byType(CustomScrollView),
+          );
+          final scrollController = scrollView.controller!;
+          await tester.drag(
+            find.byType(CustomScrollView),
+            const Offset(0, -400),
+          );
+          await tester.pumpAndSettle();
+          final offsetBeforeAppend = scrollController.offset;
+          expect(offsetBeforeAppend, greaterThan(0));
+
+          await controller.loadMoreCategories(siteUrl);
+          await tester.pumpAndSettle();
+
+          expect(api.categoryPagesRequested, [1, 2]);
+          expect(scrollController.offset, offsetBeforeAppend);
+          expect(controller.categoryFeedFor(siteUrl).categoryIds.last, 80);
+          expect(_card(80), findsNothing);
+
+          final scrollable = find.descendant(
+            of: find.byType(CustomScrollView),
+            matching: find.byType(Scrollable),
+          );
+          await tester.scrollUntilVisible(
+            _card(80),
+            500,
+            scrollable: scrollable,
+          );
+          await tester.pumpAndSettle();
+
+          expect(_card(80), findsOneWidget);
+          expect(
+            tester.getSemantics(_featuredTopic(800)),
+            isSemantics(
+              label: 'Lazy featured topic',
+              isButton: true,
+              isFocusable: true,
+              hasTapAction: true,
+              hasFocusAction: true,
+            ),
+          );
+          expect(api.categoryPagesRequested, [1, 2, 3]);
+          expect(controller.categoryFeedFor(siteUrl).hasMore, isFalse);
+        } finally {
+          semantics.dispose();
+        }
+      },
+    );
+
+    testWidgets(
+      'stops automatic paging once cards overflow and keeps distant rows lazy',
+      (tester) async {
+        final secondPage = [
+          for (var id = 2; id <= 51; id++)
+            TopicCategory(id: id, name: 'Category $id', color: '0088CC'),
+        ];
+        final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          categoryPages: {
+            1: const [
+              TopicCategory(id: 1, name: 'Category 1', color: '0088CC'),
+            ],
+            2: secondPage,
+            3: const [
+              TopicCategory(id: 52, name: 'Not loaded yet', color: '0088CC'),
+            ],
+          },
+        );
+        final controller = await _loadCategories(api);
+
+        await _pumpPage(tester, controller);
+
+        expect(api.categoryPagesRequested, [1, 2]);
+        expect(
+          controller
+              .categoryFeedFor(controller.currentInstance!.url)
+              .categoryIds
+              .last,
+          51,
+        );
+        expect(_card(51), findsNothing);
+        expect(_card(52), findsNothing);
+        expect(
+          controller.categoryFeedFor(controller.currentInstance!.url).nextPage,
+          3,
+        );
+      },
+    );
   });
 }
