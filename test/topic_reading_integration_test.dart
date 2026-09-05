@@ -4860,6 +4860,84 @@ void _registerTopicReadingTests() {
       );
     });
 
+    test(
+      'an unpositioned topic resumes at the last post the server says was read',
+      () async {
+        final fixture = await _serverResumeFixture();
+        final controller = fixture.controller;
+        final api = fixture.api;
+        addTearDown(controller.dispose);
+        controller.pushContent(
+          ContentRoute.topic(
+            topicId: _ServerResumeTopicApi.topicId,
+            slug: _ServerResumeTopicApi.slug,
+            title: _ServerResumeTopicApi.title,
+          ),
+        );
+        await controller.loadTopic(
+          _ServerResumeTopicApi.topicId,
+          _ServerResumeTopicApi.slug,
+        );
+
+        expect(api.topicPostNumbersOpened, [null, 74]);
+        expect(controller.currentContent?.postNumber, 74);
+        expect(controller.currentPostIds, [
+          for (var id = 55; id <= 74; id++) id,
+        ]);
+
+        expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+        controller.pushContent(
+          ContentRoute.topic(
+            topicId: _ServerResumeTopicApi.topicId,
+            slug: _ServerResumeTopicApi.slug,
+            title: _ServerResumeTopicApi.title,
+          ),
+        );
+        await controller.loadTopic(
+          _ServerResumeTopicApi.topicId,
+          _ServerResumeTopicApi.slug,
+        );
+
+        // The cached detail still supplies the target, without another fetch
+        // when its positioned window is already held.
+        expect(api.topicPostNumbersOpened, [null, 74]);
+        expect(controller.currentContent?.postNumber, 74);
+      },
+    );
+
+    test(
+      'a persisted local topic position wins over the server fallback',
+      () async {
+        final fixture = await _serverResumeFixture();
+        final controller = fixture.controller;
+        final api = fixture.api;
+        addTearDown(controller.dispose);
+        controller.pushContent(
+          ContentRoute.topic(
+            topicId: _ServerResumeTopicApi.topicId,
+            slug: _ServerResumeTopicApi.slug,
+            title: _ServerResumeTopicApi.title,
+          ),
+        );
+        controller.saveTopicScrollPost(_ServerResumeTopicApi.topicId, 42);
+
+        await controller.loadTopic(
+          _ServerResumeTopicApi.topicId,
+          _ServerResumeTopicApi.slug,
+        );
+
+        expect(api.topicPostNumbersOpened, [42]);
+        expect(controller.currentContent?.postNumber, isNull);
+        expect(
+          controller.topicScrollPostNumber(_ServerResumeTopicApi.topicId),
+          42,
+        );
+        expect(controller.currentPostIds, [
+          for (var id = 23; id <= 42; id++) id,
+        ]);
+      },
+    );
+
     testWidgets('back returns to the list without refetching it', (
       tester,
     ) async {
@@ -5719,6 +5797,75 @@ void _registerTopicReadingTests() {
       );
     });
   });
+}
+
+final class _ServerResumeTopicApi extends FakeDiscourseApi {
+  _ServerResumeTopicApi() : super(feeds: const {'/latest.json': []});
+
+  static const siteUrl = 'https://dev.discourse.org';
+  static const topicId = 172164;
+  static const lastPostNumber = 74;
+  static const slug = 'the-doerr-diaries-2026';
+  static const title = 'The Doerr Diaries - 2026';
+
+  @override
+  Future<TopicPayload> topic({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    bool summary = false,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    topicsOpened.add(id);
+    topicPostNumbersOpened.add(postNumber);
+    final first = postNumber == null || postNumber <= 20 ? 1 : postNumber - 19;
+    return TopicDetail.parse({
+      'id': id,
+      'title': title,
+      'last_read_post_number': lastPostNumber,
+      'highest_post_number': lastPostNumber,
+      // The reported topic has one small-action stream row outside its
+      // ordinary post count.
+      'posts_count': 73,
+      'post_stream': {
+        'stream': [
+          for (var number = 1; number <= lastPostNumber; number++) number,
+        ],
+        'posts': [
+          for (var number = first; number < first + 20; number++)
+            {
+              'id': number,
+              'post_number': number,
+              'username': 'reader',
+              'cooked': '<p>Post $number body</p>',
+            },
+        ],
+      },
+    }, siteUrl);
+  }
+}
+
+Future<({ShellController controller, _ServerResumeTopicApi api})>
+_serverResumeFixture() async {
+  final api = _ServerResumeTopicApi();
+  final authenticator = FakeAuthenticator()
+    ..keys[_ServerResumeTopicApi.siteUrl] = 'key';
+  final controller = ShellController(
+    instanceStore: FakeInstanceStore([
+      instance(
+        'dev.discourse.org',
+      ).copyWith(user: const DiscourseUser(username: 'reader')),
+    ]),
+    api: api,
+    authenticator: authenticator,
+    drafts: FakeDraftStore(),
+    forumTabs: FakeForumTabStore(),
+    trackers: FakeSiteTracker.reset(),
+  );
+  await controller.load();
+  return (controller: controller, api: api);
 }
 
 class _FailingNewTopicMetadataApi extends FakeDiscourseApi {

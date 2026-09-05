@@ -747,9 +747,12 @@ the requested post after the window is laid out, pages forward from the end of
 that window, and offers earlier batches above it.
 
 An unpositioned `/t/{slug}/{id}.json` request still returns the first twenty
-posts. In both cases paging is by id (`/t/{id}/posts.json?post_ids[]=…`) rather
-than by page number. Fetched posts are merged in post-number order, not append
-order.
+posts. When there is no explicit route position or persisted local anchor, its
+`last_read_post_number` becomes the resume target and the reader requests the
+positioned window around that exact post, matching the web client's “where you
+left off” link. In both cases paging is by id
+(`/t/{id}/posts.json?post_ids[]=…`) rather than by page number. Fetched posts
+are merged in post-number order, not append order.
 
 Terminal small actions such as closing or pinning remain visible in that
 stream, but read receipts stop at the last non-small-action post because core's
