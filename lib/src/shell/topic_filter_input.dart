@@ -722,10 +722,11 @@ class _SuggestionList extends StatelessWidget {
                             ],
                             Flexible(
                               child: Text(
-                                suggestion.category == null
-                                    ? suggestion.name
-                                    : suggestion.description ??
-                                          suggestion.category!.name,
+                                suggestion.displayName ??
+                                    (suggestion.category == null
+                                        ? suggestion.name
+                                        : suggestion.description ??
+                                              suggestion.category!.name),
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),

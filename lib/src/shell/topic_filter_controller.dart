@@ -14,6 +14,7 @@ typedef TopicFilterCategoryLookup =
 class TopicFilterSuggestion {
   const TopicFilterSuggestion({
     required this.name,
+    this.displayName,
     this.description,
     this.term,
     this.isSuggestion = false,
@@ -23,6 +24,7 @@ class TopicFilterSuggestion {
   });
 
   final String name;
+  final String? displayName;
   final String? description;
   final String? term;
   final bool isSuggestion;
@@ -421,7 +423,7 @@ class _ValueSuggester {
     'tag' => _remote(tags, delimiterAware: true),
     'tag_group' => _remote(tagGroups, quote: true),
     'username' => _remote(users, delimiterAware: true),
-    'group' => _remote(groups, delimiterAware: true),
+    'group' => _remote(groups, delimiterAware: true, displayTermOnly: true),
     'username_group_list' => _usersAndGroups(),
     'date' => Future.value(_dates()),
     'number' => Future.value(_numbers()),
@@ -488,6 +490,7 @@ class _ValueSuggester {
     TopicFilterLookup lookup, {
     bool delimiterAware = false,
     bool quote = false,
+    bool displayTermOnly = false,
   }) async {
     final used = delimiterAware
         ? previousValues.map((item) => item.toLowerCase()).toSet()
@@ -499,7 +502,8 @@ class _ValueSuggester {
       result.add(
         TopicFilterSuggestion(
           name: _name(term),
-          description: value.description,
+          displayName: displayTermOnly ? value.name : null,
+          description: displayTermOnly ? null : value.description,
           term: term,
           isSuggestion: true,
         ),
@@ -570,6 +574,7 @@ class _ValueSuggester {
         if (!used.contains(item.term?.toLowerCase()))
           TopicFilterSuggestion(
             name: item.name,
+            displayName: item.displayName,
             description: item.description,
             term: item.term,
             isSuggestion: item.isSuggestion,

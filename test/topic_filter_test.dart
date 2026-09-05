@@ -30,6 +30,11 @@ const _tagOption = TopicFilterOption(
   ],
   prefixes: [TopicFilterModifier(name: '-', description: 'Exclude tag')],
 );
+const _groupOption = TopicFilterOption(
+  name: 'group:',
+  type: 'group',
+  priority: 1,
+);
 
 void main() {
   test('topic lists defensively parse server-provided filter options', () {
@@ -556,6 +561,50 @@ void main() {
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
   });
 
+  testWidgets('group suggestions show only the group name', (tester) async {
+    const groupName = '2024-tokyo-dinner2-tuesday';
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': [], '/filter.json': []},
+      filterOptionsByPath: const {
+        '/filter.json': [_groupOption],
+      },
+      filterGroupSearches: const {
+        'tokyo': [
+          TopicFilterLookupValue(
+            name: groupName,
+            description: 'Tokyo dinner on Tuesday',
+          ),
+        ],
+      },
+    );
+    await _pump(tester, api, authenticated: true);
+    await _openFilter(tester);
+
+    final field = find.byKey(const ValueKey('topic-filter-input'));
+    await tester.tap(field);
+    await tester.enterText(field, 'group:tokyo');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump();
+
+    final row = find.byKey(const ValueKey('topic-filter-suggestion-0'));
+    expect(find.descendant(of: row, matching: find.text(groupName)), findsOne);
+    expect(
+      find.descendant(of: row, matching: find.text('group:$groupName')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: row, matching: find.text('Tokyo dinner on Tuesday')),
+      findsNothing,
+    );
+
+    await tester.tap(find.descendant(of: row, matching: find.text(groupName)));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(field).controller!.text.trim(),
+      'group:$groupName',
+    );
+  });
+
   testWidgets('the filter page keeps its field over a topic-row skeleton', (
     tester,
   ) async {
@@ -760,15 +809,22 @@ void _expectSuggestionSemantics(
   );
 }
 
-Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
+Future<void> _pump(
+  WidgetTester tester,
+  FakeDiscourseApi api, {
+  bool authenticated = false,
+}) async {
   tester.view.physicalSize = const Size(1440, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  final forum = instance('meta.discourse.org');
+  final authenticator = FakeAuthenticator();
+  if (authenticated) authenticator.keys[forum.url] = 'api-key';
   await tester.pumpWidget(
     DiscourseApp(
-      store: FakeInstanceStore([instance('meta.discourse.org')]),
+      store: FakeInstanceStore([forum]),
       api: api,
-      authenticator: FakeAuthenticator(),
+      authenticator: authenticator,
       drafts: FakeDraftStore(),
       forumTabs: FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),
