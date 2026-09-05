@@ -205,6 +205,115 @@ void main() {
       expect(rebuilt.intersection(actionElements), isEmpty);
     },
   );
+
+  testWidgets(
+    'recycling an asynchronous post refreshes only newly retained geometry',
+    (tester) async {
+      final posts = [
+        Post(
+          id: 1,
+          postNumber: 1,
+          username: 'sam',
+          cooked: List.filled(450, '<p>A tall first post</p>').join(),
+        ),
+        for (var id = 2; id <= 25; id++)
+          Post(
+            id: id,
+            postNumber: id,
+            username: 'sam',
+            cooked: List.filled(5, '<p>Post $id</p>').join(),
+          ),
+      ];
+      final api = FakeDiscourseApi(
+        topics: {7: topicPayload(id: 7, title: 'A topic', posts: posts)},
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([instance('meta.discourse.org')]),
+        api: api,
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(controller.dispose);
+
+      await controller.load();
+      controller.pushContent(
+        ContentRoute.topic(topicId: 7, slug: 'a-topic', title: 'A topic'),
+      );
+      await controller.loadTopic(7, 'a-topic');
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.dark,
+            home: const Scaffold(body: TopicView()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await _pumpUntilRendered(tester, 'A tall first post');
+
+      final topicViewElement = tester.element(find.byType(TopicView));
+      var topicViewRebuilds = 0;
+      final previousRebuildHook = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previousRebuildHook?.call(element, builtOnce);
+        if (identical(element, topicViewElement)) topicViewRebuilds++;
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildHook);
+
+      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      list.listController!.jumpToItem(
+        index: 40,
+        scrollController: list.controller!,
+        alignment: 0,
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey(1)), findsNothing);
+      expect(topicViewRebuilds, greaterThan(0));
+      final rebuildsAfterFirstRecycle = topicViewRebuilds;
+
+      list.listController!.jumpToItem(
+        index: 0,
+        scrollController: list.controller!,
+        alignment: 0,
+      );
+      await tester.pump();
+      await _pumpUntilRendered(tester, 'A tall first post');
+      expect(find.byKey(const ValueKey(1)), findsOneWidget);
+
+      list.listController!.jumpToItem(
+        index: 40,
+        scrollController: list.controller!,
+        alignment: 0,
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey(1)), findsNothing);
+      expect(topicViewRebuilds, rebuildsAfterFirstRecycle);
+    },
+  );
+}
+
+Future<void> _pumpUntilRendered(WidgetTester tester, String text) async {
+  final rendered = find.byWidgetPredicate(
+    (widget) => widget is RichText && widget.text.toPlainText().contains(text),
+    description: 'rendered cooked text containing "$text"',
+  );
+  const timeout = Duration(seconds: 5);
+  final elapsed = Stopwatch()..start();
+  while (rendered.evaluate().isEmpty && elapsed.elapsed < timeout) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 5)),
+    );
+    await tester.pump();
+  }
+  if (rendered.evaluate().isNotEmpty) return;
+  fail('Cooked HTML did not finish rendering "$text" within $timeout.');
 }
 
 final class _CountingIntList extends ListBase<int> {

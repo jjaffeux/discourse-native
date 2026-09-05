@@ -1271,9 +1271,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _retainedGeometryRefreshScheduled = false;
       if (!mounted) return;
-      // A fresh delegate lets SuperList maintain its range when this measured
-      // asynchronous post later re-enters. This is a one-shot geometry event,
-      // independent of steady-state floating-day and progress notifications.
+      // Refresh the child delegate once after learning a new offscreen extent.
+      // Rebuilding for an unchanged retained extent can recycle the same async
+      // row indefinitely as it alternates between loading and settled heights.
       setState(() {});
     });
   }
@@ -1290,9 +1290,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   void _unregisterPostContext(int postId, BuildContext context) {
     if (identical(_postContexts[postId], context)) {
-      final retained = _rememberPostExtent(postId);
+      final retainedExtentChanged = _rememberPostExtent(postId);
       _postContexts.remove(postId);
-      if (retained) _scheduleRetainedPostGeometryRefresh();
+      if (retainedExtentChanged) _scheduleRetainedPostGeometryRefresh();
       if (_isScrollCaptureRecording) {
         _recordTopicScrollEvent('sliver.post.detached', {
           'postId': postId,
@@ -1347,8 +1347,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         previous.summaryLoading == snapshot.summaryLoading &&
         previous.readTimeWordCount == snapshot.readTimeWordCount &&
         (previous.width - width).abs() < 0.5 &&
-        previous.height > height) {
-      return true;
+        previous.height >= height - 0.5) {
+      return false;
     }
     _retainedPostExtents[postId] = retained;
     return true;
@@ -1555,7 +1555,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       context,
       availableWidth: topicContentWidth,
     );
-    _laidOutPostWidth = readingLane.width;
 
     if (snapshot.topicId == null) {
       if (snapshot.loading) {
@@ -1681,6 +1680,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final postIndexes = _postIndexes(postIds);
     final siteUrl = snapshot.siteUrl!;
     _syncViewport(controller, snapshot);
+    _laidOutPostWidth = readingLane.width;
     _viewport.updateLaidOutSnapshot(snapshot);
     final dayStarts = _dayStarts(
       controller,
