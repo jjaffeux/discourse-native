@@ -472,49 +472,17 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final connectedForums = _connectedForums;
-    final includedCount = connectedForums
-        .where((forum) => _includedForums.contains(forum.url))
-        .length;
-    final allIncluded =
-        connectedForums.isNotEmpty && includedCount == connectedForums.length;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DButton(
-                  key: const ValueKey('aggregate-filter-select-all'),
-                  label: const Text('Select all'),
-                  onPressed: allIncluded ? null : _selectAll,
-                  variant: DButtonVariant.link,
-                  size: DButtonSize.small,
-                ),
-                DButton(
-                  key: const ValueKey('aggregate-filter-clear'),
-                  label: const Text('Clear'),
-                  onPressed: includedCount == 0 ? null : _clearSelection,
-                  variant: DButtonVariant.link,
-                  size: DButtonSize.small,
-                ),
-              ],
-            ),
-          ),
-        ),
-        Divider(height: 1, color: theme.shell.divider),
         LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth >= _wideBreakpoint) {
-              final height = (widget.forums.length * 58.0 + 24).clamp(
+              final height = (widget.forums.length * 58.0 + 64).clamp(
                 300.0,
-                380.0,
+                420.0,
               );
               return SizedBox(
                 key: const ValueKey('aggregate-filter-wide-layout'),
@@ -522,7 +490,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(width: 270, child: _buildForumList(context)),
+                    SizedBox(width: 270, child: _buildForumPane(context)),
                     VerticalDivider(width: 1, color: theme.shell.divider),
                     Expanded(child: _buildFocusedEditor(context)),
                   ],
@@ -530,15 +498,15 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
               );
             }
 
-            final listHeight = (widget.forums.length * 58.0 + 20).clamp(
-              112.0,
-              280.0,
+            final listHeight = (widget.forums.length * 58.0 + 64).clamp(
+              156.0,
+              324.0,
             );
             return Column(
               key: const ValueKey('aggregate-filter-narrow-layout'),
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(height: listHeight, child: _buildForumList(context)),
+                SizedBox(height: listHeight, child: _buildForumPane(context)),
                 Divider(height: 1, color: theme.shell.divider),
                 _buildFocusedEditor(context),
               ],
@@ -658,6 +626,55 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildForumPane(BuildContext context) {
+    if (widget.forums.isEmpty) return _buildForumList(context);
+    final theme = Theme.of(context);
+    return ColoredBox(
+      color: theme.shell.content,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildForumControls(),
+          Divider(height: 1, color: theme.shell.divider),
+          Expanded(child: _buildForumList(context)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildForumControls() {
+    final connectedForums = _connectedForums;
+    final includedCount = connectedForums
+        .where((forum) => _includedForums.contains(forum.url))
+        .length;
+    final allIncluded =
+        connectedForums.isNotEmpty && includedCount == connectedForums.length;
+
+    return Padding(
+      key: const ValueKey('aggregate-filter-forum-controls'),
+      padding: const EdgeInsets.fromLTRB(10, 5, 10, 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          DButton(
+            key: const ValueKey('aggregate-filter-select-all'),
+            label: const Text('Select all'),
+            onPressed: allIncluded ? null : _selectAll,
+            variant: DButtonVariant.link,
+            size: DButtonSize.small,
+          ),
+          DButton(
+            key: const ValueKey('aggregate-filter-clear'),
+            label: const Text('Clear'),
+            onPressed: includedCount == 0 ? null : _clearSelection,
+            variant: DButtonVariant.link,
+            size: DButtonSize.small,
+          ),
+        ],
       ),
     );
   }
