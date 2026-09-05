@@ -567,7 +567,6 @@ class _TopicFilterTokenChip extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: foreground,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -605,13 +604,11 @@ String _topicFilterTokenLabel(String raw, List<TopicCategory> categories) {
   final prefix = match.group(1) ?? '';
   final name = match.group(2)!;
   final rawValue = _unquoteTopicFilterValue(match.group(3)!);
-  final value = switch (name) {
-    'category' => _topicFilterCategoryLabel(rawValue, categories),
-    'status' || 'order' => _sentenceCaseTopicFilterValue(rawValue),
-    _ => rawValue,
-  };
-  final label = '$prefix${_sentenceCaseTopicFilterValue(name)}';
-  return value.isEmpty ? label : '$label · $value';
+  final value = name == 'category'
+      ? _topicFilterCategoryLabel(rawValue, categories)
+      : rawValue;
+  final label = '$prefix$name:';
+  return value.isEmpty ? label : '$label $value';
 }
 
 String _topicFilterCategoryLabel(String value, List<TopicCategory> categories) {

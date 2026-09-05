@@ -356,12 +356,14 @@ void main() {
         find.byKey(ValueKey('aggregate-filter-focus-${forumUrls[0]}')),
       );
       await tester.pumpAndSettle();
+      final statusTokenLabel = find.descendant(
+        of: find.byKey(const ValueKey('topic-filter-token-0')),
+        matching: find.text('status: open'),
+      );
+      expect(statusTokenLabel, findsOneWidget);
       expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('topic-filter-token-0')),
-          matching: find.text('Status · Open'),
-        ),
-        findsOneWidget,
+        tester.widget<Text>(statusTokenLabel).style?.fontWeight,
+        FontWeight.normal,
       );
       expect(
         tester
@@ -386,7 +388,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('topic-filter-token-0')),
-          matching: find.text('Status · Open'),
+          matching: find.text('status: open'),
         ),
         findsOneWidget,
       );
@@ -467,7 +469,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('topic-filter-token-0')),
-          matching: find.text('Category · Discourse Native App › Bugs'),
+          matching: find.text('category: Discourse Native App › Bugs'),
         ),
         findsOneWidget,
       );
