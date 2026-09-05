@@ -404,7 +404,7 @@ class _TopicLedgerLayout {
     showActivity: width >= 650,
   );
 
-  static const double horizontalPadding = 14;
+  static const double horizontalPadding = topicListHorizontalPadding;
   static const double gap = 12;
   static const double participantsWidth = 64;
   static const double activityWidth = 156;

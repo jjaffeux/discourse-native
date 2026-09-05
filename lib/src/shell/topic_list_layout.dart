@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 const double topicListContentWidth = 1120;
+const double topicListHorizontalPadding = 20;
 
 /// Shares row density across discovery views without notifying the shell.
 class TopicListDensityScope extends InheritedNotifier<ValueNotifier<bool>> {

@@ -87,6 +87,29 @@ void main() {
       semantics.dispose();
     }
   });
+
+  testWidgets('compact toolbar controls grow with text and open drafts', (
+    tester,
+  ) async {
+    await _pump(tester, compact: true, textScale: 2);
+    final create = find.byKey(TopicCreateButton.buttonKey);
+    final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
+    final createRect = tester.getRect(create);
+    final draftRect = tester.getRect(drafts);
+    expect(createRect.height, greaterThan(40));
+    expect(draftRect.height, createRect.height);
+    expect(draftRect.top, createRect.top);
+    final label = tester.getRect(find.text('New topic'));
+    expect(createRect.contains(label.topLeft), isTrue);
+    expect(createRect.contains(label.bottomRight), isTrue);
+    await tester.tap(drafts);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('recent-draft-new_topic')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 void _expectSmallDButton(
@@ -106,7 +129,11 @@ void _expectSmallDButton(
 
 typedef _Fixture = ({FakeDiscourseApi api, int Function() createCalls});
 
-Future<_Fixture> _pump(WidgetTester tester) async {
+Future<_Fixture> _pump(
+  WidgetTester tester, {
+  bool compact = false,
+  double textScale = 1,
+}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -143,11 +170,18 @@ Future<_Fixture> _pump(WidgetTester tester) async {
       controller: controller,
       child: MaterialApp(
         theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,
             child: TopicCreateButton(
               showLabel: true,
+              compact: compact,
               onPressed: () => createCalls++,
             ),
           ),

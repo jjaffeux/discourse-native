@@ -164,7 +164,14 @@ void main() {
     expect(find.byKey(const ValueKey('topic-list-navigation')), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-filter-bar')), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-latest')), findsOneWidget);
-    expect(find.text('New (1059)'), findsOneWidget);
+    expect(find.text('New'), findsOneWidget);
+    expect(find.text('1059'), findsOneWidget);
+    final semantics = tester.ensureSemantics();
+    try {
+      expect(find.bySemanticsLabel('New, 1059'), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
     expect(find.byKey(const ValueKey('topic-list-unread')), findsNothing);
     expect(find.text('Unread (5)'), findsNothing);
     expect(find.text('Top'), findsOneWidget);
@@ -176,8 +183,8 @@ void main() {
     final latestText = _tabText(tester, 'topic-list-latest');
     final newText = _tabText(tester, 'topic-list-new');
     expect(latestText.style?.fontSize, newText.style?.fontSize);
-    expect(latestText.style?.fontWeight, FontWeight.w400);
-    expect(latestText.style?.fontWeight, newText.style?.fontWeight);
+    expect(latestText.style?.fontWeight, FontWeight.w500);
+    expect(newText.style?.fontWeight, FontWeight.w400);
     expect(latestText.overflow, TextOverflow.visible);
     expect(newText.overflow, TextOverflow.visible);
 
@@ -197,9 +204,9 @@ void main() {
     final allText = _tabText(tester, 'topic-list-new-all');
     final topicsText = _tabText(tester, 'topic-list-new-topics');
     final repliesText = _tabText(tester, 'topic-list-new-replies');
-    expect(allText.style?.fontWeight, FontWeight.w400);
-    expect(topicsText.style?.fontWeight, allText.style?.fontWeight);
-    expect(repliesText.style?.fontWeight, allText.style?.fontWeight);
+    expect(allText.style?.fontWeight, FontWeight.w500);
+    expect(topicsText.style?.fontWeight, FontWeight.w400);
+    expect(repliesText.style?.fontWeight, FontWeight.w400);
     expect(
       allText.style?.fontSize,
       lessThan(_tabText(tester, 'topic-list-new').style!.fontSize!),
@@ -218,7 +225,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('New (1060)'), findsOneWidget);
+    expect(find.text('1060'), findsOneWidget);
     expect(find.text('Unread (6)'), findsNothing);
     expect(find.text('All (1060)'), findsOneWidget);
     expect(find.text('Topics (1054)'), findsOneWidget);
@@ -318,16 +325,27 @@ void main() {
     );
     final top = tester.getRect(find.byKey(const ValueKey('topic-list-top')));
     final recentLabel = tester.getRect(find.text('Recent'));
-    final newLabel = tester.getRect(find.text('New (1059)'));
+    final newLabel = tester
+        .getRect(find.text('New'))
+        .expandToInclude(
+          tester.getRect(
+            find
+                .descendant(
+                  of: find.byKey(const ValueKey('topic-list-new')),
+                  matching: find.byType(Container),
+                )
+                .last,
+          ),
+        );
     final topLabel = tester.getRect(find.text('Top'));
     final popularLabel = tester.getRect(find.text('Trending'));
 
     expect(row.left, 0);
     expect(row.right, 800);
-    expect(recent.left, 8);
-    expect(newTopics.left, recent.right);
-    expect(top.left, newTopics.right);
-    expect(popular.left, top.right);
+    expect(recent.left, 20);
+    expect(newTopics.left, recent.right + 3);
+    expect(top.left, newTopics.right + 3);
+    expect(popular.left, top.right + 3);
     expect(popular.right, lessThan(row.right - 76));
     final tabs = [recent, newTopics, top, popular];
     final labels = [recentLabel, newLabel, topLabel, popularLabel];
@@ -381,6 +399,19 @@ void main() {
       final create = tester.getRect(find.byKey(TopicCreateButton.buttonKey));
       expect(toolbar.contains(create.center), isTrue);
       expect(toolbar.top, 0);
+      expect(create.height, 36);
+      final recent = tester.getRect(
+        find.byKey(const ValueKey('topic-list-latest')),
+      );
+      final category = tester.getRect(
+        find.byKey(const ValueKey('topic-list-category-filter')),
+      );
+      final ledger = tester.getRect(
+        find.byKey(const ValueKey('topic-list-ledger-header')),
+      );
+      expect(recent.left, category.left);
+      expect(create.right, tester.getRect(find.text('Activity')).right);
+      expect(ledger.top - category.bottom, lessThanOrEqualTo(8));
       expect(find.text('Topics'), findsNothing);
       expect(find.text('Topic'), findsNothing);
       expect(find.text('Latest activity'), findsNothing);
@@ -671,7 +702,9 @@ void main() {
 }
 
 Text _tabText(WidgetTester tester, String key) => tester.widget<Text>(
-  find.descendant(of: find.byKey(ValueKey(key)), matching: find.byType(Text)),
+  find
+      .descendant(of: find.byKey(ValueKey(key)), matching: find.byType(Text))
+      .first,
 );
 
 Future<({ShellController controller, FakeDiscourseApi api})> _controller({
