@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -41,7 +41,11 @@ class MarkdownEditingController extends TextEditingController {
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
     this.enableImageGalleries = true,
-  }) : _markdownLinkifyTlds = List.unmodifiable(markdownLinkifyTlds);
+    @visibleForTesting
+    SyntaxHighlightBatcher backgroundSyntaxHighlighterForTesting =
+        highlightLinesBatchInBackground,
+  }) : _backgroundSyntaxHighlighter = backgroundSyntaxHighlighterForTesting,
+       _markdownLinkifyTlds = List.unmodifiable(markdownLinkifyTlds);
 
   final String? imageSiteUrl;
 
@@ -64,6 +68,7 @@ class MarkdownEditingController extends TextEditingController {
   final int maxImageHeight;
 
   final bool enableImageGalleries;
+  final SyntaxHighlightBatcher _backgroundSyntaxHighlighter;
 
   void updateMarkdownLinkify({
     required bool enabled,
@@ -622,9 +627,10 @@ class MarkdownEditingController extends TextEditingController {
 
   Timer? _fenceHighlightTimer;
   List<({String body, String? language})> _pendingFences = const [];
+  int _fenceHighlightGeneration = 0;
 
   String? _parsedFenceSource;
-  final Set<String> _parsedFences = {};
+  final Set<({String body, String? language})> _parsedFences = {};
 
   String? _codeRangesScanned;
   CodeRanges _codeRanges = CodeRanges.none;
@@ -672,6 +678,7 @@ class MarkdownEditingController extends TextEditingController {
   ) {
     _fenceHighlightTimer?.cancel();
     _fenceHighlightTimer = null;
+    final generation = ++_fenceHighlightGeneration;
     if (_parsedFenceSource != source) {
       _parsedFenceSource = source;
       _parsedFences.clear();
@@ -680,24 +687,62 @@ class MarkdownEditingController extends TextEditingController {
     // never parsed on its way out.
     _pendingFences = [
       for (final fence in fences)
-        if (!_parsedFences.contains(fence.body)) fence,
+        if (!_parsedFences.contains(fence)) fence,
     ];
     if (_pendingFences.isEmpty) return;
     _fenceHighlightTimer = Timer(fenceHighlightDebounce, () {
       _fenceHighlightTimer = null;
-      if (_disposed) return;
-      for (final fence in _pendingFences) {
-        // For the side effect: the tokens land in the highlight cache, where
-        // the rescan below finds them and takes the synchronous path.
-        highlightLines(fence.body, fence.language);
-        _parsedFences.add(fence.body);
-      }
-      _pendingFences = const [];
-      _scanned = null;
-      _runs = null;
-      artworkArrived();
+      if (!_isCurrentFenceHighlight(source, generation)) return;
+
+      final pendingFences = List.of(_pendingFences);
+      final requests = <SyntaxHighlightRequest>{
+        for (final fence in pendingFences)
+          if (highlightNeedsParse(fence.body, fence.language))
+            (source: fence.body, language: fence.language),
+      }.toList(growable: false);
+      unawaited(
+        _highlightPendingFences(source, generation, pendingFences, requests),
+      );
     });
   }
+
+  Future<void> _highlightPendingFences(
+    String source,
+    int generation,
+    List<({String body, String? language})> pendingFences,
+    List<SyntaxHighlightRequest> requests,
+  ) async {
+    SyntaxHighlightBatch highlighted = const [];
+    try {
+      if (requests.isNotEmpty) {
+        highlighted = await _backgroundSyntaxHighlighter(requests);
+      }
+    } catch (_) {
+      // A worker failure leaves this generation plain, just like a grammar
+      // failure. Do not make editing or future generations fail with it.
+    }
+
+    if (!_isCurrentFenceHighlight(source, generation)) return;
+    if (highlighted.length == requests.length) {
+      for (var index = 0; index < requests.length; index++) {
+        final request = requests[index];
+        cacheHighlightedLines(
+          request.source,
+          request.language,
+          highlighted[index],
+        );
+      }
+    }
+
+    _parsedFences.addAll(pendingFences);
+    _pendingFences = const [];
+    _scanned = null;
+    _runs = null;
+    artworkArrived();
+  }
+
+  bool _isCurrentFenceHighlight(String source, int generation) =>
+      !_disposed && text == source && generation == _fenceHighlightGeneration;
 
   @override
   TextSpan buildTextSpan({
@@ -1503,6 +1548,7 @@ class MarkdownEditingController extends TextEditingController {
   @override
   void dispose() {
     _disposed = true;
+    _fenceHighlightGeneration++;
     _fenceHighlightTimer?.cancel();
     _fenceHighlightTimer = null;
     super.dispose();

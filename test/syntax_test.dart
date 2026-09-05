@@ -166,5 +166,27 @@ void main() {
         isTrue,
       );
     });
+
+    test(
+      'a background batch stays uncached until the caller accepts it',
+      () async {
+        const ruby = 'def background_ruby = "value"';
+        const dart = 'final backgroundDart = "value";';
+        final highlighted = await highlightLinesBatchInBackground(const [
+          (source: ruby, language: 'ruby'),
+          (source: dart, language: 'dart'),
+        ]);
+
+        expect(highlighted, hasLength(2));
+        expect(scopesOf(highlighted.first.first), contains('keyword'));
+        expect(scopesOf(highlighted.last.first), contains('keyword'));
+        expect(highlightNeedsParse(ruby, 'ruby'), isTrue);
+        expect(highlightNeedsParse(dart, 'dart'), isTrue);
+
+        cacheHighlightedLines(dart, 'dart', highlighted.last);
+        expect(highlightNeedsParse(ruby, 'ruby'), isTrue);
+        expect(highlightNeedsParse(dart, 'dart'), isFalse);
+      },
+    );
   });
 }
