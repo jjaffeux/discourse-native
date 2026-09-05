@@ -69,6 +69,8 @@ void main() {
 
       expect(palette.brightness, Brightness.light);
       expect(palette.borderRadius, defaultDiscourseBorderRadius);
+      expect(palette.avatarBorderRadius, defaultDiscourseAvatarBorderRadius);
+      expect(palette.avatarBorderRadius.resolve(32), 16);
       expect(palette.quaternary, const Color(0xFF0088CC));
       expect(palette.accentSubtle, palette.tertiary);
       expect(palette.headerBackground, const Color(0xFFFFFFFF));
@@ -86,6 +88,20 @@ void main() {
 
       expect(decoded.borderRadius, 11.5);
       expect(decoded.toJson()['borderRadius'], 11.5);
+    });
+
+    test('persists percentage and pixel avatar radii', () {
+      for (final radius in const [
+        AvatarBorderRadius.percent(50),
+        AvatarBorderRadius.pixels(7.5),
+      ]) {
+        final json = palette().toJson()
+          ..['avatarBorderRadius'] = radius.toJson();
+        final decoded = ResolvedSitePalette.fromJson(json);
+
+        expect(decoded.avatarBorderRadius, radius);
+        expect(decoded.toJson()['avatarBorderRadius'], radius.toJson());
+      }
     });
 
     test('accepts bounded decimal and hex color text', () {

@@ -231,6 +231,7 @@ ResolvedSitePalette? parseSiteAppearanceStylesheet(String source) =>
 /// names, because themes commonly introduce an alias before assigning it to a
 /// core semantic variable.
 ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
+  final sourceList = sources.toList(growable: false);
   // The loader fetches the site's color definitions and selected parent theme,
   // not core's common stylesheet. Seed the core geometry tokens themes commonly
   // reference so an override such as `var(--space-2)` resolves as it does in
@@ -249,7 +250,7 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
         ),
       ],
   };
-  for (final source in sources) {
+  for (final source in sourceList) {
     for (final rule in _globalRootRules(source)) {
       for (final node in rule.declarationGroup.declarations) {
         if (node is! Declaration || !node.property.startsWith('--')) continue;
@@ -311,6 +312,10 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
     'tertiary': tertiary.toARGB32(),
     'accentSubtle': accentSubtle.toARGB32(),
     'borderRadius': ?length('--d-border-radius'),
+    'avatarBorderRadius': _resolveAvatarBorderRadius(
+      sourceList,
+      resolver,
+    ).toJson(),
   };
   void add(String field, String variable) {
     final value = color(variable);
@@ -378,6 +383,12 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
 /// Nested conditional roots remain excluded, matching the browser-independent
 /// contract of this parser.
 Iterable<RuleSet> _globalRootRules(String source) sync* {
+  for (final rule in _topLevelRules(source)) {
+    if (_hasGlobalRoot(rule)) yield rule;
+  }
+}
+
+Iterable<RuleSet> _topLevelRules(String source) sync* {
   for (final block in _topLevelBlocks(source)) {
     final StyleSheet sheet;
     try {
@@ -386,9 +397,92 @@ Iterable<RuleSet> _globalRootRules(String source) sync* {
       continue;
     }
     for (final node in sheet.topLevels) {
-      if (node is RuleSet && _hasGlobalRoot(node)) yield node;
+      if (node is RuleSet) yield node;
     }
   }
+}
+
+AvatarBorderRadius _resolveAvatarBorderRadius(
+  Iterable<String> sources,
+  _VariableResolver resolver,
+) {
+  var winner = const _AvatarRadiusCandidate(
+    radius: defaultDiscourseAvatarBorderRadius,
+    important: false,
+    specificity: 101,
+    order: -1,
+  );
+  var order = 0;
+  for (final source in sources) {
+    for (final rule in _topLevelRules(source)) {
+      final specificity = rule.selectorGroup?.selectors
+          .map(_avatarSelectorSpecificity)
+          .whereType<int>()
+          .fold<int?>(null, (best, value) => math.max(best ?? value, value));
+      if (specificity == null) continue;
+      for (final node in rule.declarationGroup.declarations) {
+        if (node is! Declaration ||
+            node.property.toLowerCase() != 'border-radius') {
+          continue;
+        }
+        final declarationOrder = order++;
+        final sourceValue = _declarationValue(node);
+        final resolvedValue = sourceValue == null
+            ? null
+            : resolver.resolveValue(sourceValue);
+        final radius = resolvedValue == null
+            ? null
+            : _parseAvatarBorderRadius(resolvedValue);
+        if (radius == null) continue;
+        final candidate = _AvatarRadiusCandidate(
+          radius: radius,
+          important: node.important,
+          specificity: specificity,
+          order: declarationOrder,
+        );
+        if (candidate.outranks(winner)) winner = candidate;
+      }
+    }
+  }
+  return winner.radius;
+}
+
+/// Returns CSS specificity for selectors that apply to every avatar image.
+/// Conditional/contextual selectors are deliberately ignored: the native UI
+/// has no browser DOM in which to decide whether those selectors match.
+int? _avatarSelectorSpecificity(Selector selector) {
+  var hasAvatarClass = false;
+  var hasImageElement = false;
+  for (final sequence in selector.simpleSelectorSequences) {
+    if (!sequence.isCombinatorNone) return null;
+    switch (sequence.simpleSelector) {
+      case ClassSelector(:final name) when name == 'avatar':
+        hasAvatarClass = true;
+      case ElementSelector(:final name) when name == 'img':
+        hasImageElement = true;
+      default:
+        return null;
+    }
+  }
+  if (!hasAvatarClass) return null;
+  return 100 + (hasImageElement ? 1 : 0);
+}
+
+AvatarBorderRadius? _parseAvatarBorderRadius(String source) {
+  final value = source
+      .replaceAll(RegExp(r'/\*.*?\*/', dotAll: true), '')
+      .trim()
+      .toLowerCase();
+  if (value.length > 512) return null;
+  final percent = RegExp(r'^\+?(?:\d+(?:\.\d*)?|\.\d+)%$').firstMatch(value);
+  if (percent != null) {
+    final amount = double.tryParse(value.substring(0, value.length - 1));
+    if (amount != null && amount.isFinite) {
+      return AvatarBorderRadius.percent(amount);
+    }
+  }
+  final pixels = _parseCssLength(value);
+  return pixels == null ? null : AvatarBorderRadius.pixels(pixels);
 }
 
 /// Splits a stylesheet at its top-level brace blocks while respecting strings
@@ -519,6 +613,28 @@ final class _CascadedValue {
   final bool important;
 }
 
+final class _AvatarRadiusCandidate {
+  const _AvatarRadiusCandidate({
+    required this.radius,
+    required this.important,
+    required this.specificity,
+    required this.order,
+  });
+
+  final AvatarBorderRadius radius;
+  final bool important;
+  final int specificity;
+  final int order;
+
+  bool outranks(_AvatarRadiusCandidate other) {
+    if (important != other.important) return important;
+    if (specificity != other.specificity) {
+      return specificity > other.specificity;
+    }
+    return order > other.order;
+  }
+}
+
 final class _VariableResolver {
   _VariableResolver(this.values);
 
@@ -529,6 +645,13 @@ final class _VariableResolver {
 
   final Map<String, List<_CascadedValue>> values;
   final Map<String, List<_CascadedValue>> _orderedCandidateCache = {};
+
+  String? resolveValue(String source) => _substitute(
+    source,
+    <String>{},
+    0,
+    _ResolutionBudget(_maxSubstitutionsPerCandidate),
+  );
 
   Iterable<String> resolveCandidates(String name) sync* {
     for (final candidate in _orderedCandidates(name)) {
