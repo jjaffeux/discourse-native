@@ -416,7 +416,7 @@ void main() {
         expect(_routeIds(controller), ['latest', 'topic-303']);
       });
 
-      test('reopens tabs closed by close others in their original order', () {
+      test('lists and reopens a requested tab closed by close others', () {
         final firstTabId = controller.activeTabId!;
         controller.createTab();
         final secondTabId = controller.activeTabId!;
@@ -425,12 +425,21 @@ void main() {
 
         controller.closeOtherTabs(secondTabId);
 
-        expect(controller.reopenClosedTab(), isTrue);
+        expect(
+          controller.recentlyClosedTabsForCurrentForum.map((tab) => tab.id),
+          [firstTabId, thirdTabId],
+        );
+        expect(controller.reopenClosedTab(thirdTabId), isTrue);
         expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
-          firstTabId,
           secondTabId,
+          thirdTabId,
         ]);
-        expect(controller.activeTabId, firstTabId);
+        expect(controller.activeTabId, thirdTabId);
+        expect(
+          controller.recentlyClosedTabsForCurrentForum.map((tab) => tab.id),
+          [firstTabId],
+        );
+        expect(controller.reopenClosedTab('missing'), isFalse);
 
         expect(controller.reopenClosedTab(), isTrue);
         expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
@@ -438,7 +447,7 @@ void main() {
           secondTabId,
           thirdTabId,
         ]);
-        expect(controller.activeTabId, thirdTabId);
+        expect(controller.activeTabId, firstTabId);
 
         expect(controller.reopenClosedTab(), isFalse);
       });

@@ -604,6 +604,21 @@ void main() {
       expect(controller.tabsForCurrentForum.map((tab) => tab.id), [newId]);
       expect(_bar(tester).items.single.id, newId);
       expect(_bar(tester).selectedId, newId);
+      expect(_bar(tester).recentlyClosedItems.single.id, originalId);
+
+      await tester.tap(
+        find.byKey(const ValueKey('forum-tabs-switcher-surface')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(ValueKey('forum-tabs-switcher-recent-$originalId')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(controller.activeTabId, originalId);
+      expect(_bar(tester).selectedId, originalId);
+      expect(_bar(tester).items, hasLength(2));
+      expect(_bar(tester).recentlyClosedItems, isEmpty);
     }),
   );
 
@@ -734,7 +749,7 @@ void main() {
         paintedBeforeBackgroundWork = true;
         expect(_bar(tester).selectedId, slowTabId);
         expect(
-          find.byKey(const ValueKey('forum-tab-indicator-tab-slow')),
+          find.byKey(const ValueKey('forum-tab-item-tab-slow')),
           findsOneWidget,
         );
         expect(find.byKey(originalViewportKey), findsNothing);
@@ -761,7 +776,7 @@ void main() {
       expect(tabStore.saveCount, savesBeforeTap + 1);
       expect(_bar(tester).selectedId, slowTabId);
       expect(
-        find.byKey(const ValueKey('forum-tab-indicator-tab-slow')),
+        find.byKey(const ValueKey('forum-tab-item-tab-slow')),
         findsOneWidget,
       );
       expect(find.byKey(originalViewportKey), findsNothing);

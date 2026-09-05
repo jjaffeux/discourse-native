@@ -199,9 +199,9 @@ class AggregateViewState extends State<AggregateView> {
             final activeTabId = controller.activeAggregateTabId;
             return Column(
               children: [
-                const _AggregateHeader(),
                 if (controller.forumTabsEnabled)
                   _AggregateTabsBar(controller: controller),
+                const _AggregateHeader(),
                 _AggregateTabToolbar(
                   state: state,
                   onFilter: () => _showForumFilter(context, controller),
@@ -464,6 +464,10 @@ class _AggregateTabsBar extends StatelessWidget {
             title: tabs[index].name ?? 'Aggregate ${index + 1}',
           ),
       ],
+      recentlyClosedItems: [
+        for (final tab in controller.recentlyClosedAggregateTabs)
+          ForumTabItem(id: tab.id, title: tab.name ?? 'Aggregate tab'),
+      ],
       selectedId: controller.activeAggregateTabId,
       onAdd: controller.canCreateAggregateTab
           ? controller.createAggregateTab
@@ -473,6 +477,9 @@ class _AggregateTabsBar extends StatelessWidget {
       onReorder: controller.moveAggregateTab,
       onRename: controller.renameAggregateTab,
       onCloseOthers: controller.closeOtherAggregateTabs,
+      onReopen: controller.canCreateAggregateTab
+          ? (id) => controller.reopenClosedAggregateTab(id)
+          : null,
     );
   }
 }

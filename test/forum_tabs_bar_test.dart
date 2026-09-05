@@ -5,7 +5,6 @@ import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
-import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -108,20 +107,17 @@ void main() {
       final add = find.byKey(addKey);
       final selected = find.byKey(const ValueKey('forum-tab-item-topic-1'));
       final ordinary = find.byKey(const ValueKey('forum-tab-item-chat-2'));
-      final indicator = find.byKey(
-        const ValueKey('forum-tab-indicator-topic-1'),
-      );
       final theme = Theme.of(tester.element(bar));
 
-      expect(ForumTabsBar.height, shellHeaderHeight);
-      expect(tester.getSize(bar).height, shellHeaderHeight);
+      expect(ForumTabsBar.height, 38);
+      expect(tester.getSize(bar).height, 38);
       expect(tester.getSize(bar).width, 500);
       expect(
         tester.getSize(add),
         const Size.square(ForumTabsBar.minimumActionTarget),
       );
-      expect(tester.getSize(selected).width, 205);
-      expect(tester.getSize(ordinary).width, 205);
+      expect(tester.getSize(selected).width, ForumTabsBar.maximumTabWidth);
+      expect(tester.getSize(ordinary).width, ForumTabsBar.maximumTabWidth);
 
       final barDecoration = _decoration(tester, bar);
       expect(barDecoration.color, theme.shell.sidebar);
@@ -132,8 +128,11 @@ void main() {
       final barRect = tester.getRect(bar);
       final selectedRect = tester.getRect(selected);
       final ordinaryRect = tester.getRect(ordinary);
-      expect(selectedRect.left, barRect.left);
-      expect(selectedRect.top, barRect.top + 4);
+      expect(
+        selectedRect.left,
+        barRect.left + 4 + ForumTabsBar.minimumActionTarget + 4,
+      );
+      expect(selectedRect.top, barRect.top + 3);
       expect(selectedRect.bottom, barRect.bottom - bottomDivider.width);
       expect(ordinaryRect.top, selectedRect.top);
       expect(ordinaryRect.bottom, selectedRect.bottom);
@@ -144,30 +143,20 @@ void main() {
       expect(selectedDecoration.border, isNull);
       expect(ordinaryDecoration.color, Colors.transparent);
       expect(ordinaryDecoration.border, isNull);
-      expect(tester.getSize(indicator).height, 2);
-      expect(_decoration(tester, indicator).color, theme.colorScheme.primary);
       expect(
-        tester.getRect(indicator),
-        Rect.fromLTRB(
-          tester.getRect(selected).left + 9,
-          tester.getRect(selected).bottom - 2,
-          tester.getRect(selected).right - 9,
-          tester.getRect(selected).bottom,
-        ),
+        find.byKey(const ValueKey('forum-tab-indicator-topic-1')),
+        findsNothing,
       );
 
       final addRect = tester.getRect(add);
       expect(addRect.left, ordinaryRect.right + 4);
       expect(
         addRect.center.dy,
-        barRect.top + 4 + (shellHeaderHeight - 4 - bottomDivider.width) / 2,
+        barRect.top + 3 + (ForumTabsBar.height - 3 - bottomDivider.width) / 2,
       );
 
       final close = find.byKey(const ValueKey('forum-tab-close-topic-1'));
-      expect(
-        tester.getSize(close).width,
-        greaterThanOrEqualTo(ForumTabsBar.minimumActionTarget),
-      );
+      expect(tester.getSize(close).width, ForumTabsBar.closeTargetWidth);
       expect(
         tester.getSize(close).height,
         greaterThanOrEqualTo(ForumTabsBar.minimumActionTarget),
@@ -193,7 +182,7 @@ void main() {
       final theme = Theme.of(tester.element(divider));
 
       expect(divider, findsOneWidget);
-      expect(tester.getSize(divider), const Size(1, 24));
+      expect(tester.getSize(divider), const Size(1, 18));
       expect(tester.widget<Container>(divider).color, theme.shell.divider);
       expect(
         tester.getCenter(divider).dy,
@@ -206,6 +195,31 @@ void main() {
       expect(_decoration(tester, firstTab).border, isNull);
       expect(_decoration(tester, secondTab).border, isNull);
       expect(_decoration(tester, selectedTab).border, isNull);
+    });
+
+    testWidgets('keeps tab geometry fixed while using tertiary-low hover', (
+      tester,
+    ) async {
+      await _pumpBar(
+        tester,
+        items: const [first, second],
+        selectedId: first.id,
+      );
+
+      final tab = find.byKey(const ValueKey('forum-tab-item-chat-2'));
+      final before = tester.getRect(tab);
+      final theme = Theme.of(tester.element(tab));
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(pointer.removePointer);
+      await pointer.addPointer();
+      await pointer.moveTo(tester.getCenter(tab));
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(tab), before);
+      expect(
+        _decoration(tester, tab).color,
+        theme.colorScheme.primaryContainer,
+      );
     });
   });
 
@@ -373,12 +387,12 @@ void main() {
       final surface = find.byKey(surfaceKey);
       final theme = Theme.of(tester.element(close));
 
-      expect(tester.getSize(close).width, ForumTabsBar.minimumActionTarget);
+      expect(tester.getSize(close).width, ForumTabsBar.closeTargetWidth);
       expect(
         tester.getSize(close).height,
         greaterThanOrEqualTo(ForumTabsBar.minimumActionTarget),
       );
-      expect(tester.getSize(surface), const Size.square(26));
+      expect(tester.getSize(surface), const Size.square(24));
       expect(_decoration(tester, surface).color, Colors.transparent);
 
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -388,7 +402,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_decoration(tester, surface).color, theme.shell.selected);
-      expect(tester.getSize(surface), const Size.square(26));
+      expect(tester.getSize(surface), const Size.square(24));
     });
 
     testWidgets(
@@ -505,9 +519,9 @@ void main() {
           tester.getSize(add),
           const Size.square(ForumTabsBar.minimumActionTarget),
         );
-        expect(tester.getSize(surface), const Size.square(32));
+        expect(tester.getSize(surface), const Size.square(28));
         expect(tester.getRect(add).left, tester.getRect(tab).right + 4);
-        expect(tester.getRect(surface).left, tester.getRect(tab).right + 10);
+        expect(tester.getRect(surface).left, tester.getRect(tab).right + 7);
         expect(_decoration(tester, surface).color, Colors.transparent);
 
         final pointer = await tester.createGesture(
@@ -518,10 +532,83 @@ void main() {
         await pointer.moveTo(tester.getCenter(add));
         await tester.pumpAndSettle();
 
-        expect(_decoration(tester, surface).color, theme.shell.hover);
-        expect(tester.getSize(surface), const Size.square(32));
+        expect(
+          _decoration(tester, surface).color,
+          theme.colorScheme.primaryContainer,
+        );
+        expect(tester.getSize(surface), const Size.square(28));
       },
     );
+  });
+
+  group('tab switcher', () {
+    testWidgets('searches open tabs and restores a chosen closed tab', (
+      tester,
+    ) async {
+      final selected = <String>[];
+      final reopened = <String>[];
+      await _pumpBar(
+        tester,
+        items: const [first, second],
+        recentlyClosedItems: const [third],
+        selectedId: first.id,
+        onSelect: selected.add,
+        onReopen: reopened.add,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('forum-tabs-switcher-surface')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Open tabs  2'), findsOneWidget);
+      expect(find.text('Recently closed  1'), findsOneWidget);
+      expect(find.textContaining('Scoped to'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('forum-tabs-switcher-open-topic-1')),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.comment,
+          ),
+        ),
+        findsNothing,
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('forum-tabs-switcher-search')),
+        'updates',
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('forum-tabs-switcher-open-topic-1')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('forum-tabs-switcher-recent-updates-3')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('forum-tabs-switcher-recent-updates-3')),
+      );
+      await tester.pumpAndSettle();
+      expect(reopened, [third.id]);
+      expect(
+        find.byKey(const ValueKey('forum-tabs-switcher-menu')),
+        findsNothing,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('forum-tabs-switcher-surface')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('forum-tabs-switcher-open-chat-2')),
+      );
+      await tester.pumpAndSettle();
+      expect(selected, [second.id]);
+    });
   });
 
   group('tab adornments', () {
@@ -608,7 +695,8 @@ void main() {
         find.byKey(const ValueKey('forum-tab-badge-chat-2')),
       );
 
-      expect(dot.left - titleEnd, moreOrLessEquals(3, epsilon: 0.5));
+      expect(dot.left, greaterThan(titleEnd));
+      expect(dot.left - titleEnd, lessThanOrEqualTo(3));
     });
 
     testWidgets('render owner-provided prefix and label decorations', (
@@ -700,7 +788,10 @@ void main() {
       expect(scrollable.position.pixels, 0);
       expect(initialAddRect.left, initialLastTabRect.right + 4);
       expect(initialAddRect.left, greaterThan(initialViewportRect.right));
-      expect(find.byKey(const ValueKey('forum-tab-badge-tab-3')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('forum-tab-badge-tab-3')),
+        findsOneWidget,
+      );
       for (final item in items) {
         expect(find.byKey(ValueKey('forum-tab-${item.id}')), findsOneWidget);
       }
@@ -880,6 +971,8 @@ Future<void> _pumpBar(
   ValueChanged<String>? onClose,
   void Function(String id, int newIndex)? onReorder,
   ValueChanged<String>? onCloseOthers,
+  List<ForumTabItem> recentlyClosedItems = const [],
+  ValueChanged<String>? onReopen,
   void Function(String id, String title)? onRename,
   double width = 500,
   ThemeData? theme,
@@ -903,6 +996,8 @@ Future<void> _pumpBar(
                 onClose: onClose ?? (_) {},
                 onReorder: onReorder ?? (_, _) {},
                 onCloseOthers: onCloseOthers ?? (_) {},
+                recentlyClosedItems: recentlyClosedItems,
+                onReopen: onReopen,
                 onRename: onRename,
               ),
             ],

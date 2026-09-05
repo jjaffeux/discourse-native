@@ -15,12 +15,12 @@ import '../theme/d_icons.dart';
 import '../theme/d_tooltip.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';
+import 'external_link.dart';
 import 'forum_search.dart';
 import 'instance_actions.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';
-import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'user_menu_button.dart';
 
@@ -29,6 +29,9 @@ final class _SidebarSnapshot {
   const _SidebarSnapshot({
     required this.siteUrl,
     required this.name,
+    required this.iconUrl,
+    required this.monogram,
+    required this.accentColor,
     required this.destinationId,
     required this.draftCount,
     required this.canCreateTopic,
@@ -39,6 +42,9 @@ final class _SidebarSnapshot {
 
   final String? siteUrl;
   final String? name;
+  final String? iconUrl;
+  final String? monogram;
+  final Color? accentColor;
   final String? destinationId;
   final int draftCount;
   final bool canCreateTopic;
@@ -51,6 +57,9 @@ final class _SidebarSnapshot {
     if (other is! _SidebarSnapshot ||
         siteUrl != other.siteUrl ||
         name != other.name ||
+        iconUrl != other.iconUrl ||
+        monogram != other.monogram ||
+        accentColor != other.accentColor ||
         destinationId != other.destinationId ||
         draftCount != other.draftCount ||
         canCreateTopic != other.canCreateTopic ||
@@ -69,6 +78,9 @@ final class _SidebarSnapshot {
   int get hashCode => Object.hash(
     siteUrl,
     name,
+    iconUrl,
+    monogram,
+    accentColor,
     destinationId,
     draftCount,
     canCreateTopic,
@@ -223,6 +235,9 @@ class InstanceSidebar extends StatelessWidget {
       return _SidebarSnapshot(
         siteUrl: instance?.url,
         name: instance?.title,
+        iconUrl: instance?.iconUrl,
+        monogram: instance?.monogram,
+        accentColor: instance?.accentColor,
         destinationId: selectedDestinationId,
         draftCount: instance?.user?.draftCount ?? 0,
         canCreateTopic: instance?.user?.canCreateTopic ?? false,
@@ -255,13 +270,20 @@ class InstanceSidebar extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _SidebarHeader(name: sidebar.name!, showUserMenu: showUserMenu),
+              if (showUserMenu) const _SidebarUserHeader(),
               Expanded(
                 child: _SidebarPanelBody(
                   sidebar: sidebar,
                   showUserMenu: showUserMenu,
                   sectionStore: sectionStore,
                 ),
+              ),
+              _ForumIdentityFooter(
+                siteUrl: sidebar.siteUrl!,
+                name: sidebar.name!,
+                iconUrl: sidebar.iconUrl,
+                monogram: sidebar.monogram!,
+                accentColor: sidebar.accentColor!,
               ),
             ],
           ),
@@ -527,78 +549,161 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
   }
 }
 
-class _SidebarHeader extends StatelessWidget {
-  const _SidebarHeader({required this.name, required this.showUserMenu});
-
-  final String name;
-  final bool showUserMenu;
+class _SidebarUserHeader extends StatelessWidget {
+  const _SidebarUserHeader();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return MenuAnchor(
-      style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+    return Container(
+      key: const ValueKey('sidebar-user-header'),
+      height: shellHeaderHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: theme.shell.divider)),
       ),
-      menuChildren: [
-        MenuItemButton(
-          leadingIcon: const DIcon(DIcons.trashCan, size: 18),
-          style: MenuItemButton.styleFrom(
-            foregroundColor: theme.colorScheme.error,
-            iconColor: theme.colorScheme.error,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          ...PluginScope.of(context).registry.shellHeaderActions(
+            context,
+            surface: PluginHeaderSurface.content,
+            compact: true,
+            ringColor: theme.shell.sidebar,
           ),
-          onPressed: () async {
-            final instance = ShellScope.read(context).currentInstance;
-            if (instance != null) {
-              await confirmInstanceRemoval(context, instance);
-            }
-          },
-          child: const Text('Remove forum'),
-        ),
-      ],
-      builder: (context, menu, child) => InkWell(
-        onTap: menu.open,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(ShellPanel.cornerRadius),
-        ),
-        child: child,
+          const UserMenuButton(),
+        ],
       ),
-      child: Container(
-        height: shellHeaderHeight,
-        padding: EdgeInsets.only(left: 12, right: showUserMenu ? 8 : 12),
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: theme.shell.divider)),
+    );
+  }
+}
+
+class _ForumIdentityFooter extends StatelessWidget {
+  const _ForumIdentityFooter({
+    required this.siteUrl,
+    required this.name,
+    required this.iconUrl,
+    required this.monogram,
+    required this.accentColor,
+  });
+
+  final String siteUrl;
+  final String name;
+  final String? iconUrl;
+  final String monogram;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fallbackForeground =
+        ThemeData.estimateBrightnessForColor(accentColor) == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+
+    return Padding(
+      key: const ValueKey('forum-identity-footer'),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+      child: MenuAnchor(
+        style: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
+        menuChildren: [
+          MenuItemButton(
+            key: const ValueKey('forum-identity-open-browser'),
+            leadingIcon: const DIcon(DIcons.upRightFromSquare, size: 18),
+            onPressed: () => unawaited(openExternalLink(siteUrl)),
+            child: const Text('Open forum in browser'),
+          ),
+          MenuItemButton(
+            key: const ValueKey('forum-identity-remove'),
+            leadingIcon: const DIcon(DIcons.trashCan, size: 18),
+            style: MenuItemButton.styleFrom(
+              foregroundColor: theme.colorScheme.error,
+              iconColor: theme.colorScheme.error,
+            ),
+            onPressed: () async {
+              final instance = ShellScope.read(context).currentInstance;
+              if (instance != null) {
+                await confirmInstanceRemoval(context, instance);
+              }
+            },
+            child: const Text('Remove forum'),
+          ),
+        ],
+        builder: (context, menu, child) => Material(
+          key: const ValueKey('forum-identity-button'),
+          color: theme.shell.floating,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: menu.open,
+            borderRadius: BorderRadius.circular(14),
+            hoverColor: theme.colorScheme.primaryContainer,
+            child: child,
+          ),
+        ),
+        child: Container(
+          height: 58,
+          padding: const EdgeInsets.symmetric(horizontal: 11),
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.shell.divider),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                key: const ValueKey('forum-identity-logo'),
+                borderRadius: BorderRadius.circular(9),
+                child: SizedBox.square(
+                  dimension: 36,
+                  child: AvatarImage(
+                    url: iconUrl,
+                    size: 36,
+                    fallback: ColoredBox(
+                      color: accentColor,
+                      child: Center(
+                        child: Text(
+                          monogram,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: fallbackForeground,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
-            ),
-            DIcon(
-              DIcons.chevronDown,
-              size: 16,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            if (showUserMenu) ...[
-              const SizedBox(width: 4),
-              ...PluginScope.of(context).registry.shellHeaderActions(
-                context,
-                surface: PluginHeaderSurface.content,
-                compact: true,
-                ringColor: theme.shell.sidebar,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-              const UserMenuButton(),
+              RotatedBox(
+                quarterTurns: 2,
+                child: DIcon(
+                  DIcons.chevronDown,
+                  size: 15,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ],
-          ],
+          ),
         ),
       ),
     );

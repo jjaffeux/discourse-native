@@ -144,6 +144,18 @@ final class AggregateFeedController extends FrameSafeNotifier {
     for (final tab in _tabs.values)
       AggregateFeedTab(id: tab.id, name: tab.name),
   ]);
+  List<AggregateFeedTab> get recentlyClosedTabs {
+    final openIds = _tabs.keys.toSet();
+    return List.unmodifiable([
+      for (final closed in _closedTabs.reversed)
+        if (!openIds.contains(closed.preferences.id))
+          AggregateFeedTab(
+            id: closed.preferences.id,
+            name: closed.preferences.name,
+          ),
+    ]);
+  }
+
   bool get canCreateTab => _tabs.length < AggregatePreferencesStore.maximumTabs;
 
   Set<String> get excludedForums => Set.unmodifiable(_activeTab.excludedForums);
@@ -313,11 +325,13 @@ final class AggregateFeedController extends FrameSafeNotifier {
     return closedActive;
   }
 
-  bool reopenClosedTab() {
+  bool reopenClosedTab([String? id]) {
     if (!canCreateTab) return false;
-    while (_closedTabs.isNotEmpty) {
-      final closed = _closedTabs.removeLast();
+    for (var index = _closedTabs.length - 1; index >= 0; index--) {
+      final closed = _closedTabs[index];
       final preferences = closed.preferences;
+      if (id != null && preferences.id != id) continue;
+      _closedTabs.removeAt(index);
       if (_tabs.containsKey(preferences.id)) continue;
 
       final reopened = _AggregateTabSession(

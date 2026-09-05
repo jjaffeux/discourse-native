@@ -1014,6 +1014,19 @@ class ShellController extends FrameSafeNotifier
   ForumTab? get activeTab => currentWorkspace?.activeTab;
   String? get activeTabId => currentWorkspace?.activeTabId;
   List<ForumTab> get tabsForCurrentForum => currentWorkspace?.tabs ?? const [];
+  List<ForumTab> get recentlyClosedTabsForCurrentForum {
+    final workspace = currentWorkspace;
+    if (workspace == null) return const [];
+    final openIds = {for (final tab in workspace.tabs) tab.id};
+    return List.unmodifiable([
+      for (final closed in _closedForumTabs.reversed)
+        if (closed.siteUrl == workspace.siteUrl &&
+            closed.accountIdentity == workspace.accountIdentity &&
+            !openIds.contains(closed.tab.id))
+          closed.tab,
+    ]);
+  }
+
   bool get canCreateTab =>
       forumTabsEnabled &&
       (currentWorkspace?.tabs.length ?? 0) < ForumWorkspace.maximumTabs;
@@ -11529,6 +11542,8 @@ class ShellController extends FrameSafeNotifier
   Future<void> refreshAggregate() => aggregate.refresh(_instances, force: true);
 
   List<AggregateFeedTab> get aggregateTabs => aggregate.tabs;
+  List<AggregateFeedTab> get recentlyClosedAggregateTabs =>
+      aggregate.recentlyClosedTabs;
   String get activeAggregateTabId => aggregate.activeTabId;
   bool get canCreateAggregateTab => forumTabsEnabled && aggregate.canCreateTab;
 
@@ -11553,8 +11568,8 @@ class ShellController extends FrameSafeNotifier
     if (openedAnotherTab) unawaited(aggregate.open(_instances));
   }
 
-  bool reopenClosedAggregateTab() {
-    if (!forumTabsEnabled || !aggregate.reopenClosedTab()) return false;
+  bool reopenClosedAggregateTab([String? id]) {
+    if (!forumTabsEnabled || !aggregate.reopenClosedTab(id)) return false;
     unawaited(aggregate.open(_instances));
     return true;
   }
@@ -11979,7 +11994,7 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  bool reopenClosedTab() {
+  bool reopenClosedTab([String? id]) {
     if (!forumTabsEnabled || !canCreateTab) return false;
     final instance = currentInstance;
     final workspace = currentWorkspace;
@@ -11988,7 +12003,8 @@ class ShellController extends FrameSafeNotifier
     for (var index = _closedForumTabs.length - 1; index >= 0; index--) {
       final closed = _closedForumTabs[index];
       if (closed.siteUrl != workspace.siteUrl ||
-          closed.accountIdentity != workspace.accountIdentity) {
+          closed.accountIdentity != workspace.accountIdentity ||
+          (id != null && closed.tab.id != id)) {
         continue;
       }
       _closedForumTabs.removeAt(index);

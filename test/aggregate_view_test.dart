@@ -89,6 +89,7 @@ void main() {
     expect(find.byType(AggregateView), findsOneWidget);
     expect(find.byType(InstanceSidebar), findsNothing);
     expect(find.byType(MainContent), findsNothing);
+    expect(find.byKey(const ValueKey('forum-identity-footer')), findsNothing);
     expect(find.text('Discourse (alpha)'), findsOneWidget);
     expect(find.text('Every forum. One shared feed.'), findsNothing);
     final heroFinder = find.byKey(const ValueKey('aggregate-hero'));
@@ -399,11 +400,11 @@ void main() {
       final tabsFinder = find.byKey(const ValueKey('aggregate-tabs'));
       final toolbarFinder = find.byKey(const ValueKey('aggregate-tab-toolbar'));
       expect(
-        tester.getBottomLeft(heroFinder).dy,
-        lessThanOrEqualTo(tester.getTopLeft(tabsFinder).dy),
+        tester.getBottomLeft(tabsFinder).dy,
+        lessThanOrEqualTo(tester.getTopLeft(heroFinder).dy),
       );
       expect(
-        tester.getBottomLeft(tabsFinder).dy,
+        tester.getBottomLeft(heroFinder).dy,
         lessThanOrEqualTo(tester.getTopLeft(toolbarFinder).dy),
       );
       expect(
