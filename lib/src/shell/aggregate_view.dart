@@ -12,6 +12,7 @@ import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
 import 'aggregate_feed_controller.dart';
 import 'content_reading_lane.dart';
+import 'forum_icon.dart';
 import 'forum_tabs_bar.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -581,6 +582,18 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
                           padding: const EdgeInsets.fromLTRB(0, 8, 12, 8),
                           child: Row(
                             children: [
+                              ExcludeSemantics(
+                                child: Opacity(
+                                  opacity: forum.isConnected ? 1 : 0.38,
+                                  child: ForumIcon(
+                                    key: ValueKey(
+                                      'aggregate-filter-icon-${forum.url}',
+                                    ),
+                                    forum: forum,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -598,22 +611,18 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
                                             fontWeight: FontWeight.w600,
                                           ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      forum.isConnected
-                                          ? forum.host
-                                          : 'Sign in to include',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: forum.isConnected
-                                                ? theme
-                                                      .colorScheme
-                                                      .onSurfaceVariant
-                                                : theme.disabledColor,
-                                          ),
-                                    ),
+                                    if (!forum.isConnected) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Sign in to include',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: theme.disabledColor,
+                                            ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),

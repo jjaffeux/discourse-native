@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/aggregate_view.dart';
+import 'package:discourse_native/src/shell/forum_icon.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -298,6 +299,17 @@ void main() {
         find.byKey(const ValueKey('aggregate-filter-wide-layout')),
         findsOneWidget,
       );
+      final firstForumRow = find.byKey(
+        ValueKey('aggregate-filter-row-${forumUrls[0]}'),
+      );
+      expect(
+        find.descendant(of: firstForumRow, matching: find.byType(ForumIcon)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: firstForumRow, matching: find.text('one.example')),
+        findsNothing,
+      );
       expect(
         find.textContaining('Select forums, then edit one topic filter'),
         findsNothing,
@@ -351,6 +363,17 @@ void main() {
         tester.element(signedOutTitle),
       ).disabledColor;
       expect(tester.widget<Text>(signedOutTitle).style?.color, disabledColor);
+      expect(
+        find.descendant(of: signedOutRow, matching: find.byType(ForumIcon)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: signedOutRow,
+          matching: find.text('Sign in to include'),
+        ),
+        findsOneWidget,
+      );
       expect(
         tester
             .widget<DIcon>(
