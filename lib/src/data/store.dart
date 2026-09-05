@@ -143,6 +143,13 @@ class Store {
     return cell?.value;
   }
 
+  /// Answers without changing least-recently-used order or allocating a ref.
+  ///
+  /// Consumers which retain record IDs separately from this bounded store use
+  /// this to validate that their window is still backed before reusing it.
+  bool containsRecord<T extends Storable<T>>(String siteUrl, Object id) =>
+      (_refs[(siteUrl, T, id)] as Ref<T>?)?.value != null;
+
   T put<T extends Storable<T>>(String siteUrl, T record) {
     final cell = _cell<T>(siteUrl, record.storeId);
     final held = cell.value;

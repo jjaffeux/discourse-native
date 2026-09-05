@@ -1535,6 +1535,118 @@ void main() {
       );
     });
 
+    testWidgets('a bounded live append still counts its new trailing row', (
+      tester,
+    ) async {
+      final api = _ChatApi(openPages: const {});
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      final heldMessages = [for (var id = 1; id <= 40; id++) _message(id)];
+      controller.chatRecords
+        ..put(firstSite, _channel(lastRead: 40))
+        ..putAll(firstSite, heldMessages);
+
+      await tester.pumpWidget(
+        _TestStreamView(
+          controller: controller,
+          messages: heldMessages,
+          stream: ChatStreamState(
+            messageIds: [for (final message in heldMessages) message.id],
+            fetchedOnce: true,
+            fetches: 1,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      tester.state<ScrollableState>(_verticalChatScroll()).position.jumpTo(600);
+      await tester.pump();
+      final heldOffset = tester
+          .state<ScrollableState>(_verticalChatScroll())
+          .position
+          .pixels;
+      final live = _message(41);
+      controller.chatRecords.put(firstSite, live);
+
+      await tester.pumpWidget(
+        _TestStreamView(
+          controller: controller,
+          messages: [...heldMessages.skip(1), live],
+          stream: ChatStreamState(
+            messageIds: [for (var id = 2; id <= 41; id++) id],
+            fetchedOnce: true,
+            fetches: 1,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        tester.state<ScrollableState>(_verticalChatScroll()).position.pixels,
+        heldOffset,
+      );
+      expect(
+        find.bySemanticsLabel('Jump to latest messages, 1 new'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'a completely replaced bounded window counts retained arrivals',
+      (tester) async {
+        final api = _ChatApi(openPages: const {});
+        final controller = await _controller(api, sites: const [firstSite]);
+        addTearDown(controller.dispose);
+        final heldMessages = [for (var id = 1; id <= 40; id++) _message(id)];
+        controller.chatRecords
+          ..put(firstSite, _channel(lastRead: 40))
+          ..putAll(firstSite, heldMessages);
+
+        await tester.pumpWidget(
+          _TestStreamView(
+            controller: controller,
+            messages: heldMessages,
+            stream: ChatStreamState(
+              messageIds: [for (final message in heldMessages) message.id],
+              fetchedOnce: true,
+              fetches: 1,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        tester
+            .state<ScrollableState>(_verticalChatScroll())
+            .position
+            .jumpTo(600);
+        await tester.pump();
+        final currentMessages = [
+          for (var id = 41; id <= 80; id++) _message(id),
+        ];
+        controller.chatRecords.putAll(firstSite, currentMessages);
+
+        await tester.pumpWidget(
+          _TestStreamView(
+            controller: controller,
+            messages: currentMessages,
+            stream: ChatStreamState(
+              messageIds: [for (final message in currentMessages) message.id],
+              fetchedOnce: true,
+              fetches: 1,
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          find.bySemanticsLabel('Jump to latest messages, 40 new'),
+          findsOneWidget,
+        );
+      },
+    );
+
     testWidgets('the day crossing the top of chat stays pinned', (
       tester,
     ) async {

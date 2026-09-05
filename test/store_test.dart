@@ -161,6 +161,20 @@ void main() {
       expect(store.read<_Record>(_site, 3)?.label, 'three');
     });
 
+    test('checks record presence without touching LRU order', () {
+      final store = Store(maxEntries: 2)
+        ..put(_site, const _Record(1, 'one'))
+        ..put(_site, const _Record(2, 'two'));
+
+      expect(store.containsRecord<_Record>(_site, 1), isTrue);
+      expect(store.containsRecord<_Record>(_site, 9), isFalse);
+      store.put(_site, const _Record(3, 'three'));
+
+      expect(store.containsRecord<_Record>(_site, 1), isFalse);
+      expect(store.containsRecord<_Record>(_site, 2), isTrue);
+      expect(store.containsRecord<_Record>(_site, 3), isTrue);
+    });
+
     test('bounds long sessions by global, site, and record-kind shares', () {
       const policy = StorePolicy(
         maxEntries: 48,

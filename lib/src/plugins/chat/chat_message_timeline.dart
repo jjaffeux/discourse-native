@@ -15,7 +15,15 @@ final class ChatTimelineSnapshot {
 
 enum ChatTimelineMergeMode { sortedUnion, prependPage, appendPage }
 
+/// The edge whose newly arrived messages must survive a bounded reduction.
+enum ChatTimelineRetainedEdge { past, future }
+
 typedef ChatTimelineSeam = ({List<int> ids, List<ChatMessage> admittedPending});
+typedef ChatTimelineRetention = ({
+  List<int> ids,
+  bool droppedPast,
+  bool droppedFuture,
+});
 
 /// Canonical ids are unique and ordered by `(createdAt, id)`, except directional
 /// pages stay on the side named by the server cursor.
@@ -39,6 +47,33 @@ abstract final class ChatMessageTimeline {
       prepend: false,
     ),
   };
+
+  /// Bounds one contiguous window while preserving the edge just extended.
+  ///
+  /// The discarded edge becomes pageable again in the controller. Returning
+  /// the exact input on a no-op lets views retain their existing projection.
+  static ChatTimelineRetention retain({
+    required List<int> ids,
+    required int maxLength,
+    required ChatTimelineRetainedEdge edge,
+  }) {
+    assert(maxLength > 0);
+    if (ids.length <= maxLength) {
+      return (ids: ids, droppedPast: false, droppedFuture: false);
+    }
+    return switch (edge) {
+      ChatTimelineRetainedEdge.past => (
+        ids: List.unmodifiable(ids.take(maxLength)),
+        droppedPast: false,
+        droppedFuture: true,
+      ),
+      ChatTimelineRetainedEdge.future => (
+        ids: List.unmodifiable(ids.skip(ids.length - maxLength)),
+        droppedPast: true,
+        droppedFuture: false,
+      ),
+    };
+  }
 
   /// Appends normal live arrivals; an earlier `client_created_at` re-derives
   /// the full order.
