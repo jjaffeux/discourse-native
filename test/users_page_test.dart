@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -575,6 +576,49 @@ void main() {
       findsNothing,
     );
     expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('refresh button owns the directory loading feedback', (
+    tester,
+  ) async {
+    var refreshes = 0;
+    await _pump(
+      tester,
+      UsersPage(
+        siteUrl: 'https://example.com',
+        data: const UsersPageData(
+          items: [_sam],
+          columns: [_likes],
+          loading: true,
+          loaded: true,
+        ),
+        onRefresh: () async => refreshes++,
+      ),
+    );
+
+    final refresh = find.byKey(const ValueKey('users-refresh'));
+    final button = find.descendant(of: refresh, matching: find.byType(DButton));
+    expect(tester.widget<DButton>(button).loading, isTrue);
+    expect(
+      find.descendant(
+        of: refresh,
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.descendant(of: refresh, matching: find.byType(FilledButton)),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    await tester.tap(refresh);
+    await tester.pump();
+    expect(refreshes, 0);
     expect(tester.takeException(), isNull);
   });
 }
