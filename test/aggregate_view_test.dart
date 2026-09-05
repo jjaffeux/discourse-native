@@ -419,6 +419,15 @@ void main() {
         find.byKey(const ValueKey('topic-filter-token-field')),
         findsOneWidget,
       );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('topic-filter-token-field')),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.filter,
+          ),
+        ),
+        findsNothing,
+      );
       final queryField = tester.widget<TextField>(
         find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
       );
