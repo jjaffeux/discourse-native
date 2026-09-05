@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
@@ -312,7 +313,8 @@ class AggregateViewState extends State<AggregateView> {
     final forums = controller.instances;
     var selected = {
       for (final forum in forums)
-        if (controller.aggregate.includes(forum)) forum.url,
+        if (forum.isConnected && controller.aggregate.includes(forum))
+          forum.url,
     };
     final queries = {
       for (final forum in forums)
@@ -325,6 +327,11 @@ class AggregateViewState extends State<AggregateView> {
           context: context,
           title: 'Aggregate filters',
           dialogOnDesktop: true,
+          desktopDialogConstraints: const BoxConstraints(
+            maxWidth: 760,
+            maxHeight: 640,
+          ),
+          padding: EdgeInsets.zero,
           footerBuilder: (footerContext) => Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -342,98 +349,16 @@ class AggregateViewState extends State<AggregateView> {
               ),
             ],
           ),
-          builder: (_) => StatefulBuilder(
-            builder: (context, setSheetState) {
-              final connected = forums
-                  .where((forum) => forum.isConnected)
-                  .toList();
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Each included forum uses its own Discourse topic filter. '
-                    'Leave a filter empty to use that forum’s default list.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      DButton(
-                        label: const Text('All'),
-                        onPressed: connected.isEmpty
-                            ? null
-                            : () => setSheetState(
-                                () => selected = {
-                                  for (final forum in connected) forum.url,
-                                },
-                              ),
-                        variant: DButtonVariant.link,
-                      ),
-                      DButton(
-                        label: const Text('None'),
-                        onPressed: selected.isEmpty
-                            ? null
-                            : () => setSheetState(() => selected = {}),
-                        variant: DButtonVariant.link,
-                      ),
-                    ],
-                  ),
-                  for (final forum in forums)
-                    Column(
-                      key: ValueKey('aggregate-filter-row-${forum.url}'),
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        CheckboxListTile(
-                          key: ValueKey('aggregate-filter-${forum.url}'),
-                          contentPadding: EdgeInsets.zero,
-                          value:
-                              forum.isConnected && selected.contains(forum.url),
-                          onChanged: forum.isConnected
-                              ? (checked) => setSheetState(() {
-                                  selected = {...selected};
-                                  if (checked ?? false) {
-                                    selected.add(forum.url);
-                                  } else {
-                                    selected.remove(forum.url);
-                                  }
-                                })
-                              : null,
-                          title: Text(forum.title),
-                          subtitle: Text(
-                            forum.isConnected
-                                ? forum.host
-                                : 'Sign in to include',
-                          ),
-                        ),
-                        TopicFilterInput(
-                          key: ValueKey('aggregate-filter-editor-${forum.url}'),
-                          siteUrl: forum.url,
-                          initialQuery: queries[forum.url]!,
-                          options: controller.aggregate.filterOptionsFor(
-                            forum.url,
-                          ),
-                          categories: controller.filterCategoriesFor(forum.url),
-                          onSubmitted: (query) async {
-                            queries[forum.url] = query;
-                          },
-                          onChanged: (query) => queries[forum.url] = query,
-                          inputKey: ValueKey('aggregate-query-${forum.url}'),
-                          clearKey: ValueKey(
-                            'aggregate-query-clear-${forum.url}',
-                          ),
-                          hintText: 'Filter this forum',
-                          padding: const EdgeInsets.fromLTRB(16, 0, 0, 12),
-                          enabled:
-                              forum.isConnected && selected.contains(forum.url),
-                          preferSuggestionsAbove: true,
-                        ),
-                      ],
-                    ),
-                ],
-              );
+          builder: (_) => _AggregateFilterEditor(
+            forums: forums,
+            controller: controller,
+            initialIncludedForums: selected,
+            initialQueries: queries,
+            onChanged: (includedForums, updatedQueries) {
+              selected = includedForums;
+              queries
+                ..clear()
+                ..addAll(updatedQueries);
             },
           ),
         );
@@ -442,6 +367,424 @@ class AggregateViewState extends State<AggregateView> {
     await controller.setAggregateForumFilters(
       includedForums: applied.includedForums,
       queries: applied.queries,
+    );
+  }
+}
+
+class _AggregateFilterEditor extends StatefulWidget {
+  const _AggregateFilterEditor({
+    required this.forums,
+    required this.controller,
+    required this.initialIncludedForums,
+    required this.initialQueries,
+    required this.onChanged,
+  });
+
+  final List<DiscourseInstance> forums;
+  final ShellController controller;
+  final Set<String> initialIncludedForums;
+  final Map<String, String> initialQueries;
+  final void Function(Set<String> includedForums, Map<String, String> queries)
+  onChanged;
+
+  @override
+  State<_AggregateFilterEditor> createState() => _AggregateFilterEditorState();
+}
+
+class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
+  static const _wideBreakpoint = 620.0;
+
+  late Set<String> _includedForums;
+  late Map<String, String> _queries;
+  String? _focusedForumUrl;
+
+  List<DiscourseInstance> get _connectedForums =>
+      widget.forums.where((forum) => forum.isConnected).toList(growable: false);
+
+  DiscourseInstance? get _focusedForum {
+    for (final forum in widget.forums) {
+      if (forum.url == _focusedForumUrl) return forum;
+    }
+    return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _includedForums = {...widget.initialIncludedForums};
+    _queries = {...widget.initialQueries};
+    _focusedForumUrl = _initialFocusedForumUrl();
+  }
+
+  String? _initialFocusedForumUrl() {
+    for (final forum in widget.forums) {
+      if (forum.isConnected && _includedForums.contains(forum.url)) {
+        return forum.url;
+      }
+    }
+    for (final forum in widget.forums) {
+      if (forum.isConnected) return forum.url;
+    }
+    return widget.forums.isEmpty ? null : widget.forums.first.url;
+  }
+
+  void _notifyChanged() {
+    widget.onChanged({..._includedForums}, {..._queries});
+  }
+
+  void _setForumIncluded(DiscourseInstance forum, bool included) {
+    if (!forum.isConnected) return;
+    setState(() {
+      _focusedForumUrl = forum.url;
+      _includedForums = {..._includedForums};
+      if (included) {
+        _includedForums.add(forum.url);
+      } else {
+        _includedForums.remove(forum.url);
+      }
+    });
+    _notifyChanged();
+  }
+
+  void _selectAll() {
+    setState(() {
+      _includedForums = {for (final forum in _connectedForums) forum.url};
+    });
+    _notifyChanged();
+  }
+
+  void _clearSelection() {
+    setState(() => _includedForums = {});
+    _notifyChanged();
+  }
+
+  void _focusForum(DiscourseInstance forum) {
+    if (_focusedForumUrl == forum.url) return;
+    setState(() => _focusedForumUrl = forum.url);
+  }
+
+  void _updateQuery(String siteUrl, String query) {
+    if (_queries[siteUrl] == query) return;
+    _queries[siteUrl] = query;
+    _notifyChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final connectedForums = _connectedForums;
+    final includedCount = connectedForums
+        .where((forum) => _includedForums.contains(forum.url))
+        .length;
+    final allIncluded =
+        connectedForums.isNotEmpty && includedCount == connectedForums.length;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Select forums, then edit one topic filter at a time. Leave '
+                'the filter empty to use that forum’s default list.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final count = Text(
+                    '$includedCount of ${connectedForums.length} connected '
+                    'forums included',
+                    key: const ValueKey('aggregate-filter-included-count'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  );
+                  final actions = Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DButton(
+                        key: const ValueKey('aggregate-filter-select-all'),
+                        label: const Text('Select all'),
+                        onPressed: allIncluded ? null : _selectAll,
+                        variant: DButtonVariant.link,
+                        size: DButtonSize.small,
+                      ),
+                      DButton(
+                        key: const ValueKey('aggregate-filter-clear'),
+                        label: const Text('Clear'),
+                        onPressed: includedCount == 0 ? null : _clearSelection,
+                        variant: DButtonVariant.link,
+                        size: DButtonSize.small,
+                      ),
+                    ],
+                  );
+                  if (constraints.maxWidth < 340) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [count, const SizedBox(height: 4), actions],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: count),
+                      const SizedBox(width: 8),
+                      actions,
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        Divider(height: 1, color: theme.shell.divider),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= _wideBreakpoint) {
+              final height = (widget.forums.length * 58.0 + 24).clamp(
+                300.0,
+                380.0,
+              );
+              return SizedBox(
+                key: const ValueKey('aggregate-filter-wide-layout'),
+                height: height,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(width: 270, child: _buildForumList(context)),
+                    VerticalDivider(width: 1, color: theme.shell.divider),
+                    Expanded(child: _buildFocusedEditor(context)),
+                  ],
+                ),
+              );
+            }
+
+            final listHeight = (widget.forums.length * 58.0 + 20).clamp(
+              112.0,
+              280.0,
+            );
+            return Column(
+              key: const ValueKey('aggregate-filter-narrow-layout'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(height: listHeight, child: _buildForumList(context)),
+                Divider(height: 1, color: theme.shell.divider),
+                _buildFocusedEditor(context),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForumList(BuildContext context) {
+    final theme = Theme.of(context);
+    if (widget.forums.isEmpty) {
+      return ColoredBox(
+        color: theme.shell.content,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'No forums available',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ColoredBox(
+      color: theme.shell.content,
+      child: ListView.separated(
+        key: const ValueKey('aggregate-filter-forum-list'),
+        padding: const EdgeInsets.all(10),
+        itemCount: widget.forums.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 3),
+        itemBuilder: (context, index) {
+          final forum = widget.forums[index];
+          final focused = forum.url == _focusedForumUrl;
+          return Semantics(
+            selected: focused,
+            container: true,
+            child: Material(
+              key: ValueKey('aggregate-filter-row-${forum.url}'),
+              color: focused ? theme.shell.selected : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+              child: Row(
+                children: [
+                  Checkbox(
+                    key: ValueKey('aggregate-filter-${forum.url}'),
+                    value:
+                        forum.isConnected &&
+                        _includedForums.contains(forum.url),
+                    onChanged: forum.isConnected
+                        ? (included) =>
+                              _setForumIncluded(forum, included ?? false)
+                        : null,
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      key: ValueKey('aggregate-filter-focus-${forum.url}'),
+                      borderRadius: BorderRadius.circular(9),
+                      onTap: () => _focusForum(forum),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 54),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(0, 8, 12, 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      forum.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      forum.isConnected
+                                          ? forum.host
+                                          : 'Sign in to include',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              DIcon(
+                                DIcons.chevronRight,
+                                size: 13,
+                                color: focused
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFocusedEditor(BuildContext context) {
+    final theme = Theme.of(context);
+    final forum = _focusedForum;
+    if (forum == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Connect a forum to configure its filter.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final included = forum.isConnected && _includedForums.contains(forum.url);
+    final helper = !forum.isConnected
+        ? 'Sign in to this forum before including it.'
+        : !included
+        ? 'Include this forum to edit its filter.'
+        : 'Leave empty to use this forum’s default topic list.';
+
+    return Padding(
+      key: const ValueKey('aggregate-filter-editor-panel'),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Editing filter',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.35,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            forum.title,
+            key: const ValueKey('aggregate-filter-editor-title'),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            forum.host,
+            key: const ValueKey('aggregate-filter-editor-host'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            'Topic filter query',
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 7),
+          TopicFilterInput(
+            key: ValueKey('aggregate-filter-editor-${forum.url}'),
+            siteUrl: forum.url,
+            initialQuery: _queries[forum.url] ?? '',
+            options: widget.controller.aggregate.filterOptionsFor(forum.url),
+            categories: widget.controller.filterCategoriesFor(forum.url),
+            onSubmitted: (query) async => _updateQuery(forum.url, query),
+            onChanged: (query) => _updateQuery(forum.url, query),
+            inputKey: ValueKey('aggregate-query-${forum.url}'),
+            clearKey: ValueKey('aggregate-query-clear-${forum.url}'),
+            hintText: 'Use forum default',
+            padding: EdgeInsets.zero,
+            enabled: included,
+            preferSuggestionsAbove: true,
+          ),
+          const SizedBox(height: 7),
+          Text(
+            helper,
+            key: const ValueKey('aggregate-filter-editor-helper'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
