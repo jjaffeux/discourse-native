@@ -4,9 +4,10 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'package:intl/intl.dart';
 
 import '../models/user_directory.dart';
+import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
@@ -183,17 +184,15 @@ class _UsersPageState extends State<UsersPage> {
   final Set<int> _selectedIds = {};
   int? _hoveredId;
   bool _syncingVerticalScroll = false;
+  bool _loadMoreCheckScheduled = false;
+  bool _loadMoreRequested = false;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController(text: widget.data.query.search);
-    _identityVertical.addListener(
-      () => _syncVertical(_identityVertical, _metricsVertical),
-    );
-    _metricsVertical.addListener(
-      () => _syncVertical(_metricsVertical, _identityVertical),
-    );
+    _identityVertical.addListener(_identityScrolled);
+    _metricsVertical.addListener(_metricsScrolled);
   }
 
   @override
@@ -222,6 +221,13 @@ class _UsersPageState extends State<UsersPage> {
         ..removeWhere((id) => !newIds.contains(id))
         ..addAll(newIds.difference(oldIds));
     }
+    if (oldWidget.data.items.length != widget.data.items.length ||
+        oldWidget.data.loadingMore != widget.data.loadingMore ||
+        oldWidget.data.hasMore != widget.data.hasMore ||
+        oldWidget.data.query != widget.data.query) {
+      _loadMoreRequested = false;
+      _scheduleLoadMoreCheck();
+    }
   }
 
   @override
@@ -247,6 +253,44 @@ class _UsersPageState extends State<UsersPage> {
     _syncingVerticalScroll = true;
     target.jumpTo(offset);
     _syncingVerticalScroll = false;
+  }
+
+  void _identityScrolled() {
+    _syncVertical(_identityVertical, _metricsVertical);
+    _scheduleLoadMoreCheck();
+  }
+
+  void _metricsScrolled() {
+    _syncVertical(_metricsVertical, _identityVertical);
+    _scheduleLoadMoreCheck();
+  }
+
+  void _scheduleLoadMoreCheck() {
+    if (_loadMoreCheckScheduled) return;
+    _loadMoreCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMoreCheckScheduled = false;
+      if (mounted) _maybeLoadMore();
+    });
+  }
+
+  void _maybeLoadMore() {
+    if (_loadMoreRequested ||
+        widget.onLoadMore == null ||
+        !widget.data.hasMore ||
+        widget.data.loading ||
+        widget.data.loadingMore ||
+        widget.data.pageError) {
+      return;
+    }
+    final position = _metricsVertical.hasClients
+        ? _metricsVertical.position
+        : _identityVertical.hasClients
+        ? _identityVertical.position
+        : null;
+    if (position == null || position.extentAfter > _rowHeight * 5) return;
+    _loadMoreRequested = true;
+    widget.onLoadMore!();
   }
 
   void _search(String value) {
@@ -317,17 +361,19 @@ class _UsersPageState extends State<UsersPage> {
             ),
           ),
           actions: [
-            TextButton(
+            DButton(
               onPressed: () => updateDialog(() {
                 draft
                   ..clear()
                   ..addAll(widget.data.columns.map((column) => column.id));
               }),
-              child: const Text('Show all'),
+              label: const Text('Show all'),
+              variant: DButtonVariant.transparent,
             ),
-            FilledButton(
+            DButton(
               onPressed: () => Navigator.pop(dialogContext, draft),
-              child: const Text('Done'),
+              label: const Text('Done'),
+              variant: DButtonVariant.primary,
             ),
           ],
         ),
@@ -361,211 +407,53 @@ class _UsersPageState extends State<UsersPage> {
   Widget build(BuildContext context) {
     final palette = _MatrixPalette.of(context);
     final columns = _visibleColumns;
+    _scheduleLoadMoreCheck();
     return ColoredBox(
-      color: palette.canvas,
+      key: const ValueKey('users-page'),
+      color: palette.surface,
       child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 720;
-          final low = constraints.maxHeight < 620;
-          return Padding(
-            padding: EdgeInsets.fromLTRB(
-              compact ? 10 : 24,
-              low ? 10 : 20,
-              compact ? 10 : 24,
-              compact ? 10 : 20,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (!low)
-                  _DirectoryHero(
-                    data: widget.data,
-                    palette: palette,
-                    compact: compact,
-                  ),
-                Expanded(
-                  child: _DirectorySurface(
-                    siteUrl: widget.siteUrl,
-                    palette: palette,
-                    data: widget.data,
-                    columns: columns,
-                    compact: compact,
-                    searchController: _searchController,
-                    searchFocus: _searchFocus,
-                    horizontal: _horizontal,
-                    identityVertical: _identityVertical,
-                    metricsVertical: _metricsVertical,
-                    rowHeight: _rowHeight,
-                    headerHeight: _headerHeight,
-                    metricWidth: _metricWidth,
-                    selectedIds: _selectedIds,
-                    hoveredId: _hoveredId,
-                    onHover: (id) {
-                      if (_hoveredId == id) return;
-                      setState(() => _hoveredId = id);
-                    },
-                    onSearchChanged: _search,
-                    onSearchSubmitted: _submitSearch,
-                    onClearSearch: () {
-                      _searchController.clear();
-                      _submitSearch('');
-                      setState(() {});
-                    },
-                    onPeriodChanged: widget.onPeriodChanged,
-                    onGroupChanged: widget.onGroupChanged,
-                    onSort: _sort,
-                    onDirectionChanged: () => widget.onSortChanged?.call(
-                      widget.data.query.order,
-                      !widget.data.query.ascending,
-                    ),
-                    onChooseColumns: _chooseColumns,
-                    onToggleRow: _toggleRow,
-                    onToggleAll: _toggleAll,
-                    onRefresh: widget.onRefresh,
-                    onLoadMore: widget.onLoadMore,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
+        builder: (context, constraints) => _DirectorySurface(
+          siteUrl: widget.siteUrl,
+          palette: palette,
+          data: widget.data,
+          columns: columns,
+          compact: constraints.maxWidth < 720,
+          searchController: _searchController,
+          searchFocus: _searchFocus,
+          horizontal: _horizontal,
+          identityVertical: _identityVertical,
+          metricsVertical: _metricsVertical,
+          rowHeight: _rowHeight,
+          headerHeight: _headerHeight,
+          metricWidth: _metricWidth,
+          selectedIds: _selectedIds,
+          hoveredId: _hoveredId,
+          onHover: (id) {
+            if (_hoveredId == id) return;
+            setState(() => _hoveredId = id);
+          },
+          onSearchChanged: _search,
+          onSearchSubmitted: _submitSearch,
+          onClearSearch: () {
+            _searchController.clear();
+            _submitSearch('');
+            setState(() {});
+          },
+          onPeriodChanged: widget.onPeriodChanged,
+          onGroupChanged: widget.onGroupChanged,
+          onSort: _sort,
+          onDirectionChanged: () => widget.onSortChanged?.call(
+            widget.data.query.order,
+            !widget.data.query.ascending,
+          ),
+          onChooseColumns: _chooseColumns,
+          onToggleRow: _toggleRow,
+          onToggleAll: _toggleAll,
+          onRefresh: widget.onRefresh,
+        ),
       ),
     );
   }
-}
-
-class _DirectoryHero extends StatelessWidget {
-  const _DirectoryHero({
-    required this.data,
-    required this.palette,
-    required this.compact,
-  });
-
-  final UsersPageData data;
-  final _MatrixPalette palette;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final copy = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'DATASET / DIRECTORY_ITEMS',
-          style: TextStyle(
-            color: palette.green,
-            fontFamily: 'monospace',
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.25,
-          ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          'Community signal',
-          style: TextStyle(
-            color: palette.ink,
-            fontSize: compact ? 28 : 36,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.5,
-            height: 1,
-          ),
-        ),
-        const SizedBox(height: 7),
-        Text(
-          'Every contribution, sortable and close at hand.',
-          style: TextStyle(color: palette.muted, fontSize: 12),
-        ),
-      ],
-    );
-
-    if (compact) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(4, 1, 4, 14),
-        child: copy,
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 0, 4, 18),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(child: copy),
-          _MetaCard(
-            label: 'People',
-            value: data.loaded ? _formatCompact(data.totalRows) : '—',
-            palette: palette,
-          ),
-          const SizedBox(width: 8),
-          _MetaCard(
-            label: 'Window',
-            value: data.query.period.label,
-            palette: palette,
-          ),
-          const SizedBox(width: 8),
-          _MetaCard(
-            label: 'Updated',
-            value: _formatUpdated(data.lastUpdatedAt),
-            palette: palette,
-            small: true,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetaCard extends StatelessWidget {
-  const _MetaCard({
-    required this.label,
-    required this.value,
-    required this.palette,
-    this.small = false,
-  });
-
-  final String label;
-  final String value;
-  final _MatrixPalette palette;
-  final bool small;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 112,
-    height: 68,
-    padding: const EdgeInsets.all(11),
-    decoration: BoxDecoration(
-      color: palette.heroCard,
-      border: Border.all(color: palette.line),
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            color: palette.faint,
-            fontSize: 8,
-            fontWeight: FontWeight.w700,
-            letterSpacing: .8,
-          ),
-        ),
-        const Spacer(),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: palette.ink,
-            fontFamily: 'monospace',
-            fontSize: small ? 11 : 17,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    ),
-  );
 }
 
 class _DirectorySurface extends StatelessWidget {
@@ -597,7 +485,6 @@ class _DirectorySurface extends StatelessWidget {
     required this.onToggleRow,
     required this.onToggleAll,
     required this.onRefresh,
-    required this.onLoadMore,
   });
 
   final String siteUrl;
@@ -627,207 +514,58 @@ class _DirectorySurface extends StatelessWidget {
   final void Function(int id, bool selected) onToggleRow;
   final ValueChanged<bool> onToggleAll;
   final Future<void> Function()? onRefresh;
-  final VoidCallback? onLoadMore;
 
   @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: palette.surface,
-        border: Border.all(color: palette.line),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: palette.shadow,
-            blurRadius: 32,
-            offset: const Offset(0, 14),
-          ),
-        ],
+  Widget build(BuildContext context) => Column(
+    key: const ValueKey('users-directory-surface'),
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _DirectoryToolbar(
+        palette: palette,
+        data: data,
+        compact: compact,
+        searchController: searchController,
+        searchFocus: searchFocus,
+        visibleColumnCount: columns.length,
+        onSearchChanged: onSearchChanged,
+        onSearchSubmitted: onSearchSubmitted,
+        onClearSearch: onClearSearch,
+        onPeriodChanged: onPeriodChanged,
+        onGroupChanged: onGroupChanged,
+        onSort: onSort,
+        onDirectionChanged: onDirectionChanged,
+        onChooseColumns: onChooseColumns,
+        onRefresh: onRefresh,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _SurfaceHeader(
-              palette: palette,
-              data: data,
-              compact: compact,
-              onPeriodChanged: onPeriodChanged,
-            ),
-            if (data.loading) LinearProgressIndicator(color: palette.accent),
-            _DirectoryToolbar(
-              palette: palette,
-              data: data,
-              compact: compact,
-              searchController: searchController,
-              searchFocus: searchFocus,
-              visibleColumnCount: columns.length,
-              onSearchChanged: onSearchChanged,
-              onSearchSubmitted: onSearchSubmitted,
-              onClearSearch: onClearSearch,
-              onGroupChanged: onGroupChanged,
-              onSort: onSort,
-              onDirectionChanged: onDirectionChanged,
-              onChooseColumns: onChooseColumns,
-              onRefresh: onRefresh,
-            ),
-            _QueryStrip(palette: palette, data: data),
-            Expanded(
-              child: _TableBody(
-                palette: palette,
-                data: data,
-                columns: columns,
-                siteUrl: siteUrl,
-                horizontal: horizontal,
-                identityVertical: identityVertical,
-                metricsVertical: metricsVertical,
-                rowHeight: rowHeight,
-                headerHeight: headerHeight,
-                metricWidth: metricWidth,
-                selectedIds: selectedIds,
-                hoveredId: hoveredId,
-                onHover: onHover,
-                onSort: onSort,
-                onToggleRow: onToggleRow,
-                onToggleAll: onToggleAll,
-              ),
-            ),
-            _TableFooter(
-              palette: palette,
-              data: data,
-              selectedCount: selectedIds.length,
-              onLoadMore: onLoadMore,
-            ),
-          ],
+      if (data.loading || data.loadingMore)
+        const LinearProgressIndicator(
+          key: ValueKey('users-directory-progress'),
+          minHeight: 2,
         ),
-      ),
-    );
-  }
-}
-
-class _SurfaceHeader extends StatelessWidget {
-  const _SurfaceHeader({
-    required this.palette,
-    required this.data,
-    required this.compact,
-    required this.onPeriodChanged,
-  });
-
-  final _MatrixPalette palette;
-  final UsersPageData data;
-  final bool compact;
-  final ValueChanged<UserDirectoryPeriod>? onPeriodChanged;
-
-  static const _periods = [
-    UserDirectoryPeriod.daily,
-    UserDirectoryPeriod.weekly,
-    UserDirectoryPeriod.monthly,
-    UserDirectoryPeriod.quarterly,
-    UserDirectoryPeriod.yearly,
-    UserDirectoryPeriod.all,
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final identity = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '${data.totalRows} ROWS · ${data.columns.length} PROPERTIES',
-          style: TextStyle(
-            color: palette.onDarkMuted,
-            fontFamily: 'monospace',
-            fontSize: 8,
-            fontWeight: FontWeight.w700,
-            letterSpacing: .8,
+      Expanded(
+        child: KeyedSubtree(
+          key: const ValueKey('users-table'),
+          child: _TableBody(
+            palette: palette,
+            data: data,
+            columns: columns,
+            siteUrl: siteUrl,
+            horizontal: horizontal,
+            identityVertical: identityVertical,
+            metricsVertical: metricsVertical,
+            rowHeight: rowHeight,
+            headerHeight: headerHeight,
+            metricWidth: metricWidth,
+            selectedIds: selectedIds,
+            hoveredId: hoveredId,
+            onHover: onHover,
+            onSort: onSort,
+            onToggleRow: onToggleRow,
+            onToggleAll: onToggleAll,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Users / ${data.query.period.queryValue} activity',
-          style: TextStyle(
-            color: palette.onDark,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-    final periods = SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Container(
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          color: palette.onDark.withValues(alpha: .07),
-          border: Border.all(color: palette.onDark.withValues(alpha: .1)),
-          borderRadius: BorderRadius.circular(9),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final period in _periods)
-              _PeriodButton(
-                period: period,
-                active: data.query.period == period,
-                palette: palette,
-                onPressed: onPeriodChanged == null
-                    ? null
-                    : () => onPeriodChanged!(period),
-              ),
-          ],
-        ),
       ),
-    );
-
-    return ColoredBox(
-      color: palette.dark,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16, compact ? 11 : 13, 16, 12),
-        child: compact
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [identity, const SizedBox(height: 10), periods],
-              )
-            : Row(
-                children: [
-                  Expanded(child: identity),
-                  Flexible(child: periods),
-                ],
-              ),
-      ),
-    );
-  }
-}
-
-class _PeriodButton extends StatelessWidget {
-  const _PeriodButton({
-    required this.period,
-    required this.active,
-    required this.palette,
-    required this.onPressed,
-  });
-
-  final UserDirectoryPeriod period;
-  final bool active;
-  final _MatrixPalette palette;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) => TextButton(
-    key: ValueKey('users-period-${period.queryValue}'),
-    onPressed: onPressed,
-    style: TextButton.styleFrom(
-      minimumSize: const Size(0, 29),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      backgroundColor: active ? palette.accent : Colors.transparent,
-      foregroundColor: active ? palette.accentInk : palette.onDarkMuted,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      textStyle: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
-    ),
-    child: Text(period.label),
+    ],
   );
 }
 
@@ -842,6 +580,7 @@ class _DirectoryToolbar extends StatelessWidget {
     required this.onSearchChanged,
     required this.onSearchSubmitted,
     required this.onClearSearch,
+    required this.onPeriodChanged,
     required this.onGroupChanged,
     required this.onSort,
     required this.onDirectionChanged,
@@ -858,6 +597,7 @@ class _DirectoryToolbar extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onSearchSubmitted;
   final VoidCallback onClearSearch;
+  final ValueChanged<UserDirectoryPeriod>? onPeriodChanged;
   final ValueChanged<String?>? onGroupChanged;
   final ValueChanged<String> onSort;
   final VoidCallback onDirectionChanged;
@@ -866,8 +606,9 @@ class _DirectoryToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final search = SizedBox(
-      height: 38,
+      height: 40,
       child: TextField(
         key: const ValueKey('users-search'),
         controller: searchController,
@@ -875,19 +616,21 @@ class _DirectoryToolbar extends StatelessWidget {
         onChanged: onSearchChanged,
         onSubmitted: onSearchSubmitted,
         textInputAction: TextInputAction.search,
-        style: TextStyle(color: palette.ink, fontSize: 12),
+        style: theme.textTheme.bodyMedium,
         decoration: InputDecoration(
           isDense: true,
           filled: true,
-          fillColor: palette.subtle,
+          fillColor: theme.shell.content,
           hintText: 'Search people',
-          hintStyle: TextStyle(color: palette.faint),
+          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
           prefixIcon: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 11),
             child: DIcon(
               DIcons.magnifyingGlass,
               size: 15,
-              color: palette.muted,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           prefixIconConstraints: const BoxConstraints(minWidth: 37),
@@ -896,7 +639,11 @@ class _DirectoryToolbar extends StatelessWidget {
               : IconButton(
                   tooltip: 'Clear search',
                   onPressed: onClearSearch,
-                  icon: DIcon(DIcons.xmark, size: 13, color: palette.muted),
+                  icon: DIcon(
+                    DIcons.xmark,
+                    size: 13,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
           border: _inputBorder(palette),
           enabledBorder: _inputBorder(palette),
@@ -908,34 +655,28 @@ class _DirectoryToolbar extends StatelessWidget {
     final controls = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        _PeriodMenu(selected: data.query.period, onChanged: onPeriodChanged),
+        const SizedBox(width: 8),
         _GroupMenu(
-          palette: palette,
           groups: data.groupNames,
           selected: data.query.group,
           onChanged: onGroupChanged,
         ),
         const SizedBox(width: 7),
-        _SortMenu(
-          palette: palette,
-          columns: data.columns,
-          query: data.query,
-          onSort: onSort,
-        ),
+        _SortMenu(columns: data.columns, query: data.query, onSort: onSort),
         const SizedBox(width: 5),
         _ToolbarIconButton(
           key: const ValueKey('users-sort-direction'),
-          palette: palette,
           tooltip: data.query.ascending ? 'Ascending' : 'Descending',
           onPressed: onDirectionChanged,
           icon: Transform.rotate(
             angle: data.query.ascending ? 0 : math.pi,
-            child: DIcon(DIcons.arrowUp, size: 13, color: palette.ink),
+            child: const DIcon(DIcons.arrowUp, size: 13),
           ),
         ),
         const SizedBox(width: 7),
         _ToolbarButton(
           key: const ValueKey('users-columns'),
-          palette: palette,
           onPressed: onChooseColumns,
           icon: DIcons.list,
           label: 'Columns',
@@ -944,35 +685,43 @@ class _DirectoryToolbar extends StatelessWidget {
         const SizedBox(width: 7),
         _ToolbarIconButton(
           key: const ValueKey('users-refresh'),
-          palette: palette,
           tooltip: 'Refresh directory',
           onPressed: onRefresh == null ? null : () => unawaited(onRefresh!()),
-          icon: DIcon(DIcons.arrowsRotate, size: 14, color: palette.ink),
+          icon: const DIcon(DIcons.arrowsRotate, size: 14),
         ),
       ],
     );
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-      child: compact
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                search,
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: controls,
+    return Material(
+      key: const ValueKey('users-toolbar'),
+      color: theme.shell.sidebar,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: theme.shell.divider)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    search,
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: controls,
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: search),
+                    const SizedBox(width: 12),
+                    controls,
+                  ],
                 ),
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(child: search),
-                const SizedBox(width: 10),
-                controls,
-              ],
-            ),
+        ),
+      ),
     );
   }
 
@@ -982,8 +731,40 @@ class _DirectoryToolbar extends StatelessWidget {
   }) => OutlineInputBorder(
     borderRadius: BorderRadius.circular(8),
     borderSide: BorderSide(
-      color: focused ? palette.green : palette.line,
+      color: focused ? palette.accent : palette.line,
       width: focused ? 1.5 : 1,
+    ),
+  );
+}
+
+class _PeriodMenu extends StatelessWidget {
+  const _PeriodMenu({required this.selected, required this.onChanged});
+
+  final UserDirectoryPeriod selected;
+  final ValueChanged<UserDirectoryPeriod>? onChanged;
+
+  @override
+  Widget build(BuildContext context) => ChoiceMenuAnchor<UserDirectoryPeriod>(
+    title: 'Activity period',
+    showPopoverTitle: false,
+    value: selected,
+    options: [
+      for (final period in UserDirectoryPeriod.values.reversed)
+        ChoiceMenuOption(
+          value: period,
+          title: period.label,
+          description: '',
+          compact: true,
+        ),
+    ],
+    enabled: onChanged != null,
+    onSelected: (period) => onChanged?.call(period),
+    builder: (context, openMenu) => _ToolbarButton(
+      key: const ValueKey('users-period-filter'),
+      onPressed: openMenu,
+      icon: DIcons.farClock,
+      label: selected.label,
+      chevron: true,
     ),
   );
 }
@@ -992,13 +773,11 @@ const String _allGroups = '__all_groups__';
 
 class _GroupMenu extends StatelessWidget {
   const _GroupMenu({
-    required this.palette,
     required this.groups,
     required this.selected,
     required this.onChanged,
   });
 
-  final _MatrixPalette palette;
   final List<String> groups;
   final String? selected;
   final ValueChanged<String?>? onChanged;
@@ -1030,7 +809,6 @@ class _GroupMenu extends StatelessWidget {
           onChanged?.call(value == _allGroups ? null : value),
       builder: (context, openMenu) => _ToolbarButton(
         key: const ValueKey('users-group-filter'),
-        palette: palette,
         onPressed: openMenu,
         icon: DIcons.users,
         label: selected ?? 'All groups',
@@ -1042,13 +820,11 @@ class _GroupMenu extends StatelessWidget {
 
 class _SortMenu extends StatelessWidget {
   const _SortMenu({
-    required this.palette,
     required this.columns,
     required this.query,
     required this.onSort,
   });
 
-  final _MatrixPalette palette;
   final List<UserDirectoryColumn> columns;
   final UserDirectoryQuery query;
   final ValueChanged<String> onSort;
@@ -1074,7 +850,6 @@ class _SortMenu extends StatelessWidget {
       onSelected: onSort,
       builder: (context, openMenu) => _ToolbarButton(
         key: const ValueKey('users-sort'),
-        palette: palette,
         onPressed: openMenu,
         icon: DIcons.arrowUp,
         label: labels[query.order]!,
@@ -1087,7 +862,6 @@ class _SortMenu extends StatelessWidget {
 class _ToolbarButton extends StatelessWidget {
   const _ToolbarButton({
     super.key,
-    required this.palette,
     required this.onPressed,
     required this.icon,
     required this.label,
@@ -1095,7 +869,6 @@ class _ToolbarButton extends StatelessWidget {
     this.chevron = false,
   });
 
-  final _MatrixPalette palette;
   final VoidCallback? onPressed;
   final DIconData icon;
   final String label;
@@ -1103,181 +876,68 @@ class _ToolbarButton extends StatelessWidget {
   final bool chevron;
 
   @override
-  Widget build(BuildContext context) => OutlinedButton(
-    onPressed: onPressed,
-    style: OutlinedButton.styleFrom(
-      minimumSize: const Size(0, 38),
-      maximumSize: const Size(190, 38),
-      padding: const EdgeInsets.symmetric(horizontal: 11),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      backgroundColor: palette.subtle,
-      foregroundColor: palette.ink,
-      side: BorderSide(color: palette.line),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        DIcon(icon, size: 13, color: palette.muted),
-        const SizedBox(width: 7),
-        Flexible(
-          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 190, minHeight: 40),
+      child: DButton(
+        onPressed: onPressed,
+        size: DButtonSize.small,
+        icon: DIcon(icon, size: 14),
+        alignment: Alignment.centerLeft,
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+            if (count != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                constraints: const BoxConstraints(minWidth: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  '$count',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            ],
+            if (chevron) ...[
+              const SizedBox(width: 8),
+              const DIcon(DIcons.chevronDown, size: 11),
+            ],
+          ],
         ),
-        if (count != null) ...[
-          const SizedBox(width: 7),
-          Container(
-            constraints: const BoxConstraints(minWidth: 18),
-            height: 18,
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: palette.accentSoft,
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: Text(
-              '$count',
-              style: TextStyle(color: palette.accentInk, fontSize: 8),
-            ),
-          ),
-        ],
-        if (chevron) ...[
-          const SizedBox(width: 7),
-          DIcon(DIcons.chevronDown, size: 10, color: palette.faint),
-        ],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _ToolbarIconButton extends StatelessWidget {
   const _ToolbarIconButton({
     super.key,
-    required this.palette,
     required this.tooltip,
     required this.onPressed,
     required this.icon,
   });
 
-  final _MatrixPalette palette;
   final String tooltip;
   final VoidCallback? onPressed;
   final Widget icon;
 
   @override
-  Widget build(BuildContext context) => IconButton.outlined(
+  Widget build(BuildContext context) => DButton.iconOnly(
     tooltip: tooltip,
     onPressed: onPressed,
-    style: IconButton.styleFrom(
-      fixedSize: const Size(38, 38),
-      minimumSize: const Size(38, 38),
-      maximumSize: const Size(38, 38),
-      padding: EdgeInsets.zero,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      backgroundColor: palette.subtle,
-      side: BorderSide(color: palette.line),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    ),
     icon: icon,
-  );
-}
-
-class _QueryStrip extends StatelessWidget {
-  const _QueryStrip({required this.palette, required this.data});
-
-  final _MatrixPalette palette;
-  final UsersPageData data;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 34,
-    child: ListView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 7),
-      children: [
-        _QueryChip(
-          palette: palette,
-          property: 'Period',
-          value: data.query.period.label,
-        ),
-        const SizedBox(width: 6),
-        if (data.query.group case final group?) ...[
-          _QueryChip(palette: palette, property: 'Group', value: group),
-          const SizedBox(width: 6),
-        ],
-        if (data.query.search.isNotEmpty) ...[
-          _QueryChip(
-            palette: palette,
-            property: 'Search',
-            value: data.query.search,
-          ),
-          const SizedBox(width: 6),
-        ],
-        _QueryChip(
-          palette: palette,
-          property: 'Sort',
-          value:
-              '${_humanize(data.query.order)} '
-              '${data.query.ascending ? '↑' : '↓'}',
-        ),
-        const SizedBox(width: 12),
-        Center(
-          child: Text(
-            data.loaded ? '${data.totalRows} results' : 'Loading dataset…',
-            style: TextStyle(
-              color: palette.faint,
-              fontFamily: 'monospace',
-              fontSize: 9,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _QueryChip extends StatelessWidget {
-  const _QueryChip({
-    required this.palette,
-    required this.property,
-    required this.value,
-  });
-
-  final _MatrixPalette palette;
-  final String property;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    height: 25,
-    padding: const EdgeInsets.symmetric(horizontal: 8),
-    decoration: BoxDecoration(
-      color: palette.accentSoft,
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          property.toUpperCase(),
-          style: TextStyle(
-            color: palette.green,
-            fontSize: 7,
-            fontWeight: FontWeight.w800,
-            letterSpacing: .5,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          value,
-          style: TextStyle(
-            color: palette.accentInk,
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    ),
+    size: DButtonSize.small,
   );
 }
 
@@ -1325,8 +985,8 @@ class _TableBody extends StatelessWidget {
         key: const ValueKey('users-loading'),
         palette: palette,
         icon: DIcons.users,
-        title: 'Reading community signal',
-        detail: 'Loading people and directory properties…',
+        title: 'Loading users',
+        detail: 'Loading the user directory…',
         progress: true,
       );
     }
@@ -1465,10 +1125,12 @@ class _TableBody extends StatelessWidget {
                                         child: Center(
                                           child: Text(
                                             'Choose columns to show metrics',
-                                            style: TextStyle(
-                                              color: palette.faint,
-                                              fontSize: 10,
-                                            ),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: palette.faint,
+                                                ),
                                           ),
                                         ),
                                       ),
@@ -1651,47 +1313,47 @@ class _HeaderButton extends StatelessWidget {
   final Alignment alignment;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    sortKey: OrdinalSortKey(sorted ? 0 : 1),
-    button: true,
-    label:
-        'Sort by $label${sorted ? ', currently ${ascending ? 'ascending' : 'descending'}' : ''}',
-    child: InkWell(
-      onTap: onPressed,
-      child: Align(
-        alignment: alignment,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                label.toUpperCase(),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: alignment == Alignment.centerRight
-                    ? TextAlign.right
-                    : TextAlign.left,
-                style: TextStyle(
-                  color: sorted ? palette.ink : palette.faint,
-                  fontFamily: 'monospace',
-                  fontSize: 7.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: .55,
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      sortKey: OrdinalSortKey(sorted ? 0 : 1),
+      button: true,
+      label:
+          'Sort by $label${sorted ? ', currently ${ascending ? 'ascending' : 'descending'}' : ''}',
+      child: InkWell(
+        onTap: onPressed,
+        child: Align(
+          alignment: alignment,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: alignment == Alignment.centerRight
+                      ? TextAlign.right
+                      : TextAlign.left,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: sorted ? palette.ink : palette.faint,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-            if (sorted) ...[
-              const SizedBox(width: 4),
-              Transform.rotate(
-                angle: ascending ? 0 : math.pi,
-                child: DIcon(DIcons.arrowUp, size: 8, color: palette.green),
-              ),
+              if (sorted) ...[
+                const SizedBox(width: 4),
+                Transform.rotate(
+                  angle: ascending ? 0 : math.pi,
+                  child: DIcon(DIcons.arrowUp, size: 10, color: palette.green),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _IdentityRow extends StatelessWidget {
@@ -1755,11 +1417,10 @@ class _IdentityRow extends StatelessWidget {
                 ),
                 child: Text(
                   '$rank',
-                  style: TextStyle(
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: rank <= 3 ? palette.accentInk : palette.faint,
-                    fontFamily: 'monospace',
-                    fontSize: 8,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ),
@@ -1797,11 +1458,11 @@ class _IdentityRow extends StatelessWidget {
                                   item.user.username,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: palette.ink,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: palette.ink,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                 ),
                               ),
                               if (item.user.primaryGroupName
@@ -1817,12 +1478,14 @@ class _IdentityRow extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    group.toUpperCase(),
-                                    style: TextStyle(
-                                      color: palette.green,
-                                      fontSize: 6,
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                                    group,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: palette.green,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                   ),
                                 ),
                               ],
@@ -1833,7 +1496,8 @@ class _IdentityRow extends StatelessWidget {
                             item.user.name ?? item.user.title ?? 'Member',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: palette.faint, fontSize: 8),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: palette.faint),
                           ),
                         ],
                       ),
@@ -1863,10 +1527,9 @@ class _AvatarFallback extends StatelessWidget {
     color: palette.avatarFor(user.id),
     child: Text(
       _initials(user),
-      style: TextStyle(
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
         color: palette.dark,
-        fontSize: 8,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w600,
       ),
     ),
   );
@@ -1926,11 +1589,9 @@ class _MetricCell extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: userField ? TextAlign.left : TextAlign.right,
-              style: TextStyle(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: palette.ink,
-                fontFamily: 'monospace',
-                fontSize: 10,
-                fontWeight: numeric == null ? FontWeight.w500 : FontWeight.w700,
+                fontWeight: numeric == null ? FontWeight.w400 : FontWeight.w600,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
@@ -1939,86 +1600,6 @@ class _MetricCell extends StatelessWidget {
       ),
     );
   }
-}
-
-class _TableFooter extends StatelessWidget {
-  const _TableFooter({
-    required this.palette,
-    required this.data,
-    required this.selectedCount,
-    required this.onLoadMore,
-  });
-
-  final _MatrixPalette palette;
-  final UsersPageData data;
-  final int selectedCount;
-  final VoidCallback? onLoadMore;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    constraints: const BoxConstraints(minHeight: 45),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-    decoration: BoxDecoration(
-      color: palette.subtle,
-      border: Border(top: BorderSide(color: palette.line)),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Text(
-            selectedCount > 0
-                ? '$selectedCount selected'
-                : '${data.items.length} of ${data.totalRows} loaded',
-            style: TextStyle(
-              color: palette.muted,
-              fontFamily: 'monospace',
-              fontSize: 9,
-            ),
-          ),
-        ),
-        if (data.pageError && data.error != null)
-          Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: Text(
-              data.error!,
-              style: TextStyle(color: palette.danger, fontSize: 9),
-            ),
-          ),
-        if (data.loadingMore)
-          SizedBox(
-            width: 26,
-            height: 26,
-            child: Padding(
-              padding: const EdgeInsets.all(5),
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: palette.green,
-              ),
-            ),
-          )
-        else if (data.hasMore || data.pageError)
-          FilledButton(
-            key: const ValueKey('users-load-more'),
-            onPressed: onLoadMore,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 30),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              backgroundColor: palette.accent,
-              foregroundColor: palette.accentInk,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(7),
-              ),
-              textStyle: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            child: Text(data.pageError ? 'Retry' : 'Load 50 more'),
-          ),
-      ],
-    ),
-  );
 }
 
 class _TableState extends StatelessWidget {
@@ -2058,17 +1639,18 @@ class _TableState extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: palette.ink,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 5),
           Text(
             detail,
             textAlign: TextAlign.center,
-            style: TextStyle(color: palette.muted, fontSize: 11),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: palette.muted),
           ),
           if (progress) ...[
             const SizedBox(height: 16),
@@ -2089,10 +1671,7 @@ class _TableState extends StatelessWidget {
 @immutable
 final class _MatrixPalette {
   const _MatrixPalette({
-    required this.canvas,
     required this.surface,
-    required this.subtle,
-    required this.heroCard,
     required this.tableHeader,
     required this.ink,
     required this.muted,
@@ -2100,67 +1679,38 @@ final class _MatrixPalette {
     required this.line,
     required this.rowLine,
     required this.dark,
-    required this.onDark,
-    required this.onDarkMuted,
     required this.accent,
     required this.accentInk,
     required this.accentSoft,
     required this.green,
-    required this.danger,
-    required this.shadow,
+    required this.hover,
+    required this.selected,
+    required this.avatarBackground,
   });
 
   factory _MatrixPalette.of(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return dark
-        ? const _MatrixPalette(
-            canvas: Color(0xFF101713),
-            surface: Color(0xFF17201A),
-            subtle: Color(0xFF1D2921),
-            heroCard: Color(0xFF17221B),
-            tableHeader: Color(0xFF1D2921),
-            ink: Color(0xFFF0F7F1),
-            muted: Color(0xFFA7B4AA),
-            faint: Color(0xFF748178),
-            line: Color(0xFF304036),
-            rowLine: Color(0xFF26352C),
-            dark: Color(0xFF09110D),
-            onDark: Color(0xFFF6FFF9),
-            onDarkMuted: Color(0xFF819087),
-            accent: Color(0xFFA7EF4C),
-            accentInk: Color(0xFF152708),
-            accentSoft: Color(0xFF29421D),
-            green: Color(0xFF7BD6A8),
-            danger: Color(0xFFFF8F86),
-            shadow: Color(0x40000000),
-          )
-        : const _MatrixPalette(
-            canvas: Color(0xFFDFE6DF),
-            surface: Color(0xFFFFFFFF),
-            subtle: Color(0xFFEDF2ED),
-            heroCard: Color(0xB3F7FAF6),
-            tableHeader: Color(0xFFEDF2ED),
-            ink: Color(0xFF132019),
-            muted: Color(0xFF657169),
-            faint: Color(0xFF94A198),
-            line: Color(0xFFD4DED5),
-            rowLine: Color(0xFFEDF1ED),
-            dark: Color(0xFF14231C),
-            onDark: Color(0xFFF6FFF9),
-            onDarkMuted: Color(0xFF829088),
-            accent: Color(0xFFA7EF4C),
-            accentInk: Color(0xFF152708),
-            accentSoft: Color(0xFFDFFFB7),
-            green: Color(0xFF338F69),
-            danger: Color(0xFFB83C34),
-            shadow: Color(0x1A142C1F),
-          );
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return _MatrixPalette(
+      surface: theme.shell.content,
+      tableHeader: theme.shell.sidebar,
+      ink: colors.onSurface,
+      muted: colors.onSurfaceVariant,
+      faint: colors.onSurfaceVariant.withValues(alpha: .72),
+      line: theme.shell.divider,
+      rowLine: theme.shell.divider.withValues(alpha: .72),
+      dark: colors.onSecondaryContainer,
+      accent: colors.primary,
+      accentInk: colors.onPrimaryContainer,
+      accentSoft: colors.primaryContainer,
+      green: colors.primary,
+      hover: theme.shell.hover,
+      selected: theme.shell.selected,
+      avatarBackground: colors.secondaryContainer,
+    );
   }
 
-  final Color canvas;
   final Color surface;
-  final Color subtle;
-  final Color heroCard;
   final Color tableHeader;
   final Color ink;
   final Color muted;
@@ -2168,26 +1718,15 @@ final class _MatrixPalette {
   final Color line;
   final Color rowLine;
   final Color dark;
-  final Color onDark;
-  final Color onDarkMuted;
   final Color accent;
   final Color accentInk;
   final Color accentSoft;
   final Color green;
-  final Color danger;
-  final Color shadow;
+  final Color hover;
+  final Color selected;
+  final Color avatarBackground;
 
-  Color avatarFor(int id) {
-    const colors = [
-      Color(0xFFFFD39A),
-      Color(0xFF9FE2DD),
-      Color(0xFFFFB8CE),
-      Color(0xFFFFE083),
-      Color(0xFFADD7FF),
-      Color(0xFFD6EF93),
-    ];
-    return colors[id.abs() % colors.length];
-  }
+  Color avatarFor(int _) => avatarBackground;
 }
 
 Color _rowColor(
@@ -2195,8 +1734,8 @@ Color _rowColor(
   required bool selected,
   required bool hovered,
 }) {
-  if (selected) return palette.accentSoft.withValues(alpha: .58);
-  if (hovered) return palette.accentSoft.withValues(alpha: .28);
+  if (selected) return palette.selected;
+  if (hovered) return palette.hover;
   return palette.surface;
 }
 
@@ -2236,11 +1775,6 @@ String _formatCompact(num value) {
 String _trimDecimal(num value) => value
     .toStringAsFixed(value.abs() >= 10 ? 0 : 1)
     .replaceFirst(RegExp(r'\.0$'), '');
-
-String _formatUpdated(DateTime? value) {
-  if (value == null) return 'Pending';
-  return DateFormat.MMMd().add_Hm().format(value.toLocal());
-}
 
 String _humanize(String value) {
   final words = value.replaceAll(RegExp(r'[_-]+'), ' ').trim();
