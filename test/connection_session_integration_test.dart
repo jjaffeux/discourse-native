@@ -129,7 +129,13 @@ void _registerConnectionSessionTests() {
 
       expect(auth.connected, ['https://meta.discourse.org']);
       expect(find.byTooltip('Joffrey'), findsOneWidget);
-      expect(find.text('meta.discourse.org'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(UserMenuButton),
+          matching: find.text('meta.discourse.org'),
+        ),
+        findsNothing,
+      );
       expect(store.saveCount, 2);
     });
 

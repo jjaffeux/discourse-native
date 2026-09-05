@@ -702,7 +702,7 @@ class _ForumIdentityHeader extends StatelessWidget {
                     DTooltip(
                       message: siteUrl,
                       child: Text(
-                        siteUrl,
+                        siteUrl.replaceFirst(RegExp(r'^https?://'), ''),
                         key: const ValueKey('forum-identity-url'),
                         maxLines: 1,
                         softWrap: false,
