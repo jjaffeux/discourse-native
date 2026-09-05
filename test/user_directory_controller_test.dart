@@ -68,10 +68,59 @@ void main() {
     expect(controller.queryFor(instance.url), const UserDirectoryQuery());
     expect(controller.stateFor(instance.url).loaded, isFalse);
   });
+
+  test('staff can load and update the complete column configuration', () async {
+    final transport = _ControllerTransport();
+    final controller = UserDirectoryController(
+      api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+      credentials: const _Credentials(),
+      lifecycle: SiteLifecycle(),
+    );
+    addTearDown(controller.dispose);
+    const instance = DiscourseInstance(
+      url: 'https://example.com',
+      title: 'Example',
+      user: DiscourseUser(username: 'admin', staff: true),
+    );
+
+    await controller.load(instance);
+
+    var state = controller.stateFor(instance.url);
+    expect(state.canManageColumns, isTrue);
+    expect(state.columns.map((column) => column.name), ['likes_received']);
+    expect(state.availableColumns.map((column) => column.name), [
+      'likes_received',
+      'solutions',
+      'GitHub Username',
+    ]);
+    expect(
+      transport.requests.where(
+        (path) => path == '/edit-directory-columns.json',
+      ),
+      hasLength(1),
+    );
+
+    final update = controller.updateColumns(instance, [
+      for (final column in state.availableColumns)
+        column.name == 'solutions' ? column.copyWith(enabled: true) : column,
+    ]);
+    expect(controller.updatingColumnsFor(instance.url), isTrue);
+    expect(await update, isTrue);
+    expect(controller.updatingColumnsFor(instance.url), isFalse);
+
+    state = controller.stateFor(instance.url);
+    expect(state.columns.map((column) => column.name), [
+      'likes_received',
+      'solutions',
+    ]);
+    expect(transport.writes.single.path, '/edit-directory-columns.json');
+  });
 }
 
 final class _ControllerTransport implements PluginApiTransport {
   final List<String> requests = [];
+  final List<({String path, Map<String, Object?> body})> writes = [];
+  final Map<int, bool> columnEnabled = {1: true, 9: false, 14: false};
 
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -82,6 +131,34 @@ final class _ControllerTransport implements PluginApiTransport {
   }) async {
     requests.add(path);
     final uri = Uri.parse(path);
+    if (uri.path == '/edit-directory-columns.json') {
+      return {
+        'directory_columns': [
+          {
+            'id': 1,
+            'name': 'likes_received',
+            'type': 'automatic',
+            'position': 1,
+            'enabled': columnEnabled[1],
+          },
+          {
+            'id': 9,
+            'name': 'solutions',
+            'type': 'plugin',
+            'position': 2,
+            'enabled': columnEnabled[9],
+          },
+          {
+            'id': 14,
+            'name': 'GitHub Username',
+            'type': 'user_field',
+            'position': 3,
+            'user_field_id': 42,
+            'enabled': columnEnabled[14],
+          },
+        ],
+      };
+    }
     if (uri.path == '/directory-columns.json') {
       return const {
         'directory_columns': [
@@ -130,7 +207,20 @@ final class _ControllerTransport implements PluginApiTransport {
     required String apiKey,
     required Map<String, Object?> body,
     String? clientId,
-  }) => throw UnimplementedError();
+  }) async {
+    writes.add((path: path, body: body));
+    final configuration = body['directory_columns'];
+    if (configuration is Map) {
+      for (final value in configuration.values) {
+        if (value is Map) {
+          final id = value['id'];
+          final enabled = value['enabled'];
+          if (id is int && enabled is bool) columnEnabled[id] = enabled;
+        }
+      }
+    }
+    return const {};
+  }
 }
 
 final class _Credentials implements ApiCredentialReader {

@@ -41,6 +41,81 @@ void main() {
   });
 
   test(
+    'loads every editable column for staff and keeps disabled options',
+    () async {
+      final transport = _DirectoryTransport()
+        ..responses['/edit-directory-columns.json'] = {
+          'directory_columns': [
+            {
+              'id': 1,
+              'name': 'likes_received',
+              'type': 'automatic',
+              'position': 1,
+              'enabled': true,
+            },
+            {
+              'id': 9,
+              'name': 'solutions',
+              'type': 'plugin',
+              'position': 2,
+              'enabled': false,
+            },
+          ],
+        };
+      final api = UserDirectoryApi(transport, const DiscourseModelCodec.core());
+
+      final metadata = await api.metadata(
+        siteUrl: siteUrl,
+        apiKey: 'secret',
+        canManageColumns: true,
+      );
+
+      expect(metadata.canManageColumns, isTrue);
+      expect(metadata.columns.map((column) => column.name), ['likes_received']);
+      expect(metadata.availableColumns.map((column) => column.name), [
+        'likes_received',
+        'solutions',
+      ]);
+      expect(
+        transport.requests.map((request) => request.path),
+        contains('/edit-directory-columns.json'),
+      );
+      expect(
+        transport.requests.map((request) => request.path),
+        isNot(contains('/directory-columns.json')),
+      );
+    },
+  );
+
+  test(
+    'falls back to enabled columns when the editor is unavailable',
+    () async {
+      final transport = _DirectoryTransport()
+        ..failingPaths.add('/edit-directory-columns.json')
+        ..responses['/directory-columns.json'] = {
+          'directory_columns': [
+            {
+              'id': 1,
+              'name': 'likes_received',
+              'type': 'automatic',
+              'position': 1,
+            },
+          ],
+        };
+      final api = UserDirectoryApi(transport, const DiscourseModelCodec.core());
+
+      final metadata = await api.metadata(
+        siteUrl: siteUrl,
+        apiKey: 'secret',
+        canManageColumns: true,
+      );
+
+      expect(metadata.canManageColumns, isFalse);
+      expect(metadata.availableColumns.single.name, 'likes_received');
+    },
+  );
+
+  test(
     'maps the complete core query and omits descending asc parameter',
     () async {
       final transport = _DirectoryTransport();
@@ -129,11 +204,77 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('saves enabled state and normalized column order', () async {
+    final transport = _DirectoryTransport();
+    final api = UserDirectoryApi(transport, const DiscourseModelCodec.core());
+    const columns = [
+      UserDirectoryColumn(
+        id: 9,
+        name: 'solutions',
+        type: UserDirectoryColumnType.plugin,
+        position: 8,
+        enabled: false,
+      ),
+      UserDirectoryColumn(
+        id: 1,
+        name: 'likes_received',
+        type: UserDirectoryColumnType.automatic,
+        position: 3,
+      ),
+    ];
+
+    await api.updateColumns(
+      siteUrl: siteUrl,
+      apiKey: 'secret',
+      clientId: 'client',
+      columns: columns,
+    );
+
+    final write = transport.writes.single;
+    expect(write.path, '/edit-directory-columns.json');
+    expect(write.method, 'PUT');
+    expect(write.apiKey, 'secret');
+    expect(write.clientId, 'client');
+    expect(write.body, {
+      'directory_columns': {
+        '0': {'id': 9, 'enabled': false, 'position': 1},
+        '1': {'id': 1, 'enabled': true, 'position': 2},
+      },
+    });
+    await expectLater(
+      api.updateColumns(
+        siteUrl: siteUrl,
+        apiKey: 'secret',
+        columns: const [
+          UserDirectoryColumn(
+            id: 9,
+            name: 'solutions',
+            type: UserDirectoryColumnType.plugin,
+            position: 1,
+            enabled: false,
+          ),
+        ],
+      ),
+      throwsArgumentError,
+    );
+  });
 }
 
 final class _DirectoryTransport implements PluginApiTransport {
   final Map<String, Map<String, dynamic>> responses = {};
+  final Set<String> failingPaths = {};
   final List<({String path, String? apiKey})> requests = [];
+  final List<
+    ({
+      String path,
+      String method,
+      String apiKey,
+      String? clientId,
+      Map<String, Object?> body,
+    })
+  >
+  writes = [];
 
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -143,6 +284,7 @@ final class _DirectoryTransport implements PluginApiTransport {
     String? clientId,
   }) async {
     requests.add((path: path, apiKey: apiKey));
+    if (failingPaths.contains(path)) throw StateError('Unavailable');
     return responses[path] ??
         const {
           'directory_items': <Map<String, Object?>>[],
@@ -158,5 +300,14 @@ final class _DirectoryTransport implements PluginApiTransport {
     required String apiKey,
     required Map<String, Object?> body,
     String? clientId,
-  }) => throw UnimplementedError();
+  }) async {
+    writes.add((
+      path: path,
+      method: method,
+      apiKey: apiKey,
+      clientId: clientId,
+      body: body,
+    ));
+    return const {};
+  }
 }

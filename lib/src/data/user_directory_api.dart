@@ -18,8 +18,25 @@ final class UserDirectoryApi {
     String? apiKey,
     String? clientId,
     Iterable<String> fallbackGroupNames = const [],
+    bool canManageColumns = false,
   }) async {
-    final columns = await _get(
+    var editable = false;
+    Map<String, dynamic>? columns;
+    if (canManageColumns && apiKey != null) {
+      try {
+        columns = await _get(
+          siteUrl: siteUrl,
+          path: '/edit-directory-columns.json',
+          apiKey: apiKey,
+          clientId: clientId,
+        );
+        editable = true;
+      } catch (_) {
+        // Older sites and restricted staff accounts may not expose the
+        // editor endpoint. The public enabled-column list still works.
+      }
+    }
+    columns ??= await _get(
       siteUrl: siteUrl,
       path: '/directory-columns.json',
       apiKey: apiKey,
@@ -41,7 +58,41 @@ final class UserDirectoryApi {
       // Group discovery is an enhancement to the directory filter. The
       // directory remains useful when a site hides or disables /groups.json.
     }
-    return UserDirectoryMetadata.fromColumns(columns, groupNames: groupNames);
+    return UserDirectoryMetadata.fromColumns(
+      columns,
+      groupNames: groupNames,
+      editable: editable,
+    );
+  }
+
+  Future<void> updateColumns({
+    required String siteUrl,
+    required String apiKey,
+    required List<UserDirectoryColumn> columns,
+    String? clientId,
+  }) async {
+    if (columns.isEmpty || !columns.any((column) => column.enabled)) {
+      throw ArgumentError.value(
+        columns,
+        'columns',
+        'At least one directory column must remain enabled.',
+      );
+    }
+    await _transport.pluginWriteJson(
+      siteUrl: siteUrl,
+      path: '/edit-directory-columns.json',
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'directory_columns': {
+          for (var index = 0; index < columns.length; index++)
+            '$index': columns[index]
+                .copyWith(position: index + 1)
+                .toConfigurationWire(),
+        },
+      },
+    );
   }
 
   Future<UserDirectoryPage> directory({

@@ -37,6 +37,7 @@ final class UserDirectoryColumn {
     required this.position,
     this.icon,
     this.userFieldId,
+    this.enabled = true,
   });
 
   factory UserDirectoryColumn.fromWire(Map<String, dynamic> json) {
@@ -51,6 +52,7 @@ final class UserDirectoryColumn {
       position: jsonInt(json['position']),
       icon: jsonText(json['icon']),
       userFieldId: jsonIntOrNull(json['user_field_id']),
+      enabled: json['enabled'] is bool ? json['enabled'] as bool : true,
     );
   }
 
@@ -60,6 +62,24 @@ final class UserDirectoryColumn {
   final int position;
   final String? icon;
   final int? userFieldId;
+  final bool enabled;
+
+  UserDirectoryColumn copyWith({int? position, bool? enabled}) =>
+      UserDirectoryColumn(
+        id: id,
+        name: name,
+        type: type,
+        position: position ?? this.position,
+        icon: icon,
+        userFieldId: userFieldId,
+        enabled: enabled ?? this.enabled,
+      );
+
+  Map<String, Object> toConfigurationWire() => {
+    'id': id,
+    'enabled': enabled,
+    'position': position,
+  };
 
   String get label => switch (name) {
     'likes_received' => 'Likes received',
@@ -219,12 +239,15 @@ final class UserDirectoryPage {
 final class UserDirectoryMetadata {
   const UserDirectoryMetadata({
     this.columns = const [],
+    this.availableColumns = const [],
     this.groupNames = const [],
+    this.canManageColumns = false,
   });
 
   factory UserDirectoryMetadata.fromColumns(
     Map<String, dynamic> json, {
     Iterable<String> groupNames = const [],
+    bool editable = false,
   }) {
     final columns = <UserDirectoryColumn>[];
     for (final raw in jsonObjects(json['directory_columns'])) {
@@ -240,11 +263,17 @@ final class UserDirectoryMetadata {
         if (group.trim().isNotEmpty) group.trim(),
     }.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return UserDirectoryMetadata(
-      columns: List.unmodifiable(columns),
+      columns: List.unmodifiable(
+        editable ? columns.where((column) => column.enabled) : columns,
+      ),
+      availableColumns: List.unmodifiable(columns),
       groupNames: List.unmodifiable(normalizedGroups),
+      canManageColumns: editable,
     );
   }
 
   final List<UserDirectoryColumn> columns;
+  final List<UserDirectoryColumn> availableColumns;
   final List<String> groupNames;
+  final bool canManageColumns;
 }
