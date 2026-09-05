@@ -607,8 +607,9 @@ class _DirectoryToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final controlHeight = DButton.iconOnlyDimensionFor(DButtonSize.small);
     final search = SizedBox(
-      height: 40,
+      height: controlHeight,
       child: TextField(
         key: const ValueKey('users-search'),
         controller: searchController,
@@ -633,7 +634,10 @@ class _DirectoryToolbar extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          prefixIconConstraints: const BoxConstraints(minWidth: 37),
+          prefixIconConstraints: BoxConstraints(
+            minWidth: 37,
+            minHeight: controlHeight,
+          ),
           suffixIcon: searchController.text.isEmpty
               ? null
               : IconButton(
