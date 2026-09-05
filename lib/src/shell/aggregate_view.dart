@@ -727,9 +727,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
             padding: EdgeInsets.zero,
             enabled: included,
             preferSuggestionsAbove: true,
-            minLines: 3,
-            maxLines: 5,
-            submitOnEnter: false,
+            tokenized: true,
           ),
           const SizedBox(height: 7),
           Text(

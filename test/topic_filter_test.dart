@@ -116,6 +116,23 @@ void main() {
       );
     });
 
+    test('splits clauses without breaking quoted values', () {
+      expect(
+        splitTopicFilterQuery(
+          'category:design status:open tag_group:"Design team"',
+        ),
+        ['category:design', 'status:open', 'tag_group:"Design team"'],
+      );
+      expect(
+        topicFilterQueryEndsWithSeparator('tag_group:"Design team" '),
+        isTrue,
+      );
+      expect(
+        topicFilterQueryEndsWithSeparator('tag_group:"Design team '),
+        isFalse,
+      );
+    });
+
     test(
       'completes multi-value tags and suppresses values already used',
       () async {
