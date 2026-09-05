@@ -577,10 +577,6 @@ class _UsersPageState extends State<UsersPage> {
           onPeriodChanged: widget.onPeriodChanged,
           onGroupChanged: widget.onGroupChanged,
           onSort: _sort,
-          onDirectionChanged: () => widget.onSortChanged?.call(
-            widget.data.query.order,
-            !widget.data.query.ascending,
-          ),
           onChooseColumns: widget.data.updatingColumns ? null : _chooseColumns,
           onRefresh: widget.onRefresh,
         ),
@@ -612,7 +608,6 @@ class _DirectorySurface extends StatelessWidget {
     required this.onPeriodChanged,
     required this.onGroupChanged,
     required this.onSort,
-    required this.onDirectionChanged,
     required this.onChooseColumns,
     required this.onRefresh,
   });
@@ -638,7 +633,6 @@ class _DirectorySurface extends StatelessWidget {
   final ValueChanged<UserDirectoryPeriod>? onPeriodChanged;
   final ValueChanged<String?>? onGroupChanged;
   final ValueChanged<String> onSort;
-  final VoidCallback onDirectionChanged;
   final VoidCallback? onChooseColumns;
   final Future<void> Function()? onRefresh;
 
@@ -659,8 +653,6 @@ class _DirectorySurface extends StatelessWidget {
         onClearSearch: onClearSearch,
         onPeriodChanged: onPeriodChanged,
         onGroupChanged: onGroupChanged,
-        onSort: onSort,
-        onDirectionChanged: onDirectionChanged,
         onChooseColumns: onChooseColumns,
         onRefresh: onRefresh,
       ),
@@ -706,8 +698,6 @@ class _DirectoryToolbar extends StatelessWidget {
     required this.onClearSearch,
     required this.onPeriodChanged,
     required this.onGroupChanged,
-    required this.onSort,
-    required this.onDirectionChanged,
     required this.onChooseColumns,
     required this.onRefresh,
   });
@@ -723,8 +713,6 @@ class _DirectoryToolbar extends StatelessWidget {
   final VoidCallback onClearSearch;
   final ValueChanged<UserDirectoryPeriod>? onPeriodChanged;
   final ValueChanged<String?>? onGroupChanged;
-  final ValueChanged<String> onSort;
-  final VoidCallback onDirectionChanged;
   final VoidCallback? onChooseColumns;
   final Future<void> Function()? onRefresh;
 
@@ -789,18 +777,6 @@ class _DirectoryToolbar extends StatelessWidget {
           groups: data.groupNames,
           selected: data.query.group,
           onChanged: onGroupChanged,
-        ),
-        const SizedBox(width: 7),
-        _SortMenu(columns: data.columns, query: data.query, onSort: onSort),
-        const SizedBox(width: 5),
-        _ToolbarIconButton(
-          key: const ValueKey('users-sort-direction'),
-          tooltip: data.query.ascending ? 'Ascending' : 'Descending',
-          onPressed: onDirectionChanged,
-          icon: Transform.rotate(
-            angle: data.query.ascending ? 0 : math.pi,
-            child: const DIcon(DIcons.arrowUp, size: 13),
-          ),
         ),
         const SizedBox(width: 7),
         _ToolbarButton(
@@ -940,47 +916,6 @@ class _GroupMenu extends StatelessWidget {
         onPressed: openMenu,
         icon: DIcons.users,
         label: selected ?? 'All groups',
-        chevron: true,
-      ),
-    );
-  }
-}
-
-class _SortMenu extends StatelessWidget {
-  const _SortMenu({
-    required this.columns,
-    required this.query,
-    required this.onSort,
-  });
-
-  final List<UserDirectoryColumn> columns;
-  final UserDirectoryQuery query;
-  final ValueChanged<String> onSort;
-
-  @override
-  Widget build(BuildContext context) {
-    final labels = {
-      'username': 'Username',
-      for (final column in columns) column.name: column.label,
-    };
-    labels.putIfAbsent(query.order, () => _humanize(query.order));
-    return ChoiceMenuAnchor<String>(
-      title: 'Sort users',
-      value: query.order,
-      options: [
-        for (final entry in labels.entries)
-          ChoiceMenuOption(
-            value: entry.key,
-            title: entry.value,
-            description: 'Order the directory by ${entry.value.toLowerCase()}',
-          ),
-      ],
-      onSelected: onSort,
-      builder: (context, openMenu) => _ToolbarButton(
-        key: const ValueKey('users-sort'),
-        onPressed: openMenu,
-        icon: DIcons.arrowUp,
-        label: labels[query.order]!,
         chevron: true,
       ),
     );
@@ -1854,12 +1789,6 @@ String _formatCompact(num value) {
 String _trimDecimal(num value) => value
     .toStringAsFixed(value.abs() >= 10 ? 0 : 1)
     .replaceFirst(RegExp(r'\.0$'), '');
-
-String _humanize(String value) {
-  final words = value.replaceAll(RegExp(r'[_-]+'), ' ').trim();
-  if (words.isEmpty) return value;
-  return '${words[0].toUpperCase()}${words.substring(1)}';
-}
 
 String _initials(UserDirectoryUser user) {
   final words = (user.name ?? user.username)

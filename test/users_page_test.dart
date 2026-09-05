@@ -88,6 +88,8 @@ void main() {
 
       expect(find.text('Community signal'), findsNothing);
       expect(find.text('87 results'), findsNothing);
+      expect(find.byKey(const ValueKey('users-sort')), findsNothing);
+      expect(find.byKey(const ValueKey('users-sort-direction')), findsNothing);
       expect(find.byKey(const ValueKey('users-load-more')), findsNothing);
       final pageRect = tester.getRect(find.byKey(const ValueKey('users-page')));
       final tableRect = tester.getRect(
@@ -179,9 +181,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(period, UserDirectoryPeriod.monthly);
 
-      await tester.tap(find.text('Likes received').last);
-      expect(sort, ('likes_received', true));
-      await tester.tap(find.byKey(const ValueKey('users-sort-direction')));
+      expect(find.text('Likes received'), findsOneWidget);
+      await tester.tap(find.text('Likes received'));
       expect(sort, ('likes_received', true));
 
       await tester.tap(find.byKey(const ValueKey('users-columns')));
