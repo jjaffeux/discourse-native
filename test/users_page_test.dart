@@ -131,6 +131,8 @@ void main() {
         AppTheme.light.shell.content,
       );
       expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
+      expect(find.text('1'), findsNothing);
+      expect(find.text('2'), findsNothing);
       expect(find.text('290'), findsOneWidget);
       expect(find.text('121'), findsOneWidget);
 

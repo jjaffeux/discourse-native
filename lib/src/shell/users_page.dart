@@ -1082,7 +1082,6 @@ class _TableBody extends StatelessWidget {
                               palette: palette,
                               item: item,
                               siteUrl: siteUrl,
-                              rank: index + 1,
                               currentUser: currentUser,
                               selected: selectedIds.contains(item.id),
                               hovered: hoveredId == item.id,
@@ -1273,7 +1272,6 @@ class _IdentityHeader extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 29),
         Expanded(
           child: _HeaderButton(
             label: 'User',
@@ -1394,7 +1392,6 @@ class _IdentityRow extends StatelessWidget {
     required this.palette,
     required this.item,
     required this.siteUrl,
-    required this.rank,
     required this.currentUser,
     required this.selected,
     required this.hovered,
@@ -1405,7 +1402,6 @@ class _IdentityRow extends StatelessWidget {
   final _MatrixPalette palette;
   final UserDirectoryItem item;
   final String siteUrl;
-  final int rank;
   final bool currentUser;
   final bool selected;
   final bool hovered;
@@ -1441,28 +1437,6 @@ class _IdentityRow extends StatelessWidget {
                 value: selected,
                 activeColor: palette.green,
                 onChanged: (value) => onSelected(value ?? false),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 29,
-            child: Center(
-              child: Container(
-                width: 19,
-                height: 19,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: rank <= 3 ? palette.accentSoft : Colors.transparent,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Text(
-                  '$rank',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: rank <= 3 ? palette.accentInk : palette.faint,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
               ),
             ),
           ),
