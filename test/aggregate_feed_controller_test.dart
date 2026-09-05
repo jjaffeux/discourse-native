@@ -319,44 +319,47 @@ void main() {
       },
     );
 
-    test(
-      'reopens tabs closed by close others in their original order',
-      () async {
-        final controller = AggregateFeedController(
-          api: FakeDiscourseApi(),
-          credentials: FakeApiCredentialReader(),
-          lifecycle: SiteLifecycle(),
-          store: Store(),
-          preferences: AggregatePreferencesStore(
-            persistence: MemoryAggregatePreferencesPersistence(),
-          ),
-          readPersonalizationVersion: (_) => 0,
-          prepareTopic: (_, topic, _) => topic,
-        );
-        addTearDown(controller.dispose);
-        final firstId = controller.activeTabId;
-        controller.createTab();
-        final secondId = controller.activeTabId;
-        controller.createTab();
-        final thirdId = controller.activeTabId;
+    test('lists and reopens a requested tab closed by close others', () async {
+      final controller = AggregateFeedController(
+        api: FakeDiscourseApi(),
+        credentials: FakeApiCredentialReader(),
+        lifecycle: SiteLifecycle(),
+        store: Store(),
+        preferences: AggregatePreferencesStore(
+          persistence: MemoryAggregatePreferencesPersistence(),
+        ),
+        readPersonalizationVersion: (_) => 0,
+        prepareTopic: (_, topic, _) => topic,
+      );
+      addTearDown(controller.dispose);
+      final firstId = controller.activeTabId;
+      controller.createTab();
+      final secondId = controller.activeTabId;
+      controller.createTab();
+      final thirdId = controller.activeTabId;
 
-        expect(controller.closeOtherTabs(secondId), isTrue);
+      expect(controller.closeOtherTabs(secondId), isTrue);
 
-        expect(controller.reopenClosedTab(), isTrue);
-        expect(controller.tabs.map((tab) => tab.id), [firstId, secondId]);
-        expect(controller.activeTabId, firstId);
+      expect(controller.recentlyClosedTabs.map((tab) => tab.id), [
+        firstId,
+        thirdId,
+      ]);
+      expect(controller.reopenClosedTab(thirdId), isTrue);
+      expect(controller.tabs.map((tab) => tab.id), [secondId, thirdId]);
+      expect(controller.activeTabId, thirdId);
+      expect(controller.recentlyClosedTabs.map((tab) => tab.id), [firstId]);
+      expect(controller.reopenClosedTab('missing'), isFalse);
 
-        expect(controller.reopenClosedTab(), isTrue);
-        expect(controller.tabs.map((tab) => tab.id), [
-          firstId,
-          secondId,
-          thirdId,
-        ]);
-        expect(controller.activeTabId, thirdId);
+      expect(controller.reopenClosedTab(), isTrue);
+      expect(controller.tabs.map((tab) => tab.id), [
+        firstId,
+        secondId,
+        thirdId,
+      ]);
+      expect(controller.activeTabId, firstId);
 
-        expect(controller.reopenClosedTab(), isFalse);
-      },
-    );
+      expect(controller.reopenClosedTab(), isFalse);
+    });
 
     test('keeps filters and feed snapshots isolated per tab', () async {
       const openPath = '/filter.json?per_page=30&q=status%3Aopen';

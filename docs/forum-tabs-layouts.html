@@ -1,0 +1,2516 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Compact per-forum tabs and floating forum control — mockup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #0d0f12;
+        --rail: #131417;
+        --sidebar: #1a1c20;
+        --content: #212429;
+        --content-raised: #25282e;
+        --floating: #272b32;
+        --hover: #2c3037;
+        --divider: #2b2e35;
+        --divider-strong: #3a3f48;
+        --text: #f1f3f5;
+        --text-soft: #c5c9cf;
+        --muted: #8b939f;
+        --muted-2: #676e79;
+        --blue: #099dd7;
+        --blue-bright: #26b6ec;
+        --blue-soft: rgb(9 157 215 / 16%);
+        --tertiary: #0088cc;
+        --tertiary-low: #203e4d;
+        --green: #45b574;
+        --orange: #f2a45d;
+        --red: #ef7777;
+        --love: #fa6c8d;
+        --shadow: 0 24px 80px rgb(0 0 0 / 42%);
+        font-family:
+          Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        min-width: 940px;
+        background: var(--page);
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 50% -12%, rgb(9 157 215 / 12%), transparent 34%),
+          var(--page);
+      }
+
+      button,
+      input {
+        color: inherit;
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--blue-bright);
+        outline-offset: 2px;
+      }
+
+      svg {
+        display: block;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .icon-sprite {
+        position: absolute;
+        overflow: hidden;
+        width: 0;
+        height: 0;
+      }
+
+      .icon {
+        width: 1em;
+        height: 1em;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+      }
+
+      .study-header {
+        position: sticky;
+        z-index: 100;
+        top: 0;
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+        align-items: center;
+        min-height: 70px;
+        padding: 12px 24px;
+        border-bottom: 1px solid rgb(255 255 255 / 7%);
+        background: rgb(13 15 18 / 90%);
+        backdrop-filter: blur(18px);
+      }
+
+      .study-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .study-brand__mark {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid rgb(9 157 215 / 38%);
+        border-radius: 9px;
+        color: #8fdcff;
+        background: var(--blue-soft);
+      }
+
+      .study-brand__copy span,
+      .study-brand__copy strong {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .study-brand__copy span {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .study-brand__copy strong {
+        margin-top: 3px;
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .decision-summary {
+        display: flex;
+        gap: 3px;
+        padding: 4px;
+        border: 1px solid var(--divider);
+        border-radius: 10px;
+        background: #171a1f;
+      }
+
+      .decision-summary span {
+        padding: 8px 11px;
+        border-radius: 7px;
+        color: var(--text-soft);
+        background: var(--floating);
+        box-shadow: inset 0 0 0 1px rgb(255 255 255 / 5%);
+        font-size: 11px;
+        font-weight: 620;
+      }
+
+      .decision-summary span + span {
+        color: #a8dff4;
+        background: var(--blue-soft);
+      }
+
+      .study-status {
+        justify-self: end;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .study-status::before {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        margin-right: 7px;
+        border-radius: 50%;
+        background: var(--green);
+        content: "";
+        vertical-align: 1px;
+      }
+
+      .study-main {
+        width: min(1500px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 26px 0 42px;
+      }
+
+      .concept-intro {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 28px;
+        align-items: end;
+        width: min(1210px, 100%);
+        min-height: 88px;
+        margin: 0 auto 20px;
+      }
+
+      .concept-intro__index {
+        display: block;
+        margin-bottom: 7px;
+        color: #65c8f2;
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .concept-intro h1 {
+        margin: 0;
+        font-size: clamp(22px, 2vw, 30px);
+        font-weight: 680;
+        letter-spacing: -0.025em;
+      }
+
+      .concept-intro p {
+        max-width: 800px;
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .concept-specs {
+        display: flex;
+        gap: 7px;
+        justify-content: flex-end;
+        padding-bottom: 2px;
+      }
+
+      .concept-specs span {
+        min-width: 72px;
+        padding: 6px 9px;
+        border: 1px solid var(--divider);
+        border-radius: 999px;
+        color: var(--muted);
+        background: rgb(255 255 255 / 2%);
+        font-size: 10px;
+        font-weight: 650;
+        text-align: center;
+      }
+
+      .app-frame {
+        --strip-height: 38px;
+        --tab-height: 34px;
+        --tab-max: 184px;
+        --tab-min: 112px;
+        --tab-radius: 9px;
+        --shoulder: 9px;
+        --rail-width: 58px;
+        --sidebar-width: 256px;
+        position: relative;
+        overflow: hidden;
+        width: 100%;
+        height: min(720px, calc(100vh - 214px));
+        min-height: 590px;
+        border: 1px solid #30343c;
+        border-radius: 17px;
+        background: var(--content);
+        box-shadow: var(--shadow);
+        isolation: isolate;
+      }
+
+      .window-strip {
+        display: grid;
+        grid-template-columns: 96px 1fr 96px;
+        align-items: center;
+        height: 30px;
+        border-bottom: 1px solid rgb(255 255 255 / 4%);
+        background: #15171a;
+        -webkit-app-region: drag;
+      }
+
+      .traffic-lights {
+        display: flex;
+        gap: 7px;
+        padding-left: 14px;
+      }
+
+      .traffic-lights span {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 35%);
+      }
+
+      .traffic-lights span:nth-child(1) {
+        background: #ff5f57;
+      }
+
+      .traffic-lights span:nth-child(2) {
+        background: #febc2e;
+      }
+
+      .traffic-lights span:nth-child(3) {
+        background: #28c840;
+      }
+
+      .window-title {
+        color: #777f89;
+        font-size: 11px;
+        font-weight: 600;
+        text-align: center;
+      }
+
+      .window-tools {
+        display: flex;
+        justify-content: flex-end;
+        padding-right: 11px;
+      }
+
+      .window-tools button {
+        display: grid;
+        width: 26px;
+        height: 22px;
+        place-items: center;
+        border: 0;
+        border-radius: 5px;
+        color: #737a84;
+        background: transparent;
+      }
+
+      .window-tools button:hover {
+        color: var(--text-soft);
+        background: rgb(255 255 255 / 5%);
+      }
+
+      /* Compact per-forum tab strip. */
+      .tabs-strip {
+        position: absolute;
+        z-index: 20;
+        top: 30px;
+        right: 0;
+        left: calc(var(--rail-width) + var(--sidebar-width));
+        display: flex;
+        align-items: flex-end;
+        height: var(--strip-height);
+        padding: 0 8px;
+        border-bottom: 1px solid var(--divider);
+        background: var(--sidebar);
+      }
+
+      .tab-switcher-trigger,
+      .new-tab-button {
+        position: relative;
+        z-index: 6;
+        display: grid;
+        width: var(--strip-height);
+        height: var(--strip-height);
+        flex: 0 0 auto;
+        place-items: center;
+        border: 0;
+        color: var(--text-soft);
+        background: transparent;
+      }
+
+      .tab-switcher-trigger {
+        margin-right: 4px;
+      }
+
+      .tab-switcher-trigger__surface,
+      .new-tab-button__surface {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border-radius: 8px;
+        transition:
+          color 120ms ease,
+          background 120ms ease,
+          transform 120ms ease;
+      }
+
+      .tab-switcher-trigger:hover .tab-switcher-trigger__surface,
+      .tab-switcher-trigger[aria-expanded="true"] .tab-switcher-trigger__surface,
+      .new-tab-button:hover .new-tab-button__surface {
+        color: var(--text);
+        background: var(--hover);
+      }
+
+      .tab-switcher-trigger[aria-expanded="true"] .tab-switcher-trigger__surface {
+        color: #b6e9fb;
+        background: var(--blue-soft);
+      }
+
+      .tab-switcher-trigger .icon {
+        font-size: 15px;
+        transition: transform 130ms ease;
+      }
+
+      .tab-switcher-trigger[aria-expanded="true"] .icon {
+        transform: rotate(180deg);
+      }
+
+      .new-tab-button {
+        margin-left: 3px;
+      }
+
+      .new-tab-button .icon {
+        font-size: 17px;
+      }
+
+      .tabs-viewport {
+        display: flex;
+        min-width: 0;
+        height: 100%;
+        flex: 0 1 auto;
+        align-items: flex-end;
+        overflow: hidden;
+      }
+
+      .tabs-list {
+        display: flex;
+        min-width: 0;
+        height: var(--tab-height);
+        flex: 1 1 auto;
+        align-items: stretch;
+      }
+
+      .forum-tab {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        min-width: var(--tab-min);
+        max-width: var(--tab-max);
+        height: var(--tab-height);
+        flex: 1 1 var(--tab-max);
+        align-items: stretch;
+        color: var(--muted);
+        transition:
+          color 110ms ease,
+          background 110ms ease;
+      }
+
+      .forum-tab:hover,
+      .forum-tab.is-hover-preview {
+        z-index: 3;
+        color: #edf5fb;
+      }
+
+      .forum-tab.is-active {
+        z-index: 5;
+        height: calc(var(--tab-height) + 1px);
+        color: var(--text);
+        background: var(--content);
+        border-radius: var(--tab-radius) var(--tab-radius) 0 0;
+      }
+
+      .forum-tab.is-active::before,
+      .forum-tab.is-active::after {
+        position: absolute;
+        z-index: -1;
+        bottom: 0;
+        width: var(--shoulder);
+        height: var(--shoulder);
+        content: "";
+        pointer-events: none;
+      }
+
+      .forum-tab.is-active::before {
+        left: calc(var(--shoulder) * -1);
+        border-radius: 0 0 var(--shoulder) 0;
+        box-shadow: calc(var(--shoulder) / 2) calc(var(--shoulder) / 2) 0
+          calc(var(--shoulder) / 2) var(--content);
+      }
+
+      .forum-tab.is-active::after {
+        right: calc(var(--shoulder) * -1);
+        border-radius: 0 0 0 var(--shoulder);
+        box-shadow: calc(var(--shoulder) / -2) calc(var(--shoulder) / 2) 0
+          calc(var(--shoulder) / 2) var(--content);
+      }
+
+      .forum-tab:not(.is-active)::before {
+        position: absolute;
+        z-index: 0;
+        inset: 3px 2px;
+        border-radius: 11px;
+        background: var(--tertiary-low);
+        content: "";
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 110ms ease,
+          background 110ms ease;
+      }
+
+      .forum-tab:not(.is-active):hover::before,
+      .forum-tab:not(.is-active).is-hover-preview::before {
+        opacity: 1;
+      }
+
+      .tabs-list:hover .forum-tab.is-hover-preview:not(:hover) {
+        z-index: 1;
+        color: var(--muted);
+      }
+
+      .tabs-list:hover .forum-tab.is-hover-preview:not(:hover)::before {
+        opacity: 0;
+      }
+
+      .tabs-list:hover
+        .forum-tab.is-hover-preview:not(:hover)
+        .forum-tab__separator,
+      .tabs-list:hover
+        .forum-tab:not(.is-active):not(:hover):has(
+          + .forum-tab.is-hover-preview:not(:hover)
+        )
+        .forum-tab__separator {
+        opacity: 0.82;
+      }
+
+      .forum-tab__select {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        min-width: 0;
+        flex: 1 1 auto;
+        align-items: center;
+        gap: 8px;
+        padding: 0 4px 0 13px;
+        border: 0;
+        color: inherit;
+        background: transparent;
+        text-align: left;
+      }
+
+      .forum-tab__title {
+        overflow: hidden;
+        min-width: 0;
+        flex: 1 1 auto;
+        font-size: 13px;
+        font-weight: 520;
+        line-height: 1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .forum-tab__badge {
+        width: 7px;
+        height: 7px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: var(--tertiary);
+        box-shadow: 0 0 0 2px var(--content);
+      }
+
+      .forum-tab__close {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        width: 34px;
+        height: 100%;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 0;
+        color: inherit;
+        background: transparent;
+        transition: opacity 100ms ease;
+      }
+
+      .forum-tab__close-surface {
+        display: grid;
+        width: 23px;
+        height: 23px;
+        place-items: center;
+        border-radius: 6px;
+      }
+
+      .forum-tab__close:hover .forum-tab__close-surface {
+        color: var(--text);
+        background: rgb(255 255 255 / 13%);
+      }
+
+      .forum-tab__close .icon {
+        font-size: 12px;
+        stroke-width: 2;
+      }
+
+      .forum-tab__separator {
+        position: absolute;
+        z-index: 2;
+        top: 9px;
+        right: 0;
+        width: 1px;
+        height: calc(100% - 18px);
+        background: var(--divider-strong);
+        opacity: 0.82;
+        pointer-events: none;
+      }
+
+      .forum-tab.is-active .forum-tab__separator,
+      .forum-tab:has(+ .forum-tab.is-active) .forum-tab__separator,
+      .forum-tab:hover .forum-tab__separator,
+      .forum-tab.is-hover-preview .forum-tab__separator,
+      .forum-tab:has(+ .forum-tab:hover) .forum-tab__separator,
+      .forum-tab:has(+ .forum-tab.is-hover-preview) .forum-tab__separator {
+        opacity: 0;
+      }
+
+      .forum-tab:not(.is-active):hover {
+        background: transparent;
+      }
+
+      .forum-tab:not(.is-active):hover .forum-tab__badge,
+      .tabs-list:not(:hover)
+        .forum-tab:not(.is-active).is-hover-preview
+        .forum-tab__badge {
+        box-shadow: 0 0 0 2px var(--tertiary-low);
+      }
+
+      .tabs-strip__spacer {
+        min-width: 44px;
+        flex: 1 1 120px;
+      }
+
+      .tab-switcher {
+        position: absolute;
+        z-index: 70;
+        top: calc(30px + var(--strip-height) - 1px);
+        left: calc(var(--rail-width) + var(--sidebar-width) + 8px);
+        display: flex;
+        overflow: hidden;
+        width: 390px;
+        max-height: min(540px, calc(100% - 88px));
+        flex-direction: column;
+        border: 1px solid #383c44;
+        border-radius: 14px;
+        background: #1b1d21;
+        box-shadow:
+          0 24px 55px rgb(0 0 0 / 48%),
+          0 3px 10px rgb(0 0 0 / 32%);
+        transform-origin: 26px 0;
+        animation: menu-in 130ms ease-out;
+      }
+
+      @keyframes menu-in {
+        from {
+          opacity: 0;
+          transform: translateY(-4px) scale(0.985);
+        }
+      }
+
+      .tab-switcher__search {
+        position: relative;
+        display: flex;
+        min-height: 62px;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 14px;
+        border-bottom: 1px solid var(--divider-strong);
+      }
+
+      .tab-switcher__search > .icon {
+        flex: 0 0 auto;
+        color: var(--text-soft);
+        font-size: 20px;
+      }
+
+      .tab-switcher__search input {
+        width: 100%;
+        min-width: 0;
+        padding: 8px 82px 8px 0;
+        border: 0;
+        outline: 0;
+        color: var(--text);
+        background: transparent;
+        font-size: 15px;
+      }
+
+      .tab-switcher__search input::placeholder {
+        color: var(--text-soft);
+        opacity: 0.9;
+      }
+
+      .shortcut-hint {
+        position: absolute;
+        right: 15px;
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .shortcut-hint kbd {
+        font: inherit;
+      }
+
+      .tab-switcher__body {
+        overflow: auto;
+        padding: 10px 0 7px;
+        scrollbar-color: #454a53 transparent;
+        scrollbar-width: thin;
+      }
+
+      .tab-switcher__section + .tab-switcher__section {
+        margin-top: 6px;
+      }
+
+      .tab-switcher__heading {
+        display: flex;
+        min-height: 36px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 16px 5px;
+        color: var(--text-soft);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .tab-switcher__count {
+        color: var(--muted-2);
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .switcher-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 34px;
+        align-items: center;
+        min-height: 48px;
+        padding: 4px 10px 4px 15px;
+        border: 0;
+        border-left: 2px solid transparent;
+        color: var(--text-soft);
+        background: transparent;
+      }
+
+      .switcher-row:hover,
+      .switcher-row:focus-within {
+        background: rgb(255 255 255 / 5%);
+      }
+
+      .switcher-row.is-current {
+        border-left-color: var(--tertiary);
+        background: rgb(255 255 255 / 7%);
+      }
+
+      .switcher-row__open,
+      .switcher-row__restore {
+        display: grid;
+        min-width: 0;
+        grid-column: 1;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: center;
+        padding: 0;
+        border: 0;
+        color: inherit;
+        background: transparent;
+        text-align: left;
+      }
+
+      .switcher-row__restore {
+        grid-column: 1 / -1;
+      }
+
+      .switcher-row__copy {
+        display: block;
+        overflow: hidden;
+        min-width: 0;
+      }
+
+      .switcher-row__title,
+      .switcher-row__meta {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .switcher-row__title {
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 610;
+        line-height: 1.35;
+      }
+
+      .switcher-row__meta {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.3;
+      }
+
+      .switcher-row__close {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        grid-column: 2;
+        place-items: center;
+        border: 0;
+        border-radius: 7px;
+        color: var(--muted);
+        background: transparent;
+      }
+
+      .switcher-row__close:hover {
+        color: var(--text);
+        background: rgb(255 255 255 / 8%);
+      }
+
+      .switcher-row__close .icon {
+        font-size: 12px;
+      }
+
+      .empty-results {
+        padding: 22px 18px 26px;
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+      }
+
+      .app-body {
+        display: grid;
+        height: calc(100% - 30px);
+        grid-template-columns:
+          var(--rail-width) var(--sidebar-width) minmax(0, 1fr);
+      }
+
+      .site-rail {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 7px 10px;
+        border-right: 1px solid var(--divider);
+        background: var(--rail);
+      }
+
+      .rail-item {
+        position: relative;
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border: 0;
+        border-radius: 10px;
+        color: var(--muted);
+        background: transparent;
+        font-size: 17px;
+      }
+
+      .rail-item:hover {
+        color: var(--text-soft);
+        background: var(--hover);
+      }
+
+      .rail-item.is-current {
+        color: #fff;
+        background: #30343a;
+      }
+
+      .rail-item.is-current::before {
+        position: absolute;
+        top: 9px;
+        left: -7px;
+        width: 3px;
+        height: 20px;
+        border-radius: 0 3px 3px 0;
+        background: var(--blue-bright);
+        content: "";
+      }
+
+      .rail-item--add {
+        margin-top: 2px;
+        border: 1px dashed #39404a;
+      }
+
+      .rail-spacer {
+        flex: 1;
+      }
+
+      .forum-sidebar {
+        position: relative;
+        display: flex;
+        overflow: hidden;
+        flex-direction: column;
+        border-right: 1px solid var(--divider);
+        background: var(--sidebar);
+      }
+
+      .sidebar-scroll {
+        overflow: hidden;
+        min-height: 0;
+        flex: 1 1 auto;
+        padding: 14px 12px 12px;
+      }
+
+      .forum-mark {
+        display: grid;
+        width: 31px;
+        height: 31px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid rgb(255 255 255 / 10%);
+        border-radius: 9px;
+        color: white;
+        background: #0088cc;
+        box-shadow: inset 0 1px rgb(255 255 255 / 10%);
+        font-size: 11px;
+        font-weight: 750;
+      }
+
+      .forum-mark .icon {
+        font-size: 18px;
+      }
+
+      .forum-mark--meta {
+        background: linear-gradient(145deg, #0098d7, #006fa8);
+      }
+
+      .forum-mark--dev {
+        background: linear-gradient(145deg, #7056d1, #49368f);
+      }
+
+      .forum-mark--team {
+        background: linear-gradient(145deg, #41ad70, #26784a);
+      }
+
+      .forum-footer {
+        position: relative;
+        z-index: 3;
+        flex: 0 0 auto;
+        padding: 7px 9px 8px;
+        border-top: 1px solid var(--divider);
+        background: #181a1e;
+      }
+
+      .forum-button {
+        display: grid;
+        width: 100%;
+        min-height: 49px;
+        grid-template-columns: 31px minmax(0, 1fr) 24px;
+        align-items: center;
+        gap: 9px;
+        padding: 5px 5px 5px 7px;
+        border: 0;
+        border-radius: 8px;
+        color: var(--text-soft);
+        background: transparent;
+        text-align: left;
+        transition:
+          background 120ms ease,
+          border-color 120ms ease,
+          transform 120ms ease;
+      }
+
+      .forum-button:hover,
+      .forum-button[aria-expanded="true"] {
+        color: var(--text);
+        background: var(--hover);
+      }
+
+      .forum-button__name {
+        display: block;
+        overflow: hidden;
+        min-width: 0;
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 650;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .forum-button__chevron {
+        display: grid;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        border-radius: 6px;
+        color: var(--muted-2);
+      }
+
+      .forum-button__chevron .icon {
+        font-size: 13px;
+        transform: rotate(180deg);
+        transition: transform 120ms ease;
+      }
+
+      .forum-button[aria-expanded="true"] .forum-button__chevron .icon {
+        transform: rotate(0deg);
+      }
+
+      .forum-popover {
+        position: absolute;
+        z-index: 12;
+        right: 9px;
+        bottom: calc(100% + 7px);
+        left: 9px;
+        overflow: hidden;
+        border: 1px solid #3a3f48;
+        border-radius: 11px;
+        background: var(--floating);
+        box-shadow: 0 15px 38px rgb(0 0 0 / 42%);
+        transform-origin: 50% 100%;
+        animation: forum-menu-in 120ms ease-out;
+      }
+
+      @keyframes forum-menu-in {
+        from {
+          opacity: 0;
+          transform: translateY(4px) scale(0.985);
+        }
+      }
+
+      .forum-popover__header {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--divider-strong);
+      }
+
+      .forum-popover__header .forum-mark {
+        width: 28px;
+        height: 28px;
+        font-size: 9px;
+      }
+
+      .forum-popover__name {
+        overflow: hidden;
+        min-width: 0;
+        color: var(--text);
+        font-size: 11px;
+        font-weight: 650;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .forum-popover__action {
+        display: flex;
+        width: 100%;
+        min-height: 34px;
+        align-items: center;
+        gap: 9px;
+        padding: 0 12px;
+        border: 0;
+        color: var(--text-soft);
+        background: transparent;
+        font-size: 10px;
+        text-align: left;
+      }
+
+      .forum-popover__action:hover {
+        color: var(--text);
+        background: var(--hover);
+      }
+
+      .forum-popover__action .icon {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .sidebar-section + .sidebar-section {
+        margin-top: 17px;
+      }
+
+      .sidebar-section__title {
+        padding: 0 8px 6px;
+        color: var(--muted-2);
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .sidebar-link {
+        display: flex;
+        min-height: 34px;
+        align-items: center;
+        gap: 10px;
+        padding: 0 9px;
+        border-radius: 7px;
+        color: var(--text-soft);
+        font-size: 12px;
+      }
+
+      .sidebar-link + .sidebar-link {
+        margin-top: 2px;
+      }
+
+      .sidebar-link:hover {
+        background: var(--hover);
+      }
+
+      .sidebar-link.is-selected {
+        color: var(--text);
+        background: var(--blue-soft);
+      }
+
+      .sidebar-link .icon {
+        flex: 0 0 auto;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .sidebar-link.is-selected .icon {
+        color: #72cff0;
+      }
+
+      .sidebar-link__badge {
+        min-width: 18px;
+        margin-left: auto;
+        padding: 2px 5px;
+        border-radius: 99px;
+        color: #9de0f7;
+        background: rgb(9 157 215 / 20%);
+        font-size: 9px;
+        font-weight: 750;
+        text-align: center;
+      }
+
+      .content-pane {
+        overflow: hidden;
+        background: var(--content);
+      }
+
+      .content-header {
+        position: relative;
+        z-index: 10;
+        display: flex;
+        min-height: calc(57px + var(--strip-height));
+        align-items: center;
+        gap: 12px;
+        padding: var(--strip-height) 20px 0;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .content-header__title {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .content-header__title h2 {
+        overflow: hidden;
+        margin: 0;
+        font-size: 15px;
+        font-weight: 670;
+        letter-spacing: -0.01em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .content-header__title p {
+        margin: 3px 0 0;
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .header-action {
+        display: grid;
+        width: 33px;
+        height: 33px;
+        place-items: center;
+        border: 0;
+        border-radius: 8px;
+        color: var(--muted);
+        background: transparent;
+      }
+
+      .header-action:hover {
+        color: var(--text);
+        background: var(--hover);
+      }
+
+      .header-action .icon {
+        font-size: 15px;
+      }
+
+      .profile-control {
+        position: relative;
+        flex: 0 0 auto;
+      }
+
+      .profile-button {
+        display: grid;
+        width: 33px;
+        height: 33px;
+        place-items: center;
+        padding: 2px;
+        border: 1px solid transparent;
+        border-radius: 50%;
+        background: transparent;
+      }
+
+      .profile-button:hover,
+      .profile-button[aria-expanded="true"] {
+        border-color: #4a515c;
+        background: var(--hover);
+      }
+
+      .profile-avatar {
+        display: grid;
+        width: 27px;
+        height: 27px;
+        place-items: center;
+        border-radius: 50%;
+        color: white;
+        background: linear-gradient(140deg, #6f57c7, #be739f);
+        box-shadow: inset 0 1px rgb(255 255 255 / 12%);
+        font-size: 9px;
+        font-weight: 750;
+      }
+
+      .profile-popover {
+        position: absolute;
+        z-index: 50;
+        top: calc(100% + 8px);
+        right: 0;
+        overflow: hidden;
+        width: 218px;
+        border: 1px solid #3a3f48;
+        border-radius: 11px;
+        background: var(--floating);
+        box-shadow: 0 15px 38px rgb(0 0 0 / 42%);
+        transform-origin: 100% 0;
+        animation: profile-menu-in 120ms ease-out;
+      }
+
+      @keyframes profile-menu-in {
+        from {
+          opacity: 0;
+          transform: translateY(-4px) scale(0.985);
+        }
+      }
+
+      .profile-popover__header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px;
+        border-bottom: 1px solid var(--divider-strong);
+      }
+
+      .profile-popover__header .profile-avatar {
+        width: 31px;
+        height: 31px;
+        font-size: 10px;
+      }
+
+      .profile-popover__copy {
+        min-width: 0;
+      }
+
+      .profile-popover__copy strong,
+      .profile-popover__copy span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .profile-popover__copy strong {
+        font-size: 11px;
+      }
+
+      .profile-popover__copy span {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 9px;
+      }
+
+      .profile-popover__action {
+        display: flex;
+        width: 100%;
+        min-height: 34px;
+        align-items: center;
+        gap: 9px;
+        padding: 0 12px;
+        border: 0;
+        color: var(--text-soft);
+        background: transparent;
+        font-size: 10px;
+        text-align: left;
+      }
+
+      .profile-popover__action:hover {
+        color: var(--text);
+        background: var(--hover);
+      }
+
+      .profile-popover__action .icon {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .content-grid {
+        display: grid;
+        height: calc(100% - 57px - var(--strip-height));
+        grid-template-columns: minmax(330px, 0.86fr) minmax(360px, 1.14fr);
+      }
+
+      .topic-list {
+        overflow: hidden;
+        border-right: 1px solid var(--divider);
+      }
+
+      .topic-list__toolbar {
+        display: flex;
+        min-height: 43px;
+        align-items: center;
+        gap: 6px;
+        padding: 0 14px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .topic-list__toolbar span {
+        margin-right: auto;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .filter-chip {
+        padding: 5px 8px;
+        border: 1px solid var(--divider-strong);
+        border-radius: 6px;
+        color: var(--muted);
+        background: transparent;
+        font-size: 9px;
+      }
+
+      .filter-chip.is-active {
+        color: #9de0f7;
+        border-color: rgb(9 157 215 / 32%);
+        background: var(--blue-soft);
+      }
+
+      .topic-row {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        gap: 10px;
+        min-height: 73px;
+        align-items: start;
+        padding: 13px 14px;
+        border-bottom: 1px solid rgb(255 255 255 / 4%);
+      }
+
+      .topic-row:hover {
+        background: rgb(255 255 255 / 2.5%);
+      }
+
+      .topic-row.is-selected {
+        background: var(--blue-soft);
+        box-shadow: inset 2px 0 var(--blue-bright);
+      }
+
+      .topic-row__avatar {
+        display: grid;
+        width: 27px;
+        height: 27px;
+        place-items: center;
+        border-radius: 50%;
+        color: #f5f5f5;
+        background: linear-gradient(145deg, #385f78, #688da0);
+        font-size: 9px;
+        font-weight: 750;
+      }
+
+      .topic-row__copy {
+        min-width: 0;
+      }
+
+      .topic-row__copy strong {
+        display: -webkit-box;
+        overflow: hidden;
+        color: var(--text-soft);
+        font-size: 12px;
+        font-weight: 620;
+        line-height: 1.35;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
+      .topic-row.is-selected .topic-row__copy strong {
+        color: var(--text);
+      }
+
+      .topic-row__copy span {
+        display: block;
+        overflow: hidden;
+        margin-top: 5px;
+        color: var(--muted-2);
+        font-size: 9px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .topic-row__count {
+        color: var(--muted-2);
+        font-size: 9px;
+      }
+
+      .topic-view {
+        overflow: hidden;
+        padding: 22px 24px;
+      }
+
+      .topic-view__category {
+        color: #72cff0;
+        font-size: 9px;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .topic-view h3 {
+        max-width: 630px;
+        margin: 8px 0 8px;
+        color: var(--text);
+        font-size: clamp(19px, 1.8vw, 26px);
+        font-weight: 690;
+        letter-spacing: -0.025em;
+        line-height: 1.17;
+      }
+
+      .topic-view__meta {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .post {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 12px;
+        margin-top: 22px;
+        padding-top: 18px;
+        border-top: 1px solid var(--divider);
+      }
+
+      .post__avatar {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        place-items: center;
+        border-radius: 50%;
+        color: #fff;
+        background: linear-gradient(135deg, #916f53, #ce9a6e);
+        font-size: 10px;
+        font-weight: 750;
+      }
+
+      .post__header {
+        display: flex;
+        align-items: baseline;
+        gap: 7px;
+      }
+
+      .post__header strong {
+        font-size: 11px;
+      }
+
+      .post__header span {
+        color: var(--muted-2);
+        font-size: 9px;
+      }
+
+      .post p {
+        max-width: 650px;
+        margin: 8px 0 0;
+        color: var(--text-soft);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .measure-note {
+        position: absolute;
+        z-index: 25;
+        top: calc(30px + var(--strip-height) + 57px + 12px);
+        right: 14px;
+        padding: 5px 8px;
+        border: 1px solid rgb(101 200 242 / 22%);
+        border-radius: 6px;
+        color: #8bd9f6;
+        background: rgb(13 15 18 / 78%);
+        font-size: 9px;
+        font-weight: 680;
+        pointer-events: none;
+        transition: opacity 120ms ease;
+      }
+
+      /* The selected compact tab direction. */
+      .forum-tab__select {
+        gap: 7px;
+        padding-left: 11px;
+      }
+
+      .forum-tab__title {
+        font-size: 12px;
+      }
+
+      .forum-tab__close {
+        width: 30px;
+      }
+
+      .forum-tab:not(.is-active):not(:hover):not(.is-hover-preview)
+        .forum-tab__close,
+      .tabs-list:hover
+        .forum-tab.is-hover-preview:not(:hover)
+        .forum-tab__close {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .tab-switcher-trigger__surface,
+      .new-tab-button__surface {
+        width: 27px;
+        height: 27px;
+        border-radius: 7px;
+      }
+
+      .forum-tab__separator {
+        top: 8px;
+        height: calc(100% - 16px);
+      }
+
+      /* The selected floating forum treatment. */
+      .forum-footer {
+        min-height: 78px;
+        padding: 10px 11px;
+        border-top-color: transparent;
+        background: var(--sidebar);
+      }
+
+      .forum-button {
+        min-height: 57px;
+        grid-template-columns: 34px minmax(0, 1fr) 25px;
+        gap: 10px;
+        padding: 7px 6px 7px 8px;
+        border: 1px solid #383d45;
+        border-radius: 12px;
+        background: var(--content-raised);
+        box-shadow:
+          0 5px 14px rgb(0 0 0 / 20%),
+          inset 0 1px rgb(255 255 255 / 3%);
+      }
+
+      .forum-button:hover,
+      .forum-button[aria-expanded="true"] {
+        border-color: #4a515c;
+        background: #2b2f35;
+        transform: translateY(-1px);
+      }
+
+      .forum-button > .forum-mark {
+        width: 34px;
+        height: 34px;
+      }
+
+      .forum-popover {
+        right: 11px;
+        bottom: calc(100% + 4px);
+        left: 11px;
+      }
+
+      @media (max-width: 1120px) {
+        .app-frame {
+          --sidebar-width: 220px;
+        }
+
+        .study-header {
+          grid-template-columns: 1fr auto;
+        }
+
+        .study-status {
+          display: none;
+        }
+
+        .concept-intro {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+
+        .concept-specs {
+          justify-content: flex-start;
+        }
+
+        .content-grid {
+          grid-template-columns: minmax(300px, 0.92fr) minmax(340px, 1.08fr);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="icon-discourse" viewBox="0 0 24 24">
+        <path d="M5.1 18.8c-1.1-1.5-1.7-3.2-1.7-5.1 0-5.2 4.1-9.2 9.4-9.2 4.9 0 8.3 3.2 8.3 7.7 0 4.8-3.7 8.3-8.8 8.3H5.1v-1.7Z" />
+        <path d="M7.7 17.1c1.2.5 2.5.7 3.8.5 3.7-.5 6.4-3 6.4-6.1" />
+      </symbol>
+      <symbol id="icon-chevron-down" viewBox="0 0 24 24">
+        <path d="m6.5 9.5 5.5 5 5.5-5" />
+      </symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="icon-x" viewBox="0 0 24 24">
+        <path d="m7 7 10 10M17 7 7 17" />
+      </symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5" />
+        <path d="m15.4 15.4 4.1 4.1" />
+      </symbol>
+      <symbol id="icon-comment" viewBox="0 0 24 24">
+        <path d="M4 17.4V7.8C4 5.7 5.7 4 7.8 4h8.4C18.3 4 20 5.7 20 7.8v5.4c0 2.1-1.7 3.8-3.8 3.8H9l-5 3v-2.6Z" />
+      </symbol>
+      <symbol id="icon-comments" viewBox="0 0 24 24">
+        <path d="M5 15.8H3.8A2.8 2.8 0 0 1 1 13V7.8A2.8 2.8 0 0 1 3.8 5h8.4A2.8 2.8 0 0 1 15 7.8V13a2.8 2.8 0 0 1-2.8 2.8H8l-3 2v-2Z" />
+        <path d="M9.5 16.1v.1A2.8 2.8 0 0 0 12.3 19H16l3 2v-2.2h1.2A2.8 2.8 0 0 0 23 16v-5.2A2.8 2.8 0 0 0 20.2 8H15" />
+      </symbol>
+      <symbol id="icon-bell" viewBox="0 0 24 24">
+        <path d="M6 9.4a6 6 0 0 1 12 0c0 7 2.5 7 2.5 7h-17S6 16.4 6 9.4Z" />
+        <path d="M9.5 19h5" />
+      </symbol>
+      <symbol id="icon-home" viewBox="0 0 24 24">
+        <path d="m3 11 9-7 9 7" />
+        <path d="M5 10v10h14V10M9 20v-6h6v6" />
+      </symbol>
+      <symbol id="icon-list" viewBox="0 0 24 24">
+        <path d="M9 6h11M9 12h11M9 18h11" />
+        <circle cx="4.5" cy="6" r=".7" fill="currentColor" stroke="none" />
+        <circle cx="4.5" cy="12" r=".7" fill="currentColor" stroke="none" />
+        <circle cx="4.5" cy="18" r=".7" fill="currentColor" stroke="none" />
+      </symbol>
+      <symbol id="icon-inbox" viewBox="0 0 24 24">
+        <path d="M4 5h16l2 8v6H2v-6l2-8Z" />
+        <path d="M2.5 13h5l1.5 2h6l1.5-2h5" />
+      </symbol>
+      <symbol id="icon-bookmark" viewBox="0 0 24 24">
+        <path d="M6 4h12v17l-6-4-6 4V4Z" />
+      </symbol>
+      <symbol id="icon-users" viewBox="0 0 24 24">
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3.5 19v-2.3c0-2.4 2.4-4.2 5.5-4.2s5.5 1.8 5.5 4.2V19" />
+        <path d="M15 5.6a3 3 0 0 1 0 5.8M16.5 13c2.4.5 4 2 4 4V19" />
+      </symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3" />
+        <path d="m19 13.5 1.6 1.2-2 3.4-1.9-.8a7 7 0 0 1-2.6 1.5L14 21h-4l-.2-2.2a7 7 0 0 1-2.6-1.5l-1.9.8-2-3.4L5 13.5a7 7 0 0 1 0-3L3.4 9.3l2-3.4 1.9.8a7 7 0 0 1 2.6-1.5L10 3h4l.2 2.2a7 7 0 0 1 2.6 1.5l1.9-.8 2 3.4-1.7 1.2a7 7 0 0 1 0 3Z" />
+      </symbol>
+      <symbol id="icon-sliders" viewBox="0 0 24 24">
+        <path d="M4 7h16M4 17h16" />
+        <circle cx="9" cy="7" r="2" fill="#212429" />
+        <circle cx="15" cy="17" r="2" fill="#212429" />
+      </symbol>
+      <symbol id="icon-more" viewBox="0 0 24 24">
+        <circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="19" cy="12" r="1" fill="currentColor" stroke="none" />
+      </symbol>
+      <symbol id="icon-external" viewBox="0 0 24 24">
+        <path d="M14 5h5v5M19 5l-8 8" />
+        <path d="M19 13v6H5V5h6" />
+      </symbol>
+      <symbol id="icon-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 7v5l3.5 2" />
+      </symbol>
+      <symbol id="icon-window" viewBox="0 0 24 24">
+        <rect x="4" y="5" width="14" height="13" rx="1" />
+        <path d="M7 2h14v13" />
+      </symbol>
+    </svg>
+
+    <header class="study-header">
+      <div class="study-brand">
+        <span class="study-brand__mark" aria-hidden="true">
+          <svg class="icon"><use href="#icon-discourse"></use></svg>
+        </span>
+        <span class="study-brand__copy">
+          <span>Discourse Native</span>
+          <strong>Compact per-forum tabs · floating forum control</strong>
+        </span>
+      </div>
+
+        <div class="decision-summary" aria-label="Selected design direction">
+          <span>Content-width tabs</span>
+          <span>Forum control at bottom</span>
+      </div>
+
+      <div class="study-status">Switch forums to swap tab sets</div>
+    </header>
+
+    <main class="study-main">
+      <section class="concept-intro" aria-live="polite">
+        <div>
+          <span class="concept-intro__index">Selected direction</span>
+          <h1>Tabs floating over the content header</h1>
+          <p>
+            The per-forum tab shelf now starts at the content boundary and matches the header width.
+            The forum rail and sidebar extend directly beneath the window title bar, independent from the tabs.
+            Forum identity lives at the bottom of its sidebar; user identity stays in the top-right profile menu.
+          </p>
+        </div>
+        <div class="concept-specs" aria-label="Selected measurements">
+          <span>38px strip</span>
+          <span>Header width</span>
+          <span>tertiary-low</span>
+        </div>
+      </section>
+
+      <section class="app-frame" id="app-frame" aria-label="Discourse Native window mockup">
+        <div class="window-strip">
+          <div class="traffic-lights" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div class="window-title" id="window-title">Discourse Native · Discourse Meta</div>
+          <div class="window-tools">
+            <button type="button" aria-label="Window options">
+              <svg class="icon"><use href="#icon-more"></use></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="tabs-strip">
+          <button
+            class="tab-switcher-trigger"
+            id="tab-switcher-trigger"
+            type="button"
+            aria-label="Search Discourse Meta tabs and recently closed"
+            aria-expanded="false"
+            aria-controls="tab-switcher"
+            title="Search tabs"
+          >
+            <span class="tab-switcher-trigger__surface">
+              <svg class="icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>
+            </span>
+          </button>
+
+          <div class="tabs-viewport">
+            <div class="tabs-list" id="tabs-list" role="tablist" aria-label="Open tabs for Discourse Meta"></div>
+          </div>
+
+          <button class="new-tab-button" id="new-tab-button" type="button" aria-label="Open a new tab" title="Open a new tab">
+            <span class="new-tab-button__surface">
+              <svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>
+            </span>
+          </button>
+          <div class="tabs-strip__spacer" aria-hidden="true"></div>
+        </div>
+
+        <aside class="tab-switcher" id="tab-switcher" aria-label="Tab search" hidden>
+          <label class="tab-switcher__search">
+            <svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg>
+            <input id="tab-search" type="search" autocomplete="off" placeholder="Search Discourse Meta tabs" aria-label="Search open and recently closed tabs for Discourse Meta" />
+            <span class="shortcut-hint" aria-hidden="true"><kbd>⇧⌘A</kbd></span>
+          </label>
+          <div class="tab-switcher__body">
+            <section class="tab-switcher__section" id="open-section">
+              <div class="tab-switcher__heading">
+                <span id="open-heading">Open tabs · Discourse Meta</span>
+                <span class="tab-switcher__count" id="open-count"></span>
+              </div>
+              <div id="open-tab-rows"></div>
+            </section>
+            <section class="tab-switcher__section" id="recent-section">
+              <div class="tab-switcher__heading">
+                <span id="recent-heading">Recently closed · Discourse Meta</span>
+                <span class="tab-switcher__count" id="recent-count"></span>
+              </div>
+              <div id="recent-tab-rows"></div>
+            </section>
+            <div class="empty-results" id="empty-results" hidden>No tabs match that search.</div>
+          </div>
+        </aside>
+
+        <div class="measure-note">Content-aligned tab shelf</div>
+
+        <div class="app-body">
+          <nav class="site-rail" aria-label="Forums">
+            <button class="rail-item" type="button" aria-label="All forums" data-forum="All forums">
+              <svg class="icon"><use href="#icon-window"></use></svg>
+            </button>
+            <button class="rail-item is-current" type="button" aria-label="Discourse Meta" data-forum="Discourse Meta">
+              <svg class="icon"><use href="#icon-discourse"></use></svg>
+            </button>
+            <button class="rail-item" type="button" aria-label="Discourse Dev" data-forum="Discourse Dev">D</button>
+            <button class="rail-item" type="button" aria-label="Team community" data-forum="Team community">T</button>
+            <button class="rail-item rail-item--add" type="button" aria-label="Add a forum">
+              <svg class="icon"><use href="#icon-plus"></use></svg>
+            </button>
+            <span class="rail-spacer"></span>
+            <button class="rail-item" type="button" aria-label="Settings">
+              <svg class="icon"><use href="#icon-settings"></use></svg>
+            </button>
+          </nav>
+
+          <aside class="forum-sidebar">
+            <div class="sidebar-scroll">
+              <section class="sidebar-section">
+                <div class="sidebar-section__title">Browse</div>
+                <div class="sidebar-link is-selected">
+                  <svg class="icon"><use href="#icon-home"></use></svg>
+                  <span>Latest</span>
+                </div>
+                <div class="sidebar-link">
+                  <svg class="icon"><use href="#icon-list"></use></svg>
+                  <span>New</span>
+                  <span class="sidebar-link__badge">12</span>
+                </div>
+                <div class="sidebar-link">
+                  <svg class="icon"><use href="#icon-inbox"></use></svg>
+                  <span>Unread</span>
+                  <span class="sidebar-link__badge">4</span>
+                </div>
+                <div class="sidebar-link">
+                  <svg class="icon"><use href="#icon-bookmark"></use></svg>
+                  <span>Bookmarks</span>
+                </div>
+              </section>
+
+              <section class="sidebar-section">
+                <div class="sidebar-section__title">Categories</div>
+                <div class="sidebar-link"><span>◈</span><span>UX</span></div>
+                <div class="sidebar-link"><span>●</span><span>Feature</span></div>
+                <div class="sidebar-link"><span>◆</span><span>Dev</span></div>
+                <div class="sidebar-link"><span>▲</span><span>Support</span></div>
+              </section>
+            </div>
+
+            <footer class="forum-footer">
+              <div class="forum-popover" id="forum-menu" hidden>
+                <div class="forum-popover__header">
+                  <span class="forum-mark forum-mark--meta" id="forum-menu-mark">
+                    <svg class="icon"><use href="#icon-discourse"></use></svg>
+                  </span>
+                  <strong class="forum-popover__name" id="forum-menu-name">Discourse Meta</strong>
+                </div>
+                <button class="forum-popover__action" type="button">
+                  <svg class="icon"><use href="#icon-settings"></use></svg>
+                  <span>Forum settings</span>
+                </button>
+                <button class="forum-popover__action" type="button">
+                  <svg class="icon"><use href="#icon-external"></use></svg>
+                  <span>Open forum in browser</span>
+                </button>
+              </div>
+
+              <button
+                class="forum-button"
+                id="forum-button"
+                type="button"
+                aria-label="Forum menu for Discourse Meta"
+                aria-expanded="false"
+                aria-controls="forum-menu"
+              >
+                <span class="forum-mark forum-mark--meta" id="forum-mark">
+                  <svg class="icon"><use href="#icon-discourse"></use></svg>
+                </span>
+                <strong class="forum-button__name" id="forum-name">Discourse Meta</strong>
+                <span class="forum-button__chevron" aria-hidden="true">
+                  <svg class="icon"><use href="#icon-chevron-down"></use></svg>
+                </span>
+              </button>
+            </footer>
+          </aside>
+
+          <section class="content-pane">
+            <header class="content-header">
+              <div class="content-header__title">
+                <h2 id="content-title">Native tabs redesign</h2>
+                <p id="content-subtitle">UX · opened 18 minutes ago</p>
+              </div>
+              <button class="header-action" type="button" aria-label="Filter topics">
+                <svg class="icon"><use href="#icon-sliders"></use></svg>
+              </button>
+              <button class="header-action" type="button" aria-label="More options">
+                <svg class="icon"><use href="#icon-more"></use></svg>
+              </button>
+              <div class="profile-control">
+                <button
+                  class="profile-button"
+                  id="profile-button"
+                  type="button"
+                  aria-label="Open profile menu for joffrey"
+                  aria-expanded="false"
+                  aria-controls="profile-menu"
+                >
+                  <span class="profile-avatar" aria-hidden="true">JJ</span>
+                </button>
+                <div class="profile-popover" id="profile-menu" hidden>
+                  <div class="profile-popover__header">
+                    <span class="profile-avatar" aria-hidden="true">JJ</span>
+                    <span class="profile-popover__copy">
+                      <strong>joffrey</strong>
+                      <span>Profile menu</span>
+                    </span>
+                  </div>
+                  <button class="profile-popover__action" type="button">
+                    <svg class="icon"><use href="#icon-users"></use></svg>
+                    <span>Profile</span>
+                  </button>
+                  <button class="profile-popover__action" type="button">
+                    <svg class="icon"><use href="#icon-settings"></use></svg>
+                    <span>Preferences</span>
+                  </button>
+                </div>
+              </div>
+            </header>
+
+            <div class="content-grid">
+              <section class="topic-list" aria-label="Latest topics">
+                <div class="topic-list__toolbar">
+                  <span>Latest</span>
+                  <button class="filter-chip is-active" type="button">All</button>
+                  <button class="filter-chip" type="button">Unread</button>
+                </div>
+                <article class="topic-row is-selected">
+                  <span class="topic-row__avatar">M</span>
+                  <span class="topic-row__copy">
+                    <strong>Native tabs redesign</strong>
+                    <span>mattdm · UX · 4 min</span>
+                  </span>
+                  <span class="topic-row__count">24</span>
+                </article>
+                <article class="topic-row">
+                  <span class="topic-row__avatar" style="background: linear-gradient(145deg, #6f57c7, #a181db)">L</span>
+                  <span class="topic-row__copy">
+                    <strong>Designing for trust in AI tools</strong>
+                    <span>linda · General · 9 min</span>
+                  </span>
+                  <span class="topic-row__count">18</span>
+                </article>
+                <article class="topic-row">
+                  <span class="topic-row__avatar" style="background: linear-gradient(145deg, #467056, #77a586)">S</span>
+                  <span class="topic-row__copy">
+                    <strong>A better workflow for reviewing long topics</strong>
+                    <span>sam · Feature · 22 min</span>
+                  </span>
+                  <span class="topic-row__count">31</span>
+                </article>
+                <article class="topic-row">
+                  <span class="topic-row__avatar" style="background: linear-gradient(145deg, #7c573a, #bd875c)">A</span>
+                  <span class="topic-row__copy">
+                    <strong>Desktop keyboard shortcuts audit</strong>
+                    <span>angus · Dev · 43 min</span>
+                  </span>
+                  <span class="topic-row__count">9</span>
+                </article>
+                <article class="topic-row">
+                  <span class="topic-row__avatar" style="background: linear-gradient(145deg, #3e627b, #7297ae)">R</span>
+                  <span class="topic-row__copy">
+                    <strong>Polishing the native sidebar</strong>
+                    <span>roman · UX · 1 hour</span>
+                  </span>
+                  <span class="topic-row__count">16</span>
+                </article>
+              </section>
+
+              <article class="topic-view">
+                <span class="topic-view__category">UX · Desktop</span>
+                <h3>Native tabs should feel lighter and more familiar</h3>
+                <div class="topic-view__meta">24 replies · 317 views · last reply 4 minutes ago</div>
+                <section class="post">
+                  <span class="post__avatar">M</span>
+                  <div>
+                    <div class="post__header"><strong>mattdm</strong><span>18 minutes ago</span></div>
+                    <p>
+                      The current tabs are clear, but they use the same visual weight as the rest of the shell.
+                      A thinner connected silhouette gives the content more room and makes switching contexts feel immediate.
+                    </p>
+                  </div>
+                </section>
+                <section class="post">
+                  <span class="post__avatar" style="background: linear-gradient(145deg, #4b6f92, #759bbd)">J</span>
+                  <div>
+                    <div class="post__header"><strong>joffrey</strong><span>4 minutes ago</span></div>
+                    <p>
+                      The leading dropdown can search tabs and restore recently closed work for the current forum without making the strip busier.
+                      It should feel like part of the tab system, not another toolbar action.
+                    </p>
+                  </div>
+                </section>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const icons = {
+        x: "x",
+      };
+
+      const forumIdentities = {
+        "Discourse Meta": {
+          modifier: "meta",
+          icon: "discourse",
+        },
+        "Discourse Dev": {
+          modifier: "dev",
+          label: "D",
+        },
+        "Team community": {
+          modifier: "team",
+          label: "T",
+        },
+      };
+
+      const forumWorkspaces = {
+        "All forums": {
+          tertiary: "#e6a43c",
+          tertiaryLow: "#473a28",
+          activeTabId: "aggregate-latest",
+          hoverPreviewTabId: "aggregate-unread",
+          tabs: [
+            {
+              id: "aggregate-latest",
+              title: "All forums",
+              meta: "Aggregate · latest from 3 forums",
+              forum: "All forums",
+            },
+            {
+              id: "aggregate-unread",
+              title: "Unread across communities",
+              meta: "Aggregate · 19 unread",
+              forum: "All forums",
+              unread: true,
+            },
+            {
+              id: "aggregate-bookmarks",
+              title: "Cross-forum bookmarks",
+              meta: "Aggregate · 7 saved topics",
+              forum: "All forums",
+            },
+          ],
+          recentlyClosed: [
+            {
+              id: "aggregate-recent",
+              title: "Recently active topics",
+              meta: "Closed 8 minutes ago",
+              forum: "All forums",
+            },
+          ],
+        },
+        "Discourse Meta": {
+          tertiary: "#0088cc",
+          tertiaryLow: "#203e4d",
+          activeTabId: "native-tabs",
+          hoverPreviewTabId: "meta-team-chat",
+          tabs: [
+            {
+              id: "native-tabs",
+              title: "Native tabs redesign",
+              meta: "UX · opened 18 minutes ago",
+              forum: "Discourse Meta",
+            },
+            {
+              id: "meta-team-chat",
+              title: "Team chat",
+              meta: "Chat · 3 unread",
+              forum: "Discourse Meta",
+              unread: true,
+            },
+            {
+              id: "meta-trust-ai",
+              title: "Designing for trust in AI tools",
+              meta: "General · opened 9 minutes ago",
+              forum: "Discourse Meta",
+            },
+          ],
+          recentlyClosed: [
+            {
+              id: "composer-drafts",
+              title: "Composer draft recovery",
+              meta: "Closed 3 minutes ago",
+              forum: "Discourse Meta",
+            },
+            {
+              id: "meta-sidebar-polish",
+              title: "Polishing the native sidebar",
+              meta: "Closed 14 minutes ago",
+              forum: "Discourse Meta",
+            },
+          ],
+        },
+        "Discourse Dev": {
+          tertiary: "#7b5fe2",
+          tertiaryLow: "#37324b",
+          activeTabId: "dev-release-checklist",
+          hoverPreviewTabId: "dev-topic-position",
+          tabs: [
+            {
+              id: "dev-release-checklist",
+              title: "Desktop release checklist",
+              meta: "Releases · opened 6 minutes ago",
+              forum: "Discourse Dev",
+            },
+            {
+              id: "dev-topic-position",
+              title: "Topic position and navigation history",
+              meta: "Feature · opened 14 minutes ago",
+              forum: "Discourse Dev",
+            },
+            {
+              id: "dev-signing",
+              title: "macOS build signing",
+              meta: "Dev · 1 unread",
+              forum: "Discourse Dev",
+              unread: true,
+            },
+          ],
+          recentlyClosed: [
+            {
+              id: "dev-error-reporting",
+              title: "Native error reporting",
+              meta: "Closed 47 seconds ago",
+              forum: "Discourse Dev",
+            },
+            {
+              id: "dev-sidebar-state",
+              title: "Persisting sidebar state",
+              meta: "Closed 21 minutes ago",
+              forum: "Discourse Dev",
+            },
+          ],
+        },
+        "Team community": {
+          tertiary: "#45b574",
+          tertiaryLow: "#294438",
+          activeTabId: "team-roadmap",
+          hoverPreviewTabId: "team-support",
+          tabs: [
+            {
+              id: "team-roadmap",
+              title: "Desktop roadmap",
+              meta: "Planning · opened 11 minutes ago",
+              forum: "Team community",
+            },
+            {
+              id: "team-support",
+              title: "Support rotation",
+              meta: "Team · 5 unread",
+              forum: "Team community",
+              unread: true,
+            },
+          ],
+          recentlyClosed: [
+            {
+              id: "team-launch-notes",
+              title: "Launch notes",
+              meta: "Closed 12 minutes ago",
+              forum: "Team community",
+            },
+          ],
+        },
+      };
+
+      let currentForum = "Discourse Meta";
+
+      const appFrame = document.querySelector("#app-frame");
+      const tabsList = document.querySelector("#tabs-list");
+      const menu = document.querySelector("#tab-switcher");
+      const trigger = document.querySelector("#tab-switcher-trigger");
+      const searchInput = document.querySelector("#tab-search");
+      const openRows = document.querySelector("#open-tab-rows");
+      const recentRows = document.querySelector("#recent-tab-rows");
+      const openSection = document.querySelector("#open-section");
+      const recentSection = document.querySelector("#recent-section");
+      const openHeading = document.querySelector("#open-heading");
+      const recentHeading = document.querySelector("#recent-heading");
+      const emptyResults = document.querySelector("#empty-results");
+      const forumFooter = document.querySelector(".forum-footer");
+      const forumButton = document.querySelector("#forum-button");
+      const forumMenu = document.querySelector("#forum-menu");
+      const forumMark = document.querySelector("#forum-mark");
+      const forumMenuMark = document.querySelector("#forum-menu-mark");
+      const forumName = document.querySelector("#forum-name");
+      const forumMenuName = document.querySelector("#forum-menu-name");
+      const profileButton = document.querySelector("#profile-button");
+      const profileMenu = document.querySelector("#profile-menu");
+
+      function icon(name) {
+        return `<svg class="icon" aria-hidden="true"><use href="#icon-${icons[name] || "x"}"></use></svg>`;
+      }
+
+      function escapeHtml(value) {
+        const element = document.createElement("span");
+        element.textContent = value;
+        return element.innerHTML;
+      }
+
+      function syncForumMark(element, forum) {
+        const identity = forumIdentities[forum];
+        if (!identity) return;
+        element.className = `forum-mark forum-mark--${identity.modifier}`;
+        element.innerHTML = identity.icon
+          ? `<svg class="icon" aria-hidden="true"><use href="#icon-${identity.icon}"></use></svg>`
+          : escapeHtml(identity.label);
+      }
+
+      function currentWorkspace() {
+        return forumWorkspaces[currentForum];
+      }
+
+      function renderTabs() {
+        const workspace = currentWorkspace();
+        tabsList.innerHTML = workspace.tabs
+          .map(
+            (tab) => `
+              <div class="forum-tab${tab.id === workspace.activeTabId ? " is-active" : ""}${tab.id === workspace.hoverPreviewTabId && tab.id !== workspace.activeTabId ? " is-hover-preview" : ""}" data-tab-id="${tab.id}" role="presentation">
+                <button
+                  class="forum-tab__select"
+                  type="button"
+                  role="tab"
+                  aria-selected="${tab.id === workspace.activeTabId}"
+                  aria-label="${escapeHtml(tab.title)}"
+                  data-action="select-tab"
+                  data-tab-id="${tab.id}"
+                >
+                  <span class="forum-tab__title">${escapeHtml(tab.title)}</span>
+                  ${tab.unread ? '<span class="forum-tab__badge" aria-label="Unread activity"></span>' : ""}
+                </button>
+                <button class="forum-tab__close" type="button" data-action="close-tab" data-tab-id="${tab.id}" aria-label="Close ${escapeHtml(tab.title)}" title="Close tab">
+                  <span class="forum-tab__close-surface">${icon("x")}</span>
+                </button>
+                <span class="forum-tab__separator" aria-hidden="true"></span>
+              </div>
+            `,
+          )
+          .join("");
+        renderMenu();
+      }
+
+      function normalizedQuery() {
+        return searchInput.value.trim().toLocaleLowerCase();
+      }
+
+      function matches(tab, query) {
+        return !query || `${tab.title} ${tab.meta}`.toLocaleLowerCase().includes(query);
+      }
+
+      function renderMenu() {
+        const workspace = currentWorkspace();
+        const query = normalizedQuery();
+        const visibleOpen = workspace.tabs.filter((tab) => matches(tab, query));
+        const visibleRecent = workspace.recentlyClosed.filter((tab) =>
+          matches(tab, query),
+        );
+
+        openRows.innerHTML = visibleOpen
+          .map(
+            (tab) => `
+              <div class="switcher-row${tab.id === workspace.activeTabId ? " is-current" : ""}">
+                <button class="switcher-row__open" type="button" data-action="select-tab" data-tab-id="${tab.id}">
+                  <span class="switcher-row__copy">
+                    <span class="switcher-row__title">${escapeHtml(tab.title)}</span>
+                    <span class="switcher-row__meta">${escapeHtml(tab.meta)}</span>
+                  </span>
+                </button>
+                <button class="switcher-row__close" type="button" data-action="close-tab" data-tab-id="${tab.id}" aria-label="Close ${escapeHtml(tab.title)}" title="Close tab">
+                  ${icon("x")}
+                </button>
+              </div>
+            `,
+          )
+          .join("");
+
+        recentRows.innerHTML = visibleRecent
+          .map(
+            (tab) => `
+              <div class="switcher-row">
+                <button class="switcher-row__restore" type="button" data-action="restore-tab" data-tab-id="${tab.id}">
+                  <span class="switcher-row__copy">
+                    <span class="switcher-row__title">${escapeHtml(tab.title)}</span>
+                    <span class="switcher-row__meta">${escapeHtml(tab.meta)}</span>
+                  </span>
+                </button>
+              </div>
+            `,
+          )
+          .join("");
+
+        document.querySelector("#open-count").textContent = `${visibleOpen.length}`;
+        document.querySelector("#recent-count").textContent = `${visibleRecent.length}`;
+        openSection.hidden = visibleOpen.length === 0;
+        recentSection.hidden = visibleRecent.length === 0;
+        emptyResults.hidden = visibleOpen.length + visibleRecent.length !== 0;
+      }
+
+      function openMenu({ focusSearch = true } = {}) {
+        if (!forumMenu.hidden) closeForumMenu();
+        if (!profileMenu.hidden) closeProfileMenu();
+        menu.hidden = false;
+        trigger.setAttribute("aria-expanded", "true");
+        renderMenu();
+        if (focusSearch) requestAnimationFrame(() => searchInput.focus());
+      }
+
+      function closeMenu({ returnFocus = false } = {}) {
+        menu.hidden = true;
+        trigger.setAttribute("aria-expanded", "false");
+        searchInput.value = "";
+        renderMenu();
+        if (returnFocus) trigger.focus();
+      }
+
+      function selectTab(id) {
+        const workspace = currentWorkspace();
+        if (!workspace.tabs.some((tab) => tab.id === id)) return;
+        workspace.activeTabId = id;
+        const selected = workspace.tabs.find((tab) => tab.id === id);
+        const isAggregate = currentForum === "All forums";
+        appFrame.style.setProperty("--tertiary", workspace.tertiary);
+        appFrame.style.setProperty("--tertiary-low", workspace.tertiaryLow);
+        forumFooter.hidden = isAggregate;
+        if (isAggregate) {
+          closeForumMenu();
+        } else {
+          syncForumMark(forumMark, currentForum);
+          syncForumMark(forumMenuMark, currentForum);
+          forumName.textContent = currentForum;
+          forumMenuName.textContent = currentForum;
+          forumButton.setAttribute("aria-label", `Forum menu for ${currentForum}`);
+        }
+        document.querySelector("#content-title").textContent = selected.title;
+        document.querySelector("#content-subtitle").textContent = selected.meta;
+        document.querySelector("#window-title").textContent = `Discourse Native · ${currentForum}`;
+        tabsList.setAttribute("aria-label", `Open tabs for ${currentForum}`);
+        trigger.setAttribute(
+          "aria-label",
+          `Search ${currentForum} tabs and recently closed`,
+        );
+        searchInput.placeholder = `Search ${currentForum} tabs`;
+        searchInput.setAttribute(
+          "aria-label",
+          `Search open and recently closed tabs for ${currentForum}`,
+        );
+        openHeading.textContent = `Open tabs · ${currentForum}`;
+        recentHeading.textContent = `Recently closed · ${currentForum}`;
+        document.querySelectorAll(".rail-item[data-forum]").forEach((item) => {
+          item.classList.toggle("is-current", item.dataset.forum === currentForum);
+        });
+        renderTabs();
+      }
+
+      function closeTab(id) {
+        const workspace = currentWorkspace();
+        if (workspace.tabs.length === 1) return;
+        const index = workspace.tabs.findIndex((tab) => tab.id === id);
+        if (index < 0) return;
+        const [closed] = workspace.tabs.splice(index, 1);
+        workspace.recentlyClosed = [
+          {
+            ...closed,
+            meta: "Closed just now",
+            unread: false,
+          },
+          ...workspace.recentlyClosed.filter((tab) => tab.id !== closed.id),
+        ].slice(0, 6);
+        if (workspace.activeTabId === id) {
+          workspace.activeTabId =
+            workspace.tabs[Math.min(index, workspace.tabs.length - 1)].id;
+        }
+        selectTab(workspace.activeTabId);
+      }
+
+      function restoreTab(id) {
+        const workspace = currentWorkspace();
+        const index = workspace.recentlyClosed.findIndex((tab) => tab.id === id);
+        if (index < 0) return;
+        const [restored] = workspace.recentlyClosed.splice(index, 1);
+        workspace.tabs.push({
+          ...restored,
+          meta: "Restored just now",
+          unread: false,
+        });
+        workspace.activeTabId = restored.id;
+        selectTab(restored.id);
+        closeMenu();
+      }
+
+      function addTab() {
+        const workspace = currentWorkspace();
+        const newTabId = `new-${currentForum.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+        const existing = workspace.tabs.find((tab) => tab.id === newTabId);
+        if (existing) {
+          selectTab(existing.id);
+          return;
+        }
+        workspace.tabs.push({
+          id: newTabId,
+          title: "New tab",
+          meta: "Start a search",
+          forum: currentForum,
+        });
+        selectTab(newTabId);
+      }
+
+      function selectForum(forum) {
+        if (!forumWorkspaces[forum]) return;
+        currentForum = forum;
+        const workspace = currentWorkspace();
+        selectTab(workspace.activeTabId || workspace.tabs[0].id);
+        if (!menu.hidden) closeMenu();
+      }
+
+      function closeForumMenu({ returnFocus = false } = {}) {
+        forumMenu.hidden = true;
+        forumButton.setAttribute("aria-expanded", "false");
+        if (returnFocus) forumButton.focus();
+      }
+
+      function closeProfileMenu({ returnFocus = false } = {}) {
+        profileMenu.hidden = true;
+        profileButton.setAttribute("aria-expanded", "false");
+        if (returnFocus) profileButton.focus();
+      }
+
+      forumButton.addEventListener("click", () => {
+        const opening = forumMenu.hidden;
+        forumMenu.hidden = !opening;
+        forumButton.setAttribute("aria-expanded", String(opening));
+        if (opening && !menu.hidden) closeMenu();
+        if (opening && !profileMenu.hidden) closeProfileMenu();
+      });
+
+      profileButton.addEventListener("click", () => {
+        const opening = profileMenu.hidden;
+        profileMenu.hidden = !opening;
+        profileButton.setAttribute("aria-expanded", String(opening));
+        if (opening && !menu.hidden) closeMenu();
+        if (opening && !forumMenu.hidden) closeForumMenu();
+      });
+
+      trigger.addEventListener("click", () => {
+        if (menu.hidden) openMenu();
+        else closeMenu({ returnFocus: true });
+      });
+
+      document.querySelector("#new-tab-button").addEventListener("click", addTab);
+      searchInput.addEventListener("input", renderMenu);
+
+      document.querySelector(".site-rail").addEventListener("click", (event) => {
+        const forum = event.target.closest("[data-forum]")?.dataset.forum;
+        if (forum) selectForum(forum);
+      });
+
+      appFrame.addEventListener("click", (event) => {
+        const action = event.target.closest("[data-action]");
+        if (!action) return;
+        const id = action.dataset.tabId;
+        if (action.dataset.action === "select-tab") {
+          selectTab(id);
+          if (action.closest(".tab-switcher")) closeMenu();
+        }
+        if (action.dataset.action === "close-tab") closeTab(id);
+        if (action.dataset.action === "restore-tab") restoreTab(id);
+      });
+
+      document.addEventListener("pointerdown", (event) => {
+        if (!menu.hidden && !menu.contains(event.target) && !trigger.contains(event.target)) {
+          closeMenu();
+        }
+        if (
+          !forumMenu.hidden &&
+          !forumMenu.contains(event.target) &&
+          !forumButton.contains(event.target)
+        ) {
+          closeForumMenu();
+        }
+        if (
+          !profileMenu.hidden &&
+          !profileMenu.contains(event.target) &&
+          !profileButton.contains(event.target)
+        ) {
+          closeProfileMenu();
+        }
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (
+          event.key === "Escape" &&
+          (!menu.hidden || !forumMenu.hidden || !profileMenu.hidden)
+        ) {
+          event.preventDefault();
+          if (!profileMenu.hidden) closeProfileMenu({ returnFocus: true });
+          else if (!forumMenu.hidden) closeForumMenu({ returnFocus: true });
+          else closeMenu({ returnFocus: true });
+        }
+        if (event.key.toLocaleLowerCase() === "a" && event.metaKey && event.shiftKey) {
+          event.preventDefault();
+          openMenu();
+        }
+        const recentlyClosed = currentWorkspace().recentlyClosed;
+        if (event.key.toLocaleLowerCase() === "t" && event.metaKey && event.shiftKey && recentlyClosed.length) {
+          event.preventDefault();
+          restoreTab(recentlyClosed[0].id);
+        }
+      });
+
+      selectTab(currentWorkspace().activeTabId);
+    </script>
+  </body>
+</html>
