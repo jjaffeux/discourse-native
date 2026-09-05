@@ -1055,25 +1055,31 @@ class _TableBody extends StatelessWidget {
                       onSort: () => onSort('username'),
                     ),
                     Expanded(
-                      child: ListView.builder(
-                        key: const PageStorageKey('users-identity-scroll'),
-                        controller: identityVertical,
-                        itemExtent: rowHeight,
-                        itemCount: data.items.length,
-                        itemBuilder: (context, index) {
-                          final item = data.items[index];
-                          return _IdentityRow(
-                            key: ValueKey('user-row-${item.user.username}'),
-                            palette: palette,
-                            item: item,
-                            siteUrl: siteUrl,
-                            rank: index + 1,
-                            selected: selectedIds.contains(item.id),
-                            hovered: hoveredId == item.id,
-                            onHover: onHover,
-                            onSelected: (value) => onToggleRow(item.id, value),
-                          );
-                        },
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(
+                          context,
+                        ).copyWith(scrollbars: false),
+                        child: ListView.builder(
+                          key: const PageStorageKey('users-identity-scroll'),
+                          controller: identityVertical,
+                          itemExtent: rowHeight,
+                          itemCount: data.items.length,
+                          itemBuilder: (context, index) {
+                            final item = data.items[index];
+                            return _IdentityRow(
+                              key: ValueKey('user-row-${item.user.username}'),
+                              palette: palette,
+                              item: item,
+                              siteUrl: siteUrl,
+                              rank: index + 1,
+                              selected: selectedIds.contains(item.id),
+                              hovered: hoveredId == item.id,
+                              onHover: onHover,
+                              onSelected: (value) =>
+                                  onToggleRow(item.id, value),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],
@@ -1140,44 +1146,50 @@ class _TableBody extends StatelessWidget {
                               Expanded(
                                 child: Scrollbar(
                                   controller: metricsVertical,
-                                  child: ListView.builder(
-                                    key: const PageStorageKey(
-                                      'users-metrics-scroll',
-                                    ),
-                                    controller: metricsVertical,
-                                    itemExtent: rowHeight,
-                                    itemCount: data.items.length,
-                                    itemBuilder: (context, index) {
-                                      final item = data.items[index];
-                                      return MouseRegion(
-                                        onEnter: (_) => onHover(item.id),
-                                        onExit: (_) => onHover(null),
-                                        child: ColoredBox(
-                                          color: _rowColor(
-                                            palette,
-                                            selected: selectedIds.contains(
-                                              item.id,
+                                  child: ScrollConfiguration(
+                                    behavior: ScrollConfiguration.of(
+                                      context,
+                                    ).copyWith(scrollbars: false),
+                                    child: ListView.builder(
+                                      key: const PageStorageKey(
+                                        'users-metrics-scroll',
+                                      ),
+                                      controller: metricsVertical,
+                                      itemExtent: rowHeight,
+                                      itemCount: data.items.length,
+                                      itemBuilder: (context, index) {
+                                        final item = data.items[index];
+                                        return MouseRegion(
+                                          onEnter: (_) => onHover(item.id),
+                                          onExit: (_) => onHover(null),
+                                          child: ColoredBox(
+                                            color: _rowColor(
+                                              palette,
+                                              selected: selectedIds.contains(
+                                                item.id,
+                                              ),
+                                              hovered: hoveredId == item.id,
                                             ),
-                                            hovered: hoveredId == item.id,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              for (final column in columns)
-                                                SizedBox(
-                                                  width: resolvedMetricWidth,
-                                                  child: _MetricCell(
-                                                    palette: palette,
-                                                    item: item,
-                                                    column: column,
-                                                    maximum:
-                                                        maxima[column.id] ?? 0,
+                                            child: Row(
+                                              children: [
+                                                for (final column in columns)
+                                                  SizedBox(
+                                                    width: resolvedMetricWidth,
+                                                    child: _MetricCell(
+                                                      palette: palette,
+                                                      item: item,
+                                                      column: column,
+                                                      maximum:
+                                                          maxima[column.id] ??
+                                                          0,
+                                                    ),
                                                   ),
-                                                ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    },
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
                               ),
