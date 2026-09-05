@@ -1877,6 +1877,7 @@ class _AddInstanceButton extends StatelessWidget {
         child: InkWell(
           key: const ValueKey('add-instance-rail-button'),
           onTap: () => showAddInstanceSheet(context),
+          mouseCursor: SystemMouseCursors.click,
           borderRadius: BorderRadius.circular(11),
           child: SizedBox.square(
             dimension: _railControlExtent,
