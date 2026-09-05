@@ -21,6 +21,7 @@ class SiteConfig {
     this.minSearchTermLength = defaultMinSearchTermLength,
     this.logSearchQueries = true,
     this.groupDirectoryEnabled = true,
+    this.userDirectoryEnabled = true,
     this.mentionsEnabled = true,
     this.smtpEnabled = false,
     this.taggingEnabled = true,
@@ -142,6 +143,7 @@ class SiteConfig {
           defaultMinSearchTermLength,
       logSearchQueries: json['log_search_queries'] != false,
       groupDirectoryEnabled: json['enable_group_directory'] != false,
+      userDirectoryEnabled: json['enable_user_directory'] != false,
       mentionsEnabled: json['enable_mentions'] != false,
       smtpEnabled: json['enable_smtp'] == true,
       taggingEnabled: json['tagging_enabled'] != false,
@@ -211,6 +213,7 @@ class SiteConfig {
         defaultMinSearchTermLength,
     logSearchQueries: json['logSearchQueries'] != false,
     groupDirectoryEnabled: json['groupDirectoryEnabled'] != false,
+    userDirectoryEnabled: json['userDirectoryEnabled'] != false,
     mentionsEnabled: json['mentionsEnabled'] != false,
     smtpEnabled: json['smtpEnabled'] == true,
     taggingEnabled: json['taggingEnabled'] != false,
@@ -265,6 +268,7 @@ class SiteConfig {
       'minSearchTermLength': minSearchTermLength,
       'logSearchQueries': logSearchQueries,
       'groupDirectoryEnabled': groupDirectoryEnabled,
+      'userDirectoryEnabled': userDirectoryEnabled,
       'mentionsEnabled': mentionsEnabled,
       'smtpEnabled': smtpEnabled,
       'taggingEnabled': taggingEnabled,
@@ -311,6 +315,7 @@ class SiteConfig {
   final int minSearchTermLength;
   final bool logSearchQueries;
   final bool groupDirectoryEnabled;
+  final bool userDirectoryEnabled;
   final bool mentionsEnabled;
   final bool smtpEnabled;
   final bool taggingEnabled;
@@ -404,6 +409,7 @@ class SiteConfig {
     minSearchTermLength: minSearchTermLength,
     logSearchQueries: logSearchQueries,
     groupDirectoryEnabled: groupDirectoryEnabled,
+    userDirectoryEnabled: userDirectoryEnabled,
     mentionsEnabled: mentionsEnabled,
     smtpEnabled: smtpEnabled,
     taggingEnabled: taggingEnabled,
@@ -447,6 +453,7 @@ class SiteConfig {
       other.minSearchTermLength == minSearchTermLength &&
       other.logSearchQueries == logSearchQueries &&
       other.groupDirectoryEnabled == groupDirectoryEnabled &&
+      other.userDirectoryEnabled == userDirectoryEnabled &&
       other.mentionsEnabled == mentionsEnabled &&
       other.smtpEnabled == smtpEnabled &&
       other.taggingEnabled == taggingEnabled &&
@@ -489,6 +496,7 @@ class SiteConfig {
     minSearchTermLength,
     logSearchQueries,
     groupDirectoryEnabled,
+    userDirectoryEnabled,
     mentionsEnabled,
     smtpEnabled,
     taggingEnabled,

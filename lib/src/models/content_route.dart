@@ -248,6 +248,8 @@ class ContentRoute {
   bool get isMessages =>
       !isTopic && (id == 'messages' || messageGroupName != null);
 
+  bool get isUsers => !isTopic && id == 'users';
+
   bool get isGroups => !isTopic && groupRoute?.isDirectory == true;
 
   bool get isGroup => !isTopic && groupRoute?.isDetail == true;

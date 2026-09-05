@@ -31,6 +31,7 @@ void main() {
 
       expect(section.destinations.map((destination) => destination.id), [
         'latest',
+        'users',
       ]);
       expect(section.moreDestinations.map((destination) => destination.id), [
         'groups',
@@ -49,5 +50,20 @@ void main() {
         'filter',
       ]);
     });
+
+    test(
+      'keeps Users prominent and removes it when its directory is disabled',
+      () {
+        final connected = const DiscourseInstance(
+          url: 'https://example.com',
+          title: 'Example',
+          config: SiteConfig(userDirectoryEnabled: false),
+        ).sections.single;
+
+        expect(connected.destinations.map((destination) => destination.id), [
+          'latest',
+        ]);
+      },
+    );
   });
 }
