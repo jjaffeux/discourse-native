@@ -7,6 +7,7 @@ class InlineAction extends StatelessWidget {
     super.key,
     required this.onTap,
     required this.child,
+    this.onHover,
     this.semanticLabel,
     this.excludeChildSemantics = false,
     this.borderRadius = const BorderRadius.all(Radius.circular(2)),
@@ -16,6 +17,7 @@ class InlineAction extends StatelessWidget {
     super.key,
     required this.onTap,
     required this.child,
+    this.onHover,
     this.semanticLabel,
     this.excludeChildSemantics = false,
     this.borderRadius = const BorderRadius.all(Radius.circular(2)),
@@ -23,6 +25,7 @@ class InlineAction extends StatelessWidget {
 
   final VoidCallback onTap;
   final Widget child;
+  final ValueChanged<bool>? onHover;
   final String? semanticLabel;
   final bool excludeChildSemantics;
   final BorderRadius borderRadius;
@@ -42,6 +45,7 @@ class InlineAction extends StatelessWidget {
         type: MaterialType.transparency,
         child: InkWell(
           onTap: onTap,
+          onHover: onHover,
           mouseCursor: SystemMouseCursors.click,
           hoverColor: Colors.transparent,
           focusColor: Theme.of(context).shell.hover,

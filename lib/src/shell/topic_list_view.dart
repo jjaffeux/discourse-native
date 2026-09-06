@@ -1577,7 +1577,7 @@ class _CategoryBreadcrumb extends StatelessWidget {
   }
 }
 
-class _CategoryBadge extends StatelessWidget {
+class _CategoryBadge extends StatefulWidget {
   const _CategoryBadge({
     super.key,
     required this.category,
@@ -1594,12 +1594,20 @@ class _CategoryBadge extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_CategoryBadge> createState() => _CategoryBadgeState();
+}
+
+class _CategoryBadgeState extends State<_CategoryBadge> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return InlineAction.link(
-      onTap: onTap,
-      semanticLabel: semanticLabel,
+      onTap: widget.onTap,
+      onHover: (hovered) => setState(() => _hovered = hovered),
+      semanticLabel: widget.semanticLabel,
       excludeChildSemantics: true,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 32, minHeight: 24),
@@ -1612,18 +1620,25 @@ class _CategoryBadge extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               CategoryIcon(
-                key: ValueKey(('topic-row-category-swatch', category.id)),
-                category: category,
-                siteUrl: siteUrl,
+                key: ValueKey((
+                  'topic-row-category-swatch',
+                  widget.category.id,
+                )),
+                category: widget.category,
+                siteUrl: widget.siteUrl,
                 size: 13,
                 squareSize: 9,
               ),
               const SizedBox(width: 5),
               Flexible(
                 child: Text(
-                  label,
+                  widget.label,
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
+                    decoration: _hovered
+                        ? TextDecoration.underline
+                        : TextDecoration.none,
+                    decorationThickness: 1,
                   ),
                 ),
               ),
@@ -1635,7 +1650,7 @@ class _CategoryBadge extends StatelessWidget {
   }
 }
 
-class _TopicTag extends StatelessWidget {
+class _TopicTag extends StatefulWidget {
   const _TopicTag({
     required this.tag,
     required this.onTap,
@@ -1647,17 +1662,27 @@ class _TopicTag extends StatelessWidget {
   final VoidCallback onMiddleClick;
 
   @override
+  State<_TopicTag> createState() => _TopicTagState();
+}
+
+class _TopicTagState extends State<_TopicTag> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final style = theme.textTheme.labelSmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
+      decoration: _hovered ? TextDecoration.underline : TextDecoration.none,
+      decorationThickness: 1,
     );
 
     final chip = Padding(
       padding: const EdgeInsets.only(right: 5),
       child: InlineAction.link(
-        onTap: onTap,
-        semanticLabel: 'Tag: ${tag.name}',
+        onTap: widget.onTap,
+        onHover: (hovered) => setState(() => _hovered = hovered),
+        semanticLabel: 'Tag: ${widget.tag.name}',
         excludeChildSemantics: true,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 160, minHeight: 20),
@@ -1674,7 +1699,7 @@ class _TopicTag extends StatelessWidget {
             widthFactor: 1,
             heightFactor: 1,
             child: Text(
-              tag.name,
+              widget.tag.name,
               maxLines: 1,
               softWrap: false,
               overflow: TextOverflow.ellipsis,
@@ -1686,7 +1711,7 @@ class _TopicTag extends StatelessWidget {
     );
     return GestureDetector(
       excludeFromSemantics: true,
-      onTertiaryTapUp: (_) => onMiddleClick(),
+      onTertiaryTapUp: (_) => widget.onMiddleClick(),
       child: chip,
     );
   }
