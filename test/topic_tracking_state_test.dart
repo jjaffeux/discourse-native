@@ -79,6 +79,136 @@ void main() {
     expect(state().newActivityCounts, (newTopics: 1, newReplies: 2));
   });
 
+  test('New counts include descendants but not their category topics', () {
+    final tracking = state();
+    const nestedCategories = [
+      ...categories,
+      TopicCategory(
+        id: 3,
+        name: 'Grandchild',
+        color: '333333',
+        parentCategoryId: 2,
+      ),
+    ];
+    tracking.applyMessage(const {
+      'topic_id': 13,
+      'message_type': 'new_topic',
+      'payload': {'category_id': 3, 'created_in_new_period': true},
+    });
+
+    expect(
+      tracking.newActivityCountsFor(
+        categoryId: 1,
+        categories: nestedCategories,
+      ),
+      (newTopics: 2, newReplies: 1),
+    );
+    expect(
+      tracking.newActivityCountsFor(
+        categoryId: 2,
+        categories: nestedCategories,
+      ),
+      (newTopics: 1, newReplies: 2),
+    );
+    expect(
+      tracking.newActivityCountsFor(categoryId: 1, categories: categories),
+      (newTopics: 1, newReplies: 1),
+    );
+    expect(
+      tracking.newActivityCountsFor(
+        categoryId: 99,
+        categories: nestedCategories,
+      ),
+      (newTopics: 0, newReplies: 0),
+    );
+  });
+
+  test('New counts intersect the category with every selected tag', () {
+    final tracking = state();
+    tracking.applyMessage(const {
+      'topic_id': 13,
+      'message_type': 'new_topic',
+      'payload': {
+        'category_id': 2,
+        'created_in_new_period': true,
+        'tags': [
+          {'id': 7},
+          {'id': 8},
+        ],
+      },
+    });
+
+    expect(tracking.newActivityCountsFor(tagIds: {7}), (
+      newTopics: 2,
+      newReplies: 2,
+    ));
+    expect(
+      tracking.newActivityCountsFor(
+        categoryId: 1,
+        categories: categories,
+        tagIds: {7, 8},
+      ),
+      (newTopics: 1, newReplies: 0),
+    );
+    expect(tracking.newActivityCountsFor(tagIds: {99}), (
+      newTopics: 0,
+      newReplies: 0,
+    ));
+  });
+
+  test('scoped New counts follow moves, tag changes, reads and dismissals', () {
+    final tracking = state();
+    ({int newTopics, int newReplies}) counts() => tracking.newActivityCountsFor(
+      categoryId: 1,
+      categories: categories,
+      tagIds: {7},
+    );
+    expect(counts(), (newTopics: 1, newReplies: 1));
+
+    tracking.applyMessage(const {
+      'topic_id': 10,
+      'message_type': 'unread',
+      'payload': {'category_id': 99},
+    });
+    expect(counts(), (newTopics: 1, newReplies: 0));
+
+    tracking.applyMessage(const {
+      'topic_id': 10,
+      'message_type': 'unread',
+      'payload': {
+        'category_id': 1,
+        'tags': [
+          {'id': 8},
+        ],
+      },
+    });
+    expect(counts(), (newTopics: 1, newReplies: 0));
+
+    tracking.applyMessage(const {
+      'topic_id': 10,
+      'message_type': 'unread',
+      'payload': {
+        'tags': [
+          {'id': 7},
+        ],
+      },
+    });
+    expect(counts(), (newTopics: 1, newReplies: 1));
+
+    tracking.applyMessage(const {
+      'topic_id': 10,
+      'message_type': 'read',
+      'payload': {'last_read_post_number': 5},
+    });
+    tracking.applyMessage(const {
+      'message_type': 'dismiss_new',
+      'payload': {
+        'topic_ids': [11],
+      },
+    });
+    expect(counts(), (newTopics: 0, newReplies: 0));
+  });
+
   test('matches core tag counts and the count-versus-dot preference', () {
     final tracking = state();
 

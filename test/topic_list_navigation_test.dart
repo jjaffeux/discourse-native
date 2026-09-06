@@ -142,6 +142,201 @@ void main() {
     },
   );
 
+  testWidgets('empty categories hide New counts despite forum activity', (
+    tester,
+  ) async {
+    const category = TopicCategory(
+      id: 42,
+      name: 'Credentials',
+      color: 'ff5500',
+    );
+    final setup = await _controller(categoryList: [category]);
+    final controller = setup.controller;
+    addTearDown(controller.dispose);
+    await tester.pumpAndSettle();
+    controller.selectTopicListCategory(category);
+    await controller.selectTopicListMode(TopicListMode.newActivity);
+    expect(controller.topicListContent?.categoryId, category.id);
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const Scaffold(
+            body: TopicListNavigation(stacked: true, child: SizedBox()),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(controller.topicListNewCounts, (all: 0, topics: 0, replies: 0));
+    expect(controller.sidebarBadgeFor('latest').count, 1059);
+    for (final entry in {
+      'all': 'All',
+      'topics': 'Topics',
+      'replies': 'Replies',
+    }.entries) {
+      expect(
+        tester
+            .widgetList<Text>(
+              find.descendant(
+                of: find.byKey(ValueKey('topic-list-new-${entry.key}')),
+                matching: find.byType(Text),
+              ),
+            )
+            .map((text) => text.data),
+        [entry.value],
+      );
+    }
+  });
+
+  testWidgets('category counts wait for a complete tracking snapshot', (
+    tester,
+  ) async {
+    const category = TopicCategory(
+      id: 42,
+      name: 'Credentials',
+      color: 'ff5500',
+    );
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    final setup = await _controller(
+      categoryList: [category],
+      trackingStateGate: gate,
+    );
+    final controller = setup.controller;
+    addTearDown(controller.dispose);
+    await tester.pumpAndSettle();
+    controller.selectTopicListCategory(category);
+    await controller.selectTopicListMode(TopicListMode.newActivity);
+    expect(controller.topicListContent?.categoryId, category.id);
+    await tester.pump();
+
+    FakeSiteTracker.built.single.deliverTopicTracking(const {
+      'topic_id': 4000,
+      'message_type': 'unread',
+      'payload': {
+        'category_id': 42,
+        'highest_post_number': 2,
+        'notification_level': 2,
+      },
+    });
+    expect(controller.topicListNewCounts, (all: 0, topics: 0, replies: 0));
+    expect(controller.sidebarBadgeFor('latest').count, 1059);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(controller.topicListNewCounts, (all: 1, topics: 0, replies: 1));
+    expect(controller.sidebarBadgeFor('latest').count, 1060);
+  });
+
+  testWidgets('New counts follow category and tag filters and live reads', (
+    tester,
+  ) async {
+    const parent = TopicCategory(id: 1, name: 'Parent', color: '111111');
+    const child = TopicCategory(
+      id: 2,
+      name: 'Child',
+      color: '222222',
+      parentCategoryId: 1,
+    );
+    final setup = await _controller(
+      categoryList: [parent, child],
+      categorySiteTopTags: const [
+        SidebarTag(id: 7, name: 'Bug Fixes', slug: 'bug-fixes'),
+        SidebarTag(id: 8, name: 'urgent', slug: 'urgent'),
+      ],
+      trackingState: TopicTrackingState(const [
+        TrackedTopicState(
+          topicId: 10,
+          categoryId: 1,
+          createdInNewPeriod: true,
+          tagIds: {7, 8},
+        ),
+        TrackedTopicState(
+          topicId: 11,
+          categoryId: 2,
+          highestPostNumber: 8,
+          lastReadPostNumber: 1,
+          notificationLevel: 2,
+          tagIds: {7},
+        ),
+        TrackedTopicState(
+          topicId: 12,
+          categoryId: 99,
+          createdInNewPeriod: true,
+          tagIds: {7, 8},
+        ),
+        TrackedTopicState(
+          topicId: 13,
+          categoryId: 1,
+          createdInNewPeriod: true,
+          tagIds: {8},
+        ),
+      ]),
+    );
+    final controller = setup.controller;
+    addTearDown(controller.dispose);
+    await controller.selectTopicListMode(TopicListMode.newActivity);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: TopicListNavigation(child: SizedBox())),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.topicListNewCounts, (all: 4, topics: 3, replies: 1));
+
+    controller.selectTopicListCategory(parent);
+    await tester.pumpAndSettle();
+    expect(controller.topicListNewCounts, (all: 3, topics: 2, replies: 1));
+
+    controller.selectTopicListTags(['bug-fixes']);
+    await tester.pumpAndSettle();
+    expect(controller.topicListNewCounts, (all: 2, topics: 1, replies: 1));
+    expect(_tabText(tester, 'topic-list-new-all').data, 'All');
+    expect(_tabText(tester, 'topic-list-new-topics').data, 'Topics (1)');
+    expect(_tabText(tester, 'topic-list-new-replies').data, 'Replies (1)');
+
+    await tester.tap(find.byKey(const ValueKey('topic-list-new-replies')));
+    await tester.pumpAndSettle();
+    expect(controller.topicListNewCounts, (all: 2, topics: 1, replies: 1));
+    expect(controller.sidebarBadgeFor('latest').count, 4);
+
+    FakeSiteTracker.built.single.deliverTopicTracking(const {
+      'topic_id': 11,
+      'message_type': 'read',
+      'payload': {'last_read_post_number': 8},
+    });
+    await tester.pumpAndSettle();
+    expect(_tabText(tester, 'topic-list-new-replies').data, 'Replies');
+    expect(controller.sidebarBadgeFor('latest').count, 3);
+
+    controller.selectTopicListTags(['Bug Fixes', 'urgent']);
+    await tester.pumpAndSettle();
+    expect(controller.topicListNewCounts, (all: 1, topics: 1, replies: 0));
+
+    controller.selectTopicListCategory(null);
+    await tester.pumpAndSettle();
+    expect(controller.topicListNewCounts, (all: 2, topics: 2, replies: 0));
+
+    controller.selectTopicListTags(['unknown']);
+    await tester.pumpAndSettle();
+    expect(controller.topicListNewCounts, (all: 0, topics: 0, replies: 0));
+
+    controller.selectTopicListTags([]);
+    await tester.pumpAndSettle();
+    expect(controller.topicListNewCounts, (all: 3, topics: 3, replies: 0));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('switches every web discovery list inside Topics', (
     tester,
   ) async {
@@ -201,7 +396,7 @@ void main() {
     expect(controller.activeTab?.rootDestinationId, 'latest');
     expect(controller.contentStack, hasLength(1));
     expect(_tabText(tester, 'topic-list-new-all').data, 'All');
-    expect(find.text('1059'), findsOneWidget);
+    expect(find.text('1059'), findsNothing);
     expect(find.text('1054'), findsOneWidget);
     expect(find.text('5'), findsOneWidget);
     expect(find.text('All new activity'), findsOneWidget);
@@ -230,7 +425,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('1060'), findsOneWidget);
+    expect(find.text('1060'), findsNothing);
     expect(find.text('Unread (6)'), findsNothing);
     expect(_tabText(tester, 'topic-list-new-all').data, 'All');
     expect(find.text('1054'), findsOneWidget);
@@ -358,11 +553,11 @@ void main() {
           theme.colorScheme.onSurface,
         );
         final count = tester.widget<Text>(
-          find.descendant(of: all, matching: find.text('1059')),
+          find.descendant(of: topics, matching: find.text('1054')),
         );
         expect(
           count.style!.fontSize,
-          lessThan(_tabText(tester, 'topic-list-new-all').style!.fontSize!),
+          lessThan(_tabText(tester, 'topic-list-new-topics').style!.fontSize!),
         );
         expect(find.text('All (1059)'), findsNothing);
         expect(tester.takeException(), isNull);
@@ -1255,6 +1450,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   DiscourseUser? user = _user,
   SiteConfig config = const SiteConfig.unknown(),
   Completer<void>? trackingStateGate,
+  TopicTrackingState? trackingState,
   List<TopicCategory> categoryList = const [],
   List<SidebarTag> categorySiteTopTags = const [],
   Map<String, List<Topic>> extraFeeds = const {},
@@ -1277,21 +1473,23 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
     user: user,
     totals: totals,
     trackingStateGate: trackingStateGate,
-    trackingState: TopicTrackingState([
-      for (var index = 0; index < 1054; index++)
-        TrackedTopicState(
-          topicId: 1000 + index,
-          highestPostNumber: 1,
-          createdInNewPeriod: true,
-        ),
-      for (var index = 0; index < 5; index++)
-        TrackedTopicState(
-          topicId: 3000 + index,
-          highestPostNumber: 2,
-          lastReadPostNumber: 1,
-          notificationLevel: 2,
-        ),
-    ]),
+    trackingState:
+        trackingState ??
+        TopicTrackingState([
+          for (var index = 0; index < 1054; index++)
+            TrackedTopicState(
+              topicId: 1000 + index,
+              highestPostNumber: 1,
+              createdInNewPeriod: true,
+            ),
+          for (var index = 0; index < 5; index++)
+            TrackedTopicState(
+              topicId: 3000 + index,
+              highestPostNumber: 2,
+              lastReadPostNumber: 1,
+              notificationLevel: 2,
+            ),
+        ]),
     feeds: {
       '/latest.json': [_latestTopic],
       '/new.json': [_allNewTopic],
