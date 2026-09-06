@@ -136,6 +136,33 @@ enum TopicListMode {
   bool get isSubset => this == newTopics || this == newReplies;
 }
 
+enum MessageListMode {
+  inbox('Inbox'),
+  unread('Unread'),
+  sent('Sent'),
+  archive('Archive');
+
+  const MessageListMode(this.label);
+
+  final String label;
+
+  bool get supportsGroup => this != sent;
+
+  String feedPathFor(String username, {String? groupName}) {
+    final user = Uri.encodeComponent(username);
+    if (groupName != null) {
+      if (!supportsGroup) {
+        throw ArgumentError.value(this, 'mode', 'No group sent list.');
+      }
+      final suffix = this == inbox ? '' : '/$name';
+      return '/topics/private-messages-group/'
+          '$user/${Uri.encodeComponent(groupName)}$suffix.json';
+    }
+    final suffix = this == inbox ? '' : '-$name';
+    return '/topics/private-messages$suffix/$user.json';
+  }
+}
+
 @immutable
 class ContentRoute {
   const ContentRoute({
@@ -203,20 +230,32 @@ class ContentRoute {
   factory ContentRoute.userActivity() =>
       const ContentRoute(id: 'activity', title: 'Activity', icon: DIcons.list);
 
-  factory ContentRoute.messages({String? groupName}) {
+  factory ContentRoute.messages({
+    String? groupName,
+    MessageListMode mode = MessageListMode.inbox,
+  }) {
     final group = groupName?.trim();
     if (group != null &&
         (group.isEmpty || group.length > maximumMessageGroupNameLength)) {
       throw ArgumentError.value(groupName, 'groupName', 'Invalid group name.');
     }
+    if (group != null && !mode.supportsGroup) {
+      throw ArgumentError.value(mode, 'mode', 'No group sent list.');
+    }
     return ContentRoute(
-      id: group == null
-          ? 'messages'
-          : 'messages-group-${Uri.encodeComponent(group)}',
+      id: _messageRouteId(group, mode),
       title: 'Messages',
       icon: DIcons.inbox,
       messageGroupName: group,
     );
+  }
+
+  static String _messageRouteId(String? group, MessageListMode mode) {
+    final inbox = group == null
+        ? 'messages'
+        : 'messages-group-${Uri.encodeComponent(group)}';
+    if (mode == MessageListMode.inbox) return inbox;
+    return group == null ? '$inbox-${mode.name}' : '$inbox/${mode.name}';
   }
 
   factory ContentRoute.topicList(TopicListMode mode) => ContentRoute(
@@ -289,7 +328,17 @@ class ContentRoute {
   bool get isPreferences => !isTopic && id == 'preferences';
 
   bool get isMessages =>
-      !isTopic && (id == 'messages' || messageGroupName != null);
+      !isTopic &&
+      MessageListMode.values.any(
+        (mode) =>
+            (messageGroupName == null || mode.supportsGroup) &&
+            id == _messageRouteId(messageGroupName, mode),
+      );
+
+  MessageListMode get messageListMode => MessageListMode.values.firstWhere(
+    (mode) => id == _messageRouteId(messageGroupName, mode),
+    orElse: () => MessageListMode.inbox,
+  );
 
   bool get isUsers => !isTopic && id == 'users';
 
@@ -404,7 +453,11 @@ class ContentRoute {
             messageGroupName != messageGroupName.trim() ||
             messageGroupName.length > maximumMessageGroupNameLength ||
             topicId != null ||
-            id != 'messages-group-${Uri.encodeComponent(messageGroupName)}')) {
+            !MessageListMode.values.any(
+              (mode) =>
+                  mode.supportsGroup &&
+                  id == _messageRouteId(messageGroupName, mode),
+            ))) {
       throw const FormatException('Invalid content route message group');
     }
     final GroupRoute? groupRoute;

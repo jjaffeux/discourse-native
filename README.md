@@ -492,9 +492,15 @@ views.
 `DiscourseApi.topicList(path:)`. `messages` is the exception only in that its
 path is named after the account, so signed out it falls back to the placeholder.
 Connected accounts also retain the current-user groups marked `has_messages`.
-The Messages page offers those beside Personal, with each group reading
-`/topics/private-messages-group/{username}/{group}.json`; every inbox has its
-own cached feed, pagination cursor, restored route, and scroll position.
+The Messages header places the Personal/group inbox selector beside its title.
+The toolbar below shares the topic tabs' styling and centered content lane,
+with Inbox, Unread, Sent, and Archive for Personal, and Inbox, Unread, and
+Archive for groups. Each folder uses Discourse's corresponding private-message
+list endpoint and has its own cached feed, pagination cursor, restored route,
+and scroll position. Switching inboxes retains the selected folder where it is
+supported; Sent falls back to Inbox for groups. New message follows the server's
+private-message permission and opens the native composer after choosing
+recipients, or addresses the selected group directly.
 
 Lists are cached per site and destination — revisiting one does not refetch.
 Tapping the destination you are already looking at forces a refresh; merely
