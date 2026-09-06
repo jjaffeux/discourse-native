@@ -20,6 +20,7 @@ void main() {
     TargetPlatform platform = TargetPlatform.macOS,
     required ValueChanged<List<TopicTag>?> onClosed,
     List<TopicTag> selectedTags = const [design, mobile],
+    ValueChanged<TopicTag>? onTagNavigate,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -33,6 +34,7 @@ void main() {
                     context: context,
                     anchorContext: context,
                     selectedTags: selectedTags,
+                    onTagNavigate: onTagNavigate,
                     capabilities: const TopicComposerCapabilities(
                       canTagTopics: true,
                       maxTagsPerTopic: 2,
@@ -53,6 +55,37 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final tag in [design, support]) {
+      testWidgets(
+        'opens ${tag.name} on ${platform.name} without changing the selection at the tag limit',
+        (tester) async {
+          final results = <List<TopicTag>?>[];
+          final opened = <TopicTag>[];
+          await openPicker(
+            tester,
+            platform: platform,
+            onClosed: results.add,
+            onTagNavigate: opened.add,
+          );
+
+          expect(
+            tester.getTopLeft(option(mobile.name)).dy -
+                tester.getBottomLeft(option(design.name)).dy,
+            greaterThanOrEqualTo(4),
+          );
+          await tester.tap(
+            find.byKey(ValueKey(('topic-tag-picker-open', tag.name))),
+          );
+          await tester.pumpAndSettle();
+
+          expect(opened, [tag]);
+          expect(results, [null]);
+          expect(find.byType(TopicTagPicker), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('applies each ${platform.name} tag removal on selection', (
       tester,
     ) async {

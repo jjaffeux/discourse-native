@@ -21,6 +21,8 @@ import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -333,12 +335,19 @@ void main() {
       final tag = tester.getRect(
         find.byKey(const ValueKey(('topic-header-tag', 'community'))),
       );
-      final addTag = tester.getRect(
-        find.byKey(const ValueKey('topic-header-add-tag')),
+      final editTags = find.byKey(const ValueKey('topic-header-edit-tags'));
+      final editTagRect = tester.getRect(editTags);
+      expect(
+        tester
+            .widget<DIcon>(
+              find.descendant(of: editTags, matching: find.byType(DIcon)),
+            )
+            .icon,
+        DIcons.pencil,
       );
       expect(parent.right, lessThan(child.left));
       expect(child.right, lessThan(tag.left));
-      expect(tag.right, lessThan(addTag.left));
+      expect(tag.right, lessThan(editTagRect.left));
       expect(parent.center.dy, closeTo(tag.center.dy, 1));
       expect(child.center.dy, closeTo(tag.center.dy, 1));
       final title = tester.getRect(
@@ -525,6 +534,91 @@ void main() {
     },
   );
 
+  for (final canEditTags in [true, false]) {
+    for (final privateMessage in [false, true]) {
+      testWidgets(
+        'header tags navigate with editing $canEditTags and private messages $privateMessage',
+        (tester) async {
+          final setup = await _setup(
+            tester,
+            canEditTags: canEditTags,
+            privateMessage: privateMessage,
+          );
+          final shell = setup.controller;
+          shell.openTopicFromList(setup.rows.first);
+          await tester.pumpAndSettle();
+
+          await tester.tap(
+            find.byKey(const ValueKey(('topic-header-tag', 'community'))),
+          );
+          await tester.pumpAndSettle();
+
+          final path = privateMessage
+              ? '/topics/private-messages-tags/sam/community.json'
+              : '/tag/community/1.json';
+          expect(shell.currentContent?.feedPath, path);
+          expect(setup.api.feedPaths, contains(path));
+          expect(
+            find.byKey(const ValueKey('topic-tag-picker-query')),
+            findsNothing,
+          );
+          expect(setup.api.topicTagsUpdated, isEmpty);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets(
+      'collapsed tags navigate without saving with editing $canEditTags',
+      (tester) async {
+        final tags = [
+          for (var id = 1; id <= 27; id++) TopicTag(id: id, name: 'region-$id'),
+        ];
+        final setup = await _setup(
+          tester,
+          tags: tags,
+          canEditTags: canEditTags,
+        );
+        final shell = setup.controller;
+        shell.openTopicFromList(setup.rows.first);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey(('topic-header-tag', 'region-27'))),
+          findsNothing,
+        );
+        await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
+        await tester.pumpAndSettle();
+        final query = find.byKey(
+          ValueKey(
+            canEditTags ? 'topic-tag-picker-query' : 'topic-header-tags-search',
+          ),
+        );
+        await tester.enterText(query, 'REGION-27');
+        await tester.pumpAndSettle(const Duration(milliseconds: 300));
+        await tester.tap(
+          find.byKey(
+            ValueKey((
+              canEditTags ? 'topic-tag-picker-open' : 'topic-header-tag-option',
+              'region-27',
+            )),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(shell.currentContent?.feedPath, '/tag/region-27/27.json');
+        expect(setup.api.feedPaths, contains('/tag/region-27/27.json'));
+        expect(query, findsNothing);
+        expect(setup.api.topicTagsUpdated, isEmpty);
+        expect(
+          shell.store.read<TopicDetail>(shell.currentInstance!.url, 1)?.tags,
+          tags,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('read-only topics still expose every collapsed tag', (
     tester,
   ) async {
@@ -534,7 +628,7 @@ void main() {
     final setup = await _setup(tester, tags: tags, canEditTags: false);
     setup.controller.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('topic-header-add-tag')), findsNothing);
+    expect(find.byKey(const ValueKey('topic-header-edit-tags')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -1027,9 +1121,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(shell.currentTopic?.categoryId, _parent.id);
       expect(find.text('Done'), findsNothing);
-      await tester.tap(
-        find.byKey(const ValueKey(('topic-header-tag', 'community'))),
-      );
+      await tester.tap(find.byKey(const ValueKey('topic-header-edit-tags')));
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey(('topic-tag-picker-option', 'community'))),
@@ -1165,6 +1257,7 @@ _setup(
   bool recommendations = false,
   List<TopicTag> tags = const [_tag],
   bool canEditTags = true,
+  bool privateMessage = false,
   bool canCreatePost = true,
   bool closed = false,
   bool canCloseTopic = false,
@@ -1184,6 +1277,7 @@ _setup(
         title: 'Topic $id',
         slug: 'topic-$id',
         categoryId: 22,
+        privateMessage: privateMessage,
         excerpt: id == 1 ? 'First topic preview' : null,
         lastPosterUsername: 'sam',
         bumpedAt: DateTime.now().subtract(const Duration(minutes: 2)),
@@ -1274,6 +1368,7 @@ _setup(
             canCloseTopic: canCloseTopic,
             canEdit: canEditTopic,
             canEditTags: canEditTags,
+            privateMessage: privateMessage,
             tags: tags,
             canCreatePost: canCreatePost,
           ),

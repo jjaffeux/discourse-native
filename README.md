@@ -788,15 +788,18 @@ that topic open. Selections apply immediately, without duplicate filter chips
 or a confirmation footer. The heading does not show a count of loaded rows.
 
 The topic header places category, subcategory, and tags beside the inline title
-editor. Clicking a category or tag edits it when the server grants the matching
-permission; separate arrows browse the parent or subcategory. Removing a
+editor. Clicking a category edits it when the server grants permission;
+separate arrows browse the parent or subcategory. Header tags open their tag
+routes, and a pencil opens the tag editor for adding or removing tags. Removing a
 subcategory moves the topic to its parent. Moving to Uncategorized is offered
 only when the site allows it. Editing a title keeps its text in place, adds a
 rounded blue edit frame, and displays “Enter to save · Esc to cancel” below.
 The frame and hint disappear after saving or cancelling.
 The taxonomy stays on one line: up to three tags fit beside the categories,
 with the remaining tags accessible through a searchable overflow picker.
-Readers without editing permission can still inspect every tag.
+Tag rows have space between them and separate arrows to open their routes
+without changing the selection. Readers without editing permission can still
+find and open every tag through the overflow picker.
 Topic actions open from the wrench icon in the reader header.
 When the reading lane leaves room for the close control, taxonomy shares that
 toolbar row while staying aligned with the title and posts. Narrow readers

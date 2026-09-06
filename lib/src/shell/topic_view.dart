@@ -3028,6 +3028,11 @@ class _TopicPropertiesCard extends StatelessWidget {
                     categoryId: topic.categoryId,
                     tags: topic.tags,
                     enabled: topic.canEditTags,
+                    onTagNavigate: (tag) => controller.openTopicTag(
+                      tag,
+                      siteUrl: siteUrl,
+                      privateMessage: topic.privateMessage,
+                    ),
                     builder: (context, openMenu, saving) => TopicPropertyRow(
                       key: const ValueKey('topic-sidebar-tags-property'),
                       label: 'Tags',

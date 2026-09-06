@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_picker.dart';
@@ -21,6 +22,7 @@ class TopicTagMenuAnchor extends StatefulWidget {
     required this.tags,
     required this.enabled,
     required this.builder,
+    this.onTagNavigate,
   });
 
   final String siteUrl;
@@ -29,6 +31,7 @@ class TopicTagMenuAnchor extends StatefulWidget {
   final List<TopicTag> tags;
   final bool enabled;
   final TopicTagMenuAnchorBuilder builder;
+  final ValueChanged<TopicTag>? onTagNavigate;
 
   @override
   State<TopicTagMenuAnchor> createState() => _TopicTagMenuAnchorState();
@@ -58,6 +61,7 @@ class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
         anchorContext: anchorContext,
         selectedTags: widget.tags,
         capabilities: capabilities,
+        onTagNavigate: widget.onTagNavigate,
         search: (term) => shell.searchTopicTagsForEditor(
           siteUrl: widget.siteUrl,
           categoryId: widget.categoryId,
@@ -101,6 +105,7 @@ Future<List<TopicTag>?> showTopicTagPicker({
   required List<TopicTag> selectedTags,
   required TopicComposerCapabilities capabilities,
   required TopicTagSearchCallback search,
+  ValueChanged<TopicTag>? onTagNavigate,
 }) => showAnchoredPicker<List<TopicTag>>(
   context: context,
   anchorContext: anchorContext,
@@ -112,6 +117,12 @@ Future<List<TopicTag>?> showTopicTagPicker({
     capabilities: capabilities,
     search: search,
     onSelected: Navigator.of(pickerContext).pop,
+    onTagNavigate: onTagNavigate == null
+        ? null
+        : (tag) {
+            Navigator.of(pickerContext).pop();
+            onTagNavigate(tag);
+          },
   ),
 );
 
@@ -122,12 +133,14 @@ class TopicTagPicker extends StatefulWidget {
     required this.capabilities,
     required this.search,
     required this.onSelected,
+    this.onTagNavigate,
   });
 
   final List<TopicTag> selectedTags;
   final TopicComposerCapabilities capabilities;
   final TopicTagSearchCallback search;
   final ValueChanged<List<TopicTag>> onSelected;
+  final ValueChanged<TopicTag>? onTagNavigate;
 
   @override
   State<TopicTagPicker> createState() => _TopicTagPickerState();
@@ -277,18 +290,34 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
               color: theme.colorScheme.error,
             ),
           for (final tag in _visibleResults)
-            AnchoredPickerOption(
-              key: ValueKey(('topic-tag-picker-option', tag.name)),
-              enabled: !tag.disabled && (_selected(tag) || !_atMaximum),
-              selected: _selected(tag),
-              showSelectionIndicator: true,
-              title: Text(tag.name),
-              subtitle: tag.disabledReason == null
-                  ? null
-                  : Text(tag.disabledReason!),
-              onTap: tag.disabled || (!_selected(tag) && _atMaximum)
-                  ? null
-                  : () => _choose(tag),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: AnchoredPickerOption(
+                key: ValueKey(('topic-tag-picker-option', tag.name)),
+                enabled: !tag.disabled && (_selected(tag) || !_atMaximum),
+                selected: _selected(tag),
+                showSelectionIndicator: true,
+                title: Text(tag.name),
+                subtitle: tag.disabledReason == null
+                    ? null
+                    : Text(tag.disabledReason!),
+                trailing: widget.onTagNavigate == null
+                    ? null
+                    : SizedBox.square(
+                        dimension: 28,
+                        child: DButton.iconOnly(
+                          key: ValueKey(('topic-tag-picker-open', tag.name)),
+                          icon: const DIcon(DIcons.upRightFromSquare, size: 12),
+                          tooltip: 'Open tag ${tag.name}',
+                          onPressed: () => widget.onTagNavigate!(tag),
+                          variant: DButtonVariant.flat,
+                          size: DButtonSize.small,
+                        ),
+                      ),
+                onTap: tag.disabled || (!_selected(tag) && _atMaximum)
+                    ? null
+                    : () => _choose(tag),
+              ),
             ),
           if (newTag == null &&
               _visibleResults.isEmpty &&
