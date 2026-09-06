@@ -11,6 +11,7 @@ import 'category_icon.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';
+import 'site_emoji_text.dart';
 import 'topic_list_indicators.dart';
 import 'topic_title.dart';
 
@@ -301,8 +302,9 @@ class TopicInboxRow extends StatelessWidget {
                                   const SizedBox(width: 3),
                                 ],
                                 Expanded(
-                                  child: Text(
+                                  child: SiteEmojiText.plain(
                                     preview ?? '',
+                                    siteUrl: siteUrl,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: metadataStyle,

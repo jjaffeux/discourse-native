@@ -490,7 +490,8 @@ Hover feedback uses a subtle rounded surface inset from the row separators,
 without changing row spacing or the clickable area. Keyboard focus has an
 outline on that same surface.
 Narrow inbox rows use the selected row's rounded outline for hover, with a
-neutral border and fill.
+neutral border and fill. Their one-line previews resolve standard and custom
+emoji through the forum's catalog, like topic titles.
 
 `latest`, `new`, `unread`, `top` and `messages` all share one envelope
 (`topic_list.topics` plus a `users` array), so they go through a single
