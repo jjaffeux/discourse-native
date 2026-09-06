@@ -49,6 +49,7 @@ class InlineTopicTitleEditor extends StatefulWidget {
     required this.onSave,
     this.style,
     this.maxLines = 1,
+    this.showEditingFrame = false,
   });
 
   final String title;
@@ -56,6 +57,7 @@ class InlineTopicTitleEditor extends StatefulWidget {
   final Future<String?> Function(String title) onSave;
   final TextStyle? style;
   final int maxLines;
+  final bool showEditingFrame;
 
   @override
   State<InlineTopicTitleEditor> createState() => _InlineTopicTitleEditorState();
@@ -197,70 +199,122 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ValueListenableBuilder<TextEditingValue>(
-        valueListenable: _controller,
-        builder: (context, value, _) {
-          final focused = _focus.hasFocus;
-          final displayedTitle = value.text.isEmpty ? ' ' : value.text;
-          return MouseRegion(
-            key: const ValueKey('topic-header-title-pointer'),
-            cursor: SystemMouseCursors.text,
-            child: Tooltip(
-              message: value.text.isEmpty ? _savedTitle : value.text,
-              child: Stack(
-                alignment: Alignment.centerLeft,
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 12),
-                    child: Opacity(
-                      opacity: focused ? 0 : 1,
-                      child: ExcludeSemantics(
-                        child: TopicTitle(
-                          displayedTitle,
-                          siteUrl: widget.siteUrl,
-                          maxLines: widget.maxLines,
-                          overflow: TextOverflow.ellipsis,
-                          style: widget.style,
+  Widget build(
+    BuildContext context,
+  ) => ValueListenableBuilder<TextEditingValue>(
+    valueListenable: _controller,
+    builder: (context, value, _) {
+      final focused = _focus.hasFocus;
+      final displayedTitle = value.text.isEmpty ? ' ' : value.text;
+      final theme = Theme.of(context);
+      final editor = MouseRegion(
+        key: const ValueKey('topic-header-title-pointer'),
+        cursor: SystemMouseCursors.text,
+        child: Tooltip(
+          message: value.text.isEmpty ? _savedTitle : value.text,
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            clipBehavior: widget.showEditingFrame ? Clip.none : Clip.hardEdge,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 12),
+                child: Opacity(
+                  opacity: focused ? 0 : 1,
+                  child: ExcludeSemantics(
+                    child: TopicTitle(
+                      displayedTitle,
+                      siteUrl: widget.siteUrl,
+                      maxLines: widget.maxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: widget.style,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: Opacity(
+                  opacity: focused ? 1 : 0,
+                  alwaysIncludeSemantics: true,
+                  child: Focus(
+                    onKeyEvent: _handleKey,
+                    child: TextField(
+                      key: const ValueKey('topic-header-title-field'),
+                      controller: _controller,
+                      focusNode: _focus,
+                      readOnly: _saving,
+                      maxLines: widget.maxLines,
+                      textInputAction: TextInputAction.done,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: widget.style,
+                      strutStyle: StrutStyle.fromTextStyle(
+                        widget.style ?? DefaultTextStyle.of(context).style,
+                      ),
+                      scrollPadding: EdgeInsets.zero,
+                      decoration: const InputDecoration.collapsed(hintText: ''),
+                      onChanged: (_) => _ensureEmojiCatalog(),
+                      onSubmitted: (_) => _focus.unfocus(),
+                      onTapOutside: (_) => _focus.unfocus(),
+                    ),
+                  ),
+                ),
+              ),
+              if (widget.showEditingFrame && focused)
+                Positioned(
+                  left: -12,
+                  right: -12,
+                  top: -10,
+                  bottom: -10,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      key: const ValueKey('topic-header-title-edit-frame'),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: theme.colorScheme.primary,
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(5),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: theme.colorScheme.primary,
+                            ),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  Positioned.fill(
-                    child: Opacity(
-                      opacity: focused ? 1 : 0,
-                      alwaysIncludeSemantics: true,
-                      child: Focus(
-                        onKeyEvent: _handleKey,
-                        child: TextField(
-                          key: const ValueKey('topic-header-title-field'),
-                          controller: _controller,
-                          focusNode: _focus,
-                          readOnly: _saving,
-                          maxLines: widget.maxLines,
-                          textInputAction: TextInputAction.done,
-                          textCapitalization: TextCapitalization.sentences,
-                          style: widget.style,
-                          strutStyle: StrutStyle.fromTextStyle(
-                            widget.style ?? DefaultTextStyle.of(context).style,
-                          ),
-                          scrollPadding: EdgeInsets.zero,
-                          decoration: const InputDecoration.collapsed(
-                            hintText: '',
-                          ),
-                          onChanged: (_) => _ensureEmojiCatalog(),
-                          onSubmitted: (_) => _focus.unfocus(),
-                          onTapOutside: (_) => _focus.unfocus(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
+            ],
+          ),
+        ),
+      );
+      if (!widget.showEditingFrame) return editor;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          editor,
+          if (focused)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                'Enter to save · Esc to cancel',
+                key: const ValueKey('topic-header-title-edit-hint'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: DiscourseTypography.fontDown2,
+                  height: DiscourseTypography.lineHeightCooked,
+                ),
               ),
             ),
-          );
-        },
+        ],
       );
+    },
+  );
 }
 
 class _TopicTitleEditingController extends TextEditingController {
