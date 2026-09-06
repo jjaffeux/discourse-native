@@ -1,6 +1,16 @@
 import 'd_icon.dart';
 
 abstract final class DNativeIcons {
+  static const DIconData closeTopicPane = DIconData(
+    'discourse-native-close-topic-pane',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+        'fill="none" stroke="currentColor" stroke-width="2" '
+        'stroke-linecap="round" stroke-linejoin="round">'
+        '<rect x="3" y="3" width="18" height="18" rx="2"/>'
+        '<path d="M15 3v18M7 12h5m-3-3 3 3-3 3"/>'
+        '</svg>',
+  );
+
   static const DIconData topic = DIconData(
     'discourse-native-topic',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" fill="currentColor">'
@@ -11,6 +21,7 @@ abstract final class DNativeIcons {
   );
 
   static const Map<String, DIconData> byName = {
+    'discourse-native-close-topic-pane': closeTopicPane,
     'discourse-native-topic': topic,
   };
 }

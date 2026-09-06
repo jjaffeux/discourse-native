@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'anchored_picker.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
@@ -69,8 +70,8 @@ class TopicInboxHeader extends StatelessWidget {
               children: [
                 DButton.iconOnly(
                   key: const ValueKey('topic-close-reader'),
-                  icon: const DIcon(DIcons.arrowLeft, size: 16),
-                  tooltip: 'Back to topics',
+                  icon: const DIcon(DNativeIcons.closeTopicPane, size: 20),
+                  tooltip: 'Close topic',
                   variant: DButtonVariant.flat,
                   size: DButtonSize.small,
                   onPressed: () {
@@ -83,17 +84,7 @@ class TopicInboxHeader extends StatelessWidget {
                     }
                   },
                 ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Topic',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
+                const Spacer(),
                 if (keepTopicListOpen) const _TopicInboxNavigation(),
                 if (topic != null && siteUrl != null) ...[
                   TopicStatusButton(

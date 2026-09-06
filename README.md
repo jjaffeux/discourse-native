@@ -724,10 +724,11 @@ list mounted, with independent scrolling and pagination. When the main content
 area has at least 880 logical pixels available, the list starts at 325 pixels
 beside the reader and can be resized between 304 and 480 pixels, keeping at
 least 520 pixels for the reader. Smaller windows show the reader alone and restore the
-same list when returning. Choosing a sibling topic replaces the reader route;
-**Back to topics** returns directly to the source list. The narrow list uses
-compact cards with a separate timestamp and taxonomy. Assignment shares the
-activity/reply line, and a tag overflow hint reveals additional tags. The reader
+same list when returning. Choosing a sibling topic replaces the reader route.
+The reader's **Close topic** pane icon returns directly to the source list.
+The narrow list uses compact cards with a separate timestamp and taxonomy.
+Assignment shares the activity/reply line, and a tag overflow hint reveals
+additional tags. The reader
 shares one text alignment for taxonomy, title, posts, and compact recommendations,
 with participants and assignment controls below the title. Bookmark and
 notification controls sit beside Reply in the footer.
