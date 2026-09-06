@@ -358,6 +358,29 @@ final class AssignPlugin
         layout: TopicPropertySectionLayout.standalone,
         showHeader: false,
         values: values,
+        compactHeader: (anchorContext, showDetails) => DButton.iconOnly(
+          key: const Key('assign-topic-header'),
+          icon: direct == null
+              ? const DIcon(DIcons.userPlus, size: 16)
+              : AssignmentAssigneeAvatar(assignee: direct.assignee, size: 18),
+          tooltip: direct != null
+              ? 'Manage assignment to ${direct.assignee.displayName}'
+              : canAssign
+              ? 'Assign topic'
+              : 'Manage assignments',
+          size: DButtonSize.small,
+          variant: DButtonVariant.flat,
+          onPressed: direct != null || !canAssign
+              ? showDetails
+              : () => unawaited(
+                  showAssignmentEditor(
+                    context: anchorContext,
+                    anchorContext: anchorContext,
+                    siteUrl: siteUrl,
+                    target: target,
+                  ),
+                ),
+        ),
         header: (anchorContext, showDetails) => Wrap(
           spacing: 4,
           runSpacing: 4,

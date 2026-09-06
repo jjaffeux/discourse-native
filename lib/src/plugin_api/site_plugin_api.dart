@@ -332,11 +332,17 @@ final class TopicPropertySection {
     this.layout = TopicPropertySectionLayout.inline,
     this.showHeader = true,
     this.header,
+    this.compactHeader,
   });
 
   /// Compact presentation alongside the title. The host supplies a details
   /// action backed by the current topic and plugin state.
   final Widget Function(BuildContext context, VoidCallback showDetails)? header;
+
+  /// Icon-sized action for the single-line header shown while reading.
+  /// Without one, the host provides a button that opens this section's details.
+  final Widget Function(BuildContext context, VoidCallback showDetails)?
+  compactHeader;
   final String label;
   final List<Widget> values;
   final TopicPropertySectionLayout layout;

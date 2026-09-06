@@ -50,6 +50,7 @@ class InlineTopicTitleEditor extends StatefulWidget {
     this.style,
     this.maxLines = 1,
     this.showEditingFrame = false,
+    this.onEditingChanged,
   });
 
   final String title;
@@ -58,6 +59,9 @@ class InlineTopicTitleEditor extends StatefulWidget {
   final TextStyle? style;
   final int maxLines;
   final bool showEditingFrame;
+
+  /// Keeps the surrounding header expanded while editing or saving a title.
+  final ValueChanged<bool>? onEditingChanged;
 
   @override
   State<InlineTopicTitleEditor> createState() => _InlineTopicTitleEditorState();
@@ -131,6 +135,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   void _focusChanged() {
     if (!mounted) return;
     setState(() {});
+    widget.onEditingChanged?.call(_focus.hasFocus || _saving);
     if (_focus.hasFocus) {
       _ensureEmojiCatalog();
       return;
@@ -151,12 +156,14 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     }
 
     setState(() => _saving = true);
+    widget.onEditingChanged?.call(true);
     final error = await widget.onSave(title);
     if (!mounted) return;
     if (error == null) {
       _savedTitle = title;
       if (_controller.text != title) _replaceText(title);
       setState(() => _saving = false);
+      widget.onEditingChanged?.call(_focus.hasFocus);
       return;
     }
 

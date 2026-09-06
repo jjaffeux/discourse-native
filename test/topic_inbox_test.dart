@@ -12,6 +12,7 @@ import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_actions.dart';
 import 'package:discourse_native/src/shell/topic_inbox_header.dart';
@@ -47,6 +48,193 @@ const _child = TopicCategory(
 const _tag = TopicTag(id: 1, name: 'community');
 
 void main() {
+  testWidgets(
+    'reader collapses smoothly and restores the full header at the top',
+    (tester) async {
+      final setup = await _setup(tester);
+      final shell = setup.controller;
+      shell.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('topic-header-compact')),
+        findsOneWidget,
+      );
+
+      await shell.jumpToCurrentTopicIndex(0);
+      await tester.pumpAndSettle();
+      final header = find.byKey(const ValueKey('topic-content-header'));
+      final expandedHeight = tester.getSize(header).height;
+      expect(expandedHeight, greaterThan(shellHeaderHeight));
+      final reader = find.byType(TopicView);
+      final readerState = tester.state(reader);
+      final listFinder = find.descendant(
+        of: reader,
+        matching: find.byType(SuperListView),
+      );
+      final listElement = tester.element(listFinder);
+      final list = tester.widget<SuperListView>(listFinder);
+
+      list.controller!.jumpTo(200);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 190));
+      expect(tester.getSize(header).height, greaterThan(shellHeaderHeight));
+      expect(tester.getSize(header).height, lessThan(expandedHeight));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(header).height, shellHeaderHeight);
+      expect(tester.state(reader), same(readerState));
+      expect(tester.element(listFinder), same(listElement));
+      expect(find.byKey(const ValueKey('topic-header-activity')), findsNothing);
+      expect(find.byKey(const ValueKey('topic-header-taxonomy')), findsNothing);
+      final category = find.byKey(
+        const ValueKey('topic-header-compact-category'),
+      );
+      final title = find.byKey(const ValueKey('topic-header-compact-title'));
+      expect(
+        find.descendant(of: category, matching: find.text(_child.name)),
+        findsOneWidget,
+      );
+      expect(
+        tester.getCenter(category).dy,
+        closeTo(tester.getCenter(title).dy, 1),
+      );
+      expect(tester.widget<TopicTitle>(title).maxLines, 1);
+
+      list.controller!.jumpTo(40);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(header).height, shellHeaderHeight);
+      list.controller!.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(header).height, expandedHeight);
+      expect(
+        find.byKey(const ValueKey('topic-header-taxonomy')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'compact category navigates and assignment details remain available',
+    (tester) async {
+      const registry = PluginRegistry([AssignPlugin()]);
+      final setup = await _setup(
+        tester,
+        registry: registry,
+        topicPluginPayload: const {
+          'can_assign': false,
+          'assigned_to_user': {'username': 'sam', 'name': 'Sam'},
+        },
+      );
+      final shell = setup.controller;
+      shell.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      final assignment = find.byKey(const Key('assign-topic-header'));
+      expect(tester.getSize(assignment).width, lessThanOrEqualTo(40));
+      expect(find.byTooltip('Manage assignment to Sam'), findsOneWidget);
+      await tester.tap(assignment);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('assign-topic-property')), findsOneWidget);
+      expect(find.text('Assigned to'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('topic-header-compact-category')),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.topicListContent?.categoryId, _child.id);
+      expect(shell.currentContent?.topicId, setup.rows.first.id);
+      expect(setup.api.topicsUpdated, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('scrolling keeps an active title edit until it is saved', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    final shell = setup.controller;
+    shell.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    await shell.jumpToCurrentTopicIndex(0);
+    await tester.pumpAndSettle();
+    final field = find.byKey(const ValueKey('topic-header-title-field'));
+    await tester.enterText(field, 'Updated coverage plan');
+    final list = tester.widget<SuperListView>(
+      find.descendant(
+        of: find.byType(TopicView),
+        matching: find.byType(SuperListView),
+      ),
+    );
+    list.controller!.jumpTo(200);
+    await tester.pumpAndSettle();
+    expect(field, findsOneWidget);
+    expect(
+      tester.widget<TextField>(field).controller!.text,
+      'Updated coverage plan',
+    );
+    expect(find.byKey(const ValueKey('topic-header-compact')), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(shell.currentTopic!.title, 'Updated coverage plan');
+    expect(find.byKey(const ValueKey('topic-header-compact')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('compact header fits narrow windows and enlarged text', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    final shell = setup.controller;
+    shell.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    for (final width in [320.0, 520.0, 900.0]) {
+      for (final theme in [AppTheme.light, AppTheme.dark]) {
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: theme,
+              home: Scaffold(
+                body: MediaQuery(
+                  data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: width,
+                      child: TopicInboxHeader(
+                        title:
+                            'Customer Support Coverage Week - Seville 🇪🇸 2026',
+                        siteUrl: shell.currentInstance!.url,
+                        canReturnToSidebar: false,
+                        keepTopicListOpen: true,
+                        registry: PluginRegistry.empty,
+                        topic: shell.currentTopic,
+                        hasEarlierPosts: true,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final header = find.byKey(const ValueKey('topic-content-header'));
+        expect(tester.getSize(header).height, shellHeaderHeight);
+        final title = find.byKey(const ValueKey('topic-header-compact-title'));
+        final category = find.byKey(
+          const ValueKey('topic-header-compact-category'),
+        );
+        expect(
+          tester.getRect(category).right,
+          lessThan(tester.getRect(title).left),
+        );
+        expect(tester.getRect(title).right, lessThan(width));
+        expect(tester.takeException(), isNull, reason: 'width $width');
+      }
+    }
+  });
+
   for (final dark in [false, true]) {
     testWidgets('inbox read colors and badges follow web topic state ($dark)', (
       tester,
@@ -331,6 +519,7 @@ void main() {
       );
       setup.controller.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
+      await _scrollReaderToTop(tester);
       final parent = tester.getRect(find.byTooltip('Edit topic category'));
       final child = tester.getRect(find.byTooltip('Edit topic subcategory'));
       final tag = tester.getRect(
@@ -388,6 +577,7 @@ void main() {
       final shell = setup.controller;
       shell.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
+      await _scrollReaderToTop(tester);
       final title = find.byKey(const ValueKey('topic-header-title-field'));
       final badge = find.byKey(const ValueKey('topic-header-closed'));
       final titleRect = tester.getRect(title);
@@ -497,6 +687,7 @@ void main() {
       final setup = await _setup(tester, tags: tags);
       setup.controller.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
+      await _scrollReaderToTop(tester);
       final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
       final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
       final parent = find.byTooltip('Edit topic category');
@@ -553,6 +744,7 @@ void main() {
           final shell = setup.controller;
           shell.openTopicFromList(setup.rows.first);
           await tester.pumpAndSettle();
+          await _scrollReaderToTop(tester);
           final originalTab = shell.activeTab;
 
           await tester.tap(
@@ -600,6 +792,7 @@ void main() {
         final shell = setup.controller;
         shell.openTopicFromList(setup.rows.first);
         await tester.pumpAndSettle();
+        await _scrollReaderToTop(tester);
         final originalTab = shell.activeTab;
 
         expect(
@@ -657,6 +850,7 @@ void main() {
         final shell = setup.controller;
         shell.openTopicFromList(setup.rows.first);
         await tester.pumpAndSettle();
+        await _scrollReaderToTop(tester);
         final originalTab = shell.activeTab;
 
         await tester.tap(
@@ -691,6 +885,7 @@ void main() {
     final setup = await _setup(tester, tags: tags, canEditTags: false);
     setup.controller.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
+    await _scrollReaderToTop(tester);
     expect(find.byKey(const ValueKey('topic-header-edit-tags')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
     await tester.pumpAndSettle();
@@ -966,6 +1161,7 @@ void main() {
     final shell = setup.controller;
     shell.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
+    await _scrollReaderToTop(tester);
     await tester.tap(find.text('Manage details'));
     await tester.pumpAndSettle();
     expect(find.text('Details: Topic 1 · Available'), findsOneWidget);
@@ -1153,6 +1349,7 @@ void main() {
       final shell = setup.controller;
       shell.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
+      await _scrollReaderToTop(tester);
       final title = find.byKey(const ValueKey('topic-header-title-field'));
       final frame = find.byKey(const ValueKey('topic-header-title-edit-frame'));
       final hint = find.text('Enter to save · Esc to cancel');
@@ -1301,16 +1498,29 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
       await tester.pumpAndSettle();
       expect(list.controller!.offset, closeTo(before, 2));
+      await _scrollReaderToTop(tester);
+      final editScroll = tester
+          .widget<SuperListView>(
+            find.descendant(of: reader, matching: find.byType(SuperListView)),
+          )
+          .controller!;
+      final editOffset = editScroll.offset;
       final title = find.byKey(const ValueKey('topic-header-title-field'));
       await tester.tap(title);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
       await tester.pump();
-      expect(list.controller!.offset, closeTo(before, 2));
+      expect(editScroll.offset, closeTo(editOffset, 2));
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     },
   );
+}
+
+Future<void> _scrollReaderToTop(WidgetTester tester) async {
+  final shell = ShellScope.read(tester.element(find.byType(TopicView)));
+  await shell.jumpToCurrentTopicIndex(0);
+  await tester.pumpAndSettle();
 }
 
 Future<({ShellController controller, FakeDiscourseApi api, List<Topic> rows})>
@@ -1325,6 +1535,7 @@ _setup(
   bool closed = false,
   bool canCloseTopic = false,
   bool canEditTopic = true,
+  Map<String, dynamic> topicPluginPayload = const {},
 }) async {
   tester.view.physicalSize = const Size(1100, 800);
   tester.view.devicePixelRatio = 1;
@@ -1434,6 +1645,7 @@ _setup(
             privateMessage: privateMessage,
             tags: tags,
             canCreatePost: canCreatePost,
+            plugins: registry.readTopic(topicPluginPayload, site.url),
           ),
           posts: posts[row.id]!,
         ),

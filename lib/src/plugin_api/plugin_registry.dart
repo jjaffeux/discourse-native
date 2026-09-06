@@ -1199,6 +1199,15 @@ final class PluginRegistry
                   plugin,
                   section.header!(_uiContext(context, plugin), showDetails),
                 ),
+          compactHeader: section.compactHeader == null
+              ? null
+              : (context, showDetails) => _owned(
+                  plugin,
+                  section.compactHeader!(
+                    _uiContext(context, plugin),
+                    showDetails,
+                  ),
+                ),
           values: _ownedAll(plugin, section.values),
           layout: section.layout,
           showHeader: section.showHeader,

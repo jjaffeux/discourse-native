@@ -1977,6 +1977,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 siteUrl: siteUrl,
                 route: widget.route,
                 topic: snapshot.topic!,
+                scrollController: _scroll,
+                hasEarlierPosts: snapshot.hasEarlier,
                 isConnected: widget.isConnected,
                 bookmarkBusy: widget.bookmarkBusy,
                 canReturnToSidebar: widget.canReturnToSidebar,
@@ -2539,6 +2541,8 @@ class _TopicViewHeader extends StatelessWidget {
     this.inbox = false,
     this.keepTopicListOpen = false,
     this.registry = PluginRegistry.empty,
+    this.scrollController,
+    this.hasEarlierPosts = false,
   });
 
   final bool inbox;
@@ -2553,6 +2557,8 @@ class _TopicViewHeader extends StatelessWidget {
   final bool bookmarkBusy;
   final bool sidebarVisible;
   final VoidCallback? onToggleSidebar;
+  final ScrollController? scrollController;
+  final bool hasEarlierPosts;
 
   @override
   Widget build(BuildContext context) {
@@ -2565,6 +2571,8 @@ class _TopicViewHeader extends StatelessWidget {
         canReturnToSidebar: canReturnToSidebar,
         keepTopicListOpen: keepTopicListOpen,
         registry: registry,
+        scrollController: scrollController,
+        hasEarlierPosts: hasEarlierPosts,
       );
     }
     final theme = Theme.of(context);
