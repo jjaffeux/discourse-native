@@ -504,7 +504,7 @@ void main() {
       );
       expect(tester.getSize(find.byType(TopicView)).width, 600);
 
-      await tester.tap(find.byKey(const ValueKey('topic-close-reader')));
+      await tester.tap(find.byTooltip('Close topic'));
       await tester.pumpAndSettle();
       expect(shell.currentContent?.isTopic, isFalse);
       expect(tester.state(listFinder), same(listState));
@@ -590,7 +590,7 @@ void main() {
       expect(shell.topicListContent?.categoryId, 21);
       expect(shell.topicListContent?.tagNames, isEmpty);
       expect(shell.currentContent?.topicId, 1);
-      shell.closeTopicListReader();
+      await tester.tap(find.byTooltip('Close topic'));
       await tester.pumpAndSettle();
       expect(shell.currentContent?.categoryId, 21);
       expect(tester.takeException(), isNull);
