@@ -375,18 +375,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           hintStyle: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
-          prefixIcon: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 11),
-            child: DIcon(
-              DIcons.filter,
-              size: 15,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          prefixIconConstraints: BoxConstraints(
-            minWidth: 37,
-            minHeight: controlHeight,
-          ),
           suffixIcon: filter.text.text.isEmpty
               ? null
               : IconButton(
@@ -404,7 +392,10 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           border: _plainInputBorder(theme),
           enabledBorder: _plainInputBorder(theme),
           focusedBorder: _plainInputBorder(theme, focused: true),
-          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
         ),
         onChanged: filter.inputChanged,
         onTap: _openSuggestions,
