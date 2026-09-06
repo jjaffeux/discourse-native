@@ -23,6 +23,7 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -534,10 +535,15 @@ void main() {
     },
   );
 
-  for (final canEditTags in [true, false]) {
+  for (final (canEditTags, newTab) in [
+    (true, false),
+    (true, true),
+    (false, false),
+    (false, true),
+  ]) {
     for (final privateMessage in [false, true]) {
       testWidgets(
-        'header tags navigate with editing $canEditTags and private messages $privateMessage',
+        'header tags navigate with editing $canEditTags, private messages $privateMessage, and new tab $newTab',
         (tester) async {
           final setup = await _setup(
             tester,
@@ -547,17 +553,29 @@ void main() {
           final shell = setup.controller;
           shell.openTopicFromList(setup.rows.first);
           await tester.pumpAndSettle();
+          final originalTab = shell.activeTab;
 
           await tester.tap(
             find.byKey(const ValueKey(('topic-header-tag', 'community'))),
+            kind: PointerDeviceKind.mouse,
+            buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
           );
           await tester.pumpAndSettle();
 
           final path = privateMessage
               ? '/topics/private-messages-tags/sam/community.json'
               : '/tag/community/1.json';
-          expect(shell.currentContent?.feedPath, path);
-          expect(setup.api.feedPaths, contains(path));
+          if (newTab) {
+            expect(shell.activeTab, originalTab);
+            expect(shell.tabsForCurrentForum, hasLength(2));
+            expect(
+              shell.tabsForCurrentForum.last.currentContent.feedPath,
+              path,
+            );
+          } else {
+            expect(shell.currentContent?.feedPath, path);
+            expect(setup.api.feedPaths, contains(path));
+          }
           expect(
             find.byKey(const ValueKey('topic-tag-picker-query')),
             findsNothing,
@@ -569,7 +587,7 @@ void main() {
     }
 
     testWidgets(
-      'collapsed tags navigate without saving with editing $canEditTags',
+      'collapsed tags navigate without saving with editing $canEditTags and new tab $newTab',
       (tester) async {
         final tags = [
           for (var id = 1; id <= 27; id++) TopicTag(id: id, name: 'region-$id'),
@@ -582,6 +600,7 @@ void main() {
         final shell = setup.controller;
         shell.openTopicFromList(setup.rows.first);
         await tester.pumpAndSettle();
+        final originalTab = shell.activeTab;
 
         expect(
           find.byKey(const ValueKey(('topic-header-tag', 'region-27'))),
@@ -603,16 +622,60 @@ void main() {
               'region-27',
             )),
           ),
+          kind: PointerDeviceKind.mouse,
+          buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
         );
         await tester.pumpAndSettle();
 
-        expect(shell.currentContent?.feedPath, '/tag/region-27/27.json');
-        expect(setup.api.feedPaths, contains('/tag/region-27/27.json'));
+        if (newTab) {
+          expect(shell.activeTab, originalTab);
+          expect(shell.tabsForCurrentForum, hasLength(2));
+          expect(
+            shell.tabsForCurrentForum.last.currentContent.feedPath,
+            '/tag/region-27/27.json',
+          );
+        } else {
+          expect(shell.currentContent?.feedPath, '/tag/region-27/27.json');
+          expect(setup.api.feedPaths, contains('/tag/region-27/27.json'));
+        }
         expect(query, findsNothing);
         expect(setup.api.topicTagsUpdated, isEmpty);
         expect(
           shell.store.read<TopicDetail>(shell.currentInstance!.url, 1)?.tags,
           tags,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final category in [_parent, _child]) {
+    testWidgets(
+      'middle-click opens the ${category.name} category arrow in a background tab',
+      (tester) async {
+        final setup = await _setup(tester);
+        final shell = setup.controller;
+        shell.openTopicFromList(setup.rows.first);
+        await tester.pumpAndSettle();
+        final originalTab = shell.activeTab;
+
+        await tester.tap(
+          find.byKey(ValueKey('topic-header-browse-category-${category.id}')),
+          kind: PointerDeviceKind.mouse,
+          buttons: kMiddleMouseButton,
+        );
+        await tester.pumpAndSettle();
+
+        expect(shell.activeTab, originalTab);
+        expect(shell.tabsForCurrentForum, hasLength(2));
+        expect(
+          shell.tabsForCurrentForum.last.currentContent.categoryId,
+          category.id,
+        );
+        expect(setup.api.topicsUpdated, isEmpty);
+        expect(
+          find.byKey(const ValueKey('topic-category-picker-query')),
+          findsNothing,
         );
         expect(tester.takeException(), isNull);
       },

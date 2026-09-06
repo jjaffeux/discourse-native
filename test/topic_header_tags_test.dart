@@ -25,7 +25,7 @@ void main() {
                     width: width,
                     child: TopicHeaderTags(
                       siteUrl: 'https://meta.example',
-                      onTagNavigate: (_) {},
+                      onTagNavigate: (_, {newTab = false}) {},
                       topic: TopicDetail(
                         id: 1,
                         title: 'Many tags',

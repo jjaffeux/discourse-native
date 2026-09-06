@@ -15,6 +15,7 @@ import 'anchored_picker.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
+import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -530,11 +531,13 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                   child: TopicHeaderTags(
                     siteUrl: siteUrl,
                     topic: topic,
-                    onTagNavigate: (tag) => shell.openTopicTag(
-                      tag,
-                      siteUrl: siteUrl,
-                      privateMessage: topic.privateMessage,
-                    ),
+                    onTagNavigate: (tag, {newTab = false}) =>
+                        shell.openTopicTag(
+                          tag,
+                          siteUrl: siteUrl,
+                          privateMessage: topic.privateMessage,
+                          newTab: newTab,
+                        ),
                   ),
                 ),
               ],
@@ -652,26 +655,31 @@ class _CategoryChip extends StatelessWidget {
             ),
           ),
           if (navigate != null)
-            Tooltip(
-              message: 'Browse ${category!.name}',
-              child: InkWell(
-                key: ValueKey('topic-header-browse-category-${category!.id}'),
-                onTap: navigate,
-                overlayColor: overlayColor,
-                splashFactory: NoSplash.splashFactory,
-                child: Container(
-                  width: 25,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    border: BorderDirectional(
-                      start: BorderSide(color: color.withValues(alpha: .22)),
+            LinkTarget(
+              url: '/c/${category!.id}',
+              title: category!.name,
+              siteUrl: siteUrl,
+              child: Tooltip(
+                message: 'Browse ${category!.name}',
+                child: InkWell(
+                  key: ValueKey('topic-header-browse-category-${category!.id}'),
+                  onTap: navigate,
+                  overlayColor: overlayColor,
+                  splashFactory: NoSplash.splashFactory,
+                  child: Container(
+                    width: 25,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      border: BorderDirectional(
+                        start: BorderSide(color: color.withValues(alpha: .22)),
+                      ),
                     ),
-                  ),
-                  child: Center(
-                    child: DIcon(
-                      DIcons.upRightFromSquare,
-                      size: 11,
-                      color: theme.colorScheme.onSurfaceVariant,
+                    child: Center(
+                      child: DIcon(
+                        DIcons.upRightFromSquare,
+                        size: 11,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
