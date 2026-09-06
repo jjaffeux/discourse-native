@@ -497,6 +497,18 @@ class _CategoryChip extends StatelessWidget {
     final color = category == null
         ? theme.colorScheme.onSurfaceVariant
         : Color(category!.colorValue);
+    final overlayColor = WidgetStateProperty.resolveWith<Color>((states) {
+      if (states.contains(WidgetState.focused)) {
+        return color.withValues(alpha: .16);
+      }
+      if (states.contains(WidgetState.pressed)) {
+        return color.withValues(alpha: .12);
+      }
+      if (states.contains(WidgetState.hovered)) {
+        return color.withValues(alpha: .08);
+      }
+      return Colors.transparent;
+    });
     return Material(
       color: category == null
           ? Colors.transparent
@@ -514,6 +526,8 @@ class _CategoryChip extends StatelessWidget {
               message: edit == null ? label : editLabel,
               child: InkWell(
                 onTap: edit,
+                overlayColor: overlayColor,
+                splashFactory: NoSplash.splashFactory,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 7,
@@ -570,6 +584,8 @@ class _CategoryChip extends StatelessWidget {
               child: InkWell(
                 key: ValueKey('topic-header-browse-category-${category!.id}'),
                 onTap: navigate,
+                overlayColor: overlayColor,
+                splashFactory: NoSplash.splashFactory,
                 child: Container(
                   width: 25,
                   height: 28,
