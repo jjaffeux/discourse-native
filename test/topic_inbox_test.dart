@@ -98,6 +98,113 @@ void main() {
   );
 
   testWidgets(
+    'header closed status updates from topic actions without moving the title',
+    (tester) async {
+      final setup = await _setup(tester, canCloseTopic: true);
+      final shell = setup.controller;
+      shell.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      final title = find.byKey(const ValueKey('topic-header-title-field'));
+      final badge = find.byKey(const ValueKey('topic-header-closed'));
+      final titleRect = tester.getRect(title);
+      expect(badge, findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('topic-status-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-status-closed')));
+      await tester.pumpAndSettle();
+      expect(shell.currentTopic?.closed, isTrue);
+      expect(find.text('Closed'), findsOneWidget);
+      expect(badge, findsOneWidget);
+      expect(tester.getRect(title), titleRect);
+      expect(tester.getRect(badge).top, greaterThan(titleRect.bottom));
+      expect(tester.getRect(badge).left, closeTo(titleRect.left, 1));
+
+      await tester.tap(title);
+      await tester.pump();
+      final frame = find.byKey(const ValueKey('topic-header-title-edit-frame'));
+      expect(frame, findsOneWidget);
+      expect(
+        tester.getRect(badge).top,
+        greaterThan(tester.getRect(frame).bottom),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('topic-status-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Open topic'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('topic-status-closed')));
+      await tester.pumpAndSettle();
+      expect(shell.currentTopic?.closed, isFalse);
+      expect(badge, findsNothing);
+      expect(tester.getRect(title), titleRect);
+      expect(setup.api.topicStatusesUpdated, const [
+        (topicId: 1, status: TopicStatusProperty.closed, enabled: true),
+        (topicId: 1, status: TopicStatusProperty.closed, enabled: false),
+      ]);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'closed status is readable in narrow headers without edit permissions',
+    (tester) async {
+      final setup = await _setup(tester, closed: true, canEditTopic: false);
+      final shell = setup.controller;
+      shell.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      final semantics = tester.ensureSemantics();
+      try {
+        for (final theme in [AppTheme.light, AppTheme.dark]) {
+          for (final width in [320.0, 420.0]) {
+            await tester.pumpWidget(
+              ShellScope(
+                controller: shell,
+                child: MaterialApp(
+                  theme: theme,
+                  home: Scaffold(
+                    body: MediaQuery(
+                      data: const MediaQueryData(
+                        textScaler: TextScaler.linear(2),
+                      ),
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: SizedBox(
+                          width: width,
+                          child: TopicInboxHeader(
+                            title: shell.currentTopic!.title,
+                            siteUrl: shell.currentInstance!.url,
+                            canReturnToSidebar: false,
+                            keepTopicListOpen: false,
+                            registry: PluginRegistry.empty,
+                            topic: shell.currentTopic,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final badge = find.byKey(const ValueKey('topic-header-closed'));
+            expect(find.text('Closed'), findsOneWidget);
+            expect(find.bySemanticsLabel('Topic closed'), findsOneWidget);
+            expect(find.byType(InlineTopicTitleEditor), findsNothing);
+            final rect = tester.getRect(badge);
+            expect(rect.left, greaterThanOrEqualTo(0));
+            expect(rect.right, lessThan(width));
+            expect(tester.takeException(), isNull);
+          }
+        }
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets(
     'many tags stay beside categories and hidden tags can be removed immediately',
     (tester) async {
       final tags = [
@@ -774,6 +881,9 @@ _setup(
   List<TopicTag> tags = const [_tag],
   bool canEditTags = true,
   bool canCreatePost = true,
+  bool closed = false,
+  bool canCloseTopic = false,
+  bool canEditTopic = true,
 }) async {
   tester.view.physicalSize = const Size(1100, 800);
   tester.view.devicePixelRatio = 1;
@@ -875,7 +985,9 @@ _setup(
                   )
                 : null,
             categoryId: 22,
-            canEdit: true,
+            closed: closed,
+            canCloseTopic: canCloseTopic,
+            canEdit: canEditTopic,
             canEditTags: canEditTags,
             tags: tags,
             canCreatePost: canCreatePost,
