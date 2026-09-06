@@ -11,13 +11,15 @@ import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_picker.dart';
+import 'avatar_image.dart';
 import 'category_icon.dart';
+import 'content_reading_lane.dart';
+import 'relative_time.dart';
 import 'shell_scope.dart';
 import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
 import 'topic_tag_picker.dart';
-import 'topic_taxonomy_fields.dart';
 import 'topic_title.dart';
 import 'user_menu_button.dart';
 
@@ -31,8 +33,6 @@ class TopicInboxHeader extends StatelessWidget {
     required this.registry,
     this.route,
     this.topic,
-    this.isConnected = false,
-    this.bookmarkBusy = false,
   });
 
   final String title;
@@ -42,8 +42,6 @@ class TopicInboxHeader extends StatelessWidget {
   final PluginRegistry registry;
   final ContentRoute? route;
   final TopicDetail? topic;
-  final bool isConnected;
-  final bool bookmarkBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +50,9 @@ class TopicInboxHeader extends StatelessWidget {
     final topic = this.topic;
     final siteUrl = this.siteUrl;
     final titleStyle = theme.textTheme.titleLarge?.copyWith(
-      fontWeight: FontWeight.w700,
+      fontSize: 23,
+      height: 1.28,
+      fontWeight: FontWeight.w600,
     );
     return DecoratedBox(
       key: const ValueKey('topic-content-header'),
@@ -64,7 +64,7 @@ class TopicInboxHeader extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 12, 0),
             child: Row(
               children: [
                 DButton.iconOnly(
@@ -91,6 +91,7 @@ class TopicInboxHeader extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
+                if (keepTopicListOpen) const _TopicInboxNavigation(),
                 if (topic != null && siteUrl != null) ...[
                   TopicStatusButton(
                     siteUrl: siteUrl,
@@ -105,78 +106,250 @@ class TopicInboxHeader extends StatelessWidget {
                     topic: topic,
                     route: route,
                   ),
-                  if (controller.currentInstance?.user != null)
-                    TopicBookmarkButton(
-                      siteUrl: siteUrl,
-                      topic: topic,
-                      busy: bookmarkBusy,
-                    ),
-                  if (isConnected)
-                    TopicNotificationLevelButton(
-                      siteUrl: siteUrl,
-                      topic: topic,
-                    ),
                 ],
                 if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (topic != null && siteUrl != null) ...[
-                  _TopicHeaderTaxonomy(
-                    siteUrl: siteUrl,
-                    topic: topic,
-                    keepTopicListOpen: keepTopicListOpen,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                if (topic?.canEdit == true && siteUrl != null)
-                  InlineTopicTitleEditor(
-                    key: const ValueKey('topic-header-title'),
-                    title: title,
-                    siteUrl: siteUrl,
-                    style: titleStyle,
-                    maxLines: 3,
-                    onSave: (value) => controller.saveTopicTitle(
-                      siteUrl: siteUrl,
-                      topicId: topic!.id,
-                      title: value,
-                    ),
-                  )
-                else if (siteUrl != null)
-                  TopicTitle(
-                    title,
-                    siteUrl: siteUrl,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: titleStyle,
-                    key: const ValueKey('topic-header-title'),
-                  )
-                else
-                  Text(
-                    title,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: titleStyle,
-                  ),
-                if (topic != null && siteUrl != null)
-                  _TopicHeaderProperties(
-                    siteUrl: siteUrl,
-                    topic: topic,
-                    registry: registry,
-                  ),
-              ],
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final lane = ContentReadingLane.geometryFor(
+                context,
+                availableWidth: constraints.maxWidth,
+                basePadding: const EdgeInsets.symmetric(horizontal: 12),
+              );
+              return Padding(
+                padding: lane.padding.add(
+                  const EdgeInsets.fromLTRB(16, 14, 16, 18),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (topic != null && siteUrl != null) ...[
+                      _TopicHeaderTaxonomy(
+                        siteUrl: siteUrl,
+                        topic: topic,
+                        keepTopicListOpen: keepTopicListOpen,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (topic?.canEdit == true && siteUrl != null)
+                      InlineTopicTitleEditor(
+                        key: const ValueKey('topic-header-title'),
+                        title: title,
+                        siteUrl: siteUrl,
+                        style: titleStyle,
+                        maxLines: 3,
+                        onSave: (value) => controller.saveTopicTitle(
+                          siteUrl: siteUrl,
+                          topicId: topic!.id,
+                          title: value,
+                        ),
+                      )
+                    else if (siteUrl != null)
+                      TopicTitle(
+                        title,
+                        siteUrl: siteUrl,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: titleStyle,
+                        key: const ValueKey('topic-header-title'),
+                      )
+                    else
+                      Text(
+                        title,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: titleStyle,
+                      ),
+                    if (topic != null && siteUrl != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final summary = _TopicActivitySummary(
+                              siteUrl: siteUrl,
+                              topic: topic,
+                            );
+                            final properties = _TopicHeaderProperties(
+                              siteUrl: siteUrl,
+                              topic: topic,
+                              registry: registry,
+                            );
+                            return constraints.maxWidth >= 560
+                                ? Row(
+                                    children: [
+                                      Expanded(child: summary),
+                                      const SizedBox(width: 12),
+                                      Expanded(child: properties),
+                                    ],
+                                  )
+                                : Wrap(
+                                    spacing: 16,
+                                    runSpacing: 8,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [summary, properties],
+                                  );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
+}
+
+class _TopicActivitySummary extends StatelessWidget {
+  const _TopicActivitySummary({required this.siteUrl, required this.topic});
+  final String siteUrl;
+  final TopicDetail topic;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<Topic?>(
+    valueListenable: ShellScope.read(context).topicRef(siteUrl, topic.id),
+    builder: (context, row, _) {
+      final theme = Theme.of(context);
+      final participants = topic.participants.take(3).toList();
+      final style = theme.textTheme.labelSmall?.copyWith(
+        fontSize: 12,
+        color: theme.colorScheme.onSurfaceVariant,
+      );
+      return Wrap(
+        key: const ValueKey('topic-header-activity'),
+        spacing: 8,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (participants.isNotEmpty)
+            SizedBox(
+              width: 20 + (participants.length - 1) * 15,
+              height: 20,
+              child: Stack(
+                children: [
+                  for (var i = 0; i < participants.length; i++)
+                    Positioned(
+                      left: i * 15,
+                      child: Tooltip(
+                        message: participants[i].displayName,
+                        child: ClipOval(
+                          child: AvatarImage(
+                            url: participants[i].avatarUrl,
+                            size: 20,
+                            fallback: Container(
+                              width: 20,
+                              height: 20,
+                              color: theme.shell.hover,
+                              alignment: Alignment.center,
+                              child: Text(
+                                participants[i].username.isEmpty
+                                    ? '?'
+                                    : participants[i].username
+                                          .substring(0, 1)
+                                          .toUpperCase(),
+                                style: style?.copyWith(fontSize: 9),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          Text(
+            '${topic.replyCount} ${topic.replyCount == 1 ? 'reply' : 'replies'}',
+            style: style,
+          ),
+          if (row?.bumpedAt case final activity?) ...[
+            Text('·', style: style),
+            Text(switch (relativeTime(activity)) {
+              'now' => 'Last reply just now',
+              final age => 'Last reply $age ago',
+            }, style: style),
+          ],
+        ],
+      );
+    },
+  );
+}
+
+class _TopicInboxNavigation extends StatelessWidget {
+  const _TopicInboxNavigation();
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) => ShellSelector<({int? previous, int? next, bool more, bool busy})>(
+    select: (shell) {
+      final ids = shell.currentFeed?.topicIds ?? const <int>[];
+      final index = ids.indexOf(shell.currentContent?.topicId ?? -1);
+      return (
+        previous: index > 0 ? ids[index - 1] : null,
+        next: index >= 0 && index + 1 < ids.length ? ids[index + 1] : null,
+        more:
+            index >= 0 &&
+            index == ids.length - 1 &&
+            shell.currentFeed?.hasMore == true,
+        busy: shell.currentFeed?.loadingMore == true,
+      );
+    },
+    builder: (context, state, _) {
+      final shell = ShellScope.read(context);
+      Future<void> open(int? id, {bool loadNext = false}) async {
+        final siteUrl = shell.currentInstance?.url;
+        final source = shell.currentFeedId;
+        final current = shell.currentContent?.topicId;
+        if (siteUrl == null) return;
+        if (loadNext && source != null) {
+          await shell.loadMoreFeed(source);
+          if (shell.currentInstance?.url != siteUrl ||
+              shell.currentFeedId != source ||
+              shell.currentContent?.topicId != current) {
+            return;
+          }
+          final ids = shell.currentFeed?.topicIds ?? const <int>[];
+          final index = ids.indexOf(current ?? -1);
+          id = index >= 0 && index + 1 < ids.length ? ids[index + 1] : null;
+        }
+        final topic = id == null ? null : shell.store.read<Topic>(siteUrl, id);
+        if (topic != null) shell.openTopicFromList(topic);
+      }
+
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DButton.iconOnly(
+            key: const ValueKey('inbox-previous-topic'),
+            tooltip: 'Previous topic',
+            icon: const DIcon(DIcons.chevronLeft, size: 13),
+            onPressed: state.previous == null
+                ? null
+                : () => unawaited(open(state.previous)),
+            variant: DButtonVariant.flat,
+            size: DButtonSize.small,
+          ),
+          DButton.iconOnly(
+            key: const ValueKey('inbox-next-topic'),
+            tooltip: 'Next topic',
+            icon: const DIcon(DIcons.chevronRight, size: 13),
+            onPressed: state.busy || (state.next == null && !state.more)
+                ? null
+                : () =>
+                      unawaited(open(state.next, loadNext: state.next == null)),
+            variant: DButtonVariant.flat,
+            size: DButtonSize.small,
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _TopicHeaderTaxonomy extends StatelessWidget {
@@ -225,7 +398,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
         builder: (context, edit, saving) => _CategoryChip(
           category: value,
           siteUrl: siteUrl,
-          label: value?.name ?? (subcategory ? 'Subcategory' : 'Category'),
+          label: value?.name ?? (subcategory ? '+ Subcategory' : '+ Category'),
           edit: edit,
           saving: saving,
           editLabel: subcategory
@@ -239,40 +412,82 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                 ),
         ),
       );
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          if (!topic.privateMessage) ...[
-            categoryControl(root, subcategory: false),
-            if (parent != null ||
-                (root != null &&
-                    topic.canEdit &&
-                    shell
-                        .filterCategoriesFor(siteUrl)
-                        .any((item) => item.parentCategoryId == root.id)))
-              categoryControl(
-                parent == null ? null : category,
-                subcategory: true,
+      return TopicTagMenuAnchor(
+        siteUrl: siteUrl,
+        topicId: topic.id,
+        categoryId: topic.categoryId,
+        tags: topic.tags,
+        enabled: topic.canEditTags,
+        builder: (context, editTags, savingTags) => Wrap(
+          key: const ValueKey('topic-header-taxonomy'),
+          spacing: 7,
+          runSpacing: 7,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (!topic.privateMessage) ...[
+              categoryControl(root, subcategory: false),
+              if (parent != null ||
+                  (root != null &&
+                      topic.canEdit &&
+                      shell
+                          .filterCategoriesFor(siteUrl)
+                          .any((item) => item.parentCategoryId == root.id)))
+                categoryControl(
+                  parent == null ? null : category,
+                  subcategory: true,
+                ),
+            ],
+            if (topic.tags.isNotEmpty || topic.canEditTags) ...[
+              Container(
+                width: 1,
+                height: 15,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                color: Theme.of(context).shell.divider,
               ),
+              for (final tag in topic.tags)
+                Material(
+                  color: Theme.of(context).shell.hover,
+                  borderRadius: BorderRadius.circular(4),
+                  child: InkWell(
+                    key: ValueKey(('topic-header-tag', tag.name)),
+                    onTap: editTags,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 5,
+                      ),
+                      child: Text(
+                        '# ${tag.name}',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelSmall?.copyWith(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
+              if (topic.canEditTags)
+                SizedBox.square(
+                  dimension: 28,
+                  child: savingTags
+                      ? const Padding(
+                          padding: EdgeInsets.all(6),
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 1.5,
+                          ),
+                        )
+                      : DButton.iconOnly(
+                          key: const ValueKey('topic-header-add-tag'),
+                          icon: const DIcon(DIcons.plus, size: 14),
+                          tooltip: 'Add or remove topic tags',
+                          onPressed: editTags,
+                          variant: DButtonVariant.flat,
+                          size: DButtonSize.small,
+                        ),
+                ),
+            ],
           ],
-          if (topic.tags.isNotEmpty || topic.canEditTags)
-            TopicTagMenuAnchor(
-              siteUrl: siteUrl,
-              topicId: topic.id,
-              categoryId: topic.categoryId,
-              tags: topic.tags,
-              enabled: topic.canEditTags,
-              builder: (context, edit, saving) => TopicTagsValue(
-                tags: topic.tags,
-                onTap: edit,
-                saving: saving,
-                tagKey: (tag) => ValueKey(('topic-header-tag', tag.name)),
-                addKey: const ValueKey('topic-header-add-tag'),
-              ),
-            ),
-        ],
+        ),
       );
     },
   );
@@ -303,8 +518,13 @@ class _CategoryChip extends StatelessWidget {
         ? theme.colorScheme.onSurfaceVariant
         : Color(category!.colorValue);
     return Material(
-      color: color.withValues(alpha: .10),
-      borderRadius: BorderRadius.circular(6),
+      color: category == null
+          ? Colors.transparent
+          : color.withValues(alpha: .10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(5),
+        side: BorderSide(color: color.withValues(alpha: .25)),
+      ),
       clipBehavior: Clip.antiAlias,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -314,7 +534,7 @@ class _CategoryChip extends StatelessWidget {
             child: InkWell(
               onTap: edit,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -333,9 +553,19 @@ class _CategoryChip extends StatelessWidget {
                         label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelMedium,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontSize: 12,
+                        ),
                       ),
                     ),
+                    if (edit != null && category != null && !saving) ...[
+                      const SizedBox(width: 5),
+                      DIcon(
+                        DIcons.chevronDown,
+                        size: 9,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ],
                     if (saving) ...[
                       const SizedBox(width: 6),
                       const SizedBox.square(
@@ -351,13 +581,28 @@ class _CategoryChip extends StatelessWidget {
             ),
           ),
           if (navigate != null)
-            DButton.iconOnly(
-              key: ValueKey('topic-header-browse-category-${category!.id}'),
-              icon: const DIcon(DIcons.upRightFromSquare, size: 11),
-              tooltip: 'Browse ${category!.name}',
-              onPressed: navigate,
-              variant: DButtonVariant.flat,
-              size: DButtonSize.small,
+            Tooltip(
+              message: 'Browse ${category!.name}',
+              child: InkWell(
+                key: ValueKey('topic-header-browse-category-${category!.id}'),
+                onTap: navigate,
+                child: Container(
+                  width: 25,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    border: BorderDirectional(
+                      start: BorderSide(color: color.withValues(alpha: .22)),
+                    ),
+                  ),
+                  child: Center(
+                    child: DIcon(
+                      DIcons.upRightFromSquare,
+                      size: 11,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
             ),
         ],
       ),
@@ -381,8 +626,9 @@ class _TopicHeaderProperties extends StatelessWidget {
       final sections = registry.topicProperties(context, siteUrl, topic);
       if (sections.isEmpty) return const SizedBox.shrink();
       return Padding(
-        padding: const EdgeInsets.only(top: 12),
+        padding: EdgeInsets.zero,
         child: Wrap(
+          alignment: WrapAlignment.end,
           spacing: 8,
           runSpacing: 6,
           children: [

@@ -24,6 +24,7 @@ import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'topic_inbox_row.dart';
 import 'topic_list_layout.dart';
 import 'topic_title.dart';
 
@@ -353,6 +354,8 @@ class _TopicListViewState extends State<TopicListView> {
                           (feed.loadingMore || feed.pageError ? 1 : 0),
                       separatorBuilder: (context, _) => Divider(
                         height: 1,
+                        indent: widget.inbox ? 16 : 0,
+                        endIndent: widget.inbox ? 16 : 0,
                         color: Theme.of(context).shell.divider,
                       ),
                       itemBuilder: (context, index) {
@@ -838,9 +841,10 @@ class _TopicRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<({String? siteUrl, bool selected})>(
+    return ShellSelector<({String? siteUrl, bool selected, bool reading})>(
       select: (controller) => (
         siteUrl: controller.currentInstance?.url,
+        reading: inbox && controller.currentContent?.isTopic == true,
         selected: inbox && controller.currentContent?.topicId == topicId,
       ),
       builder: (context, state, _) {
@@ -871,6 +875,7 @@ class _TopicRow extends StatelessWidget {
                     showCategoryBreadcrumb: true,
                     siteUrl: siteUrl,
                     selected: state.selected,
+                    inbox: state.reading,
                     onTap: () => inbox
                         ? controller.openTopicFromList(topic)
                         : controller.openTopic(topic),
@@ -1005,6 +1010,7 @@ class _TopicRowBody extends StatelessWidget {
     this.forum,
     this.titleStyle,
     this.selected = false,
+    this.inbox = false,
   });
 
   final Topic topic;
@@ -1016,6 +1022,7 @@ class _TopicRowBody extends StatelessWidget {
   final DiscourseInstance? forum;
   final TextStyle? titleStyle;
   final bool selected;
+  final bool inbox;
 
   @override
   Widget build(BuildContext context) {
@@ -1025,96 +1032,110 @@ class _TopicRowBody extends StatelessWidget {
         (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
             .topicListMetadata(context, siteUrl, topic);
 
-    final row = InkWell(
-      onTap: onTap,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final layout = _TopicLedgerLayout.forWidth(
-            ContentReadingLane.breakpointWidthOf(context, constraints.maxWidth),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (inbox &&
+            ContentReadingLane.breakpointWidthOf(
+                  context,
+                  constraints.maxWidth,
+                ) <
+                520) {
+          return TopicInboxRow(
+            topic: topic,
+            siteUrl: siteUrl,
+            selected: selected,
+            onTap: onTap,
           );
-          final showInlineParticipants = !layout.showParticipants;
-          final showInlineActivity = !layout.showActivity;
-          final hasContextLine =
-              forum != null ||
-              (showCategoryBreadcrumb && category != null) ||
-              topic.tags.isNotEmpty ||
-              pluginMetadata.isNotEmpty ||
-              (showInlineParticipants && topic.posterAvatars.isNotEmpty) ||
-              showInlineActivity;
+        }
+        final layout = _TopicLedgerLayout.forWidth(
+          ContentReadingLane.breakpointWidthOf(context, constraints.maxWidth),
+        );
+        final showInlineParticipants = !layout.showParticipants;
+        final showInlineActivity = !layout.showActivity;
+        final hasContextLine =
+            forum != null ||
+            (showCategoryBreadcrumb && category != null) ||
+            topic.tags.isNotEmpty ||
+            pluginMetadata.isNotEmpty ||
+            (showInlineParticipants && topic.posterAvatars.isNotEmpty) ||
+            showInlineActivity;
 
-          final content = Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(
-              _TopicLedgerLayout.leadingPadding,
-              hasContextLine ? 9 : 7,
-              _TopicLedgerLayout.horizontalPadding,
-              hasContextLine ? 9 : 7,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  key: ValueKey('topic-ledger-topic-${topic.id}'),
-                  child: _TopicIdentity(
-                    topic: topic,
-                    category: category,
-                    parentCategory: parentCategory,
-                    showCategoryBreadcrumb: showCategoryBreadcrumb,
-                    siteUrl: siteUrl,
-                    forum: forum,
-                    titleStyle: effectiveTitleStyle,
-                    pluginMetadata: pluginMetadata,
-                    showContextLine: hasContextLine,
-                    showInlineParticipants: showInlineParticipants,
-                    showInlineActivity: showInlineActivity,
+        final content = Padding(
+          padding: EdgeInsetsDirectional.fromSTEB(
+            _TopicLedgerLayout.leadingPadding,
+            hasContextLine ? 9 : 7,
+            _TopicLedgerLayout.horizontalPadding,
+            hasContextLine ? 9 : 7,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                key: ValueKey('topic-ledger-topic-${topic.id}'),
+                child: _TopicIdentity(
+                  topic: topic,
+                  category: category,
+                  parentCategory: parentCategory,
+                  showCategoryBreadcrumb: showCategoryBreadcrumb,
+                  siteUrl: siteUrl,
+                  forum: forum,
+                  titleStyle: effectiveTitleStyle,
+                  pluginMetadata: pluginMetadata,
+                  showContextLine: hasContextLine,
+                  showInlineParticipants: showInlineParticipants,
+                  showInlineActivity: showInlineActivity,
+                ),
+              ),
+              if (layout.showParticipants) ...[
+                const SizedBox(width: _TopicLedgerLayout.gap),
+                SizedBox(
+                  key: ValueKey('topic-ledger-participants-${topic.id}'),
+                  width: _TopicLedgerLayout.participantsWidthOf(context),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: _Posters(avatars: topic.posterAvatars),
                   ),
                 ),
-                if (layout.showParticipants) ...[
-                  const SizedBox(width: _TopicLedgerLayout.gap),
-                  SizedBox(
-                    key: ValueKey('topic-ledger-participants-${topic.id}'),
-                    width: _TopicLedgerLayout.participantsWidthOf(context),
-                    child: Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: _Posters(avatars: topic.posterAvatars),
-                    ),
-                  ),
-                ],
-                if (layout.showActivity) ...[
-                  const SizedBox(width: _TopicLedgerLayout.gap),
-                  SizedBox(
-                    key: ValueKey('topic-ledger-activity-${topic.id}'),
-                    width: _TopicLedgerLayout.activityWidthOf(context),
-                    child: _TopicActivity(topic: topic),
-                  ),
-                ],
               ],
-            ),
-          );
+              if (layout.showActivity) ...[
+                const SizedBox(width: _TopicLedgerLayout.gap),
+                SizedBox(
+                  key: ValueKey('topic-ledger-activity-${topic.id}'),
+                  width: _TopicLedgerLayout.activityWidthOf(context),
+                  child: _TopicActivity(topic: topic),
+                ),
+              ],
+            ],
+          ),
+        );
 
-          return ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: hasContextLine
-                  ? TopicListRow.minimumHeight
-                  : TopicListRow.compactMinimumHeight,
-            ),
-            child: content,
-          );
-        },
-      ),
-    );
+        final row = ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: hasContextLine
+                ? TopicListRow.minimumHeight
+                : TopicListRow.compactMinimumHeight,
+          ),
+          child: content,
+        );
 
-    return LinkTarget(
-      url: '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
-      title: topic.title,
-      siteUrl: siteUrl,
-      child: Material(
-        // Ink features paint on their Material rather than with the row.
-        // Keeping that surface local lets the scroll viewport clip them.
-        color: selected
-            ? theme.colorScheme.primary.withValues(alpha: .09)
-            : Colors.transparent,
-        child: Semantics(selected: selected, child: row),
-      ),
+        return LinkTarget(
+          url:
+              '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
+          title: topic.title,
+          siteUrl: siteUrl,
+          child: Material(
+            // Ink features paint on their Material rather than with the row.
+            // Keeping that surface local lets the scroll viewport clip them.
+            color: selected
+                ? theme.colorScheme.primary.withValues(alpha: .09)
+                : Colors.transparent,
+            child: Semantics(
+              selected: selected,
+              child: InkWell(onTap: onTap, child: row),
+            ),
+          ),
+        );
+      },
     );
   }
 }

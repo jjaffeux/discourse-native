@@ -129,6 +129,7 @@ class ResizablePane extends StatefulWidget {
     required this.semanticsLabel,
     required this.child,
     this.maximumWidth = double.infinity,
+    this.resizeEnabled = true,
     this.handleWidth = 16,
     this.keyboardStep = 16,
     this.dividerWidth = 0,
@@ -145,6 +146,7 @@ class ResizablePane extends StatefulWidget {
   final String semanticsLabel;
   final Widget child;
   final double maximumWidth;
+  final bool resizeEnabled;
   final double handleWidth;
   final double keyboardStep;
   final double dividerWidth;
@@ -281,74 +283,75 @@ class _ResizablePaneState extends State<ResizablePane> {
           child: Stack(
             children: [
               Positioned.fill(child: child!),
-              PositionedDirectional(
-                start: widget.edge == ResizablePaneEdge.leading ? 0 : null,
-                end: widget.edge == ResizablePaneEdge.trailing ? 0 : null,
-                top: 0,
-                bottom: 0,
-                width: widget.handleWidth,
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.resizeLeftRight,
-                  child: Focus(
-                    key: ValueKey('${widget.resizeKey}-resize-focus'),
-                    focusNode: _focus,
-                    onFocusChange: _focusChanged,
-                    onKeyEvent: _handleKey,
-                    child: Semantics(
-                      key: ValueKey('${widget.resizeKey}-resize-semantics'),
-                      container: true,
-                      focusable: true,
-                      focused: _focused,
-                      slider: true,
-                      label: widget.semanticsLabel,
-                      value: '${width.round()} pixels wide',
-                      increasedValue: canIncrease
-                          ? '${increasedWidth.round()} pixels wide'
-                          : null,
-                      decreasedValue: canDecrease
-                          ? '${decreasedWidth.round()} pixels wide'
-                          : null,
-                      onIncrease: canIncrease
-                          ? () => _resizeOnce(widget.keyboardStep)
-                          : null,
-                      onDecrease: canDecrease
-                          ? () => _resizeOnce(-widget.keyboardStep)
-                          : null,
-                      child: GestureDetector(
-                        key: ValueKey('${widget.resizeKey}-resize-handle'),
-                        behavior: HitTestBehavior.translucent,
-                        onHorizontalDragStart: _startDrag,
-                        onHorizontalDragUpdate: _updateDrag,
-                        onHorizontalDragEnd: (_) => _endDrag(),
-                        onHorizontalDragCancel: _endDrag,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            if (widget.dividerWidth > 0)
-                              Align(
-                                alignment:
-                                    widget.edge == ResizablePaneEdge.leading
-                                    ? AlignmentDirectional.centerStart
-                                    : AlignmentDirectional.centerEnd,
-                                child: ColoredBox(
-                                  color: _focused
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context).shell.divider,
-                                  child: SizedBox(
-                                    width: _focused
-                                        ? widget.focusedDividerWidth
-                                        : widget.dividerWidth,
-                                    height: double.infinity,
+              if (widget.resizeEnabled)
+                PositionedDirectional(
+                  start: widget.edge == ResizablePaneEdge.leading ? 0 : null,
+                  end: widget.edge == ResizablePaneEdge.trailing ? 0 : null,
+                  top: 0,
+                  bottom: 0,
+                  width: widget.handleWidth,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.resizeLeftRight,
+                    child: Focus(
+                      key: ValueKey('${widget.resizeKey}-resize-focus'),
+                      focusNode: _focus,
+                      onFocusChange: _focusChanged,
+                      onKeyEvent: _handleKey,
+                      child: Semantics(
+                        key: ValueKey('${widget.resizeKey}-resize-semantics'),
+                        container: true,
+                        focusable: true,
+                        focused: _focused,
+                        slider: true,
+                        label: widget.semanticsLabel,
+                        value: '${width.round()} pixels wide',
+                        increasedValue: canIncrease
+                            ? '${increasedWidth.round()} pixels wide'
+                            : null,
+                        decreasedValue: canDecrease
+                            ? '${decreasedWidth.round()} pixels wide'
+                            : null,
+                        onIncrease: canIncrease
+                            ? () => _resizeOnce(widget.keyboardStep)
+                            : null,
+                        onDecrease: canDecrease
+                            ? () => _resizeOnce(-widget.keyboardStep)
+                            : null,
+                        child: GestureDetector(
+                          key: ValueKey('${widget.resizeKey}-resize-handle'),
+                          behavior: HitTestBehavior.translucent,
+                          onHorizontalDragStart: _startDrag,
+                          onHorizontalDragUpdate: _updateDrag,
+                          onHorizontalDragEnd: (_) => _endDrag(),
+                          onHorizontalDragCancel: _endDrag,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (widget.dividerWidth > 0)
+                                Align(
+                                  alignment:
+                                      widget.edge == ResizablePaneEdge.leading
+                                      ? AlignmentDirectional.centerStart
+                                      : AlignmentDirectional.centerEnd,
+                                  child: ColoredBox(
+                                    color: _focused
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context).shell.divider,
+                                    child: SizedBox(
+                                      width: _focused
+                                          ? widget.focusedDividerWidth
+                                          : widget.dividerWidth,
+                                      height: double.infinity,
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         );

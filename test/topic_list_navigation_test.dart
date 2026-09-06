@@ -483,7 +483,7 @@ void main() {
           final categoryFilter = tester.getRect(
             find.byKey(const ValueKey('topic-list-category-filter')),
           );
-          expect(row.height, 52);
+          expect(row.height, 42);
           expect(categoryFilter.top, greaterThanOrEqualTo(row.bottom));
           final recent = tester.getRect(
             find.byKey(const ValueKey('topic-list-latest')),
