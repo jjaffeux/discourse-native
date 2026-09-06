@@ -36,33 +36,43 @@ class TopicProgressButton extends StatelessWidget {
             key: const ValueKey('topic-progress-button'),
             onTap: onPressed,
             child: SizedBox(
-              width: 72,
               height: 32,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: FractionallySizedBox(
-                        widthFactor: boundedPosition / total,
-                        child: ColoredBox(
-                          key: const ValueKey('topic-progress-fill'),
-                          color: theme.colorScheme.primary.withValues(
-                            alpha: 0.18,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 72),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned.fill(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: boundedPosition / total,
+                          child: ColoredBox(
+                            key: const ValueKey('topic-progress-fill'),
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.18,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  Center(
-                    child: Text(
-                      '$boundedPosition / $total',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '$boundedPosition / $total',
+                          maxLines: 1,
+                          softWrap: false,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

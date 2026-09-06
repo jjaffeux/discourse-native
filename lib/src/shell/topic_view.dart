@@ -2121,13 +2121,22 @@ class _TopicBottomBar extends StatelessWidget {
                         showLabel: constraints.maxWidth >= 580,
                       ),
                   ],
-                  const Spacer(),
                   if (progressPosition case final position?)
-                    TopicProgressButton(
-                      position: position,
-                      total: totalPosts,
-                      onPressed: onProgressPressed!,
-                    ),
+                    Expanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Padding(
+                          padding: const EdgeInsetsDirectional.only(start: 8),
+                          child: TopicProgressButton(
+                            position: position,
+                            total: totalPosts,
+                            onPressed: onProgressPressed!,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    const Spacer(),
                 ],
               ),
             ),
