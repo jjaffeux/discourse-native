@@ -45,7 +45,9 @@ class TopicInboxHeader extends StatelessWidget {
   final TopicDetail? topic;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(builder: _buildForWidth);
+
+  Widget _buildForWidth(BuildContext context, BoxConstraints constraints) {
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
     final topic = this.topic;
@@ -55,6 +57,27 @@ class TopicInboxHeader extends StatelessWidget {
       height: 1.28,
       fontWeight: FontWeight.w600,
     );
+    final lane = ContentReadingLane.geometryFor(
+      context,
+      availableWidth: constraints.maxWidth,
+      basePadding: const EdgeInsets.symmetric(horizontal: 12),
+    );
+    final contentPadding = lane.padding.copyWith(
+      left: lane.padding.left + 16,
+      right: lane.padding.right + 16,
+    );
+    final taxonomy = topic != null && siteUrl != null
+        ? _TopicHeaderTaxonomy(
+            siteUrl: siteUrl,
+            topic: topic,
+            keepTopicListOpen: keepTopicListOpen,
+          )
+        : null;
+    final toolbarStart = 16 + DButton.iconOnlyDimensionFor(DButtonSize.small);
+    // Share the toolbar only when the close control fits before the reading
+    // lane. Taxonomy keeps the same leading edge as the title and posts.
+    final inlineTaxonomy =
+        taxonomy != null && contentPadding.left >= toolbarStart + 8;
     return DecoratedBox(
       key: const ValueKey('topic-content-header'),
       decoration: BoxDecoration(
@@ -65,7 +88,7 @@ class TopicInboxHeader extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 12, 0),
+            padding: const EdgeInsets.fromLTRB(16, 4, 12, 0),
             child: Row(
               children: [
                 DButton.iconOnly(
@@ -84,7 +107,23 @@ class TopicInboxHeader extends StatelessWidget {
                     }
                   },
                 ),
-                const Spacer(),
+                Expanded(
+                  child: inlineTaxonomy
+                      ? Padding(
+                          padding: EdgeInsets.only(
+                            left: contentPadding.left - toolbarStart,
+                            right: 8,
+                          ),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: SizedBox(
+                              width: lane.width - 32,
+                              child: taxonomy,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
                 if (keepTopicListOpen) const _TopicInboxNavigation(),
                 if (topic != null && siteUrl != null) ...[
                   TopicStatusButton(
@@ -105,95 +144,81 @@ class TopicInboxHeader extends StatelessWidget {
               ],
             ),
           ),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final lane = ContentReadingLane.geometryFor(
-                context,
-                availableWidth: constraints.maxWidth,
-                basePadding: const EdgeInsets.symmetric(horizontal: 12),
-              );
-              return Padding(
-                padding: lane.padding.add(
-                  const EdgeInsets.fromLTRB(16, 14, 16, 18),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (topic != null && siteUrl != null) ...[
-                      _TopicHeaderTaxonomy(
-                        siteUrl: siteUrl,
-                        topic: topic,
-                        keepTopicListOpen: keepTopicListOpen,
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    if (topic?.canEdit == true && siteUrl != null)
-                      InlineTopicTitleEditor(
-                        key: const ValueKey('topic-header-title'),
-                        title: title,
-                        siteUrl: siteUrl,
-                        style: titleStyle,
-                        maxLines: 3,
-                        showEditingFrame: true,
-                        onSave: (value) => controller.saveTopicTitle(
+          Padding(
+            padding: contentPadding.add(
+              EdgeInsets.only(top: inlineTaxonomy ? 2 : 4, bottom: 12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (taxonomy != null && !inlineTaxonomy) ...[
+                  taxonomy,
+                  const SizedBox(height: 8),
+                ],
+                if (topic?.canEdit == true && siteUrl != null)
+                  InlineTopicTitleEditor(
+                    key: const ValueKey('topic-header-title'),
+                    title: title,
+                    siteUrl: siteUrl,
+                    style: titleStyle,
+                    maxLines: 3,
+                    showEditingFrame: true,
+                    onSave: (value) => controller.saveTopicTitle(
+                      siteUrl: siteUrl,
+                      topicId: topic!.id,
+                      title: value,
+                    ),
+                  )
+                else if (siteUrl != null)
+                  TopicTitle(
+                    title,
+                    siteUrl: siteUrl,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: titleStyle,
+                    key: const ValueKey('topic-header-title'),
+                  )
+                else
+                  Text(
+                    title,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: titleStyle,
+                  ),
+                if (topic != null && siteUrl != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final summary = _TopicActivitySummary(
                           siteUrl: siteUrl,
-                          topicId: topic!.id,
-                          title: value,
-                        ),
-                      )
-                    else if (siteUrl != null)
-                      TopicTitle(
-                        title,
-                        siteUrl: siteUrl,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: titleStyle,
-                        key: const ValueKey('topic-header-title'),
-                      )
-                    else
-                      Text(
-                        title,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: titleStyle,
-                      ),
-                    if (topic != null && siteUrl != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final summary = _TopicActivitySummary(
-                              siteUrl: siteUrl,
-                              topic: topic,
-                            );
-                            final properties = _TopicHeaderProperties(
-                              siteUrl: siteUrl,
-                              topic: topic,
-                              registry: registry,
-                            );
-                            return constraints.maxWidth >= 560
-                                ? Row(
-                                    children: [
-                                      Expanded(child: summary),
-                                      const SizedBox(width: 12),
-                                      Expanded(child: properties),
-                                    ],
-                                  )
-                                : Wrap(
-                                    spacing: 16,
-                                    runSpacing: 8,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    children: [summary, properties],
-                                  );
-                          },
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            },
+                          topic: topic,
+                        );
+                        final properties = _TopicHeaderProperties(
+                          siteUrl: siteUrl,
+                          topic: topic,
+                          registry: registry,
+                        );
+                        return constraints.maxWidth >= 560
+                            ? Row(
+                                children: [
+                                  Expanded(child: summary),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: properties),
+                                ],
+                              )
+                            : Wrap(
+                                spacing: 16,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [summary, properties],
+                              );
+                      },
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
