@@ -826,9 +826,16 @@ secondary core and plugin actions as the keyboard and touch menus. Reply stays
 visible at the bottom right of each post beside its likes or reactions and opens
 the composer for that post. A bookmark icon sits immediately to its right,
 showing the saved or reminder state and opening the bookmark controls. Reply
-and Bookmark are excluded from the three-dot menu. J/K move
-through posts in the open topic and leave the topic list selection alone;
-editing controls keep these keys as text input.
+and Bookmark are excluded from the three-dot menu.
+
+Shift+J/K always move the visible topic-list highlight; O and Enter both open
+the highlighted topic. J/K select posts in the open reader, R replies to the
+selected post, and U goes back to the list. The list and post selections have
+separate outlines, so scanning topics leaves the reader unchanged. In narrow
+layouts, U returns to the hidden list before Shift+J/K can move its cursor.
+Editors, form controls, menus, and dialogs retain their local keys. Press ?
+for the shortcut reference, including topic replies and composer submission.
+See [keyboard navigation](docs/keyboard-shortcuts.md) for the full behavior.
 
 Topic-list rows carry `last_read_post_number` and `highest_post_number`. Like
 Discourse's web client, an unread row opens at `last_read_post_number + 1`,

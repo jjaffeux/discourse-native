@@ -44,3 +44,35 @@ const topicReplyShortcut = SingleActivator(
   shift: true,
   includeRepeats: false,
 );
+
+enum ReadingCommand {
+  nextTopic('Next topic in the list', [
+    SingleActivator(LogicalKeyboardKey.keyJ, shift: true),
+  ]),
+  previousTopic('Previous topic in the list', [
+    SingleActivator(LogicalKeyboardKey.keyK, shift: true),
+  ]),
+  openTopic('Open highlighted topic', [
+    SingleActivator(LogicalKeyboardKey.keyO, includeRepeats: false),
+    SingleActivator(LogicalKeyboardKey.enter, includeRepeats: false),
+    SingleActivator(LogicalKeyboardKey.numpadEnter, includeRepeats: false),
+  ]),
+  nextPost('Next post', [SingleActivator(LogicalKeyboardKey.keyJ)]),
+  previousPost('Previous post', [SingleActivator(LogicalKeyboardKey.keyK)]),
+  replyToPost('Reply to selected post', [
+    SingleActivator(LogicalKeyboardKey.keyR, includeRepeats: false),
+  ]),
+  back('Back', [
+    SingleActivator(LogicalKeyboardKey.keyU, includeRepeats: false),
+  ]),
+  help('Keyboard shortcuts', [CharacterActivator('?', includeRepeats: false)]);
+
+  const ReadingCommand(this.label, this.shortcuts);
+
+  final String label;
+  final List<ShortcutActivator> shortcuts;
+
+  bool accepts(KeyEvent event) => shortcuts.any(
+    (shortcut) => shortcut.accepts(event, HardwareKeyboard.instance),
+  );
+}

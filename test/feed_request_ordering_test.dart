@@ -149,12 +149,18 @@ void main() {
     expect(shell.currentFeed?.topicIds, [10]);
     expect(shell.currentFeed?.loadingMore, isTrue);
 
-    await shell.loadMoreFeed('latest');
+    var coalescedCompleted = false;
+    final coalesced = shell.loadMoreFeed('latest').then((_) {
+      coalescedCompleted = true;
+    });
+    await pumpEventQueue();
     expect(api.requests, hasLength(4));
+    expect(coalescedCompleted, isFalse);
 
     await _complete(api.requests[3], _page(11));
-    await newPage;
+    await Future.wait([newPage, coalesced]);
 
+    expect(coalescedCompleted, isTrue);
     expect(shell.currentFeed?.topicIds, [10, 11]);
     expect(shell.currentFeed?.loadingMore, isFalse);
   });
