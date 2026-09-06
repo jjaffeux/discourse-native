@@ -615,8 +615,10 @@ separate connections.
 
 #### New topics
 
-The banner at the top of a topic list — *See 3 new or updated topics* — fetches
-them and puts them on top when tapped. The shape is core's, from
+The compact update button above a topic list — *See 3 new or updated topics* —
+fetches them and puts them on top when tapped. It sits above the column
+headings, stays within the list's reading lane, and wraps its label in a narrow
+inbox. The shape is core's, from
 `app/models/topic-tracking-state.js`:
 
 | Channel   | Message type | Published when                | Counts for      |
