@@ -214,32 +214,35 @@ void main() {
 
     expect(find.byTooltip('Like this post'), findsOneWidget);
     expect(find.byTooltip('More actions'), findsOneWidget);
-    expect(find.byTooltip('Edit this post'), findsNothing);
+    expect(find.byTooltip('Edit this post'), findsOneWidget);
     expect(find.byTooltip('Delete this post'), findsNothing);
     expect(
       tester.getSize(find.byType(HoverActionToolbar)),
-      const Size(HoverActionButton.width * 2, HoverActionButton.height),
+      const Size(HoverActionButton.width * 3, HoverActionButton.height),
     );
 
     await tester.tap(find.byTooltip('More actions'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Edit'), findsNothing);
     expect(find.text('Make wiki'), findsOneWidget);
     expect(find.text('Delete'), findsOneWidget);
-    expect(find.byTooltip('Edit this post'), findsNothing);
+    expect(find.byTooltip('Edit this post'), findsOneWidget);
     expect(
       find.byTooltip('Allow community members to edit this post'),
       findsNothing,
     );
     expect(find.byTooltip('Delete this post'), findsNothing);
 
-    final editAction = find
-        .ancestor(of: find.text('Edit'), matching: find.byType(MenuItemButton))
+    final wikiAction = find
+        .ancestor(
+          of: find.text('Make wiki'),
+          matching: find.byType(MenuItemButton),
+        )
         .first;
-    final editButton = tester.widget<MenuItemButton>(editAction);
-    final theme = Theme.of(tester.element(editAction));
-    expect(editButton.style?.backgroundColor, isNull);
+    final wikiButton = tester.widget<MenuItemButton>(wikiAction);
+    final theme = Theme.of(tester.element(wikiAction));
+    expect(wikiButton.style?.backgroundColor, isNull);
     expect(
       theme.menuButtonTheme.style!.backgroundColor!.resolve({
         WidgetState.hovered,

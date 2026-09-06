@@ -402,8 +402,7 @@ void _registerReactionAndLikeTests() {
         },
       );
 
-      await openPostMenu(tester);
-      await tester.tap(menuAction('Edit'));
+      await tester.tap(find.byTooltip('Edit this post'));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'First post body!');
@@ -1277,8 +1276,7 @@ void _registerReactionAndLikeTests() {
         },
       );
 
-      await openPostMenu(tester);
-      await tester.tap(menuAction('Edit'));
+      await tester.tap(find.byTooltip('Edit this post'));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'First post body!');
