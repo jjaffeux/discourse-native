@@ -40,7 +40,14 @@ class ReactionPickerButton extends StatefulWidget {
 }
 
 class _ReactionPickerButtonState extends State<ReactionPickerButton> {
+  final WidgetStatesController _states = WidgetStatesController();
   bool _opening = false;
+
+  @override
+  void dispose() {
+    _states.dispose();
+    super.dispose();
+  }
 
   Future<void> _open(BuildContext context) async {
     if (_opening || !widget.enabled) return;
@@ -71,19 +78,46 @@ class _ReactionPickerButtonState extends State<ReactionPickerButton> {
               child: Material(
                 type: MaterialType.transparency,
                 child: InkWell(
+                  statesController: _states,
                   mouseCursor: enabled
                       ? SystemMouseCursors.click
                       : SystemMouseCursors.basic,
                   onTap: enabled ? () => _open(buttonContext) : null,
                   borderRadius: BorderRadius.circular(14),
+                  overlayColor: const WidgetStatePropertyAll(
+                    Colors.transparent,
+                  ),
+                  splashFactory: NoSplash.splashFactory,
                   child: AnimatedOpacity(
                     opacity: enabled ? 1 : 0.5,
                     duration: const Duration(milliseconds: 100),
                     child: Center(
-                      child: DIcon(
-                        DIcons.farFaceSmile,
-                        size: 18,
-                        color: theme.colorScheme.onSurfaceVariant,
+                      child: ValueListenableBuilder<Set<WidgetState>>(
+                        valueListenable: _states,
+                        builder: (context, states, _) {
+                          final highlighted =
+                              enabled &&
+                              (states.contains(WidgetState.hovered) ||
+                                  states.contains(WidgetState.focused) ||
+                                  states.contains(WidgetState.pressed));
+                          return Container(
+                            key: const ValueKey('reaction-picker-surface'),
+                            width: 32,
+                            height: 32,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: highlighted
+                                  ? theme.shell.hover
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: DIcon(
+                              DIcons.farFaceSmile,
+                              size: 18,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
