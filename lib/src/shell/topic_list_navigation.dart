@@ -142,6 +142,28 @@ class _TopicListNavigationControls extends StatelessWidget {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                    if (showsFilters)
+                                      TopicListFilterBar(
+                                        inline: true,
+                                        siteUrl: state.siteUrl!,
+                                        categories: state.categories,
+                                        knownTags: state.tags,
+                                        selectedCategoryId:
+                                            state.route!.categoryId,
+                                        selectedTagName: state.route!.tagName,
+                                        taggingEnabled: state.taggingEnabled,
+                                        searchTags: (term) =>
+                                            controller.searchFilterTags(
+                                              siteUrl: state.siteUrl!,
+                                              term: term,
+                                            ),
+                                        onCategorySelected:
+                                            controller.selectTopicListCategory,
+                                        onTagSelected:
+                                            controller.selectTopicListTag,
+                                      ),
+                                    if (showsTabs && showsFilters)
+                                      const SizedBox(width: 8),
                                     if (showsTabs)
                                       _TopicListTabStrip(
                                         height: 52,
@@ -209,28 +231,6 @@ class _TopicListNavigationControls extends StatelessWidget {
                                             ),
                                           ),
                                         ],
-                                      ),
-                                    if (showsTabs && showsFilters)
-                                      const SizedBox(width: 8),
-                                    if (showsFilters)
-                                      TopicListFilterBar(
-                                        inline: true,
-                                        siteUrl: state.siteUrl!,
-                                        categories: state.categories,
-                                        knownTags: state.tags,
-                                        selectedCategoryId:
-                                            state.route!.categoryId,
-                                        selectedTagName: state.route!.tagName,
-                                        taggingEnabled: state.taggingEnabled,
-                                        searchTags: (term) =>
-                                            controller.searchFilterTags(
-                                              siteUrl: state.siteUrl!,
-                                              term: term,
-                                            ),
-                                        onCategorySelected:
-                                            controller.selectTopicListCategory,
-                                        onTagSelected:
-                                            controller.selectTopicListTag,
                                       ),
                                   ],
                                 ),
