@@ -14,9 +14,11 @@ const _intentionalMaterialButtons = <String, int>{
   'lib/src/theme/d_button.dart': 1, // DButton's rendering primitive.
   'lib/src/plugins/poll/poll_card.dart': 3, // Vote/result control group.
   'lib/src/plugins/chat/chat_channel_view.dart': 2, // Dense selection strips.
-  'lib/src/shell/composer_panel.dart': 1, // Bespoke composer submit control.
+  'lib/src/shell/composer_panel.dart': 2, // Submit and taxonomy controls.
   'lib/src/shell/do_not_disturb_dialog.dart': 1, // Fixed 44px option grid.
   'lib/src/shell/reaction_presentation.dart': 1, // Fixed 44px picker action.
+  'lib/src/shell/topic_list_navigation.dart': 1, // Inset period selector.
+  'lib/src/shell/topic_list_view.dart': 1, // Full-width incoming-topics notice.
   'lib/src/shell/topic_view.dart': 8, // Dense selection and inline link tools.
   'lib/src/shell/user_menu_button.dart': 2, // Fixed shell account control.
   'lib/src/shell/user_summary.dart': 1, // Compact numeric count link.

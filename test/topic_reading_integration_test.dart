@@ -4,7 +4,6 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
-import 'package:discourse_native/src/data/topic_sidebar_store.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -19,7 +18,6 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
-import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
@@ -32,6 +30,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_category_path.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
+import 'package:discourse_native/src/shell/topic_inbox_row.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -112,8 +111,11 @@ void _registerTopicReadingTests() {
       expect(find.text('Create a new topic'), findsOneWidget);
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(find.text('Create topic'), findsOneWidget);
-      expect(find.text('Category'), findsOneWidget);
-      expect(find.text('Tags'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('composer-category-action')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('composer-add-tag')), findsOneWidget);
       final categoryRequestCount = api.categoryRequests.length;
       final capabilityRequestCount = api.topicComposerCapabilityRequests.length;
 
@@ -524,13 +526,14 @@ void _registerTopicReadingTests() {
 
       await tester.tap(sidebarDestination('New Topic'));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(metadata.isCompleted, isFalse);
 
       metadata.complete();
       await tester.pumpAndSettle();
-      expect(find.text('Tags'), findsOneWidget);
+      expect(find.byKey(const ValueKey('composer-add-tag')), findsOneWidget);
     });
 
     for (final failedMetadata in ['settings', 'categories']) {
@@ -558,9 +561,12 @@ void _registerTopicReadingTests() {
           await tester.pumpAndSettle();
 
           expect(find.byType(ComposerPanel), findsOneWidget);
-          expect(find.text('Category'), findsOneWidget);
           expect(
-            find.text('Tags'),
+            find.byKey(const ValueKey('composer-category-action')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const ValueKey('composer-add-tag')),
             failedMetadata == 'settings' ? findsNothing : findsOneWidget,
           );
           final shell = ShellScope.read(
@@ -581,7 +587,10 @@ void _registerTopicReadingTests() {
           await tester.pumpAndSettle();
 
           expect(find.byType(ComposerPanel), findsOneWidget);
-          expect(find.text('Tags'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('composer-add-tag')),
+            findsOneWidget,
+          );
           expect(shell.topicComposerCategories('https://meta.discourse.org'), [
             _FailingNewTopicMetadataApi.category,
           ]);
@@ -2478,7 +2487,7 @@ void _registerTopicReadingTests() {
           ],
         );
 
-    testWidgets('tapping a row replaces the list with the topic', (
+    testWidgets('tapping a row opens its topic beside the retained list', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
@@ -2492,7 +2501,7 @@ void _registerTopicReadingTests() {
 
       expect(api.topicsOpened, [7]);
       expect(find.byType(TopicView), findsOneWidget);
-      expect(find.byType(TopicListView), findsNothing);
+      expect(find.byType(TopicListView), findsOneWidget);
       expect(find.byType(InlineTopicTitleEditor), findsNothing);
       expect(
         find.byKey(const ValueKey('topic-header-title-field')),
@@ -2599,477 +2608,6 @@ void _registerTopicReadingTests() {
       },
     );
 
-    testWidgets(
-      'separates the header and bottom bar from the structural sidebar',
-      (tester) async {
-        const longTitle =
-            'Chris weekly update for 2026 with roadmap decisions, operational '
-            'priorities, cross-team blockers, and every next step we agreed on';
-        final plugins = PluginData.none.withValue(
-          assignmentsDataKey,
-          Assignments(
-            canAssign: true,
-            direct: const Assignment(
-              assignee: AssignmentUser(username: 'sam', name: 'Sam Example'),
-            ),
-          ),
-        );
-        final tags = [
-          for (final name in const [
-            'weekly-update',
-            '2026',
-            'team',
-            'async',
-            'roadmap',
-            'priorities',
-          ])
-            TopicTag(name: name),
-        ];
-        final api = FakeDiscourseApi(
-          feeds: {
-            '/latest.json': [
-              const Topic(id: 7, title: longTitle, slug: 'weekly-update'),
-            ],
-          },
-          categoryList: const [
-            TopicCategory(id: 5, name: 'Announcements', color: '7C3AED'),
-          ],
-          topics: {
-            7: topicPayload(
-              id: 7,
-              title: longTitle,
-              posts: [
-                post(1, 1, 'First post body'),
-                post(2, 2, 'Second post body'),
-              ],
-              categoryId: 5,
-              tags: tags,
-              canCreatePost: true,
-              notificationLevel: TopicNotificationLevel.tracking,
-              plugins: plugins,
-            ),
-          },
-        );
-        const reader = DiscourseUser(id: 1, username: 'reader');
-        final authenticator = FakeAuthenticator()
-          ..keys['https://meta.discourse.org'] = 'meta-key';
-
-        await pumpShell(
-          tester,
-          desktop,
-          instances: [instance('meta.discourse.org').copyWith(user: reader)],
-          api: api,
-          authenticator: authenticator,
-        );
-        await tester.tap(find.text(longTitle));
-        await tester.pumpAndSettle();
-
-        final header = find.byKey(const ValueKey('topic-content-header'));
-        final title = find.byKey(const ValueKey('topic-header-title'));
-        final sidebarToggle = find.byKey(
-          const ValueKey('topic-sidebar-toggle'),
-        );
-        final notificationLevel = find.byKey(
-          const ValueKey('topic-notification-level-button'),
-        );
-        final bookmark = find.byKey(const ValueKey('topic-bookmark-button'));
-        final share = find.byKey(const ValueKey('topic-share-button'));
-        final more = find.byKey(const ValueKey('topic-status-button'));
-        final backIcon = find.descendant(
-          of: header,
-          matching: find.dIcon(DIcons.arrowLeft),
-        );
-        final moreIcon = find.descendant(
-          of: more,
-          matching: find.dIcon(DIcons.wrench),
-        );
-        expect(header, findsOneWidget);
-        expect(title, findsOneWidget);
-        expect(
-          find.descendant(of: header, matching: find.byTooltip('Back')),
-          findsOneWidget,
-        );
-        expect(tester.getSize(backIcon), const Size.square(16));
-        final titleWidget = tester.widget<TopicTitle>(title);
-        expect(titleWidget.maxLines, 1);
-        expect(titleWidget.overflow, TextOverflow.ellipsis);
-        final titleTooltip = tester.widget<Tooltip>(
-          find.ancestor(of: title, matching: find.byType(Tooltip)),
-        );
-        expect(titleTooltip.message, longTitle);
-        expect(tester.getSize(title).height, lessThan(30));
-        expect(
-          find.byKey(const ValueKey('topic-header-metadata')),
-          findsNothing,
-        );
-        expect(
-          find.descendant(of: header, matching: sidebarToggle),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(of: header, matching: notificationLevel),
-          findsOneWidget,
-        );
-        expect(find.descendant(of: header, matching: bookmark), findsOneWidget);
-        expect(find.descendant(of: header, matching: share), findsOneWidget);
-        expect(
-          find.descendant(of: share, matching: find.dIcon(DIcons.link)),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(of: share, matching: find.text('Share')),
-          findsNothing,
-        );
-        expect(find.descendant(of: header, matching: more), findsOneWidget);
-        expect(
-          find.descendant(of: header, matching: find.text('Tracking')),
-          findsNothing,
-        );
-
-        final sidebar = find.byKey(const ValueKey('topic-sidebar-panel'));
-        final sidebarSurface = find.byKey(
-          const ValueKey('topic-sidebar-surface'),
-        );
-        final properties = find.byKey(const ValueKey('topic-properties-card'));
-        expect(sidebar, findsOneWidget);
-        expect(
-          find.descendant(of: sidebar, matching: sidebarToggle),
-          findsNothing,
-        );
-        final topicRect = tester.getRect(find.byType(TopicView));
-        final sidebarRect = tester.getRect(sidebar);
-        final headerRect = tester.getRect(header);
-        final surfaceRect = tester.getRect(sidebarSurface);
-        final titleRect = tester.getRect(title);
-        final toggleRect = tester.getRect(sidebarToggle);
-        final notificationRect = tester.getRect(notificationLevel);
-        final bookmarkRect = tester.getRect(bookmark);
-        final shareRect = tester.getRect(share);
-        final bottomBar = find.byKey(const ValueKey('topic-bottom-bar'));
-        final replyButton = find.byKey(const ValueKey('topic-reply-button'));
-        final progressButton = find.byKey(
-          const ValueKey('topic-progress-button'),
-        );
-        final replyRect = tester.getRect(replyButton);
-        final bottomBarRect = tester.getRect(bottomBar);
-        final moreRect = tester.getRect(more);
-        expect(sidebarRect.top, topicRect.top);
-        expect(sidebarRect.bottom, topicRect.bottom);
-        expect(headerRect.left, topicRect.left);
-        expect(headerRect.right, sidebarRect.left);
-        expect(surfaceRect, sidebarRect);
-        final sidebarDecoration =
-            tester.widget<DecoratedBox>(sidebarSurface).decoration
-                as BoxDecoration;
-        final sidebarTheme = Theme.of(tester.element(sidebarSurface));
-        expect(sidebarDecoration.color, sidebarTheme.shell.panel);
-        expect(
-          sidebarDecoration.border,
-          Border(left: BorderSide(color: sidebarTheme.shell.divider)),
-        );
-        final sidebarScroll = find.byKey(
-          const ValueKey('topic-sidebar-scroll-view'),
-        );
-        expect(
-          find.descendant(of: sidebar, matching: sidebarScroll),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(of: sidebarScroll, matching: properties),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(of: sidebarScroll, matching: replyButton),
-          findsNothing,
-        );
-        expect(
-          find.descendant(of: bottomBar, matching: replyButton),
-          findsOneWidget,
-        );
-        expect(
-          tester.getRect(find.byType(SuperListView)).right,
-          sidebarRect.left,
-        );
-        expect(
-          tester.widget<SuperListView>(find.byType(SuperListView)).padding,
-          EdgeInsets.zero,
-        );
-        expect(titleRect.right, lessThanOrEqualTo(moreRect.left));
-        expect(shareRect.right, lessThanOrEqualTo(bookmarkRect.left));
-        expect(bookmarkRect.right, lessThanOrEqualTo(notificationRect.left));
-        expect(notificationRect.right, lessThanOrEqualTo(toggleRect.left));
-        expect(headerRect.right - toggleRect.right, lessThanOrEqualTo(8.1));
-        expect(bottomBarRect.right, sidebarRect.left);
-        expect(bottomBarRect.height, 48);
-        expect(replyRect.height, 32);
-        final progressRect = tester.getRect(progressButton);
-        expect(progressRect.size, const Size(72, 32));
-        expect(replyRect.left - bottomBarRect.left, 8);
-        expect(bottomBarRect.right - progressRect.right, 8);
-        expect(
-          tester.getRect(find.byType(SuperListView)).bottom,
-          bottomBarRect.top,
-        );
-        expect(replyRect.left, greaterThan(bottomBarRect.left));
-        expect(replyRect.right, lessThan(tester.getRect(progressButton).left));
-        expect(moreIcon, findsOneWidget);
-        expect(tester.getSize(moreIcon), const Size.square(16));
-        expect(properties, findsOneWidget);
-        expect(
-          find.descendant(of: properties, matching: find.text('Announcements')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('topic-sidebar-category-edit-indicator')),
-          findsNothing,
-        );
-        expect(
-          find.byKey(const ValueKey('topic-sidebar-tags-edit-indicator')),
-          findsNothing,
-        );
-        expect(
-          tester.getSize(
-            find.byKey(const ValueKey('topic-sidebar-category-color')),
-          ),
-          const Size.square(9),
-        );
-        for (final tag in tags) {
-          final tagPill = find.byKey(ValueKey(('topic-sidebar-tag', tag.name)));
-          expect(
-            find.descendant(of: properties, matching: tagPill),
-            findsOneWidget,
-          );
-          final tagText = tester.widget<Text>(
-            find.descendant(of: tagPill, matching: find.text(tag.name)),
-          );
-          expect(
-            tagText.style?.fontSize,
-            Theme.of(tester.element(tagPill)).textTheme.labelSmall?.fontSize,
-          );
-          expect(
-            find.descendant(
-              of: tagPill,
-              matching: find.byWidgetPredicate(
-                (widget) =>
-                    widget is Container &&
-                    widget.decoration is BoxDecoration &&
-                    (widget.decoration! as BoxDecoration).shape ==
-                        BoxShape.circle,
-              ),
-            ),
-            findsNothing,
-          );
-        }
-        final topicAssignment = find.byKey(const Key('assign-topic-property'));
-        expect(
-          find.descendant(of: properties, matching: topicAssignment),
-          findsNothing,
-        );
-        expect(
-          find.descendant(of: sidebarScroll, matching: topicAssignment),
-          findsOneWidget,
-        );
-        expect(find.text('Assignments'), findsNothing);
-        expect(find.bySemanticsLabel('Assignments'), findsOneWidget);
-        expect(
-          find.descendant(
-            of: topicAssignment,
-            matching: find.text('Assigned to'),
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(of: topicAssignment, matching: find.text('@sam')),
-          findsOneWidget,
-        );
-        expect(
-          tester.getRect(topicAssignment).top,
-          greaterThan(tester.getRect(properties).bottom),
-        );
-
-        expect(
-          find.descendant(
-            of: header,
-            matching: find.byKey(const ValueKey('topic-reply-button')),
-          ),
-          findsNothing,
-        );
-        expect(find.descendant(of: sidebar, matching: more), findsNothing);
-        expect(find.descendant(of: header, matching: more), findsOneWidget);
-        expect(
-          find.descendant(
-            of: sidebar,
-            matching: find.byKey(const ValueKey('topic-reply-button')),
-          ),
-          findsNothing,
-        );
-        expect(
-          find.descendant(of: sidebar, matching: notificationLevel),
-          findsNothing,
-        );
-        expect(find.descendant(of: sidebar, matching: bookmark), findsNothing);
-        expect(find.text('Topic context'), findsNothing);
-        expect(find.text('Actions'), findsNothing);
-        expect(find.text('Properties'), findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-    );
-
-    testWidgets('keeps the pinned sidebar outside the topic scroll view', (
-      tester,
-    ) async {
-      final longBody = List.generate(
-        80,
-        (index) => 'Scrollable post line $index',
-      ).join('<br>');
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {
-          7: topicPayload(
-            id: 7,
-            title: 'A real topic',
-            posts: [post(1, 1, longBody)],
-          ),
-        },
-      );
-
-      await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
-      await tester.pumpAndSettle();
-
-      final topicView = find.byType(TopicView);
-      final sidebar = find.byKey(const ValueKey('topic-sidebar-panel'));
-      final verticalScrollables = find.descendant(
-        of: topicView,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Scrollable &&
-              widget.axisDirection == AxisDirection.down,
-        ),
-      );
-      expect(verticalScrollables, findsNWidgets(2));
-      expect(
-        find.descendant(
-          of: sidebar,
-          matching: find.byKey(const ValueKey('topic-sidebar-scroll-view')),
-        ),
-        findsOneWidget,
-      );
-      final sidebarRect = tester.getRect(sidebar);
-      final postStream = tester.widget<SuperListView>(
-        find.byType(SuperListView),
-      );
-
-      await tester.drag(find.byType(SuperListView), const Offset(0, -500));
-      await tester.pumpAndSettle();
-
-      expect(postStream.controller!.position.pixels, greaterThan(0));
-      expect(tester.getRect(sidebar), sidebarRect);
-    });
-
-    testWidgets(
-      'scrolls the maximum assignment card without moving the bottom actions',
-      (tester) async {
-        final plugins = PluginData.none.withValue(
-          assignmentsDataKey,
-          Assignments(
-            canAssign: false,
-            postAssignments: {
-              for (var id = 2; id <= Assignments.maximumPerTopic + 1; id++)
-                id: Assignment(
-                  assignee: AssignmentUser(
-                    username: 'assignee-$id',
-                    name: 'Assignee $id',
-                  ),
-                  postId: id,
-                  postNumber: id,
-                ),
-            },
-          ),
-        );
-        const recommendations = TopicRecommendations(
-          sources: [
-            TopicRecommendationSource(
-              definition: coreSuggestedTopicRecommendationSource,
-              topics: [
-                Topic(id: 8, title: 'Reachable related topic', slug: 'related'),
-              ],
-            ),
-          ],
-        );
-        final api = FakeDiscourseApi(
-          feeds: {'/latest.json': listed},
-          topics: {
-            7: topicPayload(
-              id: 7,
-              title: 'A real topic',
-              posts: [post(1, 1, 'First post body')],
-              canCreatePost: true,
-              recommendations: recommendations,
-              plugins: plugins,
-            ),
-          },
-        );
-        const reader = DiscourseUser(id: 1, username: 'reader');
-        final authenticator = FakeAuthenticator()
-          ..keys['https://meta.discourse.org'] = 'meta-key';
-
-        await pumpShell(
-          tester,
-          desktop,
-          instances: [instance('meta.discourse.org').copyWith(user: reader)],
-          api: api,
-          authenticator: authenticator,
-        );
-        await tester.tap(find.text('A real topic'));
-        await tester.pumpAndSettle();
-
-        final sidebarScroll = find.byKey(
-          const ValueKey('topic-sidebar-scroll-view'),
-        );
-        final reply = find.byKey(const ValueKey('topic-reply-button'));
-        final moreTopics = find.text('More topics');
-        final sidebarScrollable = find.descendant(
-          of: sidebarScroll,
-          matching: find.byType(Scrollable),
-        );
-        final sidebarPosition = tester
-            .state<ScrollableState>(sidebarScrollable)
-            .position;
-        final postPosition = tester
-            .widget<SuperListView>(find.byType(SuperListView))
-            .controller!
-            .position;
-        final replyRect = tester.getRect(reply);
-        final postPixels = postPosition.pixels;
-
-        expect(sidebarPosition.maxScrollExtent, greaterThan(0));
-        expect(
-          find.descendant(of: sidebarScroll, matching: reply),
-          findsNothing,
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(const ValueKey('topic-bottom-bar')),
-            matching: reply,
-          ),
-          findsOneWidget,
-        );
-        expect(reply.hitTestable(), findsOneWidget);
-        expect(moreTopics.hitTestable(), findsNothing);
-
-        await tester.drag(sidebarScroll, const Offset(0, -5000));
-        await tester.pumpAndSettle();
-
-        expect(sidebarPosition.pixels, greaterThan(0));
-        expect(moreTopics.hitTestable(), findsOneWidget);
-        expect(reply.hitTestable(), findsOneWidget);
-        expect(tester.getRect(reply), replyRect);
-        expect(postPosition.pixels, postPixels);
-        expect(tester.takeException(), isNull);
-      },
-    );
-
     testWidgets('uses a thin scrollbar for topic posts', (tester) async {
       final previous = debugDefaultTargetPlatformOverride;
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
@@ -3084,7 +2622,7 @@ void _registerTopicReadingTests() {
         await tester.pumpAndSettle();
 
         final scrollbar = find.descendant(
-          of: find.byType(SuperListView),
+          of: find.byType(TopicView),
           matching: find.byType(Scrollbar),
         );
         expect(scrollbar, findsOneWidget);
@@ -3164,645 +2702,6 @@ void _registerTopicReadingTests() {
       expect(find.text('Flag topic'), findsOneWidget);
       expect(find.text('Unpin topic'), findsOneWidget);
       expect(find.text('Close topic'), findsOneWidget);
-    });
-
-    testWidgets(
-      'sidebar taxonomy values show subcategory parents and navigate',
-      (tester) async {
-        const parent = TopicCategory(
-          id: 4,
-          name: 'Trust and safety',
-          color: '7C3AED',
-          slug: 'trust-and-safety',
-        );
-        const category = TopicCategory(
-          id: 5,
-          name: 'Security',
-          color: 'EC4899',
-          slug: 'security',
-          parentCategoryId: 4,
-        );
-        final categoryPath = topicCategoryPathLabel(category, parent: parent);
-        const tag = TopicTag(name: 'security / fix');
-        const reader = DiscourseUser(id: 1, username: 'reader');
-        final base = topicPayload(
-          id: 7,
-          title: 'A real topic',
-          posts: [post(1, 1, 'First post body')],
-          categoryId: category.id,
-          tags: const [tag],
-        );
-        final api = FakeDiscourseApi(
-          user: reader,
-          feeds: {
-            '/latest.json': listed,
-            '/c/trust-and-safety/4.json': const [],
-            '/c/trust-and-safety/security/5.json': const [],
-            '/topics/private-messages-tags/reader/'
-                    'security%20%2F%20fix.json':
-                const [],
-          },
-          categoryList: const [parent, category],
-          topics: {
-            7: (
-              detail: base.detail.copyWith(
-                canEdit: true,
-                canEditTags: true,
-                privateMessage: true,
-              ),
-              posts: base.posts,
-            ),
-          },
-        );
-        final authenticator = FakeAuthenticator()
-          ..keys['https://meta.discourse.org'] = 'meta-key';
-
-        await pumpShell(
-          tester,
-          desktop,
-          instances: [instance('meta.discourse.org').copyWith(user: reader)],
-          api: api,
-          authenticator: authenticator,
-        );
-        await tester.tap(contentText('A real topic'));
-        await tester.pumpAndSettle();
-
-        expect(
-          find.byKey(const ValueKey('topic-sidebar-category-edit-indicator')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('topic-sidebar-tags-edit-indicator')),
-          findsOneWidget,
-        );
-        expect(find.byTooltip('Edit topic category'), findsOneWidget);
-        expect(find.byTooltip('Edit topic tags'), findsOneWidget);
-        expect(
-          find.descendant(
-            of: find.byKey(const ValueKey('topic-sidebar-category')),
-            matching: find.text(parent.name),
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(const ValueKey('topic-sidebar-category')),
-            matching: find.text(category.name),
-          ),
-          findsOneWidget,
-        );
-        expect(find.text(categoryPath), findsNothing);
-        expect(
-          find.bySemanticsLabel('Parent category: ${parent.name}'),
-          findsOneWidget,
-        );
-        expect(
-          find.bySemanticsLabel('Category: ${category.name}'),
-          findsOneWidget,
-        );
-        expect(
-          tester
-              .getSize(
-                find.byKey(
-                  const ValueKey('topic-sidebar-parent-category-action'),
-                ),
-              )
-              .height,
-          greaterThanOrEqualTo(32),
-        );
-        expect(
-          tester
-              .getSize(
-                find.byKey(const ValueKey('topic-sidebar-category-action')),
-              )
-              .height,
-          greaterThanOrEqualTo(32),
-        );
-        expect(
-          tester.getSize(find.bySemanticsLabel('Tag: ${tag.name}')).height,
-          greaterThanOrEqualTo(24),
-        );
-        expect(
-          tester.getSize(
-            find.byKey(const ValueKey('topic-sidebar-category-edit-action')),
-          ),
-          const Size.square(32),
-        );
-        expect(
-          tester.getSize(find.byKey(const ValueKey('topic-sidebar-add-tag'))),
-          const Size.square(24),
-        );
-
-        final controller = ShellScope.read(
-          tester.element(find.byType(TopicView)),
-        );
-        await tester.tap(
-          find.byKey(const ValueKey('topic-sidebar-parent-category-action')),
-        );
-        await tester.pumpAndSettle();
-
-        expect(controller.currentContent?.id, 'category-4');
-        expect(
-          controller.currentContent?.feedPath,
-          '/c/trust-and-safety/4.json',
-        );
-        expect(
-          find.byKey(const ValueKey('topic-category-picker-popover')),
-          findsNothing,
-        );
-
-        expect(controller.handleBack(canReturnToSidebar: false), isTrue);
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey('topic-sidebar-category-action')),
-        );
-        await tester.pumpAndSettle();
-
-        expect(controller.currentContent?.id, 'category-5');
-        expect(
-          controller.currentContent?.feedPath,
-          '/c/trust-and-safety/security/5.json',
-        );
-        expect(
-          find.byKey(const ValueKey('topic-category-picker-popover')),
-          findsNothing,
-        );
-
-        expect(controller.handleBack(canReturnToSidebar: false), isTrue);
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(ValueKey(('topic-sidebar-tag', tag.name))));
-        await tester.pumpAndSettle();
-
-        expect(
-          controller.currentContent?.id,
-          'list-/topics/private-messages-tags/reader/'
-          'security%20%2F%20fix.json',
-        );
-        expect(
-          controller.currentContent?.feedPath,
-          '/topics/private-messages-tags/reader/'
-          'security%20%2F%20fix.json',
-        );
-        expect(
-          find.byKey(const ValueKey('topic-tag-picker-popover')),
-          findsNothing,
-        );
-        expect(api.topicsUpdated, isEmpty);
-        expect(api.topicTagsUpdated, isEmpty);
-      },
-    );
-
-    testWidgets(
-      'uncategorized sidebar picker server-searches and saves a subcategory',
-      (tester) async {
-        final previousPlatform = debugDefaultTargetPlatformOverride;
-        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-        try {
-          const support = TopicCategory(
-            id: 5,
-            name: 'Support',
-            color: '0088CC',
-            permission: 1,
-          );
-          const supportDocs = TopicCategory(
-            id: 6,
-            name: 'Support docs',
-            color: '00AEEF',
-            parentCategoryId: 5,
-          );
-          final supportDocsPath = topicCategoryPathLabel(
-            supportDocs,
-            parent: support,
-          );
-          final base = detail();
-          final api = FakeDiscourseApi(
-            feeds: {'/latest.json': listed},
-            categoryList: const [support],
-            categorySearches: const {
-              '': [support],
-              'support': [support],
-              'docs': [supportDocs],
-            },
-            topics: {
-              7: (
-                detail: base.detail.copyWith(canEdit: true),
-                posts: base.posts,
-              ),
-            },
-          );
-          const reader = DiscourseUser(id: 1, username: 'reader');
-          final authenticator = FakeAuthenticator()
-            ..keys['https://meta.discourse.org'] = 'meta-key';
-
-          await pumpShell(
-            tester,
-            desktop,
-            instances: [instance('meta.discourse.org').copyWith(user: reader)],
-            api: api,
-            authenticator: authenticator,
-          );
-          await tester.tap(contentText('A real topic'));
-          await tester.pumpAndSettle();
-
-          final categoryProperty = find.byKey(
-            const ValueKey('topic-sidebar-category-property'),
-          );
-          expect(categoryProperty, findsOneWidget);
-          expect(find.byTooltip('Edit topic category'), findsOneWidget);
-          expect(
-            find.byKey(const ValueKey('topic-sidebar-category-edit-indicator')),
-            findsOneWidget,
-          );
-          expect(
-            find.descendant(
-              of: categoryProperty,
-              matching: find.text('Uncategorized'),
-            ),
-            findsOneWidget,
-          );
-
-          final categoryAction = find.byKey(
-            const ValueKey('topic-sidebar-category-edit-action'),
-          );
-          expect(categoryAction, findsOneWidget);
-          final categoryInk = find.descendant(
-            of: categoryAction,
-            matching: find.byType(InkWell),
-          );
-          expect(categoryInk, findsOneWidget);
-          expect(
-            tester.widget<InkWell>(categoryInk).mouseCursor,
-            SystemMouseCursors.click,
-          );
-          expect(
-            tester.widget<InkWell>(categoryInk).hoverColor,
-            Colors.transparent,
-          );
-          expect(
-            tester.getSize(categoryAction).width,
-            lessThan(tester.getSize(categoryProperty).width),
-          );
-
-          await tester.tap(categoryAction);
-          await tester.pumpAndSettle();
-
-          expect(find.byType(ComposerPanel), findsNothing);
-          expect(find.byType(Dialog), findsNothing);
-          expect(find.byType(BottomSheet), findsNothing);
-          final picker = find.byKey(
-            const ValueKey('topic-category-picker-popover'),
-          );
-          expect(picker, findsOneWidget);
-          expect(
-            find.descendant(
-              of: picker,
-              matching: find.byKey(
-                const ValueKey('topic-category-picker-query'),
-              ),
-            ),
-            findsOneWidget,
-          );
-          expect(tester.getSize(picker).width, 252);
-          final categoryQuery = find.byKey(
-            const ValueKey('topic-category-picker-query'),
-          );
-          expect(
-            tester.widget<TextField>(categoryQuery).style?.fontSize,
-            DiscourseTypography.fontDown1,
-          );
-          expect(
-            tester.getSize(categoryQuery).height,
-            inInclusiveRange(34, 42),
-          );
-          final categoryDivider = find.byKey(
-            const ValueKey('topic-category-picker-divider'),
-          );
-          expect(
-            tester.getSize(categoryDivider).width,
-            tester.getSize(picker).width - 2,
-          );
-          final supportOption = find.byKey(
-            const ValueKey('topic-category-option-5'),
-          );
-          expect(supportOption, findsOneWidget);
-          final supportTile = tester.widget<ListTile>(
-            find.descendant(of: supportOption, matching: find.byType(ListTile)),
-          );
-          expect(supportTile.minTileHeight, 32);
-          expect(
-            supportTile.titleTextStyle?.fontSize,
-            DiscourseTypography.fontDown1,
-          );
-          await tester.enterText(categoryQuery, 'support');
-          await tester.pump(const Duration(milliseconds: 250));
-          await tester.pumpAndSettle();
-          expect(supportOption, findsOneWidget);
-          expect(
-            find.byKey(const ValueKey('topic-category-option-6')),
-            findsNothing,
-          );
-          await tester.enterText(categoryQuery, 'docs');
-          await tester.pump(const Duration(milliseconds: 250));
-          await tester.pumpAndSettle();
-          final supportDocsOption = find.byKey(
-            const ValueKey('topic-category-option-6'),
-          );
-          final supportDocsTile = tester.widget<ListTile>(
-            find.descendant(
-              of: supportDocsOption,
-              matching: find.byType(ListTile),
-            ),
-          );
-          expect(
-            supportDocsTile.contentPadding,
-            const EdgeInsets.only(left: 26, right: 10),
-          );
-          expect(
-            find.descendant(
-              of: supportDocsOption,
-              matching: find.text(supportDocsPath),
-            ),
-            findsOneWidget,
-          );
-          expect(api.categoryPagesRequested, isNot(contains(2)));
-          expect(api.categorySearchTerms, ['', 'support', 'docs']);
-          await tester.tap(
-            find.byKey(const ValueKey('topic-category-option-6')),
-          );
-          await tester.pumpAndSettle();
-
-          expect(api.topicsUpdated.single, {
-            'topicId': 7,
-            'title': 'A real topic',
-            'originalTitle': 'A real topic',
-            'categoryId': 6,
-            'tags': const <TopicTag>[],
-            'originalTags': const <TopicTag>[],
-          });
-          expect(api.topicTagsUpdated, isEmpty);
-          expect(
-            find.descendant(
-              of: categoryProperty,
-              matching: find.text(support.name),
-            ),
-            findsOneWidget,
-          );
-          expect(
-            find.descendant(
-              of: categoryProperty,
-              matching: find.text(supportDocs.name),
-            ),
-            findsOneWidget,
-          );
-          expect(find.text(supportDocsPath), findsNothing);
-          expect(picker, findsNothing);
-          expect(find.byType(ComposerPanel), findsNothing);
-          expect(tester.takeException(), isNull);
-        } finally {
-          debugDefaultTargetPlatformOverride = previousPlatform;
-        }
-      },
-    );
-
-    testWidgets('empty editable sidebar tags open a popover and save a tag', (
-      tester,
-    ) async {
-      final previousPlatform = debugDefaultTargetPlatformOverride;
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      try {
-        const design = TopicTag(id: 8, name: 'design');
-        const mobile = TopicTag(id: 9, name: 'mobile');
-        final base = detail();
-        final api = FakeDiscourseApi(
-          feeds: {'/latest.json': listed},
-          topics: {
-            7: (
-              detail: base.detail.copyWith(canEditTags: true),
-              posts: base.posts,
-            ),
-          },
-          composerCapabilities: const TopicComposerCapabilities(
-            canTagTopics: true,
-            maxTagsPerTopic: 5,
-          ),
-          topicTagSearches: const {
-            '': TopicTagSearch(tags: [design, mobile]),
-          },
-        );
-        const reader = DiscourseUser(id: 1, username: 'reader');
-        final authenticator = FakeAuthenticator()
-          ..keys['https://meta.discourse.org'] = 'meta-key';
-
-        await pumpShell(
-          tester,
-          desktop,
-          instances: [instance('meta.discourse.org').copyWith(user: reader)],
-          api: api,
-          authenticator: authenticator,
-        );
-        await tester.tap(contentText('A real topic'));
-        await tester.pumpAndSettle();
-
-        final tagsProperty = find.byKey(
-          const ValueKey('topic-sidebar-tags-property'),
-        );
-        final addTag = find.byKey(const ValueKey('topic-sidebar-add-tag'));
-        expect(tagsProperty, findsOneWidget);
-        expect(find.byTooltip('Add tag'), findsOneWidget);
-        expect(find.text('Add tag'), findsOneWidget);
-        expect(addTag, findsOneWidget);
-        expect(tester.getSize(addTag).height, lessThan(24));
-        expect(
-          tester.getSize(addTag).width,
-          lessThan(tester.getSize(tagsProperty).width * 0.75),
-        );
-        expect(
-          tester.getCenter(find.text('Tags')).dy,
-          closeTo(tester.getCenter(addTag).dy, 1),
-        );
-
-        final tagsRect = tester.getRect(tagsProperty);
-        await tester.tapAt(Offset(tagsRect.left + 12, tagsRect.center.dy));
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('topic-tag-picker-popover')),
-          findsNothing,
-        );
-
-        await tester.tap(addTag);
-        await tester.pumpAndSettle();
-
-        final picker = find.byKey(const ValueKey('topic-tag-picker-popover'));
-        expect(picker, findsOneWidget);
-        expect(tester.getSize(picker).width, 252);
-
-        final query = find.byKey(const ValueKey('topic-tag-picker-query'));
-        final queryWidget = tester.widget<TextField>(query);
-        expect(queryWidget.style?.fontSize, DiscourseTypography.fontDown1);
-        expect(tester.getSize(query).height, inInclusiveRange(34, 42));
-
-        final divider = find.descendant(
-          of: picker,
-          matching: find.byKey(const ValueKey('topic-tag-picker-divider')),
-        );
-        expect(divider, findsOneWidget);
-        expect(tester.getSize(divider).width, tester.getSize(picker).width - 2);
-
-        expect(
-          find.descendant(of: picker, matching: find.dIcon(DIcons.tag)),
-          findsNothing,
-        );
-        expect(find.byType(ComposerPanel), findsNothing);
-        expect(
-          find.descendant(
-            of: picker,
-            matching: find.byKey(
-              const ValueKey(('topic-tag-picker-option', 'mobile')),
-            ),
-          ),
-          findsOneWidget,
-        );
-        final mobileOption = tester.widget<ListTile>(
-          find.descendant(
-            of: find.byKey(
-              const ValueKey(('topic-tag-picker-option', 'mobile')),
-            ),
-            matching: find.byType(ListTile),
-          ),
-        );
-        expect(mobileOption.minTileHeight, 32);
-        expect(
-          mobileOption.titleTextStyle?.fontSize,
-          DiscourseTypography.fontDown1,
-        );
-        expect((mobileOption.leading! as Row).children, hasLength(1));
-        await tester.tap(
-          find.descendant(
-            of: picker,
-            matching: find.byKey(
-              const ValueKey(('topic-tag-picker-option', 'mobile')),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(api.topicTagsUpdated.single, {
-          'topicId': 7,
-          'tags': const [mobile],
-        });
-        expect(
-          find.byKey(const ValueKey(('topic-sidebar-tag', 'mobile'))),
-          findsOneWidget,
-        );
-        expect(find.text('mobile'), findsOneWidget);
-        expect(picker, findsNothing);
-        expect(find.byType(ComposerPanel), findsNothing);
-        expect(tester.takeException(), isNull);
-      } finally {
-        debugDefaultTargetPlatformOverride = previousPlatform;
-      }
-    });
-
-    testWidgets('sidebar tag popover creates and removes tags', (tester) async {
-      final previousPlatform = debugDefaultTargetPlatformOverride;
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      try {
-        const design = TopicTag(id: 8, name: 'design');
-        final base = detail();
-        final api = FakeDiscourseApi(
-          feeds: {'/latest.json': listed},
-          topics: {
-            7: (
-              detail: base.detail.copyWith(
-                canEditTags: true,
-                tags: const [design],
-              ),
-              posts: base.posts,
-            ),
-          },
-          composerCapabilities: const TopicComposerCapabilities(
-            canTagTopics: true,
-            canCreateTag: true,
-            tagsFilterRegexp:
-                r'''[\/\?#\[\]@!\$&'\(\)\*\+,;=%\\`^\s|\{\}"<>]+''',
-            maxTagLength: 20,
-            maxTagsPerTopic: 5,
-          ),
-          topicTagSearches: const {
-            '': TopicTagSearch(tags: [design]),
-            'mobile': TopicTagSearch(),
-          },
-        );
-        const reader = DiscourseUser(id: 1, username: 'reader');
-        final authenticator = FakeAuthenticator()
-          ..keys['https://meta.discourse.org'] = 'meta-key';
-
-        await pumpShell(
-          tester,
-          desktop,
-          instances: [instance('meta.discourse.org').copyWith(user: reader)],
-          api: api,
-          authenticator: authenticator,
-        );
-        await tester.tap(contentText('A real topic'));
-        await tester.pumpAndSettle();
-
-        final addTag = find.byKey(const ValueKey('topic-sidebar-add-tag'));
-        await tester.tap(addTag);
-        await tester.pumpAndSettle();
-        await tester.enterText(
-          find.byKey(const ValueKey('topic-tag-picker-query')),
-          'mobile',
-        );
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Create new tag: “mobile”'), findsOneWidget);
-        await tester.tap(find.byKey(const ValueKey('topic-tag-picker-create')));
-        await tester.pumpAndSettle();
-
-        expect(api.topicTagsUpdated.single, {
-          'topicId': 7,
-          'tags': const [design, TopicTag(name: 'mobile')],
-        });
-        expect(
-          find.byKey(const ValueKey(('topic-sidebar-tag', 'mobile'))),
-          findsOneWidget,
-        );
-
-        await tester.tap(addTag);
-        await tester.pumpAndSettle();
-        final picker = find.byKey(const ValueKey('topic-tag-picker-popover'));
-        for (final name in ['design', 'mobile']) {
-          await tester.tap(
-            find.byKey(ValueKey(('topic-tag-picker-option', name))),
-          );
-          await tester.pumpAndSettle();
-          expect(picker, findsOneWidget);
-          expect(api.topicTagsUpdated, hasLength(1));
-        }
-
-        await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
-
-        expect(api.topicTagsUpdated, hasLength(2));
-        expect(api.topicTagsUpdated.last, {
-          'topicId': 7,
-          'tags': const <TopicTag>[],
-        });
-        expect(picker, findsNothing);
-        expect(
-          find.byKey(const ValueKey(('topic-sidebar-tag', 'design'))),
-          findsNothing,
-        );
-        expect(
-          find.byKey(const ValueKey(('topic-sidebar-tag', 'mobile'))),
-          findsNothing,
-        );
-        expect(tester.takeException(), isNull);
-      } finally {
-        debugDefaultTargetPlatformOverride = previousPlatform;
-      }
     });
 
     testWidgets('only a topic bookmark gives its action the core accent', (
@@ -3940,7 +2839,7 @@ void _registerTopicReadingTests() {
       addTearDown(mouse.removePointer);
       await mouse.moveTo(tester.getCenter(renderedText('Second post body')));
       await tester.pumpAndSettle();
-      await tapPostAction(tester, 'Share this post');
+      await tapPostAction(tester, 'Share this post', postNumber: 2);
       await tester.pumpAndSettle();
 
       expect(find.text('Share post #2'), findsOneWidget);
@@ -4431,8 +3330,6 @@ void _registerTopicReadingTests() {
       tester.view.physicalSize = const Size(508, 700);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Show topic sidebar'));
-      await tester.pumpAndSettle();
       final trigger = find.byKey(const ValueKey('topic-status-button'));
       await tester.tap(trigger);
       await tester.pumpAndSettle();
@@ -5120,7 +4017,7 @@ void _registerTopicReadingTests() {
       );
     });
 
-    testWidgets('shows ordered recommendation-source tabs in a panel', (
+    testWidgets('shows ordered recommendation sources below the posts', (
       tester,
     ) async {
       SharedPreferences.setMockInitialValues({});
@@ -5185,32 +4082,28 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsOneWidget);
-      expect(find.text('More topics'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('topic-list-ledger-header')),
         findsNothing,
       );
-      final moreTopicsCard = find.byKey(
-        const ValueKey('topic-more-topics-card'),
+      final tabs = [
+        find.text('Suggested'),
+        find.text('Related'),
+        find.text('Nearby'),
+      ];
+      for (var index = 0; index < tabs.length; index++) {
+        expect(tabs[index], findsOneWidget);
+        if (index > 0) {
+          expect(
+            tester.getCenter(tabs[index]).dx,
+            greaterThan(tester.getCenter(tabs[index - 1]).dx),
+          );
+        }
+      }
+      expect(
+        tester.getTopLeft(tabs.first).dy,
+        greaterThan(tester.getBottomLeft(renderedText('First post body')).dy),
       );
-      final moreTopicsCardDecoration =
-          tester
-                  .widget<DecoratedBox>(
-                    find
-                        .descendant(
-                          of: moreTopicsCard,
-                          matching: find.byType(DecoratedBox),
-                        )
-                        .first,
-                  )
-                  .decoration
-              as BoxDecoration;
-      expect(moreTopicsCardDecoration.border, isNull);
-      expect(find.byTooltip('Hide topic sidebar'), findsOneWidget);
-      expect(find.text('Suggested'), findsOneWidget);
-      expect(find.text('Related'), findsOneWidget);
-      expect(find.text('Nearby'), findsOneWidget);
       final earth = find.byWidgetPredicate(
         (widget) => widget is SiteEmojiImage && widget.name == 'earth_africa',
       );
@@ -5230,12 +4123,9 @@ void _registerTopicReadingTests() {
       expect(earth, findsNothing);
       expect(sparkles, findsOneWidget);
 
-      final relatedRow = find
-          .ancestor(
-            of: find.byKey(const ValueKey('topic-ledger-topic-9')),
-            matching: find.byType(InkWell),
-          )
-          .first;
+      final relatedRow = find.byWidgetPredicate(
+        (widget) => widget is TopicInboxRow && widget.topic.id == 9,
+      );
       await tester.tap(relatedRow);
       await tester.pumpAndSettle();
 
@@ -5296,189 +4186,6 @@ void _registerTopicReadingTests() {
         );
       },
     );
-
-    testWidgets('omits More topics when every source is empty', (tester) async {
-      const recommendations = TopicRecommendations(
-        sources: [
-          TopicRecommendationSource(
-            definition: coreSuggestedTopicRecommendationSource,
-          ),
-          TopicRecommendationSource(
-            definition: discourseAiRelatedTopicRecommendationSource,
-          ),
-        ],
-      );
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail(recommendations: recommendations)},
-      );
-
-      await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('topic-more-topics-card')),
-        findsNothing,
-      );
-      expect(find.text('More topics'), findsNothing);
-    });
-
-    testWidgets('reserves the topic sidebar while a topic loads', (
-      tester,
-    ) async {
-      final recommendations = suggestedRecommendations(
-        const Topic(
-          id: 8,
-          title: 'A suggested topic',
-          slug: 'a-suggested-topic',
-        ),
-      );
-      final topicGate = Completer<void>();
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail(recommendations: recommendations)},
-        topicGate: topicGate,
-      );
-
-      await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
-      await tester.pump();
-      final semantics = tester.ensureSemantics();
-
-      final loadingPanel = find.byKey(
-        const ValueKey('topic-recommendations-loading-skeleton'),
-      );
-      expect(loadingPanel, findsOneWidget);
-      expect(find.bySemanticsLabel('Loading more topics'), findsOneWidget);
-      expect(
-        tester.getSize(find.byKey(const ValueKey('topic-sidebar-panel'))).width,
-        344,
-      );
-      final loadingPostWidth = tester
-          .getSize(find.byKey(const ValueKey('topic-loading-skeleton')))
-          .width;
-
-      topicGate.complete();
-      await tester.pumpAndSettle();
-
-      expect(loadingPanel, findsNothing);
-      expect(find.text('A suggested topic'), findsOneWidget);
-      expect(
-        tester.getSize(find.byType(SuperListView)).width,
-        loadingPostWidth,
-      );
-      semantics.dispose();
-    });
-
-    testWidgets('keeps the panel width while final-page topics load', (
-      tester,
-    ) async {
-      final recommendations = suggestedRecommendations(
-        const Topic(
-          id: 8,
-          title: 'Suggested at the end',
-          slug: 'suggested-end',
-        ),
-      );
-      final postGate = Completer<void>();
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {
-          7: detail(stream: [1, 2]),
-        },
-        postsById: {2: post(2, 2, 'Last post body')},
-        postRecommendations: {7: recommendations},
-        postGate: postGate,
-      );
-
-      await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
-      await tester.pump();
-      await tester.pump();
-      await tester.pump();
-
-      expect(api.postFetches, [
-        [2],
-      ]);
-      final loadingPanel = find.byKey(
-        const ValueKey('topic-recommendations-loading-skeleton'),
-      );
-      expect(loadingPanel, findsOneWidget);
-      final loadingPostWidth = tester.getSize(find.byType(SuperListView)).width;
-
-      postGate.complete();
-      await tester.pumpAndSettle();
-
-      expect(loadingPanel, findsNothing);
-      expect(find.text('Suggested at the end'), findsOneWidget);
-      expect(
-        tester.getSize(find.byType(SuperListView)).width,
-        loadingPostWidth,
-      );
-    });
-
-    testWidgets('remembers a hidden topic sidebar for the forum', (
-      tester,
-    ) async {
-      SharedPreferences.setMockInitialValues({});
-      addTearDown(() => SharedPreferences.setMockInitialValues({}));
-      final recommendations = suggestedRecommendations(
-        const Topic(id: 8, title: 'Remembered suggestion', slug: 'remembered'),
-      );
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail(recommendations: recommendations)},
-      );
-
-      await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
-      await tester.pumpAndSettle();
-      expect(find.text('Remembered suggestion'), findsOneWidget);
-      final postViewportWidth = tester
-          .getSize(find.byType(SuperListView))
-          .width;
-      expect(
-        tester.widget<SuperListView>(find.byType(SuperListView)).padding,
-        EdgeInsets.zero,
-      );
-
-      await tester.tap(find.byTooltip('Hide topic sidebar'));
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('Show topic sidebar'), findsOneWidget);
-      expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
-      expect(find.text('Remembered suggestion'), findsNothing);
-      expect(
-        tester.getSize(find.byType(SuperListView)).width,
-        postViewportWidth + 344,
-      );
-      expect(
-        tester.widget<SuperListView>(find.byType(SuperListView)).padding,
-        EdgeInsets.zero,
-      );
-      // The UI intentionally fires this optional preference write without
-      // blocking. Read through the same serialized store boundary so the
-      // replacement below cannot overtake that write.
-      expect(
-        await const TopicSidebarStore().read(
-          siteUrl: 'https://meta.discourse.org',
-        ),
-        isTrue,
-      );
-
-      await pumpShell(
-        tester,
-        desktop,
-        api: api,
-        key: const ValueKey('restored-topics-panel'),
-      );
-      await tester.tap(find.text('A real topic'));
-      await tester.pumpAndSettle();
-
-      expect(find.byTooltip('Show topic sidebar'), findsOneWidget);
-      expect(find.text('Remembered suggestion'), findsNothing);
-    });
 
     testWidgets('remembers the more topics tab for the forum', (tester) async {
       SharedPreferences.setMockInitialValues({});
@@ -5572,129 +4279,6 @@ void _registerTopicReadingTests() {
         findsNothing,
       );
     });
-
-    testWidgets('keeps recommendations below the posts on narrow layouts', (
-      tester,
-    ) async {
-      final recommendations = suggestedRecommendations(
-        const Topic(
-          id: 8,
-          title: 'Narrow suggestion',
-          slug: 'narrow-suggestion',
-        ),
-      );
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail(recommendations: recommendations)},
-      );
-
-      await pumpShell(tester, laptop, api: api);
-      await tester.tap(find.text('A real topic'));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
-      expect(find.text('Narrow suggestion'), findsOneWidget);
-      expect(find.byTooltip('Show topic sidebar'), findsOneWidget);
-      expect(
-        tester
-            .widget<DButton>(find.byKey(const ValueKey('topic-sidebar-toggle')))
-            .variant,
-        DButtonVariant.flat,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-sidebar-icon-closed')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-sidebar-icon-open')),
-        findsNothing,
-      );
-      expect(
-        tester.getSize(find.byKey(const ValueKey('topic-sidebar-icon'))),
-        const Size(16, 14),
-      );
-
-      await tester.tap(find.byTooltip('Show topic sidebar'));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsOneWidget);
-      expect(find.byTooltip('Hide topic sidebar'), findsOneWidget);
-      expect(find.byKey(const ValueKey('topic-status-button')), findsOneWidget);
-      expect(
-        tester
-            .widget<DButton>(find.byKey(const ValueKey('topic-sidebar-toggle')))
-            .variant,
-        DButtonVariant.flat,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-sidebar-icon-open')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-sidebar-icon-closed')),
-        findsNothing,
-      );
-
-      await tester.tap(find.byTooltip('Hide topic sidebar'));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
-      expect(
-        tester
-            .widget<DButton>(find.byKey(const ValueKey('topic-sidebar-toggle')))
-            .variant,
-        DButtonVariant.flat,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-sidebar-icon-closed')),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets(
-      'automatically unpins the sidebar when an expanded shell is too narrow',
-      (tester) async {
-        final recommendations = suggestedRecommendations(
-          const Topic(
-            id: 8,
-            title: 'Responsive suggestion',
-            slug: 'responsive-suggestion',
-          ),
-        );
-        final api = FakeDiscourseApi(
-          feeds: {'/latest.json': listed},
-          topics: {7: detail(recommendations: recommendations)},
-        );
-
-        await pumpShell(tester, desktop, api: api);
-        await tester.tap(find.text('A real topic'));
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('topic-sidebar-panel')),
-          findsOneWidget,
-        );
-
-        // This remains above the shell's expanded breakpoint, but its topic
-        // viewport can no longer leave 640px for posts beside the 344px panel.
-        tester.view.physicalSize = const Size(1240, 800);
-        await tester.pumpAndSettle();
-
-        expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
-        expect(find.text('Responsive suggestion'), findsOneWidget);
-        expect(find.byTooltip('Show topic sidebar'), findsOneWidget);
-        expect(
-          tester.widget<SuperListView>(find.byType(SuperListView)).padding,
-          EdgeInsets.zero,
-        );
-
-        await tester.tap(find.byTooltip('Show topic sidebar'));
-        await tester.pumpAndSettle();
-
-        expect(
-          find.byKey(const ValueKey('topic-sidebar-panel')),
-          findsOneWidget,
-        );
-        expect(find.byTooltip('Hide topic sidebar'), findsOneWidget);
-      },
-    );
 
     testWidgets('gets more topics with the final page of a long topic', (
       tester,

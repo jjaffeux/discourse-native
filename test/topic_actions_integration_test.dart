@@ -16,13 +16,11 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
-import 'support/finders.dart';
 
 import 'support/shell_test_harness.dart';
 
@@ -178,7 +176,7 @@ void _registerTopicLinkTests() {
       expect(launched, isEmpty);
     });
 
-    testWidgets('a category link opens the list here', (tester) async {
+    testWidgets('a category link opens its list in the app', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {
           '/latest.json': listed,
@@ -197,9 +195,8 @@ void _registerTopicLinkTests() {
       expect(find.text('A bug report'), findsOneWidget);
       expect(launched, isEmpty);
 
-      await tester.tap(find.dIcon(DIcons.arrowLeft));
-      await tester.pumpAndSettle();
-      expect(renderedText('the bug category'), findsOneWidget);
+      expect(find.byType(TopicListView), findsOneWidget);
+      expect(find.byType(TopicView), findsNothing);
     });
 
     testWidgets('a subcategory keeps its whole path', (tester) async {
@@ -445,20 +442,22 @@ void _registerTopicModerationTests() {
       return api;
     }
 
-    testWidgets('a post nobody may touch offers nothing but a reply', (
-      tester,
-    ) async {
-      await openTopic(tester, post: mine(canEdit: false, canDelete: false));
+    testWidgets(
+      'a post without edit or delete permission omits those actions',
+      (tester) async {
+        await openTopic(tester, post: mine(canEdit: false, canDelete: false));
 
-      await hoverPost(tester);
+        expect(find.byTooltip('Reply to this post'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('post-more-actions-1')));
+        await tester.pumpAndSettle();
 
-      // can_edit and can_delete are the whole question: the guardian behind
-      // them has already weighed ownership, staff, the edit window and the
-      // state of the topic.
-      expect(find.byTooltip('Reply to this post'), findsOneWidget);
-      expect(find.byTooltip('Edit this post'), findsNothing);
-      expect(find.byTooltip('Delete this post'), findsNothing);
-    });
+        // can_edit and can_delete are the whole question: the guardian behind
+        // them has already weighed ownership, staff, the edit window and the
+        // state of the topic.
+        expect(find.widgetWithText(MenuItemButton, 'Edit'), findsNothing);
+        expect(find.widgetWithText(MenuItemButton, 'Delete'), findsNothing);
+      },
+    );
 
     testWidgets('a guardian-authorized topic action can be deleted', (
       tester,
@@ -529,7 +528,6 @@ void _registerTopicModerationTests() {
       );
 
       await hoverPost(tester);
-      expect(find.byTooltip('Edit this post'), findsOneWidget);
       await tapPostAction(tester, 'Edit this post');
       await tester.pumpAndSettle();
 
@@ -662,8 +660,8 @@ void _registerTopicModerationTests() {
       await gesture.moveTo(tester.getCenter(renderedText('First post body')));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('More actions'), findsOneWidget);
-      await tester.tap(find.byTooltip('More actions'));
+      expect(find.byKey(const ValueKey('post-more-actions-1')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('post-more-actions-1')));
       await tester.pumpAndSettle();
       expect(find.text('Undelete'), findsOneWidget);
       expect(find.byTooltip('Put this post back'), findsNothing);
@@ -1165,8 +1163,11 @@ void _registerTopicModerationTests() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      await hoverPost(tester, body: 'Deleted reply body');
-      await tapPostAction(tester, 'Permanently delete this post');
+      await tapPostAction(
+        tester,
+        'Permanently delete this post',
+        postNumber: 2,
+      );
       await tester.pumpAndSettle();
       expect(api.permanentDeletionChecks, [2]);
       expect(
@@ -1221,8 +1222,11 @@ void _registerTopicModerationTests() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
-      await hoverPost(tester, body: 'Cooldown reply body');
-      await tapPostAction(tester, 'Permanently delete this post');
+      await tapPostAction(
+        tester,
+        'Permanently delete this post',
+        postNumber: 2,
+      );
       await tester.pumpAndSettle();
 
       expect(api.permanentDeletionChecks, [2]);

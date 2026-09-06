@@ -193,6 +193,7 @@ Future<void> _closeComposerAfterAssertions(
   WidgetTester tester,
   ShellController shell,
 ) async {
+  await tester.pumpWidget(const SizedBox.shrink());
   shell.closeComposer();
   await tester.pump();
 }

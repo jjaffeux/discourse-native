@@ -569,7 +569,9 @@ void main() {
           'chat_channel_id',
           'mentioned_by_username',
           'assigned',
-          'reaction',
+          'ReactionsNotificationTypes',
+          'reaction_id',
+          'reaction_type',
           'following_replied',
           'votes_released',
         ]) {

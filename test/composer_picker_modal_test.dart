@@ -226,6 +226,13 @@ void main() {
     expect(tagsBounds.right, lessThanOrEqualTo(304));
     expect(categoryBounds.height, greaterThanOrEqualTo(44));
     expect(tagsBounds.height, greaterThanOrEqualTo(44));
+    for (final action in [
+      find.byKey(const ValueKey('composer-discard')),
+      find.widgetWithText(FilledButton, 'Create topic'),
+    ]) {
+      expect(action.hitTestable(), findsOneWidget);
+      expect(tester.getRect(action).right, lessThanOrEqualTo(320));
+    }
     expect(tester.takeException(), isNull);
 
     await open(tester, const ValueKey('composer-add-tag'));
@@ -374,40 +381,48 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('the composer keeps multiple tag removals when dismissed', (
-    tester,
-  ) async {
-    final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
-    const support = TopicTag(id: 9, name: 'support');
-    shell.visibleComposer!.setTags(const [
-      TopicTag(id: 7, name: 'design'),
-      TopicTag(id: 8, name: 'mobile'),
-      support,
-    ]);
-    await tester.pump();
-
-    await open(tester, const ValueKey('composer-add-tag'));
-    for (final name in ['design', 'mobile']) {
-      await tester.tap(find.byKey(ValueKey(('topic-tag-picker-option', name))));
+  testWidgets(
+    'tag removals apply immediately and survive reopening the picker',
+    (tester) async {
+      final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
+      const support = TopicTag(id: 9, name: 'support');
+      shell.visibleComposer!.setTags(const [
+        TopicTag(id: 7, name: 'design'),
+        TopicTag(id: 8, name: 'mobile'),
+        support,
+      ]);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(find.byType(TopicTagPicker), findsOneWidget);
-    }
 
-    await tester.tapAt(const Offset(790, 10));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 2));
+      for (final name in ['design', 'mobile']) {
+        await open(tester, const ValueKey('composer-add-tag'));
+        await tester.tap(
+          find.byKey(ValueKey(('topic-tag-picker-option', name))),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.byType(TopicTagPicker), findsNothing);
+        expect(
+          shell.visibleComposer!.tags.map((tag) => tag.name),
+          isNot(contains(name)),
+        );
+      }
 
-    expect(find.byType(TopicTagPicker), findsNothing);
-    expect(shell.visibleComposer!.tags, const [support]);
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('composer-tags')),
-        matching: find.text('support'),
-      ),
-      findsOneWidget,
-    );
-  });
+      await open(tester, const ValueKey('composer-add-tag'));
+      await tester.tapAt(const Offset(790, 10));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(find.byType(TopicTagPicker), findsNothing);
+      expect(shell.visibleComposer!.tags, const [support]);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('composer-tags')),
+          matching: find.text('support'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('the category picker stays a sheet on touch', (tester) async {
     await pumpComposer(tester, platform: TargetPlatform.iOS);
