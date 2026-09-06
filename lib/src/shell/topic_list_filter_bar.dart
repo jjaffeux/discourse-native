@@ -207,7 +207,6 @@ class _CategoryFilterAnchor extends StatelessWidget {
             ? 'Filter by category'
             : 'Category: ${selected!.name}',
         onPressed: openMenu,
-        minimumWidth: 112,
         maximumWidth: 260,
       ),
     );
@@ -284,7 +283,6 @@ class _SubcategoryFilterAnchor extends StatelessWidget {
             ? 'Filter by subcategory of ${parent.name}'
             : 'Subcategory: ${selected!.name}',
         onPressed: openMenu,
-        minimumWidth: 128,
         maximumWidth: 230,
       ),
     );
@@ -354,7 +352,6 @@ class _TagFilterAnchorState extends State<_TagFilterAnchor> {
             ? 'Filter by tag'
             : 'Tag: ${selected?.name ?? widget.selectedTagName}',
         onPressed: _show,
-        minimumWidth: 92,
         maximumWidth: 210,
       ),
     );
@@ -367,7 +364,6 @@ class _FilterButton extends StatelessWidget {
     required this.label,
     required this.semanticLabel,
     required this.onPressed,
-    required this.minimumWidth,
     required this.maximumWidth,
     this.icon,
   });
@@ -375,17 +371,12 @@ class _FilterButton extends StatelessWidget {
   final String label;
   final String semanticLabel;
   final VoidCallback? onPressed;
-  final double minimumWidth;
   final double maximumWidth;
   final Widget? icon;
 
   @override
   Widget build(BuildContext context) => ConstrainedBox(
-    constraints: BoxConstraints(
-      minWidth: minimumWidth,
-      maxWidth: maximumWidth,
-      minHeight: 32,
-    ),
+    constraints: BoxConstraints(maxWidth: maximumWidth, minHeight: 32),
     child: DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(color: Theme.of(context).shell.divider),
