@@ -389,6 +389,90 @@ void main() {
     );
   }
 
+  testWidgets(
+    'time range picker applies keyboard choices and cancels cleanly',
+    (tester) async {
+      final setup = await _controller();
+      final controller = setup.controller;
+      addTearDown(controller.dispose);
+      await controller.selectTopicListMode(TopicListMode.topYearly);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+            home: const Scaffold(
+              body: TopicListNavigation(stacked: true, child: SizedBox()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final trigger = find.byKey(const ValueKey('topic-list-top-period'));
+      final picker = find.byKey(
+        const ValueKey('topic-list-top-period-popover'),
+      );
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pump();
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Top period')),
+          isSemantics(
+            label: 'Top period',
+            value: 'Year',
+            isButton: true,
+            hasTapAction: true,
+          ),
+        );
+      } finally {
+        semantics.dispose();
+      }
+      expect(find.text('Period'), findsNothing);
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(picker, findsOneWidget);
+      expect(Focus.of(tester.element(find.text('Year').last)).hasFocus, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(picker, findsNothing);
+      expect(controller.currentTopicListMode, TopicListMode.topYearly);
+      final requestsBeforeSelection = [...setup.api.feedPaths];
+
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(picker, findsNothing);
+      expect(controller.currentTopicListMode, TopicListMode.topWeekly);
+      expect(
+        find.descendant(of: trigger, matching: find.text('Week')),
+        findsOneWidget,
+      );
+      expect(setup.api.feedPaths, [
+        ...requestsBeforeSelection,
+        '/top.json?period=weekly',
+      ]);
+
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(picker, findsNothing);
+      expect(controller.currentTopicListMode, TopicListMode.topWeekly);
+      expect(setup.api.feedPaths, [
+        ...requestsBeforeSelection,
+        '/top.json?period=weekly',
+      ]);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('filters lead compact tabs in one aligned row', (tester) async {
     final setup = await _controller();
     addTearDown(setup.controller.dispose);
