@@ -79,6 +79,7 @@ void main() {
       expect(palette.contentBorderColor, palette.primaryLow);
       expect(palette.selectedForeground, palette.primary);
       expect(palette.mentionBackground, palette.primaryLow);
+      expect(palette.currentUserMentionBackground, palette.tertiaryLow);
       expect(palette.codeKeyword, palette.tertiary);
     });
 
@@ -88,6 +89,13 @@ void main() {
 
       expect(decoded.borderRadius, 11.5);
       expect(decoded.toJson()['borderRadius'], 11.5);
+    });
+
+    test('older snapshots use the subtle accent for own mentions', () {
+      final json = palette().toJson()..remove('currentUserMentionBackground');
+      final decoded = ResolvedSitePalette.fromJson(json);
+
+      expect(decoded.currentUserMentionBackground, decoded.tertiaryLow);
     });
 
     test('persists percentage and pixel avatar radii', () {
@@ -181,6 +189,7 @@ ResolvedSitePalette palette({
     highlightLow: color(25),
     dangerLow: color(26),
     mentionBackground: color(27),
+    currentUserMentionBackground: color(37),
     codeBlockBackground: color(28),
     inlineCodeBackground: color(29),
     codeKeyword: color(30),

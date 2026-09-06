@@ -44,6 +44,7 @@ ResolvedSitePalette palette({
   highlightLow: const Color(0xFFFFF1A8),
   dangerLow: const Color(0xFFF5C7C7),
   mentionBackground: const Color(0xFFE0E7EE),
+  currentUserMentionBackground: const Color(0xFFAFE4FF),
   codeBlockBackground: const Color(0xFF20252B),
   inlineCodeBackground: const Color(0xFFE7EBEF),
   codeKeyword: const Color(0xFF8B2FA0),
@@ -209,6 +210,10 @@ void main() {
       expect(theme.shell.selectedForeground, source.selectedForeground);
       expect(theme.shell.marker, source.primaryHigh);
       expect(theme.shell.mention, source.mentionBackground);
+      expect(
+        theme.shell.currentUserMention,
+        source.currentUserMentionBackground,
+      );
       expect(theme.dividerTheme.color, source.contentBorderColor);
 
       expect(theme.code.blockBackground, source.codeBlockBackground);

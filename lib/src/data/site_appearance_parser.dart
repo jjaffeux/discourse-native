@@ -347,6 +347,7 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
     'highlightLow': '--highlight-low',
     'dangerLow': '--danger-low',
     'mentionBackground': '--mention-background-color',
+    'currentUserMentionBackground': '--tertiary-400',
     'codeBlockBackground': '--hljs-bg',
     'inlineCodeBackground': '--inline-code-bg',
     'codeKeyword': '--hljs-keyword',

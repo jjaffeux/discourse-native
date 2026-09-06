@@ -59,6 +59,7 @@ class ShellColors extends ThemeExtension<ShellColors> {
     required this.placeholder,
     required this.marker,
     required this.mention,
+    required this.currentUserMention,
   });
 
   final Color rail;
@@ -83,6 +84,9 @@ class ShellColors extends ThemeExtension<ShellColors> {
 
   final Color mention;
 
+  /// The current user's mention background, matching core's `--tertiary-400`.
+  final Color currentUserMention;
+
   static const ShellColors dark = ShellColors(
     rail: Color(0xFF131417),
     railForeground: Color(0xFFDDDDDD),
@@ -97,6 +101,7 @@ class ShellColors extends ThemeExtension<ShellColors> {
     placeholder: Color(0xFFFF9E4D),
     marker: Color(0xFF8B939F),
     mention: Color(0xFF3A3F48),
+    currentUserMention: Color(0xFF04425A),
   );
 
   static const ShellColors light = ShellColors(
@@ -113,6 +118,7 @@ class ShellColors extends ThemeExtension<ShellColors> {
     placeholder: Color(0xFFC25400),
     marker: Color(0xFF6B7280),
     mention: Color(0xFFDFE4E9),
+    currentUserMention: Color(0xFFAFE4FF),
   );
 
   @override
@@ -130,6 +136,7 @@ class ShellColors extends ThemeExtension<ShellColors> {
     Color? placeholder,
     Color? marker,
     Color? mention,
+    Color? currentUserMention,
   }) {
     return ShellColors(
       rail: rail ?? this.rail,
@@ -145,6 +152,7 @@ class ShellColors extends ThemeExtension<ShellColors> {
       placeholder: placeholder ?? this.placeholder,
       marker: marker ?? this.marker,
       mention: mention ?? this.mention,
+      currentUserMention: currentUserMention ?? this.currentUserMention,
     );
   }
 
@@ -169,6 +177,11 @@ class ShellColors extends ThemeExtension<ShellColors> {
       placeholder: Color.lerp(placeholder, other.placeholder, t)!,
       marker: Color.lerp(marker, other.marker, t)!,
       mention: Color.lerp(mention, other.mention, t)!,
+      currentUserMention: Color.lerp(
+        currentUserMention,
+        other.currentUserMention,
+        t,
+      )!,
     );
   }
 }
@@ -433,6 +446,7 @@ abstract final class AppTheme {
       placeholder: fallback.placeholder,
       marker: palette.primaryHigh,
       mention: palette.mentionBackground,
+      currentUserMention: palette.currentUserMentionBackground,
     );
     final code = CodeColors(
       blockBackground: palette.codeBlockBackground,
