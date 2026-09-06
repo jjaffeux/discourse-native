@@ -744,7 +744,7 @@ area has at least 880 logical pixels available, the list starts at 325 pixels
 beside the reader and can be resized between 304 and 480 pixels, keeping at
 least 520 pixels for the reader. Smaller windows show the reader alone and restore the
 same list when returning. Choosing a sibling topic replaces the reader route.
-The reader's **Close topic** pane icon returns directly to the source list.
+The reader's **Collapse topic** pane icon returns directly to the source list.
 The narrow list uses compact cards with a separate timestamp and taxonomy.
 Titles use the base text size, with category, tag, and preview text one step
 smaller. Timestamps and reply counts are secondary, and row heights grow with

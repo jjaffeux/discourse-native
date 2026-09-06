@@ -120,7 +120,7 @@ void _registerTopicLinkTests() {
       expect(renderedText('Other topic body'), findsOneWidget);
       expect(launched, isEmpty);
 
-      await tester.tap(find.byTooltip('Close topic'));
+      await tester.tap(find.byTooltip('Collapse topic'));
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView), findsOneWidget);
       expect(find.text('Discourse Team'), findsOneWidget);
@@ -288,7 +288,7 @@ void _registerTopicLinkTests() {
       final before = api.feedPaths.length;
       await tester.tap(find.text('A bug report'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Close topic'));
+      await tester.tap(find.byTooltip('Collapse topic'));
       await tester.pumpAndSettle();
 
       expect(api.feedPaths.length, before);

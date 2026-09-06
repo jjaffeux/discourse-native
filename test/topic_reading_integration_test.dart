@@ -3852,7 +3852,7 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Close topic'));
+      await tester.tap(find.byTooltip('Collapse topic'));
       await tester.pumpAndSettle();
 
       expect(find.byType(TopicListView), findsOneWidget);
@@ -3880,7 +3880,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 600));
-      await tester.tap(find.byTooltip('Close topic'));
+      await tester.tap(find.byTooltip('Collapse topic'));
       await tester.pumpAndSettle();
 
       expect(find.text('3'), findsNothing);
@@ -3923,7 +3923,7 @@ void _registerTopicReadingTests() {
         find.ancestor(of: row, matching: find.byType(InkWell)).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Close topic'));
+      await tester.tap(find.byTooltip('Collapse topic'));
       await tester.pumpAndSettle();
 
       expect(find.text('Topic 40'), findsOneWidget);
@@ -4320,7 +4320,7 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Close topic'));
+      await tester.tap(find.byTooltip('Collapse topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();

@@ -1047,7 +1047,7 @@ void main() {
       );
       expect(tester.getSize(find.byType(TopicView)).width, 600);
 
-      await tester.tap(find.byTooltip('Close topic'));
+      await tester.tap(find.byTooltip('Collapse topic'));
       await tester.pumpAndSettle();
       expect(shell.currentContent?.isTopic, isFalse);
       expect(tester.state(listFinder), same(listState));
@@ -1138,7 +1138,7 @@ void main() {
       expect(tester.widget<Text>(heading).data, _parent.name);
       expect(shell.topicListContent?.tagNames, isEmpty);
       expect(shell.currentContent?.topicId, 1);
-      await tester.tap(find.byTooltip('Close topic'));
+      await tester.tap(find.byTooltip('Collapse topic'));
       await tester.pumpAndSettle();
       expect(shell.currentContent?.categoryId, 21);
       expect(tester.widget<Text>(heading).data, _parent.name);

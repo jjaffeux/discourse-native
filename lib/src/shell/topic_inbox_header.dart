@@ -84,7 +84,7 @@ class TopicInboxHeader extends StatelessWidget {
         ? (shellHeaderHeight - actionDimension) / 2
         : 4.0;
     final toolbarStart = toolbarLeadingPadding + actionDimension;
-    // Share the toolbar only when the close control fits before the reading
+    // Share the toolbar only when the collapse control fits before the reading
     // lane. Taxonomy keeps the same leading edge as the title and posts.
     final inlineTaxonomy =
         taxonomy != null && contentPadding.left >= toolbarStart + 8;
@@ -109,7 +109,7 @@ class TopicInboxHeader extends StatelessWidget {
                 DButton.iconOnly(
                   key: const ValueKey('topic-close-reader'),
                   icon: const DIcon(DNativeIcons.closeTopicPane, size: 20),
-                  tooltip: 'Close topic',
+                  tooltip: 'Collapse topic',
                   variant: DButtonVariant.flat,
                   size: DButtonSize.small,
                   onPressed: () {
