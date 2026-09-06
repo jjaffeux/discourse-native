@@ -5289,7 +5289,7 @@ void _registerTopicReadingTests() {
                 widget.title == 'A compact suggested topic',
           ),
         );
-        expect(compactTitle.style?.fontSize, DiscourseTypography.fontDown1);
+        expect(compactTitle.style?.fontSize, DiscourseTypography.base);
         expect(
           compactTitle.style?.fontSize,
           lessThan(DiscourseTypography.fontUp1),

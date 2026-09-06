@@ -42,8 +42,11 @@ class TopicInboxRow extends StatelessWidget {
           (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
               .topicListMetadata(context, siteUrl, topic);
       final smallStyle = theme.textTheme.labelSmall?.copyWith(
-        fontSize: DiscourseTypography.fontDown3,
+        fontSize: DiscourseTypography.fontDown2,
         color: muted,
+      );
+      final metadataStyle = smallStyle?.copyWith(
+        fontSize: DiscourseTypography.fontDown1,
       );
       final age = topic.bumpedAt == null ? null : relativeTime(topic.bumpedAt!);
       final preview =
@@ -57,7 +60,7 @@ class TopicInboxRow extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DIcon(DIcons.comment, size: 12, color: muted),
+            DIcon(DIcons.comment, size: 14, color: muted),
             const SizedBox(width: 4),
             Text('${topic.replyCount}', style: smallStyle),
           ],
@@ -108,12 +111,12 @@ class TopicInboxRow extends StatelessWidget {
                                 if (unread)
                                   Padding(
                                     padding: const EdgeInsets.only(
-                                      top: 7,
+                                      top: 9,
                                       right: 6,
                                     ),
                                     child: Container(
-                                      width: 5,
-                                      height: 5,
+                                      width: 6,
+                                      height: 6,
                                       decoration: BoxDecoration(
                                         color: theme.colorScheme.primary,
                                         shape: BoxShape.circle,
@@ -125,7 +128,7 @@ class TopicInboxRow extends StatelessWidget {
                                     topic.bookmarked)
                                   Padding(
                                     padding: const EdgeInsets.only(
-                                      top: 3,
+                                      top: 4,
                                       right: 5,
                                     ),
                                     child: DIcon(
@@ -134,7 +137,7 @@ class TopicInboxRow extends StatelessWidget {
                                           : topic.pinned
                                           ? DIcons.thumbtack
                                           : DIcons.bookmark,
-                                      size: 12,
+                                      size: 14,
                                       color: muted,
                                     ),
                                   ),
@@ -145,7 +148,7 @@ class TopicInboxRow extends StatelessWidget {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: theme.textTheme.titleSmall?.copyWith(
-                                      fontSize: DiscourseTypography.fontDown1,
+                                      fontSize: DiscourseTypography.base,
                                       height: 1.45,
                                       fontWeight: unread
                                           ? FontWeight.w600
@@ -177,8 +180,8 @@ class TopicInboxRow extends StatelessWidget {
                                     CategoryIcon(
                                       category: category,
                                       siteUrl: siteUrl,
-                                      size: 11,
-                                      squareSize: 6,
+                                      size: 13,
+                                      squareSize: 8,
                                     ),
                                     const SizedBox(width: 5),
                                     Flexible(
@@ -186,7 +189,7 @@ class TopicInboxRow extends StatelessWidget {
                                         category.name,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: smallStyle,
+                                        style: metadataStyle,
                                       ),
                                     ),
                                   ],
@@ -208,7 +211,7 @@ class TopicInboxRow extends StatelessWidget {
                                           tag.name,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: smallStyle,
+                                          style: metadataStyle,
                                         ),
                                       ),
                                     ),
@@ -222,7 +225,7 @@ class TopicInboxRow extends StatelessWidget {
                                           .join(', '),
                                       child: Text(
                                         '+${topic.tags.length - 2}',
-                                        style: smallStyle,
+                                        style: metadataStyle,
                                       ),
                                     ),
                                   ],
@@ -248,7 +251,7 @@ class TopicInboxRow extends StatelessWidget {
                                       Tooltip(
                                         message: '@$username',
                                         child: CircleAvatar(
-                                          radius: 8,
+                                          radius: 10,
                                           backgroundColor: theme.shell.hover,
                                           foregroundColor: muted,
                                           child: Text(
@@ -257,10 +260,7 @@ class TopicInboxRow extends StatelessWidget {
                                                 : username
                                                       .substring(0, 1)
                                                       .toUpperCase(),
-                                            style: smallStyle?.copyWith(
-                                              fontSize:
-                                                  DiscourseTypography.fontDown3,
-                                            ),
+                                            style: smallStyle,
                                           ),
                                         ),
                                       ),
@@ -276,9 +276,9 @@ class TopicInboxRow extends StatelessWidget {
                                           child: ClipOval(
                                             child: AvatarImage(
                                               url: avatar,
-                                              size: 16,
+                                              size: 20,
                                               fallback: const SizedBox.square(
-                                                dimension: 16,
+                                                dimension: 20,
                                               ),
                                             ),
                                           ),
@@ -290,10 +290,7 @@ class TopicInboxRow extends StatelessWidget {
                                         preview ?? '',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: smallStyle?.copyWith(
-                                          fontSize:
-                                              DiscourseTypography.fontDown2,
-                                        ),
+                                        style: metadataStyle,
                                       ),
                                     ),
                                   ],

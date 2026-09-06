@@ -148,18 +148,18 @@ class _TopicListNavigationControls extends StatelessWidget {
     final theme = Theme.of(context);
     final primaryTextStyle = theme.textTheme.bodySmall?.copyWith(
       fontWeight: FontWeight.w400,
-      fontSize: stacked ? DiscourseTypography.fontDown2 : null,
+      fontSize: stacked ? DiscourseTypography.fontDown1 : null,
       height: stacked ? 1.2 : null,
     );
     final secondaryTextStyle = theme.textTheme.labelSmall?.copyWith(
       fontWeight: FontWeight.w400,
-      fontSize: stacked ? DiscourseTypography.fontDown2 : null,
+      fontSize: stacked ? DiscourseTypography.fontDown1 : null,
       height: stacked ? 1.2 : null,
     );
     final primaryHeight = stacked
         ? (MediaQuery.textScalerOf(
                         context,
-                      ).scale(DiscourseTypography.fontDown2) *
+                      ).scale(DiscourseTypography.fontDown1) *
                       1.2 +
                   16)
               .ceilToDouble()
@@ -537,7 +537,7 @@ class _TopicListTabStrip extends StatelessWidget {
       final theme = Theme.of(context);
       final scaler = MediaQuery.textScalerOf(context);
       final countStyle = theme.textTheme.labelSmall!.copyWith(
-        fontSize: DiscourseTypography.fontDown3,
+        fontSize: DiscourseTypography.fontDown2,
         height: 1.2,
       );
       // Keep full labels and tracking counts readable when text is enlarged.
@@ -566,7 +566,7 @@ class _TopicListTabStrip extends StatelessWidget {
         painter.dispose();
       }
       final segmentHeight =
-          (scaler.scale(DiscourseTypography.fontDown2) * 1.2 + 12)
+          (scaler.scale(DiscourseTypography.fontDown1) * 1.2 + 12)
               .ceilToDouble();
       return Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -833,7 +833,7 @@ class _TopicListTabItemState extends State<_TopicListTabItem> {
                             Text(
                               '${widget.count}',
                               style: theme.textTheme.labelSmall?.copyWith(
-                                fontSize: DiscourseTypography.fontDown3,
+                                fontSize: DiscourseTypography.fontDown2,
                                 height: 1.2,
                                 color: theme.colorScheme.onSurfaceVariant,
                                 fontWeight: FontWeight.w400,
