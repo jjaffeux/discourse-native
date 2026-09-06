@@ -11,6 +11,7 @@ import 'category_icon.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';
+import 'topic_list_indicators.dart';
 import 'topic_title.dart';
 
 /// The narrow Inbox keeps activity separate from the title and taxonomy.
@@ -36,8 +37,6 @@ class TopicInboxRow extends StatelessWidget {
     builder: (context, category, _) {
       final theme = Theme.of(context);
       final muted = theme.colorScheme.onSurfaceVariant;
-      final unread =
-          topic.unreadCount > 0 || !topic.seen || topic.hasNewReplies;
       final metadata =
           (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
               .topicListMetadata(context, siteUrl, topic);
@@ -48,6 +47,19 @@ class TopicInboxRow extends StatelessWidget {
       final metadataStyle = smallStyle?.copyWith(
         fontSize: DiscourseTypography.fontDown1,
       );
+      final titleStyle = theme.textTheme.titleSmall?.copyWith(
+        fontSize: DiscourseTypography.base,
+        height: 1.45,
+        fontWeight: topic.visited
+            ? FontWeight.w400
+            : topic.hasUnseenActivity
+            ? FontWeight.w600
+            : FontWeight.w500,
+        color: topicListTitleColor(theme, visited: topic.visited),
+      );
+      final titleLineHeight =
+          MediaQuery.textScalerOf(context).scale(DiscourseTypography.base) *
+          1.45;
       final age = topic.bumpedAt == null ? null : relativeTime(topic.bumpedAt!);
       final preview =
           topic.excerpt ??
@@ -55,6 +67,7 @@ class TopicInboxRow extends StatelessWidget {
               ? null
               : 'Last post by @${topic.lastPosterUsername}');
       Widget replies() => Semantics(
+        key: ValueKey('inbox-row-replies-${topic.id}'),
         label:
             '${topic.replyCount} ${topic.replyCount == 1 ? 'reply' : 'replies'}',
         child: Row(
@@ -108,19 +121,27 @@ class TopicInboxRow extends StatelessWidget {
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (unread)
+                                if (topic.showNewTopicDot ||
+                                    topic.showNewRepliesDot)
                                   Padding(
-                                    padding: const EdgeInsets.only(
-                                      top: 9,
+                                    padding: EdgeInsets.only(
+                                      top:
+                                          (titleLineHeight - 8).clamp(
+                                            0,
+                                            double.infinity,
+                                          ) /
+                                          2,
                                       right: 6,
                                     ),
-                                    child: Container(
-                                      width: 6,
-                                      height: 6,
-                                      decoration: BoxDecoration(
-                                        color: theme.colorScheme.primary,
-                                        shape: BoxShape.circle,
+                                    child: TopicStateDot(
+                                      key: ValueKey(
+                                        topic.showNewTopicDot
+                                            ? 'new-topic-dot'
+                                            : 'new-replies-dot',
                                       ),
+                                      label: topic.showNewTopicDot
+                                          ? 'New topic'
+                                          : 'Topic has new replies',
                                     ),
                                   ),
                                 if (topic.closed ||
@@ -142,19 +163,33 @@ class TopicInboxRow extends StatelessWidget {
                                     ),
                                   ),
                                 Expanded(
-                                  child: TopicTitle(
-                                    topic.title,
-                                    siteUrl: siteUrl,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      fontSize: DiscourseTypography.base,
-                                      height: 1.45,
-                                      fontWeight: unread
-                                          ? FontWeight.w600
-                                          : FontWeight.w500,
-                                      color: theme.colorScheme.onSurface,
-                                    ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Flexible(
+                                        child: TopicTitle(
+                                          topic.title,
+                                          siteUrl: siteUrl,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: titleStyle,
+                                        ),
+                                      ),
+                                      if (topic.showUnreadCount)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 8,
+                                            top: 2,
+                                          ),
+                                          child: TopicUnreadBadge(
+                                            key: ValueKey(
+                                              'inbox-row-unread-${topic.id}',
+                                            ),
+                                            count: topic.unreadCount,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                                 if (!recommendation && age != null) ...[
