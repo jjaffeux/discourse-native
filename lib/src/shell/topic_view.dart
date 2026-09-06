@@ -1923,6 +1923,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 readTimeWordCount: snapshot.readTimeWordCount,
               ),
               day: day,
+              showDayDivider: post?.postNumber != 1,
               timeGapDays: timeGapByPostIndex[postIndex],
               onDayTap: day == null ? null : () => _jumpToDayStart(day),
               gapBefore: snapshot.topic!.gapsBefore[postId] ?? const [],
@@ -3432,6 +3433,7 @@ class _TopicPostItem extends StatefulWidget {
     required this.viewportState,
     required this.retainedMinimumHeight,
     required this.day,
+    required this.showDayDivider,
     required this.timeGapDays,
     required this.onDayTap,
     required this.gapBefore,
@@ -3447,6 +3449,7 @@ class _TopicPostItem extends StatefulWidget {
   final TopicViewportListenable viewportState;
   final double? retainedMinimumHeight;
   final DateTime? day;
+  final bool showDayDivider;
   final int? timeGapDays;
   final VoidCallback? onDayTap;
   final List<int> gapBefore;
@@ -3512,6 +3515,7 @@ class _TopicPostItemState extends State<_TopicPostItem> {
             child: StreamDaySeparator(
               key: ValueKey(('topic-day', day)),
               day: day,
+              showDivider: widget.showDayDivider,
               onTap: widget.onDayTap!,
             ),
             builder: (context, child) {

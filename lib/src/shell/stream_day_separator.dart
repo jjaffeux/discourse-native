@@ -8,6 +8,7 @@ class StreamDaySeparator extends StatefulWidget {
     super.key,
     required this.day,
     this.floating = false,
+    this.showDivider = true,
     this.onTap,
   });
 
@@ -15,6 +16,7 @@ class StreamDaySeparator extends StatefulWidget {
 
   final DateTime day;
   final bool floating;
+  final bool showDivider;
 
   final VoidCallback? onTap;
 
@@ -113,7 +115,7 @@ class _StreamDaySeparatorState extends State<StreamDaySeparator> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          if (!widget.floating)
+          if (!widget.floating && widget.showDivider)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Divider(height: 1, color: theme.shell.divider),
