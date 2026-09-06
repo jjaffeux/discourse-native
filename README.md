@@ -788,7 +788,7 @@ The frame and hint disappear after saving or cancelling.
 The taxonomy stays on one line: up to three tags fit beside the categories,
 with the remaining tags accessible through a searchable overflow picker.
 Readers without editing permission can still inspect every tag.
-Topic actions open from the gear icon in the reader header.
+Topic actions open from the wrench icon in the reader header.
 When the reading lane leaves room for the close control, taxonomy shares that
 toolbar row while staying aligned with the title and posts. Narrow readers
 keep a tightly spaced second row for taxonomy, with every action accessible.
