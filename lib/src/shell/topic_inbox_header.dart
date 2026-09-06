@@ -16,11 +16,13 @@ import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'relative_time.dart';
+import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
 import 'topic_header_tags.dart';
+import 'topic_list_layout.dart';
 import 'topic_title.dart';
 import 'user_menu_button.dart';
 
@@ -73,7 +75,14 @@ class TopicInboxHeader extends StatelessWidget {
             keepTopicListOpen: keepTopicListOpen,
           )
         : null;
-    final toolbarStart = 16 + DButton.iconOnlyDimensionFor(DButtonSize.small);
+    final actionDimension = DButton.iconOnlyDimensionFor(DButtonSize.small);
+    final toolbarLeadingPadding = keepTopicListOpen
+        ? topicInboxDividerInset
+        : 16.0;
+    final toolbarTopPadding = keepTopicListOpen
+        ? (shellHeaderHeight - actionDimension) / 2
+        : 4.0;
+    final toolbarStart = toolbarLeadingPadding + actionDimension;
     // Share the toolbar only when the close control fits before the reading
     // lane. Taxonomy keeps the same leading edge as the title and posts.
     final inlineTaxonomy =
@@ -88,7 +97,12 @@ class TopicInboxHeader extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 12, 0),
+            padding: EdgeInsets.fromLTRB(
+              toolbarLeadingPadding,
+              toolbarTopPadding,
+              12,
+              0,
+            ),
             child: Row(
               children: [
                 DButton.iconOnly(

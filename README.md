@@ -767,6 +767,8 @@ The heading and New topic action align with the list when it fills the
 workspace, and the header shrinks with the list when a topic opens. Its title
 uses the selected category or subcategory name, and returns to **Topics**
 when there is no category filter.
+Beside an open topic, the New topic and close buttons share a vertical center
+and matching insets from the pane divider.
 New retains its All / Topics / Replies
 subnavigation and Top retains its period picker. Feed tabs share one divider
 with an underline for the selection; New uses inset segments with smaller
