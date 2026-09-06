@@ -753,7 +753,9 @@ The topic header places category, subcategory, and tags beside the inline title
 editor. Clicking a category or tag edits it when the server grants the matching
 permission; separate arrows browse the parent or subcategory. Removing a
 subcategory moves the topic to its parent. Moving to Uncategorized is offered
-only when the site allows it. Enter saves a title and Escape cancels it.
+only when the site allows it. Editing a title keeps its text in place, adds a
+rounded blue edit frame, and displays “Enter to save · Esc to cancel” below.
+The frame and hint disappear after saving or cancelling.
 The taxonomy stays on one line: up to three tags fit beside the categories,
 with the remaining tags accessible through a searchable overflow picker.
 Readers without editing permission can still inspect every tag.

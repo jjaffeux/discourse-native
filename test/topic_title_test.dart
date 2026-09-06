@@ -173,6 +173,7 @@ void main() {
       _TestEditor(
         controller: controller,
         title: 'Original title',
+        showEditingFrame: true,
         onSave: (title) async {
           attempted.add(title);
           return 'The title could not be saved.';
@@ -191,6 +192,11 @@ void main() {
     expect(textField.controller?.text, 'Retained edit');
     expect(textField.focusNode?.hasFocus, isTrue);
     expect(find.text('The title could not be saved.'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topic-header-title-edit-frame')),
+      findsOneWidget,
+    );
+    expect(find.text('Enter to save · Esc to cancel'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
@@ -199,7 +205,82 @@ void main() {
     expect(textField.controller?.text, 'Original title');
     expect(textField.focusNode?.hasFocus, isFalse);
     expect(attempted, ['Retained edit']);
+    expect(
+      find.byKey(const ValueKey('topic-header-title-edit-frame')),
+      findsNothing,
+    );
+    expect(find.text('Enter to save · Esc to cancel'), findsNothing);
   });
+
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'framed ${brightness.name} title keeps its position and shows editing shortcuts',
+      (tester) async {
+        final controller = _controller();
+        addTearDown(controller.dispose);
+        final theme = brightness == Brightness.dark
+            ? AppTheme.dark
+            : AppTheme.light;
+        final saved = <String>[];
+        await tester.pumpWidget(
+          _TestEditor(
+            controller: controller,
+            title: 'Making the first week feel more welcoming',
+            width: 360,
+            maxLines: 3,
+            showEditingFrame: true,
+            theme: theme,
+            textScaler: const TextScaler.linear(2),
+            style: const TextStyle(
+              fontSize: DiscourseTypography.fontUp3,
+              fontWeight: FontWeight.w600,
+              height: 1.28,
+            ),
+            onSave: (title) async {
+              saved.add(title);
+              return null;
+            },
+          ),
+        );
+
+        final field = find.byKey(const ValueKey('topic-header-title-field'));
+        final frame = find.byKey(
+          const ValueKey('topic-header-title-edit-frame'),
+        );
+        final hint = find.text('Enter to save · Esc to cancel');
+        final idleRect = tester.getRect(field);
+        expect(frame, findsNothing);
+        expect(hint, findsNothing);
+
+        await tester.tapAt(idleRect.topLeft + const Offset(1, 20));
+        await tester.pump();
+
+        final textField = tester.widget<TextField>(field);
+        expect(textField.focusNode?.hasFocus, isTrue);
+        expect(textField.controller?.selection.baseOffset, 0);
+        expect(tester.getRect(field), idleRect);
+        expect(frame, findsOneWidget);
+        expect(hint, findsOneWidget);
+        final frameRect = tester.getRect(frame);
+        final hintRect = tester.getRect(hint);
+        expect(frameRect.contains(idleRect.topLeft), isTrue);
+        expect(frameRect.contains(idleRect.bottomRight), isTrue);
+        expect(hintRect.left, idleRect.left);
+        expect(hintRect.top, greaterThan(frameRect.bottom));
+        expect(hintRect.right, lessThanOrEqualTo(idleRect.right));
+        expect(tester.takeException(), isNull);
+
+        await tester.enterText(field, 'A more welcoming first week');
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(saved, ['A more welcoming first week']);
+        expect(textField.focusNode?.hasFocus, isFalse);
+        expect(frame, findsNothing);
+        expect(hint, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('inline editor preserves registered site emoji artwork', (
     tester,
@@ -279,6 +360,10 @@ class _TestEditor extends StatelessWidget {
     required this.onSave,
     this.style,
     this.width,
+    this.maxLines = 1,
+    this.showEditingFrame = false,
+    this.theme,
+    this.textScaler = TextScaler.noScaling,
   });
 
   final ShellController controller;
@@ -286,12 +371,20 @@ class _TestEditor extends StatelessWidget {
   final Future<String?> Function(String title) onSave;
   final TextStyle? style;
   final double? width;
+  final int maxLines;
+  final bool showEditingFrame;
+  final ThemeData? theme;
+  final TextScaler textScaler;
 
   @override
   Widget build(BuildContext context) => ShellScope(
     controller: controller,
     child: MaterialApp(
-      theme: AppTheme.light,
+      theme: theme ?? AppTheme.light,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child!,
+      ),
       home: Scaffold(
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,6 +396,8 @@ class _TestEditor extends StatelessWidget {
                 siteUrl: 'https://meta.example',
                 style: style,
                 onSave: onSave,
+                maxLines: maxLines,
+                showEditingFrame: showEditingFrame,
               ),
             ),
             TextButton(

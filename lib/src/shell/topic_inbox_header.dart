@@ -135,6 +135,7 @@ class TopicInboxHeader extends StatelessWidget {
                         siteUrl: siteUrl,
                         style: titleStyle,
                         maxLines: 3,
+                        showEditingFrame: true,
                         onSave: (value) => controller.saveTopicTitle(
                           siteUrl: siteUrl,
                           topicId: topic!.id,
