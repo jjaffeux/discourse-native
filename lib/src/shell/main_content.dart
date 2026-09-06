@@ -308,13 +308,9 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     controller.handleBack(canReturnToSidebar: true),
               ),
             Expanded(
-              child: Text(
-                'Topics',
-                key: const ValueKey('topic-list-title'),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontSize: DiscourseTypography.base,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: _TopicListHeadingTitle(
+                siteUrl: state.siteUrl,
+                categoryId: sourceRoute.categoryId,
               ),
             ),
             ...registry.contentHeaderActions(context, sourceRoute),
@@ -855,6 +851,44 @@ class _ContentHeader extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _TopicListHeadingTitle extends StatelessWidget {
+  const _TopicListHeadingTitle({
+    required this.siteUrl,
+    required this.categoryId,
+  });
+
+  final String? siteUrl;
+  final int? categoryId;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget title(String name) => Tooltip(
+      message: name,
+      child: Text(
+        name,
+        key: const ValueKey('topic-list-title'),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontSize: DiscourseTypography.base,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+
+    final categoryId = this.categoryId;
+    if (categoryId == null) return title('Topics');
+    final siteUrl = this.siteUrl;
+    if (siteUrl == null) return title('Category');
+    return ValueListenableBuilder<TopicCategory?>(
+      valueListenable: ShellScope.read(
+        context,
+      ).categoryRef(siteUrl, categoryId),
+      builder: (context, category, _) => title(category?.name ?? 'Category'),
     );
   }
 }

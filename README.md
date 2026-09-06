@@ -739,7 +739,9 @@ updates when the topic is closed or reopened.
 The list heading, discovery tabs, and category/tag filters occupy separate
 rows within the same reading lane as the topics. The heading and New topic
 action align with the list when it fills the workspace, and the header shrinks
-with the list when a topic opens. New retains its All / Topics / Replies
+with the list when a topic opens. The heading uses the selected category or
+subcategory name, and returns to **Topics** when there is no category filter.
+New retains its All / Topics / Replies
 subnavigation and Top retains its period picker. Feed tabs share one divider
 with an underline for the selection; New uses inset segments with smaller
 counts, and Top labels its period picker.
