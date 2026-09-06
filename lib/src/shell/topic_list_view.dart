@@ -1634,11 +1634,11 @@ class _CategoryBadgeState extends State<_CategoryBadge> {
                 child: Text(
                   widget.label,
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    decoration: _hovered
-                        ? TextDecoration.underline
-                        : TextDecoration.none,
-                    decorationThickness: 1,
+                    color: Color.lerp(
+                      theme.colorScheme.onSurfaceVariant,
+                      theme.colorScheme.onSurface,
+                      _hovered ? 0.25 : 0,
+                    ),
                   ),
                 ),
               ),
@@ -1672,9 +1672,11 @@ class _TopicTagState extends State<_TopicTag> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final style = theme.textTheme.labelSmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-      decoration: _hovered ? TextDecoration.underline : TextDecoration.none,
-      decorationThickness: 1,
+      color: Color.lerp(
+        theme.colorScheme.onSurfaceVariant,
+        theme.colorScheme.onSurface,
+        _hovered ? 0.25 : 0,
+      ),
     );
 
     final chip = Padding(
