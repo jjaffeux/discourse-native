@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -6,6 +7,8 @@ import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
 import 'select.dart';
 import 'shell_scope.dart';
@@ -145,12 +148,22 @@ class _TopicListNavigationControls extends StatelessWidget {
     final theme = Theme.of(context);
     final primaryTextStyle = theme.textTheme.bodySmall?.copyWith(
       fontWeight: FontWeight.w400,
-      fontSize: stacked ? 12 : null,
+      fontSize: stacked ? DiscourseTypography.fontDown2 : null,
+      height: stacked ? 1.2 : null,
     );
     final secondaryTextStyle = theme.textTheme.labelSmall?.copyWith(
       fontWeight: FontWeight.w400,
-      fontSize: stacked ? 11 : null,
+      fontSize: stacked ? DiscourseTypography.fontDown2 : null,
+      height: stacked ? 1.2 : null,
     );
+    final primaryHeight = stacked
+        ? (MediaQuery.textScalerOf(
+                        context,
+                      ).scale(DiscourseTypography.fontDown2) *
+                      1.2 +
+                  16)
+              .ceilToDouble()
+        : 52.0;
 
     return Semantics(
       key: const ValueKey('topic-list-navigation'),
@@ -172,112 +185,126 @@ class _TopicListNavigationControls extends StatelessWidget {
                     color: theme.shell.content,
                     child: SizedBox(
                       key: const ValueKey('topic-list-primary-row'),
-                      height: stacked ? 42 : 52,
+                      height: primaryHeight,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: topicListHorizontalPadding,
                         ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (showsFilters && !stacked) filters(),
-                                    if (showsTabs && showsFilters && !stacked)
-                                      const SizedBox(width: 8),
-                                    if (showsTabs)
-                                      _TopicListTabStrip(
-                                        height: stacked ? 42 : 52,
-                                        background: theme.shell.content,
-                                        inline: true,
-                                        spacing: stacked ? 17 : 3,
-                                        items: [
-                                          _TopicListTabItem(
-                                            underline: stacked,
-                                            controlKey: const ValueKey(
-                                              'topic-list-latest',
-                                            ),
-                                            label: 'Recent',
-                                            textStyle: primaryTextStyle,
-                                            selected:
-                                                mode == TopicListMode.latest,
-                                            onTap: () => unawaited(
-                                              selectMode(TopicListMode.latest),
-                                            ),
-                                          ),
-                                          if (state.signedIn)
+                        child: DecoratedBox(
+                          key: const ValueKey('topic-list-feed-tabs'),
+                          decoration: BoxDecoration(
+                            border: stacked
+                                ? Border(
+                                    bottom: BorderSide(
+                                      color: theme.shell.divider,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (showsFilters && !stacked) filters(),
+                                      if (showsTabs && showsFilters && !stacked)
+                                        const SizedBox(width: 8),
+                                      if (showsTabs)
+                                        _TopicListTabStrip(
+                                          height: primaryHeight,
+                                          background: theme.shell.content,
+                                          inline: true,
+                                          spacing: stacked ? 17 : 3,
+                                          items: [
                                             _TopicListTabItem(
                                               underline: stacked,
                                               controlKey: const ValueKey(
-                                                'topic-list-new',
+                                                'topic-list-latest',
                                               ),
-                                              label: 'New',
-                                              count: state.allCount,
-                                              showCount:
-                                                  !stacked ||
-                                                  constraints.maxWidth >= 500,
-                                              showCountBadge: true,
+                                              label: 'Recent',
                                               textStyle: primaryTextStyle,
-                                              selected: mode.isNew,
+                                              selected:
+                                                  mode == TopicListMode.latest,
                                               onTap: () => unawaited(
                                                 selectMode(
-                                                  TopicListMode.newActivity,
+                                                  TopicListMode.latest,
                                                 ),
                                               ),
                                             ),
-                                          _TopicListTabItem(
-                                            underline: stacked,
-                                            controlKey: const ValueKey(
-                                              'topic-list-top',
-                                            ),
-                                            label: 'Top',
-                                            textStyle: primaryTextStyle,
-                                            selected: mode.isTop,
-                                            onTap: () => unawaited(
-                                              selectMode(
-                                                mode.isTop
-                                                    ? mode
-                                                    : controller
-                                                          .defaultTopTopicListMode,
+                                            if (state.signedIn)
+                                              _TopicListTabItem(
+                                                underline: stacked,
+                                                controlKey: const ValueKey(
+                                                  'topic-list-new',
+                                                ),
+                                                label: 'New',
+                                                count: state.allCount,
+                                                showCount: !stacked,
+                                                showCountBadge: true,
+                                                textStyle: primaryTextStyle,
+                                                selected: mode.isNew,
+                                                onTap: () => unawaited(
+                                                  selectMode(
+                                                    TopicListMode.newActivity,
+                                                  ),
+                                                ),
+                                              ),
+                                            _TopicListTabItem(
+                                              underline: stacked,
+                                              controlKey: const ValueKey(
+                                                'topic-list-top',
+                                              ),
+                                              label: 'Top',
+                                              textStyle: primaryTextStyle,
+                                              selected: mode.isTop,
+                                              onTap: () => unawaited(
+                                                selectMode(
+                                                  mode.isTop
+                                                      ? mode
+                                                      : controller
+                                                            .defaultTopTopicListMode,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                          _TopicListTabItem(
-                                            underline: stacked,
-                                            controlKey: const ValueKey(
-                                              'topic-list-popular',
+                                            _TopicListTabItem(
+                                              underline: stacked,
+                                              controlKey: const ValueKey(
+                                                'topic-list-popular',
+                                              ),
+                                              label: 'Trending',
+                                              textStyle: primaryTextStyle,
+                                              selected:
+                                                  mode == TopicListMode.popular,
+                                              onTap: () => unawaited(
+                                                selectMode(
+                                                  TopicListMode.popular,
+                                                ),
+                                              ),
                                             ),
-                                            label: 'Trending',
-                                            textStyle: primaryTextStyle,
-                                            selected:
-                                                mode == TopicListMode.popular,
-                                            onTap: () => unawaited(
-                                              selectMode(TopicListMode.popular),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            if (trailing != null)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: MediaQuery(
-                                  data: mediaQuery.copyWith(
-                                    size: Size(
-                                      toolbarWidth,
-                                      mediaQuery.size.height,
-                                    ),
+                                          ],
+                                        ),
+                                    ],
                                   ),
-                                  child: trailing!,
                                 ),
                               ),
-                          ],
+                              if (trailing != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: MediaQuery(
+                                    data: mediaQuery.copyWith(
+                                      size: Size(
+                                        toolbarWidth,
+                                        mediaQuery.size.height,
+                                      ),
+                                    ),
+                                    child: trailing!,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -292,8 +319,10 @@ class _TopicListNavigationControls extends StatelessWidget {
                 height: 44,
                 background: theme.shell.sidebar,
                 compactWidth: 480,
+                segmented: stacked,
                 items: [
                   _TopicListTabItem(
+                    segmented: stacked,
                     controlKey: const ValueKey('topic-list-new-all'),
                     label: 'All',
                     count: state.allCount,
@@ -303,6 +332,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                         unawaited(selectMode(TopicListMode.newActivity)),
                   ),
                   _TopicListTabItem(
+                    segmented: stacked,
                     controlKey: const ValueKey('topic-list-new-topics'),
                     label: 'Topics',
                     count: state.topicCount,
@@ -311,6 +341,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                     onTap: () => unawaited(selectMode(TopicListMode.newTopics)),
                   ),
                   _TopicListTabItem(
+                    segmented: stacked,
                     controlKey: const ValueKey('topic-list-new-replies'),
                     label: 'Replies',
                     count: state.replyCount,
@@ -327,6 +358,7 @@ class _TopicListNavigationControls extends StatelessWidget {
               ContentReadingLaneBox(
                 widthLimit: topicListContentWidth,
                 child: _TopPeriodChooser(
+                  inbox: stacked,
                   period: period,
                   textStyle: secondaryTextStyle,
                   onSelected: (value) =>
@@ -335,7 +367,7 @@ class _TopicListNavigationControls extends StatelessWidget {
               ),
           if (showsFilters && stacked)
             Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 12),
+              padding: const EdgeInsets.only(top: 12, bottom: 12),
               child: filters(),
             ),
         ],
@@ -349,15 +381,98 @@ class _TopPeriodChooser extends StatelessWidget {
     required this.period,
     required this.textStyle,
     required this.onSelected,
+    this.inbox = false,
   });
 
   final TopPeriod period;
   final TextStyle? textStyle;
   final ValueChanged<TopPeriod> onSelected;
+  final bool inbox;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (inbox) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+          topicListHorizontalPadding,
+          11,
+          topicListHorizontalPadding,
+          0,
+        ),
+        child: Row(
+          children: [
+            Text(
+              'Period',
+              style: textStyle?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 9),
+            Flexible(
+              child: Semantics(
+                button: true,
+                label: 'Top period',
+                value: period.label,
+                child: PopupMenuButton<TopPeriod>(
+                  key: const ValueKey('topic-list-top-period'),
+                  tooltip: 'Choose top period',
+                  position: PopupMenuPosition.under,
+                  initialValue: period,
+                  onSelected: onSelected,
+                  itemBuilder: (_) => [
+                    for (final option in TopPeriod.values)
+                      PopupMenuItem(
+                        key: ValueKey(
+                          'topic-list-top-period-${option.queryValue}',
+                        ),
+                        value: option,
+                        child: Text(option.label, style: textStyle),
+                      ),
+                  ],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.shell.content,
+                      border: Border.all(color: theme.shell.divider),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DIcon(
+                          DIcons.farClock,
+                          size: 13,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            period.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textStyle,
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        DIcon(
+                          DIcons.chevronDown,
+                          size: 10,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(
@@ -402,6 +517,7 @@ class _TopicListTabStrip extends StatelessWidget {
     this.compactWidth = 400,
     this.inline = false,
     this.spacing = 3,
+    this.segmented = false,
   });
 
   final double height;
@@ -410,9 +526,87 @@ class _TopicListTabStrip extends StatelessWidget {
   final double compactWidth;
   final bool inline;
   final double spacing;
+  final bool segmented;
 
   @override
   Widget build(BuildContext context) {
+    if (segmented) {
+      final theme = Theme.of(context);
+      final scaler = MediaQuery.textScalerOf(context);
+      final countStyle = theme.textTheme.labelSmall!.copyWith(
+        fontSize: DiscourseTypography.fontDown3,
+        height: 1.2,
+      );
+      // Keep full labels and tracking counts readable when text is enlarged.
+      // The control scrolls only when three equal segments cannot fit.
+      var segmentWidth = 0.0;
+      for (final item in items) {
+        final painter = TextPainter(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: item.label,
+                style: item.textStyle?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              if (item.count > 0)
+                TextSpan(text: ' ${item.count}', style: countStyle),
+            ],
+          ),
+          textDirection: Directionality.of(context),
+          textScaler: scaler,
+          maxLines: 1,
+        )..layout();
+        segmentWidth = math.max(
+          segmentWidth,
+          painter.width.ceilToDouble() + 14,
+        );
+        painter.dispose();
+      }
+      final segmentHeight =
+          (scaler.scale(DiscourseTypography.fontDown2) * 1.2 + 12)
+              .ceilToDouble();
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+          topicListHorizontalPadding,
+          11,
+          topicListHorizontalPadding,
+          0,
+        ),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Container(
+            key: const ValueKey('topic-list-new-segments'),
+            constraints: const BoxConstraints(maxWidth: 340),
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: theme.shell.sidebar,
+              border: Border.all(color: theme.shell.divider),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: math.max(
+                    constraints.maxWidth,
+                    segmentWidth * items.length + 2 * (items.length - 1),
+                  ),
+                  height: segmentHeight,
+                  child: Row(
+                    children: [
+                      for (var index = 0; index < items.length; index++) ...[
+                        if (index > 0) const SizedBox(width: 2),
+                        Expanded(child: items[index]),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     if (inline) {
       return SizedBox(
         height: height,
@@ -473,6 +667,7 @@ class _TopicListTabItem extends StatefulWidget {
     this.showCountBadge = false,
     this.showCount = true,
     this.underline = false,
+    this.segmented = false,
   });
 
   final Key controlKey;
@@ -482,6 +677,7 @@ class _TopicListTabItem extends StatefulWidget {
   final bool showCountBadge;
   final bool showCount;
   final bool underline;
+  final bool segmented;
   final bool selected;
   final VoidCallback onTap;
 
@@ -502,7 +698,10 @@ class _TopicListTabItemState extends State<_TopicListTabItem> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final displayLabel =
-        widget.showCount && widget.count > 0 && !widget.showCountBadge
+        widget.showCount &&
+            widget.count > 0 &&
+            !widget.showCountBadge &&
+            !widget.segmented
         ? '${widget.label} (${widget.count})'
         : widget.label;
     final labelWidget = Text(
@@ -512,9 +711,15 @@ class _TopicListTabItemState extends State<_TopicListTabItem> {
       overflow: TextOverflow.visible,
       style: widget.textStyle?.copyWith(
         color: widget.selected
-            ? theme.colorScheme.primary
+            ? widget.underline || widget.segmented
+                  ? theme.colorScheme.onSurface
+                  : theme.colorScheme.primary
             : theme.colorScheme.onSurfaceVariant,
-        fontWeight: widget.selected ? FontWeight.w500 : FontWeight.w400,
+        fontWeight: widget.selected
+            ? widget.underline || widget.segmented
+                  ? FontWeight.w600
+                  : FontWeight.w500
+            : FontWeight.w400,
       ),
     );
     return Semantics(
@@ -530,7 +735,13 @@ class _TopicListTabItemState extends State<_TopicListTabItem> {
           onTap: widget.onTap,
           overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           splashFactory: NoSplash.splashFactory,
-          borderRadius: BorderRadius.circular(widget.underline ? 0 : 6),
+          borderRadius: BorderRadius.circular(
+            widget.underline
+                ? 0
+                : widget.segmented
+                ? 4
+                : 6,
+          ),
           child: ValueListenableBuilder<Set<WidgetState>>(
             valueListenable: _states,
             builder: (context, states, _) {
@@ -542,33 +753,73 @@ class _TopicListTabItemState extends State<_TopicListTabItem> {
                 duration: const Duration(milliseconds: 120),
                 alignment: Alignment.center,
                 margin: EdgeInsets.symmetric(
-                  vertical: widget.underline ? 0 : 9,
+                  vertical: widget.underline || widget.segmented ? 0 : 9,
                 ),
-                padding: EdgeInsets.symmetric(
-                  horizontal: widget.underline ? 0 : 10,
-                ),
+                padding: widget.underline
+                    ? const EdgeInsets.only(top: 3, bottom: 10)
+                    : EdgeInsets.symmetric(
+                        horizontal: widget.segmented ? 4 : 10,
+                      ),
                 decoration: BoxDecoration(
-                  color: widget.selected && !widget.underline
+                  color: widget.selected && widget.segmented
+                      ? theme.shell.content
+                      : widget.selected && !widget.underline
                       ? theme.shell.selected
                       : emphasized
                       ? theme.shell.hover
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(widget.underline ? 0 : 6),
+                  borderRadius: BorderRadius.circular(
+                    widget.underline
+                        ? 0
+                        : widget.segmented
+                        ? 4
+                        : 6,
+                  ),
+                  boxShadow: widget.selected && widget.segmented
+                      ? const [
+                          BoxShadow(
+                            color: Color(0x11000000),
+                            offset: Offset(0, 1),
+                            blurRadius: 3,
+                          ),
+                        ]
+                      : null,
                   border: widget.underline
                       ? Border(
                           bottom: BorderSide(
                             width: 2,
                             color: widget.selected
                                 ? theme.colorScheme.primary
-                                : theme.shell.divider,
+                                : Colors.transparent,
                           ),
                         )
                       : null,
                 ),
-                child:
-                    widget.showCount &&
-                        widget.showCountBadge &&
-                        widget.count > 0
+                child: widget.segmented
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          labelWidget,
+                          if (widget.count > 0) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              '${widget.count}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontSize: DiscourseTypography.fontDown3,
+                                height: 1.2,
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w400,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      )
+                    : widget.showCount &&
+                          widget.showCountBadge &&
+                          widget.count > 0
                     ? Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
