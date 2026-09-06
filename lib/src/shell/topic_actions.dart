@@ -399,10 +399,12 @@ class TopicNotificationLevelButton extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.topic,
+    this.showLabel = false,
   });
 
   final String siteUrl;
   final TopicDetail topic;
+  final bool showLabel;
 
   static const _options = [
     ChoiceMenuOption(
@@ -449,18 +451,34 @@ class TopicNotificationLevelButton extends StatelessWidget {
       onSelected: (level) => unawaited(
         controller.updateTopicNotificationLevel(siteUrl, topic.id, level),
       ),
-      builder: (context, openMenu) => DButton.iconOnly(
-        key: const ValueKey('topic-notification-level-button'),
-        tooltip: 'Topic notifications',
-        onPressed: openMenu,
-        icon: DIcon(_iconFor(topic.notificationLevel), size: 18),
-        variant:
-            topic.notificationLevel.index >=
-                TopicNotificationLevel.tracking.index
-            ? DButtonVariant.transparentPrimary
-            : DButtonVariant.flat,
-        size: DButtonSize.small,
-      ),
+      builder: (context, openMenu) => showLabel
+          ? DButton(
+              key: const ValueKey('topic-notification-level-button'),
+              label: Text(
+                _options
+                    .firstWhere(
+                      (option) => option.value == topic.notificationLevel,
+                    )
+                    .title,
+              ),
+              tooltip: 'Topic notifications',
+              onPressed: openMenu,
+              icon: DIcon(_iconFor(topic.notificationLevel), size: 15),
+              variant: DButtonVariant.flat,
+              size: DButtonSize.small,
+            )
+          : DButton.iconOnly(
+              key: const ValueKey('topic-notification-level-button'),
+              tooltip: 'Topic notifications',
+              onPressed: openMenu,
+              icon: DIcon(_iconFor(topic.notificationLevel), size: 18),
+              variant:
+                  topic.notificationLevel.index >=
+                      TopicNotificationLevel.tracking.index
+                  ? DButtonVariant.transparentPrimary
+                  : DButtonVariant.flat,
+              size: DButtonSize.small,
+            ),
     );
   }
 }

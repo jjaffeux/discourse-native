@@ -29,6 +29,7 @@ import 'inline_action.dart';
 import 'message_inbox_page.dart';
 import 'open_link.dart';
 import 'preferences_page.dart';
+import 'resizable_pane.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -241,7 +242,7 @@ class _MainContentBody extends StatelessWidget {
 
 /// The list owns a stable subtree, including when a small window shows only
 /// the reader. Opening a topic must not dispose its scroll or paging state.
-class _TopicInboxWorkspace extends StatelessWidget {
+class _TopicInboxWorkspace extends StatefulWidget {
   const _TopicInboxWorkspace({
     super.key,
     required this.layout,
@@ -256,138 +257,185 @@ class _TopicInboxWorkspace extends StatelessWidget {
   final PluginRegistry registry;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final controller = ShellScope.read(context);
-      final theme = Theme.of(context);
-      final topicOpen = state.route!.isTopic;
-      final split = topicOpen && constraints.maxWidth >= 880;
-      final listWidth = split
-          ? (constraints.maxWidth * .30).clamp(304.0, 380.0)
-          : constraints.maxWidth;
-      return Stack(
-        children: [
-          PositionedDirectional(
-            key: const ValueKey('inbox-topic-list-pane'),
-            start: 0,
-            top: 0,
-            bottom: 0,
-            width: listWidth,
-            child: Offstage(
-              offstage: topicOpen && !split,
-              child: TickerMode(
-                enabled: !topicOpen || split,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: BorderDirectional(
-                      end: BorderSide(color: theme.shell.divider),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        height: shellHeaderHeight,
-                        child: Container(
-                          padding: const EdgeInsetsDirectional.only(
-                            start: 12,
-                            end: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(color: theme.shell.divider),
+  State<_TopicInboxWorkspace> createState() => _TopicInboxWorkspaceState();
+}
+
+class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
+  final _listWidth = PanelWidthController(
+    initialWidth: 325,
+    minimumWidth: 304,
+    maximumWidth: 480,
+  );
+
+  @override
+  void dispose() {
+    _listWidth.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<double>(
+    valueListenable: _listWidth,
+    builder: (context, _, _) => LayoutBuilder(
+      builder: (context, constraints) {
+        final controller = ShellScope.read(context);
+        final layout = widget.layout;
+        final state = widget.state;
+        final sourceRoute = widget.sourceRoute;
+        final registry = widget.registry;
+        final theme = Theme.of(context);
+        final topicOpen = state.route!.isTopic;
+        final split = topicOpen && constraints.maxWidth >= 880;
+        final maximumListWidth = (constraints.maxWidth - 520).clamp(
+          304.0,
+          480.0,
+        );
+        final listWidth = split
+            ? _listWidth.effectiveWidth(maximum: maximumListWidth)
+            : constraints.maxWidth;
+        return Stack(
+          children: [
+            PositionedDirectional(
+              key: const ValueKey('inbox-topic-list-pane'),
+              start: 0,
+              top: 0,
+              bottom: 0,
+              width: listWidth,
+              child: ResizablePane(
+                controller: _listWidth,
+                resizeEnabled: split,
+                edge: ResizablePaneEdge.trailing,
+                resizeKey: 'inbox-list',
+                semanticsLabel: 'Resize topic list',
+                maximumWidth: maximumListWidth,
+                handleWidth: 8,
+                dividerWidth: 1,
+                child: Offstage(
+                  offstage: topicOpen && !split,
+                  child: TickerMode(
+                    enabled: !topicOpen || split,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: BorderDirectional(
+                          end: BorderSide(color: theme.shell.divider),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            height: shellHeaderHeight,
+                            child: Container(
+                              padding: const EdgeInsetsDirectional.only(
+                                start: 16,
+                                end: 8,
+                              ),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(color: Colors.transparent),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  if (layout.isCompact)
+                                    DButton.iconOnly(
+                                      icon: const DIcon(
+                                        DIcons.arrowLeft,
+                                        size: 18,
+                                      ),
+                                      tooltip: 'Back',
+                                      variant: DButtonVariant.flat,
+                                      onPressed: () => controller.handleBack(
+                                        canReturnToSidebar: true,
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: Text(
+                                      'Topics',
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                  ...registry.contentHeaderActions(
+                                    context,
+                                    sourceRoute,
+                                  ),
+                                  if (state.isConnected &&
+                                      state.siteUrl != null &&
+                                      sourceRoute.categoryId != null)
+                                    CategoryNotificationLevelButton(
+                                      siteUrl: state.siteUrl!,
+                                      categoryId: sourceRoute.categoryId!,
+                                    ),
+                                  _TopicCreateAction(
+                                    controller: controller,
+                                    compact: true,
+                                    fromList: true,
+                                    showLabel:
+                                        !split && constraints.maxWidth >= 760,
+                                    leadingPadding: false,
+                                  ),
+                                  if (!topicOpen &&
+                                      ShellTitleBar.columnsCarryUserMenu) ...[
+                                    ...registry.shellHeaderActions(
+                                      context,
+                                      surface: PluginHeaderSurface.content,
+                                      compact: layout.isCompact,
+                                      ringColor: theme.shell.content,
+                                    ),
+                                    UserMenuButton(
+                                      ringColor: theme.shell.content,
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              if (layout.isCompact)
-                                DButton.iconOnly(
-                                  icon: const DIcon(DIcons.arrowLeft, size: 18),
-                                  tooltip: 'Back',
-                                  variant: DButtonVariant.flat,
-                                  onPressed: () => controller.handleBack(
-                                    canReturnToSidebar: true,
-                                  ),
-                                ),
-                              Expanded(
-                                child: Text(
-                                  'Topics',
-                                  style: theme.textTheme.titleMedium,
-                                ),
-                              ),
-                              ...registry.contentHeaderActions(
-                                context,
-                                sourceRoute,
-                              ),
-                              if (state.isConnected &&
-                                  state.siteUrl != null &&
-                                  sourceRoute.categoryId != null)
-                                CategoryNotificationLevelButton(
-                                  siteUrl: state.siteUrl!,
-                                  categoryId: sourceRoute.categoryId!,
-                                ),
-                              _TopicCreateAction(
-                                controller: controller,
-                                compact: true,
-                                fromList: true,
-                                showLabel:
-                                    !split && constraints.maxWidth >= 760,
-                                leadingPadding: false,
-                              ),
-                              if (!topicOpen &&
-                                  ShellTitleBar.columnsCarryUserMenu) ...[
-                                ...registry.shellHeaderActions(
-                                  context,
-                                  surface: PluginHeaderSurface.content,
-                                  compact: layout.isCompact,
-                                  ringColor: theme.shell.content,
-                                ),
-                                UserMenuButton(ringColor: theme.shell.content),
-                              ],
-                            ],
+                          if (!ShellTitleBar.isSupported)
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+                              child: ForumSearch(dense: true),
+                            ),
+                          Expanded(
+                            child: _FeedBackedContent(
+                              route: sourceRoute,
+                              siteUrl: state.siteUrl,
+                              inbox: true,
+                              keepTopicOpen: split,
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                      if (!ShellTitleBar.isSupported)
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
-                          child: ForumSearch(dense: true),
-                        ),
-                      Expanded(
-                        child: _FeedBackedContent(
-                          route: sourceRoute,
-                          siteUrl: state.siteUrl,
-                          inbox: true,
-                          keepTopicOpen: split,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          if (topicOpen)
-            PositionedDirectional(
-              key: const ValueKey('inbox-topic-reader-pane'),
-              start: split ? listWidth : 0,
-              end: 0,
-              top: 0,
-              bottom: 0,
-              child: TopicView(
-                key: ValueKey(state.route!.topicId),
-                inbox: true,
-                keepTopicListOpen: split,
-                route: state.route!,
-                canReturnToSidebar: layout.isCompact,
-                canReply: state.canReply,
-                bookmarkBusy: state.bookmarkBusy,
-                isConnected: state.isConnected,
-                registry: registry,
+            if (topicOpen)
+              PositionedDirectional(
+                key: const ValueKey('inbox-topic-reader-pane'),
+                start: split ? listWidth : 0,
+                end: 0,
+                top: 0,
+                bottom: 0,
+                child: TopicView(
+                  key: ValueKey(state.route!.topicId),
+                  inbox: true,
+                  keepTopicListOpen: split,
+                  route: state.route!,
+                  canReturnToSidebar: layout.isCompact,
+                  canReply: state.canReply,
+                  bookmarkBusy: state.bookmarkBusy,
+                  isConnected: state.isConnected,
+                  registry: registry,
+                ),
               ),
-            ),
-        ],
-      );
-    },
+          ],
+        );
+      },
+    ),
   );
 }
 

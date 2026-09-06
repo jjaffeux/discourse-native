@@ -721,10 +721,15 @@ binding fails outright on the poll's backoff timer outliving the tree.
 
 Ordinary topic feeds use an Inbox workspace. Selecting a topic keeps its source
 list mounted, with independent scrolling and pagination. When the main content
-area has at least 880 logical pixels available, the list narrows to 304–380
-pixels beside the reader. Smaller windows show the reader alone and restore the
+area has at least 880 logical pixels available, the list starts at 325 pixels
+beside the reader and can be resized between 304 and 480 pixels, keeping at
+least 520 pixels for the reader. Smaller windows show the reader alone and restore the
 same list when returning. Choosing a sibling topic replaces the reader route;
-**Back to topics** returns directly to the source list.
+**Back to topics** returns directly to the source list. The narrow list uses
+compact cards with a separate timestamp, taxonomy, and reply line. The reader
+shares one text alignment for taxonomy, title, posts, and compact recommendations,
+with participants and assignment controls below the title. Bookmark and
+notification controls sit beside Reply in the footer.
 
 The list heading, discovery tabs, and category/tag filters occupy separate
 rows. New retains its All / Topics / Replies subnavigation and Top retains its

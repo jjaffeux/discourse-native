@@ -145,9 +145,11 @@ class _TopicListNavigationControls extends StatelessWidget {
     final theme = Theme.of(context);
     final primaryTextStyle = theme.textTheme.bodySmall?.copyWith(
       fontWeight: FontWeight.w400,
+      fontSize: stacked ? 12 : null,
     );
     final secondaryTextStyle = theme.textTheme.labelSmall?.copyWith(
       fontWeight: FontWeight.w400,
+      fontSize: stacked ? 11 : null,
     );
 
     return Semantics(
@@ -170,7 +172,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                     color: theme.shell.content,
                     child: SizedBox(
                       key: const ValueKey('topic-list-primary-row'),
-                      height: 52,
+                      height: stacked ? 42 : 52,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: topicListHorizontalPadding,
@@ -188,11 +190,13 @@ class _TopicListNavigationControls extends StatelessWidget {
                                       const SizedBox(width: 8),
                                     if (showsTabs)
                                       _TopicListTabStrip(
-                                        height: 52,
+                                        height: stacked ? 42 : 52,
                                         background: theme.shell.content,
                                         inline: true,
+                                        spacing: stacked ? 17 : 3,
                                         items: [
                                           _TopicListTabItem(
+                                            underline: stacked,
                                             controlKey: const ValueKey(
                                               'topic-list-latest',
                                             ),
@@ -206,6 +210,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                                           ),
                                           if (state.signedIn)
                                             _TopicListTabItem(
+                                              underline: stacked,
                                               controlKey: const ValueKey(
                                                 'topic-list-new',
                                               ),
@@ -224,6 +229,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                                               ),
                                             ),
                                           _TopicListTabItem(
+                                            underline: stacked,
                                             controlKey: const ValueKey(
                                               'topic-list-top',
                                             ),
@@ -240,6 +246,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                                             ),
                                           ),
                                           _TopicListTabItem(
+                                            underline: stacked,
                                             controlKey: const ValueKey(
                                               'topic-list-popular',
                                             ),
@@ -394,6 +401,7 @@ class _TopicListTabStrip extends StatelessWidget {
     required this.items,
     this.compactWidth = 400,
     this.inline = false,
+    this.spacing = 3,
   });
 
   final double height;
@@ -401,6 +409,7 @@ class _TopicListTabStrip extends StatelessWidget {
   final List<_TopicListTabItem> items;
   final double compactWidth;
   final bool inline;
+  final double spacing;
 
   @override
   Widget build(BuildContext context) {
@@ -411,10 +420,12 @@ class _TopicListTabStrip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (var index = 0; index < items.length; index++) ...[
-              if (index > 0) const SizedBox(width: 3),
+              if (index > 0) SizedBox(width: spacing),
               IntrinsicWidth(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 48),
+                  constraints: BoxConstraints(
+                    minWidth: items[index].underline ? 0 : 48,
+                  ),
                   child: items[index],
                 ),
               ),
@@ -461,6 +472,7 @@ class _TopicListTabItem extends StatefulWidget {
     this.count = 0,
     this.showCountBadge = false,
     this.showCount = true,
+    this.underline = false,
   });
 
   final Key controlKey;
@@ -469,6 +481,7 @@ class _TopicListTabItem extends StatefulWidget {
   final int count;
   final bool showCountBadge;
   final bool showCount;
+  final bool underline;
   final bool selected;
   final VoidCallback onTap;
 
@@ -517,7 +530,7 @@ class _TopicListTabItemState extends State<_TopicListTabItem> {
           onTap: widget.onTap,
           overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           splashFactory: NoSplash.splashFactory,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(widget.underline ? 0 : 6),
           child: ValueListenableBuilder<Set<WidgetState>>(
             valueListenable: _states,
             builder: (context, states, _) {
@@ -528,15 +541,29 @@ class _TopicListTabItemState extends State<_TopicListTabItem> {
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 120),
                 alignment: Alignment.center,
-                margin: const EdgeInsets.symmetric(vertical: 9),
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+                margin: EdgeInsets.symmetric(
+                  vertical: widget.underline ? 0 : 9,
+                ),
+                padding: EdgeInsets.symmetric(
+                  horizontal: widget.underline ? 0 : 10,
+                ),
                 decoration: BoxDecoration(
-                  color: widget.selected
+                  color: widget.selected && !widget.underline
                       ? theme.shell.selected
                       : emphasized
                       ? theme.shell.hover
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(widget.underline ? 0 : 6),
+                  border: widget.underline
+                      ? Border(
+                          bottom: BorderSide(
+                            width: 2,
+                            color: widget.selected
+                                ? theme.colorScheme.primary
+                                : theme.shell.divider,
+                          ),
+                        )
+                      : null,
                 ),
                 child:
                     widget.showCount &&

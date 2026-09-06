@@ -5243,62 +5243,59 @@ void _registerTopicReadingTests() {
       expect(renderedText('Related topic body'), findsOneWidget);
     });
 
-    testWidgets('hides a lone recommendation tab and compacts topic titles', (
-      tester,
-    ) async {
-      const recommendations = TopicRecommendations(
-        sources: [
-          TopicRecommendationSource(
-            definition: coreSuggestedTopicRecommendationSource,
-            topics: [
-              Topic(
-                id: 8,
-                title: 'A compact suggested topic',
-                slug: 'a-compact-suggested-topic',
-              ),
-            ],
-          ),
-          TopicRecommendationSource(
-            definition: discourseAiRelatedTopicRecommendationSource,
-          ),
-        ],
-      );
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail(recommendations: recommendations)},
-      );
+    testWidgets(
+      'labels a single recommendation source and compacts its titles',
+      (tester) async {
+        const recommendations = TopicRecommendations(
+          sources: [
+            TopicRecommendationSource(
+              definition: coreSuggestedTopicRecommendationSource,
+              topics: [
+                Topic(
+                  id: 8,
+                  title: 'A compact suggested topic',
+                  slug: 'a-compact-suggested-topic',
+                ),
+              ],
+            ),
+            TopicRecommendationSource(
+              definition: discourseAiRelatedTopicRecommendationSource,
+            ),
+          ],
+        );
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail(recommendations: recommendations)},
+        );
 
-      await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
-      await tester.pumpAndSettle();
+        await pumpShell(tester, desktop, api: api);
+        await tester.tap(find.text('A real topic'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('More topics'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('topic-list-ledger-header')),
-        findsNothing,
-      );
-      expect(find.text('Suggested'), findsNothing);
-      expect(
-        find.byKey(const ValueKey('topic-ledger-state-8')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-ledger-topic-8')),
-        findsOneWidget,
-      );
-      final compactTitle = tester.widget<TopicTitle>(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is TopicTitle &&
-              widget.title == 'A compact suggested topic',
-        ),
-      );
-      expect(compactTitle.style?.fontSize, DiscourseTypography.base);
-      expect(
-        compactTitle.style?.fontSize,
-        lessThan(DiscourseTypography.fontUp1),
-      );
-    });
+        expect(
+          find.byKey(const ValueKey('topic-more-topics-jump')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('topic-list-ledger-header')),
+          findsNothing,
+        );
+        expect(find.text('Suggested'), findsOneWidget);
+        expect(find.byKey(const ValueKey('inbox-row-8')), findsOneWidget);
+        final compactTitle = tester.widget<TopicTitle>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is TopicTitle &&
+                widget.title == 'A compact suggested topic',
+          ),
+        );
+        expect(compactTitle.style?.fontSize, 13);
+        expect(
+          compactTitle.style?.fontSize,
+          lessThan(DiscourseTypography.fontUp1),
+        );
+      },
+    );
 
     testWidgets('omits More topics when every source is empty', (tester) async {
       const recommendations = TopicRecommendations(

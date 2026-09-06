@@ -366,15 +366,20 @@ final class AssignPlugin
             if (direct != null || canAssign)
               DButton(
                 key: const Key('assign-topic-header'),
-                icon: const DIcon(DIcons.userPlus, size: 14),
+                icon: direct == null
+                    ? const DIcon(DIcons.userPlus, size: 14)
+                    : AssignmentAssigneeAvatar(
+                        assignee: direct.assignee,
+                        size: 20,
+                      ),
                 label: Text(
-                  direct == null ? 'Assign' : '@${direct.assignee.identifier}',
+                  direct == null ? 'Assign topic' : direct.assignee.displayName,
                 ),
                 tooltip: direct == null
                     ? 'Assign topic'
                     : 'Change topic assignment',
                 size: DButtonSize.small,
-                variant: DButtonVariant.flat,
+                variant: DButtonVariant.standard,
                 onPressed: canAssign
                     ? () => unawaited(
                         showAssignmentEditor(

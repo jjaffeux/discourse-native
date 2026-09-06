@@ -47,6 +47,27 @@ List<int> loaded(Store store, TopicDetail topic) => [
 
 void main() {
   group('wire parsing', () {
+    test('preserves plain topic previews across model updates', () {
+      final topic = Topic.fromJson(
+        const {
+          'id': 7,
+          'title': 'A topic',
+          'slug': 'a-topic',
+          'excerpt': '<p>Clear <strong>topics</strong> &amp; replies</p>',
+          'last_poster_username': 'sam',
+        },
+        const {},
+        site,
+      );
+      expect(topic.excerpt, 'Clear topics & replies');
+      expect(topic.lastPosterUsername, 'sam');
+      final updated = topic
+          .copyWith(title: 'Renamed')
+          .withPlugins(feature('test'));
+      expect(updated.excerpt, topic.excerpt);
+      expect(updated.lastPosterUsername, topic.lastPosterUsername);
+    });
+
     test('splits the payload into the topic and its posts', () {
       final payload = TopicDetail.parse(const {
         'id': 7,

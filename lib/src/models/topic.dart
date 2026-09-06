@@ -143,6 +143,8 @@ class Topic with Storable<Topic> {
     required this.title,
     required this.slug,
     this.categoryId,
+    this.excerpt,
+    this.lastPosterUsername,
     this.postsCount = 0,
     this.replyCount = 0,
     this.views = 0,
@@ -189,6 +191,8 @@ class Topic with Storable<Topic> {
       id: jsonInt(json['id']),
       title: jsonTitle(json['title'], json['fancy_title']),
       slug: jsonString(json['slug']),
+      excerpt: jsonHtmlText(json['excerpt']),
+      lastPosterUsername: jsonText(json['last_poster_username']),
       categoryId: json['category_id'] == null
           ? null
           : jsonInt(json['category_id']),
@@ -238,6 +242,8 @@ class Topic with Storable<Topic> {
   final String title;
   final String slug;
   final int? categoryId;
+  final String? excerpt;
+  final String? lastPosterUsername;
   final int postsCount;
   final int replyCount;
   final int views;
@@ -323,6 +329,8 @@ class Topic with Storable<Topic> {
     id: id,
     title: title ?? this.title,
     slug: slug,
+    excerpt: excerpt,
+    lastPosterUsername: lastPosterUsername,
     categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
     postsCount: postsCount ?? this.postsCount,
     replyCount: replyCount,
@@ -353,6 +361,8 @@ class Topic with Storable<Topic> {
     id: id,
     title: title,
     slug: slug,
+    excerpt: excerpt,
+    lastPosterUsername: lastPosterUsername,
     categoryId: categoryId,
     postsCount: postsCount,
     replyCount: replyCount,
@@ -382,6 +392,8 @@ class Topic with Storable<Topic> {
           other.id == id &&
           other.title == title &&
           other.slug == slug &&
+          other.excerpt == excerpt &&
+          other.lastPosterUsername == lastPosterUsername &&
           other.categoryId == categoryId &&
           other.postsCount == postsCount &&
           other.replyCount == replyCount &&
@@ -408,6 +420,8 @@ class Topic with Storable<Topic> {
     id,
     title,
     slug,
+    excerpt,
+    lastPosterUsername,
     categoryId,
     postsCount,
     replyCount,

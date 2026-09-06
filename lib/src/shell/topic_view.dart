@@ -48,6 +48,7 @@ import 'topic_actions.dart';
 import 'topic_category_picker.dart';
 import 'topic_change_owner.dart';
 import 'topic_inbox_header.dart';
+import 'topic_inbox_row.dart';
 import 'topic_list_view.dart';
 import 'topic_move_posts.dart';
 import 'topic_progress.dart';
@@ -1558,6 +1559,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         return const SizedBox.shrink();
       }
       return _TopicBottomBar(
+        topic: widget.inbox ? snapshot.topic : null,
+        siteUrl: snapshot.siteUrl,
+        isConnected: widget.isConnected,
+        bookmarkBusy: widget.bookmarkBusy,
         progressPosition: showProgress ? progressPosition : null,
         totalPosts: totalPosts,
         canReply: widget.canReply,
@@ -1619,6 +1624,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final readingLane = ContentReadingLane.geometryFor(
       context,
       availableWidth: topicContentWidth,
+      basePadding: widget.inbox
+          ? const EdgeInsets.symmetric(horizontal: 12)
+          : EdgeInsets.zero,
     );
 
     if (snapshot.topicId == null) {
@@ -1922,6 +1930,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               }
               return _MoreTopics(
                 key: ValueKey((siteUrl, snapshot.topicId, 'more-topics')),
+                inbox: widget.inbox,
                 siteUrl: siteUrl,
                 recommendations: snapshot.recommendations!,
                 selected: _recommendationsSourceId,
@@ -2098,6 +2107,10 @@ class _TopicBottomBar extends StatelessWidget {
     required this.onProgressPressed,
     required this.onReplyPressed,
     this.onMoreTopics,
+    this.topic,
+    this.siteUrl,
+    this.isConnected = false,
+    this.bookmarkBusy = false,
   });
 
   final int? progressPosition;
@@ -2106,53 +2119,77 @@ class _TopicBottomBar extends StatelessWidget {
   final VoidCallback? onProgressPressed;
   final VoidCallback onReplyPressed;
   final VoidCallback? onMoreTopics;
+  final TopicDetail? topic;
+  final String? siteUrl;
+  final bool isConnected;
+  final bool bookmarkBusy;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
       key: const ValueKey('topic-bottom-bar'),
-      color: theme.shell.panel,
+      color: topic == null ? theme.shell.panel : theme.shell.content,
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: theme.shell.divider)),
         ),
-        child: SizedBox(
-          height: 48,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              children: [
-                if (canReply)
-                  DButton(
-                    key: const ValueKey('topic-reply-button'),
-                    onPressed: onReplyPressed,
-                    icon: const DIcon(DIcons.reply, size: 16),
-                    label: const Text('Reply'),
-                    tooltip: 'Reply to this topic',
-                    shortcut: const DShortcut(topicReplyShortcut),
-                    variant: DButtonVariant.primary,
-                    size: DButtonSize.small,
-                  ),
-                if (onMoreTopics != null) ...[
-                  const SizedBox(width: 8),
-                  DButton(
-                    key: const ValueKey('topic-more-topics-jump'),
-                    label: const Text('More topics'),
-                    tooltip: 'Related and suggested topics',
-                    onPressed: onMoreTopics,
-                    variant: DButtonVariant.flat,
-                    size: DButtonSize.small,
-                  ),
+        child: LayoutBuilder(
+          builder: (context, constraints) => SizedBox(
+            height: topic == null ? 48 : 52,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  if (canReply)
+                    DButton(
+                      key: const ValueKey('topic-reply-button'),
+                      onPressed: onReplyPressed,
+                      icon: const DIcon(DIcons.reply, size: 16),
+                      label: const Text('Reply'),
+                      tooltip: 'Reply to this topic',
+                      shortcut: const DShortcut(topicReplyShortcut),
+                      variant: DButtonVariant.primary,
+                      size: DButtonSize.small,
+                    ),
+                  if (topic != null && siteUrl != null) ...[
+                    if (ShellScope.read(context).currentInstance?.user != null)
+                      TopicBookmarkButton(
+                        siteUrl: siteUrl!,
+                        topic: topic!,
+                        busy: bookmarkBusy,
+                      ),
+                    if (isConnected)
+                      TopicNotificationLevelButton(
+                        siteUrl: siteUrl!,
+                        topic: topic!,
+                        showLabel: constraints.maxWidth >= 580,
+                      ),
+                  ],
+                  const Spacer(),
+                  if (onMoreTopics != null) ...[
+                    const SizedBox(width: 8),
+                    DButton(
+                      key: const ValueKey('topic-more-topics-jump'),
+                      label: Text(
+                        topic != null && constraints.maxWidth >= 700
+                            ? 'Related / Suggested'
+                            : 'More topics',
+                      ),
+                      tooltip: 'Related and suggested topics',
+                      onPressed: onMoreTopics,
+                      variant: DButtonVariant.flat,
+                      size: DButtonSize.small,
+                    ),
+                  ],
+                  if (progressPosition case final position?)
+                    TopicProgressButton(
+                      position: position,
+                      total: totalPosts,
+                      onPressed: onProgressPressed!,
+                    ),
                 ],
-                const Spacer(),
-                if (progressPosition case final position?)
-                  TopicProgressButton(
-                    position: position,
-                    total: totalPosts,
-                    onPressed: onProgressPressed!,
-                  ),
-              ],
+              ),
             ),
           ),
         ),
@@ -2576,8 +2613,6 @@ class _TopicViewHeader extends StatelessWidget {
         route: route,
         canReturnToSidebar: canReturnToSidebar,
         keepTopicListOpen: keepTopicListOpen,
-        isConnected: isConnected,
-        bookmarkBusy: bookmarkBusy,
         registry: registry,
       );
     }
@@ -3266,6 +3301,7 @@ class _MoreTopics extends StatelessWidget {
     required this.selected,
     required this.onSelected,
     this.topPadding = 20,
+    this.inbox = false,
   });
 
   final String siteUrl;
@@ -3273,6 +3309,7 @@ class _MoreTopics extends StatelessWidget {
   final TopicRecommendationSourceId selected;
   final ValueChanged<TopicRecommendationSourceId> onSelected;
   final double topPadding;
+  final bool inbox;
 
   TopicRecommendationSource _effectiveSelection(
     List<TopicRecommendationSource> available,
@@ -3294,38 +3331,69 @@ class _MoreTopics extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: EdgeInsets.only(top: topPadding, bottom: 16),
+      padding: EdgeInsets.fromLTRB(
+        inbox ? 16 : 0,
+        topPadding,
+        inbox ? 16 : 0,
+        16,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (available.length > 1)
+          if (available.length > 1 || inbox)
             DecoratedBox(
               decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: theme.shell.divider)),
               ),
-              child: Row(
-                children: [
-                  for (final source in available)
-                    Expanded(
-                      child: _MoreTopicsTabButton(
-                        key: ValueKey(
-                          'topic-recommendations-tab-${source.id.value}',
-                        ),
-                        label: source.label,
-                        icon: source.definition.icon,
-                        selected: selection.id == source.id,
-                        onPressed: () => onSelected(source.id),
-                      ),
+              child: inbox
+                  ? Wrap(
+                      spacing: 18,
+                      children: [
+                        for (final source in available)
+                          _MoreTopicsTabButton(
+                            key: ValueKey(
+                              'topic-recommendations-tab-${source.id.value}',
+                            ),
+                            label: source.label,
+                            selected: selection.id == source.id,
+                            onPressed: () => onSelected(source.id),
+                            compact: true,
+                          ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        for (final source in available)
+                          Expanded(
+                            child: _MoreTopicsTabButton(
+                              key: ValueKey(
+                                'topic-recommendations-tab-${source.id.value}',
+                              ),
+                              label: source.label,
+                              icon: source.definition.icon,
+                              selected: selection.id == source.id,
+                              onPressed: () => onSelected(source.id),
+                            ),
+                          ),
+                      ],
                     ),
-                ],
-              ),
             ),
           for (var index = 0; index < selection.topics.length; index++) ...[
-            TopicListRow(
-              topic: selection.topics[index],
-              siteUrl: siteUrl,
-              titleStyle: theme.textTheme.titleSmall,
-            ),
+            if (inbox)
+              TopicInboxRow(
+                topic: selection.topics[index],
+                siteUrl: siteUrl,
+                recommendation: true,
+                onTap: () => ShellScope.read(
+                  context,
+                ).openTopicFromList(selection.topics[index]),
+              )
+            else
+              TopicListRow(
+                topic: selection.topics[index],
+                siteUrl: siteUrl,
+                titleStyle: theme.textTheme.titleSmall,
+              ),
             if (index < selection.topics.length - 1)
               Divider(height: 1, color: theme.shell.divider),
           ],
@@ -3342,12 +3410,14 @@ class _MoreTopicsTabButton extends StatelessWidget {
     required this.selected,
     required this.onPressed,
     this.icon,
+    this.compact = false,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onPressed;
   final DIconData? icon;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -3362,7 +3432,10 @@ class _MoreTopicsTabButton extends StatelessWidget {
       child: InkWell(
         onTap: onPressed,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 0 : 16,
+            vertical: 12,
+          ),
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
@@ -3386,7 +3459,13 @@ class _MoreTopicsTabButton extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(color: color),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: compact && selected
+                        ? theme.colorScheme.onSurface
+                        : color,
+                    fontSize: compact ? 13 : null,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
                 ),
               ),
             ],

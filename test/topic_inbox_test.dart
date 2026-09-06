@@ -8,9 +8,12 @@ import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_actions.dart';
+import 'package:discourse_native/src/shell/topic_inbox_row.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -38,6 +41,141 @@ const _child = TopicCategory(
 const _tag = TopicTag(id: 1, name: 'community');
 
 void main() {
+  testWidgets(
+    'compact reader aligns taxonomy, title, activity, and post text',
+    (tester) async {
+      final state = ValueNotifier('Available');
+      addTearDown(state.dispose);
+      final setup = await _setup(
+        tester,
+        registry: PluginRegistry([_HeaderDetailsPlugin(state)]),
+      );
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      final parent = tester.getRect(find.byTooltip('Edit topic category'));
+      final child = tester.getRect(find.byTooltip('Edit topic subcategory'));
+      final tag = tester.getRect(
+        find.byKey(const ValueKey(('topic-header-tag', 'community'))),
+      );
+      final addTag = tester.getRect(
+        find.byKey(const ValueKey('topic-header-add-tag')),
+      );
+      expect(parent.right, lessThan(child.left));
+      expect(child.right, lessThan(tag.left));
+      expect(tag.right, lessThan(addTag.left));
+      expect(parent.center.dy, closeTo(tag.center.dy, 1));
+      expect(child.center.dy, closeTo(tag.center.dy, 1));
+      final title = tester.getRect(
+        find.byKey(const ValueKey('topic-header-title-field')),
+      );
+      final summary = tester.getRect(
+        find.byKey(const ValueKey('topic-header-activity')),
+      );
+      final properties = tester.getRect(find.text('Manage details'));
+      expect(summary.top, greaterThanOrEqualTo(title.bottom));
+      expect(properties.center.dy, closeTo(summary.center.dy, 1));
+      expect(properties.right, greaterThan(title.right - 32));
+      expect(
+        tester.getRect(find.byType(CookedHtml).first).left,
+        closeTo(title.left, 1),
+      );
+      final footer = find.byKey(const ValueKey('topic-bottom-bar'));
+      expect(
+        find.descendant(of: footer, matching: find.byType(TopicBookmarkButton)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: footer,
+          matching: find.byType(TopicNotificationLevelButton),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'resizing and topic arrows retain the source list and reader state',
+    (tester) async {
+      final setup = await _setup(tester);
+      final shell = setup.controller;
+      shell.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      final list = find.byType(TopicListView);
+      final listState = tester.state(list);
+      final readerState = tester.state(find.byType(TopicView));
+      expect(tester.getSize(list).width, 325);
+      final row = find.byKey(const ValueKey('inbox-row-1'));
+      expect(tester.getRect(row).left, greaterThan(tester.getRect(list).left));
+      expect(tester.getRect(row).right, lessThan(tester.getRect(list).right));
+      final timestamp = find.byKey(const ValueKey('inbox-row-time-1'));
+      expect(timestamp, findsOneWidget);
+      expect(
+        tester.getRect(timestamp).top,
+        lessThan(tester.getRect(find.text('First topic preview')).top),
+      );
+      expect(
+        find.byKey(const ValueKey('topic-ledger-activity-1')),
+        findsNothing,
+      );
+      await tester.drag(
+        find.byKey(const ValueKey('inbox-list-resize-handle')),
+        const Offset(90, 0),
+      );
+      await tester.pumpAndSettle();
+      final width = tester.getSize(list).width;
+      expect(width, greaterThan(380));
+      expect(tester.state(list), same(listState));
+      expect(tester.state(find.byType(TopicView)), same(readerState));
+      await tester.tap(find.byKey(const ValueKey('inbox-next-topic')));
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 2);
+      expect(shell.contentStack, hasLength(2));
+      expect(tester.state(list), same(listState));
+      await tester.tap(find.byKey(const ValueKey('inbox-previous-topic')));
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 1);
+      tester.view.physicalSize = const Size(600, 800);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('inbox-list-resize-handle')),
+        findsNothing,
+      );
+      tester.view.physicalSize = const Size(1100, 800);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(list).width, width);
+      expect(tester.state(list), same(listState));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('compact recommendations keep the source list when opened', (
+    tester,
+  ) async {
+    final setup = await _setup(tester, recommendations: true);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    final listState = tester.state(find.byType(TopicListView));
+    await tester.tap(find.byKey(const ValueKey('topic-more-topics-jump')));
+    await tester.pumpAndSettle();
+    final recommendations = find.byWidgetPredicate(
+      (widget) => widget is TopicInboxRow && widget.recommendation,
+    );
+    expect(recommendations, findsOneWidget);
+    expect(find.text('Suggested'), findsOneWidget);
+    expect(
+      find.descendant(of: recommendations, matching: find.byType(TopicListRow)),
+      findsNothing,
+    );
+    await tester.tap(recommendations);
+    await tester.pumpAndSettle();
+    expect(setup.controller.currentContent?.topicId, 2);
+    expect(setup.controller.contentStack, hasLength(2));
+    expect(tester.state(find.byType(TopicListView)), same(listState));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('header details stay live and dismiss on post navigation', (
     tester,
   ) async {
@@ -309,6 +447,7 @@ Future<({ShellController controller, FakeDiscourseApi api, List<Topic> rows})>
 _setup(
   WidgetTester tester, {
   PluginRegistry registry = PluginRegistry.empty,
+  bool recommendations = false,
 }) async {
   tester.view.physicalSize = const Size(1100, 800);
   tester.view.devicePixelRatio = 1;
@@ -324,6 +463,10 @@ _setup(
         title: 'Topic $id',
         slug: 'topic-$id',
         categoryId: 22,
+        excerpt: id == 1 ? 'First topic preview' : null,
+        lastPosterUsername: 'sam',
+        bumpedAt: DateTime.now().subtract(const Duration(minutes: 2)),
+        replyCount: 3,
         unreadPosts: 3,
         lastReadPostNumber: 1,
         highestPostNumber: 4,
@@ -391,6 +534,20 @@ _setup(
             title: row.title,
             stream: posts[row.id]!.map((post) => post.id).toList(),
             postsCount: 4,
+            replyCount: 3,
+            participants: const [
+              TopicParticipant(username: 'sam', name: 'Sam'),
+            ],
+            recommendations: recommendations
+                ? TopicRecommendations(
+                    sources: [
+                      TopicRecommendationSource(
+                        definition: coreSuggestedTopicRecommendationSource,
+                        topics: [rows[1]],
+                      ),
+                    ],
+                  )
+                : null,
             categoryId: 22,
             canEdit: true,
             canEditTags: true,
