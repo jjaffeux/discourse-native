@@ -891,9 +891,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    void expectHeading(String title) => expect(
+      tester.widget<Text>(find.byKey(const ValueKey('topic-list-title'))).data,
+      title,
+    );
+    expectHeading('Topics');
     controller.selectTopicListCategory(parent);
     await tester.pumpAndSettle();
     expect(controller.currentContent?.categoryId, parent.id);
+    expectHeading(parent.name);
     expect(controller.currentContent?.tagName, isNull);
     expect(controller.currentTopicListMode, TopicListMode.latest);
     expect(find.text('Category topic'), findsOneWidget);
@@ -910,12 +916,14 @@ void main() {
     );
     expect(controller.currentContent?.categoryId, parent.id);
     expect(controller.currentContent?.tagName, ux.slug);
+    expectHeading(parent.name);
     expect(find.text('Combined topic'), findsOneWidget);
 
     controller.selectTopicListCategory(null);
     await tester.pumpAndSettle();
     expect(controller.currentContent?.feedPath, '/tag/ux.json');
     expect(controller.currentContent?.categoryId, isNull);
+    expectHeading('Topics');
     expect(controller.currentContent?.tagName, ux.slug);
 
     controller.selectTopicListCategory(parent);
@@ -932,6 +940,7 @@ void main() {
       '/tags/c/discourse-native-app/design/22/ux.json',
     );
     expect(controller.currentContent?.categoryId, child.id);
+    expectHeading(child.name);
     expect(controller.currentContent?.tagName, ux.slug);
 
     controller.selectTopicListTag(null);
@@ -942,6 +951,7 @@ void main() {
     );
     expect(controller.currentContent?.categoryId, child.id);
     expect(controller.currentContent?.tagName, isNull);
+    expectHeading(child.name);
 
     controller.clearTopicListFilters();
     await tester.pumpAndSettle();
@@ -950,11 +960,12 @@ void main() {
       ContentRoute.topicList(TopicListMode.latest),
     );
     expect(find.text('Latest topic'), findsOneWidget);
+    expectHeading('Topics');
     expect(find.textContaining('matching topics'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('primary tabs stay visible on category and subcategory routes', (
+  testWidgets('category routes show their names and retain primary tabs', (
     tester,
   ) async {
     const parent = TopicCategory(
@@ -1002,6 +1013,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.currentContent?.categoryId, category.id);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('topic-list-title')))
+            .data,
+        category.name,
+      );
       expect(controller.currentTopicListMode, TopicListMode.latest);
       expect(
         find.byKey(const ValueKey('topic-list-primary-row')),
@@ -1013,6 +1030,25 @@ void main() {
       expect(find.byKey(const ValueKey('topic-list-popular')), findsOneWidget);
     }
 
+    const renamed = TopicCategory(
+      id: 22,
+      name: 'Design and product research across all community experiences',
+      slug: 'design',
+      color: '3188CC',
+      parentCategoryId: 21,
+    );
+    controller.store.put(controller.currentInstance!.url, renamed);
+    await tester.pump();
+    final heading = find.byKey(const ValueKey('topic-list-title'));
+    expect(tester.widget<Text>(heading).data, renamed.name);
+    expect(find.byTooltip(renamed.name), findsOneWidget);
+    tester.view.physicalSize = const Size(360, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(heading).maxLines, 1);
+    expect(tester.widget<Text>(heading).overflow, TextOverflow.ellipsis);
+    expect(tester.getRect(heading).right, lessThan(360));
     expect(tester.takeException(), isNull);
   });
 

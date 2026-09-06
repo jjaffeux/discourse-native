@@ -664,8 +664,11 @@ void main() {
       shell.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
       final readerState = tester.state(find.byType(TopicView));
+      final heading = find.byKey(const ValueKey('topic-list-title'));
+      expect(tester.widget<Text>(heading).data, 'Topics');
       shell.selectTopicListCategory(_child, keepTopicOpen: true);
       await tester.pumpAndSettle();
+      expect(tester.widget<Text>(heading).data, _child.name);
       for (final tag in ['community', 'mobile']) {
         await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
         await tester.pumpAndSettle();
@@ -688,6 +691,7 @@ void main() {
       expect(shell.currentContent?.topicId, 1);
       expect(shell.topicListContent?.tagNames, ['community', 'mobile']);
       expect(shell.currentTopicListMode, TopicListMode.topWeekly);
+      expect(tester.widget<Text>(heading).data, _child.name);
       expect(tester.state(find.byType(TopicView)), same(readerState));
       expect(find.text('Clear all'), findsNothing);
       expect(find.text('Tags · 2'), findsOneWidget);
@@ -695,11 +699,13 @@ void main() {
       shell.browseTopicCategory(_parent, keepTopicOpen: true);
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.categoryId, 21);
+      expect(tester.widget<Text>(heading).data, _parent.name);
       expect(shell.topicListContent?.tagNames, isEmpty);
       expect(shell.currentContent?.topicId, 1);
       await tester.tap(find.byTooltip('Close topic'));
       await tester.pumpAndSettle();
       expect(shell.currentContent?.categoryId, 21);
+      expect(tester.widget<Text>(heading).data, _parent.name);
       expect(tester.takeException(), isNull);
     },
   );
