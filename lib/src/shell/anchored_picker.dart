@@ -195,6 +195,7 @@ class AnchoredPickerOption extends StatelessWidget {
     this.indent = 0,
     this.selected = false,
     this.showSelectionIndicator = false,
+    this.autofocus = false,
   });
 
   final Widget title;
@@ -206,6 +207,7 @@ class AnchoredPickerOption extends StatelessWidget {
   final double indent;
   final bool selected;
   final bool showSelectionIndicator;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -230,6 +232,7 @@ class AnchoredPickerOption extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 0),
       child: ListTile(
+        autofocus: autofocus,
         dense: true,
         visualDensity: compact ? VisualDensity.compact : null,
         minTileHeight: compact ? 32 : null,

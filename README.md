@@ -766,7 +766,9 @@ subcategory name, and returns to **Topics** when there is no category filter.
 New retains its All / Topics / Replies
 subnavigation and Top retains its period picker. Feed tabs share one divider
 with an underline for the selection; New uses inset segments with smaller
-counts, and Top labels its period picker.
+counts. Top uses the same inset surface for its time range, without a separate
+label. Its dropdown shares the category and tag picker, marks the current
+selection, and applies a new range immediately; arrow keys navigate its options.
 Primary tab labels brighten on hover without a filled background; keyboard
 focus has its own outline, while the underline identifies the selected tab.
 The navigation adapts to text scaling and scrolls when its labels cannot fit.

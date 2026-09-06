@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
@@ -9,9 +10,9 @@ import '../models/topic.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'anchored_picker.dart';
 import 'content_reading_lane.dart';
 import 'list_navigation_tab.dart';
-import 'select.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
 import 'topic_list_layout.dart';
@@ -359,7 +360,6 @@ class _TopicListNavigationControls extends StatelessWidget {
               ContentReadingLaneBox(
                 widthLimit: topicListContentWidth,
                 child: _TopPeriodChooser(
-                  inbox: stacked,
                   period: period,
                   textStyle: secondaryTextStyle,
                   onSelected: (value) =>
@@ -380,133 +380,191 @@ class _TopicListNavigationControls extends StatelessWidget {
   }
 }
 
-class _TopPeriodChooser extends StatelessWidget {
+class _TopPeriodChooser extends StatefulWidget {
   const _TopPeriodChooser({
     required this.period,
     required this.textStyle,
     required this.onSelected,
-    this.inbox = false,
   });
 
   final TopPeriod period;
   final TextStyle? textStyle;
   final ValueChanged<TopPeriod> onSelected;
-  final bool inbox;
+
+  @override
+  State<_TopPeriodChooser> createState() => _TopPeriodChooserState();
+}
+
+class _TopPeriodChooserState extends State<_TopPeriodChooser> {
+  final GlobalKey _anchorKey = GlobalKey();
+  bool _showing = false;
+
+  Future<void> _show() async {
+    final anchorContext = _anchorKey.currentContext;
+    if (_showing || anchorContext == null) return;
+    _showing = true;
+    try {
+      final selected = await showAnchoredPicker<TopPeriod>(
+        context: context,
+        anchorContext: anchorContext,
+        title: 'Top topics',
+        barrierLabel: 'Dismiss time range picker',
+        popoverKey: const ValueKey('topic-list-top-period-popover'),
+        popoverHeight: null,
+        popoverPadding: const EdgeInsets.symmetric(vertical: 6),
+        builder: (pickerContext) => CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+                FocusScope.of(pickerContext).nextFocus(),
+            const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
+                FocusScope.of(pickerContext).previousFocus(),
+            const SingleActivator(LogicalKeyboardKey.escape): () =>
+                Navigator.of(pickerContext).pop(),
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final option in TopPeriod.values)
+                AnchoredPickerOption(
+                  key: ValueKey('topic-list-top-period-${option.queryValue}'),
+                  title: Text(option.label),
+                  selected: option == widget.period,
+                  autofocus: option == widget.period,
+                  trailing: option == widget.period
+                      ? DIcon(
+                          DIcons.check,
+                          size: 14,
+                          color: Theme.of(pickerContext).colorScheme.primary,
+                        )
+                      : null,
+                  onTap: () => Navigator.of(pickerContext).pop(option),
+                ),
+            ],
+          ),
+        ),
+      );
+      if (mounted && selected != null && selected != widget.period) {
+        widget.onSelected(selected);
+      }
+    } finally {
+      _showing = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (inbox) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(
-          topicListHorizontalPadding,
-          11,
-          topicListHorizontalPadding,
-          0,
-        ),
-        child: Row(
-          children: [
-            Text(
-              'Period',
-              style: textStyle?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(width: 9),
-            Flexible(
-              child: Semantics(
-                button: true,
-                label: 'Top period',
-                value: period.label,
-                child: PopupMenuButton<TopPeriod>(
-                  key: const ValueKey('topic-list-top-period'),
-                  tooltip: 'Choose top period',
-                  position: PopupMenuPosition.under,
-                  initialValue: period,
-                  onSelected: onSelected,
-                  itemBuilder: (_) => [
-                    for (final option in TopPeriod.values)
-                      PopupMenuItem(
-                        key: ValueKey(
-                          'topic-list-top-period-${option.queryValue}',
-                        ),
-                        value: option,
-                        child: Text(option.label, style: textStyle),
-                      ),
-                  ],
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.shell.content,
-                      border: Border.all(color: theme.shell.divider),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DIcon(
-                          DIcons.farClock,
-                          size: 13,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            period.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: textStyle,
-                          ),
-                        ),
-                        const SizedBox(width: 7),
-                        DIcon(
-                          DIcons.chevronDown,
-                          size: 10,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(
-        horizontal: topicListHorizontalPadding,
-      ),
-      alignment: Alignment.centerLeft,
-      decoration: BoxDecoration(
-        color: theme.shell.sidebar,
-        border: Border(bottom: BorderSide(color: theme.shell.divider)),
-      ),
+    return _TopicListSubnavigationSurface(
+      surfaceKey: const ValueKey('topic-list-top-period-segment'),
       child: Semantics(
+        container: true,
         button: true,
         label: 'Top period',
-        value: period.label,
-        child: DropdownButtonHideUnderline(
-          child: DSelect<TopPeriod>(
-            key: const ValueKey('topic-list-top-period'),
-            value: period,
-            items: [
-              for (final option in TopPeriod.values)
-                DropdownMenuItem(
-                  key: ValueKey('topic-list-top-period-${option.queryValue}'),
-                  value: option,
-                  child: Text(option.label, style: textStyle),
-                ),
-            ],
-            onChanged: (value) {
-              if (value != null) onSelected(value);
-            },
+        value: widget.period.label,
+        onTap: _show,
+        child: ExcludeSemantics(
+          child: SizedBox(
+            key: _anchorKey,
+            child: TextButton(
+              key: const ValueKey('topic-list-top-period'),
+              onPressed: _show,
+              style:
+                  TextButton.styleFrom(
+                    backgroundColor: theme.shell.content,
+                    foregroundColor: theme.colorScheme.onSurface,
+                    minimumSize: Size(
+                      0,
+                      _TopicListSubnavigationSurface.segmentHeight(context),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.standard,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ).copyWith(
+                    side: WidgetStateProperty.resolveWith(
+                      (states) => states.contains(WidgetState.focused)
+                          ? BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 1.5,
+                            )
+                          : BorderSide.none,
+                    ),
+                  ),
+              child: Row(
+                children: [
+                  DIcon(
+                    DIcons.farClock,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.period.label,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: widget.textStyle?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  DIcon(
+                    DIcons.chevronDown,
+                    size: 10,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopicListSubnavigationSurface extends StatelessWidget {
+  const _TopicListSubnavigationSurface({
+    required this.surfaceKey,
+    required this.child,
+  });
+
+  final Key surfaceKey;
+  final Widget child;
+
+  static double segmentHeight(BuildContext context) =>
+      (MediaQuery.textScalerOf(context).scale(DiscourseTypography.fontDown1) *
+                  1.2 +
+              12)
+          .ceilToDouble();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        topicListHorizontalPadding,
+        11,
+        topicListHorizontalPadding,
+        0,
+      ),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Container(
+          key: surfaceKey,
+          constraints: const BoxConstraints(maxWidth: 340),
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: theme.shell.sidebar,
+            border: Border.all(color: theme.shell.divider),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: child,
         ),
       ),
     );
@@ -566,45 +624,24 @@ class _TopicListTabStrip extends StatelessWidget {
         );
         painter.dispose();
       }
-      final segmentHeight =
-          (scaler.scale(DiscourseTypography.fontDown1) * 1.2 + 12)
-              .ceilToDouble();
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(
-          topicListHorizontalPadding,
-          11,
-          topicListHorizontalPadding,
-          0,
-        ),
-        child: Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: Container(
-            key: const ValueKey('topic-list-new-segments'),
-            constraints: const BoxConstraints(maxWidth: 340),
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: theme.shell.sidebar,
-              border: Border.all(color: theme.shell.divider),
-              borderRadius: BorderRadius.circular(7),
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) => SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: math.max(
-                    constraints.maxWidth,
-                    segmentWidth * items.length + 2 * (items.length - 1),
-                  ),
-                  height: segmentHeight,
-                  child: Row(
-                    children: [
-                      for (var index = 0; index < items.length; index++) ...[
-                        if (index > 0) const SizedBox(width: 2),
-                        Expanded(child: items[index]),
-                      ],
-                    ],
-                  ),
-                ),
+      return _TopicListSubnavigationSurface(
+        surfaceKey: const ValueKey('topic-list-new-segments'),
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: math.max(
+                constraints.maxWidth,
+                segmentWidth * items.length + 2 * (items.length - 1),
+              ),
+              height: _TopicListSubnavigationSurface.segmentHeight(context),
+              child: Row(
+                children: [
+                  for (var index = 0; index < items.length; index++) ...[
+                    if (index > 0) const SizedBox(width: 2),
+                    Expanded(child: items[index]),
+                  ],
+                ],
               ),
             ),
           ),
