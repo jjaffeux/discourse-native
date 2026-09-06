@@ -1431,15 +1431,11 @@ answers the same bytes for both — so it drops that one post's reactions and
 nothing else. Emptying every footer in the topic because a moderator deleted one
 post would be the wrong guess.
 
-The main reaction is **not guessed**.
-`SiteConfig.plugins.reactionsSettings.mainReaction` is nullable, and where it
-is unknown the React entry opens the picker instead of sending `heart` — the
-setting is enum-constrained to what a site allows, and `heart` is not even in
-the default enabled list, so a guess on a site whose admin chose `+1` earns a
-422 whose body says only "Sorry, an error has occurred." The menu also labels
-from the reaction the reader *holds*, not from
-`current_user_used_main_reaction`: someone who clapped has a shadow like, so the
-naive label reads "Like this post" on a tap that would replace their clap.
+The post menu offers one **React** entry, which always opens the picker.
+The picker includes the site's main reaction when it is known and highlights
+the reaction the reader holds; picking that reaction again removes it.
+`SiteConfig.plugins.reactionsSettings.mainReaction` is nullable, so `heart`
+is never guessed while the settings are loading.
 
 A populated reaction row ends with the same smile affordance chat uses, so a
 reader does not have to reopen the post menu to choose something else. It is
