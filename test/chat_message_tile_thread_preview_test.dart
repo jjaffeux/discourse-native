@@ -666,6 +666,55 @@ void main() {
       },
     );
 
+    testWidgets('an upserted DM offers and submits its first reaction', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        directMessageChannelsByUsername: {
+          'sam': ChatChannel.fromJson(const {
+            'id': 9,
+            'title': 'Sam',
+            'chatable_type': 'DirectMessage',
+          }, _siteUrl),
+        },
+        emojisBySite: const {
+          _siteUrl: [
+            SiteEmoji(
+              name: 'wave',
+              url: 'https://meta.example/images/emoji/wave.png',
+            ),
+          ],
+        },
+      );
+      final controller = await _controller(
+        _message(null),
+        api: api,
+        channelKind: ChatChannelKind.directMessage,
+      );
+      addTearDown(controller.dispose);
+      await controller.chat.upsertDirectMessageChannel(_siteUrl, 'sam');
+      await tester.pumpWidget(
+        _TestTile(controller: controller, onOpenThread: (_) {}),
+      );
+      await tester.pumpAndSettle();
+      await _hoverMessage(tester);
+
+      final action = find.byTooltip('Add reaction');
+      expect(action, findsOneWidget);
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(':wave:'));
+      await tester.pumpAndSettle();
+
+      expect(api.chatReactionsSet, hasLength(1));
+      final reaction = api.chatReactionsSet.single;
+      expect(reaction.channelId, 9);
+      expect(reaction.messageId, 7);
+      expect(reaction.emoji, 'wave');
+      expect(reaction.action, ChatReactionAction.add);
+      expect(find.bySemanticsLabel('1 wave reaction'), findsOneWidget);
+    });
+
     testWidgets('hover shows a compact action for the exact message', (
       tester,
     ) async {
@@ -1691,6 +1740,7 @@ ChatMessage _message(
 
 Future<ShellController> _controller(
   ChatMessage message, {
+  ChatChannelKind channelKind = ChatChannelKind.category,
   bool signedIn = false,
   bool staff = false,
   bool canDeleteSelf = false,
@@ -1728,7 +1778,7 @@ Future<ShellController> _controller(
     ChatChannel(
       id: 9,
       title: 'Support',
-      kind: ChatChannelKind.category,
+      kind: channelKind,
       canDeleteSelf: canDeleteSelf,
       canDeleteOthers: canDeleteOthers,
       canModerate: canModerate,
