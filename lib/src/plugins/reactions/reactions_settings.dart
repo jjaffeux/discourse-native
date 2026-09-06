@@ -13,6 +13,7 @@ const reactionsSettingsDataKey = PluginDataKey<ReactionsSettings>(
 final class ReactionsSettings {
   const ReactionsSettings({
     this.mainReaction,
+    this.likeIcon = 'heart',
     this.offeredReactions = const [],
     this.allowAnyEmoji = false,
     this.desaturatedPanel = false,
@@ -27,6 +28,7 @@ final class ReactionsSettings {
     );
     return ReactionsSettings(
       mainReaction: mainReaction,
+      likeIcon: jsonText(json['discourse_reactions_like_icon']) ?? 'heart',
       offeredReactions: _offeredReactions(
         json['discourse_reactions_enabled_reactions'],
         mainReaction,
@@ -42,6 +44,7 @@ final class ReactionsSettings {
     if (json == null) return null;
     return ReactionsSettings(
       mainReaction: jsonText(json['mainReaction']),
+      likeIcon: jsonText(json['likeIcon']) ?? 'heart',
       offeredReactions: _storedReactionList(json['offeredReactions']),
       allowAnyEmoji: json['allowAnyEmoji'] == true,
       desaturatedPanel: json['desaturatedPanel'] == true,
@@ -49,12 +52,14 @@ final class ReactionsSettings {
   }
 
   final String? mainReaction;
+  final String likeIcon;
   final List<String> offeredReactions;
   final bool allowAnyEmoji;
   final bool desaturatedPanel;
 
   Map<String, Object?> toStored() => {
     'mainReaction': mainReaction,
+    'likeIcon': likeIcon,
     'offeredReactions': offeredReactions,
     'allowAnyEmoji': allowAnyEmoji,
     'desaturatedPanel': desaturatedPanel,
@@ -65,6 +70,7 @@ final class ReactionsSettings {
       identical(this, other) ||
       other is ReactionsSettings &&
           other.mainReaction == mainReaction &&
+          other.likeIcon == likeIcon &&
           listEquals(other.offeredReactions, offeredReactions) &&
           other.allowAnyEmoji == allowAnyEmoji &&
           other.desaturatedPanel == desaturatedPanel;
@@ -72,6 +78,7 @@ final class ReactionsSettings {
   @override
   int get hashCode => Object.hash(
     mainReaction,
+    likeIcon,
     Object.hashAll(offeredReactions),
     allowAnyEmoji,
     desaturatedPanel,
