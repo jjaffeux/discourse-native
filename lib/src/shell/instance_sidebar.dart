@@ -605,7 +605,7 @@ class _ForumIdentityHeader extends StatelessWidget {
       key: const ValueKey('forum-identity-header'),
       padding: const EdgeInsets.fromLTRB(
         _SidebarSpacing.wrapperHorizontalPadding,
-        12,
+        6,
         _SidebarSpacing.wrapperHorizontalPadding,
         0,
       ),
