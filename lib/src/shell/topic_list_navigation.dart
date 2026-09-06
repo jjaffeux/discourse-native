@@ -27,61 +27,71 @@ typedef _TopicListNavigationSnapshot = ({
 });
 
 class TopicListNavigation extends StatelessWidget {
-  const TopicListNavigation({super.key, required this.child, this.trailing});
+  const TopicListNavigation({
+    super.key,
+    required this.child,
+    this.trailing,
+    this.stacked = false,
+    this.keepTopicOpen = false,
+  });
 
   final Widget child;
   final Widget? trailing;
+  final bool stacked;
+  final bool keepTopicOpen;
 
   @override
-  Widget build(BuildContext context) =>
-      ShellSelector<_TopicListNavigationSnapshot>(
-        select: (controller) {
-          final counts = controller.topicListNewCounts;
-          final siteUrl = controller.currentInstance?.url;
-          final route = controller.currentContent;
-          final showsFilters = route?.isTopicListFilter == true;
-          return (
-            mode: controller.currentTopicListMode,
-            signedIn: controller.currentInstance?.user != null,
-            unifiedNew:
-                controller.currentInstance?.user?.unifiedNewEnabled == true,
-            allCount: counts.all,
-            topicCount: counts.topics,
-            replyCount: counts.replies,
-            siteUrl: siteUrl,
-            route: route,
-            categories: showsFilters && siteUrl != null
-                ? controller.filterCategoriesFor(siteUrl)
-                : const <TopicCategory>[],
-            tags: showsFilters && siteUrl != null
-                ? controller.topicListFilterTagsFor(siteUrl)
-                : const <SidebarTag>[],
-            taggingEnabled:
-                showsFilters &&
-                siteUrl != null &&
-                controller.siteConfigFor(siteUrl).taggingEnabled,
-          );
-        },
-        builder: (context, state, _) {
-          final showsTabs = state.mode != null;
-          final showsFilters =
-              state.siteUrl != null && state.route?.isTopicListFilter == true;
-          if (!showsTabs && !showsFilters && trailing == null) {
-            return child;
-          }
-          return Column(
-            children: [
-              _TopicListNavigationControls(
-                state: state,
-                showsTabs: showsTabs,
-                showsFilters: showsFilters,
-                trailing: trailing,
-              ),
-              Expanded(child: child),
-            ],
-          );
-        },
+  Widget build(
+    BuildContext context,
+  ) => ShellSelector<_TopicListNavigationSnapshot>(
+    select: (controller) {
+      final counts = controller.topicListNewCounts;
+      final siteUrl = controller.currentInstance?.url;
+      final route = controller.topicListContent ?? controller.currentContent;
+      final showsFilters = route?.isTopicListFilter == true;
+      return (
+        mode: controller.currentTopicListMode,
+        signedIn: controller.currentInstance?.user != null,
+        unifiedNew: controller.currentInstance?.user?.unifiedNewEnabled == true,
+        allCount: counts.all,
+        topicCount: counts.topics,
+        replyCount: counts.replies,
+        siteUrl: siteUrl,
+        route: route,
+        categories: showsFilters && siteUrl != null
+            ? controller.filterCategoriesFor(siteUrl)
+            : const <TopicCategory>[],
+        tags: showsFilters && siteUrl != null
+            ? controller.topicListFilterTagsFor(siteUrl)
+            : const <SidebarTag>[],
+        taggingEnabled:
+            showsFilters &&
+            siteUrl != null &&
+            controller.siteConfigFor(siteUrl).taggingEnabled,
       );
+    },
+    builder: (context, state, _) {
+      final showsTabs = state.mode != null;
+      final showsFilters =
+          state.siteUrl != null && state.route?.isTopicListFilter == true;
+      if (!showsTabs && !showsFilters && trailing == null) {
+        return child;
+      }
+      return Column(
+        children: [
+          _TopicListNavigationControls(
+            state: state,
+            showsTabs: showsTabs,
+            showsFilters: showsFilters,
+            trailing: trailing,
+            stacked: stacked,
+            keepTopicOpen: keepTopicOpen,
+          ),
+          Expanded(child: child),
+        ],
+      );
+    },
+  );
 }
 
 class _TopicListNavigationControls extends StatelessWidget {
@@ -90,16 +100,47 @@ class _TopicListNavigationControls extends StatelessWidget {
     required this.showsTabs,
     required this.showsFilters,
     required this.trailing,
+    required this.stacked,
+    required this.keepTopicOpen,
   });
 
   final _TopicListNavigationSnapshot state;
   final bool showsTabs;
   final bool showsFilters;
   final Widget? trailing;
+  final bool stacked;
+  final bool keepTopicOpen;
 
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
+    Future<void> selectMode(TopicListMode mode) =>
+        controller.selectTopicListMode(mode, keepTopicOpen: keepTopicOpen);
+    Widget filters() => TopicListFilterBar(
+      inline: !stacked,
+      wrap: stacked,
+      siteUrl: state.siteUrl!,
+      categories: state.categories,
+      knownTags: state.tags,
+      selectedCategoryId: state.route!.categoryId,
+      selectedTagName: state.route!.tagName,
+      selectedTagNames: stacked ? state.route!.tagNames : null,
+      onTagsSelected: stacked
+          ? (values) => controller.selectTopicListTags(
+              values,
+              keepTopicOpen: keepTopicOpen,
+            )
+          : null,
+      taggingEnabled: state.taggingEnabled,
+      searchTags: (term) =>
+          controller.searchFilterTags(siteUrl: state.siteUrl!, term: term),
+      onCategorySelected: (value) => controller.selectTopicListCategory(
+        value,
+        keepTopicOpen: keepTopicOpen,
+      ),
+      onTagSelected: (value) =>
+          controller.selectTopicListTag(value, keepTopicOpen: keepTopicOpen),
+    );
     final mode = state.mode ?? TopicListMode.latest;
     final theme = Theme.of(context);
     final primaryTextStyle = theme.textTheme.bodySmall?.copyWith(
@@ -157,9 +198,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                                             selected:
                                                 mode == TopicListMode.latest,
                                             onTap: () => unawaited(
-                                              controller.selectTopicListMode(
-                                                TopicListMode.latest,
-                                              ),
+                                              selectMode(TopicListMode.latest),
                                             ),
                                           ),
                                           if (state.signedIn)
@@ -169,11 +208,14 @@ class _TopicListNavigationControls extends StatelessWidget {
                                               ),
                                               label: 'New',
                                               count: state.allCount,
+                                              showCount:
+                                                  !stacked ||
+                                                  constraints.maxWidth >= 500,
                                               showCountBadge: true,
                                               textStyle: primaryTextStyle,
                                               selected: mode.isNew,
                                               onTap: () => unawaited(
-                                                controller.selectTopicListMode(
+                                                selectMode(
                                                   TopicListMode.newActivity,
                                                 ),
                                               ),
@@ -186,7 +228,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                                             textStyle: primaryTextStyle,
                                             selected: mode.isTop,
                                             onTap: () => unawaited(
-                                              controller.selectTopicListMode(
+                                              selectMode(
                                                 mode.isTop
                                                     ? mode
                                                     : controller
@@ -203,35 +245,14 @@ class _TopicListNavigationControls extends StatelessWidget {
                                             selected:
                                                 mode == TopicListMode.popular,
                                             onTap: () => unawaited(
-                                              controller.selectTopicListMode(
-                                                TopicListMode.popular,
-                                              ),
+                                              selectMode(TopicListMode.popular),
                                             ),
                                           ),
                                         ],
                                       ),
-                                    if (showsTabs && showsFilters)
+                                    if (showsTabs && showsFilters && !stacked)
                                       const SizedBox(width: 8),
-                                    if (showsFilters)
-                                      TopicListFilterBar(
-                                        inline: true,
-                                        siteUrl: state.siteUrl!,
-                                        categories: state.categories,
-                                        knownTags: state.tags,
-                                        selectedCategoryId:
-                                            state.route!.categoryId,
-                                        selectedTagName: state.route!.tagName,
-                                        taggingEnabled: state.taggingEnabled,
-                                        searchTags: (term) =>
-                                            controller.searchFilterTags(
-                                              siteUrl: state.siteUrl!,
-                                              term: term,
-                                            ),
-                                        onCategorySelected:
-                                            controller.selectTopicListCategory,
-                                        onTagSelected:
-                                            controller.selectTopicListTag,
-                                      ),
+                                    if (showsFilters && !stacked) filters(),
                                   ],
                                 ),
                               ),
@@ -271,9 +292,8 @@ class _TopicListNavigationControls extends StatelessWidget {
                     count: state.allCount,
                     textStyle: secondaryTextStyle,
                     selected: mode == TopicListMode.newActivity,
-                    onTap: () => unawaited(
-                      controller.selectTopicListMode(TopicListMode.newActivity),
-                    ),
+                    onTap: () =>
+                        unawaited(selectMode(TopicListMode.newActivity)),
                   ),
                   _TopicListTabItem(
                     controlKey: const ValueKey('topic-list-new-topics'),
@@ -281,9 +301,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                     count: state.topicCount,
                     textStyle: secondaryTextStyle,
                     selected: mode == TopicListMode.newTopics,
-                    onTap: () => unawaited(
-                      controller.selectTopicListMode(TopicListMode.newTopics),
-                    ),
+                    onTap: () => unawaited(selectMode(TopicListMode.newTopics)),
                   ),
                   _TopicListTabItem(
                     controlKey: const ValueKey('topic-list-new-replies'),
@@ -291,9 +309,8 @@ class _TopicListNavigationControls extends StatelessWidget {
                     count: state.replyCount,
                     textStyle: secondaryTextStyle,
                     selected: mode == TopicListMode.newReplies,
-                    onTap: () => unawaited(
-                      controller.selectTopicListMode(TopicListMode.newReplies),
-                    ),
+                    onTap: () =>
+                        unawaited(selectMode(TopicListMode.newReplies)),
                   ),
                 ],
               ),
@@ -305,11 +322,15 @@ class _TopicListNavigationControls extends StatelessWidget {
                 child: _TopPeriodChooser(
                   period: period,
                   textStyle: secondaryTextStyle,
-                  onSelected: (value) => unawaited(
-                    controller.selectTopicListMode(TopicListMode.top(value)),
-                  ),
+                  onSelected: (value) =>
+                      unawaited(selectMode(TopicListMode.top(value))),
                 ),
               ),
+          if (showsFilters && stacked)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 12),
+              child: filters(),
+            ),
         ],
       ),
     );
@@ -439,6 +460,7 @@ class _TopicListTabItem extends StatelessWidget {
     required this.onTap,
     this.count = 0,
     this.showCountBadge = false,
+    this.showCount = true,
   });
 
   final Key controlKey;
@@ -446,13 +468,14 @@ class _TopicListTabItem extends StatelessWidget {
   final TextStyle? textStyle;
   final int count;
   final bool showCountBadge;
+  final bool showCount;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayLabel = count > 0 && !showCountBadge
+    final displayLabel = showCount && count > 0 && !showCountBadge
         ? '$label ($count)'
         : label;
     final labelWidget = Text(
@@ -486,7 +509,7 @@ class _TopicListTabItem extends StatelessWidget {
               color: selected ? theme.shell.selected : Colors.transparent,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: showCountBadge && count > 0
+            child: showCount && showCountBadge && count > 0
                 ? Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

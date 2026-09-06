@@ -40,22 +40,42 @@ enum TopicListMode {
   topDaily,
   popular;
 
-  static TopicListMode? fromRoute(ContentRoute? route) =>
-      switch ((route?.id, route?.feedPath)) {
-        ('latest', null) => latest,
-        ('new', '/new.json') => newActivity,
-        ('new-topics', '/new.json?subset=topics') => newTopics,
-        ('new-replies', '/new.json?subset=replies') => newReplies,
-        ('unread', '/unread.json') => unread,
-        ('top-all', '/top.json?period=all') => topAll,
-        ('top-yearly', '/top.json?period=yearly') => topYearly,
-        ('top-quarterly', '/top.json?period=quarterly') => topQuarterly,
-        ('top-monthly', '/top.json?period=monthly') => topMonthly,
-        ('top-weekly', '/top.json?period=weekly') => topWeekly,
-        ('top-daily', '/top.json?period=daily') => topDaily,
-        ('hot', '/hot.json') => popular,
-        _ => null,
-      };
+  static TopicListMode? fromRoute(ContentRoute? route) {
+    final known = switch ((route?.id, route?.feedPath)) {
+      ('latest', null) => latest,
+      ('new', '/new.json') => newActivity,
+      ('new-topics', '/new.json?subset=topics') => newTopics,
+      ('new-replies', '/new.json?subset=replies') => newReplies,
+      ('unread', '/unread.json') => unread,
+      ('top-all', '/top.json?period=all') => topAll,
+      ('top-yearly', '/top.json?period=yearly') => topYearly,
+      ('top-quarterly', '/top.json?period=quarterly') => topQuarterly,
+      ('top-monthly', '/top.json?period=monthly') => topMonthly,
+      ('top-weekly', '/top.json?period=weekly') => topWeekly,
+      ('top-daily', '/top.json?period=daily') => topDaily,
+      ('hot', '/hot.json') => popular,
+      _ => null,
+    };
+    if (known != null) return known;
+    if (route == null || !route.id.startsWith('topic-list-filter-')) {
+      return null;
+    }
+    final uri = Uri.tryParse(route.feedPath ?? '');
+    return switch (uri?.path) {
+      '/latest.json' => latest,
+      '/new.json' => switch (uri?.queryParameters['subset']) {
+        'topics' => newTopics,
+        'replies' => newReplies,
+        _ => newActivity,
+      },
+      '/unread.json' => unread,
+      '/hot.json' => popular,
+      '/top.json' => top(
+        TopPeriod.fromQueryValue(uri?.queryParameters['period'] ?? 'yearly'),
+      ),
+      _ => null,
+    };
+  }
 
   static TopicListMode top(TopPeriod period) => switch (period) {
     TopPeriod.all => topAll,
@@ -206,6 +226,29 @@ class ContentRoute {
     feedPath: mode.feedPath,
   );
 
+  factory ContentRoute.filteredTopicList(
+    TopicListMode mode, {
+    int? categoryId,
+    List<String> tags = const [],
+  }) {
+    if (categoryId == null && tags.isEmpty) return ContentRoute.topicList(mode);
+    final base = Uri.parse(mode.feedPath ?? '/latest.json');
+    final uri = base.replace(
+      queryParameters: <String, dynamic>{
+        ...base.queryParameters,
+        if (categoryId != null) 'category': '$categoryId',
+        if (tags.isNotEmpty) 'tags[]': tags,
+        if (tags.isNotEmpty) 'match_all_tags': 'true',
+      },
+    );
+    return ContentRoute(
+      id: 'topic-list-filter-$uri',
+      title: 'Topics',
+      icon: DIcons.layerGroup,
+      feedPath: uri.toString(),
+    );
+  }
+
   ContentRoute.fromDestination(SidebarDestination destination)
     : id = destination.id,
       title = destination.label,
@@ -259,6 +302,8 @@ class ContentRoute {
     if (path == null) return null;
     final uri = Uri.tryParse(path);
     if (uri == null || !uri.path.endsWith('.json')) return null;
+    final selected = int.tryParse(uri.queryParameters['category'] ?? '');
+    if (selected != null && selected > 0) return selected;
     final segments = uri.pathSegments;
     if (segments.length >= 4 && segments[0] == 'tags' && segments[1] == 'c') {
       final tagHasId = int.tryParse(_withoutJson(segments.last)) != null;
@@ -277,6 +322,10 @@ class ContentRoute {
     if (path == null) return null;
     final uri = Uri.tryParse(path);
     if (uri == null || !uri.path.endsWith('.json')) return null;
+    final selectedTags = uri.queryParametersAll['tags[]'];
+    if (selectedTags != null && selectedTags.isNotEmpty) {
+      return selectedTags.first;
+    }
     final segments = uri.pathSegments;
     if (segments.length >= 4 && segments[0] == 'tags' && segments[1] == 'c') {
       final last = _withoutJson(segments.last);
@@ -289,10 +338,24 @@ class ContentRoute {
     return link.slug;
   }
 
+  List<String> get tagNames {
+    final tags = Uri.tryParse(feedPath ?? '')?.queryParametersAll['tags[]'];
+    if (tags != null) return List.unmodifiable(tags);
+    final tag = tagName;
+    return tag == null ? const [] : [tag];
+  }
+
   bool get isTopicListFilter =>
-      TopicListMode.fromRoute(this) == TopicListMode.latest ||
+      TopicListMode.fromRoute(this) != null ||
       categoryId != null ||
       tagName != null;
+
+  /// Ordinary topic feeds that can stay beside an open topic.
+  bool get isTopicList =>
+      !isTopic &&
+      (TopicListMode.fromRoute(this) != null ||
+          isTopicListFilter ||
+          id == 'bookmarks');
 
   /// Contains presentation only, never fetched content or credentials.
   Map<String, Object?> toJson() => {

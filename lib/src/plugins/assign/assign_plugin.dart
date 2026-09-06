@@ -299,64 +299,110 @@ final class AssignPlugin
       );
     }
 
+    final values = <Widget>[
+      if (direct == null && canAssign)
+        _AssignTopicButton(
+          key: const Key('assign-topic-property'),
+          onTap: (anchorContext) => unawaited(
+            showAssignmentEditor(
+              context: anchorContext,
+              anchorContext: anchorContext,
+              siteUrl: siteUrl,
+              target: target,
+            ),
+          ),
+        )
+      else if (direct != null)
+        _TopicAssignmentPropertyRow(
+          key: const Key('assign-topic-property'),
+          assignment: direct,
+          targetLabel: 'Topic',
+          onChange: canAssign
+              ? (anchorContext) => unawaited(
+                  showAssignmentEditor(
+                    context: anchorContext,
+                    anchorContext: anchorContext,
+                    siteUrl: siteUrl,
+                    target: target,
+                    existing: direct,
+                  ),
+                )
+              : null,
+          onRemove: canAssign
+              ? (anchorContext) => unawaited(
+                  _removeAssignment(
+                    context: anchorContext,
+                    siteUrl: siteUrl,
+                    target: target,
+                    assignment: direct,
+                    targetLabel: 'Topic',
+                  ),
+                )
+              : null,
+          changeKey: const Key('assign-topic-change'),
+          removeKey: const Key('assign-topic-remove'),
+          writing: controller?.isWriting(siteUrl, target) == true,
+        ),
+      if (postAssignments.isNotEmpty)
+        _PostAssignmentLedger(
+          showTopDivider: direct != null || canAssign,
+          rows: [
+            for (final assignment in postAssignments)
+              postAssignmentRow(assignment),
+          ],
+        ),
+    ];
     return [
       TopicPropertySection(
         label: 'Assignments',
         layout: TopicPropertySectionLayout.standalone,
         showHeader: false,
-        values: [
-          if (direct == null && canAssign)
-            _AssignTopicButton(
-              key: const Key('assign-topic-property'),
-              onTap: (anchorContext) => unawaited(
-                showAssignmentEditor(
-                  context: anchorContext,
-                  anchorContext: anchorContext,
-                  siteUrl: siteUrl,
-                  target: target,
+        values: values,
+        header: (anchorContext, showDetails) => Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (direct != null || canAssign)
+              DButton(
+                key: const Key('assign-topic-header'),
+                icon: const DIcon(DIcons.userPlus, size: 14),
+                label: Text(
+                  direct == null ? 'Assign' : '@${direct.assignee.identifier}',
                 ),
+                tooltip: direct == null
+                    ? 'Assign topic'
+                    : 'Change topic assignment',
+                size: DButtonSize.small,
+                variant: DButtonVariant.flat,
+                onPressed: canAssign
+                    ? () => unawaited(
+                        showAssignmentEditor(
+                          context: anchorContext,
+                          anchorContext: anchorContext,
+                          siteUrl: siteUrl,
+                          target: target,
+                          existing: direct,
+                        ),
+                      )
+                    : null,
               ),
-            )
-          else if (direct != null)
-            _TopicAssignmentPropertyRow(
-              key: const Key('assign-topic-property'),
-              assignment: direct,
-              targetLabel: 'Topic',
-              onChange: canAssign
-                  ? (anchorContext) => unawaited(
-                      showAssignmentEditor(
-                        context: anchorContext,
-                        anchorContext: anchorContext,
-                        siteUrl: siteUrl,
-                        target: target,
-                        existing: direct,
+            if (direct != null || postAssignments.isNotEmpty)
+              DButton(
+                key: const Key('assign-topic-header-details'),
+                icon: const DIcon(DIcons.ellipsis, size: 14),
+                label: postAssignments.isEmpty
+                    ? const Text('Manage')
+                    : Text(
+                        '${postAssignments.length} assigned post${postAssignments.length == 1 ? '' : 's'}',
                       ),
-                    )
-                  : null,
-              onRemove: canAssign
-                  ? (anchorContext) => unawaited(
-                      _removeAssignment(
-                        context: anchorContext,
-                        siteUrl: siteUrl,
-                        target: target,
-                        assignment: direct,
-                        targetLabel: 'Topic',
-                      ),
-                    )
-                  : null,
-              changeKey: const Key('assign-topic-change'),
-              removeKey: const Key('assign-topic-remove'),
-              writing: controller?.isWriting(siteUrl, target) == true,
-            ),
-          if (postAssignments.isNotEmpty)
-            _PostAssignmentLedger(
-              showTopDivider: direct != null || canAssign,
-              rows: [
-                for (final assignment in postAssignments)
-                  postAssignmentRow(assignment),
-              ],
-            ),
-        ],
+                tooltip: 'Manage assignments',
+                size: DButtonSize.small,
+                variant: DButtonVariant.flat,
+                onPressed: showDetails,
+              ),
+          ],
+        ),
       ),
     ];
   }

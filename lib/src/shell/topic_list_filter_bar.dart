@@ -32,6 +32,9 @@ class TopicListFilterBar extends StatelessWidget {
     required this.onCategorySelected,
     required this.onTagSelected,
     this.inline = false,
+    this.wrap = false,
+    this.selectedTagNames,
+    this.onTagsSelected,
   });
 
   final String siteUrl;
@@ -44,6 +47,9 @@ class TopicListFilterBar extends StatelessWidget {
   final ValueChanged<TopicCategory?> onCategorySelected;
   final ValueChanged<String?> onTagSelected;
   final bool inline;
+  final bool wrap;
+  final List<String>? selectedTagNames;
+  final ValueChanged<List<String>>? onTagsSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -69,43 +75,55 @@ class TopicListFilterBar extends StatelessWidget {
             ..sort(_compareCategories));
     final theme = Theme.of(context);
 
-    final controls = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _CategoryFilterAnchor(
+    final controlChildren = <Widget>[
+      _CategoryFilterAnchor(
+        siteUrl: siteUrl,
+        categories: rootCategories,
+        selected: rootCategory,
+        onSelected: onCategorySelected,
+      ),
+      if (subcategories.isNotEmpty) ...[
+        if (!wrap) const SizedBox(width: 8),
+        _SubcategoryFilterAnchor(
           siteUrl: siteUrl,
-          categories: rootCategories,
-          selected: rootCategory,
+          parent: rootCategory!,
+          subcategories: subcategories,
+          selected: selectedCategory?.parentCategoryId == null
+              ? null
+              : selectedCategory,
           onSelected: onCategorySelected,
         ),
-        if (subcategories.isNotEmpty) ...[
-          const SizedBox(width: 8),
-          _SubcategoryFilterAnchor(
-            siteUrl: siteUrl,
-            parent: rootCategory!,
-            subcategories: subcategories,
-            selected: selectedCategory?.parentCategoryId == null
-                ? null
-                : selectedCategory,
-            onSelected: onCategorySelected,
-          ),
-        ],
-        if (taggingEnabled) ...[
-          const SizedBox(width: 8),
-          _TagFilterAnchor(
-            knownTags: knownTags,
-            selectedTagName: selectedTagName,
-            search: searchTags,
-            onSelected: onTagSelected,
-          ),
-        ],
       ],
-    );
+      if (taggingEnabled) ...[
+        if (!wrap) const SizedBox(width: 8),
+        _TagFilterAnchor(
+          knownTags: knownTags,
+          selectedTagName: selectedTagName,
+          selectedTagNames: selectedTagNames,
+          onTagsSelected: onTagsSelected,
+          search: searchTags,
+          onSelected: onTagSelected,
+        ),
+      ],
+    ];
+    final controls = wrap
+        ? Wrap(spacing: 8, runSpacing: 8, children: controlChildren)
+        : Row(mainAxisSize: MainAxisSize.min, children: controlChildren);
 
     return Material(
       key: const ValueKey('topic-list-filter-bar'),
       color: theme.shell.content,
-      child: inline
+      child: wrap
+          ? Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: topicListHorizontalPadding,
+              ),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: controls,
+              ),
+            )
+          : inline
           ? controls
           : ContentReadingLaneBox(
               widthLimit: topicListContentWidth,
@@ -176,6 +194,7 @@ class _CategoryFilterAnchor extends StatelessWidget {
       ),
       builder: (context, openMenu) => _FilterButton(
         key: const ValueKey('topic-list-category-filter'),
+        active: selected != null,
         label: selected?.name ?? 'Categories',
         icon: selected == null
             ? null
@@ -252,6 +271,7 @@ class _SubcategoryFilterAnchor extends StatelessWidget {
       ),
       builder: (context, openMenu) => _FilterButton(
         key: const ValueKey('topic-list-subcategory-filter'),
+        active: selected != null,
         label: selected?.name ?? 'Subcategories',
         icon: selected == null
             ? null
@@ -277,8 +297,12 @@ class _TagFilterAnchor extends StatefulWidget {
     required this.selectedTagName,
     required this.search,
     required this.onSelected,
+    this.selectedTagNames,
+    this.onTagsSelected,
   });
 
+  final List<String>? selectedTagNames;
+  final ValueChanged<List<String>>? onTagsSelected;
   final List<SidebarTag> knownTags;
   final String? selectedTagName;
   final TopicListTagSearch search;
@@ -306,11 +330,24 @@ class _TagFilterAnchorState extends State<_TagFilterAnchor> {
         builder: (pickerContext) => _TagFilterPicker(
           knownTags: widget.knownTags,
           selectedTagName: widget.selectedTagName,
+          selectedTagNames: widget.selectedTagNames,
           search: widget.search,
           onSelected: Navigator.of(pickerContext).pop,
         ),
       );
       if (!mounted || selected == null) return;
+      if (widget.onTagsSelected case final onSelected?) {
+        final tags = [...?widget.selectedTagNames];
+        if (selected.isEmpty) {
+          tags.clear();
+        } else if (tags.contains(selected)) {
+          tags.remove(selected);
+        } else {
+          tags.add(selected);
+        }
+        onSelected(tags);
+        return;
+      }
       final normalized = selected.isEmpty ? null : selected;
       if (normalized != widget.selectedTagName) widget.onSelected(normalized);
     } finally {
@@ -328,7 +365,10 @@ class _TagFilterAnchorState extends State<_TagFilterAnchor> {
       key: _anchorKey,
       child: _FilterButton(
         key: const ValueKey('topic-list-tag-filter'),
-        label: selected?.name ?? widget.selectedTagName ?? 'Tags',
+        active: widget.selectedTagName != null,
+        label: (widget.selectedTagNames?.length ?? 0) > 1
+            ? 'Tags · ${widget.selectedTagNames!.length}'
+            : selected?.name ?? widget.selectedTagName ?? 'Tags',
         icon: const DIcon(DIcons.tag, size: 14),
         semanticLabel: widget.selectedTagName == null
             ? 'Filter by tag'
@@ -348,8 +388,10 @@ class _FilterButton extends StatelessWidget {
     required this.onPressed,
     required this.maximumWidth,
     this.icon,
+    this.active = false,
   });
 
+  final bool active;
   final String label;
   final String semanticLabel;
   final VoidCallback? onPressed;
@@ -361,7 +403,14 @@ class _FilterButton extends StatelessWidget {
     constraints: BoxConstraints(maxWidth: maximumWidth, minHeight: 32),
     child: DecoratedBox(
       decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).shell.divider),
+        color: active
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: .08)
+            : null,
+        border: Border.all(
+          color: active
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: .35)
+              : Theme.of(context).shell.divider,
+        ),
         borderRadius: BorderRadius.circular(5),
       ),
       child: DButton(
@@ -380,7 +429,9 @@ class _FilterButton extends StatelessWidget {
         onPressed: onPressed,
         alignment: Alignment.centerLeft,
         size: DButtonSize.small,
-        variant: DButtonVariant.flat,
+        variant: active
+            ? DButtonVariant.transparentPrimary
+            : DButtonVariant.flat,
       ),
     ),
   );
@@ -392,8 +443,10 @@ class _TagFilterPicker extends StatefulWidget {
     required this.selectedTagName,
     required this.search,
     required this.onSelected,
+    this.selectedTagNames,
   });
 
+  final List<String>? selectedTagNames;
   final List<SidebarTag> knownTags;
   final String? selectedTagName;
   final TopicListTagSearch search;
@@ -470,7 +523,10 @@ class _TagFilterPickerState extends State<_TagFilterPicker> {
         if (query.isEmpty ||
             tag.name.toLowerCase().contains(query) ||
             tag.slug.toLowerCase().contains(query))
-          _TagChoice(value: tag.slug, label: tag.name),
+          _TagChoice(
+            value: widget.selectedTagNames == null ? tag.slug : tag.name,
+            label: tag.name,
+          ),
     ];
   }
 
@@ -503,7 +559,11 @@ class _TagFilterPickerState extends State<_TagFilterPicker> {
             const SizedBox(height: 4),
             AnchoredPickerOption(
               key: ValueKey(('topic-list-tag-filter-option', tag.value)),
-              selected: _sameTag(tag, widget.selectedTagName),
+              selected:
+                  widget.selectedTagNames?.any(
+                    (selected) => _sameTag(tag, selected),
+                  ) ??
+                  _sameTag(tag, widget.selectedTagName),
               showSelectionIndicator: true,
               leading: const DIcon(DIcons.tag, size: 16),
               title: Text(tag.label),

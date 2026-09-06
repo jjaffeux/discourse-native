@@ -1172,14 +1172,17 @@ void main() {
               find.byType(SuperListView),
             );
             final pinnedPadding = pinnedList.padding! as EdgeInsets;
-            expect(tester.getSize(find.byType(SuperListView)).width, 1200);
+            expect(
+              tester.getSize(find.byType(SuperListView)).width,
+              1200 - 344,
+            );
             expect(pinnedPadding.left, 15.5);
-            expect(pinnedPadding.right, 359.5);
+            expect(pinnedPadding.right, 15.5);
             expect(
               tester
                   .getSize(find.byKey(const ValueKey('topic-content-header')))
                   .width,
-              1200,
+              1200 - 344,
             );
             expect(scroll.positions, hasLength(1));
             expect(scroll.position, same(position));

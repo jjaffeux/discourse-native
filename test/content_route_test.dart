@@ -71,6 +71,30 @@ void main() {
       );
     });
 
+    test('filtered modes round trip category, multiple tags, and period', () {
+      for (final mode in TopicListMode.values) {
+        final route = ContentRoute.filteredTopicList(
+          mode,
+          categoryId: 22,
+          tags: const ['community', 'design-feedback'],
+        );
+        final restored = ContentRoute.fromJson(route.toJson());
+        expect(TopicListMode.fromRoute(restored), mode);
+        expect(restored.categoryId, 22);
+        expect(restored.tagNames, ['community', 'design-feedback']);
+        expect(restored.isTopicList, isTrue);
+        final uri = Uri.parse(restored.feedPath!);
+        expect(uri.queryParametersAll['tags[]'], [
+          'community',
+          'design-feedback',
+        ]);
+        expect(uri.queryParameters['match_all_tags'], 'true');
+        if (mode.topPeriod case final period?) {
+          expect(uri.queryParameters['period'], period.queryValue);
+        }
+      }
+    });
+
     test('does not identify category or ordinary feeds as tags', () {
       expect(
         ContentRoute.list(ListLink.parse('/c/support/5')!).tagName,
@@ -80,14 +104,14 @@ void main() {
       expect(ContentRoute.list(ListLink.parse('/tag/41')!).tagName, isNull);
     });
 
-    test('recognizes only recent, category, and tag lists as filters', () {
+    test('recognizes discovery modes, category, and tag lists as filters', () {
       expect(
         ContentRoute.topicList(TopicListMode.latest).isTopicListFilter,
         isTrue,
       );
       expect(
         ContentRoute.topicList(TopicListMode.topWeekly).isTopicListFilter,
-        isFalse,
+        isTrue,
       );
       expect(
         ContentRoute.list(ListLink.parse('/c/support/5')!).isTopicListFilter,

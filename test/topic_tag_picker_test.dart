@@ -19,6 +19,7 @@ void main() {
     WidgetTester tester, {
     TargetPlatform platform = TargetPlatform.macOS,
     required ValueChanged<List<TopicTag>?> onClosed,
+    List<TopicTag> selectedTags = const [design, mobile],
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -31,7 +32,7 @@ void main() {
                   await showTopicTagPicker(
                     context: context,
                     anchorContext: context,
-                    selectedTags: const [design, mobile],
+                    selectedTags: selectedTags,
                     capabilities: const TopicComposerCapabilities(
                       canTagTopics: true,
                       maxTagsPerTopic: 2,
@@ -52,31 +53,30 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    testWidgets(
-      'keeps ${platform.name} picker open while removing all tags and saves on dismissal',
-      (tester) async {
-        final results = <List<TopicTag>?>[];
-        await openPicker(tester, platform: platform, onClosed: results.add);
+    testWidgets('applies each ${platform.name} tag removal on selection', (
+      tester,
+    ) async {
+      final results = <List<TopicTag>?>[];
+      await openPicker(tester, platform: platform, onClosed: results.add);
 
-        for (final tag in [design, mobile]) {
-          await tester.tap(option(tag.name));
-          await tester.pumpAndSettle();
+      await tester.tap(option(design.name));
+      await tester.pumpAndSettle();
+      expect(find.byType(TopicTagPicker), findsNothing);
+      expect(results, [
+        [mobile],
+      ]);
 
-          expect(find.byType(TopicTagPicker), findsOneWidget);
-          expect(
-            tester.widget<AnchoredPickerOption>(option(tag.name)).selected,
-            isFalse,
-          );
-          expect(results, isEmpty);
-        }
-
-        await tester.tapAt(const Offset(790, 10));
-        await tester.pumpAndSettle();
-
-        expect(find.byType(TopicTagPicker), findsNothing);
-        expect(results, [<TopicTag>[]]);
-      },
-    );
+      await openPicker(
+        tester,
+        platform: platform,
+        selectedTags: results.last!,
+        onClosed: results.add,
+      );
+      await tester.tap(option(mobile.name));
+      await tester.pumpAndSettle();
+      expect(find.byType(TopicTagPicker), findsNothing);
+      expect(results.last, isEmpty);
+    });
   }
 
   testWidgets('adding after a removal closes with the updated selection', (
@@ -91,6 +91,12 @@ void main() {
 
     await tester.tap(option(design.name));
     await tester.pumpAndSettle();
+    expect(results.last, [mobile]);
+    await openPicker(
+      tester,
+      selectedTags: results.last!,
+      onClosed: results.add,
+    );
     expect(
       tester.widget<AnchoredPickerOption>(option(support.name)).enabled,
       isTrue,
@@ -100,9 +106,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TopicTagPicker), findsNothing);
-    expect(results, [
-      [mobile, support],
-    ]);
+    expect(results.last, [mobile, support]);
   });
 
   testWidgets('dismissing without changing tags returns no selection', (

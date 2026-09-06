@@ -47,6 +47,7 @@ import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
 import 'topic_change_owner.dart';
+import 'topic_inbox_header.dart';
 import 'topic_list_view.dart';
 import 'topic_move_posts.dart';
 import 'topic_progress.dart';
@@ -62,6 +63,8 @@ class TopicView extends StatefulWidget {
   const TopicView({
     super.key,
     this.showSidebar = false,
+    this.inbox = false,
+    this.keepTopicListOpen = false,
     this.canReturnToSidebar = false,
     this.sidebarStore = const TopicSidebarStore(),
     this.recommendationsTabStore = const TopicRecommendationsTabStore(),
@@ -81,6 +84,8 @@ class TopicView extends StatefulWidget {
       index == null ? 0 : (index.isOdd ? 1 : 199);
 
   final bool showSidebar;
+  final bool inbox;
+  final bool keepTopicListOpen;
 
   final bool canReturnToSidebar;
 
@@ -244,6 +249,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   TopicViewportListenable get _viewportState => _viewport;
   DateTime? get _floatingDay => _viewportState.floatingDay;
   double get _floatingDayOffset => _viewportState.floatingDayOffset;
+  (String?, int?)? _recommendationsJump;
+
   int? get _progressPosition => _viewportState.progressPosition;
   TopicViewportSnapshot? get _laidOutSnapshot => _viewport.laidOutSnapshot;
   int? get _anchorRestorePostId => _viewport.anchorRestorePostId;
@@ -595,6 +602,27 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         'itemIndex': index,
         'after': _sliverLayoutData(),
       });
+    }
+  }
+
+  void _navigatePost(
+    ShellController controller,
+    TopicViewportSnapshot snapshot,
+    int direction,
+  ) {
+    final posts = snapshot.streamIds;
+    final currentIndex = _chatContextCurrentPostId == null
+        ? (_progressPosition ?? 1) - 1
+        : posts.indexOf(_chatContextCurrentPostId!);
+    final nextIndex = currentIndex + direction;
+    if (nextIndex < 0 || nextIndex >= posts.length) return;
+    final nextId = posts[nextIndex];
+    final loadedIndex = snapshot.postIds.indexOf(nextId);
+    if (loadedIndex >= 0) {
+      _chatContextCurrentPostId = nextId;
+      _jumpTo(loadedIndex + (snapshot.hasEarlier ? 1 : 0));
+    } else {
+      unawaited(controller.jumpToCurrentTopicIndex(nextIndex + 1));
     }
   }
 
@@ -1493,31 +1521,66 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     ),
   );
 
-  Widget _buildTopicBottomBar(ShellController controller, int totalPosts) =>
-      ListenableBuilder(
-        listenable: _viewportState.progressPositionListenable,
-        builder: (context, child) {
-          final progressPosition = _progressPosition;
-          final showProgress = progressPosition != null && totalPosts > 1;
-          if (!showProgress && !widget.canReply) return const SizedBox.shrink();
-          return _TopicBottomBar(
-            progressPosition: showProgress ? progressPosition : null,
-            totalPosts: totalPosts,
-            canReply: widget.canReply,
-            onProgressPressed: showProgress
-                ? () => unawaited(
-                    showTopicProgress(
-                      context: context,
-                      controller: controller,
-                      position: progressPosition,
-                      total: totalPosts,
-                    ),
-                  )
-                : null,
-            onReplyPressed: controller.openReply,
-          );
-        },
+  Future<void> _showRecommendations(
+    ShellController controller,
+    TopicViewportSnapshot snapshot,
+  ) async {
+    final identity = (snapshot.siteUrl, snapshot.topicId);
+    if (!snapshot.hasMore) {
+      _jumpToBoundary(end: true);
+      return;
+    }
+    _recommendationsJump = identity;
+    final opened = await controller.jumpToCurrentTopicIndex(
+      snapshot.streamIds.length,
+    );
+    if (!mounted || _recommendationsJump != identity) return;
+    if (!opened) {
+      _recommendationsJump = null;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text("Couldn't load more topics. Please try again."),
+        ),
       );
+    }
+  }
+
+  Widget _buildTopicBottomBar(
+    ShellController controller,
+    int totalPosts,
+    TopicViewportSnapshot snapshot,
+  ) => ListenableBuilder(
+    listenable: _viewportState.progressPositionListenable,
+    builder: (context, child) {
+      final progressPosition = _progressPosition;
+      final showProgress = progressPosition != null && totalPosts > 1;
+      if (!showProgress && !widget.canReply && !widget.inbox) {
+        return const SizedBox.shrink();
+      }
+      return _TopicBottomBar(
+        progressPosition: showProgress ? progressPosition : null,
+        totalPosts: totalPosts,
+        canReply: widget.canReply,
+        onProgressPressed: showProgress
+            ? () => unawaited(
+                showTopicProgress(
+                  context: context,
+                  controller: controller,
+                  position: progressPosition,
+                  total: totalPosts,
+                ),
+              )
+            : null,
+        onReplyPressed: controller.openReply,
+        onMoreTopics:
+            widget.inbox &&
+                (snapshot.recommendations == null ||
+                    snapshot.recommendations!.isNotEmpty)
+            ? () => unawaited(_showRecommendations(controller, snapshot))
+            : null,
+      );
+    },
+  );
 
   Widget _buildForViewport(
     BuildContext context,
@@ -1543,10 +1606,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       _sidebarOverlayOpen = false;
     }
     final canPinSidebar =
+        !widget.inbox &&
         widget.showSidebar &&
         viewportWidth >= _TopicSidebarPanel.minimumPinnedViewportWidth;
     final showPinnedSidebar = canPinSidebar && !_sidebarCollapsed;
-    final showOverlaySidebar = !canPinSidebar && _sidebarOverlayOpen;
+    final showOverlaySidebar =
+        !widget.inbox && !canPinSidebar && _sidebarOverlayOpen;
     final pinnedSidebarInset = showPinnedSidebar
         ? _TopicSidebarPanel.dockedWidth
         : 0.0;
@@ -1568,6 +1633,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               child: Column(
                 children: [
                   _TopicViewHeader(
+                    inbox: widget.inbox,
+                    keepTopicListOpen: widget.keepTopicListOpen,
+                    registry: widget.registry,
                     title: widget.route?.title ?? 'Topic',
                     siteUrl: snapshot.siteUrl,
                     route: widget.route,
@@ -1632,6 +1700,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       return Column(
         children: [
           _TopicViewHeader(
+            inbox: widget.inbox,
+            keepTopicListOpen: widget.keepTopicListOpen,
+            registry: widget.registry,
             title: widget.route?.title ?? 'Topic',
             siteUrl: snapshot.siteUrl,
             route: widget.route,
@@ -1669,6 +1740,18 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
     final hasRecommendations = snapshot.recommendations?.isNotEmpty == true;
     final showRecommendations = !snapshot.hasMore && hasRecommendations;
+    if (_recommendationsJump == (snapshot.siteUrl, snapshot.topicId) &&
+        !snapshot.hasMore &&
+        !snapshot.loading) {
+      _recommendationsJump = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            _topicIdentity?.$1 == snapshot.siteUrl &&
+            _topicIdentity?.$2 == snapshot.topicId) {
+          _jumpToBoundary(end: true);
+        }
+      });
+    }
     // A null payload is unresolved rather than empty: Discourse only sends
     // the recommendation fields with the final post window. Reserve the
     // eventual panel while that window is still outstanding so its arrival
@@ -1903,6 +1986,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         key: ValueKey(('topic-post-boundary', siteUrl, snapshot.topicId)),
         debugLabel: 'topic post stream',
         initiallyActive: true,
+        onNextPost: () => _navigatePost(controller, snapshot, 1),
+        onPreviousPost: () => _navigatePost(controller, snapshot, -1),
         scrollController: _scroll!,
         onStart: () => _jumpToBoundary(end: false),
         onEnd: () => _jumpToBoundary(end: true),
@@ -1917,6 +2002,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           child: Column(
             children: [
               _TopicViewHeader(
+                inbox: widget.inbox,
+                keepTopicListOpen: widget.keepTopicListOpen,
+                registry: widget.registry,
                 title: snapshot.topic!.title,
                 siteUrl: siteUrl,
                 route: widget.route,
@@ -1951,6 +2039,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                           _buildTopicBottomBar(
                             controller,
                             snapshot.streamIds.length,
+                            snapshot,
                           ),
                         ],
                       ),
@@ -2008,6 +2097,7 @@ class _TopicBottomBar extends StatelessWidget {
     required this.canReply,
     required this.onProgressPressed,
     required this.onReplyPressed,
+    this.onMoreTopics,
   });
 
   final int? progressPosition;
@@ -2015,6 +2105,7 @@ class _TopicBottomBar extends StatelessWidget {
   final bool canReply;
   final VoidCallback? onProgressPressed;
   final VoidCallback onReplyPressed;
+  final VoidCallback? onMoreTopics;
 
   @override
   Widget build(BuildContext context) {
@@ -2043,6 +2134,17 @@ class _TopicBottomBar extends StatelessWidget {
                     variant: DButtonVariant.primary,
                     size: DButtonSize.small,
                   ),
+                if (onMoreTopics != null) ...[
+                  const SizedBox(width: 8),
+                  DButton(
+                    key: const ValueKey('topic-more-topics-jump'),
+                    label: const Text('More topics'),
+                    tooltip: 'Related and suggested topics',
+                    onPressed: onMoreTopics,
+                    variant: DButtonVariant.flat,
+                    size: DButtonSize.small,
+                  ),
+                ],
                 const Spacer(),
                 if (progressPosition case final position?)
                   TopicProgressButton(
@@ -2446,8 +2548,14 @@ class _TopicViewHeader extends StatelessWidget {
     this.bookmarkBusy = false,
     this.sidebarVisible = false,
     this.onToggleSidebar,
+    this.inbox = false,
+    this.keepTopicListOpen = false,
+    this.registry = PluginRegistry.empty,
   });
 
+  final bool inbox;
+  final bool keepTopicListOpen;
+  final PluginRegistry registry;
   final String title;
   final String? siteUrl;
   final bool canReturnToSidebar;
@@ -2460,6 +2568,19 @@ class _TopicViewHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (inbox) {
+      return TopicInboxHeader(
+        title: title,
+        siteUrl: this.siteUrl,
+        topic: this.topic,
+        route: route,
+        canReturnToSidebar: canReturnToSidebar,
+        keepTopicListOpen: keepTopicListOpen,
+        isConnected: isConnected,
+        bookmarkBusy: bookmarkBusy,
+        registry: registry,
+      );
+    }
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
     final titleStyle = theme.textTheme.titleSmall?.copyWith(
@@ -3637,6 +3758,7 @@ class _PostTileState extends State<_PostTile> {
       child: PostActions(
         siteUrl: widget.siteUrl,
         post: post,
+        persistent: true,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
           child: Column(
@@ -3786,6 +3908,8 @@ class _PostTileState extends State<_PostTile> {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
+                  const SizedBox(width: 4),
+                  const PostMoreActionsButton(),
                 ],
               ),
               if (post.notice case final notice?) ...[

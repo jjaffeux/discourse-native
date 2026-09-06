@@ -132,6 +132,29 @@ class _MainContentBody extends StatelessWidget {
     if (route == null) return ColoredBox(color: theme.shell.content);
     final pluginContent = registry.content(context, route);
     final pluginOwnsChrome = registry.ownsContentChrome(context, route);
+    final sourceRoute = state.sourceRoute;
+    if (pluginContent == null && !pluginOwnsChrome && sourceRoute != null) {
+      return Material(
+        color: theme.shell.content,
+        child: SafeArea(
+          left: false,
+          child: Column(
+            children: [
+              if (forumTabsEnabled) const CurrentForumTabsBar(),
+              Expanded(
+                child: _TopicInboxWorkspace(
+                  key: ValueKey((state.siteUrl, state.activeTabId)),
+                  layout: layout,
+                  state: state,
+                  sourceRoute: sourceRoute,
+                  registry: registry,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final usesTopicToolbar =
         !layout.isCompact &&
         !pluginOwnsChrome &&
@@ -216,6 +239,150 @@ class _MainContentBody extends StatelessWidget {
   }
 }
 
+/// The list owns a stable subtree, including when a small window shows only
+/// the reader. Opening a topic must not dispose its scroll or paging state.
+class _TopicInboxWorkspace extends StatelessWidget {
+  const _TopicInboxWorkspace({
+    super.key,
+    required this.layout,
+    required this.state,
+    required this.sourceRoute,
+    required this.registry,
+  });
+
+  final ShellLayout layout;
+  final _MainContentSnapshot state;
+  final ContentRoute sourceRoute;
+  final PluginRegistry registry;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final controller = ShellScope.read(context);
+      final theme = Theme.of(context);
+      final topicOpen = state.route!.isTopic;
+      final split = topicOpen && constraints.maxWidth >= 880;
+      final listWidth = split
+          ? (constraints.maxWidth * .30).clamp(304.0, 380.0)
+          : constraints.maxWidth;
+      return Stack(
+        children: [
+          PositionedDirectional(
+            key: const ValueKey('inbox-topic-list-pane'),
+            start: 0,
+            top: 0,
+            bottom: 0,
+            width: listWidth,
+            child: Offstage(
+              offstage: topicOpen && !split,
+              child: TickerMode(
+                enabled: !topicOpen || split,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: BorderDirectional(
+                      end: BorderSide(color: theme.shell.divider),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: shellHeaderHeight,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            children: [
+                              if (layout.isCompact)
+                                DButton.iconOnly(
+                                  icon: const DIcon(DIcons.arrowLeft, size: 18),
+                                  tooltip: 'Back',
+                                  variant: DButtonVariant.flat,
+                                  onPressed: () => controller.handleBack(
+                                    canReturnToSidebar: true,
+                                  ),
+                                ),
+                              Expanded(
+                                child: Text(
+                                  'Topics',
+                                  style: theme.textTheme.titleMedium,
+                                ),
+                              ),
+                              ...registry.contentHeaderActions(
+                                context,
+                                sourceRoute,
+                              ),
+                              if (state.isConnected &&
+                                  state.siteUrl != null &&
+                                  sourceRoute.categoryId != null)
+                                CategoryNotificationLevelButton(
+                                  siteUrl: state.siteUrl!,
+                                  categoryId: sourceRoute.categoryId!,
+                                ),
+                              if (!topicOpen &&
+                                  ShellTitleBar.columnsCarryUserMenu) ...[
+                                ...registry.shellHeaderActions(
+                                  context,
+                                  surface: PluginHeaderSurface.content,
+                                  compact: layout.isCompact,
+                                  ringColor: theme.shell.content,
+                                ),
+                                UserMenuButton(ringColor: theme.shell.content),
+                              ],
+                              _TopicCreateAction(
+                                controller: controller,
+                                compact: true,
+                                fromList: true,
+                                showLabel:
+                                    !split && constraints.maxWidth >= 760,
+                                leadingPadding: false,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (!ShellTitleBar.isSupported)
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          child: ForumSearch(dense: true),
+                        ),
+                      Expanded(
+                        child: _FeedBackedContent(
+                          route: sourceRoute,
+                          siteUrl: state.siteUrl,
+                          inbox: true,
+                          keepTopicOpen: split,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (topicOpen)
+            PositionedDirectional(
+              key: const ValueKey('inbox-topic-reader-pane'),
+              start: split ? listWidth : 0,
+              end: 0,
+              top: 0,
+              bottom: 0,
+              child: TopicView(
+                key: ValueKey(state.route!.topicId),
+                inbox: true,
+                keepTopicListOpen: split,
+                route: state.route!,
+                canReturnToSidebar: layout.isCompact,
+                canReply: state.canReply,
+                bookmarkBusy: state.bookmarkBusy,
+                isConnected: state.isConnected,
+                registry: registry,
+              ),
+            ),
+        ],
+      );
+    },
+  );
+}
+
 class _ContentViewport extends StatelessWidget {
   const _ContentViewport({
     required this.layout,
@@ -293,7 +460,7 @@ class _ContentViewport extends StatelessWidget {
     }
     if (route.isTopic) {
       return TopicView(
-        showSidebar: layout == ShellLayout.expanded,
+        inbox: true,
         canReturnToSidebar: layout.isCompact,
         route: route,
         canReply: canReply,
@@ -319,6 +486,8 @@ class _FeedBackedContent extends StatelessWidget {
     this.filterCategories = const [],
     this.fallback,
     this.topicListActions,
+    this.inbox = false,
+    this.keepTopicOpen = false,
   });
 
   final ContentRoute route;
@@ -326,6 +495,8 @@ class _FeedBackedContent extends StatelessWidget {
   final List<TopicCategory> filterCategories;
   final Widget? fallback;
   final Widget? topicListActions;
+  final bool inbox;
+  final bool keepTopicOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -346,11 +517,13 @@ class _FeedBackedContent extends StatelessWidget {
         } else if (route.isMessages) {
           content = MessageInboxPage(feed: feed);
         } else {
-          content = TopicListView(feed: feed);
+          content = TopicListView(feed: feed, inbox: inbox);
         }
 
         if (TopicListMode.fromRoute(route) != null || route.isTopicListFilter) {
           return TopicListNavigation(
+            stacked: inbox,
+            keepTopicOpen: keepTopicOpen,
             trailing: topicListActions,
             child: content,
           );
@@ -802,23 +975,33 @@ class _TopicCreateAction extends StatelessWidget {
     required this.controller,
     this.compact = false,
     this.leadingPadding = true,
+    this.fromList = false,
+    this.showLabel,
   });
 
   final ShellController controller;
   final bool compact;
   final bool leadingPadding;
+  final bool fromList;
+  final bool? showLabel;
 
   @override
   Widget build(BuildContext context) => _TopicFeedSelector<bool>(
     controller: controller,
-    select: (controller) => controller.canCreateTopicHere,
+    select: (controller) => fromList
+        ? controller.canCreateTopicFromList
+        : controller.canCreateTopicHere,
     builder: (context, canCreateTopic, _) => canCreateTopic
         ? Padding(
             padding: EdgeInsets.only(left: leadingPadding ? 8 : 0),
             child: TopicCreateButton(
-              showLabel: MediaQuery.sizeOf(context).width >= 760,
+              showLabel: showLabel ?? MediaQuery.sizeOf(context).width >= 760,
               compact: compact,
-              onPressed: () => unawaited(controller.openNewTopic()),
+              onPressed: () => unawaited(
+                fromList
+                    ? controller.openNewTopicFromList()
+                    : controller.openNewTopic(),
+              ),
             ),
           )
         : const SizedBox.shrink(),
@@ -1038,6 +1221,7 @@ class _MainContentSnapshot {
     required this.siteUrl,
     required this.activeTabId,
     required this.route,
+    required this.sourceRoute,
     required this.canPop,
     required this.canReply,
     required this.bookmarkBusy,
@@ -1052,6 +1236,7 @@ class _MainContentSnapshot {
         siteUrl: controller.currentInstance?.url,
         activeTabId: controller.activeTabId,
         route: controller.currentContent,
+        sourceRoute: controller.topicListContent,
         canPop: controller.canPopContent,
         canReply: controller.canReplyHere,
         bookmarkBusy: switch ((
@@ -1091,6 +1276,7 @@ class _MainContentSnapshot {
   final String? siteUrl;
   final String? activeTabId;
   final ContentRoute? route;
+  final ContentRoute? sourceRoute;
   final bool canPop;
   final bool canReply;
   final bool bookmarkBusy;
@@ -1105,6 +1291,7 @@ class _MainContentSnapshot {
       siteUrl == other.siteUrl &&
       activeTabId == other.activeTabId &&
       identical(route, other.route) &&
+      identical(sourceRoute, other.sourceRoute) &&
       canPop == other.canPop &&
       canReply == other.canReply &&
       bookmarkBusy == other.bookmarkBusy &&
@@ -1118,6 +1305,7 @@ class _MainContentSnapshot {
     siteUrl,
     activeTabId,
     identityHashCode(route),
+    identityHashCode(sourceRoute),
     canPop,
     canReply,
     bookmarkBusy,

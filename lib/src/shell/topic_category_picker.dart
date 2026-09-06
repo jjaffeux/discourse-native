@@ -19,6 +19,11 @@ class TopicCategoryMenuAnchor extends StatefulWidget {
     required this.categoryId,
     required this.enabled,
     required this.builder,
+    this.rootOnly = false,
+    this.parentCategoryId,
+    this.removeCategoryId,
+    this.removeLabel,
+    this.selectedCategoryId,
   });
 
   final String siteUrl;
@@ -26,6 +31,11 @@ class TopicCategoryMenuAnchor extends StatefulWidget {
   final int? categoryId;
   final bool enabled;
   final TopicCategoryMenuAnchorBuilder builder;
+  final bool rootOnly;
+  final int? parentCategoryId;
+  final int? removeCategoryId;
+  final String? removeLabel;
+  final int? selectedCategoryId;
 
   @override
   State<TopicCategoryMenuAnchor> createState() =>
@@ -55,11 +65,23 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
         context: context,
         anchorContext: anchorContext,
         siteUrl: widget.siteUrl,
-        selectedCategoryId: widget.categoryId,
-        search: (term) => shell.searchTopicCategoriesForEditor(
-          siteUrl: widget.siteUrl,
-          term: term,
-        ),
+        selectedCategoryId: widget.selectedCategoryId ?? widget.categoryId,
+        removeCategoryId: widget.removeCategoryId,
+        removeLabel: widget.removeLabel,
+        search: (term) async {
+          final results = await shell.searchTopicCategoriesForEditor(
+            siteUrl: widget.siteUrl,
+            term: term,
+          );
+          return results
+              .where(
+                (category) => widget.rootOnly
+                    ? category.parentCategoryId == null
+                    : widget.parentCategoryId == null ||
+                          category.parentCategoryId == widget.parentCategoryId,
+              )
+              .toList();
+        },
         pathLabelFor: (category) =>
             shell.topicCategoryPathLabel(category, siteUrl: widget.siteUrl),
       );
@@ -102,6 +124,8 @@ Future<int?> showTopicCategoryPicker({
   required int? selectedCategoryId,
   required TopicCategorySearchCallback search,
   required String Function(TopicCategory category) pathLabelFor,
+  int? removeCategoryId,
+  String? removeLabel,
 }) => showAnchoredPicker<int>(
   context: context,
   anchorContext: anchorContext,
@@ -114,6 +138,8 @@ Future<int?> showTopicCategoryPicker({
     search: search,
     pathLabelFor: pathLabelFor,
     onSelected: Navigator.of(pickerContext).pop,
+    removeCategoryId: removeCategoryId,
+    removeLabel: removeLabel,
   ),
 );
 
@@ -125,8 +151,12 @@ class TopicCategoryPicker extends StatefulWidget {
     required this.search,
     required this.onSelected,
     required this.pathLabelFor,
+    this.removeCategoryId,
+    this.removeLabel,
   });
 
+  final int? removeCategoryId;
+  final String? removeLabel;
   final String siteUrl;
   final int? selectedCategoryId;
   final TopicCategorySearchCallback search;
@@ -204,6 +234,12 @@ class _TopicCategoryPickerState extends State<TopicCategoryPicker> {
       onQuerySubmitted: (_) => _submitQuery(),
       separatorKey: const ValueKey('topic-category-picker-divider'),
       children: [
+        if (widget.removeCategoryId case final id?)
+          AnchoredPickerOption(
+            key: const ValueKey('topic-category-remove'),
+            title: Text(widget.removeLabel ?? 'Remove category'),
+            onTap: () => widget.onSelected(id),
+          ),
         if (_loading)
           const AnchoredPickerProgress()
         else if (_error case final error?)

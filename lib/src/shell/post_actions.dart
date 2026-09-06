@@ -9,6 +9,7 @@ import '../models/post_flag.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
@@ -33,11 +34,13 @@ class PostActions extends StatefulWidget {
     required this.siteUrl,
     required this.post,
     required this.child,
+    this.persistent = false,
   });
 
   final String siteUrl;
   final Post post;
   final Widget child;
+  final bool persistent;
 
   @override
   State<PostActions> createState() => _PostActionsState();
@@ -48,6 +51,7 @@ enum _PostActionsHoverTarget { post, toolbar }
 class _PostActionsState extends State<PostActions> {
   static const double _inset = 8;
 
+  final MenuController _menu = MenuController();
   final OverlayPortalController _portal = OverlayPortalController();
   final FocusNode _firstActionFocus = FocusNode(
     debugLabel: 'First post action',
@@ -87,6 +91,7 @@ class _PostActionsState extends State<PostActions> {
   }
 
   void _hideForScroll() {
+    if (_menu.isOpen) _menu.close();
     _suppressed = true;
     _closeNow(force: true);
   }
@@ -153,6 +158,10 @@ class _PostActionsState extends State<PostActions> {
   }
 
   void _openFromKeyboard() {
+    if (widget.persistent) {
+      _menu.open();
+      return;
+    }
     _suppressed = false;
     _open();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -696,6 +705,30 @@ class _PostActionsState extends State<PostActions> {
   }
 
   Widget _buildActionList(BuildContext context, List<PostAction> actions) {
+    if (widget.persistent) {
+      final child = _PostActionsScope(
+        actions: actions,
+        menu: _menu,
+        firstFocus: _firstActionFocus,
+        onInvoke: _invokeFrom,
+        postNumber: widget.post.postNumber,
+        child: CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.contextMenu):
+                _openFromKeyboard,
+            const SingleActivator(LogicalKeyboardKey.f10, shift: true):
+                _openFromKeyboard,
+          },
+          child: widget.child,
+        ),
+      );
+      return context.isTouch && actions.isNotEmpty
+          ? GestureDetector(
+              onLongPress: () => _openSheet(actions),
+              child: child,
+            )
+          : child;
+    }
     if (actions.isEmpty) return widget.child;
 
     // Hover is wired unconditionally: a MouseRegion simply never fires without
@@ -902,6 +935,77 @@ class _PostActionsMenu extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _PostActionsScope extends InheritedWidget {
+  const _PostActionsScope({
+    required this.actions,
+    required this.menu,
+    required this.firstFocus,
+    required this.onInvoke,
+    required this.postNumber,
+    required super.child,
+  });
+  final List<PostAction> actions;
+  final MenuController menu;
+  final FocusNode firstFocus;
+  final void Function(PostAction, BuildContext) onInvoke;
+  final int postNumber;
+  @override
+  bool updateShouldNotify(_PostActionsScope oldWidget) => true;
+}
+
+/// A permanent, keyboard-reachable entry point to the same guarded actions
+/// used by the post toolbar and touch sheet.
+class PostMoreActionsButton extends StatelessWidget {
+  const PostMoreActionsButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<_PostActionsScope>();
+    if (scope == null || scope.actions.isEmpty) return const SizedBox.shrink();
+    return MenuAnchor(
+      controller: scope.menu,
+      onOpen: () => WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted && scope.menu.isOpen) {
+          scope.firstFocus.requestFocus();
+        }
+      }),
+      menuChildren: [
+        for (final action in scope.actions)
+          MenuItemButton(
+            focusNode:
+                identical(
+                  action,
+                  scope.actions.where((item) => item.enabled).firstOrNull,
+                )
+                ? scope.firstFocus
+                : null,
+            leadingIcon: DIcon(
+              action.icon,
+              size: 16,
+              color: action.destructive
+                  ? Theme.of(context).colorScheme.error
+                  : action.tint,
+            ),
+            onPressed: action.enabled
+                ? () => scope.onInvoke(action, context)
+                : null,
+            child: Text(action.label),
+          ),
+      ],
+      builder: (context, menu, _) => DButton.iconOnly(
+        key: ValueKey('post-more-actions-${scope.postNumber}'),
+        icon: const DIcon(DIcons.ellipsis, size: 16),
+        tooltip: 'More actions for post ${scope.postNumber}',
+        semanticLabel: 'More actions for post ${scope.postNumber}',
+        variant: DButtonVariant.flat,
+        size: DButtonSize.small,
+        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
       ),
     );
   }
