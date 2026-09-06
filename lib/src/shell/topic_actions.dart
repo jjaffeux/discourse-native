@@ -387,7 +387,7 @@ class TopicStatusButton extends StatelessWidget {
                   dimension: 16,
                   child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
-              : const DIcon(DIcons.ellipsis, size: 16),
+              : const DIcon(DIcons.gear, size: 16),
         ),
       ),
     );

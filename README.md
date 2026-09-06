@@ -755,6 +755,7 @@ only when the site allows it. Enter saves a title and Escape cancels it.
 The taxonomy stays on one line: up to three tags fit beside the categories,
 with the remaining tags accessible through a searchable overflow picker.
 Readers without editing permission can still inspect every tag.
+Topic actions open from the gear icon in the reader header.
 
 Plugin properties can supply a compact `TopicPropertySection.header` builder;
 other properties remain available through a labelled details popover. The

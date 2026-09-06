@@ -2681,7 +2681,7 @@ void _registerTopicReadingTests() {
         );
         final moreIcon = find.descendant(
           of: more,
-          matching: find.dIcon(DIcons.ellipsis),
+          matching: find.dIcon(DIcons.gear),
         );
         expect(header, findsOneWidget);
         expect(title, findsOneWidget);
