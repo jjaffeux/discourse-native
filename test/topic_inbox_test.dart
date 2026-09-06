@@ -7,12 +7,14 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_actions.dart';
+import 'package:discourse_native/src/shell/topic_inbox_header.dart';
 import 'package:discourse_native/src/shell/topic_inbox_row.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
@@ -90,6 +92,189 @@ void main() {
           matching: find.byType(TopicNotificationLevelButton),
         ),
         findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'many tags stay beside categories and hidden tags can be removed immediately',
+    (tester) async {
+      final tags = [
+        for (var id = 1; id <= 27; id++) TopicTag(id: id, name: 'region-$id'),
+      ];
+      final setup = await _setup(tester, tags: tags);
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
+      final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
+      final parent = find.byTooltip('Edit topic category');
+      final child = find.byTooltip('Edit topic subcategory');
+      final height = tester.getSize(taxonomy).height;
+      expect(height, lessThan(40));
+      expect(
+        tester.getCenter(overflow).dy,
+        closeTo(tester.getCenter(parent).dy, 1),
+      );
+      expect(
+        tester.getCenter(overflow).dy,
+        closeTo(tester.getCenter(child).dy, 1),
+      );
+      expect(find.text('Last activity 2m ago'), findsOneWidget);
+
+      await tester.tap(overflow);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('topic-tag-picker-query')),
+        'region-27',
+      );
+      await tester.pumpAndSettle(const Duration(milliseconds: 300));
+      await tester.tap(
+        find.byKey(const ValueKey(('topic-tag-picker-option', 'region-27'))),
+      );
+      await tester.pumpAndSettle();
+      expect(setup.controller.currentTopic!.tags, hasLength(26));
+      expect(
+        setup.api.topicTagsUpdated.single['tags'],
+        isNot(contains('region-27')),
+      );
+      expect(tester.getSize(taxonomy).height, height);
+      expect(find.text('Done'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('read-only topics still expose every collapsed tag', (
+    tester,
+  ) async {
+    final tags = [
+      for (var id = 1; id <= 27; id++) TopicTag(id: id, name: 'region-$id'),
+    ];
+    final setup = await _setup(tester, tags: tags, canEditTags: false);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-header-add-tag')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('topic-header-tags-search')),
+      'REGION-27',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('# region-27'), findsOneWidget);
+    expect(find.byType(Checkbox), findsNothing);
+    expect(setup.api.topicTagsUpdated, isEmpty);
+    expect(setup.controller.currentTopic!.tags, hasLength(27));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'narrow headers keep categories and tag overflow accessible with large text',
+    (tester) async {
+      final tags = [
+        for (var id = 1; id <= 27; id++)
+          TopicTag(id: id, name: 'long-production-region-$id'),
+      ];
+      final setup = await _setup(tester, tags: tags);
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      for (final width in [320.0, 520.0, 900.0]) {
+        await tester.pumpWidget(
+          ShellScope(
+            controller: setup.controller,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: MediaQuery(
+                data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+                child: Scaffold(
+                  body: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: width,
+                      child: TopicInboxHeader(
+                        title: setup.controller.currentTopic!.title,
+                        siteUrl: setup.controller.currentInstance!.url,
+                        canReturnToSidebar: true,
+                        keepTopicListOpen: true,
+                        registry: PluginRegistry.empty,
+                        topic: setup.controller.currentTopic,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
+        for (final key in [
+          'topic-header-browse-category-21',
+          'topic-header-browse-category-22',
+        ]) {
+          final browse = find.byKey(ValueKey(key));
+          expect(browse, findsOneWidget);
+          expect(
+            tester.getCenter(browse).dy,
+            closeTo(tester.getCenter(overflow).dy, 1),
+          );
+        }
+        expect(tester.getRect(overflow).right, lessThan(width));
+        expect(tester.takeException(), isNull, reason: 'reader width $width');
+      }
+    },
+  );
+
+  testWidgets(
+    'assigned cards share the activity row and disclose hidden tags',
+    (tester) async {
+      const registry = PluginRegistry([AssignPlugin()]);
+      final setup = await _setup(tester, registry: registry);
+      final topic = setup.rows.first.copyWith(
+        tags: const [
+          TopicTag(id: 1, name: 'first'),
+          TopicTag(id: 2, name: 'second'),
+          TopicTag(id: 3, name: 'third'),
+          TopicTag(id: 4, name: 'fourth'),
+        ],
+        plugins: registry.readTopic(const {
+          'assigned_to_user': {'username': 'sam', 'name': 'Sam'},
+        }, setup.controller.currentInstance!.url),
+      );
+      await tester.pumpWidget(
+        ShellScope(
+          controller: setup.controller,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 304,
+                  child: TopicInboxRow(
+                    topic: topic,
+                    siteUrl: setup.controller.currentInstance!.url,
+                    selected: true,
+                    onTap: () {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('First topic preview'), findsNothing);
+      expect(find.text('Sam'), findsOneWidget);
+      expect(
+        tester.getCenter(find.text('Sam')).dy,
+        closeTo(tester.getCenter(find.text('3')).dy, 1),
+      );
+      expect(find.text('+2'), findsOneWidget);
+      expect(find.byTooltip('# third, # fourth'), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const ValueKey('inbox-row-1'))).height,
+        lessThan(110),
       );
       expect(tester.takeException(), isNull);
     },
@@ -448,6 +633,8 @@ _setup(
   WidgetTester tester, {
   PluginRegistry registry = PluginRegistry.empty,
   bool recommendations = false,
+  List<TopicTag> tags = const [_tag],
+  bool canEditTags = true,
 }) async {
   tester.view.physicalSize = const Size(1100, 800);
   tester.view.devicePixelRatio = 1;
@@ -550,8 +737,8 @@ _setup(
                 : null,
             categoryId: 22,
             canEdit: true,
-            canEditTags: true,
-            tags: const [_tag],
+            canEditTags: canEditTags,
+            tags: tags,
             canCreatePost: true,
           ),
           posts: posts[row.id]!,

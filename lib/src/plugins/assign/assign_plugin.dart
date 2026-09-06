@@ -364,43 +364,61 @@ final class AssignPlugin
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             if (direct != null || canAssign)
-              DButton(
-                key: const Key('assign-topic-header'),
-                icon: direct == null
-                    ? const DIcon(DIcons.userPlus, size: 14)
-                    : AssignmentAssigneeAvatar(
-                        assignee: direct.assignee,
-                        size: 20,
-                      ),
-                label: Text(
-                  direct == null ? 'Assign topic' : direct.assignee.displayName,
-                ),
-                tooltip: direct == null
-                    ? 'Assign topic'
-                    : 'Change topic assignment',
-                size: DButtonSize.small,
-                variant: DButtonVariant.standard,
-                onPressed: canAssign
-                    ? () => unawaited(
-                        showAssignmentEditor(
-                          context: anchorContext,
-                          anchorContext: anchorContext,
-                          siteUrl: siteUrl,
-                          target: target,
-                          existing: direct,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 240),
+                child: DButton(
+                  key: const Key('assign-topic-header'),
+                  icon: direct == null
+                      ? const DIcon(DIcons.userPlus, size: 14)
+                      : AssignmentAssigneeAvatar(
+                          assignee: direct.assignee,
+                          size: 18,
                         ),
-                      )
-                    : null,
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          direct == null
+                              ? 'Assign topic'
+                              : direct.assignee.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (direct != null) ...[
+                        const SizedBox(width: 6),
+                        const DIcon(DIcons.chevronDown, size: 10),
+                      ],
+                    ],
+                  ),
+                  tooltip: direct == null
+                      ? 'Assign topic'
+                      : 'Manage assignment to ${direct.assignee.displayName}',
+                  size: DButtonSize.small,
+                  variant: DButtonVariant.standard,
+                  onPressed: direct != null
+                      ? showDetails
+                      : canAssign
+                      ? () => unawaited(
+                          showAssignmentEditor(
+                            context: anchorContext,
+                            anchorContext: anchorContext,
+                            siteUrl: siteUrl,
+                            target: target,
+                            existing: direct,
+                          ),
+                        )
+                      : null,
+                ),
               ),
-            if (direct != null || postAssignments.isNotEmpty)
+            if (postAssignments.isNotEmpty)
               DButton(
                 key: const Key('assign-topic-header-details'),
-                icon: const DIcon(DIcons.ellipsis, size: 14),
-                label: postAssignments.isEmpty
-                    ? const Text('Manage')
-                    : Text(
-                        '${postAssignments.length} assigned post${postAssignments.length == 1 ? '' : 's'}',
-                      ),
+                icon: const DIcon(DIcons.userPlus, size: 14),
+                label: Text(
+                  '${postAssignments.length} assigned post${postAssignments.length == 1 ? '' : 's'}',
+                ),
                 tooltip: 'Manage assignments',
                 size: DButtonSize.small,
                 variant: DButtonVariant.flat,

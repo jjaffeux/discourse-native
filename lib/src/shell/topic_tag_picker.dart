@@ -224,7 +224,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
       _choose(newTag);
       return;
     }
-    final available = _result.results.where(
+    final available = _visibleResults.where(
       (tag) => !tag.disabled && (!_atMaximum || _selected(tag)),
     );
     if (available.isNotEmpty) _choose(available.first);
@@ -232,8 +232,14 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
 
   List<TopicTag> get _visibleResults {
     final seen = <String>{};
+    final term = _query.text.trim().toLowerCase();
     return [
-      for (final tag in [...widget.selectedTags, ..._result.results])
+      for (final tag in [
+        ...widget.selectedTags.where(
+          (tag) => tag.name.toLowerCase().contains(term),
+        ),
+        ..._result.results,
+      ])
         if (seen.add(_tagIdentity(tag))) tag,
     ];
   }
@@ -245,7 +251,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
     return AnchoredPickerContent(
       queryKey: const ValueKey('topic-tag-picker-query'),
       queryController: _query,
-      queryHint: 'Add tags…',
+      queryHint: 'Find or add tags…',
       onQueryChanged: (value) {
         _changed(value);
         setState(() {});

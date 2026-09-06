@@ -513,6 +513,121 @@ void main() {
       },
     );
 
+    for (final canAssign in [true, false]) {
+      testWidgets(
+        'one header dropdown exposes assignments with canAssign=$canAssign',
+        (tester) async {
+          const registry = PluginRegistry([AssignPlugin()]);
+          final topic = TopicDetail(
+            id: 10,
+            title: 'Assigned topic',
+            stream: const [11],
+            plugins: registry.readTopic({
+              'can_assign': canAssign,
+              'assigned_to_user': {
+                'username': 'sam',
+                'name': 'Sam With A Long Display Name',
+              },
+            }, _siteUrl),
+          );
+          var showingDetails = false;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light,
+              home: MediaQuery(
+                data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+                child: Scaffold(
+                  body: StatefulBuilder(
+                    builder: (context, setState) {
+                      final section = _plugin
+                          .topicProperties(context, _siteUrl, topic)
+                          .single;
+                      if (showingDetails) {
+                        return Column(children: section.values);
+                      }
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: SizedBox(
+                          width: 220,
+                          child: section.header!(
+                            context,
+                            () => setState(() => showingDetails = true),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          );
+          final header = find.byKey(const Key('assign-topic-header'));
+          expect(header, findsOneWidget);
+          expect(
+            find.byKey(const Key('assign-topic-header-details')),
+            findsNothing,
+          );
+          expect(find.byType(DButton), findsOneWidget);
+          expect(tester.getSize(header).width, lessThanOrEqualTo(220));
+          expect(tester.takeException(), isNull);
+          await tester.tap(header);
+          await tester.pumpAndSettle();
+          expect(showingDetails, isTrue);
+          expect(
+            find.byKey(const Key('assign-topic-property')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const Key('assign-topic-change')),
+            canAssign ? findsOneWidget : findsNothing,
+          );
+          expect(
+            find.byKey(const Key('assign-topic-remove')),
+            canAssign ? findsOneWidget : findsNothing,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets('post-only assignments remain accessible from the header', (
+      tester,
+    ) async {
+      const registry = PluginRegistry([AssignPlugin()]);
+      final topic = TopicDetail(
+        id: 10,
+        title: 'Post assignment',
+        stream: const [11, 22],
+        plugins: registry.readTopic(const {
+          'can_assign': false,
+          'indirectly_assigned_to': {
+            '22': {
+              'assigned_to': {'username': 'sam'},
+              'post_number': 2,
+            },
+          },
+        }, _siteUrl),
+      );
+      var opened = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => _plugin
+                  .topicProperties(context, _siteUrl, topic)
+                  .single
+                  .header!(context, () => opened = true),
+            ),
+          ),
+        ),
+      );
+      expect(find.byKey(const Key('assign-topic-header')), findsNothing);
+      await tester.tap(find.text('1 assigned post'));
+      expect(opened, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('uses a full-width primary CTA for an unassigned topic', (
       tester,
     ) async {

@@ -353,7 +353,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                                       'Topics',
                                       style: theme.textTheme.titleMedium
                                           ?.copyWith(
-                                            fontSize: 16,
+                                            fontSize: DiscourseTypography.base,
                                             fontWeight: FontWeight.w600,
                                           ),
                                     ),
