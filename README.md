@@ -753,11 +753,15 @@ Closed topics show a lock and **Closed** badge at the start of the header's
 metadata row, including for readers without moderation permissions. The badge
 updates when the topic is closed or reopened.
 
-The list heading, discovery tabs, and category/tag filters occupy separate
-rows within the same reading lane as the topics. The heading and New topic
-action align with the list when it fills the workspace, and the header shrinks
-with the list when a topic opens. The heading uses the selected category or
-subcategory name, and returns to **Topics** when there is no category filter.
+The list heading and discovery tabs occupy separate rows within the same
+reading lane as the topics. Wide lists place category/tag filters beside the
+people, replies, views, and activity column labels. The filters fit their
+available share of that row, ellipsizing long selections. When the list narrows
+and the column labels disappear, the filters wrap beneath the tabs as before.
+The heading and New topic action align with the list when it fills the
+workspace, and the header shrinks with the list when a topic opens. Its title
+uses the selected category or subcategory name, and returns to **Topics**
+when there is no category filter.
 New retains its All / Topics / Replies
 subnavigation and Top retains its period picker. Feed tabs share one divider
 with an underline for the selection; New uses inset segments with smaller

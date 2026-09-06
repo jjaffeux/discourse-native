@@ -82,8 +82,7 @@ class TopicListFilterBar extends StatelessWidget {
         selected: rootCategory,
         onSelected: onCategorySelected,
       ),
-      if (subcategories.isNotEmpty) ...[
-        if (!wrap) const SizedBox(width: 8),
+      if (subcategories.isNotEmpty)
         _SubcategoryFilterAnchor(
           siteUrl: siteUrl,
           parent: rootCategory!,
@@ -93,9 +92,7 @@ class TopicListFilterBar extends StatelessWidget {
               : selectedCategory,
           onSelected: onCategorySelected,
         ),
-      ],
-      if (taggingEnabled) ...[
-        if (!wrap) const SizedBox(width: 8),
+      if (taggingEnabled)
         _TagFilterAnchor(
           knownTags: knownTags,
           selectedTagName: selectedTagName,
@@ -104,25 +101,27 @@ class TopicListFilterBar extends StatelessWidget {
           search: searchTags,
           onSelected: onTagSelected,
         ),
-      ],
     ];
     final controls = wrap
         ? Wrap(spacing: 8, runSpacing: 8, children: controlChildren)
-        : Row(mainAxisSize: MainAxisSize.min, children: controlChildren);
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var index = 0; index < controlChildren.length; index++) ...[
+                if (index > 0) const SizedBox(width: 8),
+                if (inline)
+                  Flexible(child: controlChildren[index])
+                else
+                  controlChildren[index],
+              ],
+            ],
+          );
 
     return Material(
       key: const ValueKey('topic-list-filter-bar'),
       color: theme.shell.content,
       child: wrap
-          ? Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: topicListHorizontalPadding,
-              ),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: controls,
-              ),
-            )
+          ? Align(alignment: AlignmentDirectional.centerStart, child: controls)
           : inline
           ? controls
           : ContentReadingLaneBox(

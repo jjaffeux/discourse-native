@@ -30,10 +30,16 @@ import 'topic_list_layout.dart';
 import 'topic_title.dart';
 
 class TopicListView extends StatefulWidget {
-  const TopicListView({super.key, required this.feed, this.inbox = false});
+  const TopicListView({
+    super.key,
+    required this.feed,
+    this.inbox = false,
+    this.showHeader = true,
+  });
 
   final TopicFeed feed;
   final bool inbox;
+  final bool showHeader;
 
   @override
   State<TopicListView> createState() => _TopicListViewState();
@@ -249,7 +255,7 @@ class _TopicListViewState extends State<TopicListView> {
 
     return Column(
       children: [
-        const _TopicListHeader(),
+        if (widget.showHeader) const TopicListHeader(),
         if (state.incoming > 0)
           _IncomingBanner(
             count: state.incoming,
@@ -428,8 +434,10 @@ class _TopicLedgerLayout {
   final bool showActivity;
 }
 
-class _TopicListHeader extends StatelessWidget {
-  const _TopicListHeader();
+class TopicListHeader extends StatelessWidget {
+  const TopicListHeader({super.key, this.filtersBuilder});
+
+  final Widget Function(bool showColumns)? filtersBuilder;
 
   @override
   Widget build(BuildContext context) => ContentReadingLaneBox(
@@ -439,7 +447,18 @@ class _TopicListHeader extends StatelessWidget {
         final layout = _TopicLedgerLayout.forWidth(
           ContentReadingLane.breakpointWidthOf(context, constraints.maxWidth),
         );
-        if (!layout.showActivity) return const SizedBox.shrink();
+        final filters = filtersBuilder?.call(layout.showActivity);
+        if (!layout.showActivity) {
+          return filters == null
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _TopicLedgerLayout.horizontalPadding,
+                    vertical: 12,
+                  ),
+                  child: filters,
+                );
+        }
         final theme = Theme.of(context);
         final style = theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
@@ -461,7 +480,7 @@ class _TopicListHeader extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             child: Row(
               children: [
-                const Spacer(),
+                Expanded(child: filters ?? const SizedBox.shrink()),
                 const SizedBox(width: _TopicLedgerLayout.gap),
                 SizedBox(
                   width: _TopicLedgerLayout.participantsWidthOf(context),

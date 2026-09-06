@@ -634,13 +634,14 @@ void main() {
               row.top,
               greaterThan(tester.getRect(find.byType(ForumTabsBar)).bottom),
             );
+            final ledger = tester.getRect(
+              find.byKey(const ValueKey('topic-list-ledger-header')),
+            );
+            expect(ledger.top, lessThan(categoryFilter.top));
+            expect(ledger.bottom, greaterThan(categoryFilter.bottom));
             expect(
-              tester
-                  .getRect(
-                    find.byKey(const ValueKey('topic-list-ledger-header')),
-                  )
-                  .top,
-              greaterThanOrEqualTo(categoryFilter.bottom),
+              tester.getCenter(find.text('People')).dy,
+              closeTo(categoryFilter.center.dy, .01),
             );
           }
 
@@ -795,7 +796,15 @@ void main() {
             .showLabel,
         isTrue,
       );
-      expect(ledger.top, greaterThanOrEqualTo(category.bottom));
+      expect(ledger.top, lessThan(category.top));
+      expect(ledger.bottom, greaterThan(category.bottom));
+      expect(tags.center.dy, closeTo(category.center.dy, .01));
+      for (final label in ['People', 'Replies', 'Views', 'Activity']) {
+        expect(
+          tester.getCenter(find.text(label)).dy,
+          closeTo(category.center.dy, .01),
+        );
+      }
       expect(find.text('Topics'), findsOneWidget);
       expect(find.text('Topic'), findsNothing);
       expect(find.text('Latest activity'), findsNothing);
@@ -822,6 +831,27 @@ void main() {
         findsNothing,
       );
       expect(tester.takeException(), isNull);
+
+      tester.view.physicalSize = const Size(600, 700);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('topic-list-ledger-header')),
+        findsNothing,
+      );
+      final narrowCategory = tester.getRect(
+        find.byKey(const ValueKey('topic-list-category-filter')),
+      );
+      final narrowToolbar = tester.getRect(
+        find.byKey(const ValueKey('topic-list-primary-row')),
+      );
+      expect(narrowCategory.top, closeTo(narrowToolbar.bottom + 12, .01));
+      expect(
+        narrowCategory.left,
+        closeTo(
+          tester.getTopLeft(find.byKey(const ValueKey('topic-list-latest'))).dx,
+          .01,
+        ),
+      );
 
       await tester.tap(find.byKey(const ValueKey('topic-list-top')));
       await tester.pumpAndSettle();
@@ -942,6 +972,25 @@ void main() {
     expect(controller.currentContent?.categoryId, child.id);
     expectHeading(child.name);
     expect(controller.currentContent?.tagName, ux.slug);
+
+    tester.view.physicalSize = const Size(651, 700);
+    await tester.pumpAndSettle();
+    final people = tester.getRect(find.text('People'));
+    Rect? previousFilter;
+    for (final key in [
+      'topic-list-category-filter',
+      'topic-list-subcategory-filter',
+      'topic-list-tag-filter',
+    ]) {
+      final filter = tester.getRect(find.byKey(ValueKey(key)));
+      expect(filter.center.dy, closeTo(people.center.dy, .01));
+      expect(filter.right, lessThan(people.left));
+      if (previousFilter != null) {
+        expect(filter.left, closeTo(previousFilter.right + 8, .01));
+      }
+      previousFilter = filter;
+    }
+    expect(tester.takeException(), isNull);
 
     controller.selectTopicListTag(null);
     await tester.pumpAndSettle();
