@@ -4,6 +4,7 @@ import '../models/post.dart';
 import '../models/post_flag.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
+import 'post_actions.dart';
 import 'post_likes.dart';
 import 'shell_scope.dart';
 
@@ -24,9 +25,11 @@ class PostFooter extends StatelessWidget {
   Widget _buildFooter(BuildContext context, List<PostFlagType> catalog) {
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-    final engagement =
-        registry.postFooter(siteUrl, post) ??
-        PostLikes(siteUrl: siteUrl, post: post);
+    final engagement = PostActionsFooter(
+      child:
+          registry.postFooter(siteUrl, post) ??
+          PostLikes(siteUrl: siteUrl, post: post),
+    );
     final acted = post.actedFlagSummaries;
     if (acted.isEmpty) return engagement;
 

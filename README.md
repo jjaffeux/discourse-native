@@ -761,9 +761,11 @@ and links to assigned posts. All actions keep their existing permission checks.
 Related and Suggested appear below the posts, with a **More topics** jump in
 the reader footer. Recommendation links keep the source list. Every ordinary
 post has a permanent three-dot menu beside its timestamp, exposing the same
-core and plugin actions as the keyboard and touch menus. J/K move through posts
-in the open topic and leave the topic list selection alone; editing controls
-keep these keys as text input.
+secondary core and plugin actions as the keyboard and touch menus. Reply stays
+visible at the bottom right of each post beside its likes or reactions, opens
+the composer for that post, and is excluded from the three-dot menu. J/K move
+through posts in the open topic and leave the topic list selection alone;
+editing controls keep these keys as text input.
 
 Topic-list rows carry `last_read_post_number` and `highest_post_number`. Like
 Discourse's web client, an unread row opens at `last_read_post_number + 1`,

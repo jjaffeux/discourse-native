@@ -958,6 +958,55 @@ class _PostActionsScope extends InheritedWidget {
   bool updateShouldNotify(_PostActionsScope oldWidget) => true;
 }
 
+/// Keeps primary post actions beside engagement without requiring hover.
+class PostActionsFooter extends StatelessWidget {
+  const PostActionsFooter({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<_PostActionsScope>();
+    final actions = scope?.actions
+        .where((action) => action.placement == PostActionPlacement.trailing)
+        .toList(growable: false);
+    if (scope == null || actions == null || actions.isEmpty) return child;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(child: child),
+        const SizedBox(width: 8),
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final action in actions)
+                DButton(
+                  key: ValueKey((
+                    'post-footer-action',
+                    scope.postNumber,
+                    action.label,
+                  )),
+                  icon: action.leading(context, size: 16),
+                  label: Text(action.label),
+                  tooltip: action.tooltip,
+                  variant: DButtonVariant.flat,
+                  size: DButtonSize.small,
+                  onPressed: action.enabled
+                      ? () => scope.onInvoke(action, context)
+                      : null,
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// A permanent, keyboard-reachable entry point to the same guarded actions
 /// used by the post toolbar and touch sheet.
 class PostMoreActionsButton extends StatelessWidget {
@@ -967,7 +1016,11 @@ class PostMoreActionsButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scope = context
         .dependOnInheritedWidgetOfExactType<_PostActionsScope>();
-    if (scope == null || scope.actions.isEmpty) return const SizedBox.shrink();
+    if (scope == null) return const SizedBox.shrink();
+    final actions = scope.actions
+        .where((action) => action.placement != PostActionPlacement.trailing)
+        .toList(growable: false);
+    if (actions.isEmpty) return const SizedBox.shrink();
     return MenuAnchor(
       controller: scope.menu,
       onOpen: () => WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -976,12 +1029,12 @@ class PostMoreActionsButton extends StatelessWidget {
         }
       }),
       menuChildren: [
-        for (final action in scope.actions)
+        for (final action in actions)
           MenuItemButton(
             focusNode:
                 identical(
                   action,
-                  scope.actions.where((item) => item.enabled).firstOrNull,
+                  actions.where((item) => item.enabled).firstOrNull,
                 )
                 ? scope.firstFocus
                 : null,
