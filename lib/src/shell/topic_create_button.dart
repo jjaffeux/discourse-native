@@ -117,13 +117,14 @@ class _TopicCreateControl extends StatelessWidget {
     final labelHeight =
         MediaQuery.textScalerOf(context).scale(DiscourseTypography.fontDown1) *
         1.2;
-    final dimension = compact
+    final insetIcons = compact && !showLabel;
+    final dimension = compact && showLabel
         ? math.max(36.0, labelHeight + 18)
         : DButton.iconOnlyDimensionFor(DButtonSize.small);
     final radius = Radius.circular(
       Theme.of(context).discourseButtons.borderRadius,
     );
-    final mainRadius = showDraftsButton
+    final mainRadius = showDraftsButton && !insetIcons
         ? BorderRadius.horizontal(left: radius)
         : BorderRadius.all(radius);
 
@@ -154,34 +155,41 @@ class _TopicCreateControl extends StatelessWidget {
             onPressed: onPressed,
             variant: DButtonVariant.primary,
             size: DButtonSize.small,
+            insetSurface: insetIcons,
             borderRadius: mainRadius,
           );
-    final sizedMainButton = SizedBox(
-      height: dimension,
-      width: showLabel ? null : dimension,
-      child: mainButton,
-    );
+    final sizedMainButton = insetIcons
+        ? mainButton
+        : SizedBox(
+            height: dimension,
+            width: showLabel ? null : dimension,
+            child: mainButton,
+          );
 
     if (!showDraftsButton) return sizedMainButton;
 
+    final draftsButton = DButton.iconOnly(
+      key: TopicCreateButton.draftsButtonKey,
+      icon: const DIcon(DIcons.chevronDown, size: 16),
+      tooltip: 'Open the latest drafts menu',
+      semanticLabel: 'Open the latest drafts menu',
+      onPressed: onDraftsPressed,
+      variant: DButtonVariant.primary,
+      size: DButtonSize.small,
+      insetSurface: insetIcons,
+      borderRadius: insetIcons
+          ? BorderRadius.all(radius)
+          : BorderRadius.horizontal(right: radius),
+    );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         sizedMainButton,
         const SizedBox(width: 2),
-        SizedBox.square(
-          dimension: dimension,
-          child: DButton.iconOnly(
-            key: TopicCreateButton.draftsButtonKey,
-            icon: const DIcon(DIcons.chevronDown, size: 16),
-            tooltip: 'Open the latest drafts menu',
-            semanticLabel: 'Open the latest drafts menu',
-            onPressed: onDraftsPressed,
-            variant: DButtonVariant.primary,
-            size: DButtonSize.small,
-            borderRadius: BorderRadius.horizontal(right: radius),
-          ),
-        ),
+        if (insetIcons)
+          draftsButton
+        else
+          SizedBox.square(dimension: dimension, child: draftsButton),
       ],
     );
   }

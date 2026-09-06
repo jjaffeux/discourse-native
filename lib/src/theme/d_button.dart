@@ -307,7 +307,8 @@ class DButton extends StatelessWidget {
     this.alignment = Alignment.center,
     this.borderRadius,
     this.interactiveBackgroundColor,
-  }) : _iconOnly = false;
+  }) : insetSurface = false,
+       _iconOnly = false;
 
   const DButton.iconOnly({
     super.key,
@@ -316,6 +317,7 @@ class DButton extends StatelessWidget {
     required this.onPressed,
     this.variant = DButtonVariant.standard,
     this.size = DButtonSize.regular,
+    this.insetSurface = false,
     this.loading = false,
     this.shortcut,
     this.semanticLabel,
@@ -337,6 +339,9 @@ class DButton extends StatelessWidget {
   final Widget? icon;
   final DButtonVariant variant;
   final DButtonSize size;
+
+  /// Insets the icon surface while preserving the size's full hit target.
+  final bool insetSurface;
   final bool loading;
   final Widget? loadingLabel;
   final String? tooltip;
@@ -373,10 +378,12 @@ class DButton extends StatelessWidget {
     final variantStyle = buttons.styleFor(variant);
     final fontSize = fontSizeFor(size);
     final iconOnlyDimension = iconOnlyDimensionFor(size);
-    final compactFlatSurface =
+    final insetIconSurface =
         _iconOnly &&
-        (variant == DButtonVariant.flat || variant == DButtonVariant.flatClose);
-    final iconOnlySurfaceDimension = compactFlatSurface
+        (insetSurface ||
+            variant == DButtonVariant.flat ||
+            variant == DButtonVariant.flatClose);
+    final iconOnlySurfaceDimension = insetIconSurface
         ? iconOnlyDimension - flatSurfacePadding * 2
         : iconOnlyDimension;
     final enabled = onPressed != null && !loading;
@@ -454,14 +461,14 @@ class DButton extends StatelessWidget {
       shadowColor: const WidgetStatePropertyAll(Colors.transparent),
       surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
       animationDuration: Duration.zero,
-      visualDensity: compactFlatSurface
+      visualDensity: insetIconSurface
           ? VisualDensity(
               // Material density changes padded targets in four-pixel steps.
               horizontal: (iconOnlyDimension - kMinInteractiveDimension) / 4,
               vertical: (iconOnlyDimension - kMinInteractiveDimension) / 4,
             )
           : VisualDensity.standard,
-      tapTargetSize: compactFlatSurface
+      tapTargetSize: insetIconSurface
           ? MaterialTapTargetSize.padded
           : MaterialTapTargetSize.shrinkWrap,
       splashFactory: NoSplash.splashFactory,
