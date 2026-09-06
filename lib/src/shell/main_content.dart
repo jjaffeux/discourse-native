@@ -388,9 +388,12 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                                           child: SizedBox(
                                             width: lane.width,
                                             child: Padding(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal:
+                                              padding: EdgeInsetsDirectional.only(
+                                                start:
                                                     topicListHorizontalPadding,
+                                                end: split
+                                                    ? topicInboxDividerInset
+                                                    : topicListHorizontalPadding,
                                               ),
                                               child: heading,
                                             ),
