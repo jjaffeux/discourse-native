@@ -90,6 +90,69 @@ void main() {
       expect(restored.feedPath, isNull);
     });
 
+    test('message folders retain distinct routes and encoded feed paths', () {
+      const user = 'Sam Example';
+      for (final (mode, suffix) in [
+        (MessageListMode.inbox, ''),
+        (MessageListMode.unread, '-unread'),
+        (MessageListMode.sent, '-sent'),
+        (MessageListMode.archive, '-archive'),
+      ]) {
+        final route = ContentRoute.messages(mode: mode);
+        final restored = ContentRoute.fromJson(_jsonMap(route.toJson()));
+        expect(restored.id, 'messages$suffix');
+        expect(restored.isMessages, isTrue);
+        expect(restored.messageListMode, mode);
+        expect(
+          restored.messageListMode.feedPathFor(user),
+          '/topics/private-messages$suffix/Sam%20Example.json',
+        );
+      }
+
+      for (final (mode, suffix) in [
+        (MessageListMode.inbox, ''),
+        (MessageListMode.unread, '/unread'),
+        (MessageListMode.archive, '/archive'),
+      ]) {
+        final route = ContentRoute.messages(groupName: 'team+ops', mode: mode);
+        final restored = ContentRoute.fromJson(_jsonMap(route.toJson()));
+        expect(restored.id, 'messages-group-team%2Bops$suffix');
+        expect(restored.isMessages, isTrue);
+        expect(restored.messageListMode, mode);
+        expect(
+          restored.messageListMode.feedPathFor(
+            user,
+            groupName: restored.messageGroupName,
+          ),
+          '/topics/private-messages-group/Sam%20Example/team%2Bops$suffix.json',
+        );
+      }
+
+      expect(
+        () => ContentRoute.messages(
+          groupName: 'team',
+          mode: MessageListMode.sent,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => ContentRoute.fromJson({
+          ...ContentRoute.messages(groupName: 'team').toJson(),
+          'id': 'messages-group-team/sent',
+        }),
+        throwsFormatException,
+      );
+      expect(
+        ContentRoute.messages(groupName: 'team/unread').id,
+        isNot(
+          ContentRoute.messages(
+            groupName: 'team',
+            mode: MessageListMode.unread,
+          ).id,
+        ),
+      );
+    });
+
     test('rejects persisted routes that could build unsafe requests', () {
       final ordinary = _routeJson(id: 'latest', title: 'Topics');
 

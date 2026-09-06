@@ -28,6 +28,7 @@ import 'group_pages_port.dart';
 import 'group_pages_shell_port.dart';
 import 'inline_action.dart';
 import 'message_inbox_page.dart';
+import 'message_inbox_title.dart';
 import 'open_link.dart';
 import 'preferences_page.dart';
 import 'resizable_pane.dart';
@@ -686,7 +687,10 @@ class _ContentHeader extends StatelessWidget {
           final carriesSearch =
               !ShellTitleBar.isSupported && !(layout.isCompact && !isConnected);
           final showRouteIdentity =
-              !searchOnly && (!carriesSearch || constraints.maxWidth >= 620);
+              !searchOnly &&
+              ((route.isMessages && isConnected) ||
+                  !carriesSearch ||
+                  constraints.maxWidth >= 620);
           final searchWidth = constraints.maxWidth >= 800 ? 360.0 : 260.0;
 
           return Row(
@@ -748,7 +752,12 @@ class _ContentHeader extends StatelessWidget {
                   ),
               if (showRouteIdentity)
                 Expanded(
-                  child: route.categoryId != null && siteUrl != null
+                  child: route.isMessages && isConnected
+                      ? MessageInboxTitle(
+                          selectedGroup: route.messageGroupName,
+                          trailing: contentHeaderTitleTrailing,
+                        )
+                      : route.categoryId != null && siteUrl != null
                       ? _CategoryHeaderIdentity(
                           route: route,
                           siteUrl: siteUrl!,
@@ -819,7 +828,9 @@ class _ContentHeader extends StatelessWidget {
                   key: _searchSlotKey,
                   child: ForumSearch(dense: true),
                 ),
-              if (carriesSearch && showRouteIdentity) ...[
+              if (carriesSearch &&
+                  showRouteIdentity &&
+                  constraints.maxWidth >= 620) ...[
                 SizedBox(
                   key: _searchSlotKey,
                   width: searchWidth,

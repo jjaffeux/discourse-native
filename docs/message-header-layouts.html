@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Three message header mockups using the Discourse topic list's layout and controls." />
+    <title>Messages · Header studies</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --backdrop: #131416;
+        --chrome: #1a1b1e;
+        --content: #222222;
+        --panel: #2b2b2b;
+        --hover: #303030;
+        --line: #333333;
+        --line-strong: #444444;
+        --text: #e4e4e4;
+        --soft: #c2c2c2;
+        --muted: #a0a0a0;
+        --blue: #0099dd;
+        --blue-text: #6cc9f1;
+        --blue-soft: rgb(0 153 221 / 16%);
+        --primary: #007ead;
+        --primary-hover: #006e98;
+        --on-primary: #fff;
+        --shadow: 0 12px 36px rgb(0 0 0 / 25%);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 16px;
+      }
+
+      :root[data-theme="light"] {
+        color-scheme: light;
+        --backdrop: #f1f3f5;
+        --chrome: #fafbfc;
+        --content: #fff;
+        --panel: #f1f3f5;
+        --hover: #e9ecef;
+        --line: #dfe2e5;
+        --line-strong: #bdc3c9;
+        --text: #222;
+        --soft: #454b52;
+        --muted: #636a72;
+        --blue: #0088cc;
+        --blue-text: #006895;
+        --blue-soft: rgb(0 136 204 / 11%);
+        --shadow: 0 12px 36px rgb(25 35 45 / 9%);
+      }
+
+      * { box-sizing: border-box; }
+      body { min-width: 320px; margin: 0; color: var(--text); background: var(--backdrop); }
+      button, input, textarea { font: inherit; color: inherit; }
+      button, summary { -webkit-tap-highlight-color: transparent; cursor: pointer; }
+      button { border: 0; }
+      button:focus-visible, summary:focus-visible, a:focus-visible,
+      input:focus-visible, textarea:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+      [hidden] { display: none !important; }
+      .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+      .icon { width: 1rem; height: 1rem; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+      /* Study controls are outside the app mockup. */
+      .study-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: 16px 28px; background: var(--chrome); border-bottom: 1px solid var(--line); }
+      .study-title { margin-right: auto; }
+      .study-title span { display: block; color: var(--muted); font-size: .75rem; margin-bottom: 4px; }
+      .study-title h1 { font-size: 1rem; font-weight: 600; margin: 0; letter-spacing: -.015em; }
+      .segmented { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 4px; background: var(--backdrop); border: 1px solid var(--line); border-radius: 8px; }
+      .segmented button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 32px; padding: 6px 12px; background: transparent; border-radius: 5px; color: var(--muted); font-size: .8125rem; white-space: nowrap; }
+      .segmented button:hover { color: var(--text); background: var(--hover); }
+      .segmented button[aria-pressed="true"] { color: var(--text); background: var(--panel); box-shadow: 0 1px 3px rgb(0 0 0 / 14%); }
+      .study-action { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: transparent; font-size: .8125rem; color: var(--soft); }
+      .study-action:hover { color: var(--text); background: var(--hover); }
+      .study-action[aria-pressed="true"] { background: var(--blue-soft); color: var(--blue-text); border-color: var(--blue); }
+      main { max-width: 1640px; margin: 0 auto; padding: 24px 28px 36px; }
+      .study-intro { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+      .study-intro p { margin: 0; color: var(--muted); font-size: .875rem; line-height: 1.6; }
+      .preview-tools { display: flex; align-items: center; gap: 8px; }
+      .reference { margin-bottom: 26px; }
+      .reference > summary { width: fit-content; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .8125rem; list-style: none; padding: 4px 0; }
+      .reference > summary::-webkit-details-marker { display: none; }
+      .reference > summary .icon { width: 12px; height: 12px; }
+      .reference[open] > summary .icon { transform: rotate(90deg); }
+      .reference-frame { margin-top: 12px; border: 1px dashed var(--line-strong); background: var(--content); border-radius: 8px; overflow: hidden; container-type: inline-size; }
+      .reference-frame .content-title { color: var(--soft); }
+      .reference-control { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--panel); border-radius: 4px; font-size: .875rem; color: var(--soft); white-space: nowrap; }
+      .reference-tab { display: inline-flex; align-items: center; min-height: 34px; padding: 7px 10px; font-size: .875rem; color: var(--muted); }
+      .reference-tab.selected { color: var(--text); background: var(--blue-soft); border-radius: 6px; }
+
+      .studies { display: grid; gap: 30px; }
+      .study { min-width: 0; }
+      .study-caption { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+      .study-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+      .study-heading h2 { margin: 0; font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
+      .study-number { margin-right: 7px; color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+      .recommendation { padding: 3px 7px; color: var(--blue-text); background: var(--blue-soft); border-radius: 4px; font-size: .75rem; font-weight: 500; }
+      .study-caption p { margin: 7px 0 0; color: var(--muted); line-height: 1.5; font-size: .875rem; }
+      .inspect { white-space: nowrap; }
+      .studies:not(.compare) .inspect { display: none; }
+      .app-frame { border: 1px solid var(--line-strong); border-radius: 8px; background: var(--content); min-width: 0; container-type: inline-size; box-shadow: var(--shadow); }
+      .app-frame, .reference-frame { max-width: 100%; margin-inline: auto; }
+      body[data-width="narrow"] .app-frame, body[data-width="narrow"] .reference-frame { width: 420px; }
+      body[data-width="narrow"] .study-caption { max-width: 760px; margin-inline: auto; }
+      .study-footer { margin: 22px 0 0; color: var(--muted); font-size: .8125rem; text-align: center; line-height: 1.7; }
+
+      /* Shared with the topic list: 48px title, 52px toolbar, 1120px lane,
+         16px horizontal padding, 6px selected tabs, restrained dividers. */
+      .content-header { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-height: 48px; padding: 8px 16px; border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; }
+      .content-title { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 1rem; font-weight: 600; }
+      .content-title .icon { color: var(--muted); }
+      .lane { width: min(100%, 1120px); margin-inline: auto; padding-inline: 16px; }
+      .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 52px; padding-block: 8px; }
+      .toolbar-main { display: flex; flex: 1; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+      .message-tabs { display: flex; align-items: stretch; gap: 3px; }
+      .message-tab { min-height: 34px; padding: 7px 10px; border-radius: 6px; background: transparent; color: var(--muted); font-size: .875rem; white-space: nowrap; }
+      .message-tab:hover { color: var(--text); background: var(--hover); }
+      .message-tab[aria-pressed="true"] { color: var(--text); background: var(--blue-soft); }
+      .count { display: inline-flex; justify-content: center; min-width: 18px; margin-left: 5px; padding: 1px 5px; border-radius: 4px; font-size: .75rem; color: var(--soft); background: var(--hover); font-variant-numeric: tabular-nums; }
+      .new-message { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: 0 0 auto; min-height: 34px; padding: 7px 11px; background: var(--primary); color: var(--on-primary); border-radius: 4px; font-size: .875rem; white-space: nowrap; }
+      .new-message:hover { background: var(--primary-hover); }
+      .new-message .icon { width: 15px; height: 15px; }
+      .picker { position: relative; flex: 0 0 auto; }
+      .picker > summary { display: flex; align-items: center; gap: 8px; min-height: 34px; max-width: 250px; padding: 7px 10px; border: 1px solid transparent; background: var(--panel); border-radius: 4px; color: var(--soft); font-size: .875rem; list-style: none; }
+      .picker > summary::-webkit-details-marker { display: none; }
+      .picker > summary:hover, .picker[open] > summary { border-color: var(--line-strong); background: var(--hover); color: var(--text); }
+      .picker-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .picker .chevron { width: 11px; height: 11px; margin-left: 4px; }
+      .picker-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; width: 260px; max-width: calc(100cqi - 34px); padding: 5px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 7px; box-shadow: var(--shadow); }
+      .picker-menu button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 42px; padding: 9px; text-align: left; background: transparent; border-radius: 4px; font-size: .875rem; }
+      .picker-menu button:hover { background: var(--hover); }
+      .picker-menu button[aria-pressed="true"] { background: var(--blue-soft); }
+      .picker-menu .check { margin-left: auto; color: var(--blue-text); }
+      .picker-menu button:not([aria-pressed="true"]) .check { visibility: hidden; }
+      .menu-separator { height: 1px; margin: 5px; background: var(--line); }
+      .menu-label { margin: 10px 9px 4px; color: var(--muted); font-size: .75rem; }
+
+      /* 02: The topic list's stacked navigation treatment. */
+      .variant-stacked .toolbar { padding-block: 0; }
+      .variant-stacked .toolbar-main { align-self: stretch; }
+      .variant-stacked .message-tabs { align-self: stretch; gap: 18px; }
+      .variant-stacked .message-tab { border-radius: 0; min-height: 48px; padding: 11px 0 9px; border-bottom: 2px solid transparent; }
+      .variant-stacked .message-tab:hover { background: transparent; color: var(--text); }
+      .variant-stacked .message-tab[aria-pressed="true"] { border-bottom-color: var(--blue); background: transparent; color: var(--text); }
+      .variant-stacked .toolbar { border-bottom: 1px solid var(--line); }
+      .filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding-block: 12px; }
+      .filter-label { font-size: .875rem; color: var(--muted); }
+      .variant-stacked .picker > summary { border-color: var(--line-strong); background: transparent; }
+
+      /* 03: Inbox ownership moves up beside the page title. */
+      .variant-title .content-header { column-gap: 14px; }
+      .title-separator { height: 18px; width: 1px; background: var(--line-strong); }
+      .variant-title .content-header .picker > summary { min-height: 30px; padding: 4px 7px; background: transparent; }
+      .variant-title .content-header .picker > summary:hover { background: var(--hover); }
+
+      .ledger { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      .ledger col.people-column { width: 94px; }
+      .ledger col.stat-column { width: 67px; }
+      .ledger col.activity-column { width: 72px; }
+      .ledger thead th { height: 38px; border-bottom: 1px solid var(--line); padding: 8px 10px; color: var(--muted); font-size: .75rem; font-weight: 400; text-align: right; }
+      .ledger thead th:first-child { text-align: left; }
+      .ledger td { padding: 15px 10px; border-bottom: 1px solid var(--line); font-size: .875rem; color: var(--muted); vertical-align: middle; }
+      .ledger tbody tr:last-child td { border-bottom: 0; }
+      .ledger .subject-cell { padding-left: 0; }
+      .ledger th:first-child { padding-left: 0; }
+      .ledger td:last-child, .ledger th:last-child { padding-right: 0; }
+      .subject { display: flex; align-items: baseline; gap: 7px; color: var(--muted); font-size: 1rem; line-height: 1.4; overflow-wrap: anywhere; }
+      .subject .icon { width: 12px; height: 12px; align-self: center; }
+      .subject .bookmark { color: var(--blue); fill: currentColor; }
+      .unread .subject { color: var(--text); font-weight: 600; }
+      .unread-dot { align-self: center; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); flex: 0 0 auto; }
+      .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+      .tag { padding: 2px 5px; border-radius: 3px; color: var(--muted); background: var(--panel); font-size: .75rem; }
+      .numeric { text-align: right; font-variant-numeric: tabular-nums; }
+      .avatars { display: flex; justify-content: flex-end; padding-left: 7px; }
+      .avatar { display: inline-flex; justify-content: center; align-items: center; width: 25px; height: 25px; margin-left: -7px; border: 2px solid var(--content); border-radius: 50%; background: var(--avatar-bg, #416887); color: #fff; font-size: .625rem; font-weight: 600; }
+      .mobile-meta { display: none; }
+      .list-footnote { padding: 20px 0 24px; color: var(--muted); font-size: .75rem; border-top: 1px solid var(--line); }
+      .compare .list-footnote { display: none; }
+      .empty { padding: 36px 16px; color: var(--muted); text-align: center; }
+
+      dialog { max-width: min(520px, calc(100vw - 32px)); width: 520px; padding: 24px; color: var(--text); background: var(--content); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); }
+      dialog::backdrop { background: rgb(0 0 0 / 55%); }
+      dialog h2 { margin: 0 0 20px; font-size: 1.125rem; }
+      dialog label { display: grid; gap: 7px; margin-bottom: 16px; font-size: .875rem; }
+      dialog input, dialog textarea { width: 100%; padding: 10px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--content); }
+      dialog textarea { resize: vertical; min-height: 140px; }
+      .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+      .dialog-note { margin: 18px 0 0; color: var(--muted); font-size: .75rem; }
+
+      @container (max-width: 700px) {
+        .toolbar-main { flex-basis: 100%; }
+        .toolbar > .new-message { margin-left: auto; }
+        .variant-inline .toolbar-main { flex: 1 1 70%; }
+        .variant-inline .message-tabs { order: 2; flex-basis: 100%; }
+        .variant-inline .toolbar { align-items: flex-start; }
+        .variant-inline .toolbar > .new-message { margin-top: 0; }
+        .variant-title .toolbar-main, .variant-stacked .toolbar-main { flex: 1 1 auto; }
+        .new-message .action-label { display: none; }
+        .new-message { width: 34px; padding-inline: 0; }
+        .ledger col.views, .ledger th.views, .ledger td.views { display: none; }
+        .ledger col.people-column { width: 78px; }
+        .ledger col.stat-column { width: 57px; }
+        .ledger col.activity-column { width: 64px; }
+        .reference-frame .toolbar-main { flex-basis: auto; }
+        .reference-control.tags-reference, .reference-tab.trending { display: none; }
+      }
+      @container (max-width: 480px) {
+        .lane { padding-inline: 14px; }
+        .content-header { padding-inline: 14px; }
+        .toolbar { gap: 6px; }
+        .message-tabs { gap: 1px; }
+        .message-tab { padding-inline: 8px; font-size: .8125rem; }
+        .variant-stacked .message-tabs { gap: 13px; }
+        .variant-inline .toolbar-main { flex-basis: calc(100% - 46px); }
+        .variant-title .content-header { gap: 8px; }
+        .variant-title .content-header .picker > summary { max-width: 195px; }
+        .variant-title .content-header .picker-menu { left: auto; right: 0; }
+        .ledger col.people-column, .ledger th.people, .ledger td.people,
+        .ledger col.stat-column, .ledger th.replies, .ledger td.replies { display: none; }
+        .ledger col.activity-column { width: 50px; }
+        .ledger td { padding-block: 15px; }
+        .ledger .subject { font-size: .9375rem; }
+        .mobile-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: .75rem; }
+        .mobile-meta .avatars { padding-left: 5px; }
+        .mobile-meta .avatar { width: 22px; height: 22px; }
+        .reference-control { max-width: 160px; }
+        .reference-control span { overflow: hidden; text-overflow: ellipsis; }
+        .reference-tab { font-size: .8125rem; padding-inline: 8px; }
+        .reference-tab.top { display: none; }
+      }
+      @media (max-width: 800px) {
+        .study-bar { padding: 14px 18px; gap: 12px; }
+        .layout-switcher { order: 3; width: 100%; }
+        .layout-switcher button { flex: 1; }
+        main { padding: 20px 16px 28px; }
+      }
+      @media (max-width: 480px) {
+        .study-bar { padding-inline: 14px; }
+        .layout-switcher button { padding-inline: 7px; font-size: .75rem; }
+        .study-heading h2 { font-size: .9375rem; }
+        .study-caption { flex-wrap: wrap; }
+        .study-intro { margin-bottom: 18px; }
+        main { padding-inline: 12px; }
+        .preview-tools { width: 100%; }
+      }
+      @media (pointer: coarse) {
+        .message-tab, .picker > summary, .new-message, .study-action, .segmented button { min-height: 44px; }
+        .new-message { min-width: 44px; }
+        .variant-title .content-header .picker > summary { min-height: 44px; }
+      }
+    </style>
+  </head>
+  <body data-width="desktop">
+    <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M4 4h16l2 11v5H2v-5L4 4Z M2 15h6l2 3h4l2-3h6" /></symbol>
+      <symbol id="i-topics" viewBox="0 0 24 24"><path d="M5 5h15M5 12h15M5 19h10" /><path d="M2 5h.1M2 12h.1M2 19h.1" /></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4" /><path d="M2 21v-2a7 7 0 0 1 14 0v2M16 3a4 4 0 0 1 0 8M18 14a6 6 0 0 1 4 5v2" /></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="m5 9 7 7 7-7" /></symbol>
+      <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></symbol>
+      <symbol id="i-write" viewBox="0 0 24 24"><path d="M13 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-8M16 3l5 5M10 14l-1 4 4-1L22 8l-4-4-8 10Z" /></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5" /></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z" /></symbol>
+      <symbol id="i-desktop" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></symbol>
+      <symbol id="i-narrow" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2" /><path d="M10 18h4" /></symbol>
+      <symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-8 8M10 21H3v-7M3 21l8-8" /></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V6a4 4 0 0 1 8 0v4" /></symbol>
+      <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v19l-6-4-6 4V3Z" /></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 10 5-10 5L2 8l10-5ZM2 12l10 5 10-5M2 16l10 5 10-5" /></symbol>
+    </svg>
+
+    <header class="study-bar">
+      <div class="study-title"><span>Discourse Native</span><h1>Messages · Header studies</h1></div>
+      <nav class="segmented layout-switcher" aria-label="Header design">
+        <button type="button" data-layout="inline" aria-pressed="true">01 · Topic toolbar</button>
+        <button type="button" data-layout="stacked" aria-pressed="false">02 · Tabs + filter</button>
+        <button type="button" data-layout="title" aria-pressed="false">03 · Inbox in title</button>
+      </nav>
+      <button type="button" class="study-action" id="compare" aria-pressed="false">Compare all</button>
+    </header>
+
+    <main>
+      <div class="study-intro">
+        <p>The topic header’s spacing and controls, adapted to messages.</p>
+        <div class="preview-tools">
+          <div class="segmented" aria-label="Preview width">
+            <button type="button" data-width="desktop" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#i-desktop" /></svg>Desktop</button>
+            <button type="button" data-width="narrow" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-narrow" /></svg>Narrow</button>
+          </div>
+          <button type="button" class="study-action" id="theme" aria-label="Switch to light theme"><svg class="icon" aria-hidden="true"><use href="#i-sun" /></svg><span>Light</span></button>
+        </div>
+      </div>
+
+      <details class="reference" id="reference">
+        <summary><svg class="icon" aria-hidden="true"><use href="#i-right" /></svg>Topic header reference</summary>
+        <div class="reference-frame" role="img" aria-label="Current topic header layout: Topics title, then category and tag selectors, Recent, New, Top and Trending tabs, and New topic action, in the same centered lane as the topic list.">
+          <div class="content-header"><div class="content-title"><svg class="icon" aria-hidden="true"><use href="#i-topics" /></svg>Topics</div></div>
+          <div class="lane toolbar" aria-hidden="true">
+            <div class="toolbar-main">
+              <span class="reference-control"><svg class="icon"><use href="#i-layers" /></svg><span>All categories</span><svg class="icon"><use href="#i-down" /></svg></span>
+              <span class="reference-control tags-reference">All tags<svg class="icon"><use href="#i-down" /></svg></span>
+              <div class="message-tabs"><span class="reference-tab selected">Recent</span><span class="reference-tab">New<span class="count">12</span></span><span class="reference-tab top">Top</span><span class="reference-tab trending">Trending</span></div>
+            </div>
+            <span class="new-message"><svg class="icon"><use href="#i-write" /></svg><span class="action-label">New topic</span></span>
+          </div>
+        </div>
+      </details>
+
+      <div class="studies" id="studies"></div>
+      <p class="study-footer">Try the inbox selector and message tabs. All three share the topic list’s 1,120 px content width.</p>
+      <p class="sr-only" id="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <dialog id="composer" aria-labelledby="composer-title">
+      <form id="draft-form">
+        <h2 id="composer-title">New message</h2>
+        <label>To<input name="recipient" id="recipient" autocomplete="off" placeholder="Add a person or group" required /></label>
+        <label>Subject<input name="subject" autocomplete="off" required /></label>
+        <label>Message<textarea name="message" required></textarea></label>
+        <div class="dialog-actions"><button type="button" class="study-action" id="cancel-compose">Cancel</button><button type="submit" class="new-message"><span>Save draft</span></button></div>
+        <p class="dialog-note" id="draft-note">Local mockup. Drafts stay in this preview and nothing is sent.</p>
+      </form>
+    </dialog>
+
+    <script>
+      const icon = (name, extra = "") => `<svg class="icon ${extra}" aria-hidden="true"><use href="#i-${name}" /></svg>`;
+      const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+      const state = { layout: "inline", compare: false, inbox: "Personal", folder: "Inbox", width: "desktop", draft: null };
+      const concepts = [
+        { id: "inline", number: "01", title: "Topic toolbar", description: "Personal replaces the category filter. Message tabs and New message share the same row.", recommended: true },
+        { id: "stacked", number: "02", title: "Tabs + filter", description: "Message tabs lead, with an underline. The inbox selector sits on a dedicated row below." },
+        { id: "title", number: "03", title: "Inbox in title", description: "Personal sits beside Messages. The toolbar below stays focused on message navigation." },
+      ];
+      const people = {
+        JJ: { name: "Joffrey", color: "#934145" },
+        SA: { name: "Sam", color: "#486b87" },
+        AL: { name: "Alex", color: "#657455" },
+        MR: { name: "Morgan", color: "#755c86" },
+        LO: { name: "Loïc", color: "#82623e" },
+      };
+      const messages = [
+        { title: "This is a test pm to debug notifs", people: ["JJ", "SA"], replies: "0", views: "2", activity: "2d", folder: "Inbox" },
+        { title: "Daily Log", people: ["LO", "JJ"], replies: "100", views: "1.1k", activity: "2d", locked: true, bookmarked: true, folder: "Inbox" },
+        { title: "My technical 1-1 notes with other engineers or designers", people: ["AL", "JJ"], replies: "4", views: "90", activity: "2d", folder: "Inbox" },
+        { title: "Sam’s team dinner in Seville", people: ["SA", "AL", "JJ"], replies: "1", views: "31", activity: "3d", folder: "Inbox" },
+        { title: "Monthly Monitoring Obligations of French Employees – Loïc", people: ["MR", "LO", "JJ"], replies: "30", views: "159", activity: "6d", tags: ["eu-hub", "france", "+1"], folder: "Inbox" },
+        { title: "Monthly Monitoring Obligations of French Employees – Joffrey", people: ["MR", "AL", "SA"], replies: "37", views: "244", activity: "6d", tags: ["eu-hub", "france", "+1"], unread: true, folder: "Inbox" },
+        { title: "September design review", people: ["AL", "JJ"], replies: "3", views: "12", activity: "7d", unread: true, folder: "Inbox" },
+        { title: "A few notes on the native app", people: ["JJ", "AL"], replies: "2", views: "18", activity: "1d", folder: "Sent" },
+        { title: "Thanks for the feedback!", people: ["JJ", "SA"], replies: "1", views: "6", activity: "4d", folder: "Sent" },
+        { title: "June meetup details", people: ["SA", "JJ"], replies: "8", views: "48", activity: "Jun 12", folder: "Archive" },
+        { title: "Release checklist", people: ["AL", "JJ"], replies: "12", views: "73", activity: "May 28", folder: "Archive" },
+      ];
+      const groupMessages = {
+        engineering: [
+          { title: "Native app: header design", people: ["JJ", "AL", "SA"], replies: "12", views: "48", activity: "1h", unread: true, folder: "Inbox" },
+          { title: "Reviewing the next release", people: ["AL", "LO"], replies: "7", views: "35", activity: "3h", folder: "Inbox" },
+          { title: "A note on notifications", people: ["JJ", "MR"], replies: "3", views: "17", activity: "1d", unread: true, folder: "Inbox" },
+          { title: "Build is ready for review", people: ["JJ", "AL"], replies: "4", views: "21", activity: "2d", folder: "Sent" },
+          { title: "August release checklist", people: ["LO", "SA"], replies: "14", views: "82", activity: "Aug 20", folder: "Archive" },
+        ],
+        design: [
+          { title: "Message header explorations", people: ["AL", "JJ"], replies: "5", views: "23", activity: "30m", unread: true, folder: "Inbox" },
+          { title: "Notes from the design review", people: ["MR", "AL", "SA"], replies: "9", views: "42", activity: "2h", folder: "Inbox" },
+          { title: "Updated toolbar spacing", people: ["JJ", "AL"], replies: "2", views: "15", activity: "1d", folder: "Sent" },
+          { title: "July design check-in", people: ["AL", "MR"], replies: "6", views: "39", activity: "Jul 18", folder: "Archive" },
+        ],
+      };
+
+      function inboxPicker() {
+        const option = (label) => `<button type="button" data-inbox="${label}" aria-pressed="${state.inbox === label}">${icon(label === "Personal" ? "user" : "users")}<span>${label}</span>${icon("check", "check")}</button>`;
+        return `<details class="picker"><summary aria-label="Choose inbox. Current inbox: ${state.inbox}">${icon(state.inbox === "Personal" ? "user" : "users")}<span class="picker-label">${state.inbox}</span>${icon("down", "chevron")}</summary><div class="picker-menu">${option("Personal")}<div class="menu-separator"></div><p class="menu-label">Group inboxes</p>${option("engineering")}${option("design")}</div></details>`;
+      }
+
+      function messageTabs() {
+        const unread = (groupMessages[state.inbox] || messages).filter((message) => message.unread).length;
+        return `<nav class="message-tabs" aria-label="Message folders">${["Inbox", "Unread", "Sent", "Archive"].map((folder) => `<button type="button" class="message-tab" data-folder="${folder}" aria-pressed="${state.folder === folder}">${folder}${folder === "Unread" ? `<span class="count">${unread}</span>` : ""}</button>`).join("")}</nav>`;
+      }
+
+      function newMessage() {
+        return `<button type="button" class="new-message" data-compose aria-label="New message">${icon("write")}<span class="action-label">New message</span></button>`;
+      }
+
+      function header(concept) {
+        const titlePicker = concept.id === "title" ? `<span class="title-separator" aria-hidden="true"></span>${inboxPicker()}` : "";
+        const inlinePicker = concept.id === "inline" ? inboxPicker() : "";
+        const filter = concept.id === "stacked" ? `<div class="lane filter-row"><span class="filter-label">Inbox</span>${inboxPicker()}</div>` : "";
+        return `<header class="content-header"><h3 class="content-title">${icon("inbox")}Messages</h3>${titlePicker}</header><div class="lane toolbar"><div class="toolbar-main">${inlinePicker}${messageTabs()}</div>${newMessage()}</div>${filter}`;
+      }
+
+      function avatars(ids) {
+        return `<span class="avatars" role="img" aria-label="${ids.map((id) => people[id].name).join(", ")}">${ids.map((id) => `<span class="avatar" style="--avatar-bg: ${people[id].color}" aria-hidden="true">${id}</span>`).join("")}</span>`;
+      }
+
+      function row(message) {
+        return `<tr class="${message.unread ? "unread" : ""}"><td class="subject-cell"><div class="subject">${message.locked ? icon("lock") : ""}${message.bookmarked ? icon("bookmark", "bookmark") : ""}<span>${escapeHtml(message.title)}</span>${message.unread ? '<span class="unread-dot" aria-label="Unread"></span>' : ""}</div>${message.tags ? `<div class="tags">${message.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}<div class="mobile-meta">${avatars(message.people)}<span>${message.replies} ${message.replies === "1" ? "reply" : "replies"}</span></div></td><td class="people">${avatars(message.people)}</td><td class="numeric replies">${message.replies}</td><td class="numeric views">${message.views}</td><td class="numeric">${message.activity}</td></tr>`;
+      }
+
+      function ledger() {
+        const source = groupMessages[state.inbox] || messages;
+        const filtered = source.filter((message) => state.folder === "Unread" ? message.unread : message.folder === state.folder);
+        const shown = state.compare ? filtered.slice(0, 2) : filtered;
+        return `<div class="lane"><table class="ledger" aria-label="${state.inbox} messages, ${state.folder}"><colgroup><col /><col class="people-column" /><col class="stat-column" /><col class="stat-column views" /><col class="activity-column" /></colgroup><thead><tr><th scope="col"><span class="sr-only">Subject</span></th><th scope="col" class="people">People</th><th scope="col" class="replies">Replies</th><th scope="col" class="views">Views</th><th scope="col">Activity</th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table>${shown.length ? "" : '<p class="empty">No messages here.</p>'}<div class="list-footnote">${filtered.length} ${state.folder.toLowerCase()} ${filtered.length === 1 ? "message" : "messages"} · ${state.inbox === "Personal" ? "Personal inbox" : `@${state.inbox}`}</div></div>`;
+      }
+
+      function render(focus) {
+        const visible = state.compare ? concepts : concepts.filter((concept) => concept.id === state.layout);
+        document.getElementById("studies").classList.toggle("compare", state.compare);
+        document.getElementById("studies").innerHTML = visible.map((concept) => `<section class="study" data-study="${concept.id}" aria-labelledby="heading-${concept.id}"><div class="study-caption"><div><div class="study-heading"><h2 id="heading-${concept.id}"><span class="study-number">${concept.number}</span>${concept.title}</h2>${concept.recommended ? '<span class="recommendation">Recommended</span>' : ""}</div><p>${concept.description}</p></div><button type="button" class="study-action inspect" data-inspect="${concept.id}">${icon("expand")}Inspect</button></div><div class="app-frame variant-${concept.id}">${header(concept)}${ledger()}</div></section>`).join("");
+        document.querySelectorAll("[data-layout]").forEach((button) => button.setAttribute("aria-pressed", String(!state.compare && button.dataset.layout === state.layout)));
+        document.getElementById("compare").setAttribute("aria-pressed", String(state.compare));
+        if (focus) {
+          const target = document.querySelector(`[data-study="${focus.study}"] ${focus.selector}`);
+          target?.focus({ preventScroll: true });
+        }
+      }
+
+      document.addEventListener("click", (event) => {
+        const target = event.target.closest("button");
+        if (!target) return;
+        const study = target.closest("[data-study]")?.dataset.study;
+        if (target.dataset.layout) { state.layout = target.dataset.layout; state.compare = false; render(); }
+        if (target.dataset.inspect) { state.layout = target.dataset.inspect; state.compare = false; render(); document.querySelector(`[data-layout="${state.layout}"]`).focus({ preventScroll: true }); }
+        if (target.id === "compare") { state.compare = !state.compare; render(); }
+        if (target.dataset.folder) { state.folder = target.dataset.folder; render({ study, selector: `[data-folder="${state.folder}"]` }); announce(`${state.folder} in ${state.inbox}`); }
+        if (target.dataset.inbox) { state.inbox = target.dataset.inbox; render({ study, selector: ".picker > summary" }); announce(`${state.inbox} inbox selected`); }
+        if (target.dataset.width) {
+          state.width = target.dataset.width;
+          document.body.dataset.width = state.width;
+          document.querySelectorAll("button[data-width]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.width === state.width)));
+        }
+        if (target.id === "theme") {
+          const dark = document.documentElement.dataset.theme === "dark";
+          document.documentElement.dataset.theme = dark ? "light" : "dark";
+          target.innerHTML = `${icon(dark ? "moon" : "sun")}<span>${dark ? "Dark" : "Light"}</span>`;
+          target.setAttribute("aria-label", `Switch to ${dark ? "dark" : "light"} theme`);
+        }
+        if (target.hasAttribute("data-compose")) {
+          const form = document.getElementById("draft-form");
+          form.elements.recipient.value = state.draft?.recipient || (state.inbox === "Personal" ? "" : `@${state.inbox}`);
+          form.elements.subject.value = state.draft?.subject || "";
+          form.elements.message.value = state.draft?.message || "";
+          document.getElementById("composer").showModal();
+        }
+        if (target.id === "cancel-compose") document.getElementById("composer").close();
+      });
+
+      document.addEventListener("click", (event) => {
+        document.querySelectorAll(".picker[open]").forEach((picker) => { if (!picker.contains(event.target)) picker.open = false; });
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") document.querySelectorAll(".picker[open]").forEach((picker) => { picker.open = false; picker.querySelector("summary").focus(); });
+      });
+      document.getElementById("draft-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        state.draft = Object.fromEntries(new FormData(event.currentTarget));
+        document.getElementById("composer").close();
+        document.getElementById("draft-note").textContent = "Your previous draft was saved in this preview. Nothing has been sent.";
+        announce("Draft saved in this preview. Nothing was sent.");
+      });
+      function announce(message) { document.getElementById("status").textContent = message; }
+      render();
+    </script>
+  </body>
+</html>

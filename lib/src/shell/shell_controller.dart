@@ -2486,14 +2486,15 @@ class ShellController extends FrameSafeNotifier
   String? _feedPath(String feedId, DiscourseInstance instance) {
     for (final route in contentStack.reversed) {
       if (route.id != feedId) continue;
-      if (route.feedPath != null) return route.feedPath;
-      if (route.messageGroupName case final groupName?) {
+      if (route.isMessages) {
         final username = instance.user?.username;
         if (username == null) return null;
-        return '/topics/private-messages-group/'
-            '${Uri.encodeComponent(username)}/'
-            '${Uri.encodeComponent(groupName)}.json';
+        return route.messageListMode.feedPathFor(
+          username,
+          groupName: route.messageGroupName,
+        );
       }
+      if (route.feedPath != null) return route.feedPath;
     }
 
     final username = instance.user?.username;
@@ -2521,8 +2522,23 @@ class ShellController extends FrameSafeNotifier
     final group = groupName?.trim();
     if (group != null && !user.messageGroupNames.contains(group)) return;
 
-    final replacement = ContentRoute.messages(groupName: group);
-    if (route!.id == replacement.id) return;
+    final mode = route!.messageListMode;
+    final replacement = ContentRoute.messages(
+      groupName: group,
+      mode: group == null || mode.supportsGroup ? mode : MessageListMode.inbox,
+    );
+    if (route.id == replacement.id) return;
+    replaceCurrentContent(replacement);
+    unawaited(loadFeed(replacement.id));
+  }
+
+  void selectMessageListMode(MessageListMode mode) {
+    final route = currentContent;
+    if (currentInstance?.user == null || route?.isMessages != true) return;
+    final group = route!.messageGroupName;
+    if (group != null && !mode.supportsGroup) return;
+    final replacement = ContentRoute.messages(groupName: group, mode: mode);
+    if (route.id == replacement.id) return;
     replaceCurrentContent(replacement);
     unawaited(loadFeed(replacement.id));
   }
