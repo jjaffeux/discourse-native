@@ -144,6 +144,11 @@ additional namespaced counters and own their wire keys; Chat, for example,
 registers `chat/notifications` backed by `chat_notifications`. Core-only builds
 do not interpret that field.
 
+New list counts use the current category and all selected tags. Category counts
+include descendants but exclude their category definition topics, as in
+Discourse core. Empty or not-yet-loaded counts have no number, and the All
+subset has no count. The forum sidebar continues to use the forum-wide total.
+
 A notification-type badge on a plugin-contributed user-menu tab is the one
 different shape. The current-user serializer and
 `/notification/{user_id}` MessageBus messages carry

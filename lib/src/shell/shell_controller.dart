@@ -2317,6 +2317,50 @@ class ShellController extends FrameSafeNotifier
   }
 
   ({int all, int topics, int replies}) get topicListNewCounts {
+    final route = topicListContent ?? currentContent;
+    final categoryId = route?.categoryId;
+    final tagNames = route?.tagNames ?? const <String>[];
+    if (categoryId == null && tagNames.isEmpty) return _forumNewCounts;
+
+    final instance = currentInstance;
+    if (instance == null ||
+        instance.user == null ||
+        !_topicTrackingSnapshotsLoaded.contains(instance.url)) {
+      return (all: 0, topics: 0, replies: 0);
+    }
+    final tracking = _topicTrackingBySite[instance.url];
+    if (tracking == null) return (all: 0, topics: 0, replies: 0);
+
+    final tagIds = <int>{};
+    for (final name in tagNames) {
+      final normalized = name.toLowerCase();
+      final tag = _knownTagsFor(instance.url)
+          .where(
+            (tag) =>
+                tag.name.toLowerCase() == normalized ||
+                tag.slug.toLowerCase() == normalized,
+          )
+          .firstOrNull;
+      // An unresolved tag cannot use the unfiltered forum total.
+      if (tag == null || tag.pmOnly) return (all: 0, topics: 0, replies: 0);
+      tagIds.add(tag.id);
+    }
+
+    final counts = tracking.newActivityCountsFor(
+      categoryId: categoryId,
+      categories: filterCategoriesFor(instance.url),
+      tagIds: tagIds,
+    );
+    return (
+      all:
+          counts.newTopics +
+          (instance.user!.unifiedNewEnabled ? counts.newReplies : 0),
+      topics: counts.newTopics,
+      replies: counts.newReplies,
+    );
+  }
+
+  ({int all, int topics, int replies}) get _forumNewCounts {
     final instance = currentInstance;
     final totals = currentTotals;
     if (instance?.user?.unifiedNewEnabled == true) {
@@ -2342,11 +2386,11 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  int get newTopicCount => topicListNewCounts.topics;
+  int get newTopicCount => _forumNewCounts.topics;
 
-  int get newReplyCount => topicListNewCounts.replies;
+  int get newReplyCount => _forumNewCounts.replies;
 
-  int get newActivityCount => topicListNewCounts.all;
+  int get newActivityCount => _forumNewCounts.all;
 
   TopicListMode get defaultTopTopicListMode {
     final siteUrl = currentInstance?.url;

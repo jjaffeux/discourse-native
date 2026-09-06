@@ -31,12 +31,30 @@ final class TopicTrackingState {
   ({int newTopics, int newReplies})? _newActivityCounts;
 
   ({int newTopics, int newReplies}) get newActivityCounts =>
-      _newActivityCounts ??= _countNewActivity();
+      _newActivityCounts ??= _countNewActivity(topics);
 
-  ({int newTopics, int newReplies}) _countNewActivity() {
+  ({int newTopics, int newReplies}) newActivityCountsFor({
+    int? categoryId,
+    Iterable<TopicCategory> categories = const [],
+    Set<int> tagIds = const {},
+  }) {
+    if (categoryId == null && tagIds.isEmpty) return newActivityCounts;
+    final candidates = categoryId != null
+        ? _categoryTopics(categoryId, categories)
+        : _tagTopics(tagIds.first);
+    return _countNewActivity(
+      tagIds.isEmpty
+          ? candidates
+          : candidates.where((topic) => topic.tagIds.containsAll(tagIds)),
+    );
+  }
+
+  ({int newTopics, int newReplies}) _countNewActivity(
+    Iterable<TrackedTopicState> candidates,
+  ) {
     var newTopics = 0;
     var newReplies = 0;
-    for (final topic in topics) {
+    for (final topic in candidates) {
       if (topic.isUnread) {
         newReplies++;
       } else if (topic.isNew) {
@@ -51,7 +69,16 @@ final class TopicTrackingState {
     required Iterable<TopicCategory> categories,
     required bool unifiedNew,
     required bool showCount,
-  }) {
+  }) => _badge(
+    _categoryTopics(categoryId, categories),
+    unifiedNew: unifiedNew,
+    showCount: showCount,
+  );
+
+  Iterable<TrackedTopicState> _categoryTopics(
+    int categoryId,
+    Iterable<TopicCategory> categories,
+  ) sync* {
     final descendants = _descendantCategoryIds(
       categoryId,
       _childrenFor(categories),
@@ -59,30 +86,25 @@ final class TopicTrackingState {
     final byCategory = _topicsByCategory ??= _indexBy(
       (topic) => [?topic.categoryId],
     );
-    return _badge(
-      [
-        for (final id in descendants)
-          for (final topic in byCategory[id] ?? const <TrackedTopicState>[])
-            // A child category's definition topic belongs to that child only.
-            // Core excludes it when calculating the recursive parent-category
-            // count.
-            if (!topic.isCategoryTopic || topic.categoryId == categoryId) topic,
-      ],
-      unifiedNew: unifiedNew,
-      showCount: showCount,
-    );
+    for (final id in descendants) {
+      for (final topic in byCategory[id] ?? const <TrackedTopicState>[]) {
+        // Core excludes descendant category definition topics from the parent.
+        if (!topic.isCategoryTopic || topic.categoryId == categoryId) {
+          yield topic;
+        }
+      }
+    }
   }
 
   SidebarBadge tagBadge({
     required int tagId,
     required bool unifiedNew,
     required bool showCount,
-  }) => _badge(
-    (_topicsByTag ??= _indexBy((topic) => topic.tagIds))[tagId] ??
-        const <TrackedTopicState>[],
-    unifiedNew: unifiedNew,
-    showCount: showCount,
-  );
+  }) => _badge(_tagTopics(tagId), unifiedNew: unifiedNew, showCount: showCount);
+
+  Iterable<TrackedTopicState> _tagTopics(int tagId) =>
+      (_topicsByTag ??= _indexBy((topic) => topic.tagIds))[tagId] ??
+      const <TrackedTopicState>[];
 
   Map<int, List<TrackedTopicState>> _indexBy(
     Iterable<int> Function(TrackedTopicState topic) keysOf,

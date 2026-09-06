@@ -328,7 +328,6 @@ class _TopicListNavigationControls extends StatelessWidget {
                     segmented: stacked,
                     controlKey: const ValueKey('topic-list-new-all'),
                     label: 'All',
-                    count: state.allCount,
                     textStyle: secondaryTextStyle,
                     selected: mode == TopicListMode.newActivity,
                     onTap: () =>
