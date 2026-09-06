@@ -16,6 +16,7 @@ import 'shell_sheet.dart';
 /// Pointer popovers reserve their expected dimensions from the first frame so
 /// asynchronous results cannot move the surface from one side of its anchor to
 /// the other when they arrive.
+/// Set [popoverHeight] to null for details that should fit their content.
 Future<T?> showAnchoredPicker<T>({
   required BuildContext context,
   required String title,
@@ -25,7 +26,7 @@ Future<T?> showAnchoredPicker<T>({
   BuildContext? anchorContext,
   Rect? anchor,
   double popoverWidth = _AnchoredPickerSurface.defaultWidth,
-  double popoverHeight = _AnchoredPickerSurface.defaultHeight,
+  double? popoverHeight = _AnchoredPickerSurface.defaultHeight,
   EdgeInsetsGeometry popoverPadding = EdgeInsets.zero,
   bool nested = false,
   bool sheetEnableDrag = true,
@@ -347,7 +348,7 @@ class _AnchoredPickerSurface extends StatelessWidget {
   static const double defaultHeight = 360;
 
   final double width;
-  final double height;
+  final double? height;
   final EdgeInsetsGeometry padding;
   final Widget child;
 

@@ -122,6 +122,36 @@ void main() {
     expect(results, [null]);
   });
 
+  testWidgets('search finds selected tags and Enter can remove a match', (
+    tester,
+  ) async {
+    List<TopicTag>? selection;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: TopicTagPicker(
+            selectedTags: const [design, mobile],
+            capabilities: const TopicComposerCapabilities(canTagTopics: true),
+            search: (_) async => const TopicTagSearch(),
+            onSelected: (tags) => selection = tags,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('topic-tag-picker-query')),
+      'MOBILE',
+    );
+    await tester.pumpAndSettle(const Duration(milliseconds: 300));
+    expect(option('design'), findsNothing);
+    expect(option('mobile'), findsOneWidget);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(selection, [design]);
+  });
+
   testWidgets('keeps the create row mounted while search results refresh', (
     tester,
   ) async {

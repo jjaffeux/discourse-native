@@ -42,6 +42,52 @@ void main() {
     return controller;
   }
 
+  testWidgets('details fit their content and long details remain scrollable', (
+    tester,
+  ) async {
+    for (final contentHeight in [56.0, 600.0]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          key: ValueKey(contentHeight),
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showAnchoredPicker<void>(
+                  context: context,
+                  title: 'Details',
+                  barrierLabel: 'Dismiss details',
+                  popoverKey: const ValueKey('details-popover'),
+                  popoverHeight: null,
+                  builder: (_) => SizedBox(
+                    height: contentHeight,
+                    child: const Text('Assignment details'),
+                  ),
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      final popover = find.byKey(const ValueKey('details-popover'));
+      expect(
+        tester.getSize(popover).height,
+        contentHeight < 440 ? lessThan(80) : 440,
+      );
+      final scroll = tester.state<ScrollableState>(
+        find.descendant(of: popover, matching: find.byType(Scrollable)),
+      );
+      expect(
+        scroll.position.maxScrollExtent,
+        contentHeight < 440 ? 0 : greaterThan(0),
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('uses compact input and option geometry for pointers', (
     tester,
   ) async {

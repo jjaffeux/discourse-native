@@ -42,7 +42,7 @@ class TopicInboxRow extends StatelessWidget {
           (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
               .topicListMetadata(context, siteUrl, topic);
       final smallStyle = theme.textTheme.labelSmall?.copyWith(
-        fontSize: 11,
+        fontSize: DiscourseTypography.fontDown3,
         color: muted,
       );
       final age = topic.bumpedAt == null ? null : relativeTime(topic.bumpedAt!);
@@ -50,7 +50,7 @@ class TopicInboxRow extends StatelessWidget {
           topic.excerpt ??
           (topic.lastPosterUsername == null
               ? null
-              : 'Last reply by @${topic.lastPosterUsername}');
+              : 'Last post by @${topic.lastPosterUsername}');
       Widget replies() => Semantics(
         label:
             '${topic.replyCount} ${topic.replyCount == 1 ? 'reply' : 'replies'}',
@@ -91,9 +91,9 @@ class TopicInboxRow extends StatelessWidget {
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(
                     recommendation ? 0 : 16,
-                    14,
+                    12,
                     recommendation ? 0 : 10,
-                    14,
+                    12,
                   ),
                   child: Row(
                     children: [
@@ -145,7 +145,7 @@ class TopicInboxRow extends StatelessWidget {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: theme.textTheme.titleSmall?.copyWith(
-                                      fontSize: 13,
+                                      fontSize: DiscourseTypography.fontDown1,
                                       height: 1.45,
                                       fontWeight: unread
                                           ? FontWeight.w600
@@ -170,7 +170,7 @@ class TopicInboxRow extends StatelessWidget {
                               ],
                             ),
                             if (category != null || topic.tags.isNotEmpty) ...[
-                              const SizedBox(height: 7),
+                              const SizedBox(height: 6),
                               Row(
                                 children: [
                                   if (category != null) ...[
@@ -213,75 +213,94 @@ class TopicInboxRow extends StatelessWidget {
                                       ),
                                     ),
                                   ],
+                                  if (topic.tags.length > 2) ...[
+                                    const SizedBox(width: 5),
+                                    Tooltip(
+                                      message: topic.tags
+                                          .skip(2)
+                                          .map((tag) => '# ${tag.name}')
+                                          .join(', '),
+                                      child: Text(
+                                        '+${topic.tags.length - 2}',
+                                        style: smallStyle,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ],
                             if (!recommendation) ...[
-                              const SizedBox(height: 7),
+                              const SizedBox(height: 6),
                               Row(
                                 children: [
-                                  if (topic.lastPosterUsername
-                                      case final username?
-                                      when topic.excerpt == null) ...[
-                                    Tooltip(
-                                      message: '@$username',
-                                      child: CircleAvatar(
-                                        radius: 8,
-                                        backgroundColor: theme.shell.hover,
-                                        foregroundColor: muted,
-                                        child: Text(
-                                          username.isEmpty
-                                              ? '?'
-                                              : username
-                                                    .substring(0, 1)
-                                                    .toUpperCase(),
-                                          style: smallStyle?.copyWith(
-                                            fontSize: 9,
-                                          ),
-                                        ),
+                                  if (metadata.isNotEmpty)
+                                    Expanded(
+                                      child: Wrap(
+                                        spacing: 4,
+                                        runSpacing: 4,
+                                        children: metadata,
                                       ),
-                                    ),
-                                    const SizedBox(width: 5),
-                                  ] else if (preview == null &&
-                                      topic.posterAvatars.isNotEmpty) ...[
-                                    for (final avatar
-                                        in topic.posterAvatars.take(3))
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: 2,
-                                        ),
-                                        child: ClipOval(
-                                          child: AvatarImage(
-                                            url: avatar,
-                                            size: 16,
-                                            fallback: const SizedBox.square(
-                                              dimension: 16,
+                                    )
+                                  else ...[
+                                    if (topic.lastPosterUsername
+                                        case final username?
+                                        when topic.excerpt == null) ...[
+                                      Tooltip(
+                                        message: '@$username',
+                                        child: CircleAvatar(
+                                          radius: 8,
+                                          backgroundColor: theme.shell.hover,
+                                          foregroundColor: muted,
+                                          child: Text(
+                                            username.isEmpty
+                                                ? '?'
+                                                : username
+                                                      .substring(0, 1)
+                                                      .toUpperCase(),
+                                            style: smallStyle?.copyWith(
+                                              fontSize:
+                                                  DiscourseTypography.fontDown3,
                                             ),
                                           ),
                                         ),
                                       ),
-                                    const SizedBox(width: 3),
-                                  ],
-                                  Expanded(
-                                    child: Text(
-                                      preview ?? '',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: smallStyle?.copyWith(fontSize: 12),
+                                      const SizedBox(width: 5),
+                                    ] else if (preview == null &&
+                                        topic.posterAvatars.isNotEmpty) ...[
+                                      for (final avatar
+                                          in topic.posterAvatars.take(3))
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 2,
+                                          ),
+                                          child: ClipOval(
+                                            child: AvatarImage(
+                                              url: avatar,
+                                              size: 16,
+                                              fallback: const SizedBox.square(
+                                                dimension: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      const SizedBox(width: 3),
+                                    ],
+                                    Expanded(
+                                      child: Text(
+                                        preview ?? '',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: smallStyle?.copyWith(
+                                          fontSize:
+                                              DiscourseTypography.fontDown2,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                   const SizedBox(width: 8),
                                   replies(),
                                 ],
                               ),
-                              if (metadata.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 4,
-                                  runSpacing: 4,
-                                  children: metadata,
-                                ),
-                              ],
                             ],
                           ],
                         ),

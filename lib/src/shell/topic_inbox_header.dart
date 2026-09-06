@@ -19,7 +19,7 @@ import 'shell_scope.dart';
 import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
-import 'topic_tag_picker.dart';
+import 'topic_header_tags.dart';
 import 'topic_title.dart';
 import 'user_menu_button.dart';
 
@@ -50,7 +50,7 @@ class TopicInboxHeader extends StatelessWidget {
     final topic = this.topic;
     final siteUrl = this.siteUrl;
     final titleStyle = theme.textTheme.titleLarge?.copyWith(
-      fontSize: 23,
+      fontSize: DiscourseTypography.fontUp3,
       height: 1.28,
       fontWeight: FontWeight.w600,
     );
@@ -84,13 +84,16 @@ class TopicInboxHeader extends StatelessWidget {
                   },
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  'Topic',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                Expanded(
+                  child: Text(
+                    'Topic',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-                const Spacer(),
                 if (keepTopicListOpen) const _TopicInboxNavigation(),
                 if (topic != null && siteUrl != null) ...[
                   TopicStatusButton(
@@ -218,7 +221,7 @@ class _TopicActivitySummary extends StatelessWidget {
       final theme = Theme.of(context);
       final participants = topic.participants.take(3).toList();
       final style = theme.textTheme.labelSmall?.copyWith(
-        fontSize: 12,
+        fontSize: DiscourseTypography.fontDown2,
         color: theme.colorScheme.onSurfaceVariant,
       );
       return Wrap(
@@ -253,7 +256,9 @@ class _TopicActivitySummary extends StatelessWidget {
                                     : participants[i].username
                                           .substring(0, 1)
                                           .toUpperCase(),
-                                style: style?.copyWith(fontSize: 9),
+                                style: style?.copyWith(
+                                  fontSize: DiscourseTypography.fontDown3,
+                                ),
                               ),
                             ),
                           ),
@@ -270,8 +275,8 @@ class _TopicActivitySummary extends StatelessWidget {
           if (row?.bumpedAt case final activity?) ...[
             Text('·', style: style),
             Text(switch (relativeTime(activity)) {
-              'now' => 'Last reply just now',
-              final age => 'Last reply $age ago',
+              'now' => 'Last activity just now',
+              final age => 'Last activity $age ago',
             }, style: style),
           ],
         ],
@@ -412,82 +417,57 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                 ),
         ),
       );
-      return TopicTagMenuAnchor(
-        siteUrl: siteUrl,
-        topicId: topic.id,
-        categoryId: topic.categoryId,
-        tags: topic.tags,
-        enabled: topic.canEditTags,
-        builder: (context, editTags, savingTags) => Wrap(
-          key: const ValueKey('topic-header-taxonomy'),
-          spacing: 7,
-          runSpacing: 7,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            if (!topic.privateMessage) ...[
-              categoryControl(root, subcategory: false),
-              if (parent != null ||
-                  (root != null &&
-                      topic.canEdit &&
-                      shell
-                          .filterCategoriesFor(siteUrl)
-                          .any((item) => item.parentCategoryId == root.id)))
-                categoryControl(
-                  parent == null ? null : category,
-                  subcategory: true,
+      final hasCategories = !topic.privateMessage;
+      final hasSubcategory =
+          hasCategories &&
+          (parent != null ||
+              (root != null &&
+                  topic.canEdit &&
+                  shell
+                      .filterCategoriesFor(siteUrl)
+                      .any((item) => item.parentCategoryId == root.id)));
+      final hasTags = topic.tags.isNotEmpty || topic.canEditTags;
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final categoryWidth =
+              (constraints.maxWidth * (hasSubcategory ? .28 : .42)).clamp(
+                72.0,
+                200.0,
+              );
+          return Row(
+            key: const ValueKey('topic-header-taxonomy'),
+            children: [
+              if (hasCategories) ...[
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: categoryWidth),
+                  child: categoryControl(root, subcategory: false),
                 ),
-            ],
-            if (topic.tags.isNotEmpty || topic.canEditTags) ...[
-              Container(
-                width: 1,
-                height: 15,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                color: Theme.of(context).shell.divider,
-              ),
-              for (final tag in topic.tags)
-                Material(
-                  color: Theme.of(context).shell.hover,
-                  borderRadius: BorderRadius.circular(4),
-                  child: InkWell(
-                    key: ValueKey(('topic-header-tag', tag.name)),
-                    onTap: editTags,
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 5,
-                      ),
-                      child: Text(
-                        '# ${tag.name}',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelSmall?.copyWith(fontSize: 12),
-                      ),
+                if (hasSubcategory) ...[
+                  const SizedBox(width: 7),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: categoryWidth),
+                    child: categoryControl(
+                      parent == null ? null : category,
+                      subcategory: true,
                     ),
                   ),
+                ],
+              ],
+              if (hasTags) ...[
+                if (hasCategories)
+                  Container(
+                    width: 1,
+                    height: 15,
+                    margin: const EdgeInsets.symmetric(horizontal: 10),
+                    color: Theme.of(context).shell.divider,
+                  ),
+                Flexible(
+                  child: TopicHeaderTags(siteUrl: siteUrl, topic: topic),
                 ),
-              if (topic.canEditTags)
-                SizedBox.square(
-                  dimension: 28,
-                  child: savingTags
-                      ? const Padding(
-                          padding: EdgeInsets.all(6),
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 1.5,
-                          ),
-                        )
-                      : DButton.iconOnly(
-                          key: const ValueKey('topic-header-add-tag'),
-                          icon: const DIcon(DIcons.plus, size: 14),
-                          tooltip: 'Add or remove topic tags',
-                          onPressed: editTags,
-                          variant: DButtonVariant.flat,
-                          size: DButtonSize.small,
-                        ),
-                ),
+              ],
             ],
-          ],
-        ),
+          );
+        },
       );
     },
   );
@@ -529,53 +509,57 @@ class _CategoryChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Tooltip(
-            message: edit == null ? label : editLabel,
-            child: InkWell(
-              onTap: edit,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (category != null) ...[
-                      CategoryIcon(
-                        category: category!,
-                        siteUrl: siteUrl,
-                        size: 12,
-                        squareSize: 9,
-                      ),
-                      const SizedBox(width: 6),
-                    ],
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 180),
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontSize: 12,
+          Flexible(
+            child: Tooltip(
+              message: edit == null ? label : editLabel,
+              child: InkWell(
+                onTap: edit,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 5,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (category != null) ...[
+                        CategoryIcon(
+                          category: category!,
+                          siteUrl: siteUrl,
+                          size: 12,
+                          squareSize: 9,
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontSize: DiscourseTypography.fontDown2,
+                          ),
                         ),
                       ),
-                    ),
-                    if (edit != null && category != null && !saving) ...[
-                      const SizedBox(width: 5),
-                      DIcon(
-                        DIcons.chevronDown,
-                        size: 9,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ],
-                    if (saving) ...[
-                      const SizedBox(width: 6),
-                      const SizedBox.square(
-                        dimension: 12,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 1.5,
+                      if (edit != null && category != null && !saving) ...[
+                        const SizedBox(width: 5),
+                        DIcon(
+                          DIcons.chevronDown,
+                          size: 9,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                      ),
+                      ],
+                      if (saving) ...[
+                        const SizedBox(width: 6),
+                        const SizedBox.square(
+                          dimension: 12,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 1.5,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -641,6 +625,7 @@ class _TopicHeaderProperties extends StatelessWidget {
                       anchorContext: anchorContext,
                       title: section.label,
                       barrierLabel: 'Dismiss ${section.label}',
+                      popoverHeight: null,
                       popoverKey: ValueKey((
                         'topic-header-property',
                         section.label,

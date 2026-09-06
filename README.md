@@ -726,7 +726,8 @@ beside the reader and can be resized between 304 and 480 pixels, keeping at
 least 520 pixels for the reader. Smaller windows show the reader alone and restore the
 same list when returning. Choosing a sibling topic replaces the reader route;
 **Back to topics** returns directly to the source list. The narrow list uses
-compact cards with a separate timestamp, taxonomy, and reply line. The reader
+compact cards with a separate timestamp and taxonomy. Assignment shares the
+activity/reply line, and a tag overflow hint reveals additional tags. The reader
 shares one text alignment for taxonomy, title, posts, and compact recommendations,
 with participants and assignment controls below the title. Bookmark and
 notification controls sit beside Reply in the footer.
@@ -744,10 +745,13 @@ editor. Clicking a category or tag edits it when the server grants the matching
 permission; separate arrows browse the parent or subcategory. Removing a
 subcategory moves the topic to its parent. Moving to Uncategorized is offered
 only when the site allows it. Enter saves a title and Escape cancels it.
+The taxonomy stays on one line: up to three tags fit beside the categories,
+with the remaining tags accessible through a searchable overflow picker.
+Readers without editing permission can still inspect every tag.
 
 Plugin properties can supply a compact `TopicPropertySection.header` builder;
 other properties remain available through a labelled details popover. The
-assignment plugin shows Assign or the current assignee near the title. Its
+assignment plugin shows Assign or one assignee dropdown near the title. Its
 management popover retains people/groups, notes/status, Change, Remove/Undo,
 and links to assigned posts. All actions keep their existing permission checks.
 
