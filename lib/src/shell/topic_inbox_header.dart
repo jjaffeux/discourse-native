@@ -234,10 +234,6 @@ class _ExpandedTopicInboxHeader extends StatelessWidget {
         ? (shellHeaderHeight - actionDimension) / 2
         : 4.0;
     final toolbarStart = toolbarLeadingPadding + actionDimension;
-    // Share the toolbar only when the close control fits before the reading
-    // lane. Taxonomy keeps the same leading edge as the title and posts.
-    final inlineTaxonomy =
-        taxonomy != null && contentPadding.left >= toolbarStart + 8;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -253,10 +249,13 @@ class _ExpandedTopicInboxHeader extends StatelessWidget {
             children: [
               _TopicCloseButton(canReturnToSidebar: header.canReturnToSidebar),
               Expanded(
-                child: inlineTaxonomy
+                child: taxonomy != null
                     ? Padding(
                         padding: EdgeInsets.only(
-                          left: contentPadding.left - toolbarStart,
+                          left: (contentPadding.left - toolbarStart).clamp(
+                            8,
+                            double.infinity,
+                          ),
                           right: 8,
                         ),
                         child: Align(
@@ -269,38 +268,18 @@ class _ExpandedTopicInboxHeader extends StatelessWidget {
                       )
                     : const SizedBox.shrink(),
               ),
-              if (keepTopicListOpen) const _TopicInboxNavigation(),
-              if (topic != null && siteUrl != null) ...[
-                TopicStatusButton(
-                  siteUrl: siteUrl,
-                  topic: topic,
-                  topicFlags: controller.availableTopicFlagTypes(
-                    siteUrl,
-                    topic,
-                  ),
-                ),
-                TopicShareButton(
-                  siteUrl: siteUrl,
-                  topic: topic,
-                  route: header.route,
-                ),
-              ],
-              if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
+              _TopicHeaderActions(header: header, width: constraints.maxWidth),
             ],
           ),
         ),
         Padding(
           padding: contentPadding.add(
-            EdgeInsets.only(top: inlineTaxonomy ? 2 : 4, bottom: 12),
+            const EdgeInsets.only(top: 4, bottom: 12),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (taxonomy != null && !inlineTaxonomy) ...[
-                taxonomy,
-                const SizedBox(height: 8),
-              ],
               if (topic?.canEdit == true && siteUrl != null)
                 InlineTopicTitleEditor(
                   key: const ValueKey('topic-header-title'),
@@ -397,54 +376,121 @@ class _CompactTopicInboxHeader extends StatelessWidget {
             children: [
               _TopicCloseButton(canReturnToSidebar: header.canReturnToSidebar),
               const SizedBox(width: 8),
-              if (!topic.privateMessage)
-                _CompactTopicCategory(
-                  siteUrl: siteUrl,
-                  topic: topic,
-                  keepTopicListOpen: header.keepTopicListOpen,
-                  iconOnly: narrow,
-                  maxWidth: (constraints.maxWidth * .2).clamp(48, 160),
-                ),
               Expanded(
-                child: Tooltip(
-                  message: header.title,
-                  child: TopicTitle(
-                    header.title,
-                    key: const ValueKey('topic-header-compact-title'),
-                    siteUrl: siteUrl,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: style,
+                child: LayoutBuilder(
+                  builder: (context, contentConstraints) => Row(
+                    children: [
+                      if (!topic.privateMessage)
+                        _CompactTopicCategory(
+                          siteUrl: siteUrl,
+                          topic: topic,
+                          keepTopicListOpen: header.keepTopicListOpen,
+                          iconOnly: narrow,
+                          maxWidth: (contentConstraints.maxWidth * .2).clamp(
+                            48,
+                            160,
+                          ),
+                        ),
+                      if (topic.tags.isNotEmpty || topic.canEditTags) ...[
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: (contentConstraints.maxWidth * .35).clamp(
+                              28,
+                              280,
+                            ),
+                          ),
+                          child: TopicHeaderTags(
+                            key: const ValueKey('topic-header-compact-tags'),
+                            siteUrl: siteUrl,
+                            topic: topic,
+                            onTagNavigate: (tag, {newTab = false}) =>
+                                controller.openTopicTag(
+                                  tag,
+                                  siteUrl: siteUrl,
+                                  privateMessage: topic.privateMessage,
+                                  newTab: newTab,
+                                ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: Tooltip(
+                          message: header.title,
+                          child: TopicTitle(
+                            header.title,
+                            key: const ValueKey('topic-header-compact-title'),
+                            siteUrl: siteUrl,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: style,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              _TopicHeaderProperties(
-                siteUrl: siteUrl,
-                topic: topic,
-                registry: header.registry,
+              _TopicHeaderActions(
+                header: header,
+                width: constraints.maxWidth,
                 compact: true,
               ),
-              if (header.keepTopicListOpen && !narrow)
-                const _TopicInboxNavigation(),
-              TopicStatusButton(
-                siteUrl: siteUrl,
-                topic: topic,
-                topicFlags: controller.availableTopicFlagTypes(siteUrl, topic),
-              ),
-              if (!narrow)
-                TopicShareButton(
-                  siteUrl: siteUrl,
-                  topic: topic,
-                  route: header.route,
-                ),
-              if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
             ],
           ),
         ),
       );
     },
   );
+}
+
+class _TopicHeaderActions extends StatelessWidget {
+  const _TopicHeaderActions({
+    required this.header,
+    required this.width,
+    this.compact = false,
+  });
+
+  final TopicInboxHeader header;
+  final double width;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final topic = header.topic;
+    final siteUrl = header.siteUrl;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (compact && topic != null && siteUrl != null)
+          _TopicHeaderProperties(
+            siteUrl: siteUrl,
+            topic: topic,
+            registry: header.registry,
+            compact: true,
+          ),
+        if (header.keepTopicListOpen && width >= 640)
+          const _TopicInboxNavigation(),
+        if (topic != null && siteUrl != null) ...[
+          TopicStatusButton(
+            siteUrl: siteUrl,
+            topic: topic,
+            topicFlags: ShellScope.read(
+              context,
+            ).availableTopicFlagTypes(siteUrl, topic),
+          ),
+          if (width >= 440)
+            TopicShareButton(
+              siteUrl: siteUrl,
+              topic: topic,
+              route: header.route,
+            ),
+        ],
+        if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
+      ],
+    );
+  }
 }
 
 class _TopicCloseButton extends StatelessWidget {
@@ -735,6 +781,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
       Widget categoryControl(
         TopicCategory? value, {
         required bool subcategory,
+        required bool compressed,
       }) => TopicCategoryMenuAnchor(
         siteUrl: siteUrl,
         topicId: topic.id,
@@ -747,22 +794,30 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
         removeLabel: subcategory
             ? 'Remove subcategory'
             : 'Move to Uncategorized',
-        builder: (context, edit, saving) => _CategoryChip(
-          category: value,
-          siteUrl: siteUrl,
-          label: value?.name ?? (subcategory ? '+ Subcategory' : '+ Category'),
-          edit: edit,
-          saving: saving,
-          editLabel: subcategory
-              ? 'Edit topic subcategory'
-              : 'Edit topic category',
-          navigate: value == null
+        builder: (context, edit, saving) {
+          final browse = value == null
               ? null
               : () => shell.browseTopicCategory(
                   value,
                   keepTopicOpen: keepTopicListOpen,
-                ),
-        ),
+                );
+          final browseOnly = compressed && !topic.canEdit;
+          return _CategoryChip(
+            category: value,
+            siteUrl: siteUrl,
+            label:
+                value?.name ?? (subcategory ? '+ Subcategory' : '+ Category'),
+            edit: browseOnly ? browse : edit,
+            saving: saving,
+            compact: compressed,
+            editLabel: browseOnly
+                ? 'Browse ${value?.name}'
+                : subcategory
+                ? 'Edit topic subcategory'
+                : 'Edit topic category',
+            navigate: compressed ? null : browse,
+          );
+        },
       );
       final hasCategories = !topic.privateMessage;
       final hasSubcategory =
@@ -776,9 +831,10 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
       final hasTags = topic.tags.isNotEmpty || topic.canEditTags;
       return LayoutBuilder(
         builder: (context, constraints) {
+          final compressed = constraints.maxWidth < 260;
           final categoryWidth =
               (constraints.maxWidth * (hasSubcategory ? .28 : .42)).clamp(
-                72.0,
+                compressed ? 40.0 : 72.0,
                 200.0,
               );
           return Row(
@@ -787,7 +843,11 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
               if (hasCategories) ...[
                 ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: categoryWidth),
-                  child: categoryControl(root, subcategory: false),
+                  child: categoryControl(
+                    root,
+                    subcategory: false,
+                    compressed: compressed,
+                  ),
                 ),
                 if (hasSubcategory) ...[
                   const SizedBox(width: 7),
@@ -796,6 +856,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                     child: categoryControl(
                       parent == null ? null : category,
                       subcategory: true,
+                      compressed: compressed,
                     ),
                   ),
                 ],
