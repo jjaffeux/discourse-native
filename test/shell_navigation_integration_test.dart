@@ -2271,7 +2271,11 @@ void _registerShellNavigationTests() {
         findsOneWidget,
       );
       final headerRect = tester.getRect(header);
+      final cardRect = tester.getRect(
+        find.byKey(const ValueKey('forum-identity-button')),
+      );
       expect(headerRect.top, tester.getRect(sidebar).top);
+      expect(cardRect.top - headerRect.top, 6);
       final navigation = find.descendant(
         of: sidebar,
         matching: find.byType(CustomScrollView),
