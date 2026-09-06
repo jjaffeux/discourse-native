@@ -249,7 +249,6 @@ class _TopicListViewState extends State<TopicListView> {
 
     return Column(
       children: [
-        const _TopicListHeader(),
         if (state.incoming > 0)
           _IncomingBanner(
             count: state.incoming,
@@ -257,6 +256,7 @@ class _TopicListViewState extends State<TopicListView> {
             loading: widget.feed.loadingIncoming,
             onTap: () => _showIncoming(controller, destination, feedIdentity),
           ),
+        const _TopicListHeader(),
         Expanded(child: _body(controller, destination, feedIdentity)),
       ],
     );
@@ -710,47 +710,79 @@ class _IncomingBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final foreground = theme.colorScheme.onPrimaryContainer;
+    final accent = theme.colorScheme.primary;
+    final foreground = theme.colorScheme.onSurface;
 
-    // Its own Material: the ink has to splash on the banner rather than on the
-    // content surface underneath it, which is a different colour.
-    return Material(
-      color: theme.colorScheme.primaryContainer,
-      child: InkWell(
-        onTap: loading ? null : onTap,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: theme.shell.divider)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (loading)
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: AdaptiveActivityIndicator(
-                    color: foreground,
-                    cupertinoRadius: 7,
-                    materialStrokeWidth: 2,
-                  ),
-                )
-              else
-                DIcon(DIcons.arrowUp, size: 14, color: foreground),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  _label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: foreground,
+    return ContentReadingLaneBox(
+      widthLimit: topicListContentWidth,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Align(
+          alignment: Alignment.center,
+          child: Semantics(
+            liveRegion: true,
+            value: loading ? 'Loading' : null,
+            child: TextButton(
+              key: const ValueKey('incoming-topics-button'),
+              onPressed: loading ? null : onTap,
+              style: ButtonStyle(
+                minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
+                padding: const WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                ),
+                foregroundColor: WidgetStatePropertyAll(foreground),
+                backgroundColor: WidgetStateProperty.resolveWith((states) {
+                  final interactive =
+                      states.contains(WidgetState.hovered) ||
+                      states.contains(WidgetState.pressed);
+                  return Color.alphaBlend(
+                    accent.withValues(alpha: interactive ? 0.16 : 0.07),
+                    theme.shell.content,
+                  );
+                }),
+                side: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.focused)) {
+                    return BorderSide(color: accent, width: 2);
+                  }
+                  return BorderSide(color: accent.withValues(alpha: 0.25));
+                }),
+                shape: WidgetStatePropertyAll(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 ),
+                textStyle: WidgetStatePropertyAll(
+                  theme.textTheme.labelLarge?.copyWith(
+                    fontSize: DiscourseTypography.fontDown1,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+                splashFactory: NoSplash.splashFactory,
+                visualDensity: VisualDensity.standard,
+                tapTargetSize: MaterialTapTargetSize.padded,
               ),
-            ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ExcludeSemantics(
+                    child: loading
+                        ? SizedBox.square(
+                            dimension: 16,
+                            child: AdaptiveActivityIndicator(
+                              color: accent,
+                              cupertinoRadius: 8,
+                              materialStrokeWidth: 2,
+                            ),
+                          )
+                        : DIcon(DIcons.arrowUp, size: 16, color: accent),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(child: Text(_label, textAlign: TextAlign.center)),
+                ],
+              ),
+            ),
           ),
         ),
       ),
