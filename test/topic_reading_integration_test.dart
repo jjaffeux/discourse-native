@@ -5274,7 +5274,7 @@ void _registerTopicReadingTests() {
 
         expect(
           find.byKey(const ValueKey('topic-more-topics-jump')),
-          findsOneWidget,
+          findsNothing,
         );
         expect(
           find.byKey(const ValueKey('topic-list-ledger-header')),
@@ -5289,7 +5289,7 @@ void _registerTopicReadingTests() {
                 widget.title == 'A compact suggested topic',
           ),
         );
-        expect(compactTitle.style?.fontSize, 13);
+        expect(compactTitle.style?.fontSize, DiscourseTypography.fontDown1);
         expect(
           compactTitle.style?.fontSize,
           lessThan(DiscourseTypography.fontUp1),

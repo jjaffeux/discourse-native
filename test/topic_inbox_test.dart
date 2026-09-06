@@ -335,18 +335,38 @@ void main() {
     },
   );
 
-  testWidgets('compact recommendations keep the source list when opened', (
+  testWidgets('recommendations appear below posts and keep the source list', (
     tester,
   ) async {
     final setup = await _setup(tester, recommendations: true);
     setup.controller.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
     final listState = tester.state(find.byType(TopicListView));
-    await tester.tap(find.byKey(const ValueKey('topic-more-topics-jump')));
-    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-more-topics-jump')), findsNothing);
+    final footer = find.byKey(const ValueKey('topic-bottom-bar'));
+    expect(
+      find.descendant(of: footer, matching: find.text('Related / Suggested')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: footer, matching: find.text('More topics')),
+      findsNothing,
+    );
     final recommendations = find.byWidgetPredicate(
       (widget) => widget is TopicInboxRow && widget.recommendation,
     );
+    await tester.scrollUntilVisible(
+      recommendations,
+      500,
+      scrollable: find.descendant(
+        of: find.descendant(
+          of: find.byType(TopicView),
+          matching: find.byType(SuperListView),
+        ),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
     expect(recommendations, findsOneWidget);
     expect(find.text('Suggested'), findsOneWidget);
     expect(
@@ -358,6 +378,36 @@ void main() {
     expect(setup.controller.currentContent?.topicId, 2);
     expect(setup.controller.contentStack, hasLength(2));
     expect(tester.state(find.byType(TopicListView)), same(listState));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('omits the recommendation section when none are available', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey(('post-footer-action', 4, 'Reply'))),
+      500,
+      scrollable: find.descendant(
+        of: find.descendant(
+          of: find.byType(TopicView),
+          matching: find.byType(SuperListView),
+        ),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-more-topics-jump')), findsNothing);
+    expect(find.text('Suggested'), findsNothing);
+    expect(find.text('Related'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is TopicInboxRow && widget.recommendation,
+      ),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 

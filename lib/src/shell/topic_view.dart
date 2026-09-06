@@ -250,7 +250,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   TopicViewportListenable get _viewportState => _viewport;
   DateTime? get _floatingDay => _viewportState.floatingDay;
   double get _floatingDayOffset => _viewportState.floatingDayOffset;
-  (String?, int?)? _recommendationsJump;
 
   int? get _progressPosition => _viewportState.progressPosition;
   TopicViewportSnapshot? get _laidOutSnapshot => _viewport.laidOutSnapshot;
@@ -1522,30 +1521,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     ),
   );
 
-  Future<void> _showRecommendations(
-    ShellController controller,
-    TopicViewportSnapshot snapshot,
-  ) async {
-    final identity = (snapshot.siteUrl, snapshot.topicId);
-    if (!snapshot.hasMore) {
-      _jumpToBoundary(end: true);
-      return;
-    }
-    _recommendationsJump = identity;
-    final opened = await controller.jumpToCurrentTopicIndex(
-      snapshot.streamIds.length,
-    );
-    if (!mounted || _recommendationsJump != identity) return;
-    if (!opened) {
-      _recommendationsJump = null;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text("Couldn't load more topics. Please try again."),
-        ),
-      );
-    }
-  }
-
   Widget _buildTopicBottomBar(
     ShellController controller,
     int totalPosts,
@@ -1577,12 +1552,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               )
             : null,
         onReplyPressed: controller.openReply,
-        onMoreTopics:
-            widget.inbox &&
-                (snapshot.recommendations == null ||
-                    snapshot.recommendations!.isNotEmpty)
-            ? () => unawaited(_showRecommendations(controller, snapshot))
-            : null,
       );
     },
   );
@@ -1748,18 +1717,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
     final hasRecommendations = snapshot.recommendations?.isNotEmpty == true;
     final showRecommendations = !snapshot.hasMore && hasRecommendations;
-    if (_recommendationsJump == (snapshot.siteUrl, snapshot.topicId) &&
-        !snapshot.hasMore &&
-        !snapshot.loading) {
-      _recommendationsJump = null;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted &&
-            _topicIdentity?.$1 == snapshot.siteUrl &&
-            _topicIdentity?.$2 == snapshot.topicId) {
-          _jumpToBoundary(end: true);
-        }
-      });
-    }
     // A null payload is unresolved rather than empty: Discourse only sends
     // the recommendation fields with the final post window. Reserve the
     // eventual panel while that window is still outstanding so its arrival
@@ -2106,7 +2063,6 @@ class _TopicBottomBar extends StatelessWidget {
     required this.canReply,
     required this.onProgressPressed,
     required this.onReplyPressed,
-    this.onMoreTopics,
     this.topic,
     this.siteUrl,
     this.isConnected = false,
@@ -2118,7 +2074,6 @@ class _TopicBottomBar extends StatelessWidget {
   final bool canReply;
   final VoidCallback? onProgressPressed;
   final VoidCallback onReplyPressed;
-  final VoidCallback? onMoreTopics;
   final TopicDetail? topic;
   final String? siteUrl;
   final bool isConnected;
@@ -2167,21 +2122,6 @@ class _TopicBottomBar extends StatelessWidget {
                       ),
                   ],
                   const Spacer(),
-                  if (onMoreTopics != null) ...[
-                    const SizedBox(width: 8),
-                    DButton(
-                      key: const ValueKey('topic-more-topics-jump'),
-                      label: Text(
-                        topic != null && constraints.maxWidth >= 700
-                            ? 'Related / Suggested'
-                            : 'More topics',
-                      ),
-                      tooltip: 'Related and suggested topics',
-                      onPressed: onMoreTopics,
-                      variant: DButtonVariant.flat,
-                      size: DButtonSize.small,
-                    ),
-                  ],
                   if (progressPosition case final position?)
                     TopicProgressButton(
                       position: position,

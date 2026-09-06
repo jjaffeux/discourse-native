@@ -758,9 +758,10 @@ assignment plugin shows Assign or one assignee dropdown near the title. Its
 management popover retains people/groups, notes/status, Change, Remove/Undo,
 and links to assigned posts. All actions keep their existing permission checks.
 
-Related and Suggested appear below the posts, with a **More topics** jump in
-the reader footer. Recommendation links keep the source list. Every ordinary
-post has a permanent three-dot menu beside its timestamp, exposing the same
+Available Related and Suggested topics appear automatically below the last post;
+the reader footer has no recommendation shortcut. Recommendation links keep
+the source list. Every ordinary post has a permanent three-dot menu beside
+its timestamp, exposing the same
 secondary core and plugin actions as the keyboard and touch menus. Reply stays
 visible at the bottom right of each post beside its likes or reactions, opens
 the composer for that post, and is excluded from the three-dot menu. J/K move
