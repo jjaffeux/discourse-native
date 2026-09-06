@@ -29,6 +29,7 @@ import 'content_reading_lane.dart';
 import 'cooked_html.dart';
 import 'inline_action.dart';
 import 'list_boundary_shortcuts.dart';
+import 'list_navigation_tab.dart';
 import 'loading_skeleton.dart';
 import 'open_link.dart';
 import 'post_actions.dart';
@@ -3279,6 +3280,15 @@ class _MoreTopics extends StatelessWidget {
     if (available.isEmpty) return const SizedBox.shrink();
     final selection = _effectiveSelection(available);
     final theme = Theme.of(context);
+    final tabTextStyle = theme.textTheme.bodySmall?.copyWith(
+      fontSize: DiscourseTypography.fontDown1,
+      height: 1.2,
+    );
+    final tabHeight =
+        (MediaQuery.textScalerOf(context).scale(DiscourseTypography.fontDown1) *
+                    1.2 +
+                16)
+            .ceilToDouble();
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -3295,38 +3305,37 @@ class _MoreTopics extends StatelessWidget {
               decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: theme.shell.divider)),
               ),
-              child: inbox
-                  ? Wrap(
-                      spacing: 18,
-                      children: [
-                        for (final source in available)
-                          _MoreTopicsTabButton(
-                            key: ValueKey(
-                              'topic-recommendations-tab-${source.id.value}',
+              child: SizedBox(
+                height: tabHeight,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: inbox ? 0 : 16),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (
+                        var index = 0;
+                        index < available.length;
+                        index++
+                      ) ...[
+                        if (index > 0) const SizedBox(width: 17),
+                        IntrinsicWidth(
+                          child: ListNavigationTab(
+                            controlKey: ValueKey(
+                              'topic-recommendations-tab-${available[index].id.value}',
                             ),
-                            label: source.label,
-                            selected: selection.id == source.id,
-                            onPressed: () => onSelected(source.id),
-                            compact: true,
+                            label: available[index].label,
+                            textStyle: tabTextStyle,
+                            underline: true,
+                            selected: selection.id == available[index].id,
+                            onTap: () => onSelected(available[index].id),
                           ),
+                        ),
                       ],
-                    )
-                  : Row(
-                      children: [
-                        for (final source in available)
-                          Expanded(
-                            child: _MoreTopicsTabButton(
-                              key: ValueKey(
-                                'topic-recommendations-tab-${source.id.value}',
-                              ),
-                              label: source.label,
-                              icon: source.definition.icon,
-                              selected: selection.id == source.id,
-                              onPressed: () => onSelected(source.id),
-                            ),
-                          ),
-                      ],
-                    ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           for (var index = 0; index < selection.topics.length; index++) ...[
             if (inbox)
@@ -3348,79 +3357,6 @@ class _MoreTopics extends StatelessWidget {
               Divider(height: 1, color: theme.shell.divider),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _MoreTopicsTabButton extends StatelessWidget {
-  const _MoreTopicsTabButton({
-    super.key,
-    required this.label,
-    required this.selected,
-    required this.onPressed,
-    this.icon,
-    this.compact = false,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onPressed;
-  final DIconData? icon;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = selected
-        ? theme.colorScheme.primary
-        : theme.colorScheme.onSurfaceVariant;
-
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: InkWell(
-        onTap: onPressed,
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: compact ? 0 : 16,
-            vertical: 12,
-          ),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: selected
-                    ? theme.colorScheme.primary
-                    : Colors.transparent,
-                width: 2,
-              ),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon case final icon?) ...[
-                DIcon(icon, size: 13, color: color),
-                const SizedBox(width: 6),
-              ],
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: compact && selected
-                        ? theme.colorScheme.onSurface
-                        : color,
-                    fontSize: compact ? 13 : null,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
