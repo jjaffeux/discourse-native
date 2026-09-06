@@ -946,9 +946,14 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
         builder: (context, state, _) {
           final shell = ShellScope.read(context);
           final theme = Theme.of(context);
-          final category = state.categories
-              .where((item) => item.id == composer.categoryId)
-              .firstOrNull;
+          final category =
+              state.categories
+                  .where((item) => item.id == composer.categoryId)
+                  .firstOrNull ??
+              shell.categoryFor(
+                composer.categoryId,
+                siteUrl: composer.target.siteUrl,
+              );
           final categoryLabel = category == null
               ? 'Choose a category'
               : shell.topicCategoryPathLabel(
@@ -3718,23 +3723,47 @@ class _Footer extends StatelessWidget {
           : Text(label),
     );
 
-    final controls = Row(
-      children: [
-        if (!composer.target.isTaxonomyEdit)
-          Expanded(
-            child: _Toolbar(composer: composer, pickImages: pickImages),
-          )
-        else
-          const Spacer(),
-        DButton(
-          key: const ValueKey('composer-discard'),
-          label: Text(discardLabel),
-          onPressed: busy ? null : onDiscard,
-          variant: DButtonVariant.transparent,
-        ),
-        const SizedBox(width: 8),
-        submit,
-      ],
+    final discard = DButton(
+      key: const ValueKey('composer-discard'),
+      label: Text(discardLabel),
+      onPressed: busy ? null : onDiscard,
+      variant: DButtonVariant.transparent,
+    );
+    final toolbar = composer.target.isTaxonomyEdit
+        ? null
+        : _Toolbar(composer: composer, pickImages: pickImages);
+    final controls = LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked =
+            constraints.maxWidth <
+            380 * MediaQuery.textScalerOf(context).scale(14) / 14;
+        // Native image pickers outlive a resize, so the toolbar keeps its state.
+        return Flex(
+          direction: stacked ? Axis.vertical : Axis.horizontal,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: stacked
+              ? CrossAxisAlignment.stretch
+              : CrossAxisAlignment.center,
+          children: [
+            if (toolbar != null)
+              Flexible(
+                flex: stacked ? 0 : 1,
+                fit: FlexFit.tight,
+                child: toolbar,
+              )
+            else if (!stacked)
+              const Spacer(),
+            SizedBox(height: stacked ? 8 : 0),
+            OverflowBar(
+              alignment: stacked ? MainAxisAlignment.end : null,
+              overflowAlignment: OverflowBarAlignment.end,
+              spacing: 8,
+              overflowSpacing: 8,
+              children: [discard, submit],
+            ),
+          ],
+        );
+      },
     );
 
     return Padding(

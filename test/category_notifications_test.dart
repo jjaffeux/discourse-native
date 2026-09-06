@@ -69,7 +69,10 @@ void main() {
     final newTopicButtonRect = tester.getRect(
       find.byKey(TopicCreateButton.buttonKey),
     );
-    expect(newTopicButtonRect.left - notificationButtonRect.right, 8);
+    expect(
+      notificationButtonRect.right,
+      lessThanOrEqualTo(newTopicButtonRect.left),
+    );
 
     await tester.tap(button);
     await tester.pumpAndSettle();

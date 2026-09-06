@@ -206,7 +206,7 @@ void main() {
 
     scheduler.advance(const Duration(minutes: 1));
     expect(
-      await pipeline.emoji.load('https://media.test/after-cooldown'),
+      (await pipeline.emoji.load('https://media.test/after-cooldown'))?.bytes,
       orderedEquals([2]),
     );
     expect(requested.map((url) => url.path), ['/limited', '/after-cooldown']);

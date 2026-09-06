@@ -965,7 +965,7 @@ void _registerConnectionSessionTests() {
           reactionPost(const [Reaction(id: 'clap', count: 1)]),
         ],
       );
-      await tester.tap(find.byTooltip('Show topic sidebar'));
+      await tester.tap(find.byTooltip('Close topic'));
       await tester.pumpAndSettle();
       await openNotifications(tester);
       await tester.tap(find.textContaining('david reacted to your post in'));

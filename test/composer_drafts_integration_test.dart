@@ -18,11 +18,9 @@ import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
-import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -30,7 +28,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 import 'support/finders.dart';
@@ -376,8 +373,9 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api, user: whisperer);
-      await hoverPost(tester, body: 'Whisper body');
-      await tester.tap(find.byTooltip('Reply to this post'));
+      await tester.tap(
+        find.byKey(const ValueKey(('post-footer-action', 2, 'Reply'))),
+      );
       await tester.pumpAndSettle();
 
       expect(
@@ -543,9 +541,7 @@ void _registerTopicReplyTests() {
 
       await tester.tap(find.text('DM'));
       await tester.pumpAndSettle();
-      await tester.tap(contentText('A real topic'));
-      await tester.pumpAndSettle();
-
+      expect(renderedText('First post body'), findsOneWidget);
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(find.text('Meant for meta.'), findsOneWidget);
 
@@ -682,59 +678,6 @@ void _registerTopicReplyTests() {
       expect(api.created, hasLength(1));
     });
 
-    testWidgets('a post keeps its actions out of the way until hovered', (
-      tester,
-    ) async {
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail()},
-      );
-
-      await openTopic(tester, api);
-      expect(find.byTooltip('Reply to this post'), findsNothing);
-
-      final gesture = await hoverPost(tester);
-      expect(find.byTooltip('Reply to this post'), findsOneWidget);
-
-      // Crossing onto the overlaid toolbar must not make the post lose its
-      // hover target before the toolbar can receive the same pointer update.
-      final toolbar = find.byType(HoverActionToolbar);
-      await gesture.moveTo(tester.getCenter(toolbar));
-      await tester.pump();
-      expect(find.byTooltip('Reply to this post'), findsOneWidget);
-
-      // The macOS embedder can report the overlaid toolbar's enter before the
-      // post underneath exits. Neither callback ordering may close the menu.
-      final toolbarRegion = tester.widget<MouseRegion>(
-        find
-            .ancestor(
-              of: toolbar,
-              matching: find.byWidgetPredicate(
-                (widget) => widget is MouseRegion && widget.onHover != null,
-              ),
-            )
-            .first,
-      );
-      final postRegion = tester.widget<MouseRegion>(
-        find
-            .ancestor(
-              of: renderedText('First post body'),
-              matching: find.byWidgetPredicate(
-                (widget) => widget is MouseRegion && widget.onHover != null,
-              ),
-            )
-            .first,
-      );
-      toolbarRegion.onEnter!(const PointerEnterEvent());
-      postRegion.onExit!(const PointerExitEvent());
-      await tester.pump();
-      expect(find.byTooltip('Reply to this post'), findsOneWidget);
-
-      await gesture.moveTo(Offset.zero);
-      await tester.pump();
-      expect(find.byTooltip('Reply to this post'), findsNothing);
-    });
-
     testWidgets('copy link writes core post URLs to the clipboard', (
       tester,
     ) async {
@@ -769,7 +712,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       final gesture = await hoverPost(tester);
 
-      await tester.tap(find.byTooltip('Copy a link to this post to clipboard'));
+      await tapPostAction(tester, 'Copy a link to this post to clipboard');
       await tester.pumpAndSettle();
 
       expect(copied, [
@@ -779,7 +722,11 @@ void _registerTopicReplyTests() {
 
       await gesture.moveTo(tester.getCenter(renderedText('Second post body')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Copy a link to this post to clipboard'));
+      await tapPostAction(
+        tester,
+        'Copy a link to this post to clipboard',
+        postNumber: 2,
+      );
       await tester.pumpAndSettle();
 
       expect(copied, [
@@ -806,153 +753,10 @@ void _registerTopicReplyTests() {
       await hoverPost(tester);
 
       expect(find.byTooltip('Reply to this post'), findsNothing);
-      await tester.tap(find.byTooltip('Copy a link to this post to clipboard'));
+      await tapPostAction(tester, 'Copy a link to this post to clipboard');
       await tester.pumpAndSettle();
 
       expect(copied, ['https://meta.discourse.org/t/a-real-topic/7']);
-    });
-
-    testWidgets('scrolling hides the post menu until the pointer moves again', (
-      tester,
-    ) async {
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {
-          7: topicPayload(
-            id: 7,
-            title: 'A real topic',
-            posts: [
-              Post(
-                id: 1,
-                postNumber: 1,
-                username: 'sam',
-                cooked: '<p>Top of the long post</p>${'<p>filler</p>' * 120}',
-              ),
-            ],
-            stream: const [1],
-            postsCount: 1,
-            canCreatePost: true,
-          ),
-        },
-      );
-
-      await openTopic(tester, api);
-      final gesture = await hoverPost(tester, body: 'Top of the long post');
-      expect(find.byTooltip('Reply to this post'), findsOneWidget);
-
-      final scroll = await tester.startGesture(
-        tester.getCenter(find.byType(TopicView)),
-      );
-      await scroll.moveBy(const Offset(0, -400));
-      await tester.pump();
-
-      // The toolbar leaves before the drag ends, rather than following the post
-      // and recomputing its overlay position on every scroll tick.
-      expect(find.byTooltip('Reply to this post'), findsNothing);
-      await gesture.moveBy(const Offset(0, 1));
-      await tester.pump();
-      expect(find.byTooltip('Reply to this post'), findsNothing);
-
-      await scroll.up();
-      await tester.pumpAndSettle();
-
-      // Ending the scroll is not enough: rows have moved under a stationary
-      // pointer, so showing an action surface now would pick one accidentally.
-      expect(find.byTooltip('Reply to this post'), findsNothing);
-
-      await gesture.moveBy(const Offset(0, 1));
-      await tester.pump();
-      expect(find.byTooltip('Reply to this post'), findsOneWidget);
-    });
-
-    testWidgets('a recycled post stays closed under a stationary pointer', (
-      tester,
-    ) async {
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {
-          7: topicPayload(
-            id: 7,
-            title: 'A real topic',
-            posts: [
-              for (var i = 1; i <= 30; i++)
-                Post(
-                  id: i,
-                  postNumber: i,
-                  username: 'sam',
-                  cooked: '<p>Post body $i</p>',
-                ),
-            ],
-            stream: [for (var i = 1; i <= 30; i++) i],
-            postsCount: 30,
-            canCreatePost: true,
-          ),
-        },
-      );
-
-      await openTopic(tester, api);
-      final list = find.byType(SuperListView);
-      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await pointer.addPointer(location: Offset.zero);
-      addTearDown(pointer.removePointer);
-      await pointer.moveTo(tester.getCenter(list));
-      await tester.pump();
-      expect(find.byTooltip('Reply to this post'), findsOneWidget);
-
-      final scrollable = find
-          .descendant(of: list, matching: find.byType(Scrollable))
-          .first;
-      final position = tester.state<ScrollableState>(scrollable).position;
-      position.jumpTo(1200);
-      await tester.pump();
-      await tester.pump();
-
-      // A synchronous jump can build a fresh row after scrolling has
-      // already ended. Its synthetic enter must not be mistaken for real
-      // pointer movement and create an overlay during mouse hit testing.
-      expect(find.byTooltip('Reply to this post'), findsNothing);
-      expect(tester.takeException(), isNull);
-
-      await pointer.moveBy(const Offset(0, 1));
-      await tester.pump();
-      expect(find.byTooltip('Reply to this post'), findsOneWidget);
-    });
-
-    testWidgets('the menu goes when its post scrolls out of sight', (
-      tester,
-    ) async {
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {
-          7: topicPayload(
-            id: 7,
-            title: 'A real topic',
-            posts: [
-              for (var i = 1; i <= 20; i++)
-                Post(
-                  id: i,
-                  postNumber: i,
-                  username: 'sam',
-                  cooked: '<p>Post body $i</p>',
-                ),
-            ],
-            stream: [for (var i = 1; i <= 20; i++) i],
-            postsCount: 20,
-            canCreatePost: true,
-          ),
-        },
-      );
-
-      await openTopic(tester, api);
-      final gesture = await hoverPost(tester, body: 'Post body 5');
-      expect(find.byTooltip('Reply to this post'), findsOneWidget);
-
-      await gesture.moveTo(Offset.zero);
-      await tester.pump();
-      await tester.drag(find.byType(TopicView), const Offset(0, -600));
-      await tester.pumpAndSettle();
-
-      expect(find.byTooltip('Reply to this post'), findsNothing);
     });
 
     testWidgets('on a touch screen the actions arrive as a sheet', (

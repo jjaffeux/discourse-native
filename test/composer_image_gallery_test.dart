@@ -752,8 +752,8 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: ThemeData.dark().copyWith(
-            colorScheme: ThemeData.dark().colorScheme.copyWith(
+          theme: AppTheme.dark.copyWith(
+            colorScheme: AppTheme.dark.colorScheme.copyWith(
               surfaceContainerLow: galleryColor,
             ),
           ),

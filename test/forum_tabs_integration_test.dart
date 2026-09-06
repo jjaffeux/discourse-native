@@ -718,12 +718,7 @@ void main() {
       final controller = ShellScope.read(
         tester.element(find.byType(MainContent)),
       );
-      final originalViewportKey = ValueKey<(String?, String?, String, int?)>((
-        siteUrl,
-        firstTabId,
-        latestRoute.id,
-        null,
-      ));
+      const originalViewportKey = ValueKey('inbox-topic-list-pane');
       final slowViewportKey = ValueKey<(String?, String?, String, int?)>((
         siteUrl,
         slowTabId,

@@ -188,15 +188,20 @@ Future<TestGesture> hoverPost(
   return gesture;
 }
 
-Future<void> tapPostAction(WidgetTester tester, String tooltip) async {
+Future<void> tapPostAction(
+  WidgetTester tester,
+  String tooltip, {
+  int postNumber = 1,
+}) async {
   var action = find.byTooltip(tooltip);
   if (action.evaluate().isEmpty) {
-    final more = find.byTooltip('More actions');
+    final more = find.byKey(ValueKey('post-more-actions-$postNumber'));
     expect(more, findsOneWidget);
     await tester.tap(more);
     await tester.pumpAndSettle();
     final label = switch (tooltip) {
       'Share this post' => 'Share',
+      'Copy a link to this post to clipboard' => 'Copy link',
       'Edit this post' => 'Edit',
       'Delete this post' => 'Delete',
       'Allow community members to edit this post' => 'Make wiki',
