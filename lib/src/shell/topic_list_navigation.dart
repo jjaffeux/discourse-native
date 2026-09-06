@@ -16,6 +16,7 @@ import 'list_navigation_tab.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
 import 'topic_list_layout.dart';
+import 'topic_list_view.dart';
 
 typedef _TopicListNavigationSnapshot = ({
   TopicListMode? mode,
@@ -121,9 +122,9 @@ class _TopicListNavigationControls extends StatelessWidget {
     final controller = ShellScope.read(context);
     Future<void> selectMode(TopicListMode mode) =>
         controller.selectTopicListMode(mode, keepTopicOpen: keepTopicOpen);
-    Widget filters() => TopicListFilterBar(
-      inline: !stacked,
-      wrap: stacked,
+    Widget filters({bool showColumns = false}) => TopicListFilterBar(
+      inline: !stacked || showColumns,
+      wrap: stacked && !showColumns,
       siteUrl: state.siteUrl!,
       categories: state.categories,
       knownTags: state.tags,
@@ -366,13 +367,11 @@ class _TopicListNavigationControls extends StatelessWidget {
                       unawaited(selectMode(TopicListMode.top(value))),
                 ),
               ),
-          if (showsFilters && stacked)
-            ContentReadingLaneBox(
-              widthLimit: topicListContentWidth,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 12, bottom: 12),
-                child: filters(),
-              ),
+          if (stacked)
+            TopicListHeader(
+              filtersBuilder: showsFilters
+                  ? (showColumns) => filters(showColumns: showColumns)
+                  : null,
             ),
         ],
       ),

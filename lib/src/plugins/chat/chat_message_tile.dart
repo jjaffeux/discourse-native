@@ -399,8 +399,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     if (!mounted) return;
     setState(() => _restoring = false);
     if (error == null) return;
-    ScaffoldMessenger.maybeOf(context)
-        ?.showSnackBar(SnackBar(content: Text(error)));
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(error)));
   }
 
   Future<void> _togglePin() async {

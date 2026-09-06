@@ -613,7 +613,11 @@ class _FeedBackedContent extends StatelessWidget {
         } else if (route.isMessages) {
           content = MessageInboxPage(feed: feed);
         } else {
-          content = TopicListView(feed: feed, inbox: inbox);
+          content = TopicListView(
+            feed: feed,
+            inbox: inbox,
+            showHeader: !(inbox && route.isTopicListFilter),
+          );
         }
 
         if (TopicListMode.fromRoute(route) != null || route.isTopicListFilter) {
