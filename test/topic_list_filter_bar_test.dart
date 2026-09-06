@@ -103,15 +103,17 @@ void main() {
   ) async {
     await pumpBar(tester, platform: TargetPlatform.macOS);
 
-    expect(find.text('All categories'), findsOneWidget);
-    expect(find.text('Categories'), findsNothing);
+    expect(find.text('Categories'), findsOneWidget);
+    expect(find.text('All categories'), findsNothing);
+    expect(find.text('Tags'), findsOneWidget);
+    expect(find.text('All tags'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('topic-list-category-filter')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('choice-menu-surface')), findsOneWidget);
-    expect(find.text('All categories'), findsNWidgets(2));
-    expect(find.text('Categories'), findsNothing);
+    expect(find.text('All categories'), findsOneWidget);
+    expect(find.text('Categories'), findsOneWidget);
   });
 
   testWidgets('uses compact, spaced rows and category indicators', (

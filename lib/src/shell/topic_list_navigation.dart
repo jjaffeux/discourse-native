@@ -66,7 +66,9 @@ class TopicListNavigation extends StatelessWidget {
           final showsTabs = state.mode != null;
           final showsFilters =
               state.siteUrl != null && state.route?.isTopicListFilter == true;
-          if (!showsTabs && !showsFilters && trailing == null) return child;
+          if (!showsTabs && !showsFilters && trailing == null) {
+            return child;
+          }
           return Column(
             children: [
               _TopicListNavigationControls(
@@ -113,82 +115,148 @@ class _TopicListNavigationControls extends StatelessWidget {
       label: 'Topic lists',
       child: Column(
         children: [
-          if (showsTabs || trailing != null)
+          if (showsTabs || showsFilters || trailing != null)
             ContentReadingLaneBox(
               widthLimit: topicListContentWidth,
-              child: Row(
-                key: const ValueKey('topic-list-primary-row'),
-                children: [
-                  Expanded(
-                    child: !showsTabs
-                        ? const SizedBox.shrink()
-                        : _TopicListTabStrip(
-                            height: 52,
-                            background: theme.shell.content,
-                            scrollable: true,
-                            items: [
-                              _TopicListTabItem(
-                                controlKey: const ValueKey('topic-list-latest'),
-                                label: 'Recent',
-                                textStyle: primaryTextStyle,
-                                selected: mode == TopicListMode.latest,
-                                onTap: () => unawaited(
-                                  controller.selectTopicListMode(
-                                    TopicListMode.latest,
-                                  ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final mediaQuery = MediaQuery.of(context);
+                  final toolbarWidth = ContentReadingLane.breakpointWidthOf(
+                    context,
+                    constraints.maxWidth,
+                  );
+                  return Material(
+                    color: theme.shell.content,
+                    child: SizedBox(
+                      key: const ValueKey('topic-list-primary-row'),
+                      height: 52,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: topicListHorizontalPadding,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (showsTabs)
+                                      _TopicListTabStrip(
+                                        height: 52,
+                                        background: theme.shell.content,
+                                        inline: true,
+                                        items: [
+                                          _TopicListTabItem(
+                                            controlKey: const ValueKey(
+                                              'topic-list-latest',
+                                            ),
+                                            label: 'Recent',
+                                            textStyle: primaryTextStyle,
+                                            selected:
+                                                mode == TopicListMode.latest,
+                                            onTap: () => unawaited(
+                                              controller.selectTopicListMode(
+                                                TopicListMode.latest,
+                                              ),
+                                            ),
+                                          ),
+                                          if (state.signedIn)
+                                            _TopicListTabItem(
+                                              controlKey: const ValueKey(
+                                                'topic-list-new',
+                                              ),
+                                              label: 'New',
+                                              count: state.allCount,
+                                              showCountBadge: true,
+                                              textStyle: primaryTextStyle,
+                                              selected: mode.isNew,
+                                              onTap: () => unawaited(
+                                                controller.selectTopicListMode(
+                                                  TopicListMode.newActivity,
+                                                ),
+                                              ),
+                                            ),
+                                          _TopicListTabItem(
+                                            controlKey: const ValueKey(
+                                              'topic-list-top',
+                                            ),
+                                            label: 'Top',
+                                            textStyle: primaryTextStyle,
+                                            selected: mode.isTop,
+                                            onTap: () => unawaited(
+                                              controller.selectTopicListMode(
+                                                mode.isTop
+                                                    ? mode
+                                                    : controller
+                                                          .defaultTopTopicListMode,
+                                              ),
+                                            ),
+                                          ),
+                                          _TopicListTabItem(
+                                            controlKey: const ValueKey(
+                                              'topic-list-popular',
+                                            ),
+                                            label: 'Trending',
+                                            textStyle: primaryTextStyle,
+                                            selected:
+                                                mode == TopicListMode.popular,
+                                            onTap: () => unawaited(
+                                              controller.selectTopicListMode(
+                                                TopicListMode.popular,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    if (showsTabs && showsFilters)
+                                      const SizedBox(width: 8),
+                                    if (showsFilters)
+                                      TopicListFilterBar(
+                                        inline: true,
+                                        siteUrl: state.siteUrl!,
+                                        categories: state.categories,
+                                        knownTags: state.tags,
+                                        selectedCategoryId:
+                                            state.route!.categoryId,
+                                        selectedTagName: state.route!.tagName,
+                                        taggingEnabled: state.taggingEnabled,
+                                        searchTags: (term) =>
+                                            controller.searchFilterTags(
+                                              siteUrl: state.siteUrl!,
+                                              term: term,
+                                            ),
+                                        onCategorySelected:
+                                            controller.selectTopicListCategory,
+                                        onTagSelected:
+                                            controller.selectTopicListTag,
+                                        onReset:
+                                            controller.clearTopicListFilters,
+                                      ),
+                                  ],
                                 ),
                               ),
-                              if (state.signedIn)
-                                _TopicListTabItem(
-                                  controlKey: const ValueKey('topic-list-new'),
-                                  label: 'New',
-                                  count: state.allCount,
-                                  showCountBadge: true,
-                                  textStyle: primaryTextStyle,
-                                  selected: mode.isNew,
-                                  onTap: () => unawaited(
-                                    controller.selectTopicListMode(
-                                      TopicListMode.newActivity,
+                            ),
+                            if (trailing != null)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: MediaQuery(
+                                  data: mediaQuery.copyWith(
+                                    size: Size(
+                                      toolbarWidth,
+                                      mediaQuery.size.height,
                                     ),
                                   ),
-                                ),
-                              _TopicListTabItem(
-                                controlKey: const ValueKey('topic-list-top'),
-                                label: 'Top',
-                                textStyle: primaryTextStyle,
-                                selected: mode.isTop,
-                                onTap: () => unawaited(
-                                  controller.selectTopicListMode(
-                                    mode.isTop
-                                        ? mode
-                                        : controller.defaultTopTopicListMode,
-                                  ),
+                                  child: trailing!,
                                 ),
                               ),
-                              _TopicListTabItem(
-                                controlKey: const ValueKey(
-                                  'topic-list-popular',
-                                ),
-                                label: 'Trending',
-                                textStyle: primaryTextStyle,
-                                selected: mode == TopicListMode.popular,
-                                onTap: () => unawaited(
-                                  controller.selectTopicListMode(
-                                    TopicListMode.popular,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                  if (trailing != null)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        right: topicListHorizontalPadding,
+                          ],
+                        ),
                       ),
-                      child: trailing,
                     ),
-                ],
+                  );
+                },
               ),
             ),
           if (showsTabs && mode.isNew && state.unifiedNew)
@@ -244,22 +312,6 @@ class _TopicListNavigationControls extends StatelessWidget {
                   ),
                 ),
               ),
-          if (showsFilters)
-            TopicListFilterBar(
-              siteUrl: state.siteUrl!,
-              categories: state.categories,
-              knownTags: state.tags,
-              selectedCategoryId: state.route!.categoryId,
-              selectedTagName: state.route!.tagName,
-              taggingEnabled: state.taggingEnabled,
-              searchTags: (term) => controller.searchFilterTags(
-                siteUrl: state.siteUrl!,
-                term: term,
-              ),
-              onCategorySelected: controller.selectTopicListCategory,
-              onTagSelected: controller.selectTopicListTag,
-              onReset: controller.clearTopicListFilters,
-            ),
         ],
       ),
     );
@@ -322,17 +374,36 @@ class _TopicListTabStrip extends StatelessWidget {
     required this.background,
     required this.items,
     this.compactWidth = 400,
-    this.scrollable = false,
+    this.inline = false,
   });
 
   final double height;
   final Color background;
   final List<_TopicListTabItem> items;
   final double compactWidth;
-  final bool scrollable;
+  final bool inline;
 
   @override
   Widget build(BuildContext context) {
+    if (inline) {
+      return SizedBox(
+        height: height,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var index = 0; index < items.length; index++) ...[
+              if (index > 0) const SizedBox(width: 3),
+              IntrinsicWidth(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 48),
+                  child: items[index],
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
     return Container(
       height: height,
       padding: const EdgeInsets.symmetric(
@@ -341,27 +412,6 @@ class _TopicListTabStrip extends StatelessWidget {
       color: background,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          if (scrollable) {
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                child: Row(
-                  children: [
-                    for (var index = 0; index < items.length; index++) ...[
-                      if (index > 0) const SizedBox(width: 3),
-                      IntrinsicWidth(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(minWidth: 48),
-                          child: items[index],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            );
-          }
           if (constraints.maxWidth < compactWidth) {
             return Row(
               children: [for (final item in items) Expanded(child: item)],

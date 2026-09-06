@@ -150,6 +150,7 @@ class _MainContentBody extends StatelessWidget {
               _TopicCreateAction(
                 controller: ShellScope.read(context),
                 compact: ShellTitleBar.isSupported,
+                leadingPadding: false,
               ),
             ],
           )
@@ -797,10 +798,15 @@ class _GroupsDirectoryCount extends StatelessWidget {
 }
 
 class _TopicCreateAction extends StatelessWidget {
-  const _TopicCreateAction({required this.controller, this.compact = false});
+  const _TopicCreateAction({
+    required this.controller,
+    this.compact = false,
+    this.leadingPadding = true,
+  });
 
   final ShellController controller;
   final bool compact;
+  final bool leadingPadding;
 
   @override
   Widget build(BuildContext context) => _TopicFeedSelector<bool>(
@@ -808,9 +814,9 @@ class _TopicCreateAction extends StatelessWidget {
     select: (controller) => controller.canCreateTopicHere,
     builder: (context, canCreateTopic, _) => canCreateTopic
         ? Padding(
-            padding: const EdgeInsets.only(left: 8),
+            padding: EdgeInsets.only(left: leadingPadding ? 8 : 0),
             child: TopicCreateButton(
-              showLabel: MediaQuery.sizeOf(context).width >= 640,
+              showLabel: MediaQuery.sizeOf(context).width >= 760,
               compact: compact,
               onPressed: () => unawaited(controller.openNewTopic()),
             ),
