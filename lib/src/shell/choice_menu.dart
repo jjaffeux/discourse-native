@@ -771,9 +771,16 @@ class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
                   child: Row(
                     children: [
                       if (widget.option.leading case final leading?) ...[
-                        SizedBox.square(
-                          dimension: 24,
-                          child: Center(child: leading),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minWidth: 24,
+                            minHeight: 24,
+                          ),
+                          child: Center(
+                            widthFactor: 1,
+                            heightFactor: 1,
+                            child: leading,
+                          ),
                         ),
                         const SizedBox(width: 10),
                       ] else if (widget.option.icon case final icon?) ...[

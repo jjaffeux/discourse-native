@@ -283,6 +283,7 @@ class SearchCategoryHit extends SearchResult {
     this.styleType = 'square',
     this.icon,
     this.emoji,
+    this.readRestricted = false,
   });
 
   static SearchCategoryHit? fromJson(Map<String, dynamic> json) {
@@ -297,6 +298,7 @@ class SearchCategoryHit extends SearchResult {
       styleType: jsonText(json['style_type']) ?? 'square',
       icon: jsonText(json['icon']),
       emoji: jsonText(json['emoji']),
+      readRestricted: json['read_restricted'] == true,
     );
   }
 
@@ -307,6 +309,7 @@ class SearchCategoryHit extends SearchResult {
   final String styleType;
   final String? icon;
   final String? emoji;
+  final bool readRestricted;
 
   int get colorValue => categoryColorValue(color);
 

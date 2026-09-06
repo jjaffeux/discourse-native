@@ -105,7 +105,12 @@ class TopicCategoryValue extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final category = this.category;
+    final hasParentNavigation =
+        onNavigate != null &&
+        parentCategory != null &&
+        onParentNavigate != null;
     final usesLargeCategoryArt =
+        category?.readRestricted == true ||
         category?.styleType == 'icon' ||
         (category?.styleType == 'emoji' &&
             category?.emoji != null &&
@@ -130,6 +135,7 @@ class TopicCategoryValue extends StatelessWidget {
             siteUrl: siteUrl,
             size: 13,
             squareSize: 9,
+            showLock: !hasParentNavigation,
           );
 
     Widget categoryValue(String valueLabel) => Row(
@@ -169,6 +175,7 @@ class TopicCategoryValue extends StatelessWidget {
                   _TopicCategoryNavigationLink(
                     actionKey: parentActionKey,
                     label: parentCategory.name,
+                    readRestricted: parentCategory.readRestricted,
                     semanticLabel: 'Parent category: ${parentCategory.name}',
                     tooltip: 'Open category ${parentCategory.name}',
                     onTap: onParentNavigate,
@@ -177,6 +184,7 @@ class TopicCategoryValue extends StatelessWidget {
                   _TopicCategoryNavigationLink(
                     actionKey: actionKey,
                     label: category.name,
+                    readRestricted: category.readRestricted,
                     semanticLabel: 'Category: ${category.name}',
                     tooltip:
                         navigationTooltip ?? 'Open category ${category.name}',
@@ -258,6 +266,7 @@ class _TopicCategoryNavigationLink extends StatelessWidget {
     required this.semanticLabel,
     required this.tooltip,
     required this.onTap,
+    required this.readRestricted,
     this.showChevron = false,
   });
 
@@ -266,6 +275,7 @@ class _TopicCategoryNavigationLink extends StatelessWidget {
   final String semanticLabel;
   final String tooltip;
   final VoidCallback onTap;
+  final bool readRestricted;
   final bool showChevron;
 
   @override
@@ -284,6 +294,14 @@ class _TopicCategoryNavigationLink extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (readRestricted) ...[
+                DIcon(
+                  DIcons.lock,
+                  size: 13,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 4),
+              ],
               Flexible(
                 child: Text(
                   label,

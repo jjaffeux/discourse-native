@@ -979,16 +979,13 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
                             ? 'Choose category'
                             : 'Choose category: $categoryLabel',
                         outlined: true,
-                        leading:
-                            category == null || category.styleType == 'square'
+                        leading: category == null
                             ? Container(
                                 key: const ValueKey('composer-category-color'),
                                 width: 9,
                                 height: 9,
                                 decoration: BoxDecoration(
-                                  color: category == null
-                                      ? theme.colorScheme.onSurfaceVariant
-                                      : Color(category.colorValue),
+                                  color: theme.colorScheme.onSurfaceVariant,
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               )
