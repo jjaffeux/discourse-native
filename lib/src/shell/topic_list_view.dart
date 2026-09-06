@@ -405,6 +405,8 @@ class _TopicLedgerLayout {
   );
 
   static const double horizontalPadding = topicListHorizontalPadding;
+  static const double stateIndicatorWidth = 16;
+  static const double leadingPadding = horizontalPadding - stateIndicatorWidth;
   static const double gap = 12;
   static const double participantsWidth = 64;
   static const double activityWidth = 180;
@@ -586,14 +588,16 @@ class _TopicListSkeletonRow extends StatelessWidget {
           ContentReadingLane.breakpointWidthOf(context, constraints.maxWidth),
         );
         return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: _TopicLedgerLayout.horizontalPadding,
-            vertical: 9,
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            _TopicLedgerLayout.leadingPadding,
+            9,
+            _TopicLedgerLayout.horizontalPadding,
+            9,
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(width: 16),
+              const SizedBox(width: _TopicLedgerLayout.stateIndicatorWidth),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1025,9 +1029,11 @@ class _TopicRowBody extends StatelessWidget {
               showInlineActivity;
 
           final content = Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: _TopicLedgerLayout.horizontalPadding,
-              vertical: hasContextLine ? 9 : 7,
+            padding: EdgeInsetsDirectional.fromSTEB(
+              _TopicLedgerLayout.leadingPadding,
+              hasContextLine ? 9 : 7,
+              _TopicLedgerLayout.horizontalPadding,
+              hasContextLine ? 9 : 7,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -1199,7 +1205,7 @@ class _TopicCopy extends StatelessWidget {
       children: [
         SizedBox(
           key: ValueKey('topic-ledger-state-${topic.id}'),
-          width: 16,
+          width: _TopicLedgerLayout.stateIndicatorWidth,
           child: Padding(
             padding: EdgeInsets.only(
               top: (titleLineHeight - 8).clamp(0, double.infinity) / 2,
