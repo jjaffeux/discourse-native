@@ -373,100 +373,100 @@ class _CompactTopicInboxHeader extends StatelessWidget {
       final topic = header.topic!;
       final siteUrl = header.siteUrl!;
       final controller = ShellScope.read(context);
-      final narrow = constraints.maxWidth < 520;
       final style = Theme.of(
         context,
       ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600);
-      return SizedBox(
-        height: shellHeaderHeight,
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: header.keepTopicListOpen ? topicInboxDividerInset : 16,
-            right: 12,
-          ),
-          child: Row(
-            children: [
-              _TopicCloseButton(canReturnToSidebar: header.canReturnToSidebar),
-              const SizedBox(width: 8),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, contentConstraints) => Row(
-                    children: [
-                      if (!topic.privateMessage)
-                        _CompactTopicCategory(
-                          siteUrl: siteUrl,
-                          topic: topic,
-                          keepTopicListOpen: header.keepTopicListOpen,
-                          iconOnly: narrow,
-                          maxWidth: (contentConstraints.maxWidth * .2).clamp(
-                            48,
-                            160,
-                          ),
-                        ),
-                      if (topic.tags.isNotEmpty || topic.canEditTags) ...[
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: (contentConstraints.maxWidth * .35).clamp(
-                              28,
-                              280,
-                            ),
-                          ),
-                          child: TopicHeaderTags(
-                            key: const ValueKey('topic-header-compact-tags'),
+      final leadingPadding = header.keepTopicListOpen
+          ? topicInboxDividerInset
+          : 16.0;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: shellHeaderHeight,
+            child: Padding(
+              padding: EdgeInsets.only(left: leadingPadding, right: 12),
+              child: Row(
+                children: [
+                  _TopicCloseButton(
+                    canReturnToSidebar: header.canReturnToSidebar,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Tooltip(
+                      message: header.title,
+                      child: Semantics(
+                        button: onEditTitle != null,
+                        hint: onEditTitle != null ? 'Edit topic title' : null,
+                        child: InkWell(
+                          onTap: onEditTitle,
+                          mouseCursor: onEditTitle != null
+                              ? SystemMouseCursors.text
+                              : SystemMouseCursors.basic,
+                          borderRadius: BorderRadius.circular(4),
+                          child: TopicTitle(
+                            header.title,
+                            key: const ValueKey('topic-header-compact-title'),
                             siteUrl: siteUrl,
-                            topic: topic,
-                            onTagNavigate: (tag, {newTab = false}) =>
-                                controller.openTopicTag(
-                                  tag,
-                                  siteUrl: siteUrl,
-                                  privateMessage: topic.privateMessage,
-                                  newTab: newTab,
-                                ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                      ],
-                      Expanded(
-                        child: Tooltip(
-                          message: header.title,
-                          child: Semantics(
-                            button: onEditTitle != null,
-                            hint: onEditTitle != null
-                                ? 'Edit topic title'
-                                : null,
-                            child: InkWell(
-                              onTap: onEditTitle,
-                              mouseCursor: onEditTitle != null
-                                  ? SystemMouseCursors.text
-                                  : SystemMouseCursors.basic,
-                              borderRadius: BorderRadius.circular(4),
-                              child: TopicTitle(
-                                header.title,
-                                key: const ValueKey(
-                                  'topic-header-compact-title',
-                                ),
-                                siteUrl: siteUrl,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: style,
-                              ),
-                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: style,
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  _TopicHeaderActions(
+                    header: header,
+                    width: constraints.maxWidth,
+                    compact: true,
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              _TopicHeaderActions(
-                header: header,
-                width: constraints.maxWidth,
-                compact: true,
-              ),
-            ],
+            ),
           ),
-        ),
+          if (!topic.privateMessage ||
+              topic.tags.isNotEmpty ||
+              topic.canEditTags)
+            Padding(
+              padding: EdgeInsets.only(
+                left:
+                    leadingPadding +
+                    DButton.iconOnlyDimensionFor(DButtonSize.small) +
+                    8,
+                right: 12,
+                bottom: 8,
+              ),
+              child: Row(
+                children: [
+                  if (!topic.privateMessage)
+                    _CompactTopicCategory(
+                      siteUrl: siteUrl,
+                      topic: topic,
+                      keepTopicListOpen: header.keepTopicListOpen,
+                      maxWidth: (constraints.maxWidth * .32).clamp(72, 200),
+                    ),
+                  if (topic.tags.isNotEmpty || topic.canEditTags)
+                    Flexible(
+                      child: TopicHeaderTags(
+                        key: const ValueKey('topic-header-compact-tags'),
+                        siteUrl: siteUrl,
+                        topic: topic,
+                        onTagNavigate: (tag, {newTab = false}) =>
+                            controller.openTopicTag(
+                              tag,
+                              siteUrl: siteUrl,
+                              privateMessage: topic.privateMessage,
+                              newTab: newTab,
+                            ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
       );
     },
   );
@@ -548,14 +548,12 @@ class _CompactTopicCategory extends StatelessWidget {
     required this.siteUrl,
     required this.topic,
     required this.keepTopicListOpen,
-    required this.iconOnly,
     required this.maxWidth,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final bool keepTopicListOpen;
-  final bool iconOnly;
   final double maxWidth;
 
   @override
@@ -586,7 +584,6 @@ class _CompactTopicCategory extends StatelessWidget {
               navigate: null,
               saving: false,
               compact: true,
-              iconOnly: iconOnly,
             ),
           ),
         ),
@@ -929,7 +926,6 @@ class _CategoryChip extends StatelessWidget {
     required this.navigate,
     required this.saving,
     this.compact = false,
-    this.iconOnly = false,
   });
   final TopicCategory? category;
   final String siteUrl;
@@ -939,7 +935,6 @@ class _CategoryChip extends StatelessWidget {
   final VoidCallback? navigate;
   final bool saving;
   final bool compact;
-  final bool iconOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -994,19 +989,18 @@ class _CategoryChip extends StatelessWidget {
                           size: 12,
                           squareSize: 9,
                         ),
-                        if (!iconOnly) const SizedBox(width: 6),
+                        const SizedBox(width: 6),
                       ],
-                      if (!iconOnly)
-                        Flexible(
-                          child: Text(
-                            label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontSize: DiscourseTypography.fontDown2,
-                            ),
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontSize: DiscourseTypography.fontDown2,
                           ),
                         ),
+                      ),
                       if (!compact &&
                           edit != null &&
                           category != null &&

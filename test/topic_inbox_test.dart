@@ -59,12 +59,14 @@ void main() {
         find.byKey(const ValueKey('topic-header-compact')),
         findsOneWidget,
       );
+      final header = find.byKey(const ValueKey('topic-content-header'));
+      final compactHeight = tester.getSize(header).height;
+      expect(compactHeight, greaterThan(shellHeaderHeight));
 
       await shell.jumpToCurrentTopicIndex(0);
       await tester.pumpAndSettle();
-      final header = find.byKey(const ValueKey('topic-content-header'));
       final expandedHeight = tester.getSize(header).height;
-      expect(expandedHeight, greaterThan(shellHeaderHeight));
+      expect(expandedHeight, greaterThan(compactHeight));
       final reader = find.byType(TopicView);
       final readerState = tester.state(reader);
       final listFinder = find.descendant(
@@ -77,10 +79,10 @@ void main() {
       list.controller!.jumpTo(200);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 190));
-      expect(tester.getSize(header).height, greaterThan(shellHeaderHeight));
+      expect(tester.getSize(header).height, greaterThan(compactHeight));
       expect(tester.getSize(header).height, lessThan(expandedHeight));
       await tester.pumpAndSettle();
-      expect(tester.getSize(header).height, shellHeaderHeight);
+      expect(tester.getSize(header).height, compactHeight);
       expect(tester.state(reader), same(readerState));
       expect(tester.element(listFinder), same(listElement));
       expect(find.byKey(const ValueKey('topic-header-activity')), findsNothing);
@@ -94,14 +96,18 @@ void main() {
         findsOneWidget,
       );
       expect(
-        tester.getCenter(category).dy,
-        closeTo(tester.getCenter(title).dy, 1),
+        tester.getRect(category).top,
+        greaterThan(tester.getRect(title).bottom),
+      );
+      expect(
+        tester.getRect(category).left,
+        closeTo(tester.getRect(title).left, 1),
       );
       expect(tester.widget<TopicTitle>(title).maxLines, 1);
 
       list.controller!.jumpTo(40);
       await tester.pumpAndSettle();
-      expect(tester.getSize(header).height, shellHeaderHeight);
+      expect(tester.getSize(header).height, compactHeight);
       list.controller!.jumpTo(0);
       await tester.pumpAndSettle();
       expect(tester.getSize(header).height, expandedHeight);
@@ -387,31 +393,41 @@ void main() {
         );
         await tester.pumpAndSettle();
         final header = find.byKey(const ValueKey('topic-content-header'));
-        expect(tester.getSize(header).height, shellHeaderHeight);
+        expect(tester.getSize(header).height, greaterThan(shellHeaderHeight));
         final title = find.byKey(const ValueKey('topic-header-compact-title'));
         final category = find.byKey(
           const ValueKey('topic-header-compact-category'),
         );
         expect(
-          tester.getRect(category).right,
-          lessThan(tester.getRect(title).left),
+          tester.getRect(category).left,
+          closeTo(tester.getRect(title).left, 1),
         );
         expect(tester.getRect(title).right, lessThan(width));
         final tags = find.byKey(const ValueKey('topic-header-compact-tags'));
         final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
         expect(overflow, findsOneWidget);
         expect(
-          tester.getRect(tags).right,
-          lessThan(tester.getRect(title).left),
+          tester.getRect(category).right,
+          lessThan(tester.getRect(tags).left),
         );
         expect(tester.getRect(tags).right, lessThan(width));
         expect(
           tester.getCenter(tags).dy,
-          closeTo(tester.getCenter(title).dy, 1),
+          closeTo(tester.getCenter(category).dy, 1),
         );
         expect(
-          tester.getSize(title).width,
-          greaterThan(tester.getSize(tags).width),
+          tester.getRect(tags).top,
+          greaterThan(tester.getRect(title).bottom),
+        );
+        for (final key in ['topic-close-reader', 'topic-status-button']) {
+          expect(
+            tester.getCenter(find.byKey(ValueKey(key))).dy,
+            closeTo(tester.getCenter(title).dy, 1),
+          );
+        }
+        expect(
+          tester.getRect(tags).bottom,
+          lessThan(tester.getRect(header).bottom),
         );
         expect(tester.takeException(), isNull, reason: 'width $width');
       }
@@ -460,7 +476,7 @@ void main() {
   );
 
   testWidgets(
-    'both header modes keep taxonomy in the toolbar as space shrinks',
+    'header rows keep category and tags accessible as space shrinks',
     (tester) async {
       final tags = [
         for (final name in ['a', 'b', 'c', 'd', 'e', 'f']) TopicTag(name: name),
@@ -520,10 +536,32 @@ void main() {
             lessThan(tester.getRect(overflow).left),
           );
           expect(
-            tester.getRect(overflow).right,
-            lessThan(tester.getRect(status).left),
+            tester.getCenter(category).dy,
+            closeTo(tester.getCenter(overflow).dy, 1),
           );
-          for (final control in [category, overflow, status]) {
+          final title = find.byKey(
+            const ValueKey('topic-header-compact-title'),
+          );
+          if (compact) {
+            expect(
+              tester.getRect(category).top,
+              greaterThan(tester.getRect(close).bottom),
+            );
+            expect(
+              tester.getRect(category).left,
+              closeTo(tester.getRect(title).left, 1),
+            );
+            expect(
+              tester.getRect(title).right,
+              lessThan(tester.getRect(status).left),
+            );
+          } else {
+            expect(
+              tester.getRect(overflow).right,
+              lessThan(tester.getRect(status).left),
+            );
+          }
+          for (final control in [status, if (compact) title else category]) {
             expect(
               tester.getCenter(control).dy,
               closeTo(tester.getCenter(close).dy, 1),
@@ -552,7 +590,7 @@ void main() {
           if (width == 1200) {
             wideTagCount = visibleTags;
             expect(wideTagCount, greaterThan(0));
-          } else if (width == 780) {
+          } else if (width == (compact ? 390 : 780)) {
             expect(visibleTags, lessThan(wideTagCount));
           }
           expect(
