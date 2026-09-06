@@ -707,24 +707,9 @@ class _TopicListTabItemState extends State<_TopicListTabItem> {
             !widget.segmented
         ? '${widget.label} (${widget.count})'
         : widget.label;
-    final labelWidget = Text(
-      displayLabel,
-      maxLines: 1,
-      softWrap: false,
-      overflow: TextOverflow.visible,
-      style: widget.textStyle?.copyWith(
-        color: widget.selected
-            ? widget.underline || widget.segmented
-                  ? theme.colorScheme.onSurface
-                  : theme.colorScheme.primary
-            : theme.colorScheme.onSurfaceVariant,
-        fontWeight: widget.selected
-            ? widget.underline || widget.segmented
-                  ? FontWeight.w600
-                  : FontWeight.w500
-            : FontWeight.w400,
-      ),
-    );
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 120);
     return Semantics(
       button: true,
       selected: widget.selected,
@@ -748,12 +733,41 @@ class _TopicListTabItemState extends State<_TopicListTabItem> {
           child: ValueListenableBuilder<Set<WidgetState>>(
             valueListenable: _states,
             builder: (context, states, _) {
+              final focused = states.contains(WidgetState.focused);
               final emphasized =
                   states.contains(WidgetState.hovered) ||
-                  states.contains(WidgetState.focused) ||
+                  focused ||
                   states.contains(WidgetState.pressed);
+              final highlighted =
+                  widget.selected || (widget.underline && emphasized);
+              final labelWidget = TweenAnimationBuilder<Color?>(
+                tween: ColorTween(
+                  end: highlighted
+                      ? widget.underline || widget.segmented
+                            ? theme.colorScheme.onSurface
+                            : theme.colorScheme.primary
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+                duration: duration,
+                curve: Curves.easeOut,
+                builder: (context, color, _) => Text(
+                  displayLabel,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
+                  style: widget.textStyle?.copyWith(
+                    color: color,
+                    fontWeight: widget.selected
+                        ? widget.underline || widget.segmented
+                              ? FontWeight.w600
+                              : FontWeight.w500
+                        : FontWeight.w400,
+                  ),
+                ),
+              );
               return AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
+                duration: duration,
+                curve: Curves.easeOut,
                 alignment: Alignment.center,
                 margin: EdgeInsets.symmetric(
                   vertical: widget.underline || widget.segmented ? 0 : 9,
@@ -764,9 +778,11 @@ class _TopicListTabItemState extends State<_TopicListTabItem> {
                         horizontal: widget.segmented ? 4 : 10,
                       ),
                 decoration: BoxDecoration(
-                  color: widget.selected && widget.segmented
+                  color: widget.underline
+                      ? Colors.transparent
+                      : widget.selected && widget.segmented
                       ? theme.shell.content
-                      : widget.selected && !widget.underline
+                      : widget.selected
                       ? theme.shell.selected
                       : emphasized
                       ? theme.shell.hover
@@ -798,6 +814,15 @@ class _TopicListTabItemState extends State<_TopicListTabItem> {
                         )
                       : null,
                 ),
+                foregroundDecoration: widget.underline && focused
+                    ? BoxDecoration(
+                        border: Border.all(
+                          color: theme.colorScheme.primary,
+                          width: 1.5,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      )
+                    : null,
                 child: widget.segmented
                     ? Row(
                         mainAxisSize: MainAxisSize.min,

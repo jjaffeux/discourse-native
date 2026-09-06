@@ -740,6 +740,8 @@ with the list when a topic opens. New retains its All / Topics / Replies
 subnavigation and Top retains its period picker. Feed tabs share one divider
 with an underline for the selection; New uses inset segments with smaller
 counts, and Top labels its period picker.
+Primary tab labels brighten on hover without a filled background; keyboard
+focus has its own outline, while the underline identifies the selected tab.
 The navigation adapts to text scaling and scrolls when its labels cannot fit.
 Category and subcategory have separate dropdowns; tag filters
 support multiple selections matched together by the server. Changing a mode or

@@ -21,6 +21,7 @@ import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -460,50 +461,94 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('hover uses the same inset surface as the selected tab', (
-    tester,
-  ) async {
-    final setup = await _controller();
-    addTearDown(setup.controller.dispose);
+  for (final dark in [false, true]) {
+    testWidgets(
+      'Inbox tabs brighten on hover and outline keyboard focus ($dark)',
+      (tester) async {
+        final setup = await _controller();
+        addTearDown(setup.controller.dispose);
+        final theme = dark ? AppTheme.dark : AppTheme.light;
+        await tester.pumpWidget(
+          ShellScope(
+            controller: setup.controller,
+            child: MaterialApp(
+              theme: theme,
+              home: const Scaffold(
+                body: TopicListNavigation(stacked: true, child: SizedBox()),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-    await tester.pumpWidget(
-      ShellScope(
-        controller: setup.controller,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: const Scaffold(body: MainContent(layout: ShellLayout.expanded)),
-        ),
-      ),
+        final recent = find.byKey(const ValueKey('topic-list-latest'));
+        final newTopics = find.byKey(const ValueKey('topic-list-new'));
+        final recentSurface = find.descendant(
+          of: recent,
+          matching: find.byType(AnimatedContainer),
+        );
+        final newSurface = find.descendant(
+          of: newTopics,
+          matching: find.byType(AnimatedContainer),
+        );
+        final initialRect = tester.getRect(newTopics);
+        expect(
+          _tabText(tester, 'topic-list-new').style?.color,
+          theme.colorScheme.onSurfaceVariant,
+        );
+
+        final pointer = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        addTearDown(pointer.removePointer);
+        await pointer.addPointer();
+        await pointer.moveTo(tester.getCenter(newTopics));
+        await tester.pumpAndSettle();
+
+        final hovered = tester.widget<AnimatedContainer>(newSurface);
+        final hoverDecoration = hovered.decoration as BoxDecoration;
+        final selectedDecoration =
+            tester.widget<AnimatedContainer>(recentSurface).decoration
+                as BoxDecoration;
+        expect(tester.getRect(newTopics), initialRect);
+        expect(hoverDecoration.color, Colors.transparent);
+        expect(
+          (hoverDecoration.border as Border).bottom.color,
+          Colors.transparent,
+        );
+        expect(hovered.foregroundDecoration, isNull);
+        expect(
+          (selectedDecoration.border as Border).bottom.color,
+          theme.colorScheme.primary,
+        );
+        expect(
+          _tabText(tester, 'topic-list-new').style?.color,
+          theme.colorScheme.onSurface,
+        );
+        expect(setup.controller.currentTopicListMode, TopicListMode.latest);
+
+        await pointer.moveTo(const Offset(700, 400));
+        await tester.pumpAndSettle();
+        expect(
+          _tabText(tester, 'topic-list-new').style?.color,
+          theme.colorScheme.onSurfaceVariant,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        final focused = tester.widget<AnimatedContainer>(newSurface);
+        final focusDecoration = focused.foregroundDecoration as BoxDecoration;
+        expect(
+          focusDecoration.border,
+          Border.all(color: theme.colorScheme.primary, width: 1.5),
+        );
+        expect((focused.decoration as BoxDecoration).color, Colors.transparent);
+        expect(setup.controller.currentTopicListMode, TopicListMode.latest);
+        expect(tester.takeException(), isNull);
+      },
     );
-    await tester.pumpAndSettle();
-
-    final recent = find.byKey(const ValueKey('topic-list-latest'));
-    final newTopics = find.byKey(const ValueKey('topic-list-new'));
-    final recentSurface = find.descendant(
-      of: recent,
-      matching: find.byType(AnimatedContainer),
-    );
-    final newSurface = find.descendant(
-      of: newTopics,
-      matching: find.byType(AnimatedContainer),
-    );
-    final selectedRect = tester.getRect(recentSurface);
-    final theme = Theme.of(tester.element(newTopics));
-
-    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    addTearDown(pointer.removePointer);
-    await pointer.addPointer();
-    await pointer.moveTo(tester.getCenter(newTopics));
-    await tester.pumpAndSettle();
-
-    final hoverRect = tester.getRect(newSurface);
-    final hoverDecoration =
-        tester.widget<AnimatedContainer>(newSurface).decoration
-            as BoxDecoration;
-    expect(hoverRect.top, selectedRect.top);
-    expect(hoverRect.bottom, selectedRect.bottom);
-    expect(hoverDecoration.color, theme.shell.hover);
-  });
+  }
 
   for (final scenario in [
     (
