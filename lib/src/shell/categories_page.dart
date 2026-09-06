@@ -354,12 +354,6 @@ class _CategoryCard extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          if (category.readRestricted)
-                            DIcon(
-                              DIcons.lock,
-                              size: 13,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
                         ],
                       ),
                     ),

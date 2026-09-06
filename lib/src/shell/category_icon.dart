@@ -5,7 +5,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'site_emoji_image.dart';
 
-/// Renders the artwork configured for a Discourse category.
+/// Renders a category's artwork followed by a lock when reading is restricted.
 ///
 /// Category presentation is site-configurable: it may be a color square, an
 /// icon, or an emoji. Keeping that decision here prevents individual category
@@ -18,13 +18,15 @@ class CategoryIcon extends StatelessWidget {
     required this.size,
     this.squareSize,
     this.siteUrl,
+    bool showLock = true,
   }) : color = Color(category.colorValue),
        parentColor = parentCategory == null
            ? null
            : Color(parentCategory.colorValue),
        styleType = category.styleType,
        icon = category.icon,
-       emoji = category.emoji;
+       emoji = category.emoji,
+       readRestricted = showLock && category.readRestricted;
 
   const CategoryIcon.presentation({
     super.key,
@@ -36,6 +38,7 @@ class CategoryIcon extends StatelessWidget {
     this.parentColor,
     this.squareSize,
     this.siteUrl,
+    this.readRestricted = false,
   });
 
   final Color color;
@@ -46,6 +49,7 @@ class CategoryIcon extends StatelessWidget {
   final double size;
   final double? squareSize;
   final String? siteUrl;
+  final bool readRestricted;
 
   @override
   Widget build(BuildContext context) {
@@ -72,9 +76,24 @@ class CategoryIcon extends StatelessWidget {
       );
     }
 
-    return SizedBox.square(
+    final artwork = SizedBox.square(
       dimension: extent,
       child: Center(child: art),
+    );
+    if (!readRestricted) return artwork;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        artwork,
+        const SizedBox(width: 4),
+        DIcon(
+          DIcons.lock,
+          size: size,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          semanticLabel: 'Private category',
+        ),
+      ],
     );
   }
 }

@@ -1061,6 +1061,7 @@ class _SearchResultRow extends StatelessWidget {
         styleType: category.styleType,
         icon: category.icon,
         emoji: category.emoji,
+        readRestricted: category.readRestricted,
         siteUrl: siteUrl,
         size: 17,
         squareSize: 14,
@@ -1170,7 +1171,17 @@ class _CompactSearchResultRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
-                SizedBox.square(dimension: 30, child: Center(child: leading)),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: 30,
+                    minHeight: 30,
+                  ),
+                  child: Center(
+                    widthFactor: 1,
+                    heightFactor: 1,
+                    child: leading,
+                  ),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(

@@ -805,6 +805,7 @@ class _CategoryRows extends StatelessWidget {
                         styleType: category.styleType,
                         icon: category.icon,
                         emoji: category.emoji,
+                        readRestricted: category.readRestricted,
                         siteUrl: siteUrl,
                         size: 14,
                         squareSize: 10,
@@ -817,10 +818,6 @@ class _CategoryRows extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (category.readRestricted) ...[
-                        const SizedBox(width: 5),
-                        const DIcon(DIcons.lock, size: 12),
-                      ],
                     ],
                   ),
                 ),
