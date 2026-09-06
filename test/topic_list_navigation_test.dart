@@ -430,13 +430,13 @@ void main() {
             find.byKey(const ValueKey('topic-list-category-filter')),
           );
           expect(row.height, 52);
-          expect(categoryFilter.top, greaterThanOrEqualTo(row.bottom));
-          expect(
-            tester
-                .getRect(find.byKey(const ValueKey('topic-list-latest')))
-                .left,
-            categoryFilter.left,
+          expect(categoryFilter.top, greaterThanOrEqualTo(row.top));
+          expect(categoryFilter.bottom, lessThanOrEqualTo(row.bottom));
+          final recent = tester.getRect(
+            find.byKey(const ValueKey('topic-list-latest')),
           );
+          expect(categoryFilter.center.dy, closeTo(recent.center.dy, 0.01));
+          expect(categoryFilter.left, greaterThan(recent.right));
           if (scenario.forumTabsEnabled) {
             expect(row.top, tester.getRect(find.byType(ForumTabsBar)).bottom);
             expect(
@@ -472,6 +472,9 @@ void main() {
           await tester.tap(find.byKey(const ValueKey('topic-list-latest')));
           await tester.pumpAndSettle();
           expect(find.text('Latest topic'), findsOneWidget);
+          await tester.ensureVisible(
+            find.byKey(const ValueKey('topic-list-category-filter')),
+          );
           await tester.tap(
             find.byKey(const ValueKey('topic-list-category-filter')),
           );
@@ -548,15 +551,30 @@ void main() {
       final recent = tester.getRect(
         find.byKey(const ValueKey('topic-list-latest')),
       );
+      final popular = tester.getRect(
+        find.byKey(const ValueKey('topic-list-popular')),
+      );
       final category = tester.getRect(
         find.byKey(const ValueKey('topic-list-category-filter')),
       );
       final ledger = tester.getRect(
         find.byKey(const ValueKey('topic-list-ledger-header')),
       );
-      expect(recent.left, category.left);
+      expect(toolbar.contains(category.center), isTrue);
+      expect(category.center.dy, closeTo(recent.center.dy, 0.01));
+      expect(category.left, closeTo(popular.right + 8, 0.01));
+      expect(find.text('Categories'), findsOneWidget);
+      expect(find.text('All categories'), findsNothing);
+      expect(find.text('Tags'), findsOneWidget);
+      expect(find.text('All tags'), findsNothing);
+      expect(
+        tester
+            .widget<TopicCreateButton>(find.byType(TopicCreateButton))
+            .showLabel,
+        isTrue,
+      );
       expect(create.right, tester.getRect(find.text('Activity')).right);
-      expect(ledger.top - category.bottom, lessThanOrEqualTo(8));
+      expect(ledger.top, toolbar.bottom);
       expect(find.text('Topics'), findsNothing);
       expect(find.text('Topic'), findsNothing);
       expect(find.text('Latest activity'), findsNothing);
@@ -567,6 +585,23 @@ void main() {
         tester.widget<TopicTitle>(find.byType(TopicTitle).first).maxLines,
         2,
       );
+      tester.view.physicalSize = const Size(700, 700);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TopicCreateButton>(find.byType(TopicCreateButton))
+            .showLabel,
+        isFalse,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(TopicCreateButton.buttonKey),
+          matching: find.text('New topic'),
+        ),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+
       await tester.tap(find.byKey(const ValueKey('topic-list-top')));
       await tester.pumpAndSettle();
       expect(find.text('Top'), findsOneWidget);

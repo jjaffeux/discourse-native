@@ -32,6 +32,7 @@ class TopicListFilterBar extends StatelessWidget {
     required this.onCategorySelected,
     required this.onTagSelected,
     required this.onReset,
+    this.inline = false,
   });
 
   final String siteUrl;
@@ -44,6 +45,7 @@ class TopicListFilterBar extends StatelessWidget {
   final ValueChanged<TopicCategory?> onCategorySelected;
   final ValueChanged<String?> onTagSelected;
   final VoidCallback onReset;
+  final bool inline;
 
   @override
   Widget build(BuildContext context) {
@@ -70,71 +72,69 @@ class TopicListFilterBar extends StatelessWidget {
     final hasFilters = selectedCategoryId != null || selectedTagName != null;
     final theme = Theme.of(context);
 
+    final controls = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _CategoryFilterAnchor(
+          siteUrl: siteUrl,
+          categories: rootCategories,
+          selected: rootCategory,
+          onSelected: onCategorySelected,
+        ),
+        if (subcategories.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          _SubcategoryFilterAnchor(
+            siteUrl: siteUrl,
+            parent: rootCategory!,
+            subcategories: subcategories,
+            selected: selectedCategory?.parentCategoryId == null
+                ? null
+                : selectedCategory,
+            onSelected: onCategorySelected,
+          ),
+        ],
+        if (taggingEnabled) ...[
+          const SizedBox(width: 8),
+          _TagFilterAnchor(
+            knownTags: knownTags,
+            selectedTagName: selectedTagName,
+            search: searchTags,
+            onSelected: onTagSelected,
+          ),
+        ],
+        if (hasFilters) ...[
+          const SizedBox(width: 4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 32),
+            child: DButton(
+              key: const ValueKey('topic-list-filter-reset'),
+              label: const Text('Reset'),
+              icon: const DIcon(DIcons.arrowsRotate, size: 14),
+              semanticLabel: 'Reset topic filters',
+              onPressed: onReset,
+              variant: DButtonVariant.flat,
+              size: DButtonSize.small,
+            ),
+          ),
+        ],
+      ],
+    );
+
     return Material(
       key: const ValueKey('topic-list-filter-bar'),
       color: theme.shell.content,
-      child: ContentReadingLaneBox(
-        widthLimit: topicListContentWidth,
-        child: Row(
-          children: [
-            Expanded(
+      child: inline
+          ? controls
+          : ContentReadingLaneBox(
+              widthLimit: topicListContentWidth,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(
                   horizontal: topicListHorizontalPadding,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _CategoryFilterAnchor(
-                      siteUrl: siteUrl,
-                      categories: rootCategories,
-                      selected: rootCategory,
-                      onSelected: onCategorySelected,
-                    ),
-                    if (subcategories.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      _SubcategoryFilterAnchor(
-                        siteUrl: siteUrl,
-                        parent: rootCategory!,
-                        subcategories: subcategories,
-                        selected: selectedCategory?.parentCategoryId == null
-                            ? null
-                            : selectedCategory,
-                        onSelected: onCategorySelected,
-                      ),
-                    ],
-                    if (taggingEnabled) ...[
-                      const SizedBox(width: 8),
-                      _TagFilterAnchor(
-                        knownTags: knownTags,
-                        selectedTagName: selectedTagName,
-                        search: searchTags,
-                        onSelected: onTagSelected,
-                      ),
-                    ],
-                    if (hasFilters) ...[
-                      const SizedBox(width: 4),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 32),
-                        child: DButton(
-                          key: const ValueKey('topic-list-filter-reset'),
-                          label: const Text('Reset'),
-                          icon: const DIcon(DIcons.arrowsRotate, size: 14),
-                          semanticLabel: 'Reset topic filters',
-                          onPressed: onReset,
-                          variant: DButtonVariant.flat,
-                          size: DButtonSize.small,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                child: controls,
               ),
             ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -194,7 +194,7 @@ class _CategoryFilterAnchor extends StatelessWidget {
       ),
       builder: (context, openMenu) => _FilterButton(
         key: const ValueKey('topic-list-category-filter'),
-        label: selected?.name ?? 'All categories',
+        label: selected?.name ?? 'Categories',
         icon: selected == null
             ? null
             : CategoryIcon(
@@ -207,7 +207,7 @@ class _CategoryFilterAnchor extends StatelessWidget {
             ? 'Filter by category'
             : 'Category: ${selected!.name}',
         onPressed: openMenu,
-        minimumWidth: 132,
+        minimumWidth: 112,
         maximumWidth: 260,
       ),
     );
@@ -348,7 +348,7 @@ class _TagFilterAnchorState extends State<_TagFilterAnchor> {
       key: _anchorKey,
       child: _FilterButton(
         key: const ValueKey('topic-list-tag-filter'),
-        label: selected?.name ?? widget.selectedTagName ?? 'All tags',
+        label: selected?.name ?? widget.selectedTagName ?? 'Tags',
         icon: const DIcon(DIcons.tag, size: 14),
         semanticLabel: widget.selectedTagName == null
             ? 'Filter by tag'
