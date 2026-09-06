@@ -588,6 +588,52 @@ void main() {
     },
   );
 
+  testWidgets('post Reply is visible and opens the composer for that post', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    final shell = setup.controller;
+    shell.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+
+    final reply = find.byKey(
+      const ValueKey(('post-footer-action', 2, 'Reply')),
+    );
+    expect(reply, findsOneWidget);
+    await tester.ensureVisible(reply);
+    await tester.pumpAndSettle();
+    expect(reply.hitTestable(), findsOneWidget);
+    final body = find.byWidgetPredicate(
+      (widget) => widget is CookedHtml && widget.post?.postNumber == 2,
+    );
+    expect(tester.getRect(reply).top, greaterThan(tester.getRect(body).bottom));
+    expect(tester.getRect(reply).right, closeTo(tester.getRect(body).right, 1));
+
+    await tester.tap(reply);
+    await tester.pumpAndSettle();
+    expect(shell.visibleComposer?.target.topicId, 1);
+    expect(shell.visibleComposer?.target.replyToPostNumber, 2);
+    expect(shell.visibleComposer?.target.replyToUsername, 'sam');
+    expect(shell.currentContent?.topicId, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('posts without reply permission do not expose Reply', (
+    tester,
+  ) async {
+    final setup = await _setup(tester, canCreatePost: false);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Reply to this post'), findsNothing);
+    expect(
+      find.byKey(const ValueKey(('post-footer-action', 2, 'Reply'))),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('post-more-actions-2')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'shows post actions without hover and J/K navigate posts without switching topics',
     (tester) async {
@@ -604,6 +650,13 @@ void main() {
       expect(find.text('Edit'), findsOneWidget);
       expect(find.text('Copy link'), findsOneWidget);
       expect(find.text('Delete'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(MenuItemButton),
+          matching: find.text('Reply'),
+        ),
+        findsNothing,
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.text('Copy link'), findsNothing);
@@ -635,6 +688,7 @@ _setup(
   bool recommendations = false,
   List<TopicTag> tags = const [_tag],
   bool canEditTags = true,
+  bool canCreatePost = true,
 }) async {
   tester.view.physicalSize = const Size(1100, 800);
   tester.view.devicePixelRatio = 1;
@@ -739,7 +793,7 @@ _setup(
             canEdit: true,
             canEditTags: canEditTags,
             tags: tags,
-            canCreatePost: true,
+            canCreatePost: canCreatePost,
           ),
           posts: posts[row.id]!,
         ),
