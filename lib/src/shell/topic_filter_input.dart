@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
@@ -26,7 +27,7 @@ class TopicFilterInput extends StatefulWidget {
     this.inputKey = const ValueKey('topic-filter-input'),
     this.clearKey = const ValueKey('clear-topic-filter'),
     this.hintText = 'Filter topics by category, tag, or other criteria',
-    this.padding = const EdgeInsets.fromLTRB(12, 12, 12, 8),
+    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     this.enabled = true,
     this.preferSuggestionsAbove = false,
     this.tokenized = false,
@@ -353,38 +354,74 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     super.dispose();
   }
 
-  Widget _buildPlainInput(ThemeData theme) => TextField(
-    key: widget.inputKey,
-    controller: filter.text,
-    focusNode: _focus,
-    enabled: widget.enabled,
-    autocorrect: false,
-    enableSuggestions: false,
-    textInputAction: TextInputAction.search,
-    decoration: InputDecoration(
-      hintText: widget.hintText,
-      prefixIcon: const Padding(
-        padding: EdgeInsets.all(12),
-        child: DIcon(DIcons.filter, size: 17),
-      ),
-      suffixIcon: filter.text.text.isEmpty
-          ? null
-          : IconButton(
-              key: widget.clearKey,
-              tooltip: 'Clear filter',
-              onPressed: widget.enabled
-                  ? () => unawaited(filter.clear())
-                  : null,
-              icon: const DIcon(DIcons.xmark, size: 17),
+  Widget _buildPlainInput(ThemeData theme) {
+    final controlHeight = DButton.iconOnlyDimensionFor(DButtonSize.small);
+    return SizedBox(
+      height: controlHeight,
+      child: TextField(
+        key: widget.inputKey,
+        controller: filter.text,
+        focusNode: _focus,
+        enabled: widget.enabled,
+        autocorrect: false,
+        enableSuggestions: false,
+        textInputAction: TextInputAction.search,
+        style: theme.textTheme.bodyMedium,
+        decoration: InputDecoration(
+          isDense: true,
+          filled: true,
+          fillColor: theme.shell.content,
+          hintText: widget.hintText,
+          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 11),
+            child: DIcon(
+              DIcons.filter,
+              size: 15,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-      filled: true,
-      fillColor: theme.shell.content,
-      border: const OutlineInputBorder(),
-      isDense: true,
+          ),
+          prefixIconConstraints: BoxConstraints(
+            minWidth: 37,
+            minHeight: controlHeight,
+          ),
+          suffixIcon: filter.text.text.isEmpty
+              ? null
+              : IconButton(
+                  key: widget.clearKey,
+                  tooltip: 'Clear filter',
+                  onPressed: widget.enabled
+                      ? () => unawaited(filter.clear())
+                      : null,
+                  icon: DIcon(
+                    DIcons.xmark,
+                    size: 13,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+          border: _plainInputBorder(theme),
+          enabledBorder: _plainInputBorder(theme),
+          focusedBorder: _plainInputBorder(theme, focused: true),
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        ),
+        onChanged: filter.inputChanged,
+        onTap: _openSuggestions,
+        onTapOutside: (_) => _dismissInput(),
+      ),
+    );
+  }
+
+  static OutlineInputBorder _plainInputBorder(
+    ThemeData theme, {
+    bool focused = false,
+  }) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(8),
+    borderSide: BorderSide(
+      color: focused ? theme.colorScheme.primary : theme.shell.divider,
+      width: focused ? 1.5 : 1,
     ),
-    onChanged: filter.inputChanged,
-    onTap: _openSuggestions,
-    onTapOutside: (_) => _dismissInput(),
   );
 
   Widget _buildTokenInput(ThemeData theme) {
