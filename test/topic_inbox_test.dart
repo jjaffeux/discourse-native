@@ -100,7 +100,13 @@ void main() {
         greaterThan(tester.getRect(title).bottom),
       );
       expect(
-        tester.getRect(category).left,
+        tester
+            .getRect(
+              find.byKey(
+                const ValueKey('topic-header-compact-parent-category'),
+              ),
+            )
+            .left,
         closeTo(tester.getRect(title).left, 1),
       );
       expect(tester.widget<TopicTitle>(title).maxLines, 1);
@@ -153,6 +159,115 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final (cachedCategory, cachedTopic) in [
+    (false, false),
+    (true, false),
+    (true, true),
+  ]) {
+    testWidgets(
+      'topic headers resolve the category hierarchy with category cached $cachedCategory and topic cached $cachedTopic',
+      (tester) async {
+        final setup = await _setup(
+          tester,
+          listedCategoryId: null,
+          categoryList: cachedCategory ? [_child] : [],
+          categoryFindResults: const [_parent, _child],
+        );
+        final shell = setup.controller;
+        final row = setup.rows.first;
+        final siteUrl = shell.currentInstance!.url;
+        if (cachedTopic) {
+          final payload = setup.api.topics[row.id]!;
+          shell.store.put(siteUrl, payload.detail);
+          shell.store.putAll(siteUrl, payload.posts);
+        }
+        expect(setup.api.categoryIdsRequested, isEmpty);
+        shell.openTopicFromList(row);
+        await tester.pumpAndSettle();
+        expect(setup.api.categoryIdsRequested, [
+          if (!cachedCategory) [_child.id],
+          [_parent.id],
+        ]);
+        expect(setup.api.topicsOpened, cachedTopic ? isEmpty : [row.id]);
+        final parent = find.byKey(
+          const ValueKey('topic-header-compact-parent-category'),
+        );
+        final child = find.byKey(
+          const ValueKey('topic-header-compact-category'),
+        );
+        expect(
+          find.descendant(of: parent, matching: find.text(_parent.name)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: child, matching: find.text(_child.name)),
+          findsOneWidget,
+        );
+        expect(
+          tester.getRect(parent).right,
+          lessThan(tester.getRect(child).left),
+        );
+        await _scrollReaderToTop(tester);
+        final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
+        expect(
+          find.descendant(of: taxonomy, matching: find.text(_parent.name)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: taxonomy, matching: find.text(_child.name)),
+          findsOneWidget,
+        );
+        expect(find.text('+ Category'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'compact parent category opens its own list and keeps the reader',
+    (tester) async {
+      final setup = await _setup(tester);
+      final shell = setup.controller;
+      shell.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('topic-header-compact-parent-category')),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.topicListContent?.categoryId, _parent.id);
+      expect(shell.currentContent?.topicId, setup.rows.first.id);
+      expect(setup.api.topicsUpdated, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final compact in [true, false]) {
+    testWidgets('empty header tags offer Add tag in compact mode $compact', (
+      tester,
+    ) async {
+      final setup = await _setup(tester, tags: const []);
+      final shell = setup.controller;
+      shell.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      if (!compact) await _scrollReaderToTop(tester);
+      final add = find.byKey(const ValueKey('topic-header-edit-tags'));
+      expect(
+        find.descendant(of: add, matching: find.text('Add tag')),
+        findsOneWidget,
+      );
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey(('topic-tag-picker-option', 'community'))),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.currentTopic!.tags, [_tag]);
+      expect(setup.api.topicTagsUpdated.single['tags'], [_tag]);
+      expect(find.text('Add tag'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('scrolling keeps an active title edit until it is saved', (
     tester,
@@ -265,6 +380,7 @@ void main() {
     expect(setup.api.topicTagsUpdated.single['tags'], isEmpty);
     expect(tag, findsNothing);
     expect(compact, findsOneWidget);
+    expect(find.text('Add tag'), findsOneWidget);
 
     await tester.tap(edit);
     await tester.pumpAndSettle();
@@ -275,6 +391,7 @@ void main() {
     expect(shell.currentTopic!.tags, [_tag]);
     expect(setup.api.topicTagsUpdated.last['tags'], [_tag]);
     expect(tag, findsOneWidget);
+    expect(find.text('Add tag'), findsNothing);
     expect(compact, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -398,9 +515,16 @@ void main() {
         final category = find.byKey(
           const ValueKey('topic-header-compact-category'),
         );
+        final parent = find.byKey(
+          const ValueKey('topic-header-compact-parent-category'),
+        );
         expect(
-          tester.getRect(category).left,
+          tester.getRect(parent).left,
           closeTo(tester.getRect(title).left, 1),
+        );
+        expect(
+          tester.getRect(parent).right,
+          lessThan(tester.getRect(category).left),
         );
         expect(tester.getRect(title).right, lessThan(width));
         final tags = find.byKey(const ValueKey('topic-header-compact-tags'));
@@ -548,7 +672,13 @@ void main() {
               greaterThan(tester.getRect(close).bottom),
             );
             expect(
-              tester.getRect(category).left,
+              tester
+                  .getRect(
+                    find.byKey(
+                      const ValueKey('topic-header-compact-parent-category'),
+                    ),
+                  )
+                  .left,
               closeTo(tester.getRect(title).left, 1),
             );
             expect(
@@ -1908,6 +2038,9 @@ _setup(
   bool canCloseTopic = false,
   bool canEditTopic = true,
   Map<String, dynamic> topicPluginPayload = const {},
+  int? listedCategoryId = 22,
+  List<TopicCategory> categoryList = const [_parent, _child],
+  List<TopicCategory> categoryFindResults = const [],
 }) async {
   tester.view.physicalSize = const Size(1100, 800);
   tester.view.devicePixelRatio = 1;
@@ -1922,7 +2055,7 @@ _setup(
         id: id,
         title: 'Topic $id',
         slug: 'topic-$id',
-        categoryId: 22,
+        categoryId: listedCategoryId,
         privateMessage: privateMessage,
         excerpt: id == 1 ? 'First topic preview' : null,
         lastPosterUsername: 'sam',
@@ -1974,7 +2107,8 @@ _setup(
       ).feedPath!: rows,
     },
     nextPages: const {'/latest.json': '/latest.json?page=1'},
-    categoryList: const [_parent, _child],
+    categoryList: categoryList,
+    categoryFindResults: categoryFindResults,
     categorySearches: const {
       '': [_parent, _child],
     },

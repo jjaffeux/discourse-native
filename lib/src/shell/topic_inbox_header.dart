@@ -442,11 +442,11 @@ class _CompactTopicInboxHeader extends StatelessWidget {
               child: Row(
                 children: [
                   if (!topic.privateMessage)
-                    _CompactTopicCategory(
+                    _CompactTopicCategories(
                       siteUrl: siteUrl,
                       topic: topic,
                       keepTopicListOpen: header.keepTopicListOpen,
-                      maxWidth: (constraints.maxWidth * .32).clamp(72, 200),
+                      maxWidth: (constraints.maxWidth * .5).clamp(96, 400),
                     ),
                   if (topic.tags.isNotEmpty || topic.canEditTags)
                     Flexible(
@@ -543,8 +543,8 @@ class _TopicCloseButton extends StatelessWidget {
   );
 }
 
-class _CompactTopicCategory extends StatelessWidget {
-  const _CompactTopicCategory({
+class _CompactTopicCategories extends StatelessWidget {
+  const _CompactTopicCategories({
     required this.siteUrl,
     required this.topic,
     required this.keepTopicListOpen,
@@ -563,28 +563,48 @@ class _CompactTopicCategory extends StatelessWidget {
       final shell = ShellScope.read(context);
       final category = shell.categoryFor(topic.categoryId, siteUrl: siteUrl);
       if (category == null) return const SizedBox.shrink();
+      final parent = shell.categoryFor(
+        category.parentCategoryId,
+        siteUrl: siteUrl,
+      );
+      Widget chip(TopicCategory value, {bool isParent = false}) => LinkTarget(
+        url: '/c/${value.id}',
+        title: value.name,
+        siteUrl: siteUrl,
+        child: _CategoryChip(
+          key: ValueKey(
+            isParent
+                ? 'topic-header-compact-parent-category'
+                : 'topic-header-compact-category',
+          ),
+          category: value,
+          siteUrl: siteUrl,
+          label: value.name,
+          editLabel: 'Browse ${value.name}',
+          edit: () => shell.browseTopicCategory(
+            value,
+            keepTopicOpen: keepTopicListOpen,
+          ),
+          navigate: null,
+          saving: false,
+          compact: true,
+        ),
+      );
       return Padding(
         padding: const EdgeInsets.only(right: 12),
-        child: LinkTarget(
-          url: '/c/${category.id}',
-          title: category.name,
-          siteUrl: siteUrl,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxWidth),
-            child: _CategoryChip(
-              key: const ValueKey('topic-header-compact-category'),
-              category: category,
-              siteUrl: siteUrl,
-              label: category.name,
-              editLabel: 'Browse ${category.name}',
-              edit: () => shell.browseTopicCategory(
-                category,
-                keepTopicOpen: keepTopicListOpen,
-              ),
-              navigate: null,
-              saving: false,
-              compact: true,
-            ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: parent == null ? maxWidth.clamp(72, 200) : maxWidth,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (parent != null) ...[
+                Flexible(child: chip(parent, isParent: true)),
+                const SizedBox(width: 7),
+              ],
+              Flexible(child: chip(category)),
+            ],
           ),
         ),
       );

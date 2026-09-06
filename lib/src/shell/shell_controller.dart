@@ -5052,7 +5052,12 @@ class ShellController extends FrameSafeNotifier
     unawaited(_presentation.ensureCustomEmojis(instance.url));
     // Hashtags need category colors even when a notification or link opened
     // the topic without first loading a feed.
-    unawaited(_ensureCategoriesFor(instance));
+    unawaited(
+      _ensureCategoriesFor(
+        instance,
+        categoryId: store.read<TopicDetail>(instance.url, topicId)?.categoryId,
+      ),
+    );
 
     final key = _topicKey(instance.url, topicId);
     if (_topicsLoading.contains(key)) {
@@ -5125,6 +5130,11 @@ class ShellController extends FrameSafeNotifier
           fetched,
           bookmarkVersionAtDispatch: bookmarkVersion,
         );
+        if (detail.categoryId case final categoryId?) {
+          unawaited(
+            _ensureCategoryIds(instance, credential.value, [categoryId]),
+          );
+        }
         if (currentInstance?.url == instance.url) {
           _retitle(topicId, fetched.detail.title);
         }
@@ -10986,10 +10996,23 @@ class ShellController extends FrameSafeNotifier
       if (!lease.isCurrent) return;
 
       var pending = categoryIds.toSet();
+      final visited = <int>{};
       while (pending.isNotEmpty) {
-        pending.removeWhere(
-          (id) => store.read<TopicCategory>(instance.url, id) != null,
-        );
+        final cached = [
+          for (final id in pending)
+            ?store.read<TopicCategory>(instance.url, id),
+        ];
+        if (cached.isNotEmpty) {
+          pending.removeAll(cached.map((category) => category.id));
+          visited.addAll(cached.map((category) => category.id));
+          pending.addAll([
+            for (final category in cached)
+              if (category.parentCategoryId case final parentId?
+                  when !visited.contains(parentId))
+                parentId,
+          ]);
+          continue;
+        }
         final batch = <int>[];
         for (final id in pending) {
           if (batch.length == 100) break;
@@ -11017,8 +11040,12 @@ class ShellController extends FrameSafeNotifier
           _notify();
         });
         pending.removeAll(batch);
+        visited.addAll(batch);
         pending.addAll([
-          for (final category in found) ?category.parentCategoryId,
+          for (final category in found)
+            if (category.parentCategoryId case final parentId?
+                when !visited.contains(parentId))
+              parentId,
         ]);
       }
     } catch (error, stackTrace) {
@@ -11032,7 +11059,10 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  Future<void> _ensureCategoriesFor(DiscourseInstance instance) async {
+  Future<void> _ensureCategoriesFor(
+    DiscourseInstance instance, {
+    int? categoryId,
+  }) async {
     if (instance.loginRequired && !instance.isConnected) return;
 
     final lease = lifecycle.capture(instance.url);
@@ -11049,6 +11079,9 @@ class ShellController extends FrameSafeNotifier
         clientId: clientId,
         lease: lease,
       );
+      if (lease.isCurrent && categoryId != null) {
+        await _ensureCategoryIds(instance, apiKey, [categoryId]);
+      }
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _reportOperationalError(
