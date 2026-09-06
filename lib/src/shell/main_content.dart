@@ -874,7 +874,7 @@ class _TopicListHeadingTitle extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          fontSize: DiscourseTypography.base,
+          fontSize: DiscourseTypography.fontUp1,
           fontWeight: FontWeight.w600,
         ),
       ),
