@@ -2461,6 +2461,82 @@ void main() {
         expect(controller.store.read<Post>(site.url, 300)?.postNumber, 12);
       });
 
+      testWidgets('large progress counts fit beside narrow Inbox actions', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(320, 700);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final site = instance('meta.example');
+        final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+        final controller = _controller(site, api);
+        addTearDown(controller.dispose);
+        await controller.load();
+        controller.store
+          ..put(
+            site.url,
+            TopicDetail(
+              id: 1,
+              title: 'Long topic',
+              stream: [for (var id = 1; id <= 5188; id++) id],
+              postsCount: 5188,
+            ),
+          )
+          ..putAll(site.url, [
+            for (var id = 5149; id <= 5188; id++)
+              Post(
+                id: id,
+                postNumber: id,
+                username: 'sam',
+                cooked: '<p>Post $id</p>',
+              ),
+          ]);
+        controller.pushContent(
+          ContentRoute.topic(
+            topicId: 1,
+            slug: 'long-topic',
+            title: 'Long topic',
+            postNumber: 5188,
+          ),
+        );
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.dark,
+              home: const Scaffold(
+                body: TopicView(inbox: true, canReply: true, isConnected: true),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final progress = find.byKey(const ValueKey('topic-progress-button'));
+        final footer = tester.getRect(
+          find.byKey(const ValueKey('topic-bottom-bar')),
+        );
+        final reply = tester.getRect(
+          find.byKey(const ValueKey('topic-reply-button')),
+        );
+        final progressBounds = tester.getRect(progress);
+        expect(find.text('5188 / 5188'), findsOneWidget);
+        expect(footer.right - progressBounds.right, closeTo(8, .01));
+        expect(progressBounds.left, greaterThan(reply.right));
+        expect(tester.takeException(), isNull);
+        await tester.tap(progress);
+        await tester.pumpAndSettle();
+        expect(find.text('Post 5188 of 5188'), findsOneWidget);
+        expect(
+          tester
+              .widget<Slider>(
+                find.byKey(const ValueKey('topic-progress-slider')),
+              )
+              .max,
+          5188,
+        );
+        expect(tester.takeException(), isNull);
+      });
+
       testWidgets('opens a stream-position navigator', (tester) async {
         final site = instance('meta.example');
         final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
