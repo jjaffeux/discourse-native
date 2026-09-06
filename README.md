@@ -476,10 +476,10 @@ Discovery lists keep **Recent**, **Top**, and **Trending** available to signed-o
 visitors, including the Top period chooser. Signed-in readers also get **New**;
 **New topic** follows the forum's posting permissions. Desktop lists keep these
 tabs, the category and tag filters, and the topic action in one aligned toolbar.
-The topic action drops its label when the available content width is tight. On
-macOS the window title bar carries forum search, so the list does not repeat a
-page heading. Category and nested routes keep their contextual headers and
-actions.
+Filter controls hug their current labels up to an ellipsized maximum width. The
+topic action drops its label when the available content width is tight. On macOS
+the window title bar carries forum search, so the list does not repeat a page
+heading. Category and nested routes keep their contextual headers and actions.
 
 The list and its controls share a 1120px lane at normal text size. Wide lists
 label the people, replies, views, and activity columns; narrow lists move

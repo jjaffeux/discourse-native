@@ -116,6 +116,38 @@ void main() {
     expect(find.text('Categories'), findsOneWidget);
   });
 
+  testWidgets('sizes short selected filters to their content', (tester) async {
+    const bug = TopicCategory(
+      id: 99,
+      name: 'Bug',
+      color: 'E45735',
+      slug: 'bug',
+    );
+    await pumpBar(
+      tester,
+      categories: const [bug],
+      selectedCategoryId: bug.id,
+      platform: TargetPlatform.macOS,
+    );
+
+    final selectedWidth = tester
+        .getSize(find.byKey(const ValueKey('topic-list-category-filter')))
+        .width;
+    expect(find.text('Bug'), findsOneWidget);
+    expect(selectedWidth, lessThan(112));
+
+    await pumpBar(
+      tester,
+      categories: const [bug],
+      platform: TargetPlatform.macOS,
+    );
+    final unselectedWidth = tester
+        .getSize(find.byKey(const ValueKey('topic-list-category-filter')))
+        .width;
+    expect(selectedWidth, lessThan(unselectedWidth));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('uses compact, spaced rows and category indicators', (
     tester,
   ) async {
