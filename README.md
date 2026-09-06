@@ -472,8 +472,10 @@ DND through the normal endpoint, matching the web status service.
 
 ### Topic lists
 
-Desktop discovery lists put **Recent**, **New**, **Top**, **Trending**, and
-**New topic** in one toolbar. On macOS the window title bar carries forum
+Discovery lists keep **Recent**, **Top**, and **Trending** available to signed-out
+visitors, including the Top period chooser. Signed-in readers also get **New**;
+**New topic** follows the forum's posting permissions. Desktop lists keep these
+controls in one toolbar. On macOS the window title bar carries forum
 search, so the list does not repeat a page heading. Category and nested routes
 keep their contextual headers and actions.
 

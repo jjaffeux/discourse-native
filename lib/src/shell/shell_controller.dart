@@ -11731,8 +11731,9 @@ class ShellController extends FrameSafeNotifier
     final user = instance?.user;
     final tab = activeTab;
     final currentMode = currentTopicListMode;
-    if (user == null || tab == null || currentMode == null) return;
-    if (mode.isSubset && !user.unifiedNewEnabled) return;
+    if (instance == null || tab == null || currentMode == null) return;
+    if (user == null && (mode.isNew || mode == TopicListMode.unread)) return;
+    if (mode.isSubset && user?.unifiedNewEnabled != true) return;
     if (mode == currentMode) return;
 
     final route = ContentRoute.topicList(mode);

@@ -63,7 +63,7 @@ class TopicListNavigation extends StatelessWidget {
           );
         },
         builder: (context, state, _) {
-          final showsTabs = state.signedIn && state.mode != null;
+          final showsTabs = state.mode != null;
           final showsFilters =
               state.siteUrl != null && state.route?.isTopicListFilter == true;
           if (!showsTabs && !showsFilters && trailing == null) return child;
@@ -138,19 +138,20 @@ class _TopicListNavigationControls extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              _TopicListTabItem(
-                                controlKey: const ValueKey('topic-list-new'),
-                                label: 'New',
-                                count: state.allCount,
-                                showCountBadge: true,
-                                textStyle: primaryTextStyle,
-                                selected: mode.isNew,
-                                onTap: () => unawaited(
-                                  controller.selectTopicListMode(
-                                    TopicListMode.newActivity,
+                              if (state.signedIn)
+                                _TopicListTabItem(
+                                  controlKey: const ValueKey('topic-list-new'),
+                                  label: 'New',
+                                  count: state.allCount,
+                                  showCountBadge: true,
+                                  textStyle: primaryTextStyle,
+                                  selected: mode.isNew,
+                                  onTap: () => unawaited(
+                                    controller.selectTopicListMode(
+                                      TopicListMode.newActivity,
+                                    ),
                                   ),
                                 ),
-                              ),
                               _TopicListTabItem(
                                 controlKey: const ValueKey('topic-list-top'),
                                 label: 'Top',

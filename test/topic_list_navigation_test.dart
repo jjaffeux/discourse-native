@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -355,6 +356,164 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final scenario in [
+    (
+      name: 'desktop',
+      platform: TargetPlatform.macOS,
+      size: const Size(1000, 700),
+      layout: ShellLayout.expanded,
+      forumTabsEnabled: true,
+    ),
+    (
+      name: 'compact',
+      platform: TargetPlatform.iOS,
+      size: const Size(360, 800),
+      layout: ShellLayout.compact,
+      forumTabsEnabled: false,
+    ),
+  ]) {
+    testWidgets(
+      'signed-out ${scenario.name} discovery keeps public tabs above filters and loads their feeds',
+      (tester) async {
+        final previousPlatform = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = scenario.platform;
+        try {
+          tester.view.physicalSize = scenario.size;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          const category = TopicCategory(
+            id: 42,
+            name: 'Support',
+            slug: 'support',
+            color: '3188CC',
+          );
+          const categoryTopic = Topic(
+            id: 9,
+            title: 'Public support topic',
+            slug: 'public-support-topic',
+          );
+          final setup = await _controller(
+            user: null,
+            forumTabsEnabled: scenario.forumTabsEnabled,
+            categoryList: const [category],
+            extraFeeds: const {
+              '/c/support/42.json': [categoryTopic],
+            },
+          );
+          final controller = setup.controller;
+          addTearDown(controller.dispose);
+          await tester.pumpWidget(
+            ShellScope(
+              controller: controller,
+              child: MaterialApp(
+                theme: AppTheme.dark,
+                home: Scaffold(body: MainContent(layout: scenario.layout)),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(controller.currentInstance?.user, isNull);
+          final primary = find.byKey(const ValueKey('topic-list-primary-row'));
+          expect(primary, findsOneWidget);
+          for (final key in [
+            'topic-list-latest',
+            'topic-list-top',
+            'topic-list-popular',
+          ]) {
+            expect(find.byKey(ValueKey(key)), findsOneWidget);
+          }
+          expect(find.byKey(const ValueKey('topic-list-new')), findsNothing);
+          expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
+          final row = tester.getRect(primary);
+          final categoryFilter = tester.getRect(
+            find.byKey(const ValueKey('topic-list-category-filter')),
+          );
+          expect(row.height, 52);
+          expect(categoryFilter.top, greaterThanOrEqualTo(row.bottom));
+          expect(
+            tester
+                .getRect(find.byKey(const ValueKey('topic-list-latest')))
+                .left,
+            categoryFilter.left,
+          );
+          if (scenario.forumTabsEnabled) {
+            expect(row.top, tester.getRect(find.byType(ForumTabsBar)).bottom);
+            expect(
+              tester
+                  .getRect(
+                    find.byKey(const ValueKey('topic-list-ledger-header')),
+                  )
+                  .top,
+              greaterThanOrEqualTo(categoryFilter.bottom),
+            );
+          }
+
+          await tester.tap(find.byKey(const ValueKey('topic-list-top')));
+          await tester.pumpAndSettle();
+          expect(controller.currentTopicListMode, TopicListMode.topYearly);
+          expect(find.text('Top this year'), findsOneWidget);
+          await tester.tap(find.byKey(const ValueKey('topic-list-top-period')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Week'));
+          await tester.pumpAndSettle();
+          expect(controller.currentTopicListMode, TopicListMode.topWeekly);
+          expect(find.text('Top this week'), findsOneWidget);
+
+          await tester.tap(find.byKey(const ValueKey('topic-list-popular')));
+          await tester.pumpAndSettle();
+          expect(controller.currentTopicListMode, TopicListMode.popular);
+          expect(find.text('Popular topic'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('topic-list-top-period')),
+            findsNothing,
+          );
+
+          await tester.tap(find.byKey(const ValueKey('topic-list-latest')));
+          await tester.pumpAndSettle();
+          expect(find.text('Latest topic'), findsOneWidget);
+          await tester.tap(
+            find.byKey(const ValueKey('topic-list-category-filter')),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Support'));
+          await tester.pumpAndSettle();
+          expect(controller.currentContent?.categoryId, category.id);
+          expect(find.text('Public support topic'), findsOneWidget);
+          expect(primary, findsOneWidget);
+          expect(find.byKey(const ValueKey('topic-list-new')), findsNothing);
+          expect(setup.api.feedPaths, [
+            '/latest.json',
+            '/top.json?period=yearly',
+            '/top.json?period=weekly',
+            '/hot.json',
+            '/c/support/42.json',
+          ]);
+          expect(tester.takeException(), isNull);
+        } finally {
+          debugDefaultTargetPlatformOverride = previousPlatform;
+        }
+      },
+    );
+  }
+
+  test('signed-out readers cannot select New or unread lists', () async {
+    final setup = await _controller(user: null);
+    addTearDown(setup.controller.dispose);
+    await setup.controller.loadFeed('latest');
+    final initialPaths = List<String>.of(setup.api.feedPaths);
+    for (final mode in [
+      TopicListMode.newActivity,
+      TopicListMode.newTopics,
+      TopicListMode.newReplies,
+      TopicListMode.unread,
+    ]) {
+      await setup.controller.selectTopicListMode(mode);
+      expect(setup.controller.currentTopicListMode, TopicListMode.latest);
+    }
+    expect(setup.api.feedPaths, initialPaths);
+  });
+
   testWidgets('desktop toolbar keeps topic actions aligned across views', (
     tester,
   ) async {
@@ -668,20 +827,26 @@ Text _tabText(WidgetTester tester, String key) => tester.widget<Text>(
 );
 
 Future<({ShellController controller, FakeDiscourseApi api})> _controller({
-  DiscourseUser user = _user,
+  DiscourseUser? user = _user,
   SiteConfig config = const SiteConfig.unknown(),
   Completer<void>? trackingStateGate,
   List<TopicCategory> categoryList = const [],
   List<SidebarTag> categorySiteTopTags = const [],
   Map<String, List<Topic>> extraFeeds = const {},
   bool canCreateTopics = false,
+  bool forumTabsEnabled = false,
 }) async {
-  final totals = user.unifiedNewEnabled ? _unifiedTotals : _legacyTotals;
+  final totals = user == null
+      ? const NotificationTotals()
+      : user.unifiedNewEnabled
+      ? _unifiedTotals
+      : _legacyTotals;
   final site = instance(
     'meta.discourse.org',
     title: 'Discourse Meta',
   ).copyWith(user: user, notificationTotals: totals, config: config);
-  final authenticator = FakeAuthenticator()..keys[site.url] = 'api-key';
+  final authenticator = FakeAuthenticator();
+  if (user != null) authenticator.keys[site.url] = 'api-key';
   final api = FakeDiscourseApi(
     creatableFeedPaths: canCreateTopics ? const {'/latest.json'} : const {},
     user: user,
@@ -721,7 +886,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
     authenticator: authenticator,
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
-    forumTabsEnabled: false,
+    forumTabsEnabled: forumTabsEnabled,
     trackers: FakeSiteTracker.reset(),
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),
