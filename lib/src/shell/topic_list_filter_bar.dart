@@ -31,7 +31,6 @@ class TopicListFilterBar extends StatelessWidget {
     required this.searchTags,
     required this.onCategorySelected,
     required this.onTagSelected,
-    required this.onReset,
     this.inline = false,
   });
 
@@ -44,7 +43,6 @@ class TopicListFilterBar extends StatelessWidget {
   final TopicListTagSearch searchTags;
   final ValueChanged<TopicCategory?> onCategorySelected;
   final ValueChanged<String?> onTagSelected;
-  final VoidCallback onReset;
   final bool inline;
 
   @override
@@ -69,7 +67,6 @@ class TopicListFilterBar extends StatelessWidget {
               .where((category) => category.parentCategoryId == rootCategory.id)
               .toList(growable: false)
             ..sort(_compareCategories));
-    final hasFilters = selectedCategoryId != null || selectedTagName != null;
     final theme = Theme.of(context);
 
     final controls = Row(
@@ -100,21 +97,6 @@ class TopicListFilterBar extends StatelessWidget {
             selectedTagName: selectedTagName,
             search: searchTags,
             onSelected: onTagSelected,
-          ),
-        ],
-        if (hasFilters) ...[
-          const SizedBox(width: 4),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 32),
-            child: DButton(
-              key: const ValueKey('topic-list-filter-reset'),
-              label: const Text('Reset'),
-              icon: const DIcon(DIcons.arrowsRotate, size: 14),
-              semanticLabel: 'Reset topic filters',
-              onPressed: onReset,
-              variant: DButtonVariant.flat,
-              size: DButtonSize.small,
-            ),
           ),
         ],
       ],
