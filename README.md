@@ -1501,10 +1501,11 @@ it directly; choosing a user posts to
 the picker also exposes New group chat: selected users and visible groups are
 posted as `target_usernames`/`target_groups`, with an optional name and
 `upsert: false`, so matching membership does not collapse distinct group
-conversations. Either creation path commits the returned channel to the shared
-store and opens it without another channel-list fetch. Picker text is transient
-and stale search answers are discarded when the query or account session
-changes.
+conversations. Creation responses omit membership, so either path follows the
+returned channel before opening it, restoring the membership needed to react
+and subscribe to activity. Upserting retains existing tracking state without
+another channel-list fetch. Picker text is transient and stale search answers
+are discarded when the query or account session changes.
 
 **It cannot use the enablement rule the rest of that interface turns on.** A
 post arrives whether or not you care about reactions, so its payload can be the

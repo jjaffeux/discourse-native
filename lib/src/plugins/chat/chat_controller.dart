@@ -1517,7 +1517,7 @@ class ChatController extends FrameSafeNotifier {
       }
       final clientId = requestCredentials.clientId;
       if (isDisposed || !lease.isCurrent) return null;
-      final channel = await api.createChatDirectMessageChannel(
+      var channel = await api.createChatDirectMessageChannel(
         siteUrl: siteUrl,
         apiKey: apiKey,
         clientId: clientId,
@@ -1528,7 +1528,23 @@ class ChatController extends FrameSafeNotifier {
       );
       if (isDisposed || !lease.isCurrent || channel.id <= 0) return null;
 
+      // Creation omits current_user_membership, including when upserting an
+      // existing DM. Following returns the membership required for reactions.
+      if (!channel.membership.following) {
+        final membership = await api.followChatChannel(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: channel.id,
+        );
+        if (isDisposed || !lease.isCurrent) return null;
+        channel = channel.withMembership(membership);
+      }
+
       lease.commit(() {
+        channel =
+            this.channel(siteUrl, channel.id)?.withServerSettings(channel) ??
+            channel;
         _store.put(siteUrl, channel);
         final direct = _directIds[siteUrl] ?? const <int>[];
         _directIds[siteUrl] = [

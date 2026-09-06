@@ -141,6 +141,8 @@ ChatChannel channel(
 ({ChatController chat, FakeDiscourseApi api, Store store}) build({
   Map<String, ChatChannels> channels = const {},
   Map<int, ChatChannel> channelDetails = const {},
+  Map<String, ChatChannel> directMessageChannels = const {},
+  ChatChannel? directMessageGroupChannel,
   Map<String, ChatMessagePage> messages = const {},
   Completer<void>? channelGate,
   Completer<void>? messageGate,
@@ -202,6 +204,8 @@ ChatChannel channel(
   final api = FakeDiscourseApi(
     chatChannelsBySite: channels,
     chatChannelsById: channelDetails,
+    directMessageChannelsByUsername: directMessageChannels,
+    directMessageGroupChannel: directMessageGroupChannel,
     chatChannelGate: channelGate,
     chatMessagesByKey: messages,
     chatMessageGate: messageGate,
@@ -4525,6 +4529,120 @@ void main() {
           ChatReactionAction.add,
         );
         expect(subject.store.read<ChatMessage>(site, 1), optimistic);
+      },
+    );
+
+    for (final isGroup in [false, true]) {
+      test(
+        'creating a ${isGroup ? 'group' : 'one-to-one'} DM restores membership for reactions',
+        () async {
+          final created = ChatChannel.fromJson({
+            'id': 9,
+            'title': 'Sam',
+            'chatable_type': 'DirectMessage',
+            'chatable': {'group': isGroup},
+          }, site);
+          const membership = ChatMembership(
+            following: true,
+            notificationLevel: ChatChannelNotificationLevel.always,
+            lastReadMessageId: 1,
+          );
+          final subject = build(
+            directMessageChannels: {'sam': created},
+            directMessageGroupChannel: created,
+            channelFollowMembership: membership,
+          );
+          addTearDown(subject.chat.dispose);
+          if (!isGroup) {
+            subject.store.put(
+              site,
+              channel(9, kind: ChatChannelKind.directMessage, unread: 3),
+            );
+          }
+          subject.store.put(site, message(1));
+
+          final opened = isGroup
+              ? await subject.chat.createDirectMessageChannel(
+                  site,
+                  usernames: ['sam', 'kris'],
+                )
+              : await subject.chat.upsertDirectMessageChannel(site, 'sam');
+
+          expect(subject.api.chatChannelFollowsUpdated, const [
+            (channelId: 9, following: true),
+          ]);
+          expect(opened?.membership, membership);
+          expect(opened?.title, 'Sam');
+          expect(opened?.tracking.unreadCount, isGroup ? 0 : 3);
+          expect(subject.chat.directChannels(site), [opened]);
+
+          await subject.chat.addMessageReaction(site, 1, 'clap');
+          expect(subject.store.read<ChatMessage>(site, 1)!.reactions, const [
+            ChatReaction(emoji: 'clap', count: 1, reacted: true),
+          ]);
+          await subject.chat.toggleMessageReaction(site, 1, 'clap');
+          expect(subject.store.read<ChatMessage>(site, 1)!.reactions, isEmpty);
+          expect(subject.api.chatReactionsSet.map((write) => write.action), [
+            ChatReactionAction.add,
+            ChatReactionAction.remove,
+          ]);
+        },
+      );
+    }
+
+    test('a refused DM follow preserves the existing channel', () async {
+      final subject = build(
+        directMessageChannels: {
+          'sam': channel(
+            9,
+            kind: ChatChannelKind.directMessage,
+            following: false,
+          ),
+        },
+        channelFollowFailure: const WriteException(WriteFailure.forbidden),
+      );
+      addTearDown(subject.chat.dispose);
+      final held = channel(9, kind: ChatChannelKind.directMessage);
+      subject.store.put(site, held);
+
+      await expectLater(
+        subject.chat.upsertDirectMessageChannel(site, 'sam'),
+        throwsA(isA<WriteException>()),
+      );
+
+      expect(subject.chat.channel(site, 9), same(held));
+    });
+
+    test(
+      'switching accounts during a DM follow does not restore its channel',
+      () async {
+        final gate = Completer<void>();
+        final lifecycle = SiteLifecycle();
+        final subject = build(
+          directMessageChannels: {
+            'sam': channel(
+              9,
+              kind: ChatChannelKind.directMessage,
+              following: false,
+            ),
+          },
+          channelFollowGate: gate,
+          lifecycle: lifecycle,
+        );
+        addTearDown(subject.chat.dispose);
+
+        final creating = subject.chat.upsertDirectMessageChannel(site, 'sam');
+        await Future<void>.delayed(Duration.zero);
+        expect(subject.api.chatChannelFollowsUpdated, const [
+          (channelId: 9, following: true),
+        ]);
+        lifecycle.invalidate(site);
+        subject.chat.forget(site);
+        gate.complete();
+
+        expect(await creating, isNull);
+        expect(subject.chat.channel(site, 9), isNull);
+        expect(subject.chat.directChannels(site), isEmpty);
       },
     );
 
