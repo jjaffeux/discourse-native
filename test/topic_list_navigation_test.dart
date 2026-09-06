@@ -676,13 +676,13 @@ void main() {
     expect(setup.api.feedPaths, initialPaths);
   });
 
-  testWidgets('Inbox keeps its heading, tabs, and filters in separate rows', (
+  testWidgets('list-only Inbox aligns its heading, tabs, filters, and rows', (
     tester,
   ) async {
     final previousPlatform = debugDefaultTargetPlatformOverride;
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     try {
-      tester.view.physicalSize = const Size(1000, 700);
+      tester.view.physicalSize = const Size(1800, 700);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final setup = await _controller(canCreateTopics: true);
@@ -719,6 +719,23 @@ void main() {
       );
       final ledger = tester.getRect(
         find.byKey(const ValueKey('topic-list-ledger-header')),
+      );
+      final heading = tester.getRect(
+        find.byKey(const ValueKey('topic-list-heading')),
+      );
+      final title = tester.getRect(
+        find.byKey(const ValueKey('topic-list-title')),
+      );
+      expect(ledger.width, topicListContentWidth);
+      expect(heading.left, greaterThan(topicListHorizontalPadding));
+      expect(
+        heading.left,
+        closeTo(ledger.left + topicListHorizontalPadding, .01),
+      );
+      expect(title.left, closeTo(recent.left, .01));
+      expect(
+        create.right,
+        closeTo(ledger.right - topicListHorizontalPadding, .01),
       );
       expect(category.top, greaterThanOrEqualTo(toolbar.bottom));
       expect(category.left, closeTo(recent.left, 0.01));

@@ -18,6 +18,7 @@ import 'adaptive_shell.dart';
 import 'categories_page.dart';
 import 'category_icon.dart';
 import 'category_notifications.dart';
+import 'content_reading_lane.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
 import 'forum_tabs_bar.dart';
@@ -38,6 +39,7 @@ import 'tags_page.dart';
 import 'title_bar.dart';
 import 'topic_create_button.dart';
 import 'topic_filter_page.dart';
+import 'topic_list_layout.dart';
 import 'topic_list_navigation.dart';
 import 'topic_list_view.dart';
 import 'topic_title.dart';
@@ -293,6 +295,45 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         final listWidth = split
             ? _listWidth.effectiveWidth(maximum: maximumListWidth)
             : constraints.maxWidth;
+        final showsUserMenu = !topicOpen && ShellTitleBar.columnsCarryUserMenu;
+        final heading = Row(
+          key: const ValueKey('topic-list-heading'),
+          children: [
+            if (layout.isCompact)
+              DButton.iconOnly(
+                icon: const DIcon(DIcons.arrowLeft, size: 18),
+                tooltip: 'Back',
+                variant: DButtonVariant.flat,
+                onPressed: () =>
+                    controller.handleBack(canReturnToSidebar: true),
+              ),
+            Expanded(
+              child: Text(
+                'Topics',
+                key: const ValueKey('topic-list-title'),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontSize: DiscourseTypography.base,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ...registry.contentHeaderActions(context, sourceRoute),
+            if (state.isConnected &&
+                state.siteUrl != null &&
+                sourceRoute.categoryId != null)
+              CategoryNotificationLevelButton(
+                siteUrl: state.siteUrl!,
+                categoryId: sourceRoute.categoryId!,
+              ),
+            _TopicCreateAction(
+              controller: controller,
+              compact: true,
+              fromList: true,
+              showLabel: !split && constraints.maxWidth >= 760,
+              leadingPadding: false,
+            ),
+          ],
+        );
         return Stack(
           children: [
             PositionedDirectional(
@@ -322,81 +363,83 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       ),
                       child: Column(
                         children: [
-                          SizedBox(
-                            height: shellHeaderHeight,
-                            child: Container(
-                              padding: const EdgeInsetsDirectional.only(
-                                start: 16,
-                                end: 8,
-                              ),
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  bottom: BorderSide(color: Colors.transparent),
+                          // Topic actions follow the reading lane; account
+                          // controls keep their place at the pane's edge.
+                          ContentReadingLane(
+                            widthLimit: topicListContentWidth,
+                            builder: (context, lane) => SizedBox(
+                              height: shellHeaderHeight,
+                              child: Padding(
+                                // Match the sidebar account header's baseline.
+                                padding: EdgeInsets.only(
+                                  bottom: showsUserMenu ? 1 : 0,
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  if (layout.isCompact)
-                                    DButton.iconOnly(
-                                      icon: const DIcon(
-                                        DIcons.arrowLeft,
-                                        size: 18,
-                                      ),
-                                      tooltip: 'Back',
-                                      variant: DButtonVariant.flat,
-                                      onPressed: () => controller.handleBack(
-                                        canReturnToSidebar: true,
-                                      ),
-                                    ),
-                                  Expanded(
-                                    child: Text(
-                                      'Topics',
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            fontSize: DiscourseTypography.base,
-                                            fontWeight: FontWeight.w600,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Padding(
+                                        padding: EdgeInsetsDirectional.only(
+                                          start:
+                                              Directionality.of(context) ==
+                                                  TextDirection.ltr
+                                              ? lane.leftInset
+                                              : lane.rightInset,
+                                        ),
+                                        child: Align(
+                                          alignment:
+                                              AlignmentDirectional.centerStart,
+                                          child: SizedBox(
+                                            width: lane.width,
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal:
+                                                    topicListHorizontalPadding,
+                                              ),
+                                              child: heading,
+                                            ),
                                           ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  ...registry.contentHeaderActions(
-                                    context,
-                                    sourceRoute,
-                                  ),
-                                  if (state.isConnected &&
-                                      state.siteUrl != null &&
-                                      sourceRoute.categoryId != null)
-                                    CategoryNotificationLevelButton(
-                                      siteUrl: state.siteUrl!,
-                                      categoryId: sourceRoute.categoryId!,
-                                    ),
-                                  _TopicCreateAction(
-                                    controller: controller,
-                                    compact: true,
-                                    fromList: true,
-                                    showLabel:
-                                        !split && constraints.maxWidth >= 760,
-                                    leadingPadding: false,
-                                  ),
-                                  if (!topicOpen &&
-                                      ShellTitleBar.columnsCarryUserMenu) ...[
-                                    ...registry.shellHeaderActions(
-                                      context,
-                                      surface: PluginHeaderSurface.content,
-                                      compact: layout.isCompact,
-                                      ringColor: theme.shell.content,
-                                    ),
-                                    UserMenuButton(
-                                      ringColor: theme.shell.content,
-                                    ),
+                                    if (showsUserMenu)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsetsDirectional.only(
+                                              end: 8,
+                                            ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            ...registry.shellHeaderActions(
+                                              context,
+                                              surface:
+                                                  PluginHeaderSurface.content,
+                                              compact: layout.isCompact,
+                                              ringColor: theme.shell.content,
+                                            ),
+                                            UserMenuButton(
+                                              ringColor: theme.shell.content,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                   ],
-                                ],
+                                ),
                               ),
                             ),
                           ),
                           if (!ShellTitleBar.isSupported)
-                            const Padding(
-                              padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
-                              child: ForumSearch(dense: true),
+                            const ContentReadingLaneBox(
+                              widthLimit: topicListContentWidth,
+                              child: Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                  topicListHorizontalPadding,
+                                  0,
+                                  topicListHorizontalPadding,
+                                  8,
+                                ),
+                                child: ForumSearch(dense: true),
+                              ),
                             ),
                           Expanded(
                             child: _FeedBackedContent(
