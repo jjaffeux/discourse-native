@@ -21,72 +21,97 @@ const _draft = UserDraft(
 );
 
 void main() {
-  testWidgets('New topic controls use small DButton geometry and keyboard', (
-    tester,
-  ) async {
-    final fixture = await _pump(tester);
-    final semantics = tester.ensureSemantics();
-    try {
-      final create = find.byKey(TopicCreateButton.buttonKey);
-      final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
+  for (final compact in [false, true]) {
+    testWidgets(
+      '${compact ? 'compact icon' : 'labeled'} New topic controls retain their hit targets and keyboard actions',
+      (tester) async {
+        final fixture = await _pump(
+          tester,
+          compact: compact,
+          showLabel: !compact,
+        );
+        final semantics = tester.ensureSemantics();
+        try {
+          final create = find.byKey(TopicCreateButton.buttonKey);
+          final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
 
-      _expectSmallDButton(tester, create, iconOnly: false);
-      _expectSmallDButton(tester, drafts, iconOnly: true);
-      expect(
-        tester.widget<DButton>(drafts).tooltip,
-        'Open the latest drafts menu',
-      );
-      expect(
-        tester.getSemantics(create),
-        isSemantics(
-          label: 'New topic',
-          isButton: true,
-          hasEnabledState: true,
-          isEnabled: true,
-          isFocusable: true,
-          hasTapAction: true,
-          hasFocusAction: true,
-        ),
-      );
-      expect(
-        tester.getSemantics(drafts),
-        isSemantics(
-          label: 'Open the latest drafts menu',
-          isButton: true,
-          hasEnabledState: true,
-          isEnabled: true,
-          isFocusable: true,
-          hasTapAction: true,
-          hasFocusAction: true,
-        ),
-      );
-      expect(tester.getSemantics(create).tooltip, isEmpty);
-      expect(tester.getSemantics(drafts).tooltip, isEmpty);
+          _expectSmallDButton(tester, create, iconOnly: compact);
+          _expectSmallDButton(tester, drafts, iconOnly: true);
+          expect(
+            tester.widget<DButton>(drafts).tooltip,
+            'Open the latest drafts menu',
+          );
+          expect(
+            tester.getSemantics(create),
+            isSemantics(
+              label: 'New topic',
+              isButton: true,
+              hasEnabledState: true,
+              isEnabled: true,
+              isFocusable: true,
+              hasTapAction: true,
+              hasFocusAction: true,
+            ),
+          );
+          expect(
+            tester.getSemantics(drafts),
+            isSemantics(
+              label: 'Open the latest drafts menu',
+              isButton: true,
+              hasEnabledState: true,
+              isEnabled: true,
+              isFocusable: true,
+              hasTapAction: true,
+              hasFocusAction: true,
+            ),
+          );
+          expect(tester.getSemantics(create).tooltip, isEmpty);
+          expect(tester.getSemantics(drafts).tooltip, isEmpty);
 
-      final createFocus = _focusButton(tester, create);
-      await tester.pumpAndSettle();
-      expect(createFocus.hasPrimaryFocus, isTrue);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(fixture.createCalls(), 1);
+          final createFocus = _focusButton(tester, create);
+          await tester.pumpAndSettle();
+          expect(createFocus.hasPrimaryFocus, isTrue);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(fixture.createCalls(), 1);
 
-      final draftsFocus = _focusButton(tester, drafts);
-      await tester.pumpAndSettle();
-      expect(draftsFocus.hasPrimaryFocus, isTrue);
-      await tester.sendKeyEvent(LogicalKeyboardKey.space);
-      await tester.pumpAndSettle();
+          if (compact) {
+            for (final button in [create, drafts]) {
+              final surface = find.descendant(
+                of: button,
+                matching: find.byType(Material),
+              );
+              expect(tester.getSize(surface), const Size.square(32));
+              final bounds = tester.getRect(button);
+              final edge = Offset(bounds.left + 1, bounds.center.dy);
+              expect(tester.getRect(surface).contains(edge), isFalse);
+              if (button == create) {
+                await tester.tapAt(edge);
+                await tester.pumpAndSettle();
+                expect(fixture.createCalls(), 2);
+              }
+            }
+          }
 
-      expect(
-        find.byKey(const ValueKey('recent-draft-new_topic')),
-        findsOneWidget,
-      );
-      expect(fixture.api.userDraftRequests, [
-        (siteUrl: _siteUrl, offset: 0, limit: 30),
-      ]);
-    } finally {
-      semantics.dispose();
-    }
-  });
+          final draftsFocus = _focusButton(tester, drafts);
+          await tester.pumpAndSettle();
+          expect(draftsFocus.hasPrimaryFocus, isTrue);
+          await tester.sendKeyEvent(LogicalKeyboardKey.space);
+          await tester.pumpAndSettle();
+
+          expect(
+            find.byKey(const ValueKey('recent-draft-new_topic')),
+            findsOneWidget,
+          );
+          expect(fixture.api.userDraftRequests, [
+            (siteUrl: _siteUrl, offset: 0, limit: 30),
+          ]);
+        } finally {
+          semantics.dispose();
+        }
+      },
+    );
+  }
 
   testWidgets('compact toolbar controls grow with text and open drafts', (
     tester,
@@ -132,6 +157,7 @@ typedef _Fixture = ({FakeDiscourseApi api, int Function() createCalls});
 Future<_Fixture> _pump(
   WidgetTester tester, {
   bool compact = false,
+  bool showLabel = true,
   double textScale = 1,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
@@ -180,7 +206,7 @@ Future<_Fixture> _pump(
           body: Align(
             alignment: Alignment.topLeft,
             child: TopicCreateButton(
-              showLabel: true,
+              showLabel: showLabel,
               compact: compact,
               onPressed: () => createCalls++,
             ),
