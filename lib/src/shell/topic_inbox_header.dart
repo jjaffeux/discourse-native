@@ -601,7 +601,8 @@ class _CategoryChip extends StatelessWidget {
                 onTap: edit,
                 overlayColor: overlayColor,
                 splashFactory: NoSplash.splashFactory,
-                child: Padding(
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 28),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 7,
                     vertical: 5,
