@@ -186,7 +186,7 @@ void main() {
     final latestText = _tabText(tester, 'topic-list-latest');
     final newText = _tabText(tester, 'topic-list-new');
     expect(latestText.style?.fontSize, newText.style?.fontSize);
-    expect(latestText.style?.fontWeight, FontWeight.w500);
+    expect(latestText.style?.fontWeight, FontWeight.w600);
     expect(newText.style?.fontWeight, FontWeight.w400);
     expect(latestText.overflow, TextOverflow.visible);
     expect(newText.overflow, TextOverflow.visible);
@@ -199,20 +199,21 @@ void main() {
     expect(controller.currentTopicListMode, TopicListMode.newActivity);
     expect(controller.activeTab?.rootDestinationId, 'latest');
     expect(controller.contentStack, hasLength(1));
-    expect(find.text('All (1059)'), findsOneWidget);
-    expect(find.text('Topics (1054)'), findsOneWidget);
-    expect(find.text('Replies (5)'), findsOneWidget);
+    expect(_tabText(tester, 'topic-list-new-all').data, 'All');
+    expect(find.text('1059'), findsOneWidget);
+    expect(find.text('1054'), findsOneWidget);
+    expect(find.text('5'), findsOneWidget);
     expect(find.text('All new activity'), findsOneWidget);
 
     final allText = _tabText(tester, 'topic-list-new-all');
     final topicsText = _tabText(tester, 'topic-list-new-topics');
     final repliesText = _tabText(tester, 'topic-list-new-replies');
-    expect(allText.style?.fontWeight, FontWeight.w500);
+    expect(allText.style?.fontWeight, FontWeight.w600);
     expect(topicsText.style?.fontWeight, FontWeight.w400);
     expect(repliesText.style?.fontWeight, FontWeight.w400);
     expect(
       allText.style?.fontSize,
-      lessThan(_tabText(tester, 'topic-list-new').style!.fontSize!),
+      _tabText(tester, 'topic-list-new').style!.fontSize!,
     );
     expect(allText.overflow, TextOverflow.visible);
     expect(topicsText.overflow, TextOverflow.visible);
@@ -228,11 +229,11 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('1060'), findsNothing);
+    expect(find.text('1060'), findsOneWidget);
     expect(find.text('Unread (6)'), findsNothing);
-    expect(find.text('All (1060)'), findsOneWidget);
-    expect(find.text('Topics (1054)'), findsOneWidget);
-    expect(find.text('Replies (6)'), findsOneWidget);
+    expect(_tabText(tester, 'topic-list-new-all').data, 'All');
+    expect(find.text('1054'), findsOneWidget);
+    expect(find.text('6'), findsOneWidget);
     expect(controller.sidebarBadgeFor('latest').count, 1060);
 
     await tester.tap(find.byKey(const ValueKey('topic-list-new-topics')));
@@ -241,6 +242,10 @@ void main() {
     expect(controller.currentTopicListMode, TopicListMode.newTopics);
     expect(find.text('New topic only'), findsOneWidget);
 
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('topic-list-new-replies')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('topic-list-new-replies')));
     await tester.pumpAndSettle();
 
@@ -292,6 +297,96 @@ void main() {
     expect(controller.currentTopicListMode, TopicListMode.latest);
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
   });
+
+  for (final dark in [false, true]) {
+    testWidgets(
+      'Inbox new activity is inset and scales without clipping ($dark)',
+      (tester) async {
+        tester.view.physicalSize = const Size(325, 700);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final setup = await _controller();
+        addTearDown(setup.controller.dispose);
+        await setup.controller.selectTopicListMode(TopicListMode.newActivity);
+        final theme = (dark ? AppTheme.dark : AppTheme.light).copyWith(
+          platform: TargetPlatform.macOS,
+        );
+        Future<void> pump(double scale) async {
+          await tester.pumpWidget(
+            ShellScope(
+              controller: setup.controller,
+              child: MaterialApp(
+                theme: theme,
+                home: MediaQuery(
+                  data: MediaQueryData(
+                    size: const Size(325, 700),
+                    textScaler: TextScaler.linear(scale),
+                  ),
+                  child: const Scaffold(
+                    body: TopicListNavigation(stacked: true, child: SizedBox()),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await pump(1);
+        final tabs = tester.getRect(
+          find.byKey(const ValueKey('topic-list-feed-tabs')),
+        );
+        final segments = find.byKey(const ValueKey('topic-list-new-segments'));
+        final segmentRect = tester.getRect(segments);
+        expect(tabs.left, 16);
+        expect(tabs.right, 309);
+        expect(segmentRect.left, tabs.left);
+        expect(segmentRect.right, tabs.right);
+        expect(segmentRect.top - tabs.bottom, closeTo(11, .1));
+        expect(segmentRect.height, inInclusiveRange(32, 40));
+        final all = find.byKey(const ValueKey('topic-list-new-all'));
+        final topics = find.byKey(const ValueKey('topic-list-new-topics'));
+        final replies = find.byKey(const ValueKey('topic-list-new-replies'));
+        expect(
+          tester.getSize(all).width,
+          closeTo(tester.getSize(replies).width, .1),
+        );
+        expect(tester.getRect(all).left, greaterThan(segmentRect.left));
+        expect(
+          _tabText(tester, 'topic-list-new-all').style?.color,
+          theme.colorScheme.onSurface,
+        );
+        final count = tester.widget<Text>(
+          find.descendant(of: all, matching: find.text('1059')),
+        );
+        expect(
+          count.style!.fontSize,
+          lessThan(_tabText(tester, 'topic-list-new-all').style!.fontSize!),
+        );
+        expect(find.text('All (1059)'), findsNothing);
+        expect(tester.takeException(), isNull);
+
+        await tester.ensureVisible(topics);
+        await tester.pumpAndSettle();
+        await tester.tap(topics);
+        await tester.pumpAndSettle();
+        expect(setup.controller.currentTopicListMode, TopicListMode.newTopics);
+        final semantics = tester.ensureSemantics();
+        try {
+          expect(find.bySemanticsLabel('Topics, 1054'), findsOneWidget);
+        } finally {
+          semantics.dispose();
+        }
+        await pump(2);
+        await tester.ensureVisible(replies);
+        await tester.pumpAndSettle();
+        await tester.tap(replies);
+        await tester.pumpAndSettle();
+        expect(setup.controller.currentTopicListMode, TopicListMode.newReplies);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('filters lead compact tabs in one aligned row', (tester) async {
     final setup = await _controller();
@@ -483,7 +578,7 @@ void main() {
           final categoryFilter = tester.getRect(
             find.byKey(const ValueKey('topic-list-category-filter')),
           );
-          expect(row.height, 42);
+          expect(row.height, inInclusiveRange(28, 36));
           expect(categoryFilter.top, greaterThanOrEqualTo(row.bottom));
           final recent = tester.getRect(
             find.byKey(const ValueKey('topic-list-latest')),
