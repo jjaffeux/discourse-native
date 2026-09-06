@@ -44,7 +44,6 @@ void main() {
     String? selectedTagName,
     ValueChanged<TopicCategory?>? onCategorySelected,
     ValueChanged<String?>? onTagSelected,
-    VoidCallback? onReset,
     Size size = const Size(390, 844),
     TargetPlatform platform = TargetPlatform.iOS,
   }) async {
@@ -69,7 +68,6 @@ void main() {
                   : const [],
               onCategorySelected: onCategorySelected ?? (_) {},
               onTagSelected: onTagSelected ?? (_) {},
-              onReset: onReset ?? () {},
             ),
           ),
         ),
@@ -457,46 +455,29 @@ void main() {
     expect(selected.single, child);
   });
 
-  testWidgets('keeps selected filters usable in a narrow viewport', (
+  testWidgets('keeps selected filters compact in a narrow viewport', (
     tester,
   ) async {
-    var reset = false;
     await pumpBar(
       tester,
       selectedCategoryId: child.id,
       selectedTagName: 'ux',
-      onReset: () => reset = true,
       size: const Size(320, 700),
     );
 
     expect(find.text('Discourse Native App'), findsOneWidget);
     expect(find.text('Design'), findsOneWidget);
     expect(find.text('User experience'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('topic-list-filter-reset')),
-      findsOneWidget,
-    );
-    final resetHeight = tester
-        .getSize(find.byKey(const ValueKey('topic-list-filter-reset')))
+    expect(find.byKey(const ValueKey('topic-list-filter-reset')), findsNothing);
+    final categoryHeight = tester
+        .getSize(find.byKey(const ValueKey('topic-list-category-filter')))
         .height;
     expect(
-      resetHeight,
-      tester
-          .getSize(find.byKey(const ValueKey('topic-list-category-filter')))
-          .height,
-    );
-    expect(
-      resetHeight,
+      categoryHeight,
       tester
           .getSize(find.byKey(const ValueKey('topic-list-tag-filter')))
           .height,
     );
     expect(tester.takeException(), isNull);
-
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('topic-list-filter-reset')),
-    );
-    await tester.tap(find.byKey(const ValueKey('topic-list-filter-reset')));
-    expect(reset, isTrue);
   });
 }

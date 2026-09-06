@@ -231,8 +231,6 @@ class _TopicListNavigationControls extends StatelessWidget {
                                             controller.selectTopicListCategory,
                                         onTagSelected:
                                             controller.selectTopicListTag,
-                                        onReset:
-                                            controller.clearTopicListFilters,
                                       ),
                                   ],
                                 ),
