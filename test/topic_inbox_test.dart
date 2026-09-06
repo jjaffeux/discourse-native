@@ -180,10 +180,122 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('compact header fits narrow windows and enlarged text', (
+  testWidgets('compact tags can be removed and added without expanding', (
     tester,
   ) async {
     final setup = await _setup(tester);
+    tester.view.physicalSize = const Size(1500, 800);
+    final shell = setup.controller;
+    shell.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    final compact = find.byKey(const ValueKey('topic-header-compact'));
+    final tag = find.byKey(const ValueKey(('topic-header-tag', 'community')));
+    final edit = find.byKey(const ValueKey('topic-header-edit-tags'));
+    expect(compact, findsOneWidget);
+    expect(tag, findsOneWidget);
+
+    await tester.tap(edit);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-tag-picker-option', 'community'))),
+    );
+    await tester.pumpAndSettle();
+    expect(shell.currentTopic!.tags, isEmpty);
+    expect(setup.api.topicTagsUpdated.single['tags'], isEmpty);
+    expect(tag, findsNothing);
+    expect(compact, findsOneWidget);
+
+    await tester.tap(edit);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-tag-picker-option', 'community'))),
+    );
+    await tester.pumpAndSettle();
+    expect(shell.currentTopic!.tags, [_tag]);
+    expect(setup.api.topicTagsUpdated.last['tags'], [_tag]);
+    expect(tag, findsOneWidget);
+    expect(compact, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final canEditTags in [true, false]) {
+    testWidgets(
+      'compact tag overflow exposes hidden tags with editing $canEditTags',
+      (tester) async {
+        final tags = [
+          for (var id = 1; id <= 27; id++) TopicTag(id: id, name: 'region-$id'),
+        ];
+        final setup = await _setup(
+          tester,
+          tags: tags,
+          canEditTags: canEditTags,
+        );
+        final shell = setup.controller;
+        shell.openTopicFromList(setup.rows.first);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('topic-header-compact')),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(
+            ValueKey(
+              canEditTags
+                  ? 'topic-tag-picker-query'
+                  : 'topic-header-tags-search',
+            ),
+          ),
+          'region-27',
+        );
+        await tester.pumpAndSettle(const Duration(milliseconds: 300));
+        if (canEditTags) {
+          await tester.tap(
+            find.byKey(
+              const ValueKey(('topic-tag-picker-option', 'region-27')),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(shell.currentTopic!.tags, hasLength(26));
+          expect(
+            setup.api.topicTagsUpdated.single['tags'],
+            isNot(contains(tags.last)),
+          );
+          expect(
+            find.byKey(const ValueKey('topic-header-compact')),
+            findsOneWidget,
+          );
+        } else {
+          expect(
+            find.byKey(const ValueKey('topic-header-edit-tags')),
+            findsNothing,
+          );
+          expect(find.byType(Checkbox), findsNothing);
+          await tester.tap(
+            find.byKey(
+              const ValueKey(('topic-header-tag-option', 'region-27')),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.feedPath, '/tag/region-27/27.json');
+          expect(setup.api.topicTagsUpdated, isEmpty);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('compact header fits narrow windows and enlarged text', (
+    tester,
+  ) async {
+    final setup = await _setup(
+      tester,
+      tags: [
+        for (var id = 1; id <= 27; id++)
+          TopicTag(id: id, name: 'long-production-region-$id'),
+      ],
+    );
     final shell = setup.controller;
     shell.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
@@ -230,10 +342,173 @@ void main() {
           lessThan(tester.getRect(title).left),
         );
         expect(tester.getRect(title).right, lessThan(width));
+        final tags = find.byKey(const ValueKey('topic-header-compact-tags'));
+        final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
+        expect(overflow, findsOneWidget);
+        expect(
+          tester.getRect(tags).right,
+          lessThan(tester.getRect(title).left),
+        );
+        expect(tester.getRect(tags).right, lessThan(width));
+        expect(
+          tester.getCenter(tags).dy,
+          closeTo(tester.getCenter(title).dy, 1),
+        );
+        expect(
+          tester.getSize(title).width,
+          greaterThan(tester.getSize(tags).width),
+        );
         expect(tester.takeException(), isNull, reason: 'width $width');
       }
     }
   });
+
+  testWidgets(
+    'narrow toolbar categories can be browsed without edit permission',
+    (tester) async {
+      final setup = await _setup(tester, canEditTopic: false);
+      final shell = setup.controller;
+      shell.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        ShellScope(
+          controller: shell,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 320,
+                  child: TopicInboxHeader(
+                    title: shell.currentTopic!.title,
+                    siteUrl: shell.currentInstance!.url,
+                    canReturnToSidebar: false,
+                    keepTopicListOpen: true,
+                    registry: PluginRegistry.empty,
+                    topic: shell.currentTopic,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Browse ${_child.name}'));
+      await tester.pumpAndSettle();
+      expect(shell.topicListContent?.categoryId, _child.id);
+      expect(shell.currentContent?.topicId, setup.rows.first.id);
+      expect(setup.api.topicsUpdated, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'both header modes keep taxonomy in the toolbar as space shrinks',
+    (tester) async {
+      final tags = [
+        for (final name in ['a', 'b', 'c', 'd', 'e', 'f']) TopicTag(name: name),
+      ];
+      final setup = await _setup(tester, tags: tags);
+      final shell = setup.controller;
+      shell.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      tester.view.physicalSize = const Size(1400, 800);
+
+      for (final compact in [false, true]) {
+        var wideTagCount = 0;
+        for (final (width, navigation, share) in [
+          (1200.0, true, true),
+          (780.0, true, true),
+          (600.0, false, true),
+          (390.0, false, false),
+        ]) {
+          await tester.pumpWidget(
+            ShellScope(
+              controller: shell,
+              child: MaterialApp(
+                theme: AppTheme.dark,
+                home: Scaffold(
+                  body: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: width,
+                      child: TopicInboxHeader(
+                        title: shell.currentTopic!.title,
+                        siteUrl: shell.currentInstance!.url,
+                        canReturnToSidebar: false,
+                        keepTopicListOpen: true,
+                        registry: PluginRegistry.empty,
+                        topic: shell.currentTopic,
+                        hasEarlierPosts: compact,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final close = find.byKey(const ValueKey('topic-close-reader'));
+          final category = compact
+              ? find.byKey(const ValueKey('topic-header-compact-category'))
+              : find.byTooltip('Edit topic category');
+          final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
+          final status = find.byKey(const ValueKey('topic-status-button'));
+          expect(
+            tester.getRect(close).right,
+            lessThan(tester.getRect(category).left),
+          );
+          expect(
+            tester.getRect(category).right,
+            lessThan(tester.getRect(overflow).left),
+          );
+          expect(
+            tester.getRect(overflow).right,
+            lessThan(tester.getRect(status).left),
+          );
+          for (final control in [category, overflow, status]) {
+            expect(
+              tester.getCenter(control).dy,
+              closeTo(tester.getCenter(close).dy, 1),
+            );
+          }
+          expect(
+            find.byKey(const ValueKey('inbox-previous-topic')),
+            navigation ? findsOneWidget : findsNothing,
+          );
+          expect(
+            find.byKey(const ValueKey('inbox-next-topic')),
+            navigation ? findsOneWidget : findsNothing,
+          );
+          expect(
+            find.byType(TopicShareButton),
+            share ? findsOneWidget : findsNothing,
+          );
+          final visibleTags = tags
+              .where(
+                (tag) => find
+                    .byKey(ValueKey(('topic-header-tag', tag.name)))
+                    .evaluate()
+                    .isNotEmpty,
+              )
+              .length;
+          if (width == 1200) {
+            wideTagCount = visibleTags;
+            expect(wideTagCount, greaterThan(0));
+          } else if (width == 780) {
+            expect(visibleTags, lessThan(wideTagCount));
+          }
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'width $width, compact $compact',
+          );
+        }
+      }
+    },
+  );
 
   for (final dark in [false, true]) {
     testWidgets('inbox read colors and badges follow web topic state ($dark)', (
@@ -941,17 +1216,21 @@ void main() {
         );
         await tester.pumpAndSettle();
         final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
-        for (final key in [
-          'topic-header-browse-category-21',
-          'topic-header-browse-category-22',
+        for (final tooltip in [
+          'Edit topic category',
+          'Edit topic subcategory',
         ]) {
-          final browse = find.byKey(ValueKey(key));
-          expect(browse, findsOneWidget);
+          final category = find.byTooltip(tooltip);
+          expect(category, findsOneWidget);
           expect(
-            tester.getCenter(browse).dy,
+            tester.getCenter(category).dy,
             closeTo(tester.getCenter(overflow).dy, 1),
           );
         }
+        expect(
+          tester.getCenter(find.byKey(const ValueKey('topic-close-reader'))).dy,
+          closeTo(tester.getCenter(overflow).dy, 1),
+        );
         expect(tester.getRect(overflow).right, lessThan(width));
         expect(tester.takeException(), isNull, reason: 'reader width $width');
       }
