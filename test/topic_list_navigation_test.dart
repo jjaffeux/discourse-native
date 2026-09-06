@@ -292,9 +292,7 @@ void main() {
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
   });
 
-  testWidgets('primary tabs are compact, centered, and grouped on the left', (
-    tester,
-  ) async {
+  testWidgets('filters lead compact tabs in one aligned row', (tester) async {
     final setup = await _controller();
     addTearDown(setup.controller.dispose);
 
@@ -326,6 +324,12 @@ void main() {
       find.byKey(const ValueKey('topic-list-popular')),
     );
     final top = tester.getRect(find.byKey(const ValueKey('topic-list-top')));
+    final category = tester.getRect(
+      find.byKey(const ValueKey('topic-list-category-filter')),
+    );
+    final tags = tester.getRect(
+      find.byKey(const ValueKey('topic-list-tag-filter')),
+    );
     final recentLabel = tester.getRect(find.text('Recent'));
     final newLabel = tester
         .getRect(find.text('New'))
@@ -344,11 +348,13 @@ void main() {
 
     expect(row.left, 0);
     expect(row.right, 800);
-    expect(recent.left, topicListHorizontalPadding);
+    expect(category.left, topicListHorizontalPadding);
+    expect(tags.left, category.right + 8);
+    expect(recent.left, tags.right + 8);
     expect(newTopics.left, recent.right + 3);
     expect(top.left, newTopics.right + 3);
     expect(popular.left, top.right + 3);
-    expect(popular.right, lessThan(row.right - 76));
+    expect(popular.right, lessThan(row.right - topicListHorizontalPadding));
     final tabs = [recent, newTopics, top, popular];
     final labels = [recentLabel, newLabel, topLabel, popularLabel];
     for (var index = 0; index < tabs.length; index++) {
@@ -483,7 +489,7 @@ void main() {
             find.byKey(const ValueKey('topic-list-latest')),
           );
           expect(categoryFilter.center.dy, closeTo(recent.center.dy, 0.01));
-          expect(categoryFilter.left, greaterThan(recent.right));
+          expect(recent.left, greaterThan(categoryFilter.right));
           if (scenario.forumTabsEnabled) {
             expect(row.top, tester.getRect(find.byType(ForumTabsBar)).bottom);
             expect(
@@ -496,6 +502,9 @@ void main() {
             );
           }
 
+          await tester.ensureVisible(
+            find.byKey(const ValueKey('topic-list-top')),
+          );
           await tester.tap(find.byKey(const ValueKey('topic-list-top')));
           await tester.pumpAndSettle();
           expect(controller.currentTopicListMode, TopicListMode.topYearly);
@@ -507,6 +516,9 @@ void main() {
           expect(controller.currentTopicListMode, TopicListMode.topWeekly);
           expect(find.text('Top this week'), findsOneWidget);
 
+          await tester.ensureVisible(
+            find.byKey(const ValueKey('topic-list-popular')),
+          );
           await tester.tap(find.byKey(const ValueKey('topic-list-popular')));
           await tester.pumpAndSettle();
           expect(controller.currentTopicListMode, TopicListMode.popular);
@@ -516,6 +528,9 @@ void main() {
             findsNothing,
           );
 
+          await tester.ensureVisible(
+            find.byKey(const ValueKey('topic-list-latest')),
+          );
           await tester.tap(find.byKey(const ValueKey('topic-list-latest')));
           await tester.pumpAndSettle();
           expect(find.text('Latest topic'), findsOneWidget);
@@ -598,18 +613,19 @@ void main() {
       final recent = tester.getRect(
         find.byKey(const ValueKey('topic-list-latest')),
       );
-      final popular = tester.getRect(
-        find.byKey(const ValueKey('topic-list-popular')),
-      );
       final category = tester.getRect(
         find.byKey(const ValueKey('topic-list-category-filter')),
+      );
+      final tags = tester.getRect(
+        find.byKey(const ValueKey('topic-list-tag-filter')),
       );
       final ledger = tester.getRect(
         find.byKey(const ValueKey('topic-list-ledger-header')),
       );
       expect(toolbar.contains(category.center), isTrue);
       expect(category.center.dy, closeTo(recent.center.dy, 0.01));
-      expect(category.left, closeTo(popular.right + 8, 0.01));
+      expect(tags.left, closeTo(category.right + 8, 0.01));
+      expect(recent.left, closeTo(tags.right + 8, 0.01));
       expect(find.text('Categories'), findsOneWidget);
       expect(find.text('All categories'), findsNothing);
       expect(find.text('Tags'), findsOneWidget);
