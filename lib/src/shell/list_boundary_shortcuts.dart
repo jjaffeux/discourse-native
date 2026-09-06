@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'keyboard_navigation.dart';
+
 /// Gives a scrollable browser-style keyboard navigation.
 ///
 /// Only the active wrapper reacts, so side-by-side scrollables do not both
@@ -16,17 +18,13 @@ class ListBoundaryShortcuts extends StatefulWidget {
     required this.child,
     this.initiallyActive = false,
     this.debugLabel,
-    this.onNextPost,
-    this.onPreviousPost,
+    this.focusNode,
   });
 
   final VoidCallback onStart;
   final VoidCallback onEnd;
 
-  /// Only a topic reader supplies these. They continue to address posts when
-  /// a neighbouring topic list owns the scrolling focus.
-  final VoidCallback? onNextPost;
-  final VoidCallback? onPreviousPost;
+  final FocusNode? focusNode;
   final ScrollController scrollController;
   final Widget child;
 
@@ -61,10 +59,9 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
   static const _scrollUp = SingleActivator(LogicalKeyboardKey.arrowUp);
   static const _scrollDown = SingleActivator(LogicalKeyboardKey.arrowDown);
 
-  late final FocusNode _focusNode = FocusNode(
-    debugLabel: widget.debugLabel,
-    skipTraversal: true,
-  );
+  late final FocusNode _focusNode =
+      widget.focusNode ??
+      FocusNode(debugLabel: widget.debugLabel, skipTraversal: true);
 
   @override
   void initState() {
@@ -90,7 +87,7 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
     FocusManager.instance.removeEarlyKeyEventHandler(_handleArrowKeyEvent);
     FocusManager.instance.removeLateKeyEventHandler(_handleUnclaimedKeyEvent);
     if (identical(_active, this)) _active = null;
-    _focusNode.dispose();
+    if (widget.focusNode == null) _focusNode.dispose();
     super.dispose();
   }
 
@@ -165,66 +162,13 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
   }
 
   KeyEventResult _handleUnclaimedKeyEvent(KeyEvent event) {
-    if (TickerMode.valuesOf(context).enabled && _fallbackCanHandle) {
-      final callback = switch (event.logicalKey) {
-        LogicalKeyboardKey.keyJ => widget.onNextPost,
-        LogicalKeyboardKey.keyK => widget.onPreviousPost,
-        _ => null,
-      };
-      if (callback != null &&
-          SingleActivator(
-            event.logicalKey,
-          ).accepts(event, HardwareKeyboard.instance)) {
-        callback();
-        return KeyEventResult.handled;
-      }
-    }
     if (!identical(_active, this) || !_fallbackCanHandle) {
       return KeyEventResult.ignored;
     }
     return _handleBoundaryKey(event);
   }
 
-  bool get _fallbackCanHandle {
-    final focusManager = FocusManager.instance;
-    final primaryFocus = focusManager.primaryFocus;
-    if (primaryFocus == null ||
-        identical(primaryFocus, focusManager.rootScope)) {
-      return true;
-    }
-
-    final focusContext = primaryFocus.context;
-    if (focusContext == null) return false;
-    final ownerRoute = ModalRoute.of(context);
-    final focusRoute = ModalRoute.of(focusContext);
-    if (focusRoute != null && !identical(focusRoute, ownerRoute)) return false;
-
-    bool isFormControl(Widget widget) =>
-        widget is EditableText ||
-        widget is MenuItemButton ||
-        widget is SubmenuButton ||
-        widget is FormField<Object?> ||
-        widget is DropdownButton<Object?> ||
-        widget is DropdownMenu<Object?> ||
-        widget is Checkbox ||
-        widget is CheckboxListTile ||
-        widget is Radio<Object?> ||
-        widget is RadioListTile<Object?> ||
-        widget is Switch ||
-        widget is SwitchListTile ||
-        widget is Slider ||
-        widget is RangeSlider ||
-        widget is SegmentedButton<Object?> ||
-        widget is ToggleButtons;
-
-    if (isFormControl(focusContext.widget)) return false;
-    var found = false;
-    focusContext.visitAncestorElements((element) {
-      found = isFormControl(element.widget);
-      return !found;
-    });
-    return !found;
-  }
+  bool get _fallbackCanHandle => navigationShortcutsAllowed(context);
 
   void _claimFocus(PointerEvent _) {
     _active = this;
@@ -237,6 +181,9 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
   Widget build(BuildContext context) => Focus(
     focusNode: _focusNode,
     includeSemantics: false,
+    onFocusChange: (focused) {
+      if (focused) _active = this;
+    },
     onKeyEvent: _handleKeyEvent,
     child: Listener(
       behavior: HitTestBehavior.translucent,

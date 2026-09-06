@@ -52,7 +52,7 @@ final class TopicFeedController extends FrameSafeNotifier {
   final Map<_FeedKey, TopicFeed> _feeds = {};
   final Map<String, String> _filterQueries = {};
   final Map<_FeedKey, Object> _revisions = {};
-  final Map<_FeedKey, Object> _pageRequests = {};
+  final Map<_FeedKey, Completer<void>> _pageRequests = {};
   final Map<_FeedKey, int> _rows = {};
   final Map<_FeedKey, Future<void>> _loadRequests = {};
   final Map<_FeedKey, _FeedLoad> _pendingLoads = {};
@@ -129,7 +129,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     );
     final revision = Object();
     _revisions[key] = revision;
-    _pageRequests.remove(key);
+    _cancelPageRequest(key);
 
     final announced = incoming?.topicIds(destinationId) ?? const <int>[];
     incoming?.reset(destinationId);
@@ -300,19 +300,22 @@ final class TopicFeedController extends FrameSafeNotifier {
   }) async {
     if (isDisposed) return;
     final key = (instance.url, destinationId);
+    if (_pageRequests[key] case final pending?) {
+      await pending.future;
+      return;
+    }
     final feed = _feeds[key];
     if (feed == null || feed.loading || feed.loadingMore || !feed.hasMore) {
       return;
     }
     if (feed.error != null && !feed.pageError) return;
-    if (_pageRequests.containsKey(key)) return;
 
     final lease = lifecycle.capture(instance.url);
     final personalizationVersion = readPersonalizationVersion?.call(
       instance.url,
     );
     final feedRevision = _revisions[key];
-    final pageRequest = Object();
+    final pageRequest = Completer<void>();
     _pageRequests[key] = pageRequest;
 
     bool requestIsCurrent() =>
@@ -389,7 +392,13 @@ final class TopicFeedController extends FrameSafeNotifier {
         _pageRequests.remove(key);
         notifySafely();
       });
+      if (!pageRequest.isCompleted) pageRequest.complete();
     }
+  }
+
+  void _cancelPageRequest(_FeedKey key) {
+    final pending = _pageRequests.remove(key);
+    if (pending != null && !pending.isCompleted) pending.complete();
   }
 
   void forget(String siteUrl) {
@@ -397,7 +406,9 @@ final class TopicFeedController extends FrameSafeNotifier {
     _feeds.removeWhere((key, _) => key.$1 == siteUrl);
     _filterQueries.remove(siteUrl);
     _revisions.removeWhere((key, _) => key.$1 == siteUrl);
-    _pageRequests.removeWhere((key, _) => key.$1 == siteUrl);
+    for (final key in _pageRequests.keys.toList()) {
+      if (key.$1 == siteUrl) _cancelPageRequest(key);
+    }
     _rows.removeWhere((key, _) => key.$1 == siteUrl);
     _loadRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _pendingLoads.removeWhere((key, _) => key.$1 == siteUrl);
@@ -461,7 +472,9 @@ final class TopicFeedController extends FrameSafeNotifier {
     _pendingLoads.clear();
     _loadRequests.clear();
     _revisions.clear();
-    _pageRequests.clear();
+    for (final key in _pageRequests.keys.toList()) {
+      _cancelPageRequest(key);
+    }
     super.dispose();
   }
 }

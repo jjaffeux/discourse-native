@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../app_shortcuts.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
@@ -18,6 +19,7 @@ import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'forum_icon.dart';
 import 'inline_action.dart';
+import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';
 import 'loading_skeleton.dart';
 import 'open_link.dart';
@@ -28,6 +30,9 @@ import 'topic_inbox_row.dart';
 import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
 import 'topic_title.dart';
+
+typedef _TopicListIdentity = (String?, String?, String?, String);
+typedef _TopicListCursor = ({int topicId, int index});
 
 class TopicListView extends StatefulWidget {
   const TopicListView({
@@ -48,28 +53,66 @@ class TopicListView extends StatefulWidget {
 class _TopicListViewState extends State<TopicListView> {
   ScrollController? _scroll;
   ListController? _list;
-  (String?, String?, String)? _feedIdentity;
+  _TopicListIdentity? _feedIdentity;
+  final ReadingFocusNode _keyboardFocus = ReadingFocusNode(
+    debugLabel: 'Topic list cursor',
+  );
+  ValueNotifier<_TopicListCursor?>? _cursor;
+  Object? _keyboardMoveToken;
   Object? _loadMoreToken;
   bool _restored = false;
+  bool _reading = false;
   int _boundaryJumpRevision = 0;
 
   ShellController? _controller;
 
-  void _syncControllers((String?, String?, String) feedIdentity) {
+  void _revealCursor() {
+    if (_cursor?.value == null) return;
+    final controller = _controller!;
+    final identity = _feedIdentity!;
+    final cursor = _cursor!.value!;
+    void reveal({bool correct = true}) {
+      if (!_isCurrent(controller, identity) ||
+          _cursor?.value != cursor ||
+          !TickerMode.valuesOf(context).enabled) {
+        return;
+      }
+      final index = widget.feed.topicIds.indexOf(cursor.topicId);
+      if (index < 0) return;
+      _jumpTo(index * 2);
+      if (correct) {
+        // Inbox rows have different heights. Correct once they are measured.
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => reveal(correct: false),
+        );
+        WidgetsBinding.instance.scheduleFrame();
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => reveal());
+  }
+
+  void _syncControllers(_TopicListIdentity feedIdentity) {
     if (_feedIdentity == feedIdentity) return;
 
     _disposeControllers();
     _feedIdentity = feedIdentity;
     _loadMoreToken = null;
     _restored = false;
+    _reading = false;
     _scroll = ScrollController();
     _list = ListController();
+    _keyboardMoveToken = null;
+    final saved = PageStorage.maybeOf(
+      context,
+    )?.readState(context, identifier: ('topic-list-keyboard', feedIdentity));
+    _cursor = ValueNotifier(saved is _TopicListCursor ? saved : null);
   }
 
   void _restore(
     ShellController controller,
     String destination,
-    (String?, String?, String) feedIdentity,
+    _TopicListIdentity feedIdentity,
   ) {
     if (_restored) return;
     _restored = true;
@@ -160,11 +203,13 @@ class _TopicListViewState extends State<TopicListView> {
     // leave the scrollable holding a dead position.
     final scroll = _scroll;
     final list = _list;
+    final cursor = _cursor;
     if (scroll == null && list == null) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       scroll?.dispose();
       list?.dispose();
+      cursor?.dispose();
     });
   }
 
@@ -175,13 +220,14 @@ class _TopicListViewState extends State<TopicListView> {
     // any more, so it is written now.
     _controller?.flushAnchorPersist();
     _disposeControllers();
+    _keyboardFocus.dispose();
     super.dispose();
   }
 
   Future<void> _showIncoming(
     ShellController controller,
     String destination,
-    (String?, String?, String) feedIdentity,
+    _TopicListIdentity feedIdentity,
   ) async {
     await controller.showIncoming(destination);
     if (!_isCurrent(controller, feedIdentity)) return;
@@ -197,7 +243,7 @@ class _TopicListViewState extends State<TopicListView> {
   void _scheduleLoadMore(
     ShellController controller,
     String destination,
-    (String?, String?, String) feedIdentity,
+    _TopicListIdentity feedIdentity,
     TopicFeed feed,
   ) {
     if (!feed.hasMore ||
@@ -220,18 +266,113 @@ class _TopicListViewState extends State<TopicListView> {
 
   bool _isCurrent(
     ShellController controller,
-    (String?, String?, String) feedIdentity,
+    _TopicListIdentity feedIdentity,
   ) =>
       mounted &&
       _feedIdentity == feedIdentity &&
       _currentFeedIdentity(controller) == feedIdentity;
 
-  static (String?, String?, String) _currentFeedIdentity(
-    ShellController controller,
-  ) {
+  static _TopicListIdentity _currentFeedIdentity(ShellController controller) {
     final siteUrl = controller.currentInstance?.url;
     final destination = controller.currentFeedId ?? 'latest';
-    return (siteUrl, controller.activeTabId, destination);
+    return (
+      siteUrl,
+      controller.currentAccountIdentity,
+      controller.activeTabId,
+      destination,
+    );
+  }
+
+  void _rememberTopic(int topicId) {
+    final ids = _controller?.currentFeed?.topicIds ?? widget.feed.topicIds;
+    final index = ids.indexOf(topicId);
+    if (index < 0) return;
+    final cursor = (topicId: topicId, index: index);
+    _cursor!.value = cursor;
+    PageStorage.maybeOf(context)?.writeState(
+      context,
+      cursor,
+      identifier: ('topic-list-keyboard', _feedIdentity),
+    );
+  }
+
+  bool _moveSelection(int direction) {
+    if (widget.feed.topicIds.isEmpty) return false;
+    if (_keyboardMoveToken != null) return true;
+    unawaited(_moveSelectionTo(direction));
+    return true;
+  }
+
+  Future<void> _moveSelectionTo(int direction) async {
+    final controller = _controller!;
+    final identity = _feedIdentity!;
+    final token = Object();
+    _keyboardMoveToken = token;
+    final route = controller.currentContent;
+    bool isCurrent() =>
+        _isCurrent(controller, identity) &&
+        identical(_keyboardMoveToken, token) &&
+        controller.currentContent == route &&
+        navigationShortcutsAllowed(context);
+    try {
+      final ids = widget.feed.topicIds;
+      final cursor = _cursor!.value;
+      final anchor = cursor?.topicId ?? controller.currentContent?.topicId;
+      final index = anchor == null ? -1 : ids.indexOf(anchor);
+      var target = index >= 0
+          ? index + direction
+          : cursor != null
+          ? cursor.index + (direction < 0 ? -1 : 0)
+          : (_list?.visibleRange?.$1 ?? 0) ~/ 2;
+      if (target >= ids.length && widget.feed.hasMore) {
+        await controller.loadMoreFeed(identity.$4);
+        if (!isCurrent()) return;
+      }
+      final currentIds =
+          controller.currentFeed?.topicIds ?? widget.feed.topicIds;
+      if (!isCurrent() || currentIds.isEmpty) return;
+      target = target.clamp(0, currentIds.length - 1);
+      _rememberTopic(currentIds[target]);
+      _keyboardFocus.requestFocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!isCurrent()) return;
+        _jumpTo(target * 2);
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    } finally {
+      // Keep the token through the reveal callback, but accept the next key
+      // after that frame. Context changes invalidate both callbacks.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (identical(_keyboardMoveToken, token)) _keyboardMoveToken = null;
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    }
+  }
+
+  void _openRow(Topic topic, {bool keyboard = false}) {
+    _keyboardMoveToken = null;
+    _rememberTopic(topic.id);
+    if (keyboard) FocusManager.instance.primaryFocus?.unfocus();
+    final controller = _controller!;
+    if (keyboard && controller.currentContent?.topicId == topic.id) return;
+    if (widget.inbox) {
+      controller.openTopicFromList(topic);
+    } else {
+      controller.openTopic(topic);
+    }
+  }
+
+  bool _openSelection() {
+    final id = _cursor?.value?.topicId;
+    final controller = _controller!;
+    final siteUrl = controller.currentInstance?.url;
+    if (id == null || siteUrl == null || !widget.feed.topicIds.contains(id)) {
+      return false;
+    }
+    final topic = controller.store.read<Topic>(siteUrl, id);
+    if (topic == null) return false;
+    _openRow(topic, keyboard: true);
+    return true;
   }
 
   @override
@@ -271,7 +412,7 @@ class _TopicListViewState extends State<TopicListView> {
   Widget _body(
     ShellController controller,
     String destination,
-    (String?, String?, String) feedIdentity,
+    _TopicListIdentity feedIdentity,
   ) {
     final feed = widget.feed;
 
@@ -298,6 +439,11 @@ class _TopicListViewState extends State<TopicListView> {
 
     _syncControllers(feedIdentity);
     _restore(controller, destination, feedIdentity);
+    final reading = widget.inbox && controller.currentContent?.isTopic == true;
+    if (_reading != reading) {
+      _reading = reading;
+      _revealCursor();
+    }
 
     return Column(
       children: [
@@ -311,92 +457,108 @@ class _TopicListViewState extends State<TopicListView> {
           child: ContentReadingLane(
             widthLimit: topicListContentWidth,
             basePadding: const EdgeInsets.symmetric(vertical: 4),
-            builder: (context, lane) =>
-                NotificationListener<ScrollNotification>(
-                  // Fetching on a scroll notification rather than from
-                  // itemBuilder keeps the request off the hot path of building
-                  // rows. Both paths coalesce through a post-frame callback
-                  // because a viewport can emit a scroll notification while
-                  // applying new content dimensions during layout.
-                  onNotification: (notification) {
-                    if (notification.depth != 0) return false;
-                    // Opening a topic tears this list down, so the position has
-                    // to be handed to the controller as it changes rather than
-                    // on dispose.
-                    if (_isCurrent(controller, feedIdentity) &&
-                        _list?.isAttached == true) {
-                      if (_list!.visibleRange case final range?) {
-                        controller.saveFeedScrollRow(destination, range.$1);
+            builder: (context, lane) => NotificationListener<ScrollNotification>(
+              // Fetching on a scroll notification rather than from
+              // itemBuilder keeps the request off the hot path of building
+              // rows. Both paths coalesce through a post-frame callback
+              // because a viewport can emit a scroll notification while
+              // applying new content dimensions during layout.
+              onNotification: (notification) {
+                if (notification.depth != 0) return false;
+                // Opening a topic tears this list down, so the position has
+                // to be handed to the controller as it changes rather than
+                // on dispose.
+                if (_isCurrent(controller, feedIdentity) &&
+                    _list?.isAttached == true) {
+                  if (_list!.visibleRange case final range?) {
+                    controller.saveFeedScrollRow(destination, range.$1);
+                  }
+                }
+                if (notification.metrics.extentAfter < _loadMoreThreshold) {
+                  _scheduleLoadMore(
+                    controller,
+                    destination,
+                    feedIdentity,
+                    feed,
+                  );
+                }
+                return false;
+              },
+              // SuperListView preserves measured heights for variably sized
+              // rows.
+              child: ReadingShortcuts(
+                commands: {
+                  ReadingCommand.nextTopic: () => _moveSelection(1),
+                  ReadingCommand.previousTopic: () => _moveSelection(-1),
+                  ReadingCommand.openTopic: _openSelection,
+                },
+                child: ListBoundaryShortcuts(
+                  key: ValueKey(('topic-list-boundary', feedIdentity)),
+                  debugLabel: 'topic list',
+                  initiallyActive: controller.currentContent?.isTopic != true,
+                  scrollController: _scroll!,
+                  focusNode: _keyboardFocus,
+                  onStart: () => _jumpToBoundary(end: false),
+                  onEnd: () => _jumpToBoundary(end: true),
+                  child: SuperListView.separated(
+                    // Switching destinations swaps the controller, so the
+                    // scrollable has to be a new one rather than re-attached
+                    // to a different controller.
+                    key: ValueKey(feedIdentity),
+                    controller: _scroll,
+                    listController: _list,
+                    padding: lane.padding,
+                    itemCount:
+                        feed.topicIds.length +
+                        (feed.loadingMore || feed.pageError ? 1 : 0),
+                    separatorBuilder: (context, _) => Divider(
+                      height: 1,
+                      indent: widget.inbox ? 16 : 0,
+                      endIndent: widget.inbox ? 16 : 0,
+                      color: Theme.of(context).shell.divider,
+                    ),
+                    itemBuilder: (context, index) {
+                      if (index >= feed.topicIds.length) {
+                        if (feed.loadingMore) return const _LoadingMoreRow();
+                        return _LoadMoreErrorRow(
+                          message: feed.error!,
+                          onRetry: () =>
+                              unawaited(controller.loadMoreFeed(destination)),
+                        );
                       }
-                    }
-                    if (notification.metrics.extentAfter < _loadMoreThreshold) {
-                      _scheduleLoadMore(
-                        controller,
-                        destination,
-                        feedIdentity,
-                        feed,
-                      );
-                    }
-                    return false;
-                  },
-                  // SuperListView preserves measured heights for variably sized
-                  // rows.
-                  child: ListBoundaryShortcuts(
-                    key: ValueKey(('topic-list-boundary', feedIdentity)),
-                    debugLabel: 'topic list',
-                    initiallyActive: controller.currentContent?.isTopic != true,
-                    scrollController: _scroll!,
-                    onStart: () => _jumpToBoundary(end: false),
-                    onEnd: () => _jumpToBoundary(end: true),
-                    child: SuperListView.separated(
-                      // Switching destinations swaps the controller, so the
-                      // scrollable has to be a new one rather than re-attached
-                      // to a different controller.
-                      key: ValueKey(feedIdentity),
-                      controller: _scroll,
-                      listController: _list,
-                      padding: lane.padding,
-                      itemCount:
-                          feed.topicIds.length +
-                          (feed.loadingMore || feed.pageError ? 1 : 0),
-                      separatorBuilder: (context, _) => Divider(
-                        height: 1,
-                        indent: widget.inbox ? 16 : 0,
-                        endIndent: widget.inbox ? 16 : 0,
-                        color: Theme.of(context).shell.divider,
-                      ),
-                      itemBuilder: (context, index) {
-                        if (index >= feed.topicIds.length) {
-                          if (feed.loadingMore) return const _LoadingMoreRow();
-                          return _LoadMoreErrorRow(
-                            message: feed.error!,
-                            onRetry: () =>
-                                unawaited(controller.loadMoreFeed(destination)),
-                          );
-                        }
 
-                        if (index == feed.topicIds.length - 1 && feed.hasMore) {
-                          _scheduleLoadMore(
-                            controller,
-                            destination,
-                            feedIdentity,
-                            feed,
-                          );
-                        }
+                      if (index == feed.topicIds.length - 1 && feed.hasMore) {
+                        _scheduleLoadMore(
+                          controller,
+                          destination,
+                          feedIdentity,
+                          feed,
+                        );
+                      }
 
-                        final topicId = feed.topicIds[index];
-                        return _TopicRow(
-                          key: ValueKey(topicId),
+                      final topicId = feed.topicIds[index];
+                      return ValueListenableBuilder<_TopicListCursor?>(
+                        key: ValueKey(topicId),
+                        valueListenable: _cursor!,
+                        builder: (context, cursor, child) => KeyboardSelection(
+                          key: ValueKey('topic-list-keyboard-$topicId'),
+                          selected: cursor?.topicId == topicId,
+                          child: child!,
+                        ),
+                        child: _TopicRow(
                           topicId: topicId,
                           inbox: widget.inbox,
+                          onOpen: _openRow,
                           hiddenCategoryId: widget.inbox
                               ? null
                               : controller.topicListContent?.categoryId,
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
+              ),
+            ),
           ),
         ),
       ],
@@ -881,15 +1043,16 @@ class _FeedErrorBanner extends StatelessWidget {
 
 class _TopicRow extends StatelessWidget {
   const _TopicRow({
-    super.key,
     required this.topicId,
     required this.hiddenCategoryId,
+    required this.onOpen,
     this.inbox = false,
   });
 
   final int topicId;
   final int? hiddenCategoryId;
   final bool inbox;
+  final ValueChanged<Topic> onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -928,9 +1091,7 @@ class _TopicRow extends StatelessWidget {
                     siteUrl: siteUrl,
                     selected: state.selected,
                     inbox: state.reading,
-                    onTap: () => inbox
-                        ? controller.openTopicFromList(topic)
-                        : controller.openTopic(topic),
+                    onTap: () => onOpen(topic),
                   ),
                 ),
         );
@@ -1035,9 +1196,10 @@ class TopicListRow extends StatelessWidget {
 }
 
 typedef _TopicListSnapshot = ({
-  (String?, String?, String) feedIdentity,
+  _TopicListIdentity feedIdentity,
   String destination,
   int incoming,
+  bool reading,
 });
 
 _TopicListSnapshot _topicListSnapshot(ShellController controller) {
@@ -1048,6 +1210,7 @@ _TopicListSnapshot _topicListSnapshot(ShellController controller) {
     feedIdentity: _TopicListViewState._currentFeedIdentity(controller),
     destination: destination,
     incoming: controller.incomingCount(destination),
+    reading: controller.currentContent?.isTopic == true,
   );
 }
 

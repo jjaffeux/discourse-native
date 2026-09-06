@@ -28,6 +28,7 @@ import 'avatar_image.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
 import 'inline_action.dart';
+import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';
 import 'list_navigation_tab.dart';
 import 'loading_skeleton.dart';
@@ -209,6 +210,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   final Object _visibleTopicContextOwner = Object();
   late final TopicViewportCoordinator _viewport;
   int? _chatContextCurrentPostId;
+  final ValueNotifier<int?> _keyboardPost = ValueNotifier(null);
+  final ReadingFocusNode _keyboardFocus = ReadingFocusNode(
+    debugLabel: 'Topic post cursor',
+  );
+  Object? _keyboardPostLoad;
   int _boundaryJumpRevision = 0;
   String? _recommendationsSiteUrl;
   bool _sidebarCollapsed = false;
@@ -519,6 +525,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
     if (!changed) return;
 
+    if (previousIdentity?.$1 != snapshot.siteUrl ||
+        previousIdentity?.$2 != snapshot.topicId ||
+        previousTabId != controller.activeTabId ||
+        !identical(previousController, controller)) {
+      _keyboardPost.value = null;
+      _keyboardPostLoad = null;
+    }
+
     previousController?.clearVisibleTopicContext(_visibleTopicContextOwner);
     controller.updateVisibleTopicContext(
       owner: _visibleTopicContextOwner,
@@ -606,25 +620,58 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  void _navigatePost(
+  bool _navigatePost(
     ShellController controller,
     TopicViewportSnapshot snapshot,
     int direction,
   ) {
+    if (_keyboardPostLoad != null) return true;
     final posts = snapshot.streamIds;
-    final currentIndex = _chatContextCurrentPostId == null
+    final current = _keyboardPost.value ?? _chatContextCurrentPostId;
+    final currentIndex = current == null
         ? (_progressPosition ?? 1) - 1
-        : posts.indexOf(_chatContextCurrentPostId!);
+        : posts.indexOf(current);
     final nextIndex = currentIndex + direction;
-    if (nextIndex < 0 || nextIndex >= posts.length) return;
+    if (nextIndex < 0 || nextIndex >= posts.length) return false;
     final nextId = posts[nextIndex];
+    _keyboardPost.value = nextId;
+    _keyboardFocus.requestFocus();
     final loadedIndex = snapshot.postIds.indexOf(nextId);
     if (loadedIndex >= 0) {
       _chatContextCurrentPostId = nextId;
       _jumpTo(loadedIndex + (snapshot.hasEarlier ? 1 : 0));
     } else {
-      unawaited(controller.jumpToCurrentTopicIndex(nextIndex + 1));
+      final token = Object();
+      _keyboardPostLoad = token;
+      unawaited(() async {
+        try {
+          final loaded = await controller.jumpToCurrentTopicIndex(
+            nextIndex + 1,
+          );
+          if (!mounted || !identical(_keyboardPostLoad, token)) return;
+          if (!loaded) _keyboardPost.value = null;
+        } finally {
+          if (identical(_keyboardPostLoad, token)) _keyboardPostLoad = null;
+        }
+      }());
     }
+    return true;
+  }
+
+  bool _replyToSelectedPost(ShellController controller) {
+    final siteUrl = controller.currentInstance?.url;
+    final id = _keyboardPost.value;
+    if (siteUrl == null || id == null || !controller.canReplyHere) return false;
+    final post = controller.store.read<Post>(siteUrl, id);
+    if (post == null || controller.currentTopic?.stream.contains(id) != true) {
+      return false;
+    }
+    controller.openReply(
+      replyToPostNumber: post.postNumber,
+      replyToUsername: post.username,
+      replyingToWhisper: post.isWhisper,
+    );
+    return true;
   }
 
   void _jumpToBoundary({required bool end}) {
@@ -691,6 +738,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       });
     }
     _viewport.dispose();
+    _keyboardPost.dispose();
+    _keyboardFocus.dispose();
     super.dispose();
   }
 
@@ -1787,6 +1836,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           if (notification.depth == 0) {
+            if (notification is UserScrollNotification &&
+                notification.direction != ScrollDirection.idle) {
+              _keyboardPost.value = null;
+            }
             if (_isScrollCaptureRecording) {
               _recordScrollNotification(notification);
             }
@@ -1936,6 +1989,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               onAttach: _registerPostContext,
               onDetach: _unregisterPostContext,
               child: _StoredPost(
+                keyboardSelection: _keyboardPost,
                 siteUrl: siteUrl,
                 topic: snapshot.topic!,
                 postId: postId,
@@ -1950,16 +2004,23 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
     final postStream = ScrollbarTheme(
       data: const ScrollbarThemeData(thickness: WidgetStatePropertyAll(4)),
-      child: ListBoundaryShortcuts(
-        key: ValueKey(('topic-post-boundary', siteUrl, snapshot.topicId)),
-        debugLabel: 'topic post stream',
-        initiallyActive: true,
-        onNextPost: () => _navigatePost(controller, snapshot, 1),
-        onPreviousPost: () => _navigatePost(controller, snapshot, -1),
-        scrollController: _scroll!,
-        onStart: () => _jumpToBoundary(end: false),
-        onEnd: () => _jumpToBoundary(end: true),
-        child: postStreamContent,
+      child: ReadingShortcuts(
+        commands: {
+          ReadingCommand.nextPost: () => _navigatePost(controller, snapshot, 1),
+          ReadingCommand.previousPost: () =>
+              _navigatePost(controller, snapshot, -1),
+          ReadingCommand.replyToPost: () => _replyToSelectedPost(controller),
+        },
+        child: ListBoundaryShortcuts(
+          key: ValueKey(('topic-post-boundary', siteUrl, snapshot.topicId)),
+          debugLabel: 'topic post stream',
+          initiallyActive: true,
+          focusNode: _keyboardFocus,
+          scrollController: _scroll!,
+          onStart: () => _jumpToBoundary(end: false),
+          onEnd: () => _jumpToBoundary(end: true),
+          child: postStreamContent,
+        ),
       ),
     );
 
@@ -3608,6 +3669,7 @@ class _StoredPost extends StatelessWidget {
     required this.summary,
     required this.summaryLoading,
     required this.readTimeWordCount,
+    required this.keyboardSelection,
   });
 
   final String siteUrl;
@@ -3616,6 +3678,7 @@ class _StoredPost extends StatelessWidget {
   final bool summary;
   final bool summaryLoading;
   final int readTimeWordCount;
+  final ValueListenable<int?> keyboardSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -3649,32 +3712,40 @@ class _StoredPost extends StatelessWidget {
                     ),
                 ],
               );
-        return ShellSelector<bool>(
-          select: (controller) => controller.isTopicPostHighlighted(
-            siteUrl,
-            topic.id,
-            post.postNumber,
+        return ValueListenableBuilder<int?>(
+          valueListenable: keyboardSelection,
+          builder: (context, selectedId, child) => KeyboardSelection(
+            key: ValueKey('topic-post-keyboard-${post.id}'),
+            selected: selectedId == post.id,
+            child: child!,
           ),
-          builder: (context, highlighted, _) {
-            final primary = Theme.of(context).colorScheme.primary;
-            return AnimatedContainer(
-              key: ValueKey('topic-post-highlight-${post.id}'),
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              decoration: BoxDecoration(
-                color: highlighted
-                    ? primary.withValues(alpha: 0.10)
-                    : Colors.transparent,
-                border: Border.all(
+          child: ShellSelector<bool>(
+            select: (controller) => controller.isTopicPostHighlighted(
+              siteUrl,
+              topic.id,
+              post.postNumber,
+            ),
+            builder: (context, highlighted, _) {
+              final primary = Theme.of(context).colorScheme.primary;
+              return AnimatedContainer(
+                key: ValueKey('topic-post-highlight-${post.id}'),
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                decoration: BoxDecoration(
                   color: highlighted
-                      ? primary.withValues(alpha: 0.28)
+                      ? primary.withValues(alpha: 0.10)
                       : Colors.transparent,
+                  border: Border.all(
+                    color: highlighted
+                        ? primary.withValues(alpha: 0.28)
+                        : Colors.transparent,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: content,
-            );
-          },
+                child: content,
+              );
+            },
+          ),
         );
       },
     );
