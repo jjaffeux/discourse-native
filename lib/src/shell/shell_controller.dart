@@ -2267,7 +2267,9 @@ class ShellController extends FrameSafeNotifier
   }
 
   String? get currentFeedId {
-    final route = currentContent;
+    final route = currentContent?.isTopic == true
+        ? topicListContent ?? currentContent
+        : currentContent;
     if (route?.isMessages == true) return route!.id;
     if (route != null && route.feedPath != null) return route.id;
     return destinationId;
@@ -2284,13 +2286,34 @@ class ShellController extends FrameSafeNotifier
     final tab = activeTab;
     if (tab == null) return null;
 
-    final route = tab.currentContent;
-    if (route.categoryId != null) return TopicListMode.latest;
-    if (tab.rootDestinationId != 'latest' || tab.contentStack.length != 1) {
+    final route = topicListContent ?? tab.currentContent;
+    if (tab.rootDestinationId != 'latest' &&
+        route.categoryId == null &&
+        route.tagName == null) {
       return null;
     }
     return TopicListMode.fromRoute(route) ??
         (route.isTopicListFilter ? TopicListMode.latest : null);
+  }
+
+  ContentRoute? get topicListContent {
+    for (final route in contentStack.reversed) {
+      if (route.isTopic) continue;
+      return route.isTopicList ? route : null;
+    }
+    return null;
+  }
+
+  void closeTopicListReader() {
+    final active = activeTab;
+    if (active == null || topicListContent == null) return;
+    var tab = active;
+    while (tab.currentContent.isTopic && tab.canGoBack) {
+      tab = tab.goBack();
+    }
+    _replaceActiveTab(tab);
+    _syncTopicChannels();
+    _notify();
   }
 
   ({int all, int topics, int replies}) get topicListNewCounts {
@@ -2345,6 +2368,9 @@ class ShellController extends FrameSafeNotifier
     }
     return currentFeed?.canCreateTopic ?? false;
   }
+
+  bool get canCreateTopicFromList =>
+      topicListContent != null && currentFeed?.canCreateTopic == true;
 
   bool get canCreateTopicFromSidebar =>
       currentInstance?.user?.canCreateTopic == true;
@@ -4318,6 +4344,14 @@ class ShellController extends FrameSafeNotifier
     postNumber: topic.lastUnreadPostNumber,
   );
 
+  void openTopicFromList(Topic topic) => _openTopic(
+    topic.id,
+    topic.slug,
+    topic.title,
+    postNumber: topic.lastUnreadPostNumber,
+    replace: currentContent?.isTopic == true && topicListContent != null,
+  );
+
   void openSummaryTopic(UserSummaryTopic topic, {int? postNumber}) =>
       _openTopic(
         topic.id,
@@ -4540,6 +4574,7 @@ class ShellController extends FrameSafeNotifier
     String title, {
     int? postNumber,
     bool force = false,
+    bool replace = false,
   }) {
     // A fast double tap on a row pushes the same topic twice — the fetch is
     // deduped below, but the second route still costs a back tap.
@@ -4547,14 +4582,17 @@ class ShellController extends FrameSafeNotifier
     if (currentInstance case final instance?) {
       _topicSummaryStreams.remove(_topicKey(instance.url, topicId));
     }
-    pushContent(
-      ContentRoute.topic(
-        topicId: topicId,
-        slug: slug,
-        title: title,
-        postNumber: postNumber,
-      ),
+    final route = ContentRoute.topic(
+      topicId: topicId,
+      slug: slug,
+      title: title,
+      postNumber: postNumber,
     );
+    if (replace) {
+      replaceCurrentContent(route);
+    } else {
+      pushContent(route);
+    }
     unawaited(loadTopic(topicId, slug, force: force, postNumber: postNumber));
   }
 
@@ -6257,15 +6295,22 @@ class ShellController extends FrameSafeNotifier
   Future<void> openNewTopic() =>
       _openNewTopic(permitted: canCreateTopicHere, revealContent: false);
 
+  Future<void> openNewTopicFromList() => _openNewTopic(
+    permitted: canCreateTopicFromList,
+    revealContent: false,
+    sourceRoute: topicListContent,
+  );
+
   Future<void> openNewTopicFromSidebar() =>
       _openNewTopic(permitted: canCreateTopicFromSidebar, revealContent: true);
 
   Future<void> _openNewTopic({
     required bool permitted,
     required bool revealContent,
+    ContentRoute? sourceRoute,
   }) async {
     final instance = currentInstance;
-    final route = currentContent;
+    final route = sourceRoute ?? currentContent;
     final feedId = currentFeedId;
     final tabId = activeTabId;
     if (instance == null ||
@@ -6282,7 +6327,9 @@ class ShellController extends FrameSafeNotifier
     final link = path == null
         ? null
         : ListLink.parse(path.replaceFirst(RegExp(r'\.json$'), ''));
-    final categoryId = canCreateTopicHere ? route.categoryId : null;
+    final categoryId = canCreateTopicHere || sourceRoute != null
+        ? route.categoryId
+        : null;
     var selectedCategory = categoryFor(categoryId, siteUrl: instance.url);
     final categoryNeedsLookup = categoryId != null && selectedCategory == null;
     if (selectedCategory == null &&
@@ -11471,6 +11518,10 @@ class ShellController extends FrameSafeNotifier
             : root.id,
       ),
     );
+    final source = topicListContent;
+    if (source != null && source.id != root.id) {
+      unawaited(loadFeed(source.id));
+    }
     final route = tab.currentContent;
     final hydrator = _pluginSession
         .capabilities<PluginRouteHydrator>()
@@ -11726,7 +11777,10 @@ class ShellController extends FrameSafeNotifier
     if (content.feedPath != null) unawaited(loadFeed(content.id));
   }
 
-  Future<void> selectTopicListMode(TopicListMode mode) async {
+  Future<void> selectTopicListMode(
+    TopicListMode mode, {
+    bool keepTopicOpen = false,
+  }) async {
     final instance = currentInstance;
     final user = instance?.user;
     final tab = activeTab;
@@ -11736,28 +11790,53 @@ class ShellController extends FrameSafeNotifier
     if (mode.isSubset && user?.unifiedNewEnabled != true) return;
     if (mode == currentMode) return;
 
-    final route = ContentRoute.topicList(mode);
-    _replaceActiveTab(
-      tab.copyWith(contentStack: [route], forwardStack: const []),
+    final source = topicListContent;
+    final route = _topicListFilterRoute(
+      siteUrl: instance.url,
+      mode: mode,
+      category: categoryFor(source?.categoryId),
+      tagName: source?.tagName,
+      tags: source?.tagNames ?? const [],
     );
+    _replaceTopicListContent(route, keepTopicOpen: keepTopicOpen);
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
     await loadFeed(route.id);
   }
 
-  void selectTopicListCategory(TopicCategory? category) {
-    final route = currentContent;
+  void selectTopicListCategory(
+    TopicCategory? category, {
+    bool keepTopicOpen = false,
+  }) {
+    final route = topicListContent;
     if (route?.isTopicListFilter != true) return;
-    _selectTopicListFilter(category: category, tagName: route!.tagName);
+    _selectTopicListFilter(
+      category: category,
+      tagName: route!.tagName,
+      tags: route.tagNames,
+      keepTopicOpen: keepTopicOpen,
+    );
   }
 
-  void selectTopicListTag(String? tagName) {
-    final route = currentContent;
+  void selectTopicListTag(String? tagName, {bool keepTopicOpen = false}) {
+    final route = topicListContent;
     if (route?.isTopicListFilter != true) return;
     _selectTopicListFilter(
       category: categoryFor(route!.categoryId),
       tagName: tagName,
+      keepTopicOpen: keepTopicOpen,
+    );
+  }
+
+  void selectTopicListTags(List<String> tags, {bool keepTopicOpen = false}) {
+    final route = topicListContent;
+    if (route?.isTopicListFilter != true) return;
+    _selectTopicListFilter(
+      category: categoryFor(route!.categoryId),
+      tagName: tags.firstOrNull,
+      tags: tags,
+      keepTopicOpen: keepTopicOpen,
     );
   }
 
@@ -11769,6 +11848,8 @@ class ShellController extends FrameSafeNotifier
   void _selectTopicListFilter({
     required TopicCategory? category,
     required String? tagName,
+    List<String>? tags,
+    bool keepTopicOpen = false,
   }) {
     final instance = currentInstance;
     final tab = activeTab;
@@ -11782,30 +11863,82 @@ class ShellController extends FrameSafeNotifier
       siteUrl: instance.url,
       category: category,
       tagName: normalizedTag,
+      tags: tags,
+      mode: currentTopicListMode ?? TopicListMode.latest,
     );
-    if (route.id == currentContent?.id &&
-        route.feedPath == currentContent?.feedPath) {
+    if (route.id == topicListContent?.id &&
+        route.feedPath == topicListContent?.feedPath) {
       return;
     }
 
-    _replaceActiveTab(
-      tab.copyWith(
-        rootDestinationId: 'latest',
-        contentStack: [route],
-        forwardStack: const [],
-      ),
-    );
+    _replaceTopicListContent(route, keepTopicOpen: keepTopicOpen);
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
     unawaited(loadFeed(route.id));
   }
 
+  void _replaceTopicListContent(
+    ContentRoute route, {
+    required bool keepTopicOpen,
+  }) {
+    final tab = activeTab;
+    if (tab == null) return;
+    final sourceIndex = tab.contentStack.lastIndexWhere(
+      (item) => !item.isTopic,
+    );
+    final retainReader =
+        keepTopicOpen &&
+        tab.currentContent.isTopic &&
+        sourceIndex >= 0 &&
+        tab.contentStack[sourceIndex].isTopicList;
+    _replaceActiveTab(
+      tab.copyWith(
+        rootDestinationId: 'latest',
+        contentStack: retainReader
+            ? [
+                ...tab.contentStack.take(sourceIndex),
+                route,
+                ...tab.contentStack.skip(sourceIndex + 1),
+              ]
+            : [route],
+        forwardStack: const [],
+      ),
+    );
+  }
+
+  void browseTopicCategory(
+    TopicCategory category, {
+    bool keepTopicOpen = false,
+  }) {
+    _selectTopicListFilter(
+      category: category,
+      tagName: null,
+      keepTopicOpen: keepTopicOpen,
+    );
+  }
+
   ContentRoute _topicListFilterRoute({
     required String siteUrl,
     required TopicCategory? category,
     required String? tagName,
+    List<String>? tags,
+    TopicListMode mode = TopicListMode.latest,
   }) {
+    final selectedTags =
+        (tags ?? [?tagName])
+            .map((tag) => tag.trim())
+            .where((tag) => tag.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    if (mode != TopicListMode.latest || selectedTags.length > 1) {
+      return ContentRoute.filteredTopicList(
+        mode,
+        categoryId: category?.id,
+        tags: selectedTags,
+      );
+    }
     if (category == null && tagName == null) {
       return ContentRoute.topicList(TopicListMode.latest);
     }

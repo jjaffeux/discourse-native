@@ -1738,45 +1738,35 @@ void _registerShellNavigationTests() {
     expect(controller.destinationId, 'category-2');
     expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
     expect(controller.contentStack, hasLength(1));
-    final parentBreadcrumb = find.byKey(
-      const ValueKey('content-header-parent-category'),
+    final parentFilter = find.byKey(
+      const ValueKey('topic-list-category-filter'),
     );
-    expect(parentBreadcrumb, findsOneWidget);
-    expect(find.bySemanticsLabel('Parent category: Parent'), findsOneWidget);
-    final parentTitle = tester.widget<Text>(
-      find.descendant(of: parentBreadcrumb, matching: find.text('Parent')),
+    final subcategoryFilter = find.byKey(
+      const ValueKey('topic-list-subcategory-filter'),
     );
-    expect(parentTitle.style?.fontWeight, FontWeight.w400);
-    final categoryTitle = find.byKey(
-      const ValueKey('content-header-category-title'),
-    );
-    expect(categoryTitle, findsOneWidget);
+    expect(parentFilter, findsOneWidget);
+    expect(subcategoryFilter, findsOneWidget);
     expect(
-      tester.widget<Text>(categoryTitle).style?.fontWeight,
-      FontWeight.w400,
+      find.descendant(of: parentFilter, matching: find.text('Parent')),
+      findsOneWidget,
     );
     expect(
-      (tester.getCenter(parentBreadcrumb).dy -
-              tester.getCenter(categoryTitle).dy)
-          .abs(),
-      lessThan(1),
-    );
-    expect(
-      find.descendant(
-        of: find.byType(TopicListView),
-        matching: find.bySemanticsLabel('Category: Child'),
-      ),
-      findsNothing,
+      find.descendant(of: subcategoryFilter, matching: find.text('Child')),
+      findsOneWidget,
     );
 
-    await tester.tap(parentBreadcrumb);
+    await tester.tap(subcategoryFilter);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey(('choice-menu-option', 0))));
     await tester.pumpAndSettle();
 
     expect(controller.currentContent?.id, 'category-1');
     expect(controller.currentContent?.feedPath, '/c/parent/1.json');
-    expect(controller.contentStack, hasLength(2));
+    expect(controller.contentStack, hasLength(1));
 
-    expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+    await tester.tap(subcategoryFilter);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey(('choice-menu-option', 2))));
     await tester.pumpAndSettle();
     expect(controller.currentContent?.id, 'category-2');
     expect(find.text('A category topic'), findsOneWidget);
@@ -1788,7 +1778,7 @@ void _registerShellNavigationTests() {
 
     expect(controller.handleBack(canReturnToSidebar: false), isTrue);
     await tester.pumpAndSettle();
-    expect(controller.destinationId, 'category-2');
+    expect(controller.currentContent?.id, 'category-2');
     expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
     expect(find.text('A category topic'), findsOneWidget);
   });
@@ -1869,7 +1859,7 @@ void _registerShellNavigationTests() {
     expect(count('priority', 2), findsOneWidget);
   });
 
-  testWidgets('uses a configured category icon in navigation and the header', (
+  testWidgets('uses a configured category icon in navigation and filters', (
     tester,
   ) async {
     const user = DiscourseUser(
@@ -1924,13 +1914,14 @@ void _registerShellNavigationTests() {
     await tester.tap(sidebarDestination('General'));
     await tester.pumpAndSettle();
 
-    final headerIcon = find.byKey(
-      const ValueKey('content-header-category-icon'),
+    final filterIcon = find.descendant(
+      of: find.byKey(const ValueKey('topic-list-category-filter')),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is DIcon && widget.icon == DIcons.folderOpen,
+      ),
     );
-    expect(headerIcon, findsOneWidget);
-    final icon = tester.widget<DIcon>(
-      find.descendant(of: headerIcon, matching: find.byType(DIcon)),
-    );
+    expect(filterIcon, findsOneWidget);
+    final icon = tester.widget<DIcon>(filterIcon);
     expect(icon.icon, DIcons.folderOpen);
     expect(icon.color, const Color(0xFF3498DB));
   });
@@ -2056,7 +2047,10 @@ void _registerShellNavigationTests() {
 
     expect(find.byKey(const ValueKey('topic-list-filter-bar')), findsOneWidget);
     expect(
-      find.bySemanticsLabel('Category: Discourse Native App'),
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-filter-bar')),
+        matching: find.bySemanticsLabel('Category: Discourse Native App'),
+      ),
       findsOneWidget,
     );
     expect(
@@ -2065,8 +2059,13 @@ void _registerShellNavigationTests() {
     );
     expect(find.bySemanticsLabel('Category: Bugs'), findsOneWidget);
     expect(
-      find.bySemanticsLabel('Parent category: Discourse Native App'),
-      findsNothing,
+      find.descendant(
+        of: find.byType(TopicListView),
+        matching: find.bySemanticsLabel(
+          'Parent category: Discourse Native App',
+        ),
+      ),
+      findsOneWidget,
     );
 
     await tester.tap(

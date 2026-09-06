@@ -28,9 +28,10 @@ import 'topic_list_layout.dart';
 import 'topic_title.dart';
 
 class TopicListView extends StatefulWidget {
-  const TopicListView({super.key, required this.feed});
+  const TopicListView({super.key, required this.feed, this.inbox = false});
 
   final TopicFeed feed;
+  final bool inbox;
 
   @override
   State<TopicListView> createState() => _TopicListViewState();
@@ -335,7 +336,7 @@ class _TopicListViewState extends State<TopicListView> {
                   child: ListBoundaryShortcuts(
                     key: ValueKey(('topic-list-boundary', feedIdentity)),
                     debugLabel: 'topic list',
-                    initiallyActive: true,
+                    initiallyActive: controller.currentContent?.isTopic != true,
                     scrollController: _scroll!,
                     onStart: () => _jumpToBoundary(end: false),
                     onEnd: () => _jumpToBoundary(end: true),
@@ -377,8 +378,10 @@ class _TopicListViewState extends State<TopicListView> {
                         return _TopicRow(
                           key: ValueKey(topicId),
                           topicId: topicId,
-                          hiddenCategoryId:
-                              controller.currentContent?.categoryId,
+                          inbox: widget.inbox,
+                          hiddenCategoryId: widget.inbox
+                              ? null
+                              : controller.topicListContent?.categoryId,
                         );
                       },
                     ),
@@ -826,16 +829,22 @@ class _TopicRow extends StatelessWidget {
     super.key,
     required this.topicId,
     required this.hiddenCategoryId,
+    this.inbox = false,
   });
 
   final int topicId;
   final int? hiddenCategoryId;
+  final bool inbox;
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<String?>(
-      select: (controller) => controller.currentInstance?.url,
-      builder: (context, siteUrl, _) {
+    return ShellSelector<({String? siteUrl, bool selected})>(
+      select: (controller) => (
+        siteUrl: controller.currentInstance?.url,
+        selected: inbox && controller.currentContent?.topicId == topicId,
+      ),
+      builder: (context, state, _) {
+        final siteUrl = state.siteUrl;
         if (siteUrl == null) return const SizedBox.shrink();
         final controller = ShellScope.read(context);
 
@@ -861,7 +870,10 @@ class _TopicRow extends StatelessWidget {
                     parentCategory: categoryPresentation.parent,
                     showCategoryBreadcrumb: true,
                     siteUrl: siteUrl,
-                    onTap: () => controller.openTopic(topic),
+                    selected: state.selected,
+                    onTap: () => inbox
+                        ? controller.openTopicFromList(topic)
+                        : controller.openTopic(topic),
                   ),
                 ),
         );
@@ -992,6 +1004,7 @@ class _TopicRowBody extends StatelessWidget {
     required this.onTap,
     this.forum,
     this.titleStyle,
+    this.selected = false,
   });
 
   final Topic topic;
@@ -1002,6 +1015,7 @@ class _TopicRowBody extends StatelessWidget {
   final VoidCallback onTap;
   final DiscourseInstance? forum;
   final TextStyle? titleStyle;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -1096,8 +1110,10 @@ class _TopicRowBody extends StatelessWidget {
       child: Material(
         // Ink features paint on their Material rather than with the row.
         // Keeping that surface local lets the scroll viewport clip them.
-        type: MaterialType.transparency,
-        child: row,
+        color: selected
+            ? theme.colorScheme.primary.withValues(alpha: .09)
+            : Colors.transparent,
+        child: Semantics(selected: selected, child: row),
       ),
     );
   }
@@ -1834,7 +1850,7 @@ class _Message extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,

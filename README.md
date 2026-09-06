@@ -719,40 +719,39 @@ binding fails outright on the poll's backoff timer outliving the tree.
 
 ### Topics
 
-Tapping a row pushes a topic route onto the content stack, so back returns to
-the list — which is not refetched, since feeds are cached.
+Ordinary topic feeds use an Inbox workspace. Selecting a topic keeps its source
+list mounted, with independent scrolling and pagination. When the main content
+area has at least 880 logical pixels available, the list narrows to 304–380
+pixels beside the reader. Smaller windows show the reader alone and restore the
+same list when returning. Choosing a sibling topic replaces the reader route;
+**Back to topics** returns directly to the source list.
 
-Topic chrome keeps navigation separate from context. The fixed header contains
-Back, a single-line title, an icon-only notification-level menu and its
-right-aligned sidebar toggle. On expanded layouts a full-height 344-point right
-sidebar holds Reply with the adjacent guardian-gated topic menu, followed by
-bookmarks and other account actions; category, tags and inline plugin-owned
-properties share one untitled card; and non-empty recommendation sources such
-as Related and Suggested share a second card with tabs. Assignments use their
-own untitled section. An unassigned topic presents one full-width primary
-**Assign topic** action; once assigned, it becomes an avatar-led, two-line row
-with explicit Change and Remove controls; a successful removal offers Undo.
-Assigned posts appear underneath only when present, in post order, with the
-post number linked inline beside **Assigned to** and their own Change and Remove
-controls. Opening that link jumps to and briefly highlights its post. On pointer
-layouts the editor is a stable 360-by-400-point user/group popover with Note and
-optional Status fields; touch layouts use the shared bottom sheet. The
-panel-shaped toggle removes the entire sidebar from the layout, and that
-preference is remembered per forum.
-Medium and compact layouts keep the same controls available through a transient
-right-side overlay instead of shrinking the reading column.
+The list heading, discovery tabs, and category/tag filters occupy separate
+rows. New retains its All / Topics / Replies subnavigation and Top retains its
+period picker. Category and subcategory have separate dropdowns; tag filters
+support multiple selections matched together by the server. Changing a mode or
+period preserves the selected filters, and filtering beside a reader leaves
+that topic open. Selections apply immediately, without duplicate filter chips
+or a confirmation footer. The heading does not show a count of loaded rows.
 
-When core grants `can_edit`, the category value becomes an action and opens a
-focused topic-category picker. Tags are editable when core grants either that
-whole-topic permission or the narrower `can_edit_tags` capability. Topics
-without the corresponding permission keep the same read-only property, so the
-sidebar never implies a write the site will reject.
+The topic header places category, subcategory, and tags beside the inline title
+editor. Clicking a category or tag edits it when the server grants the matching
+permission; separate arrows browse the parent or subcategory. Removing a
+subcategory moves the topic to its parent. Moving to Uncategorized is offered
+only when the site allows it. Enter saves a title and Escape cancels it.
 
-Generated category paths use one presentation contract across topic-list
-taxonomy, the topic sidebar, category pickers, and the new-topic composer. A
-subcategory is shown as `Parent › Child`; that same readable label supplies the
-linked category's accessible name, while the category id and slug path remain
-the navigation authority.
+Plugin properties can supply a compact `TopicPropertySection.header` builder;
+other properties remain available through a labelled details popover. The
+assignment plugin shows Assign or the current assignee near the title. Its
+management popover retains people/groups, notes/status, Change, Remove/Undo,
+and links to assigned posts. All actions keep their existing permission checks.
+
+Related and Suggested appear below the posts, with a **More topics** jump in
+the reader footer. Recommendation links keep the source list. Every ordinary
+post has a permanent three-dot menu beside its timestamp, exposing the same
+core and plugin actions as the keyboard and touch menus. J/K move through posts
+in the open topic and leave the topic list selection alone; editing controls
+keep these keys as text input.
 
 Topic-list rows carry `last_read_post_number` and `highest_post_number`. Like
 Discourse's web client, an unread row opens at `last_read_post_number + 1`,
@@ -2462,7 +2461,10 @@ with the available width.
 | ---------- | -------- | --------------------------------------------- |
 | `compact`  | < 768    | rail + **one** pane (sidebar *or* content)     |
 | `medium`   | 768–1199 | rail + sidebar + content                       |
-| `expanded` | ≥ 1200   | rail + sidebar + content + topic sidebar       |
+| `expanded` | ≥ 1200   | rail + sidebar + content                       |
+
+The content area chooses a topic-list/reader split from its own available
+width, after the forum sidebar and any diagnostics panel are allocated.
 
 On medium and expanded layouts, drag the sidebar's right edge to resize it.
 The default width is 208px, with the forum identity fixed above the scrolling

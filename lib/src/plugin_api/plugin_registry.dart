@@ -1193,6 +1193,12 @@ final class PluginRegistry
       ))
         TopicPropertySection(
           label: section.label,
+          header: section.header == null
+              ? null
+              : (context, showDetails) => _owned(
+                  plugin,
+                  section.header!(_uiContext(context, plugin), showDetails),
+                ),
           values: _ownedAll(plugin, section.values),
           layout: section.layout,
           showHeader: section.showHeader,

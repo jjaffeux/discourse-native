@@ -331,8 +331,12 @@ final class TopicPropertySection {
     required this.values,
     this.layout = TopicPropertySectionLayout.inline,
     this.showHeader = true,
+    this.header,
   });
 
+  /// Compact presentation alongside the title. The host supplies a details
+  /// action backed by the current topic and plugin state.
+  final Widget Function(BuildContext context, VoidCallback showDetails)? header;
   final String label;
   final List<Widget> values;
   final TopicPropertySectionLayout layout;

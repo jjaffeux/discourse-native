@@ -48,12 +48,14 @@ class InlineTopicTitleEditor extends StatefulWidget {
     required this.siteUrl,
     required this.onSave,
     this.style,
+    this.maxLines = 1,
   });
 
   final String title;
   final String siteUrl;
   final Future<String?> Function(String title) onSave;
   final TextStyle? style;
+  final int maxLines;
 
   @override
   State<InlineTopicTitleEditor> createState() => _InlineTopicTitleEditorState();
@@ -173,6 +175,10 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   }
 
   KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
+      _focus.unfocus();
+      return KeyEventResult.handled;
+    }
     if (event is KeyDownEvent &&
         event.logicalKey == LogicalKeyboardKey.escape) {
       _cancel();
@@ -213,7 +219,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
                         child: TopicTitle(
                           displayedTitle,
                           siteUrl: widget.siteUrl,
-                          maxLines: 1,
+                          maxLines: widget.maxLines,
                           overflow: TextOverflow.ellipsis,
                           style: widget.style,
                         ),
@@ -231,7 +237,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
                           controller: _controller,
                           focusNode: _focus,
                           readOnly: _saving,
-                          maxLines: 1,
+                          maxLines: widget.maxLines,
                           textInputAction: TextInputAction.done,
                           textCapitalization: TextCapitalization.sentences,
                           style: widget.style,

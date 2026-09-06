@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_list_layout.dart';
+import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
@@ -167,7 +168,7 @@ void main() {
     expect(find.byKey(const ValueKey('topic-list-filter-bar')), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-latest')), findsOneWidget);
     expect(find.text('New'), findsOneWidget);
-    expect(find.text('1059'), findsOneWidget);
+    expect(find.text('1059'), findsNothing);
     final semantics = tester.ensureSemantics();
     try {
       expect(find.bySemanticsLabel('New, 1059'), findsOneWidget);
@@ -227,7 +228,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('1060'), findsOneWidget);
+    expect(find.text('1060'), findsNothing);
     expect(find.text('Unread (6)'), findsNothing);
     expect(find.text('All (1060)'), findsOneWidget);
     expect(find.text('Topics (1054)'), findsOneWidget);
@@ -305,7 +306,7 @@ void main() {
         controller: setup.controller,
         child: MaterialApp(
           theme: AppTheme.light,
-          home: const Scaffold(body: MainContent(layout: ShellLayout.expanded)),
+          home: const Scaffold(body: TopicListNavigation(child: SizedBox())),
         ),
       ),
     );
@@ -483,15 +484,16 @@ void main() {
             find.byKey(const ValueKey('topic-list-category-filter')),
           );
           expect(row.height, 52);
-          expect(categoryFilter.top, greaterThanOrEqualTo(row.top));
-          expect(categoryFilter.bottom, lessThanOrEqualTo(row.bottom));
+          expect(categoryFilter.top, greaterThanOrEqualTo(row.bottom));
           final recent = tester.getRect(
             find.byKey(const ValueKey('topic-list-latest')),
           );
-          expect(categoryFilter.center.dy, closeTo(recent.center.dy, 0.01));
-          expect(recent.left, greaterThan(categoryFilter.right));
+          expect(categoryFilter.left, closeTo(recent.left, .01));
           if (scenario.forumTabsEnabled) {
-            expect(row.top, tester.getRect(find.byType(ForumTabsBar)).bottom);
+            expect(
+              row.top,
+              greaterThan(tester.getRect(find.byType(ForumTabsBar)).bottom),
+            );
             expect(
               tester
                   .getRect(
@@ -579,7 +581,7 @@ void main() {
     expect(setup.api.feedPaths, initialPaths);
   });
 
-  testWidgets('desktop toolbar keeps topic actions aligned across views', (
+  testWidgets('Inbox keeps its heading, tabs, and filters in separate rows', (
     tester,
   ) async {
     final previousPlatform = debugDefaultTargetPlatformOverride;
@@ -607,12 +609,13 @@ void main() {
         find.byKey(const ValueKey('topic-list-primary-row')),
       );
       final create = tester.getRect(find.byKey(TopicCreateButton.buttonKey));
-      expect(toolbar.contains(create.center), isTrue);
-      expect(toolbar.top, 0);
+      expect(create.bottom, lessThanOrEqualTo(toolbar.top));
+      expect(toolbar.top, greaterThan(0));
       expect(create.height, 36);
       final recent = tester.getRect(
         find.byKey(const ValueKey('topic-list-latest')),
       );
+
       final category = tester.getRect(
         find.byKey(const ValueKey('topic-list-category-filter')),
       );
@@ -622,10 +625,9 @@ void main() {
       final ledger = tester.getRect(
         find.byKey(const ValueKey('topic-list-ledger-header')),
       );
-      expect(toolbar.contains(category.center), isTrue);
-      expect(category.center.dy, closeTo(recent.center.dy, 0.01));
+      expect(category.top, greaterThanOrEqualTo(toolbar.bottom));
+      expect(category.left, closeTo(recent.left, 0.01));
       expect(tags.left, closeTo(category.right + 8, 0.01));
-      expect(recent.left, closeTo(tags.right + 8, 0.01));
       expect(find.text('Categories'), findsOneWidget);
       expect(find.text('All categories'), findsNothing);
       expect(find.text('Tags'), findsOneWidget);
@@ -636,9 +638,8 @@ void main() {
             .showLabel,
         isTrue,
       );
-      expect(create.right, tester.getRect(find.text('Activity')).right);
-      expect(ledger.top, toolbar.bottom);
-      expect(find.text('Topics'), findsNothing);
+      expect(ledger.top, greaterThanOrEqualTo(category.bottom));
+      expect(find.text('Topics'), findsOneWidget);
       expect(find.text('Topic'), findsNothing);
       expect(find.text('Latest activity'), findsNothing);
       expect(find.text('Top'), findsOneWidget);

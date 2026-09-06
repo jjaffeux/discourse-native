@@ -1,0 +1,1204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Discourse Native — Topic workspace studies</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      --page: #e9ecf0;
+      --rail: #e3e6ea;
+      --nav: #f1f3f5;
+      --list: #f9fafb;
+      --content: #fff;
+      --hover: #f0f3f6;
+      --border: #e2e5e9;
+      --strong-border: #cbd1d9;
+      --text: #252931;
+      --secondary: #555e6c;
+      --muted: #717a88;
+      --blue: #007fbf;
+      --blue-soft: #e6f3fb;
+      --blue-border: #b6d9ed;
+      --chip: #edf0f4;
+      --purple: #7755ad;
+      --purple-soft: #f0eafa;
+      --green: #378765;
+      --orange: #a46322;
+      --shadow: 0 18px 60px #25324712, 0 2px 6px #25324708;
+    }
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --page: #0d0f12;
+      --rail: #131417;
+      --nav: #1a1c20;
+      --list: #1d2025;
+      --content: #212429;
+      --hover: #292d34;
+      --border: #30343b;
+      --strong-border: #444b56;
+      --text: #edf0f4;
+      --secondary: #bbc2cc;
+      --muted: #929caa;
+      --blue: #52bcec;
+      --blue-soft: #193748;
+      --blue-border: #2d566d;
+      --chip: #30353d;
+      --purple: #c0a1ec;
+      --purple-soft: #382e47;
+      --green: #72c69b;
+      --orange: #edb37c;
+      --shadow: 0 18px 60px #0004, 0 2px 6px #0002;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--text); }
+    button, input, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button { border: 0; background: none; }
+    button:disabled { opacity: .35; cursor: default; }
+    button, a, input, textarea, [tabindex] { -webkit-tap-highlight-color: transparent; }
+    :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+    input, textarea { outline-offset: -2px; }
+    button:focus:not(:focus-visible), dialog:focus { outline: none; }
+    [hidden] { display: none !important; }
+    svg { width: 18px; height: 18px; flex: 0 0 auto; vertical-align: middle; }
+    .icon { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .muted { color: var(--muted); }
+    .spacer { flex: 1; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .study-header { display: flex; gap: 24px; align-items: center; padding: 21px 30px 17px; }
+    .study-brand { display: flex; align-items: center; gap: 11px; flex: 1; }
+    .study-mark { width: 31px; height: 31px; color: var(--blue); }
+    .study-brand strong { display: block; font-size: 14px; font-weight: 650; letter-spacing: -.02em; }
+    .study-brand small { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .concept-tabs { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--strong-border); border-radius: 10px; }
+    .concept-tab { display: flex; align-items: center; gap: 9px; padding: 8px 14px; color: var(--secondary); border-radius: 6px; font-size: 13px; white-space: nowrap; }
+    .concept-tab span { font-size: 11px; color: var(--muted); font-weight: 650; }
+    .concept-tab[aria-pressed="true"] { color: var(--text); background: var(--content); box-shadow: 0 1px 3px #0001; font-weight: 600; }
+    .concept-tab[aria-pressed="true"] span { color: var(--blue); }
+    .study-controls { flex: 1; display: flex; justify-content: end; align-items: center; gap: 10px; }
+    .icon-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: 0 0 auto; border-radius: 6px; color: var(--secondary); }
+    .icon-button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+    .text-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 9px; border-radius: 6px; color: var(--secondary); font-size: 13px; }
+    .text-button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+    .text-button svg { width: 16px; height: 16px; }
+    .outline-button { border: 1px solid var(--strong-border); background: var(--content); }
+    .intro { display: flex; align-items: center; gap: 20px; padding: 0 31px 17px; min-height: 36px; }
+    .intro p { margin: 0; font-size: 13px; color: var(--secondary); line-height: 1.5; }
+    .intro strong { color: var(--text); font-weight: 600; }
+    .intro .prototype-label { margin-left: auto; white-space: nowrap; font-size: 12px; color: var(--muted); }
+    .app-frame { margin: 0 26px; height: calc(100dvh - 214px); min-height: 590px; overflow: hidden; border: 1px solid var(--strong-border); border-radius: 12px; background: var(--content); box-shadow: var(--shadow); display: flex; flex-direction: column; }
+    .titlebar { height: 43px; flex: 0 0 43px; display: flex; align-items: center; gap: 12px; padding: 0 15px; background: var(--nav); border-bottom: 1px solid var(--border); }
+    .traffic-lights { display: flex; gap: 7px; padding-right: 14px; }
+    .traffic-lights i { height: 10px; width: 10px; background: #fb645d; border: 1px solid #0001; border-radius: 50%; }
+    .traffic-lights i:nth-child(2) { background: #f8c149; }
+    .traffic-lights i:nth-child(3) { background: #32c953; }
+    .window-title { font-size: 12px; font-weight: 600; color: var(--secondary); }
+    .window-search { display: flex; align-items: center; gap: 7px; margin-left: auto; color: var(--muted); }
+    .window-search svg { height: 14px; width: 14px; }
+    .window-search input { width: 160px; background: transparent; border: none; font-size: 12px; padding: 5px 0; }
+    input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+    kbd { font-family: inherit; font-size: 11px; color: var(--muted); border: 1px solid var(--strong-border); border-radius: 4px; padding: 1px 4px; }
+    .shell { display: grid; grid-template-columns: 56px 184px minmax(0, 1fr); flex: 1; min-height: 0; }
+    .site-rail { background: var(--rail); padding: 14px 7px 12px; display: flex; align-items: center; flex-direction: column; gap: 16px; border-right: 1px solid var(--border); }
+    .site { width: 35px; height: 35px; display: grid; place-items: center; font-weight: 700; color: var(--secondary); background: var(--nav); border-radius: 11px; position: relative; }
+    .site.active { background: #30334d; color: white; border-radius: 10px; }
+    .site.active::before { content: ""; height: 21px; width: 3px; border-radius: 2px; background: var(--blue); position: absolute; left: -10px; }
+    .site svg { width: 22px; height: 22px; }
+    .rail-divider { height: 1px; width: 23px; background: var(--strong-border); }
+    .rail-bottom { margin-top: auto; }
+    .avatar { display: inline-grid; place-items: center; width: 32px; height: 32px; flex: 0 0 auto; border-radius: 50%; background: #d7e7e9; color: #356773; font-size: 11px; font-weight: 650; letter-spacing: -.02em; }
+    .avatar.peach { background: #f4e1d5; color: #a06444; }
+    .avatar.purple { background: #e6def1; color: #74598d; }
+    .avatar.olive { background: #e1e8d4; color: #677544; }
+    .avatar.blue { background: #dbe7f3; color: #547898; }
+    .community-nav { background: var(--nav); border-right: 1px solid var(--border); padding: 19px 10px 12px; display: flex; flex-direction: column; overflow-y: auto; }
+    .community-name { display: flex; align-items: center; padding: 0 8px 23px; font-weight: 650; letter-spacing: -.02em; gap: 7px; }
+    .community-name svg { color: var(--muted); width: 14px; height: 14px; margin-left: auto; }
+    .nav-item { display: flex; gap: 10px; align-items: center; width: 100%; padding: 9px 9px; border-radius: 6px; color: var(--secondary); text-align: left; font-size: 13px; }
+    button.nav-item:hover { background: var(--hover); }
+    .nav-item.selected { background: var(--blue-soft); color: var(--blue); font-weight: 600; }
+    .nav-item svg { width: 16px; height: 16px; }
+    .nav-count { font-size: 12px; margin-left: auto; color: var(--muted); }
+    .nav-label { margin: 26px 9px 7px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .055em; text-transform: uppercase; }
+    .category-dot { display: inline-block; width: 8px; height: 8px; background: var(--category, #9471bf); border-radius: 2px; flex: 0 0 auto; }
+    .nav-item .category-dot { margin: 0 4px; }
+    .nav-foot { margin-top: auto; display: flex; gap: 9px; align-items: center; padding: 28px 8px 1px; font-size: 12px; color: var(--secondary); }
+    .nav-foot .avatar { width: 26px; height: 26px; font-size: 10px; }
+    .workspace { display: flex; min-width: 0; min-height: 0; flex-direction: column; }
+    .scopebar { display: none; align-items: center; gap: 7px; padding: 10px 16px; border-bottom: 1px solid var(--border); min-height: 57px; overflow-x: auto; flex: 0 0 auto; }
+    .scopebar-label { color: var(--muted); font-size: 12px; margin-right: 7px; }
+    .scope-tab { padding: 7px 10px; color: var(--secondary); border-radius: 6px; display: flex; align-items: center; gap: 7px; white-space: nowrap; font-size: 13px; }
+    .scope-tab:hover { background: var(--hover); }
+    .scope-tab[aria-pressed="true"] { color: var(--blue); background: var(--blue-soft); }
+    .scopebar .vertical-rule { height: 20px; width: 1px; flex: 0 0 auto; background: var(--border); margin: 0 5px; }
+    .workspace-grid { --list-width: 325px; display: grid; grid-template-columns: var(--list-width) 5px minmax(0, 1fr); flex: 1; min-height: 0; min-width: 0; }
+    .list-pane { background: var(--list); display: flex; min-width: 0; min-height: 0; flex-direction: column; }
+    .list-toolbar { padding: 16px 16px 11px; flex: 0 0 auto; }
+    .list-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 11px; }
+    .list-heading h2 { font-size: 16px; font-weight: 650; letter-spacing: -.03em; margin: 0; }
+    .list-actions { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+    .list-heading .icon-button { width: 27px; height: 27px; }
+    .feed-tabs { display: flex; gap: 17px; border-bottom: 1px solid var(--border); }
+    .feed-tab { font-size: 12px; color: var(--muted); padding: 3px 0 10px; position: relative; white-space: nowrap; }
+    .feed-tab[aria-pressed="true"] { color: var(--text); font-weight: 600; }
+    .feed-tab[aria-pressed="true"]::after { content: ""; height: 2px; background: var(--blue); position: absolute; bottom: -1px; left: 0; right: 0; }
+    .feed-count { margin-left: 3px; color: var(--muted); font-size: 10px; font-weight: 400; }
+    .feed-subnav { margin-top: 11px; }
+    .new-activity-tabs { display: flex; gap: 2px; padding: 3px; border-radius: 7px; background: var(--nav); border: 1px solid var(--border); }
+    .new-activity-tab { flex: 1; padding: 6px 4px; border-radius: 4px; font-size: 12px; color: var(--secondary); white-space: nowrap; }
+    .new-activity-tab[aria-selected="true"] { background: var(--content); color: var(--text); box-shadow: 0 1px 3px #0001; font-weight: 600; }
+    .new-activity-tab span { font-size: 10px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+    .period-control { display: flex; align-items: center; gap: 9px; }
+    .period-label { color: var(--muted); font-size: 12px; }
+    .inline-filters { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 12px; }
+    .filter-button { display: flex; align-items: center; gap: 5px; padding: 6px 7px; min-width: 0; max-width: 100%; font-size: 12px; color: var(--secondary); border: 1px solid var(--strong-border); border-radius: 6px; background: var(--content); }
+    .filter-button:hover { border-color: var(--blue); }
+    .filter-button > span:not(.category-dot) { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .filter-button svg { width: 14px; height: 14px; }
+    .filter-button .chevron { width: 11px; height: 11px; color: var(--muted); }
+    .filter-button.active { color: var(--blue); background: var(--blue-soft); border-color: var(--blue-border); }
+    .command-filter { display: none; width: 100%; margin-top: 12px; text-align: left; gap: 9px; padding: 9px 10px; }
+    .command-filter kbd { margin-left: auto; }
+    .topic-list { overflow-y: auto; flex: 1; padding: 0 8px 12px; scrollbar-width: thin; scrollbar-color: var(--strong-border) transparent; }
+    .topic-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; width: 100%; text-align: left; position: relative; padding: 16px 11px 15px 18px; border: 1px solid transparent; border-bottom-color: var(--border); border-radius: 0; gap: 7px 12px; }
+    .topic-row:hover { background: var(--hover); }
+    .topic-row[aria-current="true"] { background: var(--blue-soft); border: 1px solid var(--blue-border); border-radius: 7px; }
+    .unread-dot { width: 5px; height: 5px; border-radius: 50%; position: absolute; top: 22px; left: 7px; background: var(--blue); }
+    .row-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 13px; line-height: 1.48; font-weight: 550; grid-column: 1; }
+    .topic-row.unread .row-title { font-weight: 650; }
+    .row-time { color: var(--muted); font-size: 11px; padding-top: 3px; grid-column: 2; grid-row: 1; }
+    .row-taxonomy { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); min-width: 0; grid-column: 1 / -1; overflow: hidden; white-space: nowrap; }
+    .row-taxonomy .category-dot { height: 6px; width: 6px; }
+    .row-tag { padding: 1px 4px; background: var(--chip); border-radius: 3px; margin-left: 2px; }
+    .row-preview { grid-column: 1; display: flex; align-items: center; gap: 5px; overflow: hidden; font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .row-preview > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+    .row-preview .avatar { width: 16px; height: 16px; font-size: 6px; }
+    .row-replies { grid-column: 2; font-size: 11px; display: flex; align-items: center; gap: 4px; color: var(--muted); }
+    .row-replies svg { height: 12px; width: 12px; }
+    .row-wide { display: none; }
+    .resize-handle { background: var(--content); border-left: 1px solid var(--border); cursor: col-resize; position: relative; z-index: 2; touch-action: none; }
+    .resize-handle:hover, .resize-handle:focus-visible { background: var(--blue-soft); }
+    .resize-handle::after { content: ""; position: absolute; left: 0; right: 0; top: 48%; height: 26px; background: var(--strong-border); border-radius: 3px; opacity: 0; }
+    .resize-handle:hover::after, .resize-handle:focus-visible::after { opacity: 1; }
+    .reader-pane { min-width: 0; min-height: 0; background: var(--content); display: flex; flex-direction: column; }
+    .reader-toolbar { display: flex; align-items: center; gap: 5px; padding: 10px 20px 0; flex: 0 0 auto; }
+    .reader-location { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+    .reader-location svg { width: 14px; height: 14px; }
+    .reader-counter { font-size: 11px; color: var(--muted); margin-right: 4px; }
+    .topic-context { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+    .category-control { display: inline-flex; align-items: stretch; max-width: 100%; flex: 0 1 auto; border: 1px solid color-mix(in srgb, var(--category) 28%, var(--content)); border-radius: 5px; background: color-mix(in srgb, var(--category) 12%, var(--content)); overflow: hidden; }
+    .category-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 7px; background: transparent; color: var(--text); font-size: 12px; min-width: 0; text-align: left; }
+    .category-chip:hover, .category-navigate:hover { background: color-mix(in srgb, var(--category) 22%, var(--content)); }
+    .category-chip > span:not(.category-dot) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .category-chip .chevron { width: 10px; height: 10px; color: var(--muted); }
+    .category-chip .category-dot { width: 7px; height: 7px; }
+    .category-navigate { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 25px; width: 25px; min-height: 26px; border-left: 1px solid color-mix(in srgb, var(--category) 22%, var(--content)); color: var(--secondary); }
+    .category-navigate svg { width: 12px; height: 12px; }
+    .add-subcategory { padding: 5px 7px; color: var(--muted); font-size: 11px; border: 1px dashed var(--strong-border); border-radius: 5px; }
+    .category-control :focus-visible { outline-offset: -2px; }
+    .context-tag { padding: 5px 7px; border-radius: 4px; color: var(--secondary); background: var(--chip); font-size: 12px; }
+    .context-tag::before { content: "#"; color: var(--muted); margin-right: 3px; }
+    .context-tag:hover { color: var(--blue); }
+    .context-rule { width: 1px; height: 15px; background: var(--border); margin: 0 3px; }
+    .context-edit { width: 26px; height: 26px; }
+    .context-edit svg { width: 15px; height: 15px; }
+    .topic-header { padding: 17px 28px 19px; flex: 0 0 auto; }
+    .topic-heading { margin: 13px 0 10px; font-size: 23px; font-weight: 650; line-height: 1.28; letter-spacing: -.035em; overflow-wrap: anywhere; }
+    .title-trigger { display: block; width: 100%; padding: 0; margin: 0; text-align: left; font: inherit; letter-spacing: inherit; line-height: inherit; border-radius: 3px; }
+    .title-trigger:hover { background: var(--hover); }
+    .title-input { display: block; width: 100%; padding: 4px 6px; margin: -5px -7px; box-sizing: content-box; resize: none; border: 1px solid var(--blue); border-radius: 5px; background: var(--content); font: inherit; line-height: inherit; letter-spacing: inherit; overflow: hidden; }
+    .title-edit-hint { display: block; color: var(--muted); font-size: 11px; line-height: 1.5; font-weight: 400; letter-spacing: normal; margin-top: 10px; }
+    .topic-summary { display: flex; gap: 8px 10px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+    .summary-stats { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+    .assignment-controls { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+    .assignment-button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--strong-border); border-radius: 6px; padding: 5px 8px; color: var(--secondary); background: var(--content); font-size: 12px; white-space: nowrap; }
+    .assignment-button:hover { border-color: var(--blue); color: var(--blue); }
+    .assignment-button > svg { width: 14px; height: 14px; }
+    .assignment-button .avatar { width: 20px; height: 20px; font-size: 7px; }
+    .assignment-post-count { font-size: 11px; padding: 5px; color: var(--muted); }
+    .assignment-post-count:hover { color: var(--blue); }
+    .post-assignment-slot { margin-left: 5px; }
+    .post-assignment-slot .assignment-button { border-color: transparent; padding: 4px 6px; background: var(--nav); font-size: 11px; }
+    .post-assignment-slot .assignment-button.unassigned { background: transparent; color: var(--muted); }
+    .post-assignment-slot .avatar { width: 17px; height: 17px; font-size: 6px; }
+    .mini-avatars { display: inline-flex; padding-left: 0; }
+    .mini-avatars .avatar { width: 21px; height: 21px; font-size: 7px; margin-left: -5px; border: 2px solid var(--content); }
+    .mini-avatars .avatar:first-child { margin-left: 0; }
+    .reader-scroll { overflow-y: auto; min-height: 0; flex: 1; padding: 0 28px 25px; scrollbar-width: thin; scrollbar-color: var(--strong-border) transparent; }
+    .post { border-top: 1px solid var(--border); padding: 23px 0 20px; }
+    .post:focus-visible { outline-offset: -2px; border-radius: 5px; }
+    .post-author { display: flex; gap: 10px; align-items: center; }
+    .post-author strong { display: block; font-size: 13px; font-weight: 600; }
+    .post-author small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .post-author time { margin-left: auto; font-size: 11px; color: var(--muted); }
+    .post-more { flex: 0 0 30px; width: 30px; height: 30px; color: var(--secondary); }
+    .post-more[aria-expanded="true"] { color: var(--blue); background: var(--blue-soft); }
+    .post-status { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); margin-top: 4px; }
+    .post-status:empty { display: none; }
+    .post-status svg { width: 11px; height: 11px; color: var(--blue); }
+    .post-removed { display: flex; align-items: center; gap: 10px; padding: 13px; background: var(--nav); border-radius: 6px; color: var(--muted); font-size: 13px; }
+    .post-removed button { margin-left: auto; color: var(--blue); font-size: 12px; }
+    .author-role { font-size: 10px; font-weight: 500; color: var(--muted); margin-left: 6px; }
+    .post-body { font-size: 15px; line-height: 1.72; color: var(--text); margin: 17px 0 0; }
+    .post-body p { margin: 0 0 14px; }
+    .post-body ul { margin: 0 0 17px; padding-left: 22px; }
+    .post-body li { padding-left: 3px; margin: 5px 0; }
+    .post-body blockquote { background: var(--list); border-left: 2px solid var(--strong-border); margin: 0 0 16px; padding: 11px 15px; color: var(--secondary); font-size: 14px; }
+    .post-actions { display: flex; align-items: center; gap: 4px; margin-top: 17px; }
+    .like-button { display: flex; align-items: center; gap: 6px; color: var(--secondary); font-size: 12px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; }
+    .like-button svg { width: 14px; height: 14px; }
+    .like-button[aria-pressed="true"] { color: #cb5173; background: #ed739014; border-color: #ed739060; }
+    .post-actions > .text-button { margin-left: auto; }
+    .topic-divider { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--muted); padding: 8px 0 1px; }
+    .topic-divider::before, .topic-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+    .topic-divider + .post { border-top: none; }
+    .reader-footer { flex: 0 0 auto; padding: 11px 25px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 6px; background: var(--content); }
+    .primary-button { background: var(--blue); color: white; border-radius: 6px; padding: 8px 12px; font-weight: 550; font-size: 13px; display: inline-flex; align-items: center; gap: 7px; }
+    [data-theme="dark"] .primary-button { color: #0f2430; }
+    .primary-button svg { width: 15px; height: 15px; }
+    .reader-footer .more-topics-button { margin-left: auto; white-space: nowrap; padding-right: 0; }
+    .more-topics-button .short-label { display: none; }
+    .recommendations { margin-top: 26px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .recommendation-tabs { display: flex; align-items: center; gap: 21px; border-bottom: 1px solid var(--border); }
+    .recommendation-tab { position: relative; padding: 12px 0; color: var(--muted); font-size: 13px; }
+    .recommendation-tab[aria-selected="true"] { font-weight: 600; color: var(--text); }
+    .recommendation-tab[aria-selected="true"]::after { content: ""; position: absolute; bottom: -1px; height: 2px; background: var(--blue); left: 0; right: 0; }
+    .recommendation-tab > span { margin-left: 5px; font-size: 11px; font-weight: 400; }
+    .recommendation-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 15px; width: 100%; padding: 15px 4px; text-align: left; border-bottom: 1px solid var(--border); }
+    .recommendation-row:hover { background: var(--hover); }
+    .recommendation-title { font-size: 13px; line-height: 1.5; color: var(--text); font-weight: 550; }
+    .recommendation-meta { grid-column: 1; display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); }
+    .recommendation-replies { grid-column: 2; grid-row: 1 / 3; align-self: center; display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+    .recommendation-replies svg { width: 13px; height: 13px; }
+    .bookmark-button[aria-pressed="true"] { color: var(--blue); }
+    .composer { padding: 0 25px 12px; border-top: 1px solid var(--border); background: var(--content); }
+    .composer label { display: block; margin: 12px 0 8px; font-size: 12px; color: var(--secondary); }
+    .composer textarea { width: 100%; min-height: 90px; max-height: 160px; padding: 10px; resize: vertical; border: 1px solid var(--strong-border); border-radius: 6px; background: var(--content); font-size: 14px; }
+    .composer-actions { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+    .composer-actions small { font-size: 11px; color: var(--muted); margin-left: auto; }
+    .empty-state { text-align: center; padding: 48px 18px; color: var(--muted); }
+    .empty-state > svg { width: 27px; height: 27px; margin-bottom: 8px; }
+    .empty-state strong { display: block; color: var(--secondary); font-size: 14px; }
+    .empty-state p { font-size: 12px; line-height: 1.6; }
+    .study-notes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; padding: 20px 33px 20px; }
+    .study-note { display: flex; align-items: baseline; gap: 9px; font-size: 12px; line-height: 1.5; color: var(--secondary); }
+    .study-note > span { font-size: 10px; font-weight: 650; text-transform: uppercase; letter-spacing: .055em; color: var(--muted); flex: 0 0 auto; }
+    .study-note p { margin: 0; }
+    dialog { color: var(--text); background: var(--content); border: 1px solid var(--strong-border); border-radius: 10px; padding: 0; box-shadow: 0 12px 45px #0003; max-width: calc(100vw - 24px); max-height: calc(100dvh - 36px); }
+    dialog::backdrop { background: #0b142118; }
+    .post-menu { position: fixed; margin: 0; width: 238px; max-height: calc(100dvh - 24px); overflow-y: auto; padding: 6px; border: 1px solid var(--strong-border); border-radius: 9px; color: var(--text); background: var(--content); box-shadow: 0 9px 32px #0002; }
+    .post-menu-label { padding: 6px 10px 8px; color: var(--muted); font-size: 11px; }
+    .post-menu-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; width: 100%; text-align: left; font-size: 13px; border-radius: 5px; }
+    .post-menu-item svg { width: 16px; height: 16px; color: var(--muted); }
+    .post-menu-item:hover, .post-menu-item:focus-visible { background: var(--hover); }
+    .post-menu-item.destructive, .post-menu-item.destructive svg { color: #b34e59; }
+    [data-theme="dark"] .post-menu-item.destructive, [data-theme="dark"] .post-menu-item.destructive svg { color: #ed9ba4; }
+    .post-menu [role="separator"] { height: 1px; background: var(--border); margin: 5px 4px; }
+    .picker { width: 340px; position: fixed; margin: 0; }
+    .picker[data-kind="period"] { width: 240px; }
+    .picker[data-kind="post-edit"] { width: 520px; }
+    .post-editor { padding: 4px 6px; }
+    .post-editor textarea { display: block; width: 100%; min-height: 220px; resize: vertical; padding: 10px; border: 1px solid var(--strong-border); border-radius: 6px; background: var(--content); font-size: 13px; line-height: 1.6; }
+    .post-editor-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+    .post-link { padding: 9px; }
+    .post-link input { width: 100%; padding: 9px; border: 1px solid var(--strong-border); border-radius: 5px; background: var(--content); font-size: 12px; }
+    .picker-header { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px; }
+    .picker-header strong { font-size: 13px; }
+    .picker-header .icon-button { margin-left: auto; width: 26px; height: 26px; }
+    .picker-search-wrap { display: flex; align-items: center; gap: 8px; padding: 0 14px; margin: 4px 11px 10px; border: 1px solid var(--strong-border); border-radius: 6px; color: var(--muted); }
+    .picker-search-wrap svg { width: 15px; height: 15px; }
+    .picker-search-wrap input { padding: 10px 0; width: 100%; border: 0; background: none; font-size: 13px; }
+    .picker-options { overflow-y: auto; max-height: min(365px, 47dvh); padding: 0 6px 8px; }
+    .picker-group { color: var(--muted); font-size: 10px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; padding: 10px 9px 6px; }
+    .picker-option { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 5px; width: 100%; text-align: left; font-size: 13px; }
+    .picker-option:hover { background: var(--hover); }
+    .picker-option[aria-pressed="true"] { background: var(--blue-soft); color: var(--blue); }
+    .picker-option .check { margin-left: auto; width: 14px; height: 14px; }
+    .picker-option .option-count { margin-left: auto; font-size: 11px; color: var(--muted); }
+    .picker-option.child { padding-left: 27px; }
+    .picker-option.remove-option { color: #b34e59; }
+    [data-theme="dark"] .picker-option.remove-option { color: #ed9ba4; }
+    .picker-option .option-description { display: block; font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 3px; }
+    .picker-option .avatar { width: 27px; height: 27px; font-size: 9px; }
+    .toast { position: fixed; bottom: 23px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--content); padding: 11px 17px; border-radius: 7px; box-shadow: var(--shadow); font-size: 13px; z-index: 20; }
+    /* Each concept changes the placement and density, using the same forum data. */
+    [data-concept="scope"] .scopebar { display: flex; }
+    [data-concept="scope"] .inline-filters { display: none; }
+    [data-concept="scope"] .list-toolbar { padding-bottom: 14px; }
+    [data-concept="scope"] .list-pane { background: var(--content); }
+    [data-concept="scope"] .topic-row { padding-top: 13px; padding-bottom: 13px; }
+    [data-concept="scope"] .row-preview { display: none; }
+    [data-concept="scope"] .row-taxonomy { grid-column: 1; }
+    [data-concept="scope"] .row-replies { grid-row: 2; }
+    [data-concept="scope"] .reader-pane { background: var(--list); }
+    [data-concept="scope"] .topic-header { display: flex; flex-direction: column; padding-top: 9px; padding-bottom: 20px; }
+    [data-concept="scope"] .topic-heading { order: -1; margin: 7px 0 13px; font-size: 22px; }
+    [data-concept="scope"] .topic-summary { margin-top: 15px; }
+    [data-concept="scope"] .context-tag { background: transparent; padding-left: 2px; }
+    [data-concept="scope"] .category-control { background: var(--content); }
+    [data-concept="scope"] .post { border: 1px solid var(--border); border-radius: 9px; padding: 20px; margin-bottom: 13px; background: var(--content); }
+    [data-concept="scope"] .topic-divider { margin-bottom: 13px; }
+    [data-concept="scope"] .reader-footer { background: var(--list); }
+    [data-concept="desk"] .shell { grid-template-columns: 56px minmax(0, 1fr); }
+    [data-concept="desk"] .community-nav { display: none; }
+    [data-concept="desk"] .command-filter { display: flex; }
+    [data-concept="desk"] .list-pane { background: var(--nav); }
+    [data-concept="desk"] .list-heading h2 { font-size: 15px; }
+    [data-concept="desk"] .topic-row { padding-top: 15px; padding-bottom: 15px; }
+    [data-concept="desk"] .row-taxonomy .row-tag { display: none; }
+    [data-concept="desk"] .reader-toolbar { padding: 14px 26px 0; }
+    [data-concept="desk"] .topic-header { width: min(100%, 830px); margin: 0 auto; padding: 25px 46px 22px; display: flex; flex-direction: column; }
+    [data-concept="desk"] .topic-heading { font-size: 29px; font-weight: 600; order: -1; margin: 0 0 17px; }
+    [data-concept="desk"] .topic-summary { margin-top: 18px; }
+    [data-concept="desk"] .reader-scroll { padding-inline: max(46px, calc((100% - 738px) / 2)); }
+    [data-concept="desk"] .post { padding-top: 27px; padding-bottom: 25px; }
+    [data-concept="desk"] .post-body { font-size: 16px; line-height: 1.8; }
+    [data-concept="desk"] .reader-footer { padding-inline: 35px; }
+    [data-concept="desk"] .window-search { visibility: hidden; }
+    [data-view="list"] .workspace-grid { grid-template-columns: minmax(0, 1fr); }
+    [data-view="list"] .reader-pane, [data-view="list"] .resize-handle { display: none; }
+    [data-view="list"] .list-toolbar { padding-left: 26px; padding-right: 26px; }
+    [data-view="list"] .feed-subnav { max-width: 340px; }
+    [data-view="list"] .list-heading { margin-bottom: 15px; }
+    [data-view="list"] .inline-filters { display: inline-flex; }
+    [data-view="list"][data-concept="scope"] .inline-filters { display: none; }
+    [data-view="list"] .command-filter { max-width: 390px; }
+    [data-view="list"] .list-pane { background: var(--content); }
+    [data-view="list"] .topic-list { padding: 0 18px 15px; }
+    [data-view="list"] .topic-row { grid-template-columns: minmax(0, 1fr) 85px 70px 50px; align-items: center; padding: 18px 12px 18px 21px; }
+    [data-view="list"] .row-title { display: block; font-size: 14px; grid-column: 1; grid-row: 1; }
+    [data-view="list"] .row-taxonomy { grid-column: 1; grid-row: 2; }
+    [data-view="list"] .row-preview { display: none; }
+    [data-view="list"] .row-time { grid-column: 4; grid-row: 1 / 3; text-align: right; }
+    [data-view="list"] .row-replies { grid-column: 3; grid-row: 1 / 3; justify-content: center; }
+    [data-view="list"] .row-wide { display: flex; justify-content: end; grid-column: 2; grid-row: 1 / 3; }
+    [data-view="list"] .row-wide .avatar { width: 25px; height: 25px; font-size: 8px; }
+    [data-view="list"] .topic-row[aria-current="true"] { background: transparent; border-color: transparent; border-bottom-color: var(--border); border-radius: 0; }
+    [data-view="list"] .topic-row[aria-current="true"]:hover { background: var(--hover); }
+    @media (min-width: 1700px) { .app-frame { max-width: 1700px; margin-inline: auto; } .study-header, .intro, .study-notes { max-width: 1754px; margin-inline: auto; } }
+    @media (max-width: 1190px) {
+      .shell { grid-template-columns: 50px 154px minmax(0, 1fr); }
+      .community-nav { padding-inline: 7px; }
+      .community-name { font-size: 12px; }
+      .nav-item { font-size: 12px; }
+      .study-header { padding-inline: 22px; gap: 12px; }
+      .study-controls { flex: 0 0 auto; }
+      .concept-tab { padding: 8px 10px; }
+      .workspace-grid { grid-template-columns: min(var(--list-width), calc(100% - 355px)) 5px minmax(0, 1fr); }
+      .topic-header { padding-inline: 20px; }
+      .reader-scroll { padding-inline: 20px; }
+      .scopebar { gap: 1px; padding-inline: 9px; }
+      .scopebar-label { display: none; }
+      .scope-tab { padding-inline: 8px; }
+      .study-note { display: block; }
+      .study-note p { margin-top: 3px; }
+    }
+    @media (max-width: 1010px) {
+      .shell { grid-template-columns: 50px minmax(0, 1fr); }
+      .community-nav { display: none; }
+      .study-brand small { display: none; }
+      .study-brand { flex: 0 0 auto; }
+      .study-controls { margin-left: auto; }
+      .study-controls .view-label { display: none; }
+      .topic-heading { font-size: 21px; }
+      [data-concept="desk"] .topic-header { padding: 20px 28px; }
+      [data-concept="desk"] .reader-scroll { padding-inline: 28px; }
+      [data-concept="desk"] .topic-heading { font-size: 25px; }
+      .intro .prototype-label { display: none; }
+    }
+    @media (max-width: 760px) {
+      .study-header { flex-wrap: wrap; padding: 16px 14px 12px; }
+      .study-brand { flex: 1; }
+      .study-brand small { display: block; }
+      .concept-tabs { order: 3; width: 100%; justify-content: center; }
+      .concept-tab { flex: 1; justify-content: center; padding-inline: 6px; font-size: 12px; }
+      .intro { padding: 0 16px 13px; }
+      .intro p { font-size: 12px; }
+      .app-frame { margin-inline: 10px; min-height: 620px; height: calc(100dvh - 260px); }
+      .titlebar { padding-inline: 12px; }
+      .traffic-lights { padding-right: 2px; }
+      .window-search input { width: 115px; }
+      .window-search kbd { display: none; }
+      .shell, [data-concept="desk"] .shell { grid-template-columns: minmax(0, 1fr); }
+      .site-rail { display: none; }
+      .workspace-grid { grid-template-columns: minmax(0, 1fr); }
+      [data-view="split"] .list-pane, .resize-handle { display: none; }
+      .reader-toolbar { padding-inline: 12px; }
+      .reader-toolbar .reader-location { font-size: 11px; }
+      .reader-counter { display: none; }
+      .topic-header { padding: 15px 20px 20px; }
+      .topic-heading { font-size: 22px; }
+      .reader-scroll { padding-inline: 20px; }
+      .reader-footer { padding-inline: 15px; }
+      .more-topics-button .wide-label { display: none; }
+      .more-topics-button .short-label { display: inline; }
+      .assignment-controls { margin-left: 0; }
+      .study-notes { grid-template-columns: 1fr; gap: 12px; padding: 19px 17px; }
+      .study-note { display: flex; }
+      .study-note p { margin-top: 0; }
+      [data-view="list"] .topic-row { grid-template-columns: minmax(0, 1fr) 35px; padding-left: 15px; }
+      [data-view="list"] .row-time { grid-column: 2; grid-row: 1; }
+      [data-view="list"] .row-replies { grid-column: 2; grid-row: 2; }
+      [data-view="list"] .row-wide { display: none; }
+      .scopebar { overflow-x: auto; }
+      .scopebar .filter-button { flex: 0 0 auto; }
+      .post-body { font-size: 15px; }
+      [data-concept="desk"] .topic-header { padding: 20px; }
+      [data-concept="desk"] .reader-scroll { padding-inline: 20px; }
+      [data-concept="desk"] .reader-footer { padding-inline: 15px; }
+      [data-concept="scope"] .post { padding: 15px; }
+    }
+    @media (prefers-reduced-motion: no-preference) { button { transition: background-color 100ms, color 100ms; } }
+    @media print { .study-header, .intro, .study-notes { display: none; } .app-frame { height: 900px; margin: 0; box-shadow: none; } }
+  </style>
+</head>
+<body data-concept="inbox" data-theme="light" data-view="split">
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <symbol id="i-topics" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9h8M8 12h5"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></symbol>
+      <symbol id="i-left" viewBox="0 0 24 24"><path d="m14 7-5 5 5 5"/></symbol>
+      <symbol id="i-right" viewBox="0 0 24 24"><path d="m10 7 5 5-5 5"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="m10 6-6 6 6 6M4 12h16"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></symbol>
+      <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+      <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 4h8l10 10-7 7L3 10V4Z"/><circle cx="7.5" cy="8" r=".8"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+      <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4V4Z"/></symbol>
+      <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20 5c-3-3-7-1-8 2-1-3-5-5-8-2-5 5 2 10 8 15 6-5 13-10 8-15Z"/></symbol>
+      <symbol id="i-reply" viewBox="0 0 24 24"><path d="m9 5-6 6 6 6M3 11h10c5 0 7 3 7 8"/></symbol>
+      <symbol id="i-split" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M10 4v16M6 8h1M6 12h1"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M3 6h1M3 12h1M3 18h1"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1 1M18 18l1 1M5 19l1-1M18 6l1-1"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14A8 8 0 0 1 10 4a8.5 8.5 0 1 0 10 10Z"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5l-2 3ZM10 21h4"/></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4V4Z"/></symbol>
+      <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M8 19V5l-4 4m4-4 4 4M17 5v14l-4-4m4 4 4-4"/></symbol>
+      <symbol id="i-user-plus" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M19 7v6M16 10h6"/></symbol>
+      <symbol id="i-open" viewBox="0 0 24 24"><path d="m6 18 12-12M7 6h11v11"/></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><path d="m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0m0 2 1-1a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0" transform="translate(2 1)"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14v6Z"/></symbol>
+      <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4c5-4 9 4 14 0v11c-5 4-9-4-14 0"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V3h6v4M6 7l1 14h10l1-14M10 11v6M14 11v6"/></symbol>
+    </defs>
+  </svg>
+  <header class="study-header">
+    <div class="study-brand"><svg class="icon study-mark" aria-hidden="true"><use href="#i-topics"/></svg><div><strong>Discourse Native</strong><small>Topic workspace studies</small></div></div>
+    <nav class="concept-tabs" aria-label="Layout concepts">
+      <button class="concept-tab" data-action="concept" data-value="inbox" aria-pressed="true"><span>01</span> Inbox</button>
+      <button class="concept-tab" data-action="concept" data-value="scope" aria-pressed="false"><span>02</span> Scope bar</button>
+      <button class="concept-tab" data-action="concept" data-value="desk" aria-pressed="false"><span>03</span> Reading desk</button>
+    </nav>
+    <div class="study-controls">
+      <button class="text-button outline-button" data-action="view" id="view-toggle" aria-label="Show full topic list"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg><span class="view-label">List only</span></button>
+      <button class="icon-button" data-action="theme" id="theme-toggle" aria-label="Switch to dark theme"><svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg></button>
+    </div>
+  </header>
+  <div class="intro"><p id="concept-description"><strong>A familiar inbox, built for a forum.</strong> Filters stay with the list; category and tags lead into the title.</p><span class="prototype-label">Interactive mockups · sample content</span></div>
+  <main class="app-frame" aria-label="Discourse Native topic workspace prototype">
+    <div class="titlebar">
+      <div class="traffic-lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <span class="window-title">Discourse Meta</span>
+      <label class="window-search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only">Search topic titles and content</span><input id="topic-search" placeholder="Search topics" type="search" autocomplete="off"><kbd>/</kbd></label>
+    </div>
+    <div class="shell">
+      <aside class="site-rail" aria-label="Connected communities">
+        <div class="site active" aria-label="Discourse Meta"><svg class="icon" aria-hidden="true"><use href="#i-topics"/></svg></div>
+        <div class="site" aria-label="Another community">D</div>
+        <div class="rail-divider"></div>
+        <svg class="icon muted" aria-hidden="true"><use href="#i-grid"/></svg>
+        <span class="rail-bottom avatar purple" aria-label="Your profile">JJ</span>
+      </aside>
+      <aside class="community-nav" aria-label="Community navigation">
+        <div class="community-name">Discourse Meta<svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></div>
+        <button class="nav-item selected" data-action="feed" data-value="recent"><svg class="icon" aria-hidden="true"><use href="#i-topics"/></svg>Topics</button>
+        <button class="nav-item" data-action="feed" data-value="new"><svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg>New<span class="nav-count" id="new-count"></span></button>
+        <button class="nav-item" data-action="feed" data-value="unread"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg>Unread<span class="nav-count" id="unread-count"></span></button>
+        <button class="nav-item" data-action="feed" data-value="bookmarks"><svg class="icon" aria-hidden="true"><use href="#i-bookmark"/></svg>Bookmarks</button>
+        <div class="nav-label">Categories</div>
+        <div id="nav-categories"></div>
+        <div class="nav-label">Tags</div>
+        <button class="nav-item" data-action="scope-tag" data-value="onboarding"><svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>onboarding</button>
+        <button class="nav-item" data-action="scope-tag" data-value="native-app"><svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>native-app</button>
+        <button class="nav-item" data-action="scope-tag" data-value="community"><svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>community</button>
+        <div class="nav-foot"><span class="avatar purple">JJ</span><span>Joffrey</span></div>
+      </aside>
+      <section class="workspace" aria-label="Topic list and selected topic">
+        <nav class="scopebar" aria-label="Category and tag filters" id="scopebar"></nav>
+        <div class="workspace-grid" id="workspace-grid">
+          <section class="list-pane" aria-label="Topic list">
+            <div class="list-toolbar">
+              <div class="list-heading"><h2 id="list-title">Topics</h2><span class="list-actions"><button class="icon-button" data-action="sort" id="sort-button" aria-label="Reverse topic order"><svg class="icon" aria-hidden="true"><use href="#i-arrow-up"/></svg></button><button class="icon-button" data-action="view" aria-label="Toggle full topic list"><svg class="icon" aria-hidden="true"><use href="#i-split"/></svg></button></span></div>
+              <nav class="feed-tabs" aria-label="Topic feeds">
+                <button class="feed-tab" data-action="feed" data-value="recent" aria-pressed="true">Recent</button>
+                <button class="feed-tab" data-action="feed" data-value="new" aria-pressed="false">New</button>
+                <button class="feed-tab" data-action="feed" data-value="top" aria-pressed="false">Top</button>
+                <button class="feed-tab" data-action="feed" data-value="trending" aria-pressed="false">Trending</button>
+              </nav>
+              <div class="feed-subnav" id="feed-subnav" hidden></div>
+              <div class="inline-filters" id="inline-filters"></div>
+              <button class="filter-button command-filter" data-action="picker" data-value="command"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span>Search topics</span><kbd>/</kbd></button>
+            </div>
+            <div class="topic-list" id="topic-list"></div>
+          </section>
+          <div class="resize-handle" id="resize-handle" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize topic list" aria-valuemin="250" aria-valuemax="450" aria-valuenow="325"></div>
+          <section class="reader-pane" aria-label="Selected topic" id="reader-pane">
+            <div class="reader-toolbar">
+              <button class="icon-button" data-action="close-topic" aria-label="Close topic and return to full list"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></button>
+              <span class="reader-location"><svg class="icon" aria-hidden="true"><use href="#i-topics"/></svg><span>Topic</span></span>
+              <span class="spacer"></span><span class="reader-counter" id="reader-counter"></span>
+              <button class="icon-button" id="previous-topic" data-action="previous" aria-label="Previous topic"><svg class="icon" aria-hidden="true"><use href="#i-left"/></svg></button>
+              <button class="icon-button" id="next-topic" data-action="next" aria-label="Next topic"><svg class="icon" aria-hidden="true"><use href="#i-right"/></svg></button>
+            </div>
+            <header class="topic-header" id="topic-header"></header>
+            <div class="reader-scroll" id="reader-scroll"></div>
+            <form class="composer" id="composer" hidden>
+              <label for="reply-text">Reply to this topic</label><textarea id="reply-text" placeholder="Add to the topic…" required></textarea>
+              <div class="composer-actions"><button class="primary-button" type="submit">Add reply</button><button class="text-button" data-action="cancel-reply" type="button">Cancel</button><small>Local mockup only</small></div>
+            </form>
+            <footer class="reader-footer">
+              <button class="primary-button" data-action="reply"><svg class="icon" aria-hidden="true"><use href="#i-reply"/></svg>Reply</button>
+              <button class="icon-button bookmark-button" data-action="bookmark" id="bookmark-button" aria-label="Bookmark topic" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-bookmark"/></svg></button>
+              <button class="text-button" data-action="watch" id="watch-button"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg><span>Tracking</span><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+              <button class="text-button more-topics-button" data-action="more-topics" aria-label="Jump to Related and Suggested topics"><span class="wide-label">Related / Suggested</span><span class="short-label">More topics</span><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+            </footer>
+          </section>
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer class="study-notes" aria-label="Concept notes">
+    <div class="study-note"><span>Filters</span><p id="note-filter">Category and tag selections stay inside their dropdowns.</p></div>
+    <div class="study-note"><span>Context</span><p id="note-context">Colored category and tag chips sit directly above the title.</p></div>
+    <div class="study-note"><span>Reading</span><p id="note-reading">Assign beside the title; Related and Suggested below the posts.</p></div>
+  </footer>
+  <dialog class="picker" id="picker" aria-labelledby="picker-title">
+    <div class="picker-header"><strong id="picker-title">Filter by category</strong><button class="icon-button" data-action="close-picker" aria-label="Close picker"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <label class="picker-search-wrap"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only">Search available filters</span><input id="picker-search" type="search" placeholder="Find a category…" autocomplete="off"></label>
+    <div class="picker-options" id="picker-options"></div>
+  </dialog>
+  <div class="post-menu" id="post-menu" popover="auto" role="menu" aria-label="Post actions"></div>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <div class="sr-only" id="announcer" role="status" aria-live="polite"></div>
+  <script>
+    "use strict";
+    const $ = (id) => document.getElementById(id);
+    const icon = (name, extra = "") => `<svg class="icon ${extra}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+    const escapeHTML = (value) => String(value).replace(/[&<>"']/g, (c) => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]);
+    const categories = [
+      { id: "ux", name: "UX", color: "#9b76c5" },
+      { id: "onboarding", name: "Onboarding", parent: "ux", color: "#9b76c5" },
+      { id: "accessibility", name: "Accessibility", parent: "ux", color: "#9b76c5" },
+      { id: "feature", name: "Feature", color: "#da9854" },
+      { id: "support", name: "Support", color: "#68a383" },
+      { id: "dev", name: "Dev", color: "#6599bb" },
+      { id: "announcements", name: "Announcements", color: "#c67677" },
+      { id: "uncategorized", name: "Uncategorized", color: "#929aa6" }
+    ];
+    const people = {
+      maya: { name: "Maya Chen", initials: "MC", color: "", handle: "maya" },
+      oliver: { name: "Oliver Scott", initials: "OS", color: "peach", handle: "oliver" },
+      nina: { name: "Nina Patel", initials: "NP", color: "purple", handle: "nina" },
+      alex: { name: "Alex Morgan", initials: "AM", color: "olive", handle: "alex" },
+      sam: { name: "Sam Rivera", initials: "SR", color: "blue", handle: "sam" }
+    };
+    const topics = [
+      { id: 1, title: "Making the first week feel more welcoming", category: "onboarding", tags: ["onboarding", "community"], author: "maya", last: "oliver", activity: "12m", minutes: 12, replies: 18, views: "1.2k", unread: true, isNew: false, excerpt: "A small nudge at the right moment can go a long way.", lead: "We've been looking at the first few days after someone joins our community. People are finding answers, but many leave before they make their first connection.", body: "I'd like to try a lighter welcome experience — something that feels like an invitation from a person, with a clear next step.", points: ["A short welcome from a real community member", "One topic that matches their interests", "An easy way to introduce themselves when they're ready"], ending: "What has worked in your community? I'd especially love to hear about the small things that made a difference.", response: "The personal welcome made the biggest difference for us. We ask a regular member to say hello and point to a topic they might enjoy. It feels much more natural than a checklist.", likes: 24 },
+      { id: 2, title: "A home for saved topics", category: "feature", tags: ["bookmarks", "native-app"], author: "nina", last: "sam", activity: "28m", minutes: 28, replies: 9, views: "420", unread: true, isNew: true, excerpt: "It would be nice to give bookmarks a little more structure.", lead: "My bookmarks have slowly become a mixture of useful answers, things to read later, and topics I want to come back to.", body: "Could we group saved topics into a few personal collections? I'd start with Read later and Reference, and keep reminders as a separate choice.", ending: "Curious how other people organize the discussions they want to keep.", response: "I use bookmarks for exactly these two things. A small set of collections would help, especially if moving a topic only takes one click.", likes: 12, bookmarked: true },
+      { id: 3, title: "Let members choose a quieter notification schedule", category: "feature", tags: ["notifications", "community"], author: "alex", last: "maya", activity: "42m", minutes: 42, replies: 14, views: "680", unread: false, isNew: false, excerpt: "The digest is often all I need on a busy day.", lead: "Our community has people in a lot of time zones. A few members have asked for a simple way to put nonessential notifications on a schedule.", body: "They still want to hear about direct replies, but would prefer a single digest for everything else. A weekday schedule could make that a lot easier to manage.", ending: "How do you balance staying involved with keeping interruptions down?", response: "The distinction between direct replies and general activity feels right. I'd want to choose my own quiet hours and keep mentions available.", likes: 17 },
+      { id: 4, title: "Keyboard navigation through topic lists", category: "accessibility", tags: ["accessibility", "native-app"], author: "sam", last: "nina", activity: "1h", minutes: 61, replies: 7, views: "310", unread: true, isNew: true, excerpt: "Keeping focus visible is the most important part.", lead: "I've been trying to browse the community without reaching for the mouse. Moving between topics works well in some places, but I lose track of focus after opening a topic.", body: "A consistent focus ring and a predictable way back to the list would make this much easier. The focused row should stay in view as the list scrolls.", ending: "I'd be happy to test a few approaches with other keyboard users.", response: "Keeping focus on the selected topic when you return to the list would solve most of this for me. The position should stay stable too.", likes: 15 },
+      { id: 5, title: "How do you organize a growing knowledge base?", category: "support", tags: ["community", "solved"], author: "oliver", last: "alex", activity: "2h", minutes: 121, replies: 23, views: "940", unread: false, isNew: false, excerpt: "We landed on fewer categories and more descriptive tags.", lead: "Our support community has grown from a few dozen useful answers to several thousand. The category structure that worked at the beginning is becoming hard to navigate.", body: "We're considering fewer broad categories with tags for specific products and tasks. I'd love to see examples from communities that have made a similar change.", ending: "How did you decide which categories to keep?", response: "We started with the search terms people actually used, then matched tags to those tasks. Fewer categories made the front page easier to understand.", likes: 8 },
+      { id: 6, title: "Small improvements to the mobile composer", category: "ux", tags: ["mobile", "native-app"], author: "maya", last: "nina", activity: "3h", minutes: 181, replies: 11, views: "560", unread: false, isNew: true, excerpt: "A little extra space above the keyboard really helps.", lead: "I've collected a few small friction points from writing longer replies on a phone. The toolbar takes up space when I'm only typing, and it's easy to lose my place after inserting a link.", body: "A compact toolbar and keeping the cursor visible after an insertion would make the composer feel calmer on a small screen.", ending: "Which part of writing on mobile would you improve first?", response: "Keeping the cursor in view would be my first choice too. I often need to scroll back to see what I just pasted.", likes: 21 },
+      { id: 7, title: "Community highlights: the topics we loved", category: "announcements", tags: ["community"], author: "alex", last: "oliver", activity: "4h", minutes: 241, replies: 6, views: "2.1k", unread: false, isNew: false, excerpt: "Thanks to everyone who shared what they learned.", lead: "This month's highlights are all about people helping each other get started. We saw some wonderfully thoughtful answers and a few very generous behind-the-scenes tours.", body: "Thank you to everyone who took a moment to welcome someone new, document a solution, or come back and share what worked.", ending: "What was your favorite topic this month?", response: "The onboarding discussion was a highlight for me. We tried one of the suggestions the next day and already had a lovely introduction from a new member.", likes: 36 },
+      { id: 8, title: "Measuring what makes topic loading feel fast", category: "dev", tags: ["performance", "native-app"], author: "sam", last: "alex", activity: "5h", minutes: 302, replies: 16, views: "720", unread: true, isNew: false, excerpt: "The time to readable content is the number to watch.", lead: "We're measuring the time between selecting a topic and being able to read its first post. Network time is only part of the picture; layout and image sizing also affect how fast the screen feels.", body: "The next step is to compare a cached topic with a first visit, using the same set of long discussions and image-heavy posts.", ending: "If you have a topic that feels particularly slow, please share what kind of content it contains.", response: "Posts with several large images are a good stress test. Reserving their space early seems to make the reading experience much more stable.", likes: 14 },
+      { id: 9, title: "Welcome messages that sound like us", category: "onboarding", tags: ["onboarding", "community"], author: "nina", last: "maya", activity: "6h", minutes: 363, replies: 8, views: "390", unread: false, isNew: true, excerpt: "We replaced the instructions with one simple question.", lead: "We rewrote our welcome message last week. The old version explained every feature; the new one introduces the people behind the community and asks what brought someone here.", body: "The replies have been more personal, and we've been able to connect newcomers with members who share their interests.", ending: "Happy to compare notes if you're working on a similar change.", response: "One simple question is a lovely way to start. We might try asking what someone hopes to learn, then point them toward an existing topic.", likes: 19, bookmarked: true },
+      { id: 10, title: "Improving contrast on category labels", category: "accessibility", tags: ["accessibility", "design"], author: "oliver", last: "sam", activity: "8h", minutes: 480, replies: 5, views: "275", unread: false, isNew: false, excerpt: "Color can help, but the label should do the work.", lead: "Some category colors look great as markers but are difficult to read as a background for text. This is especially noticeable with custom themes.", body: "Could we keep the color as a small marker and use a consistent text color for the category name? That would preserve recognition while making labels easier to read.", ending: "I've collected examples from both light and dark themes.", response: "A colored marker with a plain label would help a lot. It also gives categories a consistent shape when people choose similar colors.", likes: 10 },
+      { id: 11, title: "Drafts across desktop and mobile", category: "feature", tags: ["mobile", "native-app"], author: "alex", last: "nina", activity: "1d", minutes: 1441, replies: 12, views: "610", unread: false, isNew: false, excerpt: "Picking up a reply on another device should feel natural.", lead: "I often start a longer reply on my phone and finish it at my desk. Finding the right draft again is the part that interrupts the flow.", body: "A small draft indicator on the topic and one consistent place to see unfinished replies could make the transition much clearer.", ending: "Does anyone else switch devices while writing?", response: "All the time. Showing the draft on its topic would be enough for me, as long as the last saved time is easy to see.", likes: 13 },
+      { id: 12, title: "Share your community's favorite tradition", category: "support", tags: ["community"], author: "maya", last: "oliver", activity: "1d", minutes: 1600, replies: 31, views: "1.5k", unread: false, isNew: false, excerpt: "Our Friday show-and-tell is still going after four years.", lead: "Every community seems to develop a few traditions that make it feel like a place people belong. Ours is a monthly thread where members share something they've made.", body: "It started as a one-off topic and quietly became the thing people look forward to. I'd love to hear about the recurring topics or small rituals in your community.", ending: "What keeps people coming back?", response: "Friday show-and-tell has been running for four years now. There are no rules beyond sharing something you're proud of, however small.", likes: 29 }
+    ];
+    const concepts = {
+      inbox: { width: 325, description: "<strong>A familiar inbox, built for a forum.</strong> Filters stay with the list; category and tags lead into the title.", filter: "New has All, Topics, and Replies; Top has a period picker.", context: "Click category labels to edit; their arrows browse that category.", reading: "Assign beside the title; Related and Suggested below the posts." },
+      scope: { width: 295, description: "<strong>Browse by category, read in columns.</strong> A visible category strip makes switching scope a single click.", filter: "Category scope and selected tags appear once in the top bar.", context: "Editable category and tags sit directly below the editable title.", reading: "Topic assignment in the header; post assignments on each post." },
+      desk: { width: 300, description: "<strong>More room to read.</strong> Compact navigation, separate category filters, and a generous reading lane.", filter: "Parent, subcategory, and tags each have their own dropdown.", context: "A larger editable title leads, with category and tag controls below.", reading: "Related and Suggested are one click away in the topic footer." }
+    };
+    const knownTags = [...new Set(topics.flatMap((t) => t.tags))].sort();
+    const assignees = Object.entries(people).map(([id, person]) => ({ id, name: person.name, group: false }));
+    assignees.push({ id: "design-team", name: "Design team", group: true }, { id: "community-team", name: "Community team", group: true });
+    topics[0].postAssignees = { 2: "nina" };
+    topics[1].assignee = "sam";
+    // Sample ages let each Top period demonstrate a different set of topics.
+    [3, 8, 20, 0.2, 95, 2, 7, 185, 0.4, 40, 1.8, 440].forEach((days, index) => topics[index].createdDays = days);
+    const topPeriods = [
+      { id: "daily", label: "Today", days: 1 }, { id: "weekly", label: "Week", days: 7 },
+      { id: "monthly", label: "Month", days: 30 }, { id: "quarterly", label: "Quarter", days: 90 },
+      { id: "yearly", label: "Year", days: 365 }, { id: "all", label: "All time", days: Infinity }
+    ];
+    const state = { concept: "inbox", view: "split", selected: 1, category: "", tags: [], query: "", feed: "recent", newSubset: "all", topPeriod: "yearly", reversed: false, picker: "", editingTag: "", editingTitle: null, assignmentPost: null, recommendationsTab: "related", watched: new Set(), liked: new Set(), drafts: new Map(), scroll: new Map(), extraReplies: new Map(), postStates: new Map() };
+    const cat = (id) => categories.find((c) => c.id === id);
+    const topic = () => topics.find((t) => t.id === state.selected);
+    const categoryLabel = (id) => { const c = cat(id); return c.parent ? `${cat(c.parent).name} › ${c.name}` : c.name; };
+    const dot = (id) => `<span class="category-dot" style="--category:${cat(id).color}"></span>`;
+    const avatar = (key) => `<span class="avatar ${people[key].color}">${people[key].initials}</span>`;
+    function scopedTopics() {
+      return topics.filter((t) => (!state.category || t.category === state.category || cat(t.category).parent === state.category) && state.tags.every((tag) => t.tags.includes(tag)) && (!state.query || `${t.title} ${t.lead} ${t.excerpt}`.toLowerCase().includes(state.query.toLowerCase())));
+    }
+    function inNewSubset(t, subset) { return subset === "topics" ? t.isNew : subset === "replies" ? t.unread && !t.isNew : t.isNew || t.unread; }
+    function matchingTopics() {
+      const period = topPeriods.find((p) => p.id === state.topPeriod);
+      const result = scopedTopics().filter((t) => (state.feed !== "new" || inNewSubset(t, state.newSubset)) && (state.feed !== "top" || t.createdDays <= period.days) && (state.feed !== "unread" || t.unread) && (state.feed !== "bookmarks" || t.bookmarked));
+      if (state.feed === "top") result.sort((a, b) => b.likes - a.likes);
+      else if (state.feed === "trending") result.sort((a, b) => b.replies / Math.sqrt(b.minutes) - a.replies / Math.sqrt(a.minutes));
+      else result.sort((a, b) => a.minutes - b.minutes);
+      if (state.reversed) result.reverse();
+      return result;
+    }
+    function renderFeedSubnav() {
+      const nav = $("feed-subnav");
+      const list = $("topic-list");
+      nav.hidden = !["new", "top"].includes(state.feed);
+      list.setAttribute("role", state.feed === "new" ? "tabpanel" : "region");
+      list.setAttribute("aria-labelledby", state.feed === "new" ? `new-${state.newSubset}-tab` : "list-title");
+      if (state.feed === "new") {
+        const scope = scopedTopics();
+        nav.innerHTML = `<div class="new-activity-tabs" role="tablist" aria-label="New activity">${["all", "topics", "replies"].map((subset) => `<button class="new-activity-tab" id="new-${subset}-tab" role="tab" aria-selected="${state.newSubset === subset}" aria-controls="topic-list" tabindex="${state.newSubset === subset ? 0 : -1}" data-action="new-subset" data-value="${subset}">${subset[0].toUpperCase() + subset.slice(1)}<span class="feed-count">${scope.filter((t) => inNewSubset(t, subset)).length}</span></button>`).join("")}</div>`;
+      } else if (state.feed === "top") {
+        const period = topPeriods.find((p) => p.id === state.topPeriod);
+        nav.innerHTML = `<div class="period-control"><span class="period-label">Period</span><button class="filter-button" data-action="picker" data-value="period" aria-label="Top period: ${period.label}">${icon("clock")}<span>${period.label}</span>${icon("chevron", "chevron")}</button></div>`;
+      } else nav.innerHTML = "";
+    }
+    function renderFilters() {
+      const selected = cat(state.category);
+      const parent = cat(selected?.parent) || selected;
+      const label = parent ? parent.name : "Categories";
+      const categoryButton = `<button class="filter-button ${parent ? "active" : ""}" data-action="picker" data-value="category" aria-label="Filter by category: ${escapeHTML(label)}">${parent ? dot(parent.id) : icon("grid")}<span>${escapeHTML(label)}</span>${icon("chevron", "chevron")}</button>`;
+      const childLabel = selected?.parent ? selected.name : "Subcategories";
+      const subcategoryButton = parent && categories.some((c) => c.parent === parent.id) ? `<button class="filter-button ${selected?.parent ? "active" : ""}" data-action="picker" data-value="subcategory" aria-label="Filter by subcategory: ${escapeHTML(childLabel)}">${selected?.parent ? dot(selected.id) : ""}<span>${escapeHTML(childLabel)}</span>${icon("chevron", "chevron")}</button>` : "";
+      const tagLabel = state.tags.length ? `${state.tags[0]}${state.tags.length > 1 ? ` +${state.tags.length - 1}` : ""}` : "Tags";
+      const tagButton = `<button class="filter-button ${state.tags.length ? "active" : ""}" data-action="picker" data-value="tag" aria-label="Filter by tags${state.tags.length ? `: ${escapeHTML(state.tags.join(", "))}` : ""}">${icon("tag")}<span>${escapeHTML(tagLabel)}</span>${icon("chevron", "chevron")}</button>`;
+      $("inline-filters").innerHTML = categoryButton + subcategoryButton + tagButton;
+      const scopeCategories = categories.filter((c) => !c.parent && !["announcements", "uncategorized"].includes(c.id));
+      const extraCategory = ["announcements", "uncategorized"].includes(state.category) ? categoryButton : `<button class="icon-button" data-action="picker" data-value="category" aria-label="More categories">${icon("chevron")}</button>`;
+      $("scopebar").innerHTML = `<span class="scopebar-label">Browse</span><button class="scope-tab" data-action="scope-category" data-value="" aria-pressed="${!state.category}">All categories</button>` + scopeCategories.map((c) => `<button class="scope-tab" data-action="scope-category" data-value="${c.id}" aria-pressed="${parent?.id === c.id}">${dot(c.id)}${c.name}</button>`).join("") + `${extraCategory}${subcategoryButton}<span class="vertical-rule"></span>${tagButton}`;
+      const command = document.querySelector(".command-filter");
+      command.querySelector("span").textContent = state.query || "Search topics";
+      command.setAttribute("aria-label", state.query ? `Search topics: ${state.query}` : "Search topics");
+      command.classList.toggle("active", Boolean(state.query));
+      $("topic-search").value = state.query;
+      document.querySelectorAll(".feed-tab").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === state.feed)));
+      document.querySelectorAll(".community-nav [data-action='feed']").forEach((b) => b.classList.toggle("selected", b.dataset.value === state.feed));
+      document.querySelectorAll("#nav-categories button").forEach((b) => b.classList.toggle("selected", state.category === b.dataset.value));
+      $("list-title").textContent = state.feed === "bookmarks" ? "Bookmarks" : state.feed === "unread" ? "Unread topics" : "Topics";
+      const sortLabel = state.feed === "top" ? (state.reversed ? "Fewest likes" : "Most liked") : state.feed === "trending" ? (state.reversed ? "Least active" : "Trending") : state.reversed ? "Oldest activity" : "Latest activity";
+      $("sort-button").setAttribute("aria-label", `${sortLabel} first. Reverse topic order`);
+      $("sort-button").setAttribute("aria-pressed", String(state.reversed));
+      renderFeedSubnav();
+    }
+    function renderList() {
+      const list = $("topic-list");
+      const scrollTop = list.scrollTop;
+      const result = matchingTopics();
+      list.innerHTML = result.map((t) => `<button class="topic-row ${t.unread ? "unread" : ""}" data-action="topic" data-value="${t.id}" aria-current="${state.selected === t.id}" aria-label="${escapeHTML(t.title)}${t.unread ? ", unread" : ""}">
+        ${t.unread ? '<span class="unread-dot" aria-hidden="true"></span>' : ""}<span class="row-title">${escapeHTML(t.title)}</span><span class="row-time">${t.activity}</span>
+        <span class="row-taxonomy">${dot(t.category)}<span>${cat(t.category).name}</span>${t.tags.slice(0, 2).map((tag) => `<span class="row-tag">${escapeHTML(tag)}</span>`).join("")}</span>
+        <span class="row-preview">${avatar(t.last)}<span>${escapeHTML(t.excerpt)}</span></span><span class="row-replies">${icon("chat")}${t.replies + (state.extraReplies.get(t.id)?.length || 0)}</span><span class="row-wide">${avatar(t.author)}${avatar(t.last)}</span>
+      </button>`).join("") || `<div class="empty-state">${icon("filter")}<strong>No matching topics</strong><p>Adjust the category or tags in the filters above.<br>Your open topic stays in place.</p></div>`;
+      list.scrollTop = scrollTop;
+      $("new-count").textContent = topics.filter((t) => inNewSubset(t, "all")).length;
+      $("unread-count").textContent = topics.filter((t) => t.unread).length;
+      updateNavigation();
+    }
+    function updateNavigation() {
+      const result = matchingTopics();
+      const index = result.findIndex((t) => t.id === state.selected);
+      $("reader-counter").textContent = index < 0 ? "" : `${index + 1} of ${result.length}`;
+      $("previous-topic").disabled = index <= 0;
+      $("next-topic").disabled = index < 0 ? !result.length : index === result.length - 1;
+    }
+    function renderTopicHeader() {
+      const t = topic();
+      const category = cat(t.category);
+      const parent = cat(category.parent) || category;
+      const categoryControl = (c, isChild = false) => `<span class="category-control" style="--category:${c.color}" role="group" aria-label="${isChild ? "Subcategory" : "Parent category"}"><button class="category-chip" data-action="picker" data-value="${isChild ? "topic-subcategory" : "topic-category"}" aria-label="Edit ${isChild ? "subcategory" : "category"}: ${escapeHTML(c.name)}">${dot(c.id)}<span>${escapeHTML(c.name)}</span>${icon("chevron", "chevron")}</button><button class="category-navigate" data-action="navigate-category" data-value="${c.id}" aria-label="Browse ${escapeHTML(c.name)} topics" title="Browse ${escapeHTML(c.name)} topics">${icon("open")}</button></span>`;
+      const childControl = category.parent ? categoryControl(category, true) : categories.some((c) => c.parent === category.id) ? '<button class="category-chip add-subcategory" data-action="picker" data-value="topic-subcategory" aria-label="Add subcategory">+ Subcategory</button>' : "";
+      $("topic-header").innerHTML = `<div class="topic-context">${categoryControl(parent)}${childControl}<span class="context-rule" aria-hidden="true"></span>${t.tags.map((tag) => `<button class="context-tag" data-action="picker" data-value="topic-tag" data-tag="${escapeHTML(tag)}" aria-label="Edit tag: ${escapeHTML(tag)}">${escapeHTML(tag)}</button>`).join("")}<button class="icon-button context-edit" data-action="picker" data-value="topic-tags" aria-label="Add or remove topic tags">${icon("plus")}</button></div>
+      <h1 class="topic-heading" id="topic-heading" tabindex="-1"></h1><div class="topic-summary"><span class="summary-stats"><span class="mini-avatars">${avatar(t.author)}${avatar(t.last)}${avatar("alex")}</span><span>${t.replies + (state.extraReplies.get(t.id)?.length || 0)} replies</span><span aria-hidden="true">·</span><span>Last reply ${t.activity} ago</span></span><span class="assignment-controls" id="topic-assignment"></span></div>`;
+      renderTitle(); renderAssignments();
+      $("bookmark-button").setAttribute("aria-pressed", String(Boolean(t.bookmarked)));
+      $("bookmark-button").setAttribute("aria-label", t.bookmarked ? "Remove topic bookmark" : "Bookmark topic");
+      $("watch-button").innerHTML = `${icon("bell")}<span>${state.watched.has(t.id) ? "Watching" : "Tracking"}</span>${icon("chevron")}`;
+    }
+    function renderTitle() {
+      $("topic-heading").setAttribute("aria-label", topic().title);
+      $("topic-heading").innerHTML = `<button class="title-trigger" data-action="edit-title" aria-label="Edit topic title">${escapeHTML(topic().title)}</button>`;
+    }
+    function beginTitleEdit() {
+      if (state.editingTitle !== null) return;
+      state.editingTitle = state.selected;
+      $("topic-heading").innerHTML = '<textarea class="title-input" id="title-input" aria-label="Topic title" aria-describedby="title-edit-hint" rows="1" maxlength="255"></textarea><span class="title-edit-hint" id="title-edit-hint">Enter to save · Esc to cancel</span>';
+      const input = $("title-input"); input.value = topic().title;
+      const fit = () => { input.style.height = "auto"; input.style.height = `${input.scrollHeight - 8}px`; input.setCustomValidity(""); };
+      fit(); input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+      input.addEventListener("input", fit);
+      input.addEventListener("blur", () => finishTitleEdit(Boolean(input.value.trim())));
+      input.addEventListener("keydown", (event) => {
+        if (event.isComposing) return;
+        if (event.key === "Enter") {
+          event.preventDefault(); event.stopPropagation();
+          if (!input.value.trim()) { input.setCustomValidity("Enter a topic title."); input.reportValidity(); return; }
+          finishTitleEdit(true); document.querySelector(".title-trigger").focus({ preventScroll: true });
+        } else if (event.key === "Escape") {
+          event.preventDefault(); event.stopPropagation(); finishTitleEdit(false); document.querySelector(".title-trigger").focus({ preventScroll: true });
+        }
+      });
+    }
+    function finishTitleEdit(save) {
+      if (state.editingTitle === null) return;
+      const t = topics.find((item) => item.id === state.editingTitle);
+      const value = $("title-input")?.value.trim().replace(/\s+/g, " ");
+      state.editingTitle = null;
+      if (save && value) t.title = value;
+      renderTitle();
+      document.querySelectorAll(`[data-action="topic"][data-value="${t.id}"]`).forEach((row) => {
+        const title = row.querySelector(".row-title, .recommendation-title"); if (title) title.textContent = t.title;
+        row.setAttribute("aria-label", `${t.title}${row.classList.contains("unread") ? ", unread" : ""}`);
+      });
+      if (save && value) announce("Topic title updated.");
+    }
+    const assigneeName = (id) => assignees.find((person) => person.id === id)?.name || "Unassigned";
+    const assigneeAvatar = (id) => people[id] ? avatar(id) : `<span class="avatar purple">${id === "design-team" ? "DT" : "CT"}</span>`;
+    function renderAssignments() {
+      const t = topic();
+      const assignedPosts = Object.entries(t.postAssignees || {}).filter(([, id]) => Boolean(id));
+      $("topic-assignment").innerHTML = `<button class="assignment-button" data-action="picker" data-value="assignment" aria-label="${t.assignee ? `Change topic assignment: ${escapeHTML(assigneeName(t.assignee))}` : "Assign topic"}">${t.assignee ? assigneeAvatar(t.assignee) : icon("user-plus")}<span>${t.assignee ? escapeHTML(assigneeName(t.assignee)) : "Assign topic"}</span>${icon("chevron")}</button>${assignedPosts.length ? `<button class="assignment-post-count" data-action="picker" data-value="assigned-posts" aria-label="View assigned posts">${assignedPosts.length} ${assignedPosts.length === 1 ? "post" : "posts"}</button>` : ""}`;
+      document.querySelectorAll(".post-assignment-slot").forEach((slot) => {
+        const post = Number(slot.dataset.post); const id = t.postAssignees?.[post];
+        slot.innerHTML = `<button class="assignment-button ${id ? "" : "unassigned"}" data-action="picker" data-value="assignment" data-post="${post}" aria-label="${id ? `Change assignment for post ${post}: ${escapeHTML(assigneeName(id))}` : `Assign post ${post}`}">${id ? assigneeAvatar(id) : icon("user-plus")}${id ? escapeHTML(assigneeName(id)) : "Assign"}</button>`;
+      });
+    }
+    function saveAssignment(value) {
+      const t = topic();
+      if (state.assignmentPost) { t.postAssignees ||= {}; if (value) t.postAssignees[state.assignmentPost] = value; else delete t.postAssignees[state.assignmentPost]; }
+      else t.assignee = value || null;
+      renderAssignments(); closePicker(); announce(value ? `Assigned to ${assigneeName(value)}.` : "Assignment removed.");
+    }
+    function recommendationTopics(kind) {
+      const t = topic();
+      const score = (other) => (other.category === t.category ? 5 : 0) + (cat(other.category).parent && cat(other.category).parent === cat(t.category).parent ? 2 : 0) + other.tags.filter((tag) => t.tags.includes(tag)).length * 2;
+      return topics.filter((other) => other.id !== t.id).sort(kind === "related" ? (a, b) => score(b) - score(a) || b.replies - a.replies : (a, b) => Number(b.unread) - Number(a.unread) || b.likes - a.likes).slice(0, 3);
+    }
+    function renderRecommendations() {
+      if (!$("recommendations")) return;
+      const kind = state.recommendationsTab;
+      $("recommendations").innerHTML = `<nav class="recommendation-tabs" role="tablist" aria-label="More topics"><button class="recommendation-tab" id="related-tab" role="tab" data-action="recommendations-tab" data-value="related" aria-selected="${kind === "related"}" aria-controls="recommendation-panel" tabindex="${kind === "related" ? 0 : -1}">Related<span>3</span></button><button class="recommendation-tab" id="suggested-tab" role="tab" data-action="recommendations-tab" data-value="suggested" aria-selected="${kind === "suggested"}" aria-controls="recommendation-panel" tabindex="${kind === "suggested" ? 0 : -1}">Suggested<span>3</span></button></nav><div id="recommendation-panel" role="tabpanel" aria-labelledby="${kind}-tab">${recommendationTopics(kind).map((t) => `<button class="recommendation-row" data-action="topic" data-value="${t.id}" aria-label="${escapeHTML(t.title)}"><span class="recommendation-title">${escapeHTML(t.title)}</span><span class="recommendation-meta">${dot(t.category)}${escapeHTML(categoryLabel(t.category))}${t.tags[0] ? `<span>· #${escapeHTML(t.tags[0])}</span>` : ""}</span><span class="recommendation-replies">${icon("chat")}${t.replies}</span></button>`).join("")}</div>`;
+    }
+    function showRecommendations() {
+      const reader = $("reader-scroll"); const section = $("recommendations");
+      reader.scrollTop += section.getBoundingClientRect().top - reader.getBoundingClientRect().top - 10;
+      $(`${state.recommendationsTab}-tab`).focus({ preventScroll: true });
+    }
+    function postState(number) {
+      const key = `${state.selected}:${number}`;
+      if (!state.postStates.has(key)) state.postStates.set(key, { bookmarked: false, edited: null, deleted: false, flag: "" });
+      return state.postStates.get(key);
+    }
+    function postPlainText(number) {
+      const t = topic();
+      if (number === 1) return [t.lead, t.body, t.points?.map((point) => `• ${point}`).join("\n"), t.ending].filter(Boolean).join("\n\n");
+      if (number === 2) return t.response;
+      return state.extraReplies.get(t.id)?.[number - t.replies - 2] || "";
+    }
+    function renderPostState(number) {
+      const post = document.querySelector(`.post[data-post="${number}"]`);
+      if (!post) return;
+      const saved = postState(number);
+      post.querySelector(".post-status").innerHTML = [saved.bookmarked ? `${icon("bookmark")}Bookmarked` : "", saved.edited !== null ? "Edited" : "", saved.flag ? `${icon("flag")}Flagged` : ""].filter(Boolean).join('<span aria-hidden="true"> · </span>');
+      post.querySelector(".post-body").innerHTML = saved.deleted ? `<div class="post-removed">Post deleted<button data-action="post-restore" data-value="${number}">Undo</button></div>` : saved.edited !== null ? `<p style="white-space:pre-wrap">${escapeHTML(saved.edited)}</p>` : saved.originalHTML;
+      post.querySelector(".post-actions").hidden = saved.deleted;
+    }
+    let postMenuAnchor;
+    function closePostMenu(restoreFocus = true) {
+      if ($("post-menu").matches(":popover-open")) $("post-menu").hidePopover();
+      postMenuAnchor?.setAttribute("aria-expanded", "false");
+      if (restoreFocus) postMenuAnchor?.focus({ preventScroll: true });
+    }
+    function openPostMenu(anchor) {
+      const menu = $("post-menu");
+      if (menu.matches(":popover-open") && postMenuAnchor === anchor) { closePostMenu(); return; }
+      closePostMenu(false); postMenuAnchor = anchor;
+      const number = Number(anchor.dataset.post);
+      const saved = postState(number);
+      const item = (action, label, glyph, destructive = false) => `<button class="post-menu-item ${destructive ? "destructive" : ""}" role="menuitem" tabindex="-1" data-action="${action}" data-value="${number}">${icon(glyph)}<span>${label}</span></button>`;
+      menu.setAttribute("aria-label", `Actions for post ${number}`);
+      menu.innerHTML = `<div class="post-menu-label" role="presentation">Post #${number}</div>` + (saved.deleted ? item("post-restore", "Restore post", "back") :
+        item("post-copy-link", "Copy link", "link") + item("post-bookmark", saved.bookmarked ? "Remove bookmark" : "Bookmark post", "bookmark") + item("post-assign", topic().postAssignees?.[number] ? "Change assignment" : "Assign post", "user-plus") + '<div role="separator"></div>' + item("post-edit", "Edit post", "edit") + item(saved.flag ? "post-unflag" : "post-flag", saved.flag ? "Remove flag" : "Flag post", "flag") + '<div role="separator"></div>' + item("post-delete", "Delete post", "trash", true));
+      anchor.setAttribute("aria-expanded", "true");
+      menu.showPopover();
+      const rect = anchor.getBoundingClientRect();
+      const bounds = menu.getBoundingClientRect();
+      menu.style.left = `${Math.max(12, Math.min(rect.right - bounds.width, innerWidth - bounds.width - 12))}px`;
+      menu.style.top = `${Math.max(12, rect.bottom + bounds.height + 8 < innerHeight ? rect.bottom + 6 : rect.top - bounds.height - 6)}px`;
+      menu.querySelector('[role="menuitem"]').focus({ preventScroll: true });
+    }
+    function postLink(number) {
+      const url = new URL(location.href); url.searchParams.set("topic", state.selected); url.hash = `post-${number}`; return url.href;
+    }
+    async function copyPostLink(number) {
+      const anchor = postMenuAnchor;
+      closePostMenu();
+      try { await navigator.clipboard.writeText(postLink(number)); toast("Post link copied"); }
+      catch { openPicker("post-link", anchor); }
+    }
+    $("post-menu").addEventListener("toggle", (event) => { if (event.newState === "closed") postMenuAnchor?.setAttribute("aria-expanded", "false"); });
+    $("reader-scroll").addEventListener("scroll", () => closePostMenu(false));
+    window.addEventListener("resize", () => closePostMenu(false));
+    function renderReader() {
+      const t = topic();
+      const p = people[t.author];
+      const reply = people[t.last];
+      renderTopicHeader();
+      $("reader-scroll").innerHTML = `<article class="post"><header class="post-author">${avatar(t.author)}<div><strong>${p.name}<span class="author-role">Topic author</span></strong><small>@${p.handle}</small></div><time>Yesterday</time></header><div class="post-body"><p>${escapeHTML(t.lead)}</p><p>${escapeHTML(t.body)}</p>${t.points ? `<ul>${t.points.map((p) => `<li>${escapeHTML(p)}</li>`).join("")}</ul>` : ""}<p>${escapeHTML(t.ending)}</p></div><div class="post-actions"><button class="like-button" data-action="like" aria-pressed="${state.liked.has(t.id)}" aria-label="Like first post">${icon("heart")}<span>${t.likes + (state.liked.has(t.id) ? 1 : 0)}</span></button><span class="post-assignment-slot" data-post="1"></span><button class="text-button" data-action="reply">${icon("reply")}Reply</button></div></article>
+      <div class="topic-divider">Today</div><article class="post"><header class="post-author">${avatar(t.last)}<div><strong>${reply.name}</strong><small>@${reply.handle}</small></div><time>${t.activity} ago</time></header><div class="post-body">${t.points ? `<blockquote>${escapeHTML(t.points[0])}</blockquote>` : ""}<p>${escapeHTML(t.response)}</p></div><div class="post-actions"><span class="muted" style="font-size:12px">${icon("heart")} 6</span><span class="post-assignment-slot" data-post="2"></span><button class="text-button" data-action="reply">${icon("reply")}Reply</button></div></article>
+      <div class="topic-divider">${t.replies - 1} more replies in this example topic</div>` + (state.extraReplies.get(t.id) || []).map((text) => `<article class="post"><header class="post-author"><span class="avatar purple">JJ</span><div><strong>Joffrey</strong><small>Local reply</small></div><time>Just now</time></header><div class="post-body"><p style="white-space:pre-wrap">${escapeHTML(text)}</p></div></article>`).join("") + '<section class="recommendations" id="recommendations" aria-label="Related and Suggested topics"></section>';
+      document.querySelectorAll("#reader-scroll .post").forEach((post, index) => {
+        const number = index < 2 ? index + 1 : t.replies + index;
+        post.dataset.post = number; post.id = `post-${number}`;
+        post.tabIndex = -1; post.setAttribute("aria-label", `Post ${number}`);
+        post.querySelector(".post-author").insertAdjacentHTML("beforeend", `<button class="icon-button post-more" data-action="post-menu" data-post="${number}" aria-label="More actions for post ${number}" title="More actions" aria-haspopup="menu" aria-controls="post-menu" aria-expanded="false">${icon("more")}</button>`);
+        post.querySelector(".post-author > div").insertAdjacentHTML("beforeend", '<span class="post-status"></span>');
+        if (!post.querySelector(".post-actions")) post.insertAdjacentHTML("beforeend", `<div class="post-actions"><span class="post-assignment-slot" data-post="${number}"></span><button class="text-button" data-action="reply">${icon("reply")}Reply</button></div>`);
+        postState(number).originalHTML = post.querySelector(".post-body").innerHTML;
+        renderPostState(number);
+      });
+      renderAssignments(); renderRecommendations();
+      $("reader-scroll").scrollTop = state.scroll.get(t.id) || 0;
+      $("reply-text").value = state.drafts.get(t.id) || "";
+      $("composer").hidden = true;
+      updateNavigation();
+    }
+    function refresh() { renderFilters(); renderList(); }
+    function announce(message) { $("announcer").textContent = message; }
+    let toastTimer;
+    function toast(message) { clearTimeout(toastTimer); $("toast").textContent = message; $("toast").hidden = false; toastTimer = setTimeout(() => { $("toast").hidden = true; }, 2500); }
+    function setView(view) {
+      state.view = view;
+      document.body.dataset.view = view;
+      $("view-toggle").innerHTML = `${icon(view === "split" ? "list" : "split")}<span class="view-label">${view === "split" ? "List only" : "Split view"}</span>`;
+      $("view-toggle").setAttribute("aria-label", view === "split" ? "Show full topic list" : "Show topic beside the list");
+      updateNavigation();
+    }
+    function selectTopic(id, focus = false) {
+      finishTitleEdit(true);
+      state.scroll.set(state.selected, $("reader-scroll").scrollTop);
+      state.drafts.set(state.selected, $("reply-text").value);
+      state.selected = Number(id);
+      setView("split");
+      renderList(); renderReader();
+      revealSelectedRow();
+      if (focus || matchMedia("(max-width: 760px)").matches) $("topic-heading").focus({ preventScroll: true });
+      announce(`Opened ${topic().title}. Topic list retained.`);
+    }
+    function navigateTopic(delta) {
+      const result = matchingTopics();
+      const index = result.findIndex((t) => t.id === state.selected);
+      const next = result[index + delta];
+      if (next) selectTopic(next.id);
+    }
+    function navigatePost(delta) {
+      if (state.view !== "split") return;
+      const reader = $("reader-scroll");
+      const posts = [...reader.querySelectorAll(".post")];
+      if (!posts.length) return;
+      const bounds = reader.getBoundingClientRect();
+      const focused = document.activeElement.closest(".post");
+      const focusedBounds = focused?.getBoundingClientRect();
+      let index = posts.indexOf(focused);
+      if (index < 0 || focusedBounds.bottom <= bounds.top || focusedBounds.top >= bounds.bottom) {
+        index = posts.findIndex((post) => post.getBoundingClientRect().bottom > bounds.top + 12);
+        if (index < 0) index = posts.length - 1;
+      }
+      const next = posts[Math.max(0, Math.min(posts.length - 1, index + delta))];
+      reader.scrollTop += next.getBoundingClientRect().top - bounds.top - 8;
+      next.focus({ preventScroll: true });
+      announce(`Post ${next.dataset.post}`);
+    }
+    function revealSelectedRow() {
+      const row = document.querySelector(`.topic-row[data-value="${state.selected}"]`);
+      if (!row || !row.getClientRects().length) return;
+      const list = $("topic-list");
+      const bounds = list.getBoundingClientRect();
+      const item = row.getBoundingClientRect();
+      if (item.top < bounds.top) list.scrollTop -= bounds.top - item.top;
+      else if (item.bottom > bounds.bottom) list.scrollTop += item.bottom - bounds.bottom;
+    }
+    function setConcept(value) {
+      state.concept = value; document.body.dataset.concept = value;
+      const c = concepts[value];
+      setWidth(c.width);
+      $("concept-description").innerHTML = c.description;
+      $("note-filter").textContent = c.filter; $("note-context").textContent = c.context; $("note-reading").textContent = c.reading;
+      document.querySelectorAll(".concept-tab").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.value === value)));
+      if (location.protocol !== "file:") { const url = new URL(location.href); url.searchParams.set("concept", value); history.replaceState(null, "", url); }
+      announce(`${value === "inbox" ? "Inbox" : value === "scope" ? "Scope bar" : "Reading desk"} concept selected.`);
+    }
+    let pickerAnchor;
+    function openPicker(mode, anchor) {
+      state.picker = mode; pickerAnchor = anchor;
+      state.editingTag = anchor.dataset.tag || "";
+      state.assignmentPost = anchor.dataset.post ? Number(anchor.dataset.post) : null;
+      $("picker-search").value = "";
+      configurePicker();
+      renderPicker();
+      const dialog = $("picker");
+      dialog.showModal();
+      const rect = anchor.getBoundingClientRect();
+      const height = dialog.getBoundingClientRect().height;
+      const width = dialog.getBoundingClientRect().width;
+      dialog.style.left = `${Math.max(12, Math.min(rect.left, innerWidth - width - 12))}px`;
+      dialog.style.top = `${Math.max(12, Math.min(rect.bottom + 7, innerHeight - height - 18))}px`;
+      if (mode === "post-edit") $("post-edit-text").focus();
+      else if (mode === "post-link") { $("post-link-input").focus(); $("post-link-input").select(); }
+      else if (mode === "period" || mode === "post-flag") (dialog.querySelector('[aria-pressed="true"]') || dialog.querySelector(".picker-option"))?.focus();
+      else $("picker-search").focus();
+    }
+    function closePicker() { $("picker").close(); }
+    function configurePicker() {
+      const mode = state.picker;
+      const titles = { category: "Filter by category", subcategory: "Filter by subcategory", period: "Top topics · period", tag: "Filter by tags", command: "Search & filter topics", "topic-category": "Edit topic category", "topic-subcategory": "Edit subcategory", "topic-tags": "Add or remove topic tags", "topic-tag": `Edit tag: ${state.editingTag}`, assignment: state.assignmentPost ? `Assign post #${state.assignmentPost}` : "Assign topic", "assigned-posts": "Assigned posts", "post-edit": `Edit post #${state.assignmentPost}`, "post-flag": `Flag post #${state.assignmentPost}`, "post-link": `Link to post #${state.assignmentPost}` };
+      $("picker").dataset.kind = mode;
+      document.querySelector(".picker-search-wrap").hidden = ["period", "post-edit", "post-flag", "post-link"].includes(mode);
+      $("picker-title").textContent = titles[mode];
+      $("picker-search").placeholder = mode === "assignment" || mode === "assigned-posts" ? "Find a person or group…" : mode.includes("category") ? "Find a category…" : mode.includes("tag") ? "Find a tag…" : "Search categories, tags, or topics…";
+    }
+    $("picker").addEventListener("close", () => {
+      const candidates = [...document.querySelectorAll(`[data-action="picker"][data-value="${state.picker}"]`)].filter((el) => el.getClientRects().length);
+      const replacement = candidates.find((el) => state.picker === "topic-tag" ? el.dataset.tag === state.editingTag : state.picker === "assignment" ? Number(el.dataset.post || 0) === Number(state.assignmentPost || 0) : true);
+      const anchor = pickerAnchor?.isConnected ? pickerAnchor : replacement || document.querySelector('[data-value="topic-tags"]');
+      anchor?.focus({ preventScroll: true });
+    });
+    function pickerOption(action, value, label, { selected, leading = "", description = "", extraClass = "" } = {}) {
+      return `<button class="picker-option ${extraClass}" data-action="${action}" data-value="${escapeHTML(value)}"${selected === undefined ? "" : ` aria-pressed="${selected}"`}>${leading}<span>${escapeHTML(label)}${description ? `<span class="option-description">${escapeHTML(description)}</span>` : ""}</span>${selected ? icon("check", "check") : ""}</button>`;
+    }
+    function renderPicker() {
+      const mode = state.picker;
+      const term = $("picker-search").value.toLowerCase().trim();
+      const t = topic();
+      const category = cat(t.category);
+      const parent = cat(category.parent) || category;
+      const group = (label) => `<div class="picker-group">${escapeHTML(label)}</div>`;
+      const remove = (action, label, description = "") => pickerOption(action, "", label, { leading: icon("close"), description, extraClass: "remove-option" });
+      let html = "";
+      if (mode === "post-edit") {
+        html = `<div class="post-editor"><textarea id="post-edit-text" aria-label="Post text" required>${escapeHTML(postState(state.assignmentPost).edited ?? postPlainText(state.assignmentPost))}</textarea><div class="post-editor-actions"><button class="text-button" data-action="close-picker">Cancel</button><button class="primary-button" data-action="post-save">Save changes</button></div></div>`;
+      } else if (mode === "post-link") {
+        html = `<div class="post-link"><input id="post-link-input" aria-label="Post link" value="${escapeHTML(postLink(state.assignmentPost))}" readonly></div>`;
+      } else if (mode === "post-flag") {
+        html = ["Off-topic", "Inappropriate", "Spam", "Something else"].map((reason) => pickerOption("post-flag-reason", reason, reason, { leading: icon("flag") })).join("");
+      } else if (mode === "period") {
+        html += topPeriods.map((period) => pickerOption("pick-period", period.id, period.label, { selected: state.topPeriod === period.id })).join("");
+      } else if (mode === "subcategory") {
+        const selected = cat(state.category);
+        const filterParent = cat(selected?.parent) || selected;
+        if (filterParent) {
+          html += pickerOption("pick-subcategory", filterParent.id, "All subcategories", { selected: state.category === filterParent.id, leading: icon("grid"), description: `All topics in ${filterParent.name}` });
+          html += group(`Under ${filterParent.name}`);
+          html += categories.filter((c) => c.parent === filterParent.id && c.name.toLowerCase().includes(term)).map((c) => pickerOption("pick-subcategory", c.id, c.name, { selected: state.category === c.id, leading: dot(c.id) })).join("");
+        }
+      } else if (mode === "assignment" || mode === "assigned-posts") {
+        if (mode === "assignment") {
+          const selected = state.assignmentPost ? t.postAssignees?.[state.assignmentPost] : t.assignee;
+          if (selected) html += remove("remove-assignment", "Remove assignment");
+          for (const isGroup of [false, true]) {
+            html += group(isGroup ? "Groups" : "People");
+            html += assignees.filter((person) => person.group === isGroup && person.name.toLowerCase().includes(term)).map((person) => pickerOption("pick-assignee", person.id, person.name, { selected: selected === person.id, leading: assigneeAvatar(person.id) })).join("");
+          }
+        } else {
+          html += group("Assigned posts");
+          html += Object.entries(t.postAssignees || {}).filter(([, id]) => assigneeName(id).toLowerCase().includes(term)).map(([post, id]) => pickerOption("assignment-post", post, `Post #${post} · ${assigneeName(id)}`, { leading: assigneeAvatar(id), description: "Change or remove assignment" })).join("");
+        }
+      } else if (mode === "topic-category") {
+        if (category.id !== "uncategorized") html += remove("remove-topic-category", "Remove category", "Move this topic to Uncategorized");
+        html += group("Choose category");
+        html += categories.filter((c) => !c.parent && c.id !== "uncategorized" && c.name.toLowerCase().includes(term)).map((c) => pickerOption("pick-topic-category", c.id, c.name, { selected: parent.id === c.id, leading: dot(c.id) })).join("");
+      } else if (mode === "topic-subcategory") {
+        if (category.parent) html += remove("remove-topic-subcategory", "Remove subcategory", `Keep the topic in ${parent.name}`);
+        html += group(`Under ${parent.name}`);
+        html += categories.filter((c) => c.parent === parent.id && c.name.toLowerCase().includes(term)).map((c) => pickerOption("pick-topic-subcategory", c.id, c.name, { selected: category.id === c.id, leading: dot(c.id) })).join("");
+      } else if (mode === "topic-tag") {
+        html += remove("remove-topic-tag", `Remove #${state.editingTag} from topic`);
+        html += group("Replace with");
+        html += knownTags.filter((tag) => tag.includes(term) && (!t.tags.includes(tag) || tag === state.editingTag)).map((tag) => pickerOption("replace-topic-tag", tag, tag, { selected: state.editingTag === tag, leading: icon("tag") })).join("");
+      } else if (mode === "topic-tags") {
+        html += group("Select or deselect tags");
+        html += knownTags.filter((tag) => tag.includes(term)).map((tag) => pickerOption("toggle-topic-tag", tag, tag, { selected: t.tags.includes(tag), leading: icon("tag") })).join("");
+      } else {
+        if (mode === "command" && state.query) html += pickerOption("remove-query", "", `Remove title search: ${state.query}`, { leading: icon("close") });
+        if (mode === "command" && term) html += pickerOption("search-query", $("picker-search").value.trim(), `Search topics for “${$("picker-search").value.trim()}”`, { leading: icon("search") });
+        if (mode !== "tag") {
+          html += group("Category");
+          html += pickerOption("pick-category", "", "All categories", { selected: !state.category, leading: icon("grid") });
+          const selected = cat(state.category);
+          const filterParent = cat(selected?.parent) || selected;
+          html += categories.filter((c) => !c.parent && c.name.toLowerCase().includes(term)).map((c) => pickerOption("pick-category", c.id, c.name, { selected: filterParent?.id === c.id, leading: dot(c.id) })).join("");
+          if (mode === "command" && filterParent && categories.some((c) => c.parent === filterParent.id)) {
+            html += group(`Subcategory · ${filterParent.name}`);
+            html += pickerOption("pick-subcategory", filterParent.id, "All subcategories", { selected: state.category === filterParent.id, leading: icon("grid") });
+            html += categories.filter((c) => c.parent === filterParent.id && c.name.toLowerCase().includes(term)).map((c) => pickerOption("pick-subcategory", c.id, c.name, { selected: selected?.id === c.id, leading: dot(c.id) })).join("");
+          }
+        }
+        if (mode !== "category") {
+          html += group("Tags · select multiple");
+          html += pickerOption("all-tags", "", "All tags", { selected: !state.tags.length, leading: icon("tag") });
+          html += knownTags.filter((tag) => tag.includes(term)).map((tag) => pickerOption("pick-tag", tag, tag, { selected: state.tags.includes(tag), leading: icon("tag") })).join("");
+        }
+      }
+      if (!["post-edit", "post-link"].includes(mode) && !html.includes('class="picker-option')) html += '<div class="empty-state"><strong>No matching options</strong><p>Try a different search.</p></div>';
+      $("picker-options").innerHTML = html;
+    }
+    function updateTopicMetadata() { renderTopicHeader(); refresh(); renderRecommendations(); }
+    document.addEventListener("pointerdown", (event) => {
+      // Keep the editor's height stable until the intended control receives its click.
+      if (state.editingTitle !== null && event.target.closest("[data-action]")) event.preventDefault();
+    }, true);
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-action]");
+      if (!button || button.disabled) return;
+      const { action, value } = button.dataset;
+      if (state.editingTitle !== null && action !== "edit-title") finishTitleEdit(Boolean($("title-input")?.value.trim()));
+      switch (action) {
+        case "concept": setConcept(value); break;
+        case "view": setView(state.view === "split" ? "list" : "split"); break;
+        case "close-topic": { setView("list"); document.querySelector(`.topic-row[data-value="${state.selected}"]`)?.focus({ preventScroll: true }); break; }
+        case "theme": { const dark = document.body.dataset.theme !== "dark"; document.body.dataset.theme = dark ? "dark" : "light"; $("theme-toggle").innerHTML = icon(dark ? "sun" : "moon"); $("theme-toggle").setAttribute("aria-label", `Switch to ${dark ? "light" : "dark"} theme`); break; }
+        case "topic": selectTopic(value, event.detail === 0); break;
+        case "post-menu": openPostMenu(button); break;
+        case "post-copy-link": void copyPostLink(Number(value)); break;
+        case "post-bookmark": { const saved = postState(Number(value)); saved.bookmarked = !saved.bookmarked; closePostMenu(); renderPostState(Number(value)); toast(saved.bookmarked ? "Post bookmarked" : "Post bookmark removed"); break; }
+        case "post-assign": closePostMenu(false); openPicker("assignment", postMenuAnchor); break;
+        case "post-edit": closePostMenu(false); openPicker("post-edit", postMenuAnchor); break;
+        case "post-save": { const input = $("post-edit-text"); if (!input.value.trim()) { input.setCustomValidity("Enter some post text."); input.reportValidity(); break; } postState(state.assignmentPost).edited = input.value.trim(); renderPostState(state.assignmentPost); closePicker(); toast("Post updated in this mockup"); break; }
+        case "post-delete": postState(Number(value)).deleted = true; closePostMenu(); renderPostState(Number(value)); toast("Post deleted in this mockup · Undo is available on the post"); break;
+        case "post-restore": postState(Number(value)).deleted = false; closePostMenu(false); renderPostState(Number(value)); document.querySelector(`.post-more[data-post="${value}"]`)?.focus({ preventScroll: true }); toast("Post restored"); break;
+        case "post-flag": closePostMenu(false); openPicker("post-flag", postMenuAnchor); break;
+        case "post-flag-reason": postState(state.assignmentPost).flag = value; renderPostState(state.assignmentPost); closePicker(); toast("Flag saved in this mockup"); break;
+        case "post-unflag": postState(Number(value)).flag = ""; closePostMenu(); renderPostState(Number(value)); toast("Flag removed"); break;
+        case "edit-title": beginTitleEdit(); break;
+        case "feed": state.feed = value; state.reversed = false; refresh(); break;
+        case "new-subset": state.newSubset = value; state.reversed = false; refresh(); $(`new-${value}-tab`).focus({ preventScroll: true }); break;
+        case "pick-period": state.topPeriod = value; state.reversed = false; refresh(); closePicker(); break;
+        case "scope-category": state.category = value; refresh(); break;
+        case "navigate-category": state.category = value; state.tags = []; state.query = ""; state.feed = "recent"; state.reversed = false; refresh(); $("topic-list").scrollTop = 0; announce(`Browsing ${cat(value).name} topics. Your open topic stays in place.`); break;
+        case "scope-tag": state.tags = [value]; refresh(); break;
+        case "remove-query": state.query = ""; refresh(); renderPicker(); break;
+        case "sort": state.reversed = !state.reversed; refresh(); break;
+        case "previous": navigateTopic(-1); break;
+        case "next": navigateTopic(1); break;
+        case "picker": openPicker(value, button); break;
+        case "close-picker": closePicker(); break;
+        case "search-query": state.query = value; refresh(); closePicker(); break;
+        case "pick-category": state.category = value; refresh(); if (state.picker === "category") closePicker(); else renderPicker(); break;
+        case "pick-subcategory": state.category = value; refresh(); if (state.picker === "subcategory") closePicker(); else renderPicker(); break;
+        case "all-tags": state.tags = []; refresh(); renderPicker(); break;
+        case "pick-tag": {
+          const tags = state.tags;
+          const index = tags.indexOf(value); if (index >= 0) tags.splice(index, 1); else tags.push(value);
+          refresh(); renderPicker();
+          document.querySelector(`#picker-options [data-action="pick-tag"][data-value="${CSS.escape(value)}"]`)?.focus({ preventScroll: true });
+          break;
+        }
+        case "pick-topic-category": if (cat(topic().category).parent !== value) topic().category = value; updateTopicMetadata(); closePicker(); break;
+        case "pick-topic-subcategory": topic().category = value; updateTopicMetadata(); closePicker(); break;
+        case "remove-topic-category": topic().category = "uncategorized"; updateTopicMetadata(); closePicker(); break;
+        case "remove-topic-subcategory": topic().category = cat(topic().category).parent || topic().category; updateTopicMetadata(); closePicker(); break;
+        case "remove-topic-tag": topic().tags = topic().tags.filter((tag) => tag !== state.editingTag); updateTopicMetadata(); closePicker(); break;
+        case "replace-topic-tag": { const index = topic().tags.indexOf(state.editingTag); if (index >= 0) topic().tags[index] = value; state.editingTag = value; updateTopicMetadata(); closePicker(); break; }
+        case "toggle-topic-tag": {
+          const index = topic().tags.indexOf(value); if (index >= 0) topic().tags.splice(index, 1); else topic().tags.push(value);
+          updateTopicMetadata(); renderPicker(); document.querySelector(`#picker-options [data-value="${CSS.escape(value)}"]`)?.focus({ preventScroll: true }); break;
+        }
+        case "pick-assignee": saveAssignment(value); break;
+        case "remove-assignment": saveAssignment(""); break;
+        case "assignment-post": state.assignmentPost = Number(value); state.picker = "assignment"; $("picker-search").value = ""; configurePicker(); renderPicker(); $("picker-search").focus(); break;
+        case "more-topics": showRecommendations(); break;
+        case "recommendations-tab": state.recommendationsTab = value; renderRecommendations(); $(`${value}-tab`).focus({ preventScroll: true }); break;
+        case "bookmark": topic().bookmarked = !topic().bookmarked; renderTopicHeader(); renderList(); toast(topic().bookmarked ? "Topic saved to bookmarks" : "Bookmark removed"); break;
+        case "watch": if (state.watched.has(state.selected)) state.watched.delete(state.selected); else state.watched.add(state.selected); renderTopicHeader(); break;
+        case "like": if (state.liked.has(state.selected)) state.liked.delete(state.selected); else state.liked.add(state.selected); button.setAttribute("aria-pressed", String(state.liked.has(state.selected))); button.querySelector("span").textContent = topic().likes + (state.liked.has(state.selected) ? 1 : 0); break;
+        case "reply": $("composer").hidden = false; $("reply-text").focus(); break;
+        case "cancel-reply": $("composer").hidden = true; state.drafts.set(state.selected, $("reply-text").value); break;
+      }
+    });
+    $("topic-search").addEventListener("input", (event) => { state.query = event.target.value; refresh(); });
+    $("picker-search").addEventListener("input", renderPicker);
+    $("picker").addEventListener("click", (event) => { if (event.target === $("picker")) { const rect = $("picker").getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closePicker(); } });
+    $("composer").addEventListener("submit", (event) => {
+      event.preventDefault(); const value = $("reply-text").value.trim(); if (!value) return;
+      const replies = state.extraReplies.get(state.selected) || []; replies.push(value); state.extraReplies.set(state.selected, replies); state.drafts.delete(state.selected);
+      renderReader(); renderList(); $("reader-scroll").scrollTop = $("reader-scroll").scrollHeight; toast("Reply added to this local mockup");
+    });
+    document.addEventListener("keydown", (event) => {
+      if ($("post-menu").matches(":popover-open")) {
+        const items = [...$("post-menu").querySelectorAll('[role="menuitem"]')];
+        const index = items.indexOf(document.activeElement);
+        if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+          event.preventDefault(); items[event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + (event.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus();
+        } else if (event.key === "Escape") { event.preventDefault(); closePostMenu(); }
+        else if (event.key === "Tab") closePostMenu();
+        return;
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey || $("picker").open || event.target.closest("input, textarea, [contenteditable]")) return;
+      if (event.target.matches(".post-more") && ["ArrowDown", "ArrowUp"].includes(event.key)) {
+        event.preventDefault(); openPostMenu(event.target);
+        if (event.key === "ArrowUp") $("post-menu").querySelector('[role="menuitem"]:last-child').focus();
+        return;
+      }
+      if (event.target.closest(".new-activity-tab") && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+        event.preventDefault();
+        const subsets = ["all", "topics", "replies"];
+        const index = subsets.indexOf(state.newSubset);
+        state.newSubset = subsets[event.key === "Home" ? 0 : event.key === "End" ? 2 : (index + (event.key === "ArrowRight" ? 1 : 2)) % 3];
+        state.reversed = false;
+        refresh(); $(`new-${state.newSubset}-tab`).focus({ preventScroll: true }); return;
+      }
+      if (event.target.closest(".recommendation-tab") && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+        event.preventDefault(); state.recommendationsTab = event.key === "Home" ? "related" : event.key === "End" ? "suggested" : state.recommendationsTab === "related" ? "suggested" : "related";
+        renderRecommendations(); $(`${state.recommendationsTab}-tab`).focus({ preventScroll: true }); return;
+      }
+      if (state.view === "split" && event.key.toLowerCase() === "j") { event.preventDefault(); navigatePost(1); }
+      if (state.view === "split" && event.key.toLowerCase() === "k") { event.preventDefault(); navigatePost(-1); }
+      if (event.key === "/") { event.preventDefault(); if (state.concept === "desk") openPicker("command", document.querySelector(".command-filter")); else $("topic-search").focus(); }
+      if (event.key === "Escape" && state.view === "split") setView("list");
+    });
+    function setWidth(width) { const clamped = Math.round(Math.max(250, Math.min(450, width))); $("workspace-grid").style.setProperty("--list-width", `${clamped}px`); $("resize-handle").setAttribute("aria-valuenow", clamped); }
+    $("resize-handle").addEventListener("pointerdown", (event) => {
+      event.preventDefault(); const handle = event.currentTarget; handle.setPointerCapture(event.pointerId);
+      const start = event.clientX; const width = document.querySelector(".list-pane").getBoundingClientRect().width;
+      const move = (event) => setWidth(Math.min(width + event.clientX - start, $("workspace-grid").clientWidth - 385));
+      const stop = () => { handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", stop); handle.removeEventListener("pointercancel", stop); };
+      handle.addEventListener("pointermove", move); handle.addEventListener("pointerup", stop); handle.addEventListener("pointercancel", stop);
+    });
+    $("resize-handle").addEventListener("keydown", (event) => { if (["ArrowLeft", "ArrowRight"].includes(event.key)) { event.preventDefault(); setWidth(Number(event.currentTarget.getAttribute("aria-valuenow")) + (event.key === "ArrowRight" ? 15 : -15)); } });
+    $("nav-categories").innerHTML = categories.filter((c) => !c.parent && c.id !== "uncategorized").map((c) => `<button class="nav-item" data-action="scope-category" data-value="${c.id}">${dot(c.id)}${c.name}</button>`).join("");
+    const requestedConcept = new URLSearchParams(location.search).get("concept");
+    const requestedTopic = Number(new URLSearchParams(location.search).get("topic"));
+    if (topics.some((t) => t.id === requestedTopic)) state.selected = requestedTopic;
+    setConcept(concepts[requestedConcept] ? requestedConcept : "inbox");
+    if (matchMedia("(max-width: 760px)").matches) setView("list");
+    refresh(); renderReader();
+    if (/^#post-\d+$/.test(location.hash)) requestAnimationFrame(() => {
+      const post = $(location.hash.slice(1));
+      if (post) { setView("split"); $("reader-scroll").scrollTop += post.getBoundingClientRect().top - $("reader-scroll").getBoundingClientRect().top; }
+    });
+  </script>
+</body>
+</html>

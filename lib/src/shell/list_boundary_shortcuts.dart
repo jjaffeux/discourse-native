@@ -16,10 +16,17 @@ class ListBoundaryShortcuts extends StatefulWidget {
     required this.child,
     this.initiallyActive = false,
     this.debugLabel,
+    this.onNextPost,
+    this.onPreviousPost,
   });
 
   final VoidCallback onStart;
   final VoidCallback onEnd;
+
+  /// Only a topic reader supplies these. They continue to address posts when
+  /// a neighbouring topic list owns the scrolling focus.
+  final VoidCallback? onNextPost;
+  final VoidCallback? onPreviousPost;
   final ScrollController scrollController;
   final Widget child;
 
@@ -158,6 +165,20 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
   }
 
   KeyEventResult _handleUnclaimedKeyEvent(KeyEvent event) {
+    if (TickerMode.valuesOf(context).enabled && _fallbackCanHandle) {
+      final callback = switch (event.logicalKey) {
+        LogicalKeyboardKey.keyJ => widget.onNextPost,
+        LogicalKeyboardKey.keyK => widget.onPreviousPost,
+        _ => null,
+      };
+      if (callback != null &&
+          SingleActivator(
+            event.logicalKey,
+          ).accepts(event, HardwareKeyboard.instance)) {
+        callback();
+        return KeyEventResult.handled;
+      }
+    }
     if (!identical(_active, this) || !_fallbackCanHandle) {
       return KeyEventResult.ignored;
     }
@@ -180,6 +201,8 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
 
     bool isFormControl(Widget widget) =>
         widget is EditableText ||
+        widget is MenuItemButton ||
+        widget is SubmenuButton ||
         widget is FormField<Object?> ||
         widget is DropdownButton<Object?> ||
         widget is DropdownMenu<Object?> ||
