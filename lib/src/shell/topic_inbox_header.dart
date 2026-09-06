@@ -168,6 +168,9 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                 ? _CompactTopicInboxHeader(
                     key: const ValueKey('topic-header-compact'),
                     header: widget,
+                    onEditTitle: widget.topic?.canEdit == true
+                        ? () => _titleEditingChanged(true)
+                        : null,
                   )
                 : _ExpandedTopicInboxHeader(
                     key: ValueKey((
@@ -176,6 +179,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                       widget.topic?.id,
                     )),
                     header: widget,
+                    autofocusTitle: _editingTitle,
                     onTitleEditingChanged: _titleEditingChanged,
                   ),
           ),
@@ -189,10 +193,12 @@ class _ExpandedTopicInboxHeader extends StatelessWidget {
   const _ExpandedTopicInboxHeader({
     super.key,
     required this.header,
+    required this.autofocusTitle,
     required this.onTitleEditingChanged,
   });
 
   final TopicInboxHeader header;
+  final bool autofocusTitle;
   final ValueChanged<bool> onTitleEditingChanged;
 
   @override
@@ -288,6 +294,7 @@ class _ExpandedTopicInboxHeader extends StatelessWidget {
                   style: titleStyle,
                   maxLines: 3,
                   showEditingFrame: true,
+                  autofocus: autofocusTitle,
                   onEditingChanged: onTitleEditingChanged,
                   onSave: (value) => controller.saveTopicTitle(
                     siteUrl: siteUrl,
@@ -351,9 +358,14 @@ class _ExpandedTopicInboxHeader extends StatelessWidget {
 }
 
 class _CompactTopicInboxHeader extends StatelessWidget {
-  const _CompactTopicInboxHeader({super.key, required this.header});
+  const _CompactTopicInboxHeader({
+    super.key,
+    required this.header,
+    required this.onEditTitle,
+  });
 
   final TopicInboxHeader header;
+  final VoidCallback? onEditTitle;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -417,13 +429,28 @@ class _CompactTopicInboxHeader extends StatelessWidget {
                       Expanded(
                         child: Tooltip(
                           message: header.title,
-                          child: TopicTitle(
-                            header.title,
-                            key: const ValueKey('topic-header-compact-title'),
-                            siteUrl: siteUrl,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: style,
+                          child: Semantics(
+                            button: onEditTitle != null,
+                            hint: onEditTitle != null
+                                ? 'Edit topic title'
+                                : null,
+                            child: InkWell(
+                              onTap: onEditTitle,
+                              mouseCursor: onEditTitle != null
+                                  ? SystemMouseCursors.text
+                                  : SystemMouseCursors.basic,
+                              borderRadius: BorderRadius.circular(4),
+                              child: TopicTitle(
+                                header.title,
+                                key: const ValueKey(
+                                  'topic-header-compact-title',
+                                ),
+                                siteUrl: siteUrl,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: style,
+                              ),
+                            ),
                           ),
                         ),
                       ),

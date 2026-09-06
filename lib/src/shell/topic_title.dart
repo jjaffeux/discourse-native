@@ -50,6 +50,7 @@ class InlineTopicTitleEditor extends StatefulWidget {
     this.style,
     this.maxLines = 1,
     this.showEditingFrame = false,
+    this.autofocus = false,
     this.onEditingChanged,
   });
 
@@ -59,6 +60,7 @@ class InlineTopicTitleEditor extends StatefulWidget {
   final TextStyle? style;
   final int maxLines;
   final bool showEditingFrame;
+  final bool autofocus;
 
   /// Keeps the surrounding header expanded while editing or saving a title.
   final ValueChanged<bool>? onEditingChanged;
@@ -248,6 +250,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
                       key: const ValueKey('topic-header-title-field'),
                       controller: _controller,
                       focusNode: _focus,
+                      autofocus: widget.autofocus,
                       readOnly: _saving,
                       maxLines: widget.maxLines,
                       textInputAction: TextInputAction.done,

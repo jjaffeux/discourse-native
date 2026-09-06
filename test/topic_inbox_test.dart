@@ -180,6 +180,61 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final save in [true, false]) {
+    testWidgets(
+      'clicking the compact title focuses editing and ${save ? 'saves on Enter' : 'cancels on Escape'}',
+      (tester) async {
+        final setup = await _setup(tester);
+        final shell = setup.controller;
+        shell.openTopicFromList(setup.rows.first);
+        await tester.pumpAndSettle();
+        final originalTitle = shell.currentTopic!.title;
+        final compact = find.byKey(const ValueKey('topic-header-compact'));
+        final title = find.byKey(const ValueKey('topic-header-compact-title'));
+        final field = find.byKey(const ValueKey('topic-header-title-field'));
+        await tester.tap(title);
+        await tester.pumpAndSettle();
+        expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+        expect(compact, findsNothing);
+        expect(find.text('Enter to save · Esc to cancel'), findsOneWidget);
+
+        await tester.enterText(field, 'Updated coverage plan');
+        await tester.sendKeyEvent(
+          save ? LogicalKeyboardKey.enter : LogicalKeyboardKey.escape,
+        );
+        await tester.pumpAndSettle();
+        final expectedTitle = save ? 'Updated coverage plan' : originalTitle;
+        expect(shell.currentTopic!.title, expectedTitle);
+        expect(compact, findsOneWidget);
+        expect(tester.widget<TopicTitle>(title).title, expectedTitle);
+        if (save) {
+          expect(setup.api.topicsUpdated.single['title'], expectedTitle);
+        } else {
+          expect(setup.api.topicsUpdated, isEmpty);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('compact titles remain read-only without edit permission', (
+    tester,
+  ) async {
+    final setup = await _setup(tester, canEditTopic: false);
+    final shell = setup.controller;
+    shell.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('topic-header-compact-title')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-header-compact')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topic-header-title-field')),
+      findsNothing,
+    );
+    expect(setup.api.topicsUpdated, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('compact tags can be removed and added without expanding', (
     tester,
   ) async {
