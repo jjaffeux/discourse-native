@@ -150,8 +150,18 @@ void main() {
     await tester.pumpWidget(_topicView(controller, now: () => now));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(ValueKey(('topic-day', yesterday))), findsOneWidget);
-    expect(find.byKey(ValueKey(('topic-day', today))), findsOneWidget);
+    final openingDate = find.byKey(ValueKey(('topic-day', yesterday)));
+    final nextDate = find.byKey(ValueKey(('topic-day', today)));
+    expect(openingDate, findsOneWidget);
+    expect(nextDate, findsOneWidget);
+    expect(
+      find.descendant(of: openingDate, matching: find.byType(Divider)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: nextDate, matching: find.byType(Divider)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('calls out a gap strictly longer than the site threshold', (
@@ -379,6 +389,13 @@ void main() {
     final viewport = tester.getRect(find.byType(SuperListView));
     expect(tester.getTopLeft(find.byKey(const ValueKey(21))).dy, viewport.top);
     expect(find.byKey(ValueKey(('topic-day', targetDay))), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(ValueKey(('topic-day', targetDay))),
+        matching: find.byType(Divider),
+      ),
+      findsOneWidget,
+    );
   });
 }
 
