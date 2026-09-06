@@ -486,6 +486,9 @@ label the people, replies, views, and activity columns; narrow lists move
 metadata beneath the title. Unread dots occupy a consistent leading gutter.
 Titles can wrap to two lines, with consistent row spacing across discovery
 views.
+Hover feedback uses a subtle rounded surface inset from the row separators,
+without changing row spacing or the clickable area. Keyboard focus has an
+outline on that same surface.
 
 `latest`, `new`, `unread`, `top` and `messages` all share one envelope
 (`topic_list.topics` plus a `users` array), so they go through a single
