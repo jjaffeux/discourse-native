@@ -1,2 +1,2 @@
 const double topicListContentWidth = 1120;
-const double topicListHorizontalPadding = 20;
+const double topicListHorizontalPadding = 16;

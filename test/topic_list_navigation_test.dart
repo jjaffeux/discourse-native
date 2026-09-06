@@ -14,6 +14,7 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
+import 'package:discourse_native/src/shell/topic_list_layout.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
@@ -342,7 +343,7 @@ void main() {
 
     expect(row.left, 0);
     expect(row.right, 800);
-    expect(recent.left, 20);
+    expect(recent.left, topicListHorizontalPadding);
     expect(newTopics.left, recent.right + 3);
     expect(top.left, newTopics.right + 3);
     expect(popular.left, top.right + 3);

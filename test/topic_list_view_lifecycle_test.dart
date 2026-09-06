@@ -11,6 +11,7 @@ import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/list_boundary_shortcuts.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_layout.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -187,6 +188,13 @@ void main() {
     expect(tester.getSize(compactRow), const Size(900, 50));
     expect(tester.getSize(contextualRow), const Size(900, 68));
     expect(find.text('design'), findsOneWidget);
+
+    final titleLeft = tester.getTopLeft(find.text('Daily Log')).dx;
+    final activityRight = tester
+        .getTopRight(find.byKey(const ValueKey('topic-ledger-activity-7')))
+        .dx;
+    expect(titleLeft, topicListHorizontalPadding);
+    expect(900 - activityRight, topicListHorizontalPadding);
 
     final titleCenter = tester.getCenter(find.text('Daily Log')).dy;
     expect(
