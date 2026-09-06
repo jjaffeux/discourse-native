@@ -565,7 +565,7 @@ class TopicDetail with Storable<TopicDetail> {
     this.gapsAfter = const {},
     this.postsCount = 0,
     this.lastReadPostNumber,
-    this.replyCount = 0,
+    int replyCount = 0,
     this.views = 0,
     this.likeCount = 0,
     this.participantCount = 0,
@@ -605,7 +605,7 @@ class TopicDetail with Storable<TopicDetail> {
     this.bookmarks = const [],
     this.recommendations,
     this.plugins = PluginData.none,
-  });
+  }) : _fallbackReplyCount = replyCount;
 
   static const int maximumInitialPosts = 20;
 
@@ -726,7 +726,11 @@ class TopicDetail with Storable<TopicDetail> {
 
   final int postsCount;
   final int? lastReadPostNumber;
-  final int replyCount;
+  final int _fallbackReplyCount;
+
+  int get replyCount =>
+      topicReplyCount(postsCount, fallback: _fallbackReplyCount);
+
   final int views;
   final int likeCount;
   final int participantCount;

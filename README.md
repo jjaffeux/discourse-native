@@ -730,6 +730,14 @@ The narrow list uses compact cards with a separate timestamp and taxonomy.
 Titles use the base text size, with category, tag, and preview text one step
 smaller. Timestamps and reply counts are secondary, and row heights grow with
 the content and text scale.
+Read-state styling follows the web client's last-read position: caught-up
+titles are dimmed, while unread-post badges stay beside titles and remain
+separate from total reply counts. New topics have a dot; nested topics use
+their new-replies dot instead of a flat unread-post count. These states update
+in the retained list as read receipts and topic updates reach the shared store.
+Reply totals in lists and topic summaries use `posts_count - 1`, like the web
+client, rather than the API's directed-reply counter. Sparse records without
+a post count retain their supplied reply count.
 Assignment shares the activity/reply line, and a tag overflow hint reveals
 additional tags. The reader
 shares one text alignment for taxonomy, title, posts, and compact recommendations,

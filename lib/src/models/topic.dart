@@ -136,6 +136,11 @@ enum CategoryNotificationLevel {
       };
 }
 
+// Core's reply_count counts directed replies. Lists and topic summaries use
+// posts_count minus the opening post; sparse records may only supply a count.
+int topicReplyCount(int postsCount, {int fallback = 0}) =>
+    postsCount > 0 ? postsCount - 1 : fallback;
+
 @immutable
 class Topic with Storable<Topic> {
   const Topic({
@@ -146,7 +151,7 @@ class Topic with Storable<Topic> {
     this.excerpt,
     this.lastPosterUsername,
     this.postsCount = 0,
-    this.replyCount = 0,
+    int replyCount = 0,
     this.views = 0,
     this.likeCount = 0,
     this.bumpedAt,
@@ -164,7 +169,7 @@ class Topic with Storable<Topic> {
     this.tags = const [],
     this.posterAvatars = const [],
     this.plugins = PluginData.none,
-  });
+  }) : _fallbackReplyCount = replyCount;
 
   static const int maximumPosterAvatars = 3;
 
@@ -245,7 +250,11 @@ class Topic with Storable<Topic> {
   final String? excerpt;
   final String? lastPosterUsername;
   final int postsCount;
-  final int replyCount;
+  final int _fallbackReplyCount;
+
+  int get replyCount =>
+      topicReplyCount(postsCount, fallback: _fallbackReplyCount);
+
   final int views;
   final int likeCount;
   final DateTime? bumpedAt;

@@ -19,6 +19,37 @@ import 'support/bundled_plugins.dart';
 const siteUrl = 'https://meta.discourse.org';
 
 void main() {
+  test(
+    'topic reply totals include undirected replies and follow post counts',
+    () {
+      const json = {
+        'id': 7,
+        'title': 'A topic',
+        'posts_count': 8,
+        'reply_count': 2,
+      };
+      final topic = Topic.fromJson(json, const {}, siteUrl);
+      final detail = TopicDetail.parse(json, siteUrl).detail;
+      expect(topic.replyCount, 7);
+      expect(detail.replyCount, 7);
+      expect(topic.copyWith(postsCount: 9).replyCount, 8);
+      expect(detail.copyWith(postsCount: 9).replyCount, 8);
+      expect(topic.copyWith(postsCount: 1).replyCount, 0);
+      expect(detail.copyWith(postsCount: 1).replyCount, 0);
+      expect(
+        Post.fromJson(const {'id': 10, 'reply_count': 2}, siteUrl).replyCount,
+        2,
+      );
+    },
+  );
+
+  test('sparse topic records retain the supplied reply count', () {
+    const json = {'id': 7, 'title': 'A sparse topic', 'reply_count': 2};
+    expect(Topic.fromJson(json, const {}, siteUrl).replyCount, 2);
+    expect(TopicDetail.parse(json, siteUrl).detail.replyCount, 2);
+    expect(Topic.fromJson(const {'id': 8}, const {}, siteUrl).replyCount, 0);
+  });
+
   test('posts retain whether the rendered body is localized', () {
     final localized = Post.fromJson(const {
       'id': 1,

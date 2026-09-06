@@ -25,6 +25,7 @@ import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_inbox_row.dart';
+import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
 import 'topic_title.dart';
 
@@ -1250,17 +1251,17 @@ class _TopicCopy extends StatelessWidget {
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: topic.showNewTopicDot
-                  ? const _TopicStateDot(
+                  ? const TopicStateDot(
                       key: ValueKey('new-topic-dot'),
                       label: 'New topic',
                     )
                   : topic.showNewRepliesDot
-                  ? const _TopicStateDot(
+                  ? const TopicStateDot(
                       key: ValueKey('new-replies-dot'),
                       label: 'Topic has new replies',
                     )
                   : topic.showUnreadCount
-                  ? const _TopicStateDot(label: 'Topic has unread replies')
+                  ? const TopicStateDot(label: 'Topic has unread replies')
                   : const SizedBox.shrink(),
             ),
           ),
@@ -1315,13 +1316,10 @@ class _TopicCopy extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: titleStyle?.copyWith(
-                        color: topic.visited
-                            ? Color.lerp(
-                                theme.discourse.whisper,
-                                theme.colorScheme.onSurface,
-                                0.25,
-                              )
-                            : theme.colorScheme.onSurface,
+                        color: topicListTitleColor(
+                          theme,
+                          visited: topic.visited,
+                        ),
                         fontWeight: topic.visited
                             ? FontWeight.w400
                             : FontWeight.w500,
@@ -1330,7 +1328,7 @@ class _TopicCopy extends StatelessWidget {
                   ),
                   if (topic.showUnreadCount) ...[
                     const SizedBox(width: 8),
-                    _UnreadPill(count: topic.unreadCount),
+                    TopicUnreadBadge(count: topic.unreadCount),
                   ],
                 ],
               ),
@@ -1832,52 +1830,6 @@ class _Posters extends StatelessWidget {
       ),
     );
   }
-}
-
-class _UnreadPill extends StatelessWidget {
-  const _UnreadPill({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        '$count',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onPrimary,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _TopicStateDot extends StatelessWidget {
-  const _TopicStateDot({super.key, required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    container: true,
-    label: label,
-    child: Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary,
-        shape: BoxShape.circle,
-      ),
-    ),
-  );
 }
 
 class _Message extends StatelessWidget {
