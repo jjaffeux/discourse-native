@@ -273,42 +273,6 @@ class _PostActionsState extends State<PostActions> {
               controller.toggleLike(post, siteUrl: widget.siteUrl),
             ),
           ),
-        if (controller.currentInstance?.url == widget.siteUrl &&
-            controller.currentInstance?.user != null &&
-            topic != null)
-          PostAction(
-            icon: switch (post.bookmark?.reminderAt) {
-              final DateTime _ => DIcons.discourseBookmarkClock,
-              null when post.bookmark != null => DIcons.bookmark,
-              null => DIcons.farBookmark,
-            },
-            label: post.bookmark == null ? 'Bookmark' : 'Edit bookmark',
-            // Core promotes an existing bookmark out of its collapsed set.
-            placement: post.bookmark == null
-                ? PostActionPlacement.overflow
-                : PostActionPlacement.toolbar,
-            tooltip: post.bookmark == null
-                ? 'Bookmark this post'
-                : 'Edit this post bookmark',
-            tint: post.bookmark == null
-                ? null
-                : Theme.of(context).colorScheme.primary,
-            enabled: !controller.bookmarkWriteInFlight(
-              siteUrl: widget.siteUrl,
-              topicId: topic.id,
-              targetType: BookmarkTargetType.post,
-              targetId: post.id,
-            ),
-            onInvoke: () => unawaited(
-              showPostBookmarkMenu(
-                context: context,
-                controller: controller,
-                siteUrl: widget.siteUrl,
-                topicId: topic.id,
-                post: post,
-              ),
-            ),
-          ),
         if (postUrl case final url?)
           PostAction(
             icon: DIcons.upRightFromSquare,
@@ -350,6 +314,40 @@ class _PostActionsState extends State<PostActions> {
               replyToPostNumber: post.postNumber,
               replyToUsername: post.username,
               replyingToWhisper: post.isWhisper,
+            ),
+          ),
+        if (controller.currentInstance?.url == widget.siteUrl &&
+            controller.currentInstance?.user != null &&
+            topic != null)
+          PostAction(
+            icon: switch (post.bookmark?.reminderAt) {
+              final DateTime _ => DIcons.discourseBookmarkClock,
+              null when post.bookmark != null => DIcons.bookmark,
+              null => DIcons.farBookmark,
+            },
+            label: post.bookmark == null ? 'Bookmark' : 'Edit bookmark',
+            placement: PostActionPlacement.trailing,
+            showLabelInFooter: false,
+            tooltip: post.bookmark == null
+                ? 'Bookmark this post'
+                : 'Edit this post bookmark',
+            tint: post.bookmark == null
+                ? null
+                : Theme.of(context).colorScheme.primary,
+            enabled: !controller.bookmarkWriteInFlight(
+              siteUrl: widget.siteUrl,
+              topicId: topic.id,
+              targetType: BookmarkTargetType.post,
+              targetId: post.id,
+            ),
+            onInvoke: () => unawaited(
+              showPostBookmarkMenu(
+                context: context,
+                controller: controller,
+                siteUrl: widget.siteUrl,
+                topicId: topic.id,
+                post: post,
+              ),
             ),
           ),
         if (post.canEdit)
@@ -984,20 +982,40 @@ class PostActionsFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               for (final action in actions)
-                DButton(
-                  key: ValueKey((
-                    'post-footer-action',
-                    scope.postNumber,
-                    action.label,
-                  )),
-                  icon: action.leading(context, size: 16),
-                  label: Text(action.label),
-                  tooltip: action.tooltip,
-                  variant: DButtonVariant.flat,
-                  size: DButtonSize.small,
-                  onPressed: action.enabled
-                      ? () => scope.onInvoke(action, context)
-                      : null,
+                Builder(
+                  builder: (buttonContext) {
+                    final key = ValueKey((
+                      'post-footer-action',
+                      scope.postNumber,
+                      action.label,
+                    ));
+                    final icon = action.leading(
+                      context,
+                      size: 16,
+                      color: action.tint,
+                    );
+                    final onPressed = action.enabled
+                        ? () => scope.onInvoke(action, buttonContext)
+                        : null;
+                    return action.showLabelInFooter
+                        ? DButton(
+                            key: key,
+                            icon: icon,
+                            label: Text(action.label),
+                            tooltip: action.tooltip,
+                            variant: DButtonVariant.flat,
+                            size: DButtonSize.small,
+                            onPressed: onPressed,
+                          )
+                        : DButton.iconOnly(
+                            key: key,
+                            icon: icon,
+                            tooltip: action.tooltip,
+                            variant: DButtonVariant.flat,
+                            size: DButtonSize.small,
+                            onPressed: onPressed,
+                          );
+                  },
                 ),
             ],
           ),

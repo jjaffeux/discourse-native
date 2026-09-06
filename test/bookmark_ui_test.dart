@@ -8,12 +8,13 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/bookmark_ui.dart';
-import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:flutter/gestures.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,47 +36,49 @@ void main() {
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('desktop quick-create opens the full editor and saves once', (
-    tester,
-  ) async {
-    final (controller, api) = await _controller();
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      _postActionsHost(controller, platform: TargetPlatform.macOS, post: _post),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'footer bookmark opens quick-create and saves editor changes once',
+    (tester) async {
+      final (controller, api) = await _controller();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _postActionsHost(
+          controller,
+          platform: TargetPlatform.macOS,
+          post: _post,
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await pointer.addPointer(location: Offset.zero);
-    addTearDown(pointer.removePointer);
-    await pointer.moveTo(tester.getCenter(find.text('Post body')));
-    await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(MenuItemButton, 'Bookmark'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Bookmark this post'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('More actions'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(MenuItemButton, 'Bookmark'));
-    await tester.pumpAndSettle();
+      expect(api.createdBookmarks, hasLength(1));
+      expect(find.text('Bookmarked!'), findsOneWidget);
+      expect(find.text('In 2 hours'), findsOneWidget);
+      expect(find.text('More options'), findsOneWidget);
 
-    expect(api.createdBookmarks, hasLength(1));
-    expect(find.text('Bookmarked!'), findsOneWidget);
-    expect(find.text('In 2 hours'), findsOneWidget);
-    expect(find.text('More options'), findsOneWidget);
+      await tester.tap(find.text('More options'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('More options'));
-    await tester.pumpAndSettle();
+      expect(find.text('Times use Europe/Paris.'), findsOneWidget);
+      await tester.enterText(find.byType(TextFormField), 'Follow up');
+      await tester.tap(find.text('Tomorrow').last);
+      await _scrollEditorToEnd(tester, 'Save');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Times use Europe/Paris.'), findsOneWidget);
-    await tester.enterText(find.byType(TextFormField), 'Follow up');
-    await tester.tap(find.text('Tomorrow').last);
-    await _scrollEditorToEnd(tester, 'Save');
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
-
-    expect(api.updatedBookmarks, hasLength(1));
-    expect(api.updatedBookmarks.single.name, 'Follow up');
-    expect(api.updatedBookmarks.single.reminderAt, isNotNull);
-  });
+      expect(api.updatedBookmarks, hasLength(1));
+      expect(api.updatedBookmarks.single.name, 'Follow up');
+      expect(api.updatedBookmarks.single.reminderAt, isNotNull);
+    },
+  );
 
   testWidgets('touch long-press exposes the same bookmark action', (
     tester,
@@ -102,9 +105,7 @@ void main() {
     expect(find.text('Bookmarked!'), findsOneWidget);
   });
 
-  testWidgets('an existing bookmark stays outside More actions like Core', (
-    tester,
-  ) async {
+  testWidgets('a saved bookmark stays tinted beside Reply', (tester) async {
     final (controller, _) = await _controller();
     addTearDown(controller.dispose);
     const bookmarkedPost = Post(
@@ -128,21 +129,27 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await pointer.addPointer(location: Offset.zero);
-    addTearDown(pointer.removePointer);
-    await pointer.moveTo(tester.getCenter(find.text('Post body')));
-    await tester.pump();
-
     final action = find.byTooltip('Edit this post bookmark');
     expect(action, findsOneWidget);
-    final toolbarButton = tester.widget<HoverActionButton>(
-      find.ancestor(of: action, matching: find.byType(HoverActionButton)),
+    final button = find.byKey(
+      const ValueKey(('post-footer-action', 2, 'Edit bookmark')),
+    );
+    final icon = tester.widget<DIcon>(
+      find.descendant(of: button, matching: find.byType(DIcon)),
+    );
+    expect(icon.icon, DIcons.bookmark);
+    expect(icon.color, Theme.of(tester.element(action)).colorScheme.primary);
+    expect(
+      tester.getRect(button).left,
+      greaterThanOrEqualTo(tester.getRect(find.text('Reply')).right),
     );
     expect(
-      toolbarButton.color,
-      Theme.of(tester.element(action)).colorScheme.primary,
+      tester.getSize(button).width,
+      DButton.iconOnlyDimensionFor(DButtonSize.small),
     );
+    await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(MenuItemButton, 'Edit bookmark'), findsNothing);
   });
 
   testWidgets('editor prefill is local and cancel discards it', (tester) async {
@@ -284,6 +291,7 @@ TopicPayload _topic({List<Bookmark> bookmarks = const []}) => (
     title: 'Topic',
     stream: const [12],
     postsCount: 1,
+    canCreatePost: true,
     bookmarks: bookmarks,
   ),
   posts: const [_post],
@@ -302,7 +310,19 @@ Widget _postActionsHost(
     child: PostActions(
       siteUrl: _site,
       post: post,
-      child: const Center(child: Text('Post body')),
+      persistent: true,
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('Post body')),
+              PostMoreActionsButton(),
+            ],
+          ),
+          PostActionsFooter(child: SizedBox.shrink()),
+        ],
+      ),
     ),
   ),
 );

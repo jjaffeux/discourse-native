@@ -18,6 +18,7 @@ class PostAction {
     this.tint,
     this.emojiUrl,
     this.placement = PostActionPlacement.toolbar,
+    this.showLabelInFooter = true,
   });
 
   final DIconData icon;
@@ -33,6 +34,8 @@ class PostAction {
   final bool destructive;
 
   final PostActionPlacement placement;
+
+  final bool showLabelInFooter;
 
   final Color? tint;
 

@@ -772,8 +772,10 @@ the reader footer has no recommendation shortcut. Recommendation links keep
 the source list. Every ordinary post has a permanent three-dot menu beside
 its timestamp, exposing the same
 secondary core and plugin actions as the keyboard and touch menus. Reply stays
-visible at the bottom right of each post beside its likes or reactions, opens
-the composer for that post, and is excluded from the three-dot menu. J/K move
+visible at the bottom right of each post beside its likes or reactions and opens
+the composer for that post. A bookmark icon sits immediately to its right,
+showing the saved or reminder state and opening the bookmark controls. Reply
+and Bookmark are excluded from the three-dot menu. J/K move
 through posts in the open topic and leave the topic list selection alone;
 editing controls keep these keys as text input.
 
