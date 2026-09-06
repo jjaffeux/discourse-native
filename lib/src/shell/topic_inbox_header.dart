@@ -222,6 +222,40 @@ class _TopicActivitySummary extends StatelessWidget {
         runSpacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
+          if (topic.closed)
+            Semantics(
+              key: const ValueKey('topic-header-closed'),
+              label: 'Topic closed',
+              excludeSemantics: true,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: theme.shell.panel,
+                  border: Border.all(color: theme.shell.divider),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DIcon(
+                        DIcons.lock,
+                        size: 12,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Closed',
+                        style: style?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           if (participants.isNotEmpty)
             SizedBox(
               width: 20 + (participants.length - 1) * 15,

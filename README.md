@@ -732,6 +732,9 @@ additional tags. The reader
 shares one text alignment for taxonomy, title, posts, and compact recommendations,
 with participants and assignment controls below the title. Bookmark and
 notification controls sit beside Reply in the footer.
+Closed topics show a lock and **Closed** badge at the start of the header's
+metadata row, including for readers without moderation permissions. The badge
+updates when the topic is closed or reopened.
 
 The list heading, discovery tabs, and category/tag filters occupy separate
 rows within the same reading lane as the topics. The heading and New topic
