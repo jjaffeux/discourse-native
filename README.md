@@ -733,9 +733,12 @@ with participants and assignment controls below the title. Bookmark and
 notification controls sit beside Reply in the footer.
 
 The list heading, discovery tabs, and category/tag filters occupy separate
-rows. New retains its All / Topics / Replies subnavigation and Top retains its
-period picker. Feed tabs share one divider with an underline for the selection;
-New uses inset segments with smaller counts, and Top labels its period picker.
+rows within the same reading lane as the topics. The heading and New topic
+action align with the list when it fills the workspace, and the header shrinks
+with the list when a topic opens. New retains its All / Topics / Replies
+subnavigation and Top retains its period picker. Feed tabs share one divider
+with an underline for the selection; New uses inset segments with smaller
+counts, and Top labels its period picker.
 The navigation adapts to text scaling and scrolls when its labels cannot fit.
 Category and subcategory have separate dropdowns; tag filters
 support multiple selections matched together by the server. Changing a mode or

@@ -366,9 +366,12 @@ class _TopicListNavigationControls extends StatelessWidget {
                 ),
               ),
           if (showsFilters && stacked)
-            Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 12),
-              child: filters(),
+            ContentReadingLaneBox(
+              widthLimit: topicListContentWidth,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 12),
+                child: filters(),
+              ),
             ),
         ],
       ),
