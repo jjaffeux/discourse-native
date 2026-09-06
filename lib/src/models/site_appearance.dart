@@ -133,6 +133,7 @@ class ResolvedSitePalette {
     required this.highlightLow,
     required this.dangerLow,
     required this.mentionBackground,
+    required this.currentUserMentionBackground,
     required this.codeBlockBackground,
     required this.inlineCodeBackground,
     required this.codeKeyword,
@@ -199,6 +200,10 @@ class ResolvedSitePalette {
       highlightLow: _color(json['highlightLow']) ?? highlight,
       dangerLow: _color(json['dangerLow']) ?? danger,
       mentionBackground: _color(json['mentionBackground']) ?? primaryLow,
+      currentUserMentionBackground:
+          _color(json['currentUserMentionBackground']) ??
+          _color(json['tertiaryLow']) ??
+          tertiary,
       codeBlockBackground:
           _color(json['codeBlockBackground']) ?? primaryVeryLow,
       inlineCodeBackground:
@@ -245,6 +250,7 @@ class ResolvedSitePalette {
   final Color highlightLow;
   final Color dangerLow;
   final Color mentionBackground;
+  final Color currentUserMentionBackground;
   final Color codeBlockBackground;
   final Color inlineCodeBackground;
   final Color codeKeyword;
@@ -286,6 +292,7 @@ class ResolvedSitePalette {
     'highlightLow': highlightLow.toARGB32(),
     'dangerLow': dangerLow.toARGB32(),
     'mentionBackground': mentionBackground.toARGB32(),
+    'currentUserMentionBackground': currentUserMentionBackground.toARGB32(),
     'codeBlockBackground': codeBlockBackground.toARGB32(),
     'inlineCodeBackground': inlineCodeBackground.toARGB32(),
     'codeKeyword': codeKeyword.toARGB32(),
@@ -330,6 +337,7 @@ class ResolvedSitePalette {
       other.highlightLow == highlightLow &&
       other.dangerLow == dangerLow &&
       other.mentionBackground == mentionBackground &&
+      other.currentUserMentionBackground == currentUserMentionBackground &&
       other.codeBlockBackground == codeBlockBackground &&
       other.inlineCodeBackground == inlineCodeBackground &&
       other.codeKeyword == codeKeyword &&
@@ -372,6 +380,7 @@ class ResolvedSitePalette {
     highlightLow,
     dangerLow,
     mentionBackground,
+    currentUserMentionBackground,
     codeBlockBackground,
     inlineCodeBackground,
     codeKeyword,

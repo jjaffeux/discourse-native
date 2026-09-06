@@ -177,6 +177,7 @@ void main() {
       expect(palette?.contentBorderColor, const Color(0xFFE1E1E1));
       expect(palette?.selectedForeground, const Color(0xFF0A0A0A));
       expect(palette?.mentionBackground, palette?.primaryLow);
+      expect(palette?.currentUserMentionBackground, const Color(0xFFAFE4FF));
       expect(palette?.codeNumber, const Color(0xFFAA11AA));
       expect(palette?.codeName, const Color(0xFFAA11AA));
       expect(palette?.codeMeta, const Color(0xFF113355));
@@ -188,6 +189,17 @@ void main() {
       );
 
       expect(palette?.accentSubtle, palette?.tertiary);
+    });
+
+    test('resolves a theme override of the current user mention color', () {
+      final palette = parseSiteAppearanceStylesheets([
+        _stylesheet({'--scheme-type': 'dark'}),
+        ':root { --custom-mention: #433355; '
+            '--tertiary-400: var(--custom-mention); }',
+      ]);
+
+      expect(palette?.currentUserMentionBackground, const Color(0xFF433355));
+      expect(palette?.mentionBackground, palette?.primaryLow);
     });
 
     test('applies later global root declarations but not scoped rules', () {
@@ -514,6 +526,7 @@ String _stylesheet([Map<String, String> overrides = const {}]) {
     '--primary': '#111111',
     '--secondary': '#FFFFFF',
     '--tertiary': '#0088CC',
+    '--tertiary-400': '#AFE4FF',
     '--tertiary-600': '#66CCFF',
     '--quaternary': '#E45735',
     '--header_background': '#FFFFFF',

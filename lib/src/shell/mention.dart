@@ -3,9 +3,11 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../models/user_status.dart';
-import '../theme/discourse_typography.dart';
+import '../theme/app_theme.dart';
 import 'open_link.dart';
 import 'pill.dart';
+import 'shell_scope.dart';
+import 'site_url.dart';
 import 'user_status.dart';
 
 class MentionPill extends StatelessWidget {
@@ -16,6 +18,7 @@ class MentionPill extends StatelessWidget {
     this.href,
     this.siteUrl,
     this.status,
+    this.isGroupMention = false,
   });
 
   final String label;
@@ -24,9 +27,35 @@ class MentionPill extends StatelessWidget {
   final String? href;
   final String? siteUrl;
   final UserStatusReference? status;
+  final bool isGroupMention;
 
   @override
   Widget build(BuildContext context) {
+    if (href == null ||
+        isGroupMention ||
+        ShellScope.maybeIdentityOf(context) == null) {
+      return _buildPill(context, false);
+    }
+
+    return ShellSelector<bool>(
+      select: (controller) {
+        final sourceSite = siteUrl ?? controller.currentInstance?.url;
+        if (sourceSite == null) return false;
+        final username = controller.currentUserFor(sourceSite)?.username;
+        if (username == null) return false;
+        // Core matches the cooked profile href, including a site's subfolder,
+        // case-insensitively rather than comparing the displayed label.
+        final ownProfilePath = Uri.parse(
+          resolveSitePath(sourceSite, 'u/$username'),
+        ).path;
+        return href!.toLowerCase() == ownProfilePath.toLowerCase();
+      },
+      builder: (context, isCurrentUser, child) =>
+          _buildPill(context, isCurrentUser),
+    );
+  }
+
+  Widget _buildPill(BuildContext context, bool isCurrentUser) {
     final target = href;
     final pill = LinkTarget(
       url: target,
@@ -34,6 +63,9 @@ class MentionPill extends StatelessWidget {
       child: Pill(
         label: label,
         baseStyle: baseStyle,
+        backgroundColor: isCurrentUser
+            ? Theme.of(context).shell.currentUserMention
+            : null,
         onTap: target == null
             ? null
             : () => openLink(context, target, siteUrl: siteUrl),
@@ -91,6 +123,7 @@ Widget? mentionWidgetBuilder(
         isGroupMention: isGroupMention,
       ),
       siteUrl: siteUrl,
+      isGroupMention: isGroupMention,
       status: userStatuses[username],
     ),
   );

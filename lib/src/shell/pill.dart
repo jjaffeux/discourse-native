@@ -24,6 +24,7 @@ class Pill extends StatefulWidget {
     super.key,
     required this.label,
     required this.baseStyle,
+    this.backgroundColor,
     this.leading,
     this.onTap,
     this.hoverable = false,
@@ -34,6 +35,8 @@ class Pill extends StatefulWidget {
   final String label;
 
   final TextStyle? baseStyle;
+
+  final Color? backgroundColor;
 
   final Widget? leading;
 
@@ -81,12 +84,13 @@ class _PillState extends State<Pill> {
     final theme = Theme.of(context);
     final size = Pill.fontSizeFor(widget.baseStyle);
     final radius = BorderRadius.circular(size * pillRadius);
+    final fill = widget.backgroundColor ?? theme.shell.mention;
     final background = _hovered || widget.hovered || _focused
         ? Color.alphaBlend(
             theme.colorScheme.onSurface.withValues(alpha: 0.08),
-            theme.shell.mention,
+            fill,
           )
-        : theme.shell.mention;
+        : fill;
 
     final pill = Container(
       padding: EdgeInsets.symmetric(

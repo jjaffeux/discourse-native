@@ -36,6 +36,7 @@ ResolvedSitePalette sitePalette({
   dangerLow: const Color(0xFFFFDDE1),
   selectedForeground: const Color(0xFF202020),
   mentionBackground: const Color(0xFFFFEDB8),
+  currentUserMentionBackground: const Color(0xFFBDD1FF),
   codeBlockBackground: const Color(0xFF18202A),
   inlineCodeBackground: const Color(0xFFE9EDF2),
   codeKeyword: const Color(0xFF9B59B6),
