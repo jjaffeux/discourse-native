@@ -8,6 +8,7 @@ import '../models/site_config.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'platform.dart';
 import 'shell_sheet.dart';
 
 String topicShareUrl({
@@ -79,15 +80,12 @@ Future<void> showTopicShareSheet({
   required String title,
   required String url,
   Future<void> Function()? onReplyAsNewTopic,
-}) => showShellSheet<void>(
+}) => _showShareSheet(
   context: context,
-  title: 'Share this topic',
-  dialogOnDesktop: true,
-  builder: (context) => _TopicShareBody(
-    title: title,
-    url: url,
-    onReplyAsNewTopic: onReplyAsNewTopic,
-  ),
+  heading: 'Share this topic',
+  title: title,
+  url: url,
+  onReplyAsNewTopic: onReplyAsNewTopic,
 );
 
 Future<void> showPostShareSheet({
@@ -96,41 +94,93 @@ Future<void> showPostShareSheet({
   required String url,
   required int postNumber,
   Future<void> Function()? onReplyAsNewTopic,
-}) => showShellSheet<void>(
+}) => _showShareSheet(
   context: context,
-  title: 'Share post #$postNumber',
-  dialogOnDesktop: true,
-  builder: (context) => _TopicShareBody(
-    title: topicTitle,
-    url: url,
-    onReplyAsNewTopic: onReplyAsNewTopic,
-  ),
+  heading: 'Share post #$postNumber',
+  title: topicTitle,
+  url: url,
+  onReplyAsNewTopic: onReplyAsNewTopic,
 );
 
-class _TopicShareBody extends StatelessWidget {
-  const _TopicShareBody({
-    required this.title,
-    required this.url,
-    this.onReplyAsNewTopic,
-  });
+Future<void> _showShareSheet({
+  required BuildContext context,
+  required String heading,
+  required String title,
+  required String url,
+  Future<void> Function()? onReplyAsNewTopic,
+}) => showShellSheet<void>(
+  context: context,
+  title: heading,
+  dialogOnDesktop: true,
+  showHeaderDivider: false,
+  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+  footerPadding: const EdgeInsets.fromLTRB(12, 4, 20, 8),
+  footerBuilder: onReplyAsNewTopic == null
+      ? null
+      : (context) => Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: context.isTouch ? 44 : 36),
+            child: DButton(
+              key: const ValueKey('topic-share-reply-as-new-topic'),
+              label: const Text(
+                'Reply as new topic',
+                maxLines: 2,
+                softWrap: true,
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                unawaited(onReplyAsNewTopic());
+              },
+              icon: const DIcon(DIcons.plus, size: 16),
+              size: DButtonSize.small,
+              variant: DButtonVariant.flat,
+            ),
+          ),
+        ),
+  builder: (context) => _TopicShareBody(title: title, url: url),
+);
+
+class _TopicShareBody extends StatefulWidget {
+  const _TopicShareBody({required this.title, required this.url});
 
   final String title;
   final String url;
-  final Future<void> Function()? onReplyAsNewTopic;
 
-  void _notice(BuildContext context, String message) {
+  @override
+  State<_TopicShareBody> createState() => _TopicShareBodyState();
+}
+
+class _TopicShareBodyState extends State<_TopicShareBody> {
+  Timer? _copiedTimer;
+  bool _copied = false;
+
+  @override
+  void dispose() {
+    _copiedTimer?.cancel();
+    super.dispose();
+  }
+
+  void _notice(String message) {
     ScaffoldMessenger.maybeOf(
       context,
     )?.showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _copy(BuildContext context) async {
+  Future<void> _copy() async {
     try {
-      await Clipboard.setData(ClipboardData(text: url));
-      if (context.mounted) _notice(context, 'Link copied!');
+      await Clipboard.setData(ClipboardData(text: widget.url));
     } catch (_) {
-      if (context.mounted) _notice(context, "Couldn't copy link.");
+      if (mounted) _notice("Couldn't copy link.");
+      return;
     }
+    if (!mounted) return;
+
+    _copiedTimer?.cancel();
+    setState(() => _copied = true);
+    _copiedTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _copied = false);
+    });
   }
 
   Future<void> _share(BuildContext context) async {
@@ -141,13 +191,13 @@ class _TopicShareBody extends StatelessWidget {
     try {
       await sharing.SharePlus.instance.share(
         sharing.ShareParams(
-          text: url,
-          subject: title,
+          text: widget.url,
+          subject: widget.title,
           sharePositionOrigin: origin,
         ),
       );
     } catch (_) {
-      if (context.mounted) _notice(context, "Couldn't open sharing.");
+      if (mounted) _notice("Couldn't open sharing.");
     }
   }
 
@@ -158,52 +208,98 @@ class _TopicShareBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Copy this link, or share it with another app.',
-          style: theme.textTheme.bodyMedium,
-        ),
-        const SizedBox(height: 12),
         Container(
           key: const ValueKey('topic-share-url'),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerHighest,
+            border: Border.all(color: theme.colorScheme.outlineVariant),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: SelectableText(url),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final link = Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  children: [
+                    DIcon(
+                      DIcons.link,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SelectableText(
+                        widget.url,
+                        maxLines: 1,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+              final copy = ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: context.isTouch ? 44 : 36,
+                ),
+                child: DButton(
+                  key: const ValueKey('topic-share-copy'),
+                  label: Semantics(
+                    liveRegion: true,
+                    child: Text(_copied ? 'Copied!' : 'Copy link'),
+                  ),
+                  onPressed: () => unawaited(_copy()),
+                  icon: DIcon(_copied ? DIcons.check : DIcons.copy, size: 16),
+                  size: DButtonSize.small,
+                  variant: DButtonVariant.primary,
+                ),
+              );
+              if (constraints.maxWidth <
+                  MediaQuery.textScalerOf(context).scale(260)) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    link,
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: copy,
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: link),
+                  const SizedBox(width: 4),
+                  copy,
+                ],
+              );
+            },
+          ),
         ),
-        const SizedBox(height: 16),
-        Wrap(
-          alignment: WrapAlignment.end,
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            if (onReplyAsNewTopic != null)
-              DButton(
-                key: const ValueKey('topic-share-reply-as-new-topic'),
-                label: const Text('Reply as new topic'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  unawaited(onReplyAsNewTopic!());
-                },
-                icon: const DIcon(DIcons.plus, size: 16),
-              ),
-            DButton(
-              key: const ValueKey('topic-share-copy'),
-              label: const Text('Copy link'),
-              onPressed: () => unawaited(_copy(context)),
-              icon: const DIcon(DIcons.copy, size: 16),
-            ),
-            Builder(
+        const SizedBox(height: 8),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: context.isTouch ? 44 : 36),
+            child: Builder(
               builder: (buttonContext) => DButton(
                 key: const ValueKey('topic-share-system'),
-                label: const Text('Share'),
+                label: const Text(
+                  'Share to another app',
+                  maxLines: 2,
+                  softWrap: true,
+                ),
                 onPressed: () => unawaited(_share(buttonContext)),
                 icon: const DIcon(DIcons.upRightFromSquare, size: 16),
-                variant: DButtonVariant.primary,
+                size: DButtonSize.small,
+                variant: DButtonVariant.transparent,
               ),
             ),
-          ],
+          ),
         ),
       ],
     );

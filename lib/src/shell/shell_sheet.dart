@@ -12,6 +12,7 @@ Future<T?> showShellSheet<T>({
   WidgetBuilder? footerBuilder,
   bool nested = false,
   bool dialogOnDesktop = false,
+  bool showHeaderDivider = true,
   BoxConstraints desktopDialogConstraints = const BoxConstraints(
     maxWidth: 480,
     maxHeight: 560,
@@ -35,6 +36,7 @@ Future<T?> showShellSheet<T>({
             builder: builder,
             footerBuilder: footerBuilder,
             nested: nested,
+            showHeaderDivider: showHeaderDivider,
             padding: padding,
             footerPadding: footerPadding,
             // A dialog is already lifted clear of the keyboard and of the
@@ -56,6 +58,7 @@ Future<T?> showShellSheet<T>({
       builder: builder,
       footerBuilder: footerBuilder,
       nested: nested,
+      showHeaderDivider: showHeaderDivider,
       padding: padding,
       footerPadding: footerPadding,
     ),
@@ -68,6 +71,7 @@ class _SheetBody extends StatelessWidget {
     required this.builder,
     required this.footerBuilder,
     required this.nested,
+    required this.showHeaderDivider,
     required this.padding,
     required this.footerPadding,
     this.insetsBottom = true,
@@ -77,6 +81,7 @@ class _SheetBody extends StatelessWidget {
   final WidgetBuilder builder;
   final WidgetBuilder? footerBuilder;
   final bool nested;
+  final bool showHeaderDivider;
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry footerPadding;
 
@@ -125,7 +130,7 @@ class _SheetBody extends StatelessWidget {
               ],
             ),
           ),
-          Divider(color: theme.shell.divider, height: 1),
+          if (showHeaderDivider) Divider(color: theme.shell.divider, height: 1),
           Flexible(
             child: SingleChildScrollView(
               padding: EdgeInsets.only(

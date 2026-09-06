@@ -3889,6 +3889,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byKey(const ValueKey('topic-share-copy')));
       await tester.pumpAndSettle();
       expect(copied, [url]);
+      expect(find.text('Copied!'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('topic-share-system')));
       await tester.pumpAndSettle();
@@ -3896,6 +3897,9 @@ void _registerTopicReadingTests() {
       expect(shares.single.method, 'share');
       expect((shares.single.arguments as Map)['text'], url);
       expect((shares.single.arguments as Map)['subject'], 'A real topic');
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('post sharing targets that post and can continue elsewhere', (
@@ -3935,12 +3939,9 @@ void _registerTopicReadingTests() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: Offset.zero);
-      addTearDown(mouse.removePointer);
-      await mouse.moveTo(tester.getCenter(renderedText('Second post body')));
+      await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
       await tester.pumpAndSettle();
-      await tapPostAction(tester, 'Share this post');
+      await tester.tap(find.widgetWithText(MenuItemButton, 'Share'));
       await tester.pumpAndSettle();
 
       expect(find.text('Share post #2'), findsOneWidget);
