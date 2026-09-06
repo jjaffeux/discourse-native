@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/src/models/category_sidebar.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -355,6 +356,51 @@ void main() {
       expect(tabs[index].width, lessThanOrEqualTo(labels[index].width + 24));
     }
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('hover uses the same inset surface as the selected tab', (
+    tester,
+  ) async {
+    final setup = await _controller();
+    addTearDown(setup.controller.dispose);
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: setup.controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: MainContent(layout: ShellLayout.expanded)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final recent = find.byKey(const ValueKey('topic-list-latest'));
+    final newTopics = find.byKey(const ValueKey('topic-list-new'));
+    final recentSurface = find.descendant(
+      of: recent,
+      matching: find.byType(AnimatedContainer),
+    );
+    final newSurface = find.descendant(
+      of: newTopics,
+      matching: find.byType(AnimatedContainer),
+    );
+    final selectedRect = tester.getRect(recentSurface);
+    final theme = Theme.of(tester.element(newTopics));
+
+    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(pointer.removePointer);
+    await pointer.addPointer();
+    await pointer.moveTo(tester.getCenter(newTopics));
+    await tester.pumpAndSettle();
+
+    final hoverRect = tester.getRect(newSurface);
+    final hoverDecoration =
+        tester.widget<AnimatedContainer>(newSurface).decoration
+            as BoxDecoration;
+    expect(hoverRect.top, selectedRect.top);
+    expect(hoverRect.bottom, selectedRect.bottom);
+    expect(hoverDecoration.color, theme.shell.hover);
   });
 
   for (final scenario in [

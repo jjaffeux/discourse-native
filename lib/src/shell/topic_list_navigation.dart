@@ -430,7 +430,7 @@ class _TopicListTabStrip extends StatelessWidget {
   }
 }
 
-class _TopicListTabItem extends StatelessWidget {
+class _TopicListTabItem extends StatefulWidget {
   const _TopicListTabItem({
     required this.controlKey,
     required this.label,
@@ -450,68 +450,100 @@ class _TopicListTabItem extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_TopicListTabItem> createState() => _TopicListTabItemState();
+}
+
+class _TopicListTabItemState extends State<_TopicListTabItem> {
+  final WidgetStatesController _states = WidgetStatesController();
+
+  @override
+  void dispose() {
+    _states.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayLabel = count > 0 && !showCountBadge
-        ? '$label ($count)'
-        : label;
+    final displayLabel = widget.count > 0 && !widget.showCountBadge
+        ? '${widget.label} (${widget.count})'
+        : widget.label;
     final labelWidget = Text(
       displayLabel,
       maxLines: 1,
       softWrap: false,
       overflow: TextOverflow.visible,
-      style: textStyle?.copyWith(
-        color: selected
+      style: widget.textStyle?.copyWith(
+        color: widget.selected
             ? theme.colorScheme.primary
             : theme.colorScheme.onSurfaceVariant,
-        fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+        fontWeight: widget.selected ? FontWeight.w500 : FontWeight.w400,
       ),
     );
     return Semantics(
       button: true,
-      selected: selected,
-      label: count > 0 ? '$label, $count' : label,
+      selected: widget.selected,
+      label: widget.count > 0
+          ? '${widget.label}, ${widget.count}'
+          : widget.label,
       child: ExcludeSemantics(
         child: InkWell(
-          key: controlKey,
-          onTap: onTap,
-          hoverColor: theme.shell.hover,
+          key: widget.controlKey,
+          statesController: _states,
+          onTap: widget.onTap,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          splashFactory: NoSplash.splashFactory,
           borderRadius: BorderRadius.circular(6),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            alignment: Alignment.center,
-            margin: const EdgeInsets.symmetric(vertical: 9),
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: selected ? theme.shell.selected : Colors.transparent,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: showCountBadge && count > 0
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      labelWidget,
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.shell.hover,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '$count',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontFeatures: const [FontFeature.tabularFigures()],
+          child: ValueListenableBuilder<Set<WidgetState>>(
+            valueListenable: _states,
+            builder: (context, states, _) {
+              final emphasized =
+                  states.contains(WidgetState.hovered) ||
+                  states.contains(WidgetState.focused) ||
+                  states.contains(WidgetState.pressed);
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                alignment: Alignment.center,
+                margin: const EdgeInsets.symmetric(vertical: 9),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: widget.selected
+                      ? theme.shell.selected
+                      : emphasized
+                      ? theme.shell.hover
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: widget.showCountBadge && widget.count > 0
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          labelWidget,
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.shell.hover,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${widget.count}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
-                  )
-                : labelWidget,
+                        ],
+                      )
+                    : labelWidget,
+              );
+            },
           ),
         ),
       ),
