@@ -10,6 +10,7 @@ void main() {
     final config = SiteConfig.fromSettings(const {
       'discourse_reactions_enabled': true,
       'discourse_reactions_reaction_for_like': 'heart',
+      'discourse_reactions_like_icon': 'star',
       'discourse_reactions_enabled_reactions': '+1|clap',
       'discourse_reactions_allow_any_emoji': true,
       'discourse_reactions_desaturated_reaction_panel': true,
@@ -19,6 +20,7 @@ void main() {
       config.reactionsSettings,
       const ReactionsSettings(
         mainReaction: 'heart',
+        likeIcon: 'star',
         offeredReactions: ['heart', '+1', 'clap'],
         allowAnyEmoji: true,
         desaturatedPanel: true,
@@ -35,6 +37,7 @@ void main() {
       'plugins': {
         reactionsSettingsDataKey.id: const {
           'mainReaction': 'clap',
+          'likeIcon': 'star',
           'offeredReactions': ['clap', 'heart'],
           'allowAnyEmoji': false,
           'desaturatedPanel': true,
@@ -47,6 +50,7 @@ void main() {
     expect(stored['plugins'], {
       reactionsSettingsDataKey.id: {
         'mainReaction': 'clap',
+        'likeIcon': 'star',
         'offeredReactions': ['clap', 'heart'],
         'allowAnyEmoji': false,
         'desaturatedPanel': true,
@@ -77,10 +81,28 @@ void main() {
     expect(config.toJson(extensions: _registry)['plugins'], {
       reactionsSettingsDataKey.id: {
         'mainReaction': '+1',
+        'likeIcon': 'heart',
         'offeredReactions': ['+1', 'laughing'],
         'allowAnyEmoji': true,
         'desaturatedPanel': true,
       },
     });
   });
+
+  test(
+    'the like icon defaults to heart for older settings and stored data',
+    () {
+      expect(
+        ReactionsSettings.fromSiteSettings(const {
+          'discourse_reactions_enabled': true,
+        }).likeIcon,
+        'heart',
+      );
+      expect(ReactionsSettings.fromStored(const {})?.likeIcon, 'heart');
+      expect(
+        const ReactionsSettings(likeIcon: 'star'),
+        isNot(const ReactionsSettings()),
+      );
+    },
+  );
 }

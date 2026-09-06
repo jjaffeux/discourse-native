@@ -7,12 +7,240 @@ import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/emoji.dart';
 import '../../shell/emoji_picker.dart';
+import '../../shell/hover_panel.dart';
+import '../../shell/reaction_presentation.dart';
 import '../../shell/shell_sheet.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
 import 'reaction.dart';
 import 'reactions_controller.dart';
 import 'reactions_emoji_usage.dart';
 import 'reactions_services.dart';
 import 'reactions_settings.dart';
+
+class PostReactionButton extends StatefulWidget {
+  const PostReactionButton({
+    super.key,
+    required this.controller,
+    required this.emoji,
+    required this.siteUrl,
+    required this.post,
+  });
+
+  final ReactionsController controller;
+  final PluginEmojiHost emoji;
+  final String siteUrl;
+  final Post post;
+
+  @override
+  State<PostReactionButton> createState() => _PostReactionButtonState();
+}
+
+class _PostReactionButtonState extends State<PostReactionButton> {
+  final GlobalKey<HoverPanelState> _panel = GlobalKey();
+  Object? _operation;
+
+  bool get _busy => _operation != null;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadSettings());
+  }
+
+  @override
+  void didUpdateWidget(PostReactionButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller ||
+        oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.post.id != widget.post.id) {
+      _operation = null;
+      unawaited(_loadSettings());
+    }
+  }
+
+  bool _isCurrent(ReactionPickerSession session) =>
+      mounted &&
+      session.siteUrl == widget.siteUrl &&
+      session.postId == widget.post.id &&
+      widget.controller.isPickerCurrent(session) &&
+      _stillOwnsUi(context, widget.controller);
+
+  Future<void> _loadSettings() async {
+    final session = widget.controller.beginPicker(widget.siteUrl, widget.post);
+    await widget.controller.allowsAnyEmoji(widget.siteUrl);
+    if (_isCurrent(session)) setState(() {});
+  }
+
+  Future<void> _toggle(BuildContext buttonContext) async {
+    if (_busy) return;
+    final controller = widget.controller;
+    final post = widget.post;
+    final siteUrl = widget.siteUrl;
+    final session = controller.beginPicker(siteUrl, post);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final operation = Object();
+    _panel.currentState?.close();
+    setState(() => _operation = operation);
+    try {
+      await controller.allowsAnyEmoji(siteUrl);
+      if (!_isCurrent(session)) return;
+      final current = controller.pickerPost(session, post);
+      if (current == null || !current.canReact) return;
+      final reaction =
+          current.reactions?.mine?.id ??
+          controller.siteConfigFor(siteUrl).reactionsSettings.mainReaction;
+      if (reaction == null) {
+        if (!buttonContext.mounted) return;
+        await showPostReactionPicker(
+          buttonContext,
+          controller,
+          widget.emoji,
+          siteUrl,
+          current,
+        );
+        return;
+      }
+      _report(
+        messenger,
+        controller,
+        session,
+        controller.toggleFromPicker(session, current, reaction),
+        stillOwnsUi: () => _isCurrent(session),
+      );
+    } finally {
+      if (mounted && identical(_operation, operation)) {
+        setState(() => _operation = null);
+      }
+    }
+  }
+
+  Future<void> _openEmojiPicker(BuildContext buttonContext) async {
+    if (_busy) return;
+    final operation = Object();
+    _panel.currentState?.close();
+    setState(() => _operation = operation);
+    try {
+      await showPostReactionPicker(
+        buttonContext,
+        widget.controller,
+        widget.emoji,
+        widget.siteUrl,
+        widget.post,
+      );
+    } finally {
+      if (mounted && identical(_operation, operation)) {
+        setState(() => _operation = null);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.controller,
+    builder: (context, _) {
+      final theme = Theme.of(context);
+      final controller = widget.controller;
+      final settings = controller
+          .siteConfigFor(widget.siteUrl)
+          .reactionsSettings;
+      final current =
+          controller.post(widget.siteUrl, widget.post.id) ?? widget.post;
+      final mine = current.reactions?.mine?.id;
+      final enabled =
+          current.canReact &&
+          !_busy &&
+          !controller.writeInFlight(widget.siteUrl, widget.post.id);
+      final icon = mine == null
+          ? DIcons.byName['far-${settings.likeIcon}'] ??
+                DIcons.byName[settings.likeIcon] ??
+                DIcons.farHeart
+          : DIcons.byName[settings.likeIcon] ?? DIcons.heart;
+      final label = mine == null
+          ? 'Add reaction'
+          : 'Remove your $mine reaction';
+
+      return EmojiPickerAnchor(
+        child: FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: Builder(
+            builder: (buttonContext) => HoverPanel(
+              key: _panel,
+              enabled: enabled,
+              preferAbove: true,
+              maxWidth: ReactionGrid.cell * 8 + 26,
+              panelBuilder: (context) => FocusTraversalOrder(
+                order: const NumericFocusOrder(1),
+                child: ReactionUsersPanel(
+                  child: SingleChildScrollView(
+                    child: ReactionGrid._withSession(
+                      controller.beginPicker(widget.siteUrl, widget.post),
+                      buttonContext,
+                      controller: controller,
+                      siteUrl: widget.siteUrl,
+                      post: widget.post,
+                      onPicked: () => _panel.currentState?.close(),
+                      onMore: () => unawaited(_openEmojiPicker(buttonContext)),
+                    ),
+                  ),
+                ),
+              ),
+              child: FocusTraversalOrder(
+                order: const NumericFocusOrder(0),
+                child: Semantics(
+                  container: true,
+                  button: true,
+                  enabled: enabled,
+                  selected: mine != null,
+                  label: label,
+                  onLongPressHint: 'choose a reaction',
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      onTap: enabled ? () => _toggle(buttonContext) : null,
+                      onLongPress: enabled
+                          ? () => _panel.currentState?.open()
+                          : null,
+                      mouseCursor: enabled
+                          ? SystemMouseCursors.click
+                          : SystemMouseCursors.basic,
+                      borderRadius: BorderRadius.circular(8),
+                      hoverColor: theme.shell.hover,
+                      child: ExcludeSemantics(
+                        child: SizedBox.square(
+                          dimension: ReactionGrid.cell,
+                          child: Center(
+                            child: mine != null && mine != settings.mainReaction
+                                ? EmojiImage(
+                                    url: controller.emojiUrlFor(
+                                      widget.siteUrl,
+                                      mine,
+                                    ),
+                                    size: 22,
+                                    alt: ':$mine:',
+                                  )
+                                : DIcon(
+                                    icon,
+                                    size: 24,
+                                    color: mine != null
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.onSurfaceVariant,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
 
 Future<void> showPostReactionPicker(
   BuildContext context,
@@ -134,6 +362,7 @@ class ReactionGrid extends StatelessWidget {
     required this.post,
     required this.onPicked,
   }) : _ownerContext = null,
+       onMore = null,
        _session = controller.beginPicker(siteUrl, post);
 
   const ReactionGrid._withSession(
@@ -143,6 +372,7 @@ class ReactionGrid extends StatelessWidget {
     required this.siteUrl,
     required this.post,
     required this.onPicked,
+    this.onMore,
   });
 
   static const int columns = 6;
@@ -153,6 +383,7 @@ class ReactionGrid extends StatelessWidget {
   final String siteUrl;
   final Post post;
   final VoidCallback onPicked;
+  final VoidCallback? onMore;
   final ReactionPickerSession _session;
 
   @override
@@ -166,9 +397,13 @@ class ReactionGrid extends StatelessWidget {
     final config = controller.siteConfigFor(siteUrl);
     final current = controller.pickerPost(_session, post);
     final held = current?.reactions?.mine?.id;
+    final enabled =
+        current?.canReact == true &&
+        !controller.writeInFlight(siteUrl, post.id);
 
     final settings = config.reactionsSettings;
-    if (settings.offeredReactions.isEmpty) {
+    final more = settings.allowAnyEmoji ? onMore : null;
+    if (settings.offeredReactions.isEmpty && more == null) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Text(
@@ -188,27 +423,38 @@ class ReactionGrid extends StatelessWidget {
             id: id,
             url: controller.emojiUrlFor(siteUrl, id),
             held: id == held,
-            onTap: () {
-              final messenger = ScaffoldMessenger.maybeOf(context);
-              final ownerContext = _ownerContext ?? context;
-              final canAct =
-                  controller.isPickerCurrent(_session) &&
-                  (!ownerContext.mounted ||
-                      _stillOwnsUi(ownerContext, controller));
-              onPicked();
-              if (!canAct) return;
-              final target = controller.pickerPost(_session, post);
-              if (target == null || !target.canReact) return;
-              _report(
-                messenger,
-                controller,
-                _session,
-                controller.toggleFromPicker(_session, target, id),
-                stillOwnsUi: () =>
-                    !ownerContext.mounted ||
-                    _stillOwnsUi(ownerContext, controller),
-              );
-            },
+            onTap: !enabled
+                ? null
+                : () {
+                    final messenger = ScaffoldMessenger.maybeOf(context);
+                    final ownerContext = _ownerContext ?? context;
+                    final canAct =
+                        controller.isPickerCurrent(_session) &&
+                        (!ownerContext.mounted ||
+                            _stillOwnsUi(ownerContext, controller));
+                    onPicked();
+                    if (!canAct) return;
+                    final target = controller.pickerPost(_session, post);
+                    if (target == null || !target.canReact) return;
+                    _report(
+                      messenger,
+                      controller,
+                      _session,
+                      controller.toggleFromPicker(_session, target, id),
+                      stillOwnsUi: () =>
+                          !ownerContext.mounted ||
+                          _stillOwnsUi(ownerContext, controller),
+                    );
+                  },
+          ),
+        if (more != null)
+          SizedBox.square(
+            dimension: cell,
+            child: IconButton(
+              tooltip: 'More emojis',
+              onPressed: enabled ? more : null,
+              icon: const DIcon(DIcons.farFaceSmile, size: 24),
+            ),
           ),
       ],
     );
@@ -266,7 +512,7 @@ class _ReactionCell extends StatelessWidget {
   final String id;
   final String url;
   final bool held;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -278,7 +524,9 @@ class _ReactionCell extends StatelessWidget {
       label: id,
       child: InkWell(
         onTap: onTap,
-        mouseCursor: SystemMouseCursors.click,
+        mouseCursor: onTap != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
         borderRadius: BorderRadius.circular(8),
         child: ExcludeSemantics(
           child: Container(

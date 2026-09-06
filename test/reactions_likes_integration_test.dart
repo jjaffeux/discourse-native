@@ -13,12 +13,15 @@ import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
+import 'package:discourse_native/src/shell/hover_panel.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
-import 'package:discourse_native/src/shell/reaction_presentation.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -540,6 +543,13 @@ void _registerReactionAndLikeTests() {
       await tester.tap(find.bySemanticsLabel(reaction));
     }
 
+    Future<void> openFooterEmojiPicker(WidgetTester tester) async {
+      await tester.longPress(find.byType(PostReactionButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('More emojis'));
+      await tester.pumpAndSettle();
+    }
+
     testWidgets('a site with reactions draws them where the likes were', (
       tester,
     ) async {
@@ -584,7 +594,7 @@ void _registerReactionAndLikeTests() {
           isSemantics(isButton: true, isFocusable: true, hasTapAction: true),
         );
 
-        await tester.tap(launcher);
+        await tester.longPress(launcher);
         await tester.pumpAndSettle();
 
         expect(find.byType(ReactionGrid), findsOneWidget);
@@ -617,8 +627,7 @@ void _registerReactionAndLikeTests() {
         ],
       );
 
-      await tester.tap(find.bySemanticsLabel('Add reaction'));
-      await tester.pumpAndSettle();
+      await openFooterEmojiPicker(tester);
 
       expect(find.byType(EmojiPicker), findsOneWidget);
       await tester.tap(find.byTooltip(':wave:'));
@@ -649,16 +658,19 @@ void _registerReactionAndLikeTests() {
         siteConfigGate: gate,
       );
 
-      await tester.tap(find.bySemanticsLabel('Add reaction'));
-      await tester.tap(find.bySemanticsLabel('Add reaction'));
+      await tester.longPress(find.byType(PostReactionButton));
+      await tester.longPress(find.byType(PostReactionButton));
       await tester.pump();
-      expect(find.byType(ReactionGrid), findsNothing);
+      expect(find.byType(ReactionGrid), findsOneWidget);
       expect(find.byType(EmojiPicker), findsNothing);
+      expect(find.byTooltip('More emojis'), findsNothing);
 
       gate.complete();
       await tester.pumpAndSettle();
 
-      expect(find.byType(ReactionGrid), findsNothing);
+      expect(find.byType(ReactionGrid), findsOneWidget);
+      await tester.tap(find.byTooltip('More emojis'));
+      await tester.pumpAndSettle();
       expect(find.byType(EmojiPicker), findsOneWidget);
     });
 
@@ -684,14 +696,13 @@ void _registerReactionAndLikeTests() {
         tester.element(find.byType(ReactionsRow)),
       );
 
-      await tester.tap(find.bySemanticsLabel('Add reaction'));
-      await tester.pumpAndSettle();
+      await openFooterEmojiPicker(tester);
       controller.store.put(
         site,
         post(reactions: [(id: 'clap', count: 2)], userCount: 2, canAct: false),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(ReactionPickerButton), findsNothing);
+      expect(find.byType(PostReactionButton), findsNothing);
       expect(find.byType(EmojiPicker), findsOneWidget);
 
       await tester.tap(find.byTooltip(':wave:'));
@@ -722,12 +733,11 @@ void _registerReactionAndLikeTests() {
         tester.element(find.byType(ReactionsRow)),
       );
 
-      await tester.tap(find.bySemanticsLabel('Add reaction'));
-      await tester.pumpAndSettle();
+      await openFooterEmojiPicker(tester);
       controller.store.put(site, post());
       await tester.pumpAndSettle();
 
-      expect(find.byType(ReactionPickerButton), findsNothing);
+      expect(find.byType(PostReactionButton), findsOneWidget);
       expect(find.byType(EmojiPicker), findsOneWidget);
       await tester.tap(find.byTooltip(':wave:'));
       await tester.pumpAndSettle();
@@ -735,14 +745,242 @@ void _registerReactionAndLikeTests() {
       expect(api.reacted, [(postId: 1, reaction: 'wave')]);
     });
 
-    testWidgets('a post nobody has reacted to says so by saying nothing', (
+    testWidgets('an unreacted post still offers the footer reaction button', (
       tester,
     ) async {
       await openTopic(tester, config: configured, posts: [post()]);
 
       expect(find.byType(ReactionsRow), findsOneWidget);
       expect(pill('0'), findsNothing);
-      expect(find.byType(ReactionPickerButton), findsNothing);
+      expect(find.byType(PostReactionButton), findsOneWidget);
+    });
+
+    testWidgets('the configured icon and default reaction are independent', (
+      tester,
+    ) async {
+      final api = await openTopic(
+        tester,
+        config: installedPlugins.models.siteConfig(const {
+          'discourse_reactions_enabled': true,
+          'discourse_reactions_like_icon': 'star',
+          'discourse_reactions_reaction_for_like': 'clap',
+          'discourse_reactions_enabled_reactions': 'heart|+1',
+        }, site),
+        posts: [post()],
+      );
+      final button = find.byType(PostReactionButton);
+      DIconData icon() => tester
+          .widget<DIcon>(
+            find.descendant(of: button, matching: find.byType(DIcon)),
+          )
+          .icon;
+      expect(icon(), DIcons.farStar);
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, [(postId: 1, reaction: 'clap')]);
+      expect(icon(), DIcons.star);
+      expect(
+        find.bySemanticsLabel('Remove your clap reaction'),
+        findsOneWidget,
+      );
+      expect(
+        tester.getRect(button).right,
+        lessThan(tester.getRect(find.bySemanticsLabel('1 clap reaction')).left),
+      );
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, [
+        (postId: 1, reaction: 'clap'),
+        (postId: 1, reaction: 'clap'),
+      ]);
+      expect(icon(), DIcons.farStar);
+      expect(pill('1'), findsNothing);
+      expect(api.liked, isEmpty);
+      expect(api.unliked, isEmpty);
+    });
+
+    testWidgets('hovering opens the configured reactions above the footer', (
+      tester,
+    ) async {
+      final api = await openTopic(tester, config: configured, posts: [post()]);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+
+      await mouse.moveTo(tester.getCenter(find.byType(PostReactionButton)));
+      await tester.pump(HoverPanel.openDelay);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReactionGrid), findsOneWidget);
+      expect(find.byTooltip('More emojis'), findsNothing);
+      expect(find.bySemanticsLabel('heart'), findsOneWidget);
+      expect(find.bySemanticsLabel('+1'), findsOneWidget);
+      expect(find.bySemanticsLabel('clap'), findsOneWidget);
+      expect(
+        tester.getRect(find.byType(ReactionGrid)).bottom,
+        lessThan(tester.getRect(find.byType(PostReactionButton)).top),
+      );
+      expect(api.reacted, isEmpty);
+
+      await mouse.moveTo(tester.getCenter(find.bySemanticsLabel('+1')));
+      await tester.pump(HoverPanel.closeDelay);
+      expect(find.byType(ReactionGrid), findsOneWidget);
+      await mouse.down(tester.getCenter(find.bySemanticsLabel('+1')));
+      await mouse.up();
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, [(postId: 1, reaction: '+1')]);
+      expect(find.byType(ReactionGrid), findsNothing);
+      expect(find.bySemanticsLabel('1 +1 reaction'), findsOneWidget);
+    });
+
+    testWidgets('leaving the footer reaction menu closes it without reacting', (
+      tester,
+    ) async {
+      final api = await openTopic(tester, config: configured, posts: [post()]);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.byType(PostReactionButton)));
+      await tester.pump(HoverPanel.openDelay);
+      await tester.pumpAndSettle();
+
+      await mouse.moveTo(Offset.zero);
+      await tester.pump(HoverPanel.closeDelay);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReactionGrid), findsNothing);
+      expect(api.reacted, isEmpty);
+    });
+
+    testWidgets('keyboard users can choose a configured reaction', (
+      tester,
+    ) async {
+      final api = await openTopic(tester, config: configured, posts: [post()]);
+      for (
+        var tabs = 0;
+        tabs < 40 && find.byType(ReactionGrid).evaluate().isEmpty;
+        tabs++
+      ) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.byType(ReactionGrid), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('heart')),
+        isSemantics(isFocused: true),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('+1')),
+        isSemantics(isFocused: true),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(api.reacted, [(postId: 1, reaction: '+1')]);
+      expect(find.byType(ReactionGrid), findsNothing);
+    });
+
+    testWidgets('a footer reaction cannot be toggled twice during a write', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [post()],
+        reactionGate: gate,
+      );
+
+      await tester.tap(find.byType(PostReactionButton));
+      await tester.pump();
+      await tester.tap(find.byType(PostReactionButton));
+      await tester.pump();
+
+      expect(api.reacted, [(postId: 1, reaction: 'heart')]);
+      expect(
+        tester.getSemantics(
+          find.bySemanticsLabel('Remove your heart reaction'),
+        ),
+        isSemantics(
+          hasEnabledState: true,
+          isEnabled: false,
+          hasTapAction: false,
+        ),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.byType(PostReactionButton)));
+      await tester.pump(HoverPanel.openDelay);
+      expect(find.byType(ReactionGrid), findsNothing);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(ReactionGrid), findsNothing);
+    });
+
+    testWidgets('a refused footer reaction restores the button and says why', (
+      tester,
+    ) async {
+      await openTopic(
+        tester,
+        config: configured,
+        posts: [post()],
+        reactionFailure: const WriteException(WriteFailure.rateLimited),
+      );
+
+      await tester.tap(find.byType(PostReactionButton));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Too fast'), findsOneWidget);
+      expect(find.bySemanticsLabel('Add reaction'), findsOneWidget);
+      expect(pill('1'), findsNothing);
+    });
+
+    testWidgets('the touch menu wraps on a narrow screen and dismisses outside', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      try {
+        final api = await openTopic(
+          tester,
+          config: installedPlugins.models.siteConfig(const {
+            'discourse_reactions_enabled': true,
+            'discourse_reactions_reaction_for_like': 'heart',
+            'discourse_reactions_enabled_reactions':
+                'hugs|+1|laughing|100|kissing|star_struck|rocket|clap|smiling_face_with_three_hearts|confetti_ball|cry|fire|eyes|open_mouth',
+            'discourse_reactions_allow_any_emoji': true,
+          }, site),
+          posts: [post()],
+        );
+        tester.view.physicalSize = const Size(320, 720);
+        await tester.pumpAndSettle();
+        await tester.longPress(find.byType(PostReactionButton));
+        await tester.pumpAndSettle();
+
+        final grid = tester.getRect(find.byType(ReactionGrid));
+        expect(grid.left, greaterThanOrEqualTo(12));
+        expect(grid.right, lessThanOrEqualTo(308));
+        expect(grid.height, greaterThan(ReactionGrid.cell * 2));
+        expect(find.byTooltip('More emojis').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        await tester.tapAt(const Offset(310, 700));
+        await tester.pumpAndSettle();
+        expect(find.byType(ReactionGrid), findsNothing);
+        expect(api.reacted, isEmpty);
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
     });
 
     testWidgets('clicking an existing reaction adds the reader to it', (
@@ -818,7 +1056,7 @@ void _registerReactionAndLikeTests() {
         isSemantics(hasTapAction: false),
       );
       expect(find.byType(ReactorList), findsNothing);
-      expect(find.byType(ReactionPickerButton), findsNothing);
+      expect(find.byType(PostReactionButton), findsNothing);
       expect(api.reactorsRequested, isEmpty);
       expect(api.reacted, isEmpty);
     });
