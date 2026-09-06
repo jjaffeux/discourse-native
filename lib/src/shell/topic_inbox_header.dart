@@ -527,7 +527,15 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                     color: Theme.of(context).shell.divider,
                   ),
                 Flexible(
-                  child: TopicHeaderTags(siteUrl: siteUrl, topic: topic),
+                  child: TopicHeaderTags(
+                    siteUrl: siteUrl,
+                    topic: topic,
+                    onTagNavigate: (tag) => shell.openTopicTag(
+                      tag,
+                      siteUrl: siteUrl,
+                      privateMessage: topic.privateMessage,
+                    ),
+                  ),
                 ),
               ],
             ],

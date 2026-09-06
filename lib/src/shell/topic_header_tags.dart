@@ -18,10 +18,12 @@ class TopicHeaderTags extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.topic,
+    required this.onTagNavigate,
   });
 
   final String siteUrl;
   final TopicDetail topic;
+  final ValueChanged<TopicTag> onTagNavigate;
 
   @override
   Widget build(BuildContext context) => TopicTagMenuAnchor(
@@ -30,6 +32,7 @@ class TopicHeaderTags extends StatelessWidget {
     categoryId: topic.categoryId,
     tags: topic.tags,
     enabled: topic.canEditTags,
+    onTagNavigate: onTagNavigate,
     builder: (context, edit, saving) => LayoutBuilder(
       builder: (context, constraints) {
         final tags = topic.tags;
@@ -53,15 +56,14 @@ class TopicHeaderTags extends StatelessWidget {
         String overflowLabel(int visible) => visible == 0
             ? 'Tags · ${tags.length}'
             : '+${tags.length - visible} tags';
-        // Adding is also available in the overflow editor, so a narrow reader
-        // can omit the separate plus without losing an action.
-        final showAdd =
+        // The overflow editor keeps editing available in narrow readers.
+        final showEdit =
             topic.canEditTags &&
             (tags.isEmpty ||
                 constraints.maxWidth >= labelWidth(overflowLabel(0)) + 35);
         final budget = math.max(
           0.0,
-          constraints.maxWidth - (showAdd ? 28 + gap : 0),
+          constraints.maxWidth - (showEdit ? 28 + gap : 0),
         );
         final widths = [
           for (final tag in tags.take(3))
@@ -85,35 +87,49 @@ class TopicHeaderTags extends StatelessWidget {
                   title: 'Topic tags',
                   barrierLabel: 'Dismiss topic tags',
                   popoverKey: const ValueKey('topic-header-tags-popover'),
-                  builder: (_) => _ReadOnlyTags(tags: tags),
+                  builder: (pickerContext) => _ReadOnlyTags(
+                    tags: tags,
+                    onTagNavigate: (tag) {
+                      Navigator.of(pickerContext).pop();
+                      onTagNavigate(tag);
+                    },
+                  ),
                 ),
               );
 
-        Widget chip(String label, Key key, {required String tooltip}) =>
-            Tooltip(
-              message: tooltip,
-              child: Material(
-                color: theme.shell.hover,
+        Widget chip(
+          String label,
+          Key key, {
+          required String tooltip,
+          TopicTag? tag,
+        }) => Tooltip(
+          message: tooltip,
+          child: Material(
+            color: theme.shell.hover,
+            borderRadius: BorderRadius.circular(4),
+            child: Semantics(
+              link: tag != null,
+              button: tag == null,
+              child: InkWell(
+                key: key,
+                onTap: tag == null ? open : () => onTagNavigate(tag),
                 borderRadius: BorderRadius.circular(4),
-                child: InkWell(
-                  key: key,
-                  onTap: open,
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 5,
-                    ),
-                    child: Text(
-                      label,
-                      style: style,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 5,
+                  ),
+                  child: Text(
+                    label,
+                    style: style,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
-            );
+            ),
+          ),
+        );
 
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -125,9 +141,8 @@ class TopicHeaderTags extends StatelessWidget {
                 child: chip(
                   '# ${tags[index].name}',
                   ValueKey(('topic-header-tag', tags[index].name)),
-                  tooltip: topic.canEditTags
-                      ? 'Edit topic tags · ${tags[index].name}'
-                      : tags[index].name,
+                  tooltip: 'Open tag ${tags[index].name}',
+                  tag: tags[index],
                 ),
               ),
             ],
@@ -143,7 +158,7 @@ class TopicHeaderTags extends StatelessWidget {
                 ),
               ),
             ],
-            if (showAdd) ...[
+            if (showEdit) ...[
               if (tags.isNotEmpty) const SizedBox(width: gap),
               SizedBox.square(
                 dimension: 28,
@@ -155,8 +170,8 @@ class TopicHeaderTags extends StatelessWidget {
                         ),
                       )
                     : DButton.iconOnly(
-                        key: const ValueKey('topic-header-add-tag'),
-                        icon: const DIcon(DIcons.plus, size: 14),
+                        key: const ValueKey('topic-header-edit-tags'),
+                        icon: const DIcon(DIcons.pencil, size: 14),
                         tooltip: 'Add or remove topic tags',
                         onPressed: edit,
                         variant: DButtonVariant.flat,
@@ -172,9 +187,10 @@ class TopicHeaderTags extends StatelessWidget {
 }
 
 class _ReadOnlyTags extends StatefulWidget {
-  const _ReadOnlyTags({required this.tags});
+  const _ReadOnlyTags({required this.tags, required this.onTagNavigate});
 
   final List<TopicTag> tags;
+  final ValueChanged<TopicTag> onTagNavigate;
 
   @override
   State<_ReadOnlyTags> createState() => _ReadOnlyTagsState();
@@ -204,8 +220,13 @@ class _ReadOnlyTagsState extends State<_ReadOnlyTags> {
       children: [
         for (final tag in matches)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: Text('# ${tag.name}'),
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: AnchoredPickerOption(
+              key: ValueKey(('topic-header-tag-option', tag.name)),
+              title: Text('# ${tag.name}'),
+              trailing: const DIcon(DIcons.upRightFromSquare, size: 12),
+              onTap: () => widget.onTagNavigate(tag),
+            ),
           ),
         if (matches.isEmpty) const AnchoredPickerMessage('No matching tags'),
       ],
