@@ -31,6 +31,13 @@ void main() {
 }
 
 void _registerReactionAndLikeTests() {
+  Finder menuAction(String label) => find.widgetWithText(MenuItemButton, label);
+
+  Future<void> openPostMenu(WidgetTester tester) async {
+    await tester.tap(find.bySemanticsLabel('More actions for post 1'));
+    await tester.pumpAndSettle();
+  }
+
   group('likes', () {
     const me = DiscourseUser(username: 'joffreyj', name: 'Joffrey');
 
@@ -108,8 +115,9 @@ void _registerReactionAndLikeTests() {
       expect(find.byType(PostLikes), findsOneWidget);
       expect(count('0'), findsNothing);
 
-      await hoverPost(tester);
-      expect(find.byTooltip('Like this post'), findsOneWidget);
+      await openPostMenu(tester);
+      expect(menuAction('Like'), findsOneWidget);
+      expect(menuAction('React'), findsNothing);
     });
 
     testWidgets(
@@ -117,8 +125,8 @@ void _registerReactionAndLikeTests() {
       (tester) async {
         final api = await openTopic(tester, first: post());
 
-        await hoverPost(tester);
-        await tester.tap(find.byTooltip('Like this post'));
+        await openPostMenu(tester);
+        await tester.tap(menuAction('Like'));
         await tester.pumpAndSettle();
 
         expect(api.liked, [1]);
@@ -134,10 +142,11 @@ void _registerReactionAndLikeTests() {
         first: post(likeCount: 1, liked: true, canLike: false, canUnlike: true),
       );
 
-      await hoverPost(tester);
+      await openPostMenu(tester);
 
-      expect(find.byTooltip('Remove your like'), findsOneWidget);
-      expect(find.byTooltip('Like this post'), findsNothing);
+      expect(menuAction('Remove like'), findsOneWidget);
+      expect(menuAction('Like'), findsNothing);
+      expect(menuAction('React'), findsNothing);
     });
 
     testWidgets('a like past the undo window leaves nothing to press', (
@@ -148,11 +157,11 @@ void _registerReactionAndLikeTests() {
         first: post(likeCount: 1, liked: true, canLike: false),
       );
 
-      await hoverPost(tester);
+      await openPostMenu(tester);
 
       expect(count('1'), findsOneWidget);
-      expect(find.byTooltip('Remove your like'), findsNothing);
-      expect(find.byTooltip('Like this post'), findsNothing);
+      expect(menuAction('Remove like'), findsNothing);
+      expect(menuAction('Like'), findsNothing);
     });
 
     testWidgets('the site has the last word on the count', (tester) async {
@@ -164,8 +173,8 @@ void _registerReactionAndLikeTests() {
         },
       );
 
-      await hoverPost(tester);
-      await tester.tap(find.byTooltip('Like this post'));
+      await openPostMenu(tester);
+      await tester.tap(menuAction('Like'));
       await tester.pumpAndSettle();
 
       expect(count('3'), findsOneWidget);
@@ -224,8 +233,10 @@ void _registerReactionAndLikeTests() {
 
       expect(count('2'), findsOneWidget);
 
-      await hoverPost(tester);
-      expect(find.byTooltip('Like this post'), findsNothing);
+      await openPostMenu(tester);
+      expect(menuAction('Like'), findsNothing);
+      await tester.tap(find.bySemanticsLabel('More actions for post 1'));
+      await tester.pumpAndSettle();
 
       await tester.tap(count('2'));
       await tester.pumpAndSettle();
@@ -391,8 +402,8 @@ void _registerReactionAndLikeTests() {
         },
       );
 
-      final gesture = await hoverPost(tester);
-      await tapPostAction(tester, 'Edit this post');
+      await openPostMenu(tester);
+      await tester.tap(menuAction('Edit'));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'First post body!');
@@ -404,9 +415,8 @@ void _registerReactionAndLikeTests() {
       expect(renderedText('First post body!'), findsOneWidget);
       expect(count('3'), findsOneWidget);
 
-      await gesture.moveTo(tester.getCenter(renderedText('First post body!')));
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('Remove your like'), findsOneWidget);
+      await openPostMenu(tester);
+      expect(menuAction('Remove like'), findsOneWidget);
     });
   });
 
@@ -519,6 +529,17 @@ void _registerReactionAndLikeTests() {
       of: find.byType(ReactionsRow),
       matching: find.text(value),
     );
+
+    Future<void> openReactionPicker(WidgetTester tester) async {
+      await openPostMenu(tester);
+      await tester.tap(menuAction('React'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> pickReaction(WidgetTester tester, String reaction) async {
+      await openReactionPicker(tester);
+      await tester.tap(find.bySemanticsLabel(reaction));
+    }
 
     testWidgets('a site with reactions draws them where the likes were', (
       tester,
@@ -941,22 +962,27 @@ void _registerReactionAndLikeTests() {
       );
     });
 
-    testWidgets('the menu offers a reaction and never a like', (tester) async {
-      // Offering Like here would write /post_actions, which on a post the
-      // reader reacted to destroys the shadow like and orphans the reaction.
-      await openTopic(tester, config: configured, posts: [post()]);
-      await hoverPost(tester);
-
-      expect(find.byTooltip('Like this post'), findsOneWidget);
-      expect(find.byTooltip('Remove your like'), findsNothing);
-    });
-
-    testWidgets('the menu names the reaction the reader actually gave', (
+    testWidgets('the menu offers React without Like and opens the picker', (
       tester,
     ) async {
-      // A reader who clapped has a shadow like, so `can_act` is true and the
-      // naive label would read "Like this post" — on a tap that replaces their
-      // clap.
+      final api = await openTopic(tester, config: configured, posts: [post()]);
+      await openPostMenu(tester);
+
+      expect(menuAction('React'), findsOneWidget);
+      expect(menuAction('Like'), findsNothing);
+      expect(menuAction('Remove like'), findsNothing);
+
+      await tester.tap(menuAction('React'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReactionGrid), findsOneWidget);
+      expect(api.reacted, isEmpty);
+      expect(api.liked, isEmpty);
+    });
+
+    testWidgets('React highlights the reaction the reader already gave', (
+      tester,
+    ) async {
       await openTopic(
         tester,
         config: configured,
@@ -970,10 +996,19 @@ void _registerReactionAndLikeTests() {
           ),
         ],
       );
-      await hoverPost(tester);
+      await openPostMenu(tester);
 
-      expect(find.byTooltip('Remove your clap reaction'), findsOneWidget);
-      expect(find.byTooltip('Like this post'), findsNothing);
+      expect(menuAction('React'), findsOneWidget);
+      expect(menuAction('Like'), findsNothing);
+      expect(menuAction('Remove your clap reaction'), findsNothing);
+
+      await tester.tap(menuAction('React'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('clap')),
+        isSemantics(isSelected: true),
+      );
     });
 
     testWidgets('reacting draws the row before the site answers', (
@@ -987,8 +1022,7 @@ void _registerReactionAndLikeTests() {
         reactionGate: gate,
       );
 
-      await hoverPost(tester);
-      await tester.tap(find.byTooltip('Like this post'));
+      await pickReaction(tester, 'heart');
       await tester.pump();
 
       expect(api.reacted, [(postId: 1, reaction: 'heart')]);
@@ -1013,8 +1047,7 @@ void _registerReactionAndLikeTests() {
         ),
       );
 
-      await hoverPost(tester);
-      await tester.tap(find.byTooltip('Like this post'));
+      await pickReaction(tester, 'heart');
       await tester.pumpAndSettle();
 
       expect(pill('2'), findsOneWidget);
@@ -1040,15 +1073,14 @@ void _registerReactionAndLikeTests() {
         ),
       );
 
-      await hoverPost(tester);
-      await tester.tap(find.byTooltip('Like this post'));
+      await pickReaction(tester, 'heart');
       await tester.pumpAndSettle();
 
       expect(pill('3'), findsOneWidget);
       expect(pill('1'), findsNothing);
     });
 
-    testWidgets('a double tap does not send two contradicting writes', (
+    testWidgets('the menu disables React while a reaction write is in flight', (
       tester,
     ) async {
       final gate = Completer<void>();
@@ -1059,16 +1091,15 @@ void _registerReactionAndLikeTests() {
         reactionGate: gate,
       );
 
-      await hoverPost(tester);
-      // Tapped by position, because the first tap relabels the entry the
-      // instant it is pressed — the row is drawn before the site answers.
-      final target = tester.getCenter(find.byTooltip('Like this post'));
-      await tester.tapAt(target);
-      await tester.pump();
-      await tester.tapAt(target);
-      await tester.pump();
+      await pickReaction(tester, 'heart');
+      await tester.pumpAndSettle();
+      await openPostMenu(tester);
 
-      expect(api.reacted, hasLength(1));
+      expect(
+        tester.widget<MenuItemButton>(menuAction('React')).onPressed,
+        isNull,
+      );
+      expect(api.reacted, [(postId: 1, reaction: 'heart')]);
       gate.complete();
       await tester.pumpAndSettle();
     });
@@ -1080,11 +1111,7 @@ void _registerReactionAndLikeTests() {
       // constrained — so a guess earns a 422 saying only "Sorry, an error has
       // occurred". The picker is the honest answer instead.
       final api = await openTopic(tester, posts: [post()]);
-      await hoverPost(tester);
-
-      expect(find.byTooltip('React to this post'), findsOneWidget);
-      await tester.tap(find.byTooltip('React to this post'));
-      await tester.pumpAndSettle();
+      await openReactionPicker(tester);
 
       expect(api.reacted, isEmpty);
       expect(
@@ -1093,7 +1120,7 @@ void _registerReactionAndLikeTests() {
       );
     });
 
-    testWidgets('the picker offers what the site allows', (tester) async {
+    testWidgets('picking the current reaction removes it', (tester) async {
       final api = await openTopic(
         tester,
         config: configured,
@@ -1109,19 +1136,17 @@ void _registerReactionAndLikeTests() {
         reactorsById: const {},
       );
 
-      await hoverPost(tester);
-      await tester.tap(find.byTooltip('Remove your clap reaction'));
+      await pickReaction(tester, 'clap');
       await tester.pumpAndSettle();
 
       expect(api.reacted, [(postId: 1, reaction: 'clap')]);
+      expect(pill('1'), findsNothing);
     });
 
     testWidgets('a reaction can be picked from the grid', (tester) async {
       final api = await openTopic(tester, config: configured, posts: [post()]);
 
-      await hoverPost(tester);
-      await tester.tap(find.byTooltip('Pick a reaction'));
-      await tester.pumpAndSettle();
+      await openReactionPicker(tester);
 
       final cells = find.descendant(
         of: find.byType(ReactionGrid),
@@ -1136,7 +1161,7 @@ void _registerReactionAndLikeTests() {
       expect(pill('1'), findsOneWidget);
     });
 
-    testWidgets('an any-emoji site opens the full picker from the toolbar', (
+    testWidgets('an any-emoji site opens the full picker from the menu', (
       tester,
     ) async {
       final previousPlatform = debugDefaultTargetPlatformOverride;
@@ -1156,10 +1181,10 @@ void _registerReactionAndLikeTests() {
           posts: [post()],
         );
 
-        await hoverPost(tester);
-        final launcherRect = tester.getRect(find.byTooltip('Pick a reaction'));
-        await tester.tap(find.byTooltip('Pick a reaction'));
-        await tester.pumpAndSettle();
+        final launcherRect = tester.getRect(
+          find.bySemanticsLabel('More actions for post 1'),
+        );
+        await openReactionPicker(tester);
 
         expect(find.byType(ReactionGrid), findsNothing);
         expect(find.byType(EmojiPicker), findsOneWidget);
@@ -1206,17 +1231,18 @@ void _registerReactionAndLikeTests() {
         },
       );
 
-      final gesture = await hoverPost(tester);
-      await tester.tap(find.byTooltip('Like this post'));
+      await pickReaction(tester, 'heart');
       await tester.pumpAndSettle();
 
       expect(api.reacted, [(postId: 1, reaction: 'heart')]);
       expect(pill('3'), findsOneWidget);
       expect(pill('9'), findsNothing);
 
-      await gesture.moveTo(tester.getCenter(renderedText('First post body')));
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('Remove your heart reaction'), findsOneWidget);
+      await openReactionPicker(tester);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('heart')),
+        isSemantics(isSelected: true),
+      );
     });
 
     testWidgets('editing a post you reacted to leaves the reaction alone', (
@@ -1251,8 +1277,8 @@ void _registerReactionAndLikeTests() {
         },
       );
 
-      final gesture = await hoverPost(tester);
-      await tapPostAction(tester, 'Edit this post');
+      await openPostMenu(tester);
+      await tester.tap(menuAction('Edit'));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'First post body!');
@@ -1265,9 +1291,11 @@ void _registerReactionAndLikeTests() {
       expect(find.byType(ReactionsRow), findsOneWidget);
       expect(pill('1'), findsOneWidget);
 
-      await gesture.moveTo(tester.getCenter(renderedText('First post body!')));
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('Remove your clap reaction'), findsOneWidget);
+      await openReactionPicker(tester);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('clap')),
+        isSemantics(isSelected: true),
+      );
     });
 
     testWidgets('resting on a pill says who gave that one', (tester) async {
@@ -1361,7 +1389,10 @@ void _registerReactionAndLikeTests() {
       );
       expect(FakeSiteTracker.built.last.watchedTopic, 7);
 
-      await tester.pageBack();
+      final controller = ShellScope.read(
+        tester.element(find.byType(ReactionsRow)),
+      );
+      expect(controller.handleBack(canReturnToSidebar: false), isTrue);
       await tester.pumpAndSettle();
 
       expect(FakeSiteTracker.built.last.watchedTopic, isNull);
@@ -1381,8 +1412,7 @@ void _registerReactionAndLikeTests() {
         reactionGate: gate,
       );
 
-      await hoverPost(tester);
-      await tester.tap(find.byTooltip('Like this post'));
+      await pickReaction(tester, 'heart');
       await tester.pump();
 
       FakeSiteTracker.built.last.deliverTopicMessage('/topic/7/reactions', {

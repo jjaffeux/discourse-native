@@ -6,7 +6,6 @@ import '../../models/post.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/post_action.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
 import 'reaction.dart';
 import 'reaction_picker.dart';
@@ -94,103 +93,31 @@ class ReactionsPlugin
       reactionsControllerService,
     );
     final emoji = PluginUiScope.require(context, reactionsEmojiHostService);
-    final config = controller.siteConfigFor(siteUrl);
-    final held = post.reactions!.mine;
-    final settings = config.reactionsSettings;
-    final target = held?.id ?? settings.mainReaction;
     final writeInFlight = controller.writeInFlight(siteUrl, post.id);
-
-    void report(Future<String?> work) {
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      unawaited(
-        work.then((error) {
-          if (error == null ||
-              messenger == null ||
-              !messenger.mounted ||
-              !context.mounted) {
-            return;
-          }
-          if (!identical(
-            PluginUiScope.maybe(context, reactionsControllerService),
-            controller,
-          )) {
-            return;
-          }
-          messenger.showSnackBar(SnackBar(content: Text(error)));
-        }),
-      );
-    }
 
     return PostMenuContribution(
       replacesLike: true,
       entries: [
         PostAction(
-          icon: held == null ? DIcons.farHeart : DIcons.heart,
+          icon: DIcons.farFaceSmile,
           placement: PostActionPlacement.toolbar,
-          emojiUrl: held == null
-              ? null
-              : controller.emojiUrlFor(siteUrl, held.id),
-          label: switch ((held, target)) {
-            (final mine?, _) => 'Remove your ${mine.id} reaction',
-            (null, final _?) => 'Like',
-            _ => 'React',
-          },
-          tooltip: switch ((held, target)) {
-            (final mine?, _) => 'Remove your ${mine.id} reaction',
-            (null, final _?) => 'Like this post',
-            _ => 'React to this post',
-          },
-          tint: held == null ? null : Theme.of(context).discourse.love,
+          label: 'React',
+          tooltip: 'React to this post',
           enabled: !writeInFlight,
-          onInvoke: () {
-            if (target == null) {
-              unawaited(
-                showPostReactionPicker(
-                  context,
-                  controller,
-                  emoji,
-                  siteUrl,
-                  post,
-                ),
-              );
-              return;
-            }
-            report(controller.toggle(post, target, siteUrl: siteUrl));
-          },
-          onInvokeAnchored: target == null
-              ? (anchor) => unawaited(
-                  showPostReactionPicker(
-                    context,
-                    controller,
-                    emoji,
-                    siteUrl,
-                    post,
-                    anchor: anchor,
-                  ),
-                )
-              : null,
-        ),
-        if (target != null && settings.offeredReactions.isNotEmpty)
-          PostAction(
-            icon: DIcons.farFaceSmile,
-            placement: PostActionPlacement.toolbar,
-            label: 'React',
-            tooltip: 'Pick a reaction',
-            enabled: !writeInFlight,
-            onInvoke: () => unawaited(
-              showPostReactionPicker(context, controller, emoji, siteUrl, post),
-            ),
-            onInvokeAnchored: (anchor) => unawaited(
-              showPostReactionPicker(
-                context,
-                controller,
-                emoji,
-                siteUrl,
-                post,
-                anchor: anchor,
-              ),
+          onInvoke: () => unawaited(
+            showPostReactionPicker(context, controller, emoji, siteUrl, post),
+          ),
+          onInvokeAnchored: (anchor) => unawaited(
+            showPostReactionPicker(
+              context,
+              controller,
+              emoji,
+              siteUrl,
+              post,
+              anchor: anchor,
             ),
           ),
+        ),
       ],
       rebuildOn: controller,
     );
