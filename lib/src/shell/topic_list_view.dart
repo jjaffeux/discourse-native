@@ -1156,19 +1156,92 @@ class _TopicRowBody extends StatelessWidget {
               '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
           title: topic.title,
           siteUrl: siteUrl,
-          child: Material(
-            // Ink features paint on their Material rather than with the row.
-            // Keeping that surface local lets the scroll viewport clip them.
-            color: selected
-                ? theme.colorScheme.primary.withValues(alpha: .09)
-                : Colors.transparent,
-            child: Semantics(
-              selected: selected,
-              child: InkWell(onTap: onTap, child: row),
-            ),
-          ),
+          child: _TopicRowSurface(selected: selected, onTap: onTap, child: row),
         );
       },
+    );
+  }
+}
+
+class _TopicRowSurface extends StatefulWidget {
+  const _TopicRowSurface({
+    required this.selected,
+    required this.onTap,
+    required this.child,
+  });
+
+  final bool selected;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  State<_TopicRowSurface> createState() => _TopicRowSurfaceState();
+}
+
+class _TopicRowSurfaceState extends State<_TopicRowSurface> {
+  final _states = WidgetStatesController();
+
+  @override
+  void dispose() {
+    _states.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    return Material(
+      type: MaterialType.transparency,
+      child: Semantics(
+        selected: widget.selected,
+        child: InkWell(
+          onTap: widget.onTap,
+          statesController: _states,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          splashFactory: NoSplash.splashFactory,
+          child: Stack(
+            children: [
+              // Only the feedback is inset; the row keeps its full hit target
+              // and height, and scrolling clips the feedback with the content.
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: ValueListenableBuilder<Set<WidgetState>>(
+                    valueListenable: _states,
+                    builder: (context, states, _) {
+                      var background = widget.selected
+                          ? accent.withValues(alpha: .09)
+                          : Colors.transparent;
+                      if (states.contains(WidgetState.pressed)) {
+                        background = Color.alphaBlend(
+                          accent.withValues(alpha: .08),
+                          background,
+                        );
+                      } else if (states.contains(WidgetState.hovered)) {
+                        background = Color.alphaBlend(
+                          theme.colorScheme.onSurface.withValues(alpha: .04),
+                          background,
+                        );
+                      }
+                      return DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: background,
+                          borderRadius: BorderRadius.circular(7),
+                          border: states.contains(WidgetState.focused)
+                              ? Border.all(color: accent, width: 2)
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              widget.child,
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
