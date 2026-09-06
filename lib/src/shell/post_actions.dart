@@ -252,11 +252,6 @@ class _PostActionsState extends State<PostActions> {
         : null;
     final postUrl = _postShareUrl(controller);
     final topicTitle = controller.currentTopic?.title;
-    final currentUser = instance?.url == widget.siteUrl ? instance?.user : null;
-    final ownsPost =
-        currentUser != null &&
-        ((post.userId != null && post.userId == currentUser.id) ||
-            post.username.toLowerCase() == currentUser.username.toLowerCase());
 
     return (
       actions: [
@@ -316,6 +311,15 @@ class _PostActionsState extends State<PostActions> {
               replyingToWhisper: post.isWhisper,
             ),
           ),
+        if (post.canEdit)
+          PostAction(
+            icon: DIcons.pencil,
+            placement: PostActionPlacement.trailing,
+            showLabelInFooter: false,
+            label: 'Edit',
+            tooltip: 'Edit this post',
+            onInvoke: () => controller.openEdit(post),
+          ),
         if (controller.currentInstance?.url == widget.siteUrl &&
             controller.currentInstance?.user != null &&
             topic != null)
@@ -349,18 +353,6 @@ class _PostActionsState extends State<PostActions> {
                 post: post,
               ),
             ),
-          ),
-        if (post.canEdit)
-          PostAction(
-            icon: DIcons.pencil,
-            // Core keeps an author's own Edit button visible and also promotes
-            // Edit for wiki posts; staff editing somebody else's post expand it.
-            placement: ownsPost || post.wiki
-                ? PostActionPlacement.toolbar
-                : PostActionPlacement.overflow,
-            label: 'Edit',
-            tooltip: 'Edit this post',
-            onInvoke: () => controller.openEdit(post),
           ),
         if (post.editCount > 0 && post.canViewEditHistory)
           PostAction(

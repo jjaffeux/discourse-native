@@ -448,6 +448,7 @@ void _registerTopicModerationTests() {
         await openTopic(tester, post: mine(canEdit: false, canDelete: false));
 
         expect(find.byTooltip('Reply to this post'), findsOneWidget);
+        expect(find.byTooltip('Edit this post'), findsNothing);
         await tester.tap(find.byKey(const ValueKey('post-more-actions-1')));
         await tester.pumpAndSettle();
 
@@ -527,8 +528,7 @@ void _registerTopicModerationTests() {
         },
       );
 
-      await hoverPost(tester);
-      await tapPostAction(tester, 'Edit this post');
+      await tester.tap(find.byTooltip('Edit this post'));
       await tester.pumpAndSettle();
 
       expect(find.text('Edit post #1'), findsOneWidget);

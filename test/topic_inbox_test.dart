@@ -1776,6 +1776,7 @@ void main() {
     final reply = find.byKey(
       const ValueKey(('post-footer-action', 2, 'Reply')),
     );
+    final edit = find.byKey(const ValueKey(('post-footer-action', 2, 'Edit')));
     final bookmark = find.byKey(
       const ValueKey(('post-footer-action', 2, 'Bookmark')),
     );
@@ -1787,11 +1788,18 @@ void main() {
       (widget) => widget is CookedHtml && widget.post?.postNumber == 2,
     );
     expect(tester.getRect(reply).top, greaterThan(tester.getRect(body).bottom));
-    expect(bookmark.hitTestable(), findsOneWidget);
+    expect(edit.hitTestable(), findsOneWidget);
     expect(
-      tester.getRect(bookmark).left,
-      greaterThanOrEqualTo(tester.getRect(reply).right),
+      find.descendant(of: edit, matching: find.text('Edit')),
+      findsNothing,
     );
+    expect(tester.getRect(edit).left, tester.getRect(reply).right);
+    expect(
+      tester.getRect(edit).center.dy,
+      closeTo(tester.getRect(reply).center.dy, 1),
+    );
+    expect(bookmark.hitTestable(), findsOneWidget);
+    expect(tester.getRect(bookmark).left, tester.getRect(edit).right);
     expect(
       tester.getRect(bookmark).center.dy,
       closeTo(tester.getRect(reply).center.dy, 1),
@@ -1843,7 +1851,7 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
       await tester.pumpAndSettle();
-      expect(find.text('Edit'), findsOneWidget);
+      expect(find.widgetWithText(MenuItemButton, 'Edit'), findsNothing);
       expect(find.text('Copy link'), findsOneWidget);
       expect(find.text('Delete'), findsNothing);
       expect(find.widgetWithText(MenuItemButton, 'Bookmark'), findsNothing);
