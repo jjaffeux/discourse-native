@@ -23,7 +23,7 @@ class TopicHeaderTags extends StatelessWidget {
 
   final String siteUrl;
   final TopicDetail topic;
-  final ValueChanged<TopicTag> onTagNavigate;
+  final TopicTagNavigationCallback onTagNavigate;
 
   @override
   Widget build(BuildContext context) => TopicTagMenuAnchor(
@@ -89,9 +89,9 @@ class TopicHeaderTags extends StatelessWidget {
                   popoverKey: const ValueKey('topic-header-tags-popover'),
                   builder: (pickerContext) => _ReadOnlyTags(
                     tags: tags,
-                    onTagNavigate: (tag) {
+                    onTagNavigate: (tag, {newTab = false}) {
                       Navigator.of(pickerContext).pop();
-                      onTagNavigate(tag);
+                      onTagNavigate(tag, newTab: newTab);
                     },
                   ),
                 ),
@@ -107,23 +107,30 @@ class TopicHeaderTags extends StatelessWidget {
           child: Material(
             color: theme.shell.hover,
             borderRadius: BorderRadius.circular(4),
-            child: Semantics(
-              link: tag != null,
-              button: tag == null,
-              child: InkWell(
-                key: key,
-                onTap: tag == null ? open : () => onTagNavigate(tag),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 5,
-                  ),
-                  child: Text(
-                    label,
-                    style: style,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTertiaryTapUp: tag == null
+                  ? null
+                  : (_) => onTagNavigate(tag, newTab: true),
+              child: Semantics(
+                link: tag != null,
+                button: tag == null,
+                child: InkWell(
+                  key: key,
+                  onTap: tag == null ? open : () => onTagNavigate(tag),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 5,
+                    ),
+                    child: Text(
+                      label,
+                      style: style,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
               ),
@@ -190,7 +197,7 @@ class _ReadOnlyTags extends StatefulWidget {
   const _ReadOnlyTags({required this.tags, required this.onTagNavigate});
 
   final List<TopicTag> tags;
-  final ValueChanged<TopicTag> onTagNavigate;
+  final TopicTagNavigationCallback onTagNavigate;
 
   @override
   State<_ReadOnlyTags> createState() => _ReadOnlyTagsState();
@@ -219,13 +226,18 @@ class _ReadOnlyTagsState extends State<_ReadOnlyTags> {
       onQuerySubmitted: (_) {},
       children: [
         for (final tag in matches)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: AnchoredPickerOption(
-              key: ValueKey(('topic-header-tag-option', tag.name)),
-              title: Text('# ${tag.name}'),
-              trailing: const DIcon(DIcons.upRightFromSquare, size: 12),
-              onTap: () => widget.onTagNavigate(tag),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTertiaryTapUp: (_) => widget.onTagNavigate(tag, newTab: true),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: AnchoredPickerOption(
+                key: ValueKey(('topic-header-tag-option', tag.name)),
+                title: Text('# ${tag.name}'),
+                trailing: const DIcon(DIcons.upRightFromSquare, size: 12),
+                onTap: () => widget.onTagNavigate(tag),
+              ),
             ),
           ),
         if (matches.isEmpty) const AnchoredPickerMessage('No matching tags'),

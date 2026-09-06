@@ -4,6 +4,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/anchored_picker.dart';
 import 'package:discourse_native/src/shell/topic_tag_picker.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -20,7 +21,7 @@ void main() {
     TargetPlatform platform = TargetPlatform.macOS,
     required ValueChanged<List<TopicTag>?> onClosed,
     List<TopicTag> selectedTags = const [design, mobile],
-    ValueChanged<TopicTag>? onTagNavigate,
+    TopicTagNavigationCallback? onTagNavigate,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -54,6 +55,74 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  for (final tag in [design, support]) {
+    for (final target in ['option', 'open']) {
+      testWidgets(
+        'middle-clicking the $target for ${tag.name} opens a tab without selecting',
+        (tester) async {
+          final results = <List<TopicTag>?>[];
+          final opened = <({TopicTag tag, bool newTab})>[];
+          await openPicker(
+            tester,
+            onClosed: results.add,
+            onTagNavigate: (tag, {newTab = false}) =>
+                opened.add((tag: tag, newTab: newTab)),
+          );
+
+          await tester.tap(
+            find.byKey(ValueKey(('topic-tag-picker-$target', tag.name))),
+            kind: PointerDeviceKind.mouse,
+            buttons: kMiddleMouseButton,
+          );
+          await tester.pumpAndSettle();
+
+          expect(opened, [(tag: tag, newTab: true)]);
+          expect(results, [null]);
+          expect(find.byType(TopicTagPicker), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets(
+    'middle-button drags and cancelled presses do not open or select tags',
+    (tester) async {
+      final results = <List<TopicTag>?>[];
+      final opened = <TopicTag>[];
+      await openPicker(
+        tester,
+        onClosed: results.add,
+        onTagNavigate: (tag, {newTab = false}) => opened.add(tag),
+      );
+
+      for (final target in ['option', 'open']) {
+        final position = tester.getCenter(
+          find.byKey(ValueKey(('topic-tag-picker-$target', design.name))),
+        );
+        final drag = await tester.startGesture(
+          position,
+          kind: PointerDeviceKind.mouse,
+          buttons: kMiddleMouseButton,
+        );
+        await drag.moveBy(const Offset(100, 0));
+        await drag.up();
+        final cancelled = await tester.startGesture(
+          position,
+          kind: PointerDeviceKind.mouse,
+          buttons: kMiddleMouseButton,
+        );
+        await cancelled.cancel();
+        await tester.pumpAndSettle();
+      }
+
+      expect(opened, isEmpty);
+      expect(results, isEmpty);
+      expect(find.byType(TopicTagPicker), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     for (final tag in [design, support]) {
       testWidgets(
@@ -65,7 +134,7 @@ void main() {
             tester,
             platform: platform,
             onClosed: results.add,
-            onTagNavigate: opened.add,
+            onTagNavigate: (tag, {newTab = false}) => opened.add(tag),
           );
 
           expect(

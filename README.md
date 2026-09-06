@@ -805,6 +805,8 @@ with the remaining tags accessible through a searchable overflow picker.
 Tag rows have space between them and separate arrows to open their routes
 without changing the selection. Readers without editing permission can still
 find and open every tag through the overflow picker.
+Middle-clicking header tags, dropdown tag rows or their open buttons, and
+category browse arrows opens the destination in a background app tab.
 Topic actions open from the wrench icon in the reader header.
 When the reading lane leaves room for the close control, taxonomy shares that
 toolbar row while staying aligned with the title and posts. Narrow readers
