@@ -639,6 +639,37 @@ void main() {
   });
 
   group('tab switcher', () {
+    testWidgets('renders as a bordered button with a tertiary hover state', (
+      tester,
+    ) async {
+      await _pumpBar(tester, items: const [first], selectedId: first.id);
+
+      final switcher = find.byKey(const ValueKey('forum-tabs-switcher'));
+      final surface = find.byKey(const ValueKey('forum-tabs-switcher-surface'));
+      final theme = Theme.of(tester.element(surface));
+      final decoration = _decoration(tester, surface);
+
+      expect(tester.getSize(switcher).width, ForumTabsBar.minimumActionTarget);
+      expect(
+        tester.getSize(switcher).height,
+        greaterThanOrEqualTo(ForumTabsBar.minimumActionTarget),
+      );
+      expect(tester.getSize(surface), const Size.square(28));
+      expect(decoration.color, theme.shell.content);
+      expect((decoration.border! as Border).top.color, theme.shell.divider);
+
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(pointer.removePointer);
+      await pointer.addPointer();
+      await pointer.moveTo(tester.getCenter(switcher));
+      await tester.pumpAndSettle();
+
+      expect(
+        _decoration(tester, surface).color,
+        theme.colorScheme.primaryContainer,
+      );
+    });
+
     testWidgets('searches open tabs and restores a chosen closed tab', (
       tester,
     ) async {

@@ -347,10 +347,12 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
   final MenuController _menu = MenuController();
   final TextEditingController _search = TextEditingController();
   final FocusNode _searchFocus = FocusNode(debugLabel: 'tab switcher search');
+  final WidgetStatesController _buttonStates = WidgetStatesController();
   bool _open = false;
 
   @override
   void dispose() {
+    _buttonStates.dispose();
     _searchFocus.dispose();
     _search.dispose();
     super.dispose();
@@ -528,11 +530,12 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
           key: const ValueKey('forum-tabs-switcher'),
           button: true,
           expanded: _open,
-          label: 'Search tabs in ${widget.forumName}',
+          label: 'Browse tabs in ${widget.forumName}',
           onTap: controller.open,
           child: ExcludeSemantics(
             child: IconButton(
-              tooltip: 'Search tabs',
+              statesController: _buttonStates,
+              tooltip: 'Browse tabs',
               constraints: const BoxConstraints.expand(
                 width: ForumTabsBar.minimumActionTarget,
                 height: ForumTabsBar.minimumActionTarget,
@@ -543,25 +546,39 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
                 splashFactory: NoSplash.splashFactory,
               ),
               onPressed: controller.isOpen ? controller.close : controller.open,
-              icon: AnimatedContainer(
-                key: const ValueKey('forum-tabs-switcher-surface'),
-                width: 28,
-                height: 28,
-                duration: reduceMotion
-                    ? Duration.zero
-                    : const Duration(milliseconds: 100),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: _open
-                      ? theme.colorScheme.primaryContainer
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DIcon(
-                  DIcons.chevronDown,
-                  size: 15,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+              icon: ValueListenableBuilder<Set<WidgetState>>(
+                valueListenable: _buttonStates,
+                builder: (context, states, _) {
+                  final emphasized =
+                      _open ||
+                      states.contains(WidgetState.hovered) ||
+                      states.contains(WidgetState.focused) ||
+                      states.contains(WidgetState.pressed);
+                  return AnimatedContainer(
+                    key: const ValueKey('forum-tabs-switcher-surface'),
+                    width: 28,
+                    height: 28,
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 100),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: emphasized
+                          ? theme.colorScheme.primaryContainer
+                          : theme.shell.content,
+                      border: Border.all(color: theme.shell.divider),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DIcon(
+                      DIcons.chevronDown,
+                      size: 15,
+                      color: emphasized
+                          ? theme.colorScheme.onPrimaryContainer
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  );
+                },
               ),
             ),
           ),
