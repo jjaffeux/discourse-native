@@ -79,9 +79,13 @@ void main() {
       );
     });
 
-    test('anchors the endpoint at the site origin', () {
+    test('keeps the stored forum base and replaces query and fragment', () {
+      // Discovery preserves a forum's subfolder, so authorization must use
+      // that same base instead of treating its path as stale navigation.
       final url = protocol.authUrl(
-        siteUrl: 'https://forum.example:8443/old/path?stale=true#fragment',
+        siteUrl:
+            'https://forum.example:8443/old/path'
+            '?stale=true&nonce=stale&client_id=stale#fragment',
         publicKeyPem: 'public',
         nonce: 'nonce',
         clientId: 'client',
@@ -89,9 +93,93 @@ void main() {
       );
 
       expect(url.origin, 'https://forum.example:8443');
-      expect(url.path, '/user-api-key/new');
+      expect(url.path, '/old/path/user-api-key/new');
       expect(url.fragment, isEmpty);
-      expect(url.queryParameters, isNot(contains('stale')));
+      expect(url.queryParameters, {
+        'application_name': 'App',
+        'client_id': 'client',
+        'scopes': UserApiKeyProtocol.scopes,
+        'public_key': 'public',
+        'nonce': 'nonce',
+        'auth_redirect': UserApiKeyProtocol.redirectUrl,
+      });
+    });
+
+    for (final (description, siteUrl, expectedPath) in const [
+      ('root', 'https://forum.example', '/user-api-key/new'),
+      ('root slash', 'https://forum.example/', '/user-api-key/new'),
+      ('root slashes', 'https://forum.example///', '/user-api-key/new'),
+      (
+        'subfolder',
+        'https://forum.example/community',
+        '/community/user-api-key/new',
+      ),
+      (
+        'nested subfolder',
+        'https://forum.example/communities/support',
+        '/communities/support/user-api-key/new',
+      ),
+      (
+        'encoded subfolder',
+        'https://forum.example/caf%C3%A9/a%2Fb%252F%3F%23',
+        '/caf%C3%A9/a%2Fb%252F%3F%23/user-api-key/new',
+      ),
+      (
+        'encoded trailing slash',
+        'https://forum.example/community%2F/',
+        '/community%2F/user-api-key/new',
+      ),
+      (
+        'trailing slash',
+        'https://forum.example/community/',
+        '/community/user-api-key/new',
+      ),
+      (
+        'trailing slashes',
+        'https://forum.example/community///',
+        '/community/user-api-key/new',
+      ),
+      (
+        'loopback development base',
+        'http://localhost:4200/community/',
+        '/community/user-api-key/new',
+      ),
+    ]) {
+      test('builds the endpoint under the $description', () {
+        final url = protocol.authUrl(
+          siteUrl: siteUrl,
+          publicKeyPem: 'public',
+          nonce: 'nonce',
+          clientId: 'client',
+          applicationName: 'App',
+        );
+
+        expect(url.origin, Uri.parse(siteUrl).origin);
+        expect(url.path, expectedPath);
+      });
+    }
+
+    test('rejects unsafe stored forum bases', () {
+      for (final siteUrl in [
+        'http://forum.example/community',
+        'ftp://forum.example/community',
+        '//forum.example/community',
+        'https:/community',
+        'https://forum.example:0/community',
+        'https://forum.example:65536/community',
+      ]) {
+        expect(
+          () => protocol.authUrl(
+            siteUrl: siteUrl,
+            publicKeyPem: 'public',
+            nonce: 'nonce',
+            clientId: 'client',
+            applicationName: 'App',
+          ),
+          throwsA(isA<UnsafeHttpTransportException>()),
+          reason: siteUrl,
+        );
+      }
     });
 
     test('rejects credentials embedded in the stored site URL', () {

@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/authenticator.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/push_registration.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 const _site = 'https://meta.discourse.org';
 const _pair = AuthKeyPair(publicPem: 'public-pem', privatePem: 'private-pem');
@@ -21,6 +24,85 @@ const _macosRegistration = PushRegistration(
 );
 
 void main() {
+  group('discovery to authorization', () {
+    for (final redirected in [false, true]) {
+      test(
+        'launches the discovered subfolder${redirected ? ' after a redirect' : ''}',
+        () async {
+          const siteUrl = 'https://forum.example:8443/community';
+          final endpoint = Uri.parse('$siteUrl/user-api-key/new');
+          final requested = <(String, Uri)>[];
+          final api = DiscourseApi(
+            client: MockClient((request) async {
+              requested.add((request.method, request.url));
+              if (redirected &&
+                  request.url ==
+                      Uri.parse('https://old.example/user-api-key/new')) {
+                return http.Response(
+                  '',
+                  301,
+                  headers: {'location': endpoint.toString()},
+                );
+              }
+              if (request.url == endpoint) {
+                return http.Response(
+                  '',
+                  200,
+                  headers: {'auth-api-version': '4'},
+                );
+              }
+              if (request.url == Uri.parse('$siteUrl/site/basic-info.json')) {
+                return http.Response('{"title":"Subfolder"}', 200);
+              }
+              return http.Response('not found', 404);
+            }),
+          );
+          addTearDown(api.close);
+
+          final site = await api.lookup(
+            redirected ? 'old.example' : '$siteUrl/',
+          );
+          expect(site.url, siteUrl);
+          expect(requested, [
+            if (redirected)
+              ('HEAD', Uri.parse('https://old.example/user-api-key/new')),
+            ('HEAD', endpoint),
+            ('GET', Uri.parse('$siteUrl/site/basic-info.json')),
+          ]);
+
+          final store = _FakeSecureStore();
+          final launched = <(Uri, String)>[];
+          const cancelled = UserApiAuthException(UserApiAuthFailure.cancelled);
+          final authenticator = Authenticator(
+            store: store,
+            pushRegistrations: _FakePushRegistrationProvider(null),
+            keyPairGenerator: () async => _pair,
+            nonceGenerator: () => 'fixed-nonce',
+            launcher: (url, callbackScheme) async {
+              launched.add((Uri.parse(url), callbackScheme));
+              throw cancelled;
+            },
+          );
+
+          await expectLater(
+            authenticator.authorize(site.url),
+            throwsA(same(cancelled)),
+          );
+
+          expect(launched, hasLength(1));
+          final (url, callbackScheme) = launched.single;
+          expect(url.origin, 'https://forum.example:8443');
+          expect(url.path, endpoint.path);
+          expect(url.queryParameters['nonce'], 'fixed-nonce');
+          expect(url.queryParameters['public_key'], _pair.publicPem);
+          expect(url.queryParameters['client_id'], 'client-id');
+          expect(callbackScheme, UserApiKeyProtocol.redirectScheme);
+          expect(store.apiKeyWrites, isEmpty);
+        },
+      );
+    }
+  });
+
   group('Authenticator.connect', () {
     test('can validate a handshake before persisting its credential', () async {
       final events = <String>[];
