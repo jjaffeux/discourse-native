@@ -174,17 +174,23 @@ final class NativeVoiceReportExporter
       await temporary.create(exclusive: true);
       ownsTemporary = true;
       restrictPrivateFile(temporary);
-      output = temporary.openWrite();
-      await writer(output);
-      await output.flush();
-      await output.close();
+      final sink = output = temporary.openWrite();
+      // IOSink can fail while the generator is awaiting its next record.
+      // Observe that failure immediately: flushing an already-failed sink
+      // can otherwise wait forever for a buffer that will never be consumed.
+      await Future.any<void>([
+        Future<void>.sync(() => writer(sink)),
+        sink.done.then<void>((_) {}),
+      ]);
+      await sink.flush();
+      await sink.close();
       output = null;
       await temporary.rename(file.path);
       restrictPrivateFile(file);
     } catch (error, stackTrace) {
       try {
         await output?.close();
-      } on FileSystemException {
+      } on Object {
         // Preserve the generator or rename failure, which explains the export.
       }
       try {
