@@ -866,7 +866,7 @@ void main() {
       expect(requestCount, 0);
     });
 
-    test('authenticated reads never follow redirects', () async {
+    test('authenticated reads reject unsafe redirects', () async {
       final requested = <Uri>[];
       final api = DiscourseApi(
         client: MockClient((request) async {
