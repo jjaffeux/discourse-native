@@ -535,20 +535,34 @@ class _PostActionsState extends State<PostActions> {
   }
 
   void _openRevisionHistory(ShellController controller) {
+    final siteUrl = widget.siteUrl;
     final post = widget.post;
+    final lease = controller.lifecycle.capture(siteUrl);
+
     unawaited(
       showPostRevisionHistory(
         context: context,
-        siteUrl: widget.siteUrl,
+        siteUrl: siteUrl,
         post: post,
-        loadRevision: (revision) => controller.loadPostRevision(
-          siteUrl: widget.siteUrl,
-          postId: post.id,
-          revision: revision,
-        ),
+        loadRevision: (revision) async {
+          // The dialog can outlive this row and its opening account. Refuse
+          // before the controller captures a session or reads credentials.
+          if (!lease.isCurrent) return null;
+          try {
+            final fetched = await controller.loadPostRevision(
+              siteUrl: siteUrl,
+              postId: post.id,
+              revision: revision,
+            );
+            return lease.isCurrent ? fetched : null;
+          } catch (_) {
+            if (!lease.isCurrent) return null;
+            rethrow;
+          }
+        },
         categoryLabel: (id) {
           if (id == null) return 'Uncategorized';
-          return controller.categoryFor(id, siteUrl: widget.siteUrl)?.name ??
+          return controller.categoryFor(id, siteUrl: siteUrl)?.name ??
               'Category $id';
         },
       ),
