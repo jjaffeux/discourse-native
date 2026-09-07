@@ -325,7 +325,7 @@ class ShellSearchController extends ChangeNotifier {
       return;
     }
     _panelOpen = true;
-    if (validatedTerm.length > maximumDiscourseSearchTermLength) {
+    if (value.length > maximumDiscourseSearchTermLength) {
       _phase = SearchSessionPhase.refused;
       _message =
           'Searches can be at most '

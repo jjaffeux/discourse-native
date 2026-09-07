@@ -9,11 +9,14 @@ import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/shell/shell_search_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
 void main() {
   const site = 'https://example.com';
+  const maximumLength = DiscourseApi.maximumSearchTermLength;
 
   group('query admission and debounce', () {
     testWidgets('waits for valid terms and admits short filter syntax', (
@@ -23,7 +26,7 @@ void main() {
       final search = _controller(api)..selectSite(site, minimumLength: 5);
       addTearDown(search.dispose);
 
-      search.setQuery('four');
+      search.setQuery('  four  ');
       await tester.pump(const Duration(seconds: 1));
       expect(api.terms, isEmpty);
       expect(search.phase, SearchSessionPhase.tooShort);
@@ -37,7 +40,7 @@ void main() {
       expect(api.typeFilters, ['exclude_topics']);
     });
 
-    testWidgets('refuses oversized queries before credentials or API work', (
+    testWidgets('keeps whitespace-only pastes idle even above the limit', (
       tester,
     ) async {
       final api = _SearchApi();
@@ -49,15 +52,125 @@ void main() {
       )..selectSite(site);
       addTearDown(search.dispose);
 
-      search.setQuery('x' * (DiscourseApi.maximumSearchTermLength + 1));
+      search.setQuery(' ' * (maximumLength + 1));
       await tester.pump(const Duration(seconds: 1));
 
-      expect(search.phase, SearchSessionPhase.refused);
-      expect(search.message, 'Searches can be at most 2048 characters.');
+      expect(search.phase, SearchSessionPhase.idle);
+      expect(search.message, isNull);
       expect(credentials.apiKeySites, isEmpty);
       expect(credentials.clientIdReads, 0);
       expect(api.terms, isEmpty);
     });
+
+    for (final mode in SearchMode.values) {
+      for (final padding in [
+        (label: 'no', leading: '', trailing: ''),
+        (label: 'leading', leading: ' ', trailing: ''),
+        (label: 'trailing', leading: '', trailing: ' '),
+        (label: 'leading and trailing', leading: ' ', trailing: ' '),
+      ]) {
+        testWidgets(
+          '${mode.name} refuses oversized queries with ${padding.label} padding before credentials or API work',
+          (tester) async {
+            final api = _SearchApi();
+            final credentials = _RecordingCredentials();
+            final search = ShellSearchController(
+              api: api,
+              credentials: credentials,
+              lifecycle: SiteLifecycle(),
+            )..selectSite(site);
+            addTearDown(search.dispose);
+            final phases = <SearchSessionPhase>[];
+            search.addListener(() => phases.add(search.phase));
+            final bodyLength =
+                maximumLength +
+                1 -
+                padding.leading.length -
+                padding.trailing.length;
+            final term =
+                '${padding.leading}${'x' * bodyLength}${padding.trailing}';
+
+            search.setQuery(term);
+            if (mode == SearchMode.topics) search.showTopics();
+            await tester.pump(const Duration(seconds: 1));
+
+            expect(search.query, term);
+            expect(search.mode, mode);
+            expect(search.phase, SearchSessionPhase.refused);
+            expect(search.message, 'Searches can be at most 2048 characters.');
+            expect(phases, isNotEmpty);
+            expect(phases, everyElement(SearchSessionPhase.refused));
+            expect(credentials.apiKeySites, isEmpty);
+            expect(credentials.clientIdReads, 0);
+            expect(api.terms, isEmpty);
+            expect(api.hashtagTerms, isEmpty);
+            expect(api.userTerms, isEmpty);
+          },
+        );
+      }
+
+      for (final query in [
+        (label: 'ordinary padding', term: '  two  words  '),
+        (label: 'no padding at the limit', term: 'x' * maximumLength),
+        (
+          label: 'leading padding at the limit',
+          term: ' ${'x' * (maximumLength - 1)}',
+        ),
+        (
+          label: 'trailing padding at the limit',
+          term: '${'x' * (maximumLength - 1)} ',
+        ),
+        (
+          label: 'both sides padded at the limit',
+          term: ' ${'x' * (maximumLength - 2)} ',
+        ),
+      ]) {
+        testWidgets(
+          '${mode.name} preserves ${query.label} through real API validation after zero-width cleanup',
+          (tester) async {
+            final requests = <http.Request>[];
+            final api = DiscourseApi(
+              client: MockClient((request) async {
+                requests.add(request);
+                return http.Response('{}', 200);
+              }),
+            );
+            addTearDown(api.close);
+            final search = ShellSearchController(
+              api: api,
+              credentials: FakeApiCredentialReader(),
+              lifecycle: SiteLifecycle(),
+            )..selectSite(site);
+            addTearDown(search.dispose);
+
+            search.setQuery('\u200B${query.term}\u200C\u200D\uFEFF');
+            if (mode == SearchMode.topics) {
+              search.showTopics();
+            } else {
+              await tester.pump(const Duration(milliseconds: 399));
+              expect(requests, isEmpty);
+            }
+            await tester.pump(const Duration(milliseconds: 1));
+            await tester.pump();
+
+            expect(search.query, query.term);
+            expect(search.mode, mode);
+            expect(
+              search.phase,
+              mode == SearchMode.topics
+                  ? SearchSessionPhase.empty
+                  : SearchSessionPhase.results,
+            );
+            expect(search.message, isNull);
+            expect(requests.single.url.path, '/search/query.json');
+            expect(requests.single.url.queryParameters, {
+              'term': query.term,
+              if (mode == SearchMode.facets) 'type_filter': 'exclude_topics',
+            });
+          },
+        );
+      }
+    }
   });
 
   group('search interaction', () {
@@ -140,12 +253,13 @@ void main() {
       final search = _controller(api)..selectSite(site);
       addTearDown(search.dispose);
 
-      search.setQuery('look #ra');
+      search.setQuery('  look #ra  ');
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump();
 
       expect(api.terms, isEmpty);
       expect(api.hashtagTerms, ['ra']);
+      expect(search.query, '  look #ra  ');
       expect(search.phase, SearchSessionPhase.suggestions);
       expect(search.suggestions.map((item) => item.completion), [
         'look #random',
@@ -165,7 +279,7 @@ void main() {
       expect(api.typeFilters, [null]);
 
       search.clear();
-      search.setQuery('status:c');
+      search.setQuery('  status:c  ');
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump();
       expect(search.suggestions.map((item) => item.label), ['status:closed']);
@@ -188,7 +302,7 @@ void main() {
       final search = _controller(api)..selectSite(site);
       addTearDown(search.dispose);
 
-      search.setQuery('@team');
+      search.setQuery('  @team  ');
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump();
 
@@ -479,6 +593,37 @@ void main() {
   });
 
   group('response ordering and site changes', () {
+    testWidgets('a refused padded query supersedes active and queued work', (
+      tester,
+    ) async {
+      final api = _SearchApi();
+      final credentials = _RecordingCredentials();
+      final search = ShellSearchController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+      )..selectSite(site);
+      addTearDown(search.dispose);
+
+      for (final term in ['first', 'second', 'queued']) {
+        search.setQuery(term);
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+      final refusedTerm = ' ${'x' * maximumLength}';
+      search.setQuery(refusedTerm);
+      api.complete('first', _results(1, 'Old result'));
+      api.complete('second', _results(2, 'Another old result'));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(search.query, refusedTerm);
+      expect(search.phase, SearchSessionPhase.refused);
+      expect(search.results, isEmpty);
+      expect(search.hits, isEmpty);
+      expect(api.terms, ['first', 'second']);
+      expect(credentials.apiKeySites, [site, site]);
+      expect(credentials.clientIdReads, 2);
+    });
+
     testWidgets('publishes only the newest result when responses cross', (
       tester,
     ) async {
