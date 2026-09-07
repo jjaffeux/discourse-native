@@ -5,6 +5,8 @@ import 'package:discourse_native/src/shell/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/scaling_benchmark.dart';
+
 String? tokenOf(String source) {
   for (final run in scanMarkdown(source)) {
     if (run.token != null) return run.token;
@@ -41,48 +43,6 @@ List<String> _names(MarkdownRun run) => [
   ])
     if (run.has(flag)) name,
 ];
-
-const int _minimumBenchmarkSampleMicros = 25000;
-
-/// Measures batches long enough to keep JIT and scheduler noise from
-/// dominating the linear-versus-quadratic ratio.
-double _stableScanCost(String source) {
-  var checksum = scanMarkdown(source).length;
-
-  var iterations = 1;
-  late int firstSampleMicros;
-  while (true) {
-    final calibration = _scanBatch(source, iterations);
-    checksum += calibration.checksum;
-    if (calibration.elapsedMicros >= _minimumBenchmarkSampleMicros ||
-        iterations >= 256) {
-      firstSampleMicros = calibration.elapsedMicros;
-      break;
-    }
-    iterations *= 2;
-  }
-
-  var best = firstSampleMicros.toDouble();
-  for (var sample = 1; sample < 3; sample += 1) {
-    final batch = _scanBatch(source, iterations);
-    checksum += batch.checksum;
-    if (batch.elapsedMicros < best) {
-      best = batch.elapsedMicros.toDouble();
-    }
-  }
-  expect(checksum, isPositive);
-  return best / iterations;
-}
-
-({int elapsedMicros, int checksum}) _scanBatch(String source, int iterations) {
-  var checksum = 0;
-  final elapsed = Stopwatch()..start();
-  for (var iteration = 0; iteration < iterations; iteration += 1) {
-    checksum += scanMarkdown(source).length;
-  }
-  elapsed.stop();
-  return (elapsedMicros: elapsed.elapsedMicroseconds, checksum: checksum);
-}
 
 const List<String> samples = [
   '',
@@ -1034,8 +994,12 @@ void main() {
         r'a\*b ',
         r'\[a\] ',
       ]) {
-        final small = _stableScanCost(unit * 800);
-        final large = _stableScanCost(unit * 6400);
+        final smallSource = unit * 800;
+        final largeSource = unit * 6400;
+        final (:small, :large) = measureScaling(
+          () => scanMarkdown(smallSource).length,
+          () => scanMarkdown(largeSource).length,
+        );
         expect(
           large,
           lessThan(small * 25),
@@ -1058,8 +1022,12 @@ void main() {
         return (buffer..writeln('```')).toString();
       }
 
-      final small = _stableScanCost(paste(100));
-      final large = _stableScanCost(paste(800));
+      final smallSource = paste(100);
+      final largeSource = paste(800);
+      final (:small, :large) = measureScaling(
+        () => scanMarkdown(smallSource).length,
+        () => scanMarkdown(largeSource).length,
+      );
 
       expect(
         large,
