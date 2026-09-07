@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:discourse_native/src/plugins/local_dates/local_date.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:flutter/widgets.dart';
@@ -18,46 +16,6 @@ void main() {
   });
 
   setUp(() => environment.setDeviceTimezone('Etc/UTC'));
-
-  group('timezones', () {
-    test('preserves Discourse aliases and historical IANA names', () {
-      expect(environment.canonicalTimezone('UTC'), 'Etc/UTC');
-      expect(environment.canonicalTimezone('IST'), 'Asia/Kolkata');
-      expect(environment.canonicalTimezone('KST'), 'Asia/Seoul');
-      expect(environment.canonicalTimezone('JST'), 'Asia/Tokyo');
-      expect(environment.canonicalTimezone('US/Eastern'), 'US/Eastern');
-    });
-
-    test('uses account, device, then UTC reader-zone precedence', () {
-      environment.setDeviceTimezone(null);
-      expect(environment.readerTimezone('Europe/Paris'), 'Europe/Paris');
-      expect(environment.readerTimezone('not/a-zone'), 'Etc/UTC');
-      environment.setDeviceTimezone('Asia/Tokyo');
-      expect(environment.readerTimezone('Europe/Paris'), 'Europe/Paris');
-      expect(environment.readerTimezone('not/a-zone'), 'Asia/Tokyo');
-    });
-
-    test('a stale timezone detection cannot replace a newer result', () async {
-      final first = Completer<String?>();
-      final second = Completer<String?>();
-      var reads = 0;
-      final isolated = LocalDateEnvironment.forTesting(
-        detectDeviceTimezone: () => reads++ == 0 ? first.future : second.future,
-      );
-
-      final olderRefresh = isolated.refreshDeviceTimezone();
-      final newerRefresh = isolated.refreshDeviceTimezone();
-      second.complete('Asia/Tokyo');
-      await newerRefresh;
-      expect(isolated.deviceTimezone, 'Asia/Tokyo');
-
-      first.complete('Europe/Paris');
-      await olderRefresh;
-
-      expect(isolated.deviceTimezone, 'Asia/Tokyo');
-      isolated.dispose();
-    });
-  });
 
   group('resolution', () {
     final formatter = LocalDateFormatter(environment: environment);

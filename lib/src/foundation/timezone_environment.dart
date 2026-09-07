@@ -3,7 +3,9 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as timezone_data;
 import 'package:timezone/timezone.dart' as tz;
 
-class TimezoneEnvironment extends ChangeNotifier {
+import 'frame_safe_notifier.dart';
+
+class TimezoneEnvironment extends FrameSafeNotifier {
   TimezoneEnvironment._({Future<String?> Function()? detectDeviceTimezone})
     : _detectDeviceTimezone =
           detectDeviceTimezone ?? _readPlatformDeviceTimezone;
@@ -25,7 +27,7 @@ class TimezoneEnvironment extends ChangeNotifier {
     'JST': 'Asia/Tokyo',
   };
 
-  bool _databaseReady = false;
+  static bool _databaseReady = false;
   String? _deviceTimezone;
   int _refreshGeneration = 0;
 
@@ -48,22 +50,24 @@ class TimezoneEnvironment extends ChangeNotifier {
   }
 
   Future<void> refreshDeviceTimezone({bool forceNotify = false}) async {
+    if (isDisposed) return;
     final generation = ++_refreshGeneration;
     ensureDatabase();
     String? detected;
     try {
       detected = await _detectDeviceTimezone();
     } catch (_) {
-      // Platform detection is optional; account timezones and UTC remain.
+      // A transient platform failure must not change a known reader timezone.
+      // Account timezones and UTC still cover the initial unavailable lookup.
     }
-    if (generation != _refreshGeneration) return;
-    final canonical = canonicalTimezone(detected);
+    if (isDisposed || generation != _refreshGeneration) return;
+    final canonical = canonicalTimezone(detected) ?? _deviceTimezone;
     if (_deviceTimezone == canonical) {
-      if (forceNotify) notifyListeners();
+      if (forceNotify) notifySafely();
       return;
     }
     _deviceTimezone = canonical;
-    notifyListeners();
+    notifySafely();
   }
 
   static Future<String?> _readPlatformDeviceTimezone() async =>
@@ -94,10 +98,12 @@ class TimezoneEnvironment extends ChangeNotifier {
 
   @visibleForTesting
   void setDeviceTimezone(String? name) {
+    if (isDisposed) return;
+    _refreshGeneration++;
     ensureDatabase();
     final canonical = canonicalTimezone(name);
     if (_deviceTimezone == canonical) return;
     _deviceTimezone = canonical;
-    notifyListeners();
+    notifySafely();
   }
 }
