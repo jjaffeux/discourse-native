@@ -100,6 +100,123 @@ void main() {
       expect(await second.settled, ChatSendResult.sent);
     });
 
+    for (final boundary in [
+      'preview',
+      'stage',
+      'context',
+      'subscribe',
+      'markSent',
+    ]) {
+      test('retires send when account changes during $boundary', () async {
+        final api = FakeDiscourseApi();
+        final requests = _Requests();
+        final projection = _Projection();
+        final tracker = _LiveChannels();
+        final replacementTracker = _LiveChannels();
+        final coordinator = DefaultChatSendCoordinator(
+          api: api,
+          requests: requests,
+          host: projection.host,
+        );
+        addTearDown(coordinator.dispose);
+        coordinator.attachTracker(_site, tracker);
+        void replaceAccount() {
+          requests.generation++;
+          coordinator.forget(_site);
+          coordinator.attachTracker(_site, replacementTracker);
+        }
+
+        switch (boundary) {
+          case 'preview':
+            projection.onPreview = replaceAccount;
+          case 'stage':
+            projection.onStage = replaceAccount;
+          case 'context':
+            projection.onContext = replaceAccount;
+          case 'subscribe':
+            tracker.onSubscribe = replaceAccount;
+          case 'markSent':
+            projection.onMarkSent = replaceAccount;
+        }
+        final retired = coordinator.sendMessage(
+          _site,
+          const ChatChannelTarget(9),
+          OutgoingChatMessage.text('retired intent'),
+        );
+        if (boundary == 'preview') {
+          expect(retired, isNull);
+          expect(projection.staged, isEmpty);
+        } else {
+          expect(await retired!.settled, ChatSendResult.cancelled);
+        }
+        expect(projection.sentNotifications, 0);
+        expect(tracker.hasListener('/chat/9'), isFalse);
+        expect(replacementTracker.hasListener('/chat/9'), isFalse);
+        expect(api.chatMessagesSent.length, boundary == 'markSent' ? 1 : 0);
+        if (boundary != 'markSent') {
+          expect(requests.credentialsStarted.isCompleted, isFalse);
+        }
+        projection.onPreview = null;
+        projection.onStage = null;
+        projection.onContext = null;
+        projection.onMarkSent = null;
+        final valid = coordinator.sendMessage(
+          _site,
+          const ChatChannelTarget(9),
+          OutgoingChatMessage.text('replacement intent'),
+        )!;
+        expect(await valid.settled, ChatSendResult.sent);
+        expect(api.chatMessagesSent.last.message, 'replacement intent');
+        expect(projection.sentNotifications, 1);
+        expect(replacementTracker.hasListener('/chat/9'), isTrue);
+      });
+    }
+
+    for (final retirement in [
+      'invalidate',
+      'forget',
+      'cancelChannel',
+      'dispose',
+    ]) {
+      test(
+        'cancels staging on $retirement without reading credentials',
+        () async {
+          final api = FakeDiscourseApi();
+          final requests = _Requests();
+          final projection = _Projection();
+          final tracker = _LiveChannels();
+          final coordinator = DefaultChatSendCoordinator(
+            api: api,
+            requests: requests,
+            host: projection.host,
+          );
+          addTearDown(coordinator.dispose);
+          coordinator.attachTracker(_site, tracker);
+          projection.onStage = () {
+            switch (retirement) {
+              case 'invalidate':
+                requests.generation++;
+              case 'forget':
+                coordinator.forget(_site);
+              case 'cancelChannel':
+                coordinator.cancelChannel(_site, 9);
+              case 'dispose':
+                coordinator.dispose();
+            }
+          };
+          final retired = coordinator.sendMessage(
+            _site,
+            const ChatChannelTarget(9),
+            OutgoingChatMessage.text('retired intent'),
+          )!;
+          expect(await retired.settled, ChatSendResult.cancelled);
+          expect(requests.credentialsStarted.isCompleted, isFalse);
+          expect(api.chatMessagesSent, isEmpty);
+          expect(tracker.hasListener('/chat/9'), isFalse);
+        },
+      );
+    }
+
     test('captures topic context with each queued send', () async {
       final sendGate = Completer<void>();
       final api = FakeDiscourseApi(chatSendGate: sendGate);
@@ -213,32 +330,49 @@ final class _Projection {
   final reconciled = <({String stagedId, Object? payload})>[];
   final _unsettledTargets = <ChatStreamTarget>{};
   ChatMessageContext? messageContext;
+  void Function()? onPreview;
+  void Function()? onStage;
+  void Function()? onContext;
+  void Function()? onMarkSent;
+  int sentNotifications = 0;
 
   late final host = ChatSendCoordinatorHost(
     isDisposed: () => false,
     canSend: (_, _) => true,
     currentUserFor: (_) =>
         const DiscourseUser(id: 7, username: 'reader', staff: false),
-    projectPreview: (_, message) =>
-        SourceFallback(message.raw, ChatPreviewFallbackReason.internalFailure),
+    projectPreview: (_, message) {
+      onPreview?.call();
+      return SourceFallback(
+        message.raw,
+        ChatPreviewFallbackReason.internalFailure,
+      );
+    },
     stage: (_, target, message) {
       staged.add(message);
       _unsettledTargets.add(target);
+      onStage?.call();
     },
     markSent: (_, _, stagedId, serverId) {
       sent.add((stagedId: stagedId, serverId: serverId));
+      onMarkSent?.call();
     },
     markFailed: (_, target, stagedId, failure) {
       _unsettledTargets.remove(target);
       return false;
     },
-    onSent: (_, _) {},
+    onSent: (_, _) {
+      sentNotifications++;
+    },
     hasUnsettledMessages: (_, target) => _unsettledTargets.contains(target),
     reconcileSentEvent: (_, target, stagedId, payload) {
       reconciled.add((stagedId: stagedId, payload: payload));
       _unsettledTargets.remove(target);
     },
-    messageContextFor: (_) => messageContext,
+    messageContextFor: (_) {
+      onContext?.call();
+      return messageContext;
+    },
     report: (_, _, _, _) {},
   );
 }
@@ -248,9 +382,10 @@ final class _Requests implements PluginRequestHost {
 
   final Completer<void>? credentialsGate;
   final credentialsStarted = Completer<void>();
+  int generation = 0;
 
   @override
-  PluginSiteLease capture(String siteUrl) => const _Lease();
+  PluginSiteLease capture(String siteUrl) => _Lease(this, generation);
 
   @override
   Future<PluginRequestCredentials> credentialsFor(String siteUrl) async {
@@ -265,19 +400,24 @@ final class _Requests implements PluginRequestHost {
 }
 
 final class _Lease implements PluginSiteLease {
-  const _Lease();
+  const _Lease(this.requests, this.generation);
+
+  final _Requests requests;
+  final int generation;
 
   @override
-  bool get isCurrent => true;
+  bool get isCurrent => requests.generation == generation;
 
   @override
   bool commit(void Function() mutation) {
+    if (!isCurrent) return false;
     mutation();
     return true;
   }
 }
 
 final class _LiveChannels implements PluginLiveChannelHandle {
+  void Function()? onSubscribe;
   final _listeners =
       <String, List<void Function(Object? data, int messageId)>>{};
 
@@ -288,6 +428,7 @@ final class _LiveChannels implements PluginLiveChannelHandle {
     int? lastId,
   }) {
     (_listeners[channel] ??= []).add(onMessage);
+    onSubscribe?.call();
     return _LiveSubscription(() => _listeners[channel]?.remove(onMessage));
   }
 

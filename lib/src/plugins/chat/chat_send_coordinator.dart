@@ -149,9 +149,21 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     ChatStreamTarget target,
     OutgoingChatMessage message,
   ) {
-    if (_disposed ||
-        (message.raw.trim().isEmpty && message.uploads.isEmpty) ||
-        !_host.canSend(siteUrl, target)) {
+    if (_disposed || (message.raw.trim().isEmpty && message.uploads.isEmpty)) {
+      return null;
+    }
+    final lease = _requests.capture(siteUrl);
+
+    final key = _targetKey(siteUrl, target);
+    final queue = _queues.putIfAbsent(
+      key,
+      () => _ChatSendQueue(siteUrl: siteUrl, target: target, key: key),
+    );
+    // Establish the lane before any projection can synchronously retire it.
+    // Also arrange cleanup if admission stops before an item is queued.
+    _schedule(queue);
+    bool isCurrent() => _queueIsCurrent(lease, queue);
+    if (!isCurrent() || !_host.canSend(siteUrl, target) || !isCurrent()) {
       return null;
     }
 
@@ -159,13 +171,16 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     final stagedId =
         'native-${createdAt.microsecondsSinceEpoch}-${_nextStagedSequence++}';
     final user = _host.currentUserFor(siteUrl);
+    if (!isCurrent()) return null;
+    final preview = _host.projectPreview(siteUrl, message);
+    if (!isCurrent()) return null;
     final local = ChatMessage.optimistic(
       id: _nextLocalMessageId--,
       channelId: target.channelId,
       threadId: target.threadId,
       raw: message.raw,
       stagedId: stagedId,
-      preview: _host.projectPreview(siteUrl, message),
+      preview: preview,
       author: ChatMessageAuthor(
         id: user?.id ?? 0,
         username: user?.username ?? '',
@@ -179,21 +194,27 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
           ChatUpload.fromComposerUpload(upload),
       ],
     );
-    _host.stage(siteUrl, target, local);
-    _retainReconciliation(siteUrl, target);
-
     final settlement = Completer<ChatSendResult>();
     final handle = ChatSendHandle.internal(
       localId: local.id,
       stagedId: stagedId,
       settled: settlement.future,
     );
-    final key = _targetKey(siteUrl, target);
+    _host.stage(siteUrl, target, local);
+    if (!isCurrent()) {
+      settlement.complete(ChatSendResult.cancelled);
+      return handle;
+    }
     final context = _host.messageContextFor(siteUrl);
-    final queue = _queues.putIfAbsent(
-      key,
-      () => _ChatSendQueue(siteUrl: siteUrl, target: target, key: key),
-    );
+    if (!isCurrent()) {
+      settlement.complete(ChatSendResult.cancelled);
+      return handle;
+    }
+    _retainReconciliation(siteUrl, target);
+    if (!isCurrent()) {
+      settlement.complete(ChatSendResult.cancelled);
+      return handle;
+    }
     queue.pending.add(
       _QueuedChatSend(
         local: local,
@@ -201,7 +222,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
           for (final upload in message.uploads) upload.id,
         ]),
         settlement: settlement,
-        lease: _requests.capture(siteUrl),
+        lease: lease,
         context: context == null
             ? null
             : (
@@ -271,15 +292,18 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
       identical(_queues[queue.key], queue) &&
       identical(queue.active, item);
 
+  bool _queueIsCurrent(PluginSiteLease lease, _ChatSendQueue queue) =>
+      !_disposed &&
+      !_host.isDisposed() &&
+      lease.isCurrent &&
+      !queue.cancelled &&
+      identical(_queues[queue.key], queue);
+
   bool _requestIsCurrent(
     PluginSiteLease lease,
     _ChatSendQueue queue,
     _QueuedChatSend item,
-  ) =>
-      !_disposed &&
-      !_host.isDisposed() &&
-      lease.isCurrent &&
-      _owns(queue, item);
+  ) => _queueIsCurrent(lease, queue) && _owns(queue, item);
 
   Future<void> _send(_ChatSendQueue queue, _QueuedChatSend item) async {
     final siteUrl = queue.siteUrl;
@@ -287,6 +311,10 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     final local = item.local;
 
     try {
+      if (!_requestIsCurrent(item.lease, queue, item)) {
+        item.complete(ChatSendResult.cancelled);
+        return;
+      }
       final requestCredentials = await _requests.credentialsFor(siteUrl);
       final apiKey = requestCredentials.apiKey;
       if (!_requestIsCurrent(item.lease, queue, item)) {
@@ -303,6 +331,10 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
       }
       if (!_host.canSend(siteUrl, target)) {
         throw const WriteException(WriteFailure.forbidden);
+      }
+      if (!_requestIsCurrent(item.lease, queue, item)) {
+        item.complete(ChatSendResult.cancelled);
+        return;
       }
       final serverId = await _api.sendChatMessage(
         siteUrl: siteUrl,
@@ -324,8 +356,16 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
       item.lease.commit(
         () => _host.markSent(siteUrl, target, local.stagedId!, serverId),
       );
+      if (!_requestIsCurrent(item.lease, queue, item)) {
+        item.complete(ChatSendResult.cancelled);
+        return;
+      }
       _host.onSent(siteUrl, target);
-      item.complete(ChatSendResult.sent);
+      item.complete(
+        _requestIsCurrent(item.lease, queue, item)
+            ? ChatSendResult.sent
+            : ChatSendResult.cancelled,
+      );
     } catch (error, stackTrace) {
       if (_requestIsCurrent(item.lease, queue, item)) {
         final failure = error is WriteException
@@ -383,13 +423,26 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     final tracker = _trackers[siteUrl];
     if (tracker == null) return;
 
+    final lease = _requests.capture(siteUrl);
     try {
-      _subscriptions[key] = tracker.subscribe(
+      final subscription = tracker.subscribe(
         target.threadId == null
             ? '/chat/${target.channelId}'
             : '/chat/${target.channelId}/thread/${target.threadId}',
         (data, _) => reconcileSentEvent(siteUrl, target, data),
       );
+      if (_disposed ||
+          _subscriptions.containsKey(key) ||
+          !lease.isCurrent ||
+          !identical(_trackers[siteUrl], tracker) ||
+          !_reconciliationTargets.contains((
+            siteUrl: siteUrl,
+            target: target,
+          ))) {
+        _cancelSubscription(subscription, 'chat.sendMessage.unsubscribe');
+        return;
+      }
+      _subscriptions[key] = subscription;
     } catch (error, stackTrace) {
       _host.report(
         error,
