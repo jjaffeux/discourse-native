@@ -122,7 +122,7 @@ class CookedHtml extends StatelessWidget {
 
   static Map<String, String>? _customStyles(
     dom.Element element,
-    bool compactParagraphs,
+    _CompactParagraphMargins? paragraphMargins,
     String horizontalRuleColor,
     String? insertedBackground,
     String? deletedBackground,
@@ -177,16 +177,10 @@ class CookedHtml extends StatelessWidget {
 
     // `.chat-cooked > p`: nested paragraphs retain their ordinary cooked
     // spacing, just as they do in Discourse's stylesheet.
-    if (compactParagraphs &&
+    if (paragraphMargins != null &&
         element.localName == 'p' &&
         element.parentNode is dom.DocumentFragment) {
-      final paragraphs = element.parentNode!.nodes
-          .whereType<dom.Element>()
-          .where((sibling) => sibling.localName == 'p')
-          .toList(growable: false);
-      final top = identical(element, paragraphs.first) ? '0.1em' : '0.5em';
-      final bottom = identical(element, paragraphs.last) ? '0.1em' : '0.5em';
-      styles['margin'] = '$top 0 $bottom';
+      styles['margin'] = paragraphMargins.marginFor(element);
     }
 
     final inserted =
@@ -243,6 +237,11 @@ class CookedHtml extends StatelessWidget {
         PluginRegistryScope.maybeOf(context) ??
         PluginScope.maybeOf(context)?.registry ??
         PluginRegistry.empty;
+    // Scope the index to this renderer, with weak keys so reparsed documents
+    // can be collected even while its style callback is still alive.
+    final paragraphMargins = compactParagraphs
+        ? _CompactParagraphMargins()
+        : null;
 
     return PluginRegistryScope(
       registry: resolvedRegistry,
@@ -268,7 +267,7 @@ class CookedHtml extends StatelessWidget {
         ),
         customStylesBuilder: (element) => _customStyles(
           element,
-          compactParagraphs,
+          paragraphMargins,
           horizontalRuleColor,
           insertedBackground,
           deletedBackground,
@@ -297,6 +296,31 @@ class CookedHtml extends StatelessWidget {
         onTapUrl: (url) => openLink(context, url, siteUrl: resolvedSiteUrl),
       ),
     );
+  }
+}
+
+class _CompactParagraphMargins {
+  final _bounds = Expando<({dom.Element? first, dom.Element? last})>();
+
+  String marginFor(dom.Element element) {
+    final document = element.parentNode!;
+    var bounds = _bounds[document];
+    if (bounds == null) {
+      dom.Element? first;
+      dom.Element? last;
+      for (final sibling in document.nodes) {
+        if (sibling is dom.Element && sibling.localName == 'p') {
+          first ??= sibling;
+          last = sibling;
+        }
+      }
+      bounds = (first: first, last: last);
+      _bounds[document] = bounds;
+    }
+
+    final top = identical(element, bounds.first) ? '0.1em' : '0.5em';
+    final bottom = identical(element, bounds.last) ? '0.1em' : '0.5em';
+    return '$top 0 $bottom';
   }
 }
 

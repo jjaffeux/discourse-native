@@ -42,13 +42,19 @@ Future<void> pumpCooked(
   String html, {
   PluginRegistry? registry,
   Post? post,
+  bool compactParagraphs = false,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.dark,
       home: Scaffold(
         body: SingleChildScrollView(
-          child: CookedHtml(html: html, registry: registry, post: post),
+          child: CookedHtml(
+            html: html,
+            registry: registry,
+            post: post,
+            compactParagraphs: compactParagraphs,
+          ),
         ),
       ),
     ),
@@ -112,6 +118,18 @@ class _CountingCookedHtml extends CookedHtml {
   Widget build(BuildContext context) {
     onBuild();
     return super.build(context);
+  }
+}
+
+class _CountingSibling extends dom.Element {
+  _CountingSibling() : super.tag('div');
+
+  var nameReads = 0;
+
+  @override
+  String? get localName {
+    nameReads += 1;
+    return super.localName;
   }
 }
 
@@ -270,30 +288,127 @@ void main() {
     expect(first.hashCode, second.hashCode);
   });
 
-  testWidgets('chat paragraphs use Discourse compact outer margins', (
+  for (final (description, source, margins) in [
+    ('empty HTML', '', <String?>[]),
+    ('a lone paragraph', '<p>Only</p>', ['0.1em 0 0.1em']),
+    (
+      'multiple paragraphs',
+      '<p>First</p><p>Middle</p><p>Last</p>',
+      ['0.1em 0 0.5em', '0.5em 0 0.5em', '0.5em 0 0.1em'],
+    ),
+    (
+      'text, comments and non-paragraph siblings',
+      'Leading<!-- before --><div>Before</div><p>First</p>'
+          '<!-- between -->Between<span>Inline</span><p>Last</p>'
+          '<hr><!-- after -->Trailing',
+      ['0.1em 0 0.5em', '0.5em 0 0.1em'],
+    ),
+    (
+      'a lone paragraph among other siblings',
+      'Leading<!-- before --><div>Before</div><p>Only</p><hr>Trailing',
+      ['0.1em 0 0.1em'],
+    ),
+    (
+      'nested paragraphs',
+      '<div><p>Nested first</p></div><p>First</p>'
+          '<div><p>Nested middle</p></div><p>Last</p>'
+          '<div><p>Nested last</p></div>',
+      [null, '0.1em 0 0.5em', null, '0.5em 0 0.1em', null],
+    ),
+    ('only nested paragraphs', '<div><p>Nested</p></div>', <String?>[null]),
+  ]) {
+    testWidgets('compact spacing handles $description', (tester) async {
+      await pumpCooked(tester, source, compactParagraphs: true);
+
+      final renderer = tester.widget<HtmlWidget>(find.byType(HtmlWidget));
+      final styles = renderer.customStylesBuilder!;
+      final paragraphs = html_parser
+          .parseFragment(source)
+          .querySelectorAll('p');
+
+      expect([
+        for (final paragraph in paragraphs) styles(paragraph)?['margin'],
+      ], margins);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('compact spacing scans each document once per widget build', (
     tester,
   ) async {
-    const html = '<p>First</p><p>Second</p>';
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.dark,
-        home: const Scaffold(
-          body: CookedHtml(html: html, compactParagraphs: true),
-        ),
-      ),
-    );
-    await tester.pump();
+    await pumpCooked(tester, '<p>Rendered</p>', compactParagraphs: true);
+    final styles = tester
+        .widget<HtmlWidget>(find.byType(HtmlWidget))
+        .customStylesBuilder!;
+    final siblings = [_CountingSibling(), _CountingSibling()];
+    final documents = [
+      for (final sibling in siblings)
+        dom.DocumentFragment()
+          ..nodes.addAll([
+            sibling,
+            for (var index = 0; index < 200; index++) dom.Element.tag('p'),
+          ]),
+    ];
+    final paragraphs = [
+      for (final document in documents) document.children.skip(1).toList(),
+    ];
 
-    final renderer = tester.widget<HtmlWidget>(find.byType(HtmlWidget));
-    final styles = renderer.customStylesBuilder!;
-    final paragraphs = html_parser
-        .parseFragment(html)
-        .nodes
-        .whereType<dom.Element>()
-        .toList(growable: false);
+    // Interleave documents and visit paragraphs backwards: the bounds must
+    // come from document order, independent of the callback's visit order.
+    for (var index = 199; index >= 0; index--) {
+      for (final elements in paragraphs) {
+        final top = index == 0 ? '0.1em' : '0.5em';
+        final bottom = index == 199 ? '0.1em' : '0.5em';
+        expect(styles(elements[index]), {'margin': '$top 0 $bottom'});
+      }
+    }
+    expect(siblings.map((sibling) => sibling.nameReads), [1, 1]);
 
-    expect(styles(paragraphs.first), {'margin': '0.1em 0 0.5em'});
-    expect(styles(paragraphs.last), {'margin': '0.5em 0 0.1em'});
+    await pumpCooked(tester, '<p>Updated</p>', compactParagraphs: true);
+    final rebuiltStyles = tester
+        .widget<HtmlWidget>(find.byType(HtmlWidget))
+        .customStylesBuilder!;
+    expect(rebuiltStyles(paragraphs.first.first), {'margin': '0.1em 0 0.5em'});
+    expect(siblings.map((sibling) => sibling.nameReads), [2, 1]);
+  });
+
+  testWidgets('paragraph styles and content follow HTML and compact updates', (
+    tester,
+  ) async {
+    Future<void> check(
+      String source,
+      List<String?> margins, {
+      bool compact = true,
+    }) async {
+      await pumpCooked(tester, source, compactParagraphs: compact);
+      final renderer = tester.widget<HtmlWidget>(find.byType(HtmlWidget));
+      final styles = renderer.customStylesBuilder!;
+      expect([
+        for (final paragraph in html_parser.parseFragment(source).children)
+          styles(paragraph)?['margin'],
+      ], margins);
+    }
+
+    await check('<p>Only</p>', ['0.1em 0 0.1em']);
+    expect(renderedText('Only'), findsOneWidget);
+    final loneHeight = tester.getSize(find.byType(CookedHtml)).height;
+
+    await check('<p>First</p><p>Middle</p><p>Last</p>', [
+      '0.1em 0 0.5em',
+      '0.5em 0 0.5em',
+      '0.5em 0 0.1em',
+    ]);
+    expect(renderedText('Only'), findsNothing);
+    expect(renderedText('Middle'), findsOneWidget);
+
+    await check('<p>First</p><p>Last</p>', [null, null], compact: false);
+    expect(renderedText('Middle'), findsNothing);
+
+    await check('<p>First</p><p>Last</p>', ['0.1em 0 0.5em', '0.5em 0 0.1em']);
+    await check('<p>Only</p>', ['0.1em 0 0.1em']);
+    expect(renderedText('First'), findsNothing);
+    expect(tester.getSize(find.byType(CookedHtml)).height, loneHeight);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('horizontal rules use Discourse content border color', (
@@ -346,6 +461,8 @@ void main() {
     expect(inserted['text-decoration'], 'none');
     expect(deletedBlock['background-color'], deleted['background-color']);
     expect(insertedBlock['background-color'], inserted['background-color']);
+    expect(deletedBlock['margin'], isNull);
+    expect(insertedBlock['margin'], isNull);
   });
 
   testWidgets('unrelated shell notifications do not rebuild post HTML', (
