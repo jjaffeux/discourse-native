@@ -115,11 +115,7 @@ class _CookedSelectionCharacter {
 
 class _CookedSelectionSource {
   _CookedSelectionSource(this.characters, this.breaks)
-    : plainText = characters.map((character) => character.value).join(),
-      foldedPlainText = characters
-          .map((character) => character.value)
-          .join()
-          .toLowerCase();
+    : plainText = characters.map((character) => character.value).join();
 
   factory _CookedSelectionSource.fromHtml(String cooked) {
     final characters = <_CookedSelectionCharacter>[];
@@ -246,7 +242,7 @@ class _CookedSelectionSource {
   final List<_CookedSelectionCharacter> characters;
   final Map<int, int> breaks;
   final String plainText;
-  final String foldedPlainText;
+  late final String foldedPlainText = plainText.toLowerCase();
 
   ({int start, int end, bool unique})? match(String selected) {
     if (selected.isEmpty) return null;
@@ -274,13 +270,14 @@ class _CookedSelectionSource {
   String markdown(int start, int end) {
     if (start < 0 || end <= start || end > characters.length) return '';
     final out = StringBuffer();
-    var active = <_MarkdownMark>[];
+    List<_MarkdownMark> active = const [];
 
     void closeTo(int length) {
+      if (length == active.length) return;
       for (var index = active.length - 1; index >= length; index--) {
         out.write(active[index].close);
       }
-      active = active.sublist(0, length);
+      active = length == 0 ? const [] : active.sublist(0, length);
     }
 
     for (var offset = start; offset < end; offset++) {
@@ -291,17 +288,21 @@ class _CookedSelectionSource {
       }
 
       final next = characters[offset].marks;
-      var shared = 0;
-      while (shared < active.length &&
-          shared < next.length &&
-          active[shared] == next[shared]) {
-        shared++;
+      // Characters in one formatting run share an immutable mark list. Only
+      // its boundaries need comparisons and closing/opening delimiters.
+      if (!identical(active, next)) {
+        var shared = 0;
+        while (shared < active.length &&
+            shared < next.length &&
+            active[shared] == next[shared]) {
+          shared++;
+        }
+        closeTo(shared);
+        for (var index = shared; index < next.length; index++) {
+          out.write(next[index].open);
+        }
+        active = next;
       }
-      closeTo(shared);
-      for (var index = shared; index < next.length; index++) {
-        out.write(next[index].open);
-      }
-      active = List.of(next);
       out.write(characters[offset].value);
     }
     closeTo(0);
