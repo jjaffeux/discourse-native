@@ -968,7 +968,10 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<bool> openNotificationUrl(String url) async {
-    if (!loaded || url.isEmpty || url.length > TopicLink.maximumUrlLength) {
+    if (isDisposed ||
+        !loaded ||
+        url.isEmpty ||
+        url.length > TopicLink.maximumUrlLength) {
       return false;
     }
 
@@ -981,13 +984,23 @@ class ShellController extends FrameSafeNotifier
       return false;
     }
 
-    final owned = _instances.any(
-      (instance) => instance.isConnected && instance.serves(target),
-    );
-    if (!owned) return false;
+    final owner = _instances
+        .where((instance) => instance.isConnected && instance.serves(target))
+        .firstOrNull;
+    if (owner == null) return false;
 
+    final lease = lifecycle.capture(owner.url);
     final absolute = target.toString();
-    if (await openPluginUrl(absolute, origin: PluginLinkOrigin.inApp)) {
+    final pluginHandled = await openPluginUrl(
+      absolute,
+      origin: PluginLinkOrigin.inApp,
+    );
+    if (isDisposed ||
+        !lease.isCurrent ||
+        _instanceAt(owner.url)?.isConnected != true) {
+      return false;
+    }
+    if (pluginHandled) {
       return _revealNotificationTarget();
     }
     if (openGroupUrl(absolute)) return _revealNotificationTarget();

@@ -7,6 +7,8 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -126,6 +128,49 @@ void main() {
     expect(controller.currentContent?.topicId, isNull);
   });
 
+  test(
+    'a notification cannot navigate after its account lease expires',
+    () async {
+      final started = Completer<void>();
+      final pluginResult = Completer<bool>();
+      final plugins = PluginInstaller.install(
+        PluginManifest([
+          _NotificationLinkModule((_) {
+            started.complete();
+            return pluginResult.future;
+          }),
+        ]),
+      );
+      addTearDown(plugins.close);
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': []},
+        topics: {42: topicPayload(id: 42, title: 'Expired notification')},
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([_connected('one.example')]),
+        api: api,
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        trackers: FakeSiteTracker.reset(),
+        plugins: plugins,
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      final opening = controller.openNotificationUrl(
+        'https://one.example/t/expired/42/1',
+      );
+      await started.future;
+      controller.lifecycle.invalidate('https://one.example');
+      pluginResult.complete(false);
+
+      expect(await opening, isFalse);
+      expect(controller.currentContent?.topicId, isNull);
+      expect(api.topicsOpened, isEmpty);
+    },
+  );
+
   testWidgets('a cold-start tap waits for stored forums before navigating', (
     tester,
   ) async {
@@ -162,6 +207,52 @@ void main() {
     expect(controller.currentContent?.topicId, 42);
     expect(controller.currentContent?.postNumber, 7);
     expect(api.topicPostNumbersOpened, [7]);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a burst of taps preserves the newest pending destinations', (
+    tester,
+  ) async {
+    final opens = StreamController<String>.broadcast(sync: true);
+    addTearDown(opens.close);
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      topics: {42: topicPayload(id: 42, title: 'Notification queue')},
+    );
+    await tester.pumpWidget(
+      DiscourseApp(
+        store: FakeInstanceStore([_connected('one.example')]),
+        api: api,
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        trackers: FakeSiteTracker.reset(),
+        updater: FakeUpdater(),
+        updateStore: FakeUpdateStore(),
+        initialRootMode: ShellRootMode.forum,
+        notificationOpenUrls: opens.stream,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final controller = tester
+        .widget<ShellScope>(find.byType(ShellScope))
+        .notifier!;
+    final openedPosts = <int>[];
+    controller.addListener(() {
+      final post = controller.currentContent?.postNumber;
+      if (post != null && openedPosts.lastOrNull != post) {
+        openedPosts.add(post);
+      }
+    });
+    for (var post = 1; post <= 20; post++) {
+      opens.add('https://one.example/t/notification-queue/42/$post');
+    }
+    await tester.pumpAndSettle();
+
+    expect(openedPosts, [1, for (var post = 5; post <= 20; post++) post]);
+    expect(controller.currentContent?.postNumber, 20);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -207,4 +298,38 @@ final class _GatedInstanceStore implements InstanceStore {
 
   @override
   Future<void> save(List<DiscourseInstance> instances) async {}
+}
+
+final class _NotificationLinkModule implements PluginModule {
+  const _NotificationLinkModule(this.open);
+
+  final Future<bool> Function(String url) open;
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('notification-link-test'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addSession(
+      (_, _) => PluginSessionContribution(
+        lifecycle: _NotificationLinkLifecycle(),
+        capabilities: [_NotificationLinkHandler(open)],
+      ),
+    );
+  }
+}
+
+final class _NotificationLinkLifecycle extends PluginSessionLifecycle {}
+
+final class _NotificationLinkHandler implements PluginLinkHandler {
+  const _NotificationLinkHandler(this.open);
+
+  final Future<bool> Function(String url) open;
+
+  @override
+  Future<bool> openPluginUrl(
+    String url, {
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+  }) => open(url);
 }
