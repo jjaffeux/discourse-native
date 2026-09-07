@@ -131,7 +131,7 @@ class TopicHeaderTags extends StatelessWidget {
                   onTap: tag == null ? open : () => onTagNavigate(tag),
                   borderRadius: BorderRadius.circular(4),
                   child: Container(
-                    constraints: const BoxConstraints(minHeight: 28),
+                    constraints: const BoxConstraints(minHeight: 24),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 7,
                       vertical: 5,
