@@ -41,6 +41,20 @@ Future<void> showAssignmentEditor({
     context,
     assignmentControllerService,
   );
+  final session = controller.beginPicker(siteUrl, target);
+
+  Future<T> fromPicker<T>(Future<T> Function() operation) async {
+    if (!controller.isPickerCurrent(session) ||
+        (context.mounted &&
+            !identical(
+              PluginUiScope.maybe(context, assignmentControllerService),
+              controller,
+            ))) {
+      throw const WriteException(WriteFailure.forbidden);
+    }
+    return operation();
+  }
+
   final statusOptions = controller.statusOptions(siteUrl);
   final targetName = target.type == AssignmentTargetType.topic
       ? 'topic'
@@ -52,19 +66,27 @@ Future<void> showAssignmentEditor({
     existing: existing,
     statusesEnabled: statusOptions.enabled,
     statuses: statusOptions.values,
-    loadSuggestions: () => controller.suggestions(siteUrl, target),
-    searchAssignees: (suggestions, term) =>
-        controller.search(siteUrl, target, suggestions, term),
-    save: (assignee, {note, status}) => controller.assign(
-      siteUrl,
-      target,
-      assignee,
-      note: note,
-      status: status,
+    loadSuggestions: () => fromPicker(
+      () => controller.suggestions(session.siteUrl, session.target),
+    ),
+    searchAssignees: (suggestions, term) => fromPicker(
+      () =>
+          controller.search(session.siteUrl, session.target, suggestions, term),
+    ),
+    save: (assignee, {note, status}) => fromPicker(
+      () => controller.assign(
+        session.siteUrl,
+        session.target,
+        assignee,
+        note: note,
+        status: status,
+      ),
     ),
     remove: existing == null
         ? null
-        : () => controller.unassign(siteUrl, target),
+        : () => fromPicker(
+            () => controller.unassign(session.siteUrl, session.target),
+          ),
     onComplete: () => Navigator.of(presentationContext).pop(),
   );
   return showAnchoredPicker<void>(
