@@ -131,38 +131,16 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
           duration: duration,
           curve: Curves.easeInOutCubic,
           alignment: Alignment.topCenter,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Preserve hover, focus, and open menus across header modes.
-              _TopicHeaderToolbar(
-                header: widget,
-                compact: compact,
-                duration: duration,
-                autofocusTitle: _editingTitle,
-                onTitleEditingChanged: _titleEditingChanged,
-                onEditTitle: widget.topic?.canEdit == true
-                    ? () => _titleEditingChanged(true)
-                    : null,
-              ),
-              _TopicHeaderTransition(
-                duration: duration,
-                child: compact
-                    ? _CompactTopicInboxHeader(
-                        key: const ValueKey('topic-header-compact'),
-                        header: widget,
-                      )
-                    : _ExpandedTopicInboxHeader(
-                        key: ValueKey((
-                          'topic-header-expanded',
-                          widget.siteUrl,
-                          widget.topic?.id,
-                        )),
-                        header: widget,
-                      ),
-              ),
-            ],
+          // Preserve hover, focus, and open menus across header modes.
+          child: _TopicHeaderToolbar(
+            header: widget,
+            compact: compact,
+            duration: duration,
+            autofocusTitle: _editingTitle,
+            onTitleEditingChanged: _titleEditingChanged,
+            onEditTitle: widget.topic?.canEdit == true
+                ? () => _titleEditingChanged(true)
+                : null,
           ),
         ),
       ),
@@ -201,9 +179,7 @@ class _TopicHeaderTransition extends StatelessWidget {
       opacity: animation,
       child: SlideTransition(
         position: Tween<Offset>(
-          begin:
-              child.key == const ValueKey('topic-header-compact') ||
-                  child.key == const ValueKey('topic-header-compact-toolbar')
+          begin: child.key == const ValueKey('topic-header-compact')
               ? const Offset(.025, 0)
               : const Offset(0, -.06),
           end: Offset.zero,
@@ -285,22 +261,20 @@ class _TopicHeaderToolbar extends StatelessWidget {
                         child: _TopicHeaderTransition(
                           duration: duration,
                           child: compact
-                              ? _CompactTopicHeaderTitle(
-                                  key: const ValueKey(
-                                    'topic-header-compact-toolbar',
-                                  ),
+                              ? _CompactTopicInboxHeader(
+                                  key: const ValueKey('topic-header-compact'),
                                   header: header,
-                                  onEdit: onEditTitle,
+                                  onEditTitle: onEditTitle,
                                 )
-                              : _ExpandedTopicHeaderTitle(
+                              : _ExpandedTopicInboxHeader(
                                   key: ValueKey((
-                                    'topic-header-expanded-toolbar',
+                                    'topic-header-expanded',
                                     siteUrl,
                                     topic?.id,
                                   )),
                                   header: header,
-                                  autofocus: autofocusTitle,
-                                  onEditingChanged: onTitleEditingChanged,
+                                  autofocusTitle: autofocusTitle,
+                                  onTitleEditingChanged: onTitleEditingChanged,
                                 ),
                         ),
                       ),
@@ -329,7 +303,6 @@ class _TopicHeaderToolbar extends StatelessWidget {
 
 class _ExpandedTopicHeaderTitle extends StatelessWidget {
   const _ExpandedTopicHeaderTitle({
-    super.key,
     required this.header,
     required this.autofocus,
     required this.onEditingChanged,
@@ -389,46 +362,48 @@ class _ExpandedTopicHeaderTitle extends StatelessWidget {
 }
 
 class _ExpandedTopicInboxHeader extends StatelessWidget {
-  const _ExpandedTopicInboxHeader({super.key, required this.header});
+  const _ExpandedTopicInboxHeader({
+    super.key,
+    required this.header,
+    required this.autofocusTitle,
+    required this.onTitleEditingChanged,
+  });
 
   final TopicInboxHeader header;
+  final bool autofocusTitle;
+  final ValueChanged<bool> onTitleEditingChanged;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: _buildForWidth);
-
-  Widget _buildForWidth(BuildContext context, BoxConstraints constraints) {
+  Widget build(BuildContext context) {
     final topic = header.topic;
     final siteUrl = header.siteUrl;
-    if (topic == null || siteUrl == null) return const SizedBox.shrink();
-    final lane = ContentReadingLane.geometryFor(
-      context,
-      availableWidth: constraints.maxWidth,
-      basePadding: const EdgeInsets.symmetric(horizontal: 12),
-    );
-    final leadingPadding = header.keepTopicListOpen
-        ? topicInboxDividerInset
-        : 16.0;
-    final toolbarStart =
-        leadingPadding + DButton.iconOnlyDimensionFor(DButtonSize.small);
-    final contentPadding = EdgeInsets.only(
-      left: (lane.padding.left + 16).clamp(toolbarStart + 8, double.infinity),
-      right: lane.padding.right + 16,
-      top: 4,
-      bottom: 12,
-    );
-    return Padding(
-      padding: contentPadding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _TopicHeaderTaxonomy(
-            siteUrl: siteUrl,
-            topic: topic,
-            keepTopicListOpen: header.keepTopicListOpen,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: shellHeaderHeight),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            heightFactor: 1,
+            child: _ExpandedTopicHeaderTitle(
+              header: header,
+              autofocus: autofocusTitle,
+              onEditingChanged: onTitleEditingChanged,
+            ),
+          ),
+        ),
+        if (topic != null && siteUrl != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: _TopicHeaderTaxonomy(
+              siteUrl: siteUrl,
+              topic: topic,
+              keepTopicListOpen: header.keepTopicListOpen,
+            ),
           ),
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: 8, bottom: 12),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final summary = _TopicActivitySummary(
@@ -458,17 +433,13 @@ class _ExpandedTopicInboxHeader extends StatelessWidget {
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 }
 
 class _CompactTopicHeaderTitle extends StatelessWidget {
-  const _CompactTopicHeaderTitle({
-    super.key,
-    required this.header,
-    required this.onEdit,
-  });
+  const _CompactTopicHeaderTitle({required this.header, required this.onEdit});
 
   final TopicInboxHeader header;
   final VoidCallback? onEdit;
@@ -501,64 +472,71 @@ class _CompactTopicHeaderTitle extends StatelessWidget {
 }
 
 class _CompactTopicInboxHeader extends StatelessWidget {
-  const _CompactTopicInboxHeader({super.key, required this.header});
+  const _CompactTopicInboxHeader({
+    super.key,
+    required this.header,
+    required this.onEditTitle,
+  });
 
   final TopicInboxHeader header;
+  final VoidCallback? onEditTitle;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final topic = header.topic!;
       final siteUrl = header.siteUrl!;
-      if (topic.privateMessage && topic.tags.isEmpty && !topic.canEditTags) {
-        return const SizedBox.shrink();
-      }
       final controller = ShellScope.read(context);
-      final leadingPadding = header.keepTopicListOpen
-          ? topicInboxDividerInset
-          : 16.0;
-      final lane = ContentReadingLane.geometryFor(
-        context,
-        availableWidth: constraints.maxWidth,
-        basePadding: const EdgeInsets.symmetric(horizontal: 12),
-      );
-      final toolbarStart =
-          leadingPadding + DButton.iconOnlyDimensionFor(DButtonSize.small);
-      final contentLeft = (lane.padding.left + 16).clamp(
-        toolbarStart + 8,
+      final titleStyle = Theme.of(context).textTheme.titleSmall;
+      final titleHeight =
+          MediaQuery.textScalerOf(
+            context,
+          ).scale(titleStyle?.fontSize ?? DiscourseTypography.base) *
+          (titleStyle?.height ?? DiscourseTypography.lineHeightMedium);
+      // Retain the title's toolbar inset and use it below the taxonomy too.
+      final verticalPadding = ((shellHeaderHeight - titleHeight) / 2).clamp(
+        0.0,
         double.infinity,
       );
       return Padding(
-        padding: EdgeInsets.only(
-          left: contentLeft,
-          right: lane.padding.right + 16,
-          bottom: 8,
-        ),
-        child: Row(
-          key: const ValueKey('topic-header-compact-taxonomy'),
+        padding: EdgeInsets.symmetric(vertical: verticalPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (!topic.privateMessage)
-              _CompactTopicCategories(
-                siteUrl: siteUrl,
-                topic: topic,
-                keepTopicListOpen: header.keepTopicListOpen,
-                maxWidth: (constraints.maxWidth * .5).clamp(96, 400),
-              ),
-            if (topic.tags.isNotEmpty || topic.canEditTags)
-              Flexible(
-                child: TopicHeaderTags(
-                  key: const ValueKey('topic-header-compact-tags'),
-                  siteUrl: siteUrl,
-                  topic: topic,
-                  onTagNavigate: (tag, {newTab = false}) =>
-                      controller.openTopicTag(
-                        tag,
+            _CompactTopicHeaderTitle(header: header, onEdit: onEditTitle),
+            if (!topic.privateMessage ||
+                topic.tags.isNotEmpty ||
+                topic.canEditTags) ...[
+              const SizedBox(height: 8),
+              Row(
+                key: const ValueKey('topic-header-compact-taxonomy'),
+                children: [
+                  if (!topic.privateMessage)
+                    _CompactTopicCategories(
+                      siteUrl: siteUrl,
+                      topic: topic,
+                      keepTopicListOpen: header.keepTopicListOpen,
+                      maxWidth: (constraints.maxWidth * .5).clamp(128, 400),
+                    ),
+                  if (topic.tags.isNotEmpty || topic.canEditTags)
+                    Flexible(
+                      child: TopicHeaderTags(
+                        key: const ValueKey('topic-header-compact-tags'),
                         siteUrl: siteUrl,
-                        privateMessage: topic.privateMessage,
-                        newTab: newTab,
+                        topic: topic,
+                        onTagNavigate: (tag, {newTab = false}) =>
+                            controller.openTopicTag(
+                              tag,
+                              siteUrl: siteUrl,
+                              privateMessage: topic.privateMessage,
+                              newTab: newTab,
+                            ),
                       ),
-                ),
+                    ),
+                ],
               ),
+            ],
           ],
         ),
       );
@@ -685,7 +663,7 @@ class _CompactTopicCategories extends StatelessWidget {
             ),
           );
       return Padding(
-        padding: const EdgeInsets.only(right: 12),
+        padding: EdgeInsets.only(right: maxWidth <= 128 ? 4 : 12),
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: parent == null ? maxWidth.clamp(72, 200) : maxWidth,
@@ -752,9 +730,11 @@ class _TopicActivitySummary extends StatelessWidget {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        'Closed',
-                        style: style?.copyWith(fontWeight: FontWeight.w600),
+                      Flexible(
+                        child: Text(
+                          'Closed',
+                          style: style?.copyWith(fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ],
                   ),
@@ -1118,8 +1098,8 @@ class _CategoryChip extends StatelessWidget {
                 splashFactory: NoSplash.splashFactory,
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 28),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 2 : 7,
                     vertical: 5,
                   ),
                   child: Row(
@@ -1132,7 +1112,7 @@ class _CategoryChip extends StatelessWidget {
                           size: 12,
                           squareSize: 9,
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(width: compact ? 2 : 6),
                       ],
                       Flexible(
                         child: Text(

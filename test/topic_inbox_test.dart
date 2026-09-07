@@ -675,6 +675,9 @@ void main() {
         final shareBefore = tester.getRect(share);
 
         await pumpHeader(true);
+        final header = tester.getRect(
+          find.byKey(const ValueKey('topic-content-header')),
+        );
         final title = tester.getRect(
           find.byKey(const ValueKey('topic-header-compact-title')),
         );
@@ -686,6 +689,11 @@ void main() {
         expect(title.right, closeTo(expandedTitle.right, 1));
         expect(taxonomy.left, closeTo(title.left, 1));
         expect(taxonomy.right, closeTo(title.right, 1));
+        expect(taxonomy.top - title.bottom, closeTo(8, .1));
+        expect(
+          header.bottom - taxonomy.bottom,
+          closeTo(title.top - header.top, .1),
+        );
         expect(
           tester.getRect(find.byTooltip('Edit topic category')).left,
           closeTo(title.left, 1),
@@ -778,6 +786,7 @@ void main() {
         final tags = find.byKey(const ValueKey('topic-header-compact-tags'));
         final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
         expect(overflow, findsOneWidget);
+        expect(tester.getSize(overflow).width, greaterThanOrEqualTo(28));
         expect(
           tester.getRect(category).right,
           lessThan(tester.getRect(tags).left),
@@ -924,8 +933,12 @@ void main() {
                 )
               : category;
           expect(
-            tester.getRect(category).top,
-            greaterThan(tester.getRect(close).bottom),
+            tester.getRect(category).overlaps(tester.getRect(close)),
+            isFalse,
+          );
+          expect(
+            tester.getRect(overflow).overlaps(tester.getRect(status)),
+            isFalse,
           );
           expect(
             tester.getRect(category).top,
