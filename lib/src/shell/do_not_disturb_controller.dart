@@ -254,7 +254,7 @@ final class DoNotDisturbController extends FrameSafeNotifier {
     if (iso != null) return iso.toUtc();
     try {
       return HttpDate.parse(value).toUtc();
-    } on FormatException {
+    } on HttpException {
       return null;
     }
   }
