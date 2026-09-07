@@ -378,6 +378,17 @@ the one bookmark the target permits. The write and its follow-up refresh retain
 the original account lease, so a delayed response or timeout cannot refresh a
 replacement account's personalized data.
 
+### Draft lists
+
+The account's draft list loads rows as they approach the viewport and keeps its
+paging control reachable without laying out every saved draft. Compact rows
+constrain long category names beside their edit and removal actions; empty
+states remain scrollable in short windows and at larger text sizes.
+
+A mounted list reloads after its account generation changes. Removal dialogs
+retain the forum, controller and account lease that presented the draft, so a
+confirmation arriving after a replacement cannot delete another account's draft.
+
 ### User summary
 
 Profile → Summary opens a restorable native content route for the connected

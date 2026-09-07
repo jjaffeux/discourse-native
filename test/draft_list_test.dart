@@ -20,6 +20,7 @@ import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_tooltip.dart';
@@ -32,12 +33,17 @@ import 'package:flutter/material.dart'
         FontWeight,
         InkWell,
         MaterialApp,
+        MediaQuery,
+        Scaffold,
+        Scrollable,
         MouseRegion,
         Row,
         Size,
         Text,
+        TextScaler,
         Theme,
         ValueKey,
+        ValueListenableBuilder,
         WidgetState;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
@@ -639,6 +645,125 @@ void main() {
     });
   });
 
+  group('draft-list boundaries', () {
+    testWidgets('reloads a mounted list after its account generation changes', (
+      tester,
+    ) async {
+      final fixture = await _pumpList(tester);
+      fixture.controller.lifecycle.invalidate(_siteUrl);
+      fixture.controller.draftList.forget(_siteUrl);
+      await tester.pump();
+      await tester.pump();
+      expect(fixture.api.userDraftRequests, [
+        (siteUrl: _siteUrl, offset: 0, limit: 30),
+        (siteUrl: _siteUrl, offset: 0, limit: 30),
+      ]);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Remove draft'), findsOneWidget);
+    });
+
+    testWidgets('cancels a removal confirmed after its account expires', (
+      tester,
+    ) async {
+      final fixture = await _pumpList(tester);
+      await tester.tap(find.byTooltip('Remove draft'));
+      await tester.pumpAndSettle();
+      fixture.controller.lifecycle.invalidate(_siteUrl);
+      await tester.tap(find.text('Remove'));
+      await tester.pumpAndSettle();
+      expect(fixture.api.userDraftsDeleted, isEmpty);
+      expect(find.byTooltip('Remove draft'), findsOneWidget);
+    });
+
+    testWidgets('cancels a removal when the mounted list changes forums', (
+      tester,
+    ) async {
+      final site = ValueNotifier(_siteUrl);
+      addTearDown(site.dispose);
+      final fixture = await _pumpList(tester, selectedSite: site);
+      await tester.tap(find.byTooltip('Remove draft'));
+      await tester.pumpAndSettle();
+      site.value = 'https://team.discourse.org';
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Remove'));
+      await tester.pumpAndSettle();
+      expect(fixture.api.userDraftsDeleted, isEmpty);
+      expect(find.byTooltip('Remove draft'), findsOneWidget);
+    });
+
+    testWidgets('builds only nearby rows and still reaches the next page', (
+      tester,
+    ) async {
+      final fixture = await _pumpList(
+        tester,
+        userDrafts: [
+          for (var index = 0; index < 60; index++)
+            UserDraft(
+              key: 'topic_$index',
+              sequence: index,
+              data: ComposerDraft(reply: 'Body $index'),
+              topicId: index + 1,
+              title: 'Draft $index',
+            ),
+        ],
+      );
+      expect(find.byTooltip('Remove draft').evaluate().length, lessThan(15));
+      await tester.scrollUntilVisible(
+        find.text('Load more'),
+        400,
+        scrollable: find.byType(Scrollable),
+      );
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byWidgetPredicate(
+          (widget) => widget is TopicTitle && widget.title == 'Draft 59',
+        ),
+        400,
+        scrollable: find.byType(Scrollable),
+      );
+      expect(fixture.api.userDraftRequests, [
+        (siteUrl: _siteUrl, offset: 0, limit: 30),
+        (siteUrl: _siteUrl, offset: 30, limit: 30),
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('fits long category names beside compact draft actions', (
+      tester,
+    ) async {
+      await _pumpList(
+        tester,
+        textScale: 2,
+        categoryName: 'Support for administrators and community managers',
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.byTooltip('Remove draft'), findsOneWidget);
+      expect(find.byTooltip('Edit draft'), findsOneWidget);
+    });
+
+    testWidgets('scrolls empty-state copy in a short window with large text', (
+      tester,
+    ) async {
+      await _pumpList(
+        tester,
+        size: const Size(390, 180),
+        textScale: 2,
+        userDrafts: const [],
+      );
+      expect(tester.takeException(), isNull);
+      final copy = find.text(
+        'Replies and topics you start writing will appear here.',
+      );
+      await tester.scrollUntilVisible(
+        copy,
+        100,
+        scrollable: find.byType(Scrollable),
+      );
+      expect(copy.hitTestable(), findsOneWidget);
+    });
+  });
+
   group('draft lifecycle', () {
     testWidgets('refreshes after another client changes the draft count', (
       tester,
@@ -789,4 +914,75 @@ Future<void> _focusDraftAction(WidgetTester tester, Finder action) async {
   focus.requestFocus();
   await tester.pumpAndSettle();
   expect(focus.hasPrimaryFocus, isTrue);
+}
+
+Future<({ShellController controller, FakeDiscourseApi api})> _pumpList(
+  WidgetTester tester, {
+  Size size = const Size(390, 600),
+  double textScale = 1,
+  String categoryName = 'Support',
+  List<UserDraft> userDrafts = const [_draft],
+  ValueNotifier<String>? selectedSite,
+}) async {
+  installTestMediaPipeline(
+    client: MockClient((_) async => http.Response('', 404)),
+  );
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final sites = [
+    for (final host in ['meta.discourse.org', 'team.discourse.org'])
+      instance(host).copyWith(
+        user: DiscourseUser(
+          id: 7,
+          username: 'reader',
+          draftCount: userDrafts.length,
+        ),
+      ),
+  ];
+  final api = FakeDiscourseApi(
+    user: sites.first.user,
+    userDraftList: userDrafts,
+    categoryList: [TopicCategory(id: 5, name: categoryName, color: '0088CC')],
+    feeds: const {'/latest.json': []},
+  );
+  final authenticator = FakeAuthenticator();
+  for (final site in sites) {
+    authenticator.keys[site.url] = 'api-key';
+  }
+  final controller = ShellController(
+    instanceStore: FakeInstanceStore(sites),
+    api: api,
+    authenticator: authenticator,
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+    updateStore: FakeUpdateStore(),
+  );
+  addTearDown(controller.dispose);
+  await controller.load();
+  await tester.pumpWidget(
+    ShellScope(
+      controller: controller,
+      child: MaterialApp(
+        theme: AppTheme.light,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: selectedSite == null
+              ? const DraftListView(siteUrl: _siteUrl)
+              : ValueListenableBuilder<String>(
+                  valueListenable: selectedSite,
+                  builder: (context, siteUrl, _) =>
+                      DraftListView(siteUrl: siteUrl),
+                ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return (controller: controller, api: api);
 }

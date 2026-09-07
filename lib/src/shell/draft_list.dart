@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../data/site_lifecycle.dart';
 import '../models/discourse_instance.dart';
 import '../models/draft_feed.dart';
 import '../models/topic.dart';
@@ -33,7 +34,8 @@ class DraftListView extends StatefulWidget {
 }
 
 class _DraftListViewState extends State<DraftListView> {
-  (ShellController, String)? _loadedIdentity;
+  (ShellController, String, String, SiteLease)? _loadedIdentity;
+  bool _requestScheduled = false;
 
   @override
   void didChangeDependencies() {
@@ -53,13 +55,34 @@ class _DraftListViewState extends State<DraftListView> {
       .firstOrNull;
 
   void _request() {
-    final controller = ShellScope.read(context);
-    final identity = (controller, widget.siteUrl);
-    if (_loadedIdentity == identity) return;
+    final controller = ShellScope.identityOf(context);
     final instance = _instance(controller);
-    if (instance == null) return;
-    _loadedIdentity = identity;
+    if (instance?.isConnected != true) return;
+    final username = instance!.user!.username;
+    final loaded = _loadedIdentity;
+    if (loaded != null &&
+        identical(loaded.$1, controller) &&
+        loaded.$2 == widget.siteUrl &&
+        loaded.$3 == username &&
+        loaded.$4.isCurrent) {
+      return;
+    }
+    _loadedIdentity = (
+      controller,
+      widget.siteUrl,
+      username,
+      controller.lifecycle.capture(widget.siteUrl),
+    );
     unawaited(controller.draftList.load(instance));
+  }
+
+  void _scheduleRequest() {
+    if (_requestScheduled) return;
+    _requestScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestScheduled = false;
+      if (mounted) _request();
+    });
   }
 
   Future<void> _refresh() async {
@@ -71,6 +94,11 @@ class _DraftListViewState extends State<DraftListView> {
   }
 
   Future<void> _remove(UserDraft draft) async {
+    final controller = ShellScope.read(context);
+    final instance = _instance(controller);
+    if (instance?.isConnected != true) return;
+    final siteUrl = widget.siteUrl;
+    final lease = controller.lifecycle.capture(siteUrl);
     final confirmed = await showDiscourseDialog<bool>(
       context: context,
       builder: (context) => DiscourseAlertDialog(
@@ -92,11 +120,12 @@ class _DraftListViewState extends State<DraftListView> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
-
-    final controller = ShellScope.read(context);
-    final instance = _instance(controller);
-    if (instance != null) await controller.draftList.delete(instance, draft);
+    if (confirmed != true || !mounted || !lease.isCurrent) return;
+    if (widget.siteUrl != siteUrl ||
+        !identical(ShellScope.read(context), controller)) {
+      return;
+    }
+    await controller.draftList.delete(instance!, draft);
   }
 
   @override
@@ -114,6 +143,7 @@ class _DraftListViewState extends State<DraftListView> {
         }
 
         final feed = controller.draftList.feedFor(widget.siteUrl);
+        if (!feed.loading && !feed.loaded) _scheduleRequest();
         if (!feed.loaded && feed.drafts.isEmpty) {
           return const _DraftListLoadingSkeleton(
             key: ValueKey('draft-list-loading-skeleton'),
@@ -341,87 +371,95 @@ class _Drafts extends StatelessWidget {
       basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       builder: (context, lane) => RefreshIndicator(
         onRefresh: onRefresh,
-        child: ListView(
+        child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: lane.padding,
-          children: [
-            if (feed.error case final error?)
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    DIcon(
-                      DIcons.triangleExclamation,
-                      size: 18,
-                      color: theme.colorScheme.onErrorContainer,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(error)),
-                    DButton(
-                      label: const Text('Retry'),
-                      onPressed: () => unawaited(onRefresh()),
-                      variant: DButtonVariant.link,
-                    ),
-                  ],
-                ),
-              ),
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
-                child: Column(
-                  children: [
-                    for (
-                      var index = 0;
-                      index < feed.drafts.length;
-                      index++
-                    ) ...[
-                      _DraftRow(
-                        siteUrl: siteUrl,
-                        draft: feed.drafts[index],
-                        deleting: controller.draftList.deleting(
-                          siteUrl,
-                          feed.drafts[index].key,
+          slivers: [
+            SliverPadding(
+              padding: lane.padding,
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  if (feed.error case final error?)
+                    SliverToBoxAdapter(
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.errorContainer,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        onResume: feed.drafts[index].canResume
-                            ? () => unawaited(
-                                controller.resumeDraft(
+                        child: Row(
+                          children: [
+                            DIcon(
+                              DIcons.triangleExclamation,
+                              size: 18,
+                              color: theme.colorScheme.onErrorContainer,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(child: Text(error)),
+                            DButton(
+                              label: const Text('Retry'),
+                              onPressed: () => unawaited(onRefresh()),
+                              variant: DButtonVariant.link,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  SliverList.builder(
+                    itemCount: feed.drafts.length,
+                    itemBuilder: (context, index) {
+                      final draft = feed.drafts[index];
+                      return Center(
+                        key: ValueKey(draft.key),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1200),
+                          child: Column(
+                            children: [
+                              _DraftRow(
+                                siteUrl: siteUrl,
+                                draft: draft,
+                                deleting: controller.draftList.deleting(
                                   siteUrl,
-                                  feed.drafts[index],
+                                  draft.key,
                                 ),
-                              )
-                            : null,
-                        onOpenForum: () => unawaited(
-                          openExternalLink(
-                            '$siteUrl/u/'
-                            '${Uri.encodeComponent(instance.user!.username)}'
-                            '/activity/drafts',
+                                onResume: draft.canResume
+                                    ? () => unawaited(
+                                        controller.resumeDraft(siteUrl, draft),
+                                      )
+                                    : null,
+                                onOpenForum: () => unawaited(
+                                  openExternalLink(
+                                    '$siteUrl/u/'
+                                    '${Uri.encodeComponent(instance.user!.username)}'
+                                    '/activity/drafts',
+                                  ),
+                                ),
+                                onRemove: () => onRemove(draft),
+                              ),
+                              const Divider(height: 1),
+                            ],
                           ),
                         ),
-                        onRemove: () => onRemove(feed.drafts[index]),
+                      );
+                    },
+                  ),
+                  if (feed.hasMore)
+                    SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: DButton(
+                            label: const Text('Load more'),
+                            onPressed: () =>
+                                unawaited(controller.draftList.load(instance)),
+                            loading: feed.loading,
+                          ),
+                        ),
                       ),
-                      const Divider(height: 1),
-                    ],
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
-            if (feed.hasMore)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: DButton(
-                    label: const Text('Load more'),
-                    onPressed: () =>
-                        unawaited(controller.draftList.load(instance)),
-                    loading: feed.loading,
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -623,11 +661,15 @@ class _DraftCategory extends StatelessWidget {
           squareSize: 10,
         ),
         const SizedBox(width: 5),
-        Text(
-          category.name,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            category.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -706,10 +748,10 @@ class _DraftState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 380),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 332),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
