@@ -26,6 +26,7 @@ void main() {
       'discourse-lazy-videos',
       'discourse-reactions',
       'poll',
+      'discourse-events',
       'gifs',
       'discourse-ai',
       'discourse-assign',

@@ -6,6 +6,7 @@ import 'package:discourse_native/src/plugins/assign/assign_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_module.dart';
+import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_module.dart';
 import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_lazy_videos_module.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
@@ -33,6 +34,7 @@ final PluginManifest _testBundledPluginManifest = PluginManifest([
   discourseLazyVideosModule,
   const ReactionsModule(apiFactory: _reactionsApis),
   const PollModule(apiFactory: _pollsApi),
+  discourseEventsModule,
   const GifsModule(apiFactory: _gifsApi),
   discourseAiModule,
   assignModule,

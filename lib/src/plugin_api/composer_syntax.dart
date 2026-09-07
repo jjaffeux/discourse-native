@@ -39,6 +39,8 @@ final class ComposerPluginState {
     this.editingPost = PluginData.none,
     this.accountTimezone,
     this.freshCurrentUserIsStaff = false,
+    this.createsTopic = false,
+    this.editingPostNumber,
   });
 
   final PluginData siteSettings;
@@ -47,6 +49,8 @@ final class ComposerPluginState {
   final PluginData editingPost;
   final String? accountTimezone;
   final bool freshCurrentUserIsStaff;
+  final bool createsTopic;
+  final int? editingPostNumber;
 }
 
 typedef ComposerPluginStateReader = ComposerPluginState Function();

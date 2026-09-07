@@ -7,6 +7,7 @@ const _pluginIdsByDirectory = <String, String>{
   'assign': 'discourse-assign',
   'chat': 'chat',
   'discourse_ai': 'discourse-ai',
+  'discourse_events': 'discourse-events',
   'discourse_github': 'discourse-github',
   'discourse_lazy_videos': 'discourse-lazy-videos',
   'gifs': 'gifs',
@@ -62,6 +63,7 @@ const _featureModuleEntrypoints = <String>{
   'assign/assign_module.dart',
   'chat/chat_module.dart',
   'discourse_ai/discourse_ai_module.dart',
+  'discourse_events/discourse_events_module.dart',
   'discourse_github/discourse_github_module.dart',
   'discourse_lazy_videos/discourse_lazy_videos_module.dart',
   'gifs/gifs_module.dart',
@@ -485,6 +487,30 @@ void main() {
   });
 
   group('core schema ownership', () {
+    test('keeps event endpoints and wire fields in the events module', () {
+      for (final path in const [
+        'lib/src/models/post.dart',
+        'lib/src/models/topic.dart',
+        'lib/src/models/site_config.dart',
+        'lib/src/models/discourse_user.dart',
+        'lib/src/data/discourse_api.dart',
+        'lib/src/shell/shell_controller.dart',
+      ]) {
+        final source = File(path).readAsStringSync();
+        for (final schema in const [
+          'discourse-post-event',
+          'event_oneboxes',
+          'event_starts_at',
+          'can_create_discourse_post_event',
+        ]) {
+          expect(
+            source,
+            isNot(contains(schema)),
+            reason: '$schema is plugin-owned, not part of $path.',
+          );
+        }
+      }
+    });
     test('keeps optional schemas out of site and current-user models', () {
       final siteConfig = File(
         'lib/src/models/site_config.dart',

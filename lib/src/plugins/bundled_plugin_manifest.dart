@@ -2,6 +2,7 @@ import '../plugin_api/plugin_manifest.dart';
 import 'assign/assign_module.dart';
 import 'chat/chat_module.dart';
 import 'discourse_ai/discourse_ai_module.dart';
+import 'discourse_events/discourse_events_module.dart';
 import 'discourse_github/discourse_github_module.dart';
 import 'discourse_lazy_videos/discourse_lazy_videos_module.dart';
 import 'gifs/gifs_module.dart';
@@ -16,6 +17,7 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   discourseLazyVideosModule,
   reactionsModule,
   pollModule,
+  discourseEventsModule,
   gifsModule,
   discourseAiModule,
   assignModule,
@@ -29,6 +31,7 @@ final PluginManifest bundledPluginManifestWithoutDiagnostics = PluginManifest([
   discourseLazyVideosModule,
   reactionsModule,
   pollModule,
+  discourseEventsModule,
   gifsModule,
   discourseAiModule,
   assignModule,

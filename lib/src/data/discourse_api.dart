@@ -37,6 +37,7 @@ import 'discourse_api_contracts.dart';
 import 'discourse_transport.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';
+import 'plugin_transport.dart';
 import 'site_message_bus_bootstrap.dart';
 
 export 'discourse_api_contracts.dart';
@@ -49,7 +50,11 @@ part 'discourse_search_api.dart';
 part 'discourse_site_api.dart';
 part 'discourse_topic_api.dart';
 
-class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
+class DiscourseApi
+    implements
+        ShellApiCapabilities,
+        DiscourseApiConfiguration,
+        PluginTextTransport {
   DiscourseApi({
     http.Client? client,
     DiscourseTransport? transport,
@@ -1487,6 +1492,22 @@ class DiscourseApi implements ShellApiCapabilities, DiscourseApiConfiguration {
     apiKey: apiKey,
     clientId: clientId,
   );
+
+  @override
+  Future<String> pluginGetText({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) async {
+    final response = await _get(
+      _resolvePluginPath(siteUrl, path),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return response.body;
+  }
 
   @override
   Future<List<Map<String, dynamic>>> pluginGetJsonList({

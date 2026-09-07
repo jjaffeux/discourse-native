@@ -27,3 +27,14 @@ abstract interface class PluginJsonListTransport {
     String? clientId,
   });
 }
+
+/// Optional authenticated text downloads, with the same origin, size, timeout,
+/// and credential rules as JSON requests. Endpoint selection stays plugin-owned.
+abstract interface class PluginTextTransport {
+  Future<String> pluginGetText({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  });
+}
