@@ -2245,6 +2245,7 @@ void main() {
       () async {
         const members = (
           members: [ChatUser(id: 2, username: 'sam', name: 'Sam')],
+          rowCount: 2,
           totalRows: 3,
           canLoadMore: false,
         );
@@ -2272,6 +2273,7 @@ void main() {
 
         expect(result.error, isNull);
         expect(result.page, members);
+        expect(result.page?.rowCount, 2);
         expect(subject.api.chatChannelMembersRequested, const [
           (channelId: 9, username: 'sam', offset: 20, limit: 20),
         ]);

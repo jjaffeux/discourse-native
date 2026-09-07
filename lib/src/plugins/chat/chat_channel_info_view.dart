@@ -863,11 +863,11 @@ class _ChannelMembersState extends State<_ChannelMembers> {
       _loaded = true;
       _error = result.error;
       if (page != null) {
-        // Server progress includes rows already present in the visible list.
-        _nextOffset = offset + page.members.length;
+        // Server progress includes duplicate and malformed rows.
+        _nextOffset = offset + page.rowCount;
         final ids = _members.map((member) => member.id).toSet();
         _members.addAll(page.members.where((member) => ids.add(member.id)));
-        _canLoadMore = page.canLoadMore && page.members.isNotEmpty;
+        _canLoadMore = page.canLoadMore && page.rowCount > 0;
       }
     });
   }
@@ -916,7 +916,7 @@ class _ChannelMembersState extends State<_ChannelMembers> {
     if (!_loaded && _loading) {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
-    if (_error case final error? when _members.isEmpty) {
+    if (_error case final error? when _members.isEmpty && _nextOffset == 0) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -931,12 +931,12 @@ class _ChannelMembersState extends State<_ChannelMembers> {
         ),
       );
     }
-    if (_members.isEmpty) {
+    final hasFooter = _loading || _canLoadMore || _error != null;
+    if (_members.isEmpty && !hasFooter) {
       return Center(
         child: Text(_filter.isEmpty ? 'No members.' : 'No members found.'),
       );
     }
-    final hasFooter = _loading || _canLoadMore || _error != null;
     return ListView.builder(
       key: const ValueKey('chat-channel-member-list'),
       controller: _scroll,

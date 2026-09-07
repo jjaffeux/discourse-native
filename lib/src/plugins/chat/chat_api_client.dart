@@ -318,16 +318,18 @@ final class ChatApiClient implements ChatApi {
       apiKey: apiKey,
       clientId: clientId,
     );
+    final rows = jsonArray(body['memberships']).take(limit).toList();
     final members = List<ChatUser>.unmodifiable([
-      for (final membership in jsonObjects(body['memberships']).take(limit))
+      for (final membership in jsonObjects(rows))
         if (membership['user'] case final Map<String, dynamic> user)
           if (jsonIntOrNull(user['id']) case final id? when id > 0)
             ChatUser.fromJson(user, siteUrl),
     ]);
     return (
       members: members,
+      rowCount: rows.length,
       totalRows: jsonInt(jsonObject(body['meta'])['total_rows']),
-      canLoadMore: members.length == limit,
+      canLoadMore: rows.length == limit,
     );
   }
 

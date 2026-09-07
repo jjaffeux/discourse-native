@@ -20,6 +20,88 @@ const _emptyMessage = 'No channels match these filters.';
 
 void main() {
   group('ChatBrowseChannelsView', () {
+    testWidgets('advances by server rows after filtering malformed channels', (
+      tester,
+    ) async {
+      final api = _BrowseApi(
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): _decodedPage([
+            _channelJson(1),
+            ...List<Object?>.filled(24, null),
+          ]),
+          FakeDiscourseApi.chatBrowseKey(offset: 25): _decodedPage([
+            _channelJson(2),
+          ]),
+        },
+      );
+      await _pumpBrowse(tester, api);
+
+      expect(_card(1), findsOneWidget);
+      expect(find.text('Load more'), findsOneWidget);
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+
+      expect(_offsets(api), [0, 25]);
+      expect(_card(2), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
+    });
+
+    testWidgets('pages and retries while all received channels are filtered', (
+      tester,
+    ) async {
+      final api = _BrowseApi(
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): _decodedPage(
+            List<Object?>.filled(25, null),
+          ),
+          FakeDiscourseApi.chatBrowseKey(offset: 50): _decodedPage([
+            _channelJson(3),
+          ]),
+        },
+      );
+      await _pumpBrowse(tester, api);
+
+      expect(find.text(_emptyMessage), findsNothing);
+      expect(find.text('Load more'), findsOneWidget);
+      expect(_offsets(api), [0]);
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Try again'), findsOneWidget);
+      expect(_offsets(api), [0, 25]);
+      api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey(offset: 25)] =
+          _decodedPage(List<Object?>.filled(25, false));
+      await tester.tap(find.text('Try again'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(_emptyMessage), findsNothing);
+      expect(find.text('Load more'), findsOneWidget);
+      expect(_offsets(api), [0, 25, 25]);
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+
+      expect(_card(3), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
+      expect(_offsets(api), [0, 25, 25, 50]);
+    });
+
+    testWidgets('stops a zero-row page even if marked nonterminal', (
+      tester,
+    ) async {
+      final api = _BrowseApi(
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
+            hasMore: true,
+          ),
+        },
+      );
+      await _pumpBrowse(tester, api);
+
+      expect(find.text(_emptyMessage), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
+      expect(_offsets(api), [0]);
+    });
+
     for (final joined in [true, false]) {
       final membership = joined ? 'Joined' : 'Not joined';
 
@@ -304,6 +386,18 @@ ChatChannel _channel(int id, {bool following = false}) => ChatChannel(
   canJoin: true,
   membership: ChatMembership(following: following),
 );
+
+ChatChannelBrowsePage _decodedPage(List<Object?> rows) =>
+    ChatChannelBrowsePage.fromJson({
+      'channels': rows,
+      'meta': const {'load_more_url': '/next'},
+    }, _site);
+
+Map<String, Object?> _channelJson(int id) => {
+  'id': id,
+  'title': 'Channel $id',
+  'chatable_type': 'Category',
+};
 
 Finder _card(int id) => find.byKey(ValueKey('chat-browse-channel-$id'));
 
