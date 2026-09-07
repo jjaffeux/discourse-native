@@ -79,34 +79,45 @@ class CategoryNotificationLevelButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.read(context);
-    return ValueListenableBuilder<TopicCategory?>(
-      valueListenable: controller.categoryRef(siteUrl, categoryId),
-      builder: (context, category, _) {
-        if (category == null) return const SizedBox.shrink();
-        final level = category.notificationLevel;
-        return ChoiceMenuAnchor<CategoryNotificationLevel>(
-          title: 'Category notifications',
-          showPopoverTitle: false,
-          value: level,
-          options: _options,
-          onSelected: (selected) => unawaited(
-            controller.updateCategoryNotificationLevel(
-              siteUrl,
-              categoryId,
-              selected,
-            ),
-          ),
-          builder: (context, openMenu) => DButton.iconOnly(
-            key: const ValueKey('category-notification-level-button'),
-            tooltip: 'Category notifications: ${_labelFor(level)}',
-            onPressed: openMenu,
-            icon: DIcon(_iconFor(level), size: 18),
-            variant: _isEmphasized(level)
-                ? DButtonVariant.transparentPrimary
-                : DButtonVariant.flat,
-            size: DButtonSize.small,
-          ),
+    return ShellSelector<Object>(
+      select: (controller) => controller.lifecycle.capture(siteUrl).session,
+      builder: (context, _, _) {
+        final controller = ShellScope.read(context);
+        return ValueListenableBuilder<TopicCategory?>(
+          valueListenable: controller.categoryRef(siteUrl, categoryId),
+          builder: (context, category, _) {
+            if (category == null) return const SizedBox.shrink();
+            final level = category.notificationLevel;
+            final lease = controller.lifecycle.capture(siteUrl);
+            return ChoiceMenuAnchor<CategoryNotificationLevel>(
+              key: ValueKey((controller, siteUrl, categoryId, lease.session)),
+              title: 'Category notifications',
+              showPopoverTitle: false,
+              value: level,
+              options: _options,
+              onSelected: (selected) {
+                // Account replacement can precede the anchor's next rebuild.
+                if (!lease.isCurrent) return;
+                unawaited(
+                  controller.updateCategoryNotificationLevel(
+                    siteUrl,
+                    categoryId,
+                    selected,
+                  ),
+                );
+              },
+              builder: (context, openMenu) => DButton.iconOnly(
+                key: const ValueKey('category-notification-level-button'),
+                tooltip: 'Category notifications: ${_labelFor(level)}',
+                onPressed: openMenu,
+                icon: DIcon(_iconFor(level), size: 18),
+                variant: _isEmphasized(level)
+                    ? DButtonVariant.transparentPrimary
+                    : DButtonVariant.flat,
+                size: DButtonSize.small,
+              ),
+            );
+          },
         );
       },
     );
