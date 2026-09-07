@@ -567,29 +567,23 @@ class _CompactTopicCategories extends StatelessWidget {
         category.parentCategoryId,
         siteUrl: siteUrl,
       );
-      Widget chip(TopicCategory value, {bool isParent = false}) => LinkTarget(
-        url: '/c/${value.id}',
-        title: value.name,
-        siteUrl: siteUrl,
-        child: _CategoryChip(
-          key: ValueKey(
-            isParent
-                ? 'topic-header-compact-parent-category'
-                : 'topic-header-compact-category',
-          ),
-          category: value,
-          siteUrl: siteUrl,
-          label: value.name,
-          editLabel: 'Browse ${value.name}',
-          edit: () => shell.browseTopicCategory(
-            value,
-            keepTopicOpen: keepTopicListOpen,
-          ),
-          navigate: null,
-          saving: false,
-          compact: true,
-        ),
-      );
+      Widget chip(TopicCategory value, {bool isParent = false}) =>
+          LayoutBuilder(
+            builder: (context, constraints) => _TopicCategoryControl(
+              key: ValueKey(
+                isParent
+                    ? 'topic-header-compact-parent-category'
+                    : 'topic-header-compact-category',
+              ),
+              siteUrl: siteUrl,
+              topic: topic,
+              category: value,
+              subcategory: !isParent && parent != null,
+              parentCategoryId: parent?.id,
+              keepTopicListOpen: keepTopicListOpen,
+              compressed: constraints.maxWidth < 120,
+            ),
+          );
       return Padding(
         padding: const EdgeInsets.only(right: 12),
         child: ConstrainedBox(
@@ -815,54 +809,6 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
         siteUrl: siteUrl,
       );
       final root = parent ?? category;
-      final uncategorized =
-          shell.siteConfigFor(siteUrl).allowUncategorizedTopics
-          ? shell
-                .filterCategoriesFor(siteUrl)
-                .where((item) => item.isUncategorized)
-                .firstOrNull
-          : null;
-      Widget categoryControl(
-        TopicCategory? value, {
-        required bool subcategory,
-        required bool compressed,
-      }) => TopicCategoryMenuAnchor(
-        siteUrl: siteUrl,
-        topicId: topic.id,
-        categoryId: topic.categoryId,
-        selectedCategoryId: value?.id,
-        enabled: topic.canEdit,
-        rootOnly: !subcategory,
-        parentCategoryId: subcategory ? root?.id : null,
-        removeCategoryId: subcategory ? root?.id : uncategorized?.id,
-        removeLabel: subcategory
-            ? 'Remove subcategory'
-            : 'Move to Uncategorized',
-        builder: (context, edit, saving) {
-          final browse = value == null
-              ? null
-              : () => shell.browseTopicCategory(
-                  value,
-                  keepTopicOpen: keepTopicListOpen,
-                );
-          final browseOnly = compressed && !topic.canEdit;
-          return _CategoryChip(
-            category: value,
-            siteUrl: siteUrl,
-            label:
-                value?.name ?? (subcategory ? '+ Subcategory' : '+ Category'),
-            edit: browseOnly ? browse : edit,
-            saving: saving,
-            compact: compressed,
-            editLabel: browseOnly
-                ? 'Browse ${value?.name}'
-                : subcategory
-                ? 'Edit topic subcategory'
-                : 'Edit topic category',
-            navigate: compressed ? null : browse,
-          );
-        },
-      );
       final hasCategories = !topic.privateMessage;
       final hasSubcategory =
           hasCategories &&
@@ -887,20 +833,29 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
               if (hasCategories) ...[
                 ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: categoryWidth),
-                  child: categoryControl(
-                    root,
+                  child: _TopicCategoryControl(
+                    siteUrl: siteUrl,
+                    topic: topic,
+                    category: root,
                     subcategory: false,
+                    keepTopicListOpen: keepTopicListOpen,
                     compressed: compressed,
+                    showBrowseButton: !compressed,
                   ),
                 ),
                 if (hasSubcategory) ...[
                   const SizedBox(width: 7),
                   ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: categoryWidth),
-                    child: categoryControl(
-                      parent == null ? null : category,
+                    child: _TopicCategoryControl(
+                      siteUrl: siteUrl,
+                      topic: topic,
+                      category: parent == null ? null : category,
                       subcategory: true,
+                      parentCategoryId: root?.id,
+                      keepTopicListOpen: keepTopicListOpen,
                       compressed: compressed,
+                      showBrowseButton: !compressed,
                     ),
                   ),
                 ],
@@ -935,9 +890,77 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
   );
 }
 
+class _TopicCategoryControl extends StatelessWidget {
+  const _TopicCategoryControl({
+    super.key,
+    required this.siteUrl,
+    required this.topic,
+    required this.category,
+    required this.subcategory,
+    required this.keepTopicListOpen,
+    required this.compressed,
+    this.parentCategoryId,
+    this.showBrowseButton = true,
+  });
+
+  final String siteUrl;
+  final TopicDetail topic;
+  final TopicCategory? category;
+  final bool subcategory;
+  final int? parentCategoryId;
+  final bool keepTopicListOpen;
+  final bool compressed;
+  final bool showBrowseButton;
+
+  @override
+  Widget build(BuildContext context) {
+    final shell = ShellScope.read(context);
+    final value = category;
+    final uncategorized = shell.siteConfigFor(siteUrl).allowUncategorizedTopics
+        ? shell
+              .filterCategoriesFor(siteUrl)
+              .where((item) => item.isUncategorized)
+              .firstOrNull
+        : null;
+    return TopicCategoryMenuAnchor(
+      siteUrl: siteUrl,
+      topicId: topic.id,
+      categoryId: topic.categoryId,
+      selectedCategoryId: value?.id,
+      enabled: topic.canEdit,
+      rootOnly: !subcategory,
+      parentCategoryId: subcategory ? parentCategoryId : null,
+      removeCategoryId: subcategory ? parentCategoryId : uncategorized?.id,
+      removeLabel: subcategory ? 'Remove subcategory' : 'Move to Uncategorized',
+      builder: (context, edit, saving) {
+        final browse = value == null
+            ? null
+            : () => shell.browseTopicCategory(
+                value,
+                keepTopicOpen: keepTopicListOpen,
+              );
+        final browseOnly = !showBrowseButton && !topic.canEdit;
+        return _CategoryChip(
+          category: value,
+          siteUrl: siteUrl,
+          label: value?.name ?? (subcategory ? '+ Subcategory' : '+ Category'),
+          edit: browseOnly ? browse : edit,
+          saving: saving,
+          compact: compressed,
+          editLabel: browseOnly
+              ? 'Browse ${value?.name}'
+              : subcategory
+              ? 'Edit topic subcategory'
+              : 'Edit topic category',
+          navigate: showBrowseButton ? browse : null,
+        );
+      },
+    );
+  }
+}
+
 class _CategoryChip extends StatelessWidget {
   const _CategoryChip({
-    super.key,
     required this.category,
     required this.siteUrl,
     required this.label,

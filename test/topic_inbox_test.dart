@@ -150,7 +150,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       await tester.tap(
-        find.byKey(const ValueKey('topic-header-compact-category')),
+        find.byKey(const ValueKey('topic-header-browse-category-22')),
       );
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.categoryId, _child.id);
@@ -224,23 +224,79 @@ void main() {
     );
   }
 
-  testWidgets(
-    'compact parent category opens its own list and keeps the reader',
-    (tester) async {
-      final setup = await _setup(tester);
-      final shell = setup.controller;
-      shell.openTopicFromList(setup.rows.first);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('topic-header-compact-parent-category')),
-      );
-      await tester.pumpAndSettle();
-      expect(shell.topicListContent?.categoryId, _parent.id);
-      expect(shell.currentContent?.topicId, setup.rows.first.id);
-      expect(setup.api.topicsUpdated, isEmpty);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  for (final canEdit in [true, false]) {
+    testWidgets(
+      'compact parent browse button keeps the reader with editing $canEdit',
+      (tester) async {
+        final setup = await _setup(tester, canEditTopic: canEdit);
+        final shell = setup.controller;
+        shell.openTopicFromList(setup.rows.first);
+        await tester.pumpAndSettle();
+        expect(
+          find.byTooltip('Edit topic category'),
+          canEdit ? findsOneWidget : findsNothing,
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('topic-header-browse-category-21')),
+        );
+        await tester.pumpAndSettle();
+        expect(shell.topicListContent?.categoryId, _parent.id);
+        expect(shell.currentContent?.topicId, setup.rows.first.id);
+        expect(setup.api.topicsUpdated, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('compact category names open separate category editors', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    final shell = setup.controller;
+    shell.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    final originalList = shell.topicListContent;
+
+    await tester.tap(find.byTooltip('Edit topic category'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('topic-category-option-21')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('topic-category-option-22')),
+      findsNothing,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Edit topic subcategory'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('topic-category-option-22')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('topic-category-option-21')),
+      findsNothing,
+    );
+    await tester.tap(find.text('Remove subcategory'));
+    await tester.pumpAndSettle();
+
+    expect(shell.currentTopic!.categoryId, _parent.id);
+    expect(setup.api.topicsUpdated.single['categoryId'], _parent.id);
+    expect(shell.topicListContent, originalList);
+    expect(find.byKey(const ValueKey('topic-header-compact')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topic-header-browse-category-21')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('topic-header-browse-category-22')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   for (final compact in [true, false]) {
     testWidgets('empty header tags offer Add tag in compact mode $compact', (
@@ -526,6 +582,13 @@ void main() {
           tester.getRect(parent).right,
           lessThan(tester.getRect(category).left),
         );
+        for (final id in [_parent.id, _child.id]) {
+          final browse = find.byKey(
+            ValueKey('topic-header-browse-category-$id'),
+          );
+          expect(browse.hitTestable(), findsOneWidget);
+          expect(tester.getSize(browse).width, 25);
+        }
         expect(tester.getRect(title).right, lessThan(width));
         final tags = find.byKey(const ValueKey('topic-header-compact-tags'));
         final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
@@ -1340,15 +1403,18 @@ void main() {
     );
   }
 
-  for (final category in [_parent, _child]) {
+  for (final (category, compact) in [
+    for (final category in [_parent, _child])
+      for (final compact in [false, true]) (category, compact),
+  ]) {
     testWidgets(
-      'middle-click opens the ${category.name} category arrow in a background tab',
+      'middle-click opens the ${category.name} category arrow in a background tab with compact mode $compact',
       (tester) async {
         final setup = await _setup(tester);
         final shell = setup.controller;
         shell.openTopicFromList(setup.rows.first);
         await tester.pumpAndSettle();
-        await _scrollReaderToTop(tester);
+        if (!compact) await _scrollReaderToTop(tester);
         final originalTab = shell.activeTab;
 
         await tester.tap(
