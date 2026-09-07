@@ -2,10 +2,15 @@ import 'dart:async';
 
 import 'package:discourse_native/src/plugin_api/notification_feed_host.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/fakes.dart';
 
 const _siteUrl = 'https://forum.example';
 const _wireType = NotificationWireType(901, 'test_alert');
@@ -39,6 +44,62 @@ const _plainSource = PluginNotificationFeedSource(
 );
 
 void main() {
+  testWidgets(
+    'middle-click opens a plugin notification in a background tab and marks it read without dismissing',
+    (tester) async {
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([instance('forum.example')]),
+        api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        forumTabsEnabled: true,
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      final original = controller.activeTab;
+      final host = _FeedHost(
+        const NotificationFeed.of([
+          DiscourseNotification.test(
+            id: 1,
+            typeId: NotificationTypeId(2),
+            topicId: 42,
+            postNumber: 7,
+            slug: 'plugin-alert',
+            title: 'Plugin alert',
+          ),
+        ]),
+      );
+      addTearDown(host.dispose);
+      var dismissals = 0;
+      await _pumpSection(
+        tester,
+        host: host,
+        source: _plainSource,
+        unreadCount: 1,
+        controller: controller,
+        onOpened: () => dismissals++,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('notification-row-1')),
+        kind: PointerDeviceKind.mouse,
+        buttons: kMiddleMouseButton,
+      );
+      await tester.pumpAndSettle();
+
+      expect(controller.activeTab, original);
+      expect(controller.tabsForCurrentForum, hasLength(2));
+      final opened = controller.tabsForCurrentForum.last.currentContent;
+      expect(opened.topicId, 42);
+      expect(opened.postNumber, 7);
+      expect(host.readNotifications, [(siteUrl: _siteUrl, id: 1)]);
+      expect(host.openedUrls, isEmpty);
+      expect(dismissals, 0);
+    },
+  );
+
   testWidgets('feeds without dismissal metadata keep the existing UI', (
     tester,
   ) async {
@@ -223,8 +284,9 @@ Future<void> _pumpSection(
   PluginNotificationFeedLink? viewAll,
   PluginNotificationFeedLink? emptyStateAction,
   VoidCallback? onOpened,
-}) => tester.pumpWidget(
-  MaterialApp(
+  ShellController? controller,
+}) {
+  final app = MaterialApp(
     home: Scaffold(
       body: PluginNotificationsSection(
         siteUrl: _siteUrl,
@@ -236,8 +298,11 @@ Future<void> _pumpSection(
         emptyStateAction: emptyStateAction,
       ),
     ),
-  ),
-);
+  );
+  return tester.pumpWidget(
+    controller == null ? app : ShellScope(controller: controller, child: app),
+  );
+}
 
 void _ignore() {}
 
@@ -251,6 +316,7 @@ final class _FeedHost extends ChangeNotifier
   final bool openResult;
   int dismissCalls = 0;
   final List<String> openedUrls = [];
+  final List<({String siteUrl, int id})> readNotifications = [];
 
   @override
   Future<void> dismissPluginNotifications(
@@ -291,5 +357,5 @@ final class _FeedHost extends ChangeNotifier
   void readPluginNotification(
     String siteUrl,
     DiscourseNotification notification,
-  ) {}
+  ) => readNotifications.add((siteUrl: siteUrl, id: notification.id));
 }
