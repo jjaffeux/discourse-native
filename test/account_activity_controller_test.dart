@@ -323,6 +323,41 @@ void main() {
       expect(changes, 1);
     });
 
+    for (final forget in [false, true]) {
+      test(
+        '${forget ? 'forgetting' : 'rotating'} an account during publication suppresses its totals hook',
+        () async {
+          const totals = NotificationTotals(unreadNotifications: 3);
+          final api = _AccountApi(totals: totals);
+          final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+          final lifecycle = SiteLifecycle();
+          final loaded = <NotificationTotals>[];
+          final controller = _controller(
+            api,
+            credentials,
+            lifecycle: lifecycle,
+            onTotalsLoaded: (_, totals) => loaded.add(totals),
+          );
+          addTearDown(controller.dispose);
+          var retired = false;
+          controller.addListener(() {
+            if (retired) return;
+            retired = true;
+            if (forget) {
+              controller.forget(_siteUrl);
+            } else {
+              lifecycle.invalidate(_siteUrl);
+            }
+          });
+
+          await controller.refresh(_connectedInstance());
+
+          expect(loaded, isEmpty);
+          if (forget) expect(controller.totalsFor(_siteUrl), isNull);
+        },
+      );
+    }
+
     test(
       'reentrant disposal suppresses the totals post-load callback',
       () async {
