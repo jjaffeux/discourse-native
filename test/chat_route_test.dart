@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -50,6 +51,85 @@ void main() {
         () => ChatRoute.thread(channelId: 9, threadId: -1),
         throwsArgumentError,
       );
+    });
+  });
+
+  group('ChatPlugin routes', () {
+    test('round-trips canonical positive thread-list channel IDs', () {
+      for (final channelId in [1, 9, 9223372036854775807]) {
+        final routeId = ChatPlugin.channelThreadsRouteId(channelId);
+
+        expect(routeId, 'chat-c-$channelId-threads');
+        expect(ChatPlugin.channelIdFromThreadsRoute(routeId), channelId);
+        expect(ChatPlugin.ownsRouteId(routeId), isTrue);
+      }
+    });
+
+    test('rejects malformed thread-list route spellings', () {
+      for (final routeId in [
+        '',
+        'chat-c--threads',
+        'chat-c-0-threads',
+        'chat-c-01-threads',
+        'chat-c--1-threads',
+        'chat-c-+1-threads',
+        'chat-c-1.0-threads',
+        'chat-c-1e3-threads',
+        'chat-c-0x10-threads',
+        'chat-c-١-threads',
+        'chat-c- 9-threads',
+        'chat-c-9 -threads',
+        'chat-c-9-thread',
+        'prefix-chat-c-9-threads',
+        'chat-c-9-threads-extra',
+        'chat-c-9-threads\n',
+      ]) {
+        expect(
+          ChatPlugin.channelIdFromThreadsRoute(routeId),
+          isNull,
+          reason: routeId,
+        );
+        expect(ChatPlugin.ownsRouteId(routeId), isFalse, reason: routeId);
+      }
+      expect(ChatPlugin.ownsRouteId(null), isFalse);
+    });
+
+    const maximumDigits =
+        ChatRoute.maximumRouteIdLength - 'chat-c--threads'.length;
+    for (final entry in {
+      'overflowing': '9223372036854775808',
+      'at the route length limit': '9' * maximumDigits,
+      'above the route length limit': '9' * (maximumDigits + 1),
+      'very long': '9' * 16384,
+    }.entries) {
+      test('declines ${entry.key} thread-list IDs without throwing', () {
+        final routeId = 'chat-c-${entry.value}-threads';
+
+        expect(ChatPlugin.channelIdFromThreadsRoute(routeId), isNull);
+        expect(ChatPlugin.ownsRouteId(routeId), isFalse);
+      });
+    }
+
+    test('preserves ownership of the other Chat route spellings', () {
+      for (final routeId in [
+        'chat-c-9',
+        'chat-c-9-t-3',
+        'chat-c-9-info-settings',
+        'chat-c-9-info-members',
+        'chat-search',
+        'chat-my-threads',
+        'chat-browse',
+        'chat-channels',
+        'chat-starred',
+        'chat-direct-messages',
+      ]) {
+        expect(ChatPlugin.ownsRouteId(routeId), isTrue, reason: routeId);
+        expect(
+          ChatPlugin.channelIdFromThreadsRoute(routeId),
+          isNull,
+          reason: routeId,
+        );
+      }
     });
   });
 

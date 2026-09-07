@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:discourse_native/src/data/forum_tab_store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
@@ -726,6 +728,73 @@ void main() {
           expect(restored.currentContent?.id, 'chat-c-9-t-3');
           expect(restoredApi.chatChannelsRequested, contains(_site));
           expect(restored.chat.channel(_site, 9)?.title, 'Support');
+        },
+      );
+
+      test(
+        'an overflowing saved thread-list route does not block forum navigation',
+        () async {
+          const routeId = 'chat-c-9223372036854775808-threads';
+          final persistence = MemoryForumTabPersistence()
+            ..value = jsonEncode({
+              'version': ForumTabStore.formatVersion,
+              'workspaces': [
+                ForumWorkspace(
+                  siteUrl: _site,
+                  accountIdentity: 'user:reader',
+                  tabs: [
+                    ForumTab(
+                      id: 'persisted-tab',
+                      rootDestinationId: 'latest',
+                      contentStack: [
+                        ContentRoute.topicList(TopicListMode.latest),
+                        const ContentRoute(
+                          id: routeId,
+                          title: 'Saved threads',
+                          icon: DIcons.comments,
+                        ),
+                      ],
+                    ),
+                  ],
+                  activeTabId: 'persisted-tab',
+                ).toJson(),
+              ],
+            });
+          final forumTabs = ForumTabStore(persistence: persistence);
+          expect(
+            (await forumTabs.load()).single.activeTab.currentContent.id,
+            routeId,
+          );
+          final restored = ShellController(
+            plugins: installedPlugins,
+            instanceStore: FakeInstanceStore([
+              instance('meta.discourse.org').copyWith(user: _user),
+            ]),
+            api: FakeDiscourseApi(user: _user),
+            authenticator: FakeAuthenticator()..keys[_site] = 'meta-key',
+            drafts: FakeDraftStore(),
+            forumTabs: forumTabs,
+            trackers: FakeSiteTracker.reset(),
+            updater: FakeUpdater(),
+            updateStore: FakeUpdateStore(),
+          );
+          addTearDown(() async {
+            restored.dispose();
+            await restored.pluginTeardown;
+          });
+
+          await restored.load();
+          expect(restored.currentContent?.id, routeId);
+
+          restored.pushContent(ContentRoute.topicList(TopicListMode.unread));
+
+          expect(restored.contentStack.map((route) => route.id), [
+            'latest',
+            routeId,
+            'unread',
+          ]);
+          expect(restored.handleBack(), isTrue);
+          expect(restored.currentContent?.id, routeId);
         },
       );
     });
