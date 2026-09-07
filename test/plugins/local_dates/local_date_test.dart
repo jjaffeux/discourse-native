@@ -260,6 +260,304 @@ void main() {
     });
   });
 
+  group('recurrence', () {
+    final formatter = LocalDateFormatter(environment: environment);
+
+    DateTime? resolve({
+      required String date,
+      required DateTime now,
+      String time = '00:00:00',
+      String zone = 'America/New_York',
+      String recurring = '1.milliseconds',
+    }) => formatter.resolveInstant(
+      LocalDateSpec(
+        date: date,
+        time: time,
+        timezone: zone,
+        recurring: recurring,
+        fallbackText: '',
+      ),
+      now: now,
+    );
+
+    for (final zone in ['America/New_York', 'Australia/Lord_Howe']) {
+      for (final (startMonth, endMonth) in [(1, 7), (7, 12)]) {
+        test('resolves fine intervals across $zone $startMonth–$endMonth', () {
+          final now = DateTime.utc(2026, endMonth);
+          for (final unit in ['seconds', 'milliseconds']) {
+            final date = '2026-${startMonth.toString().padLeft(2, '0')}-01';
+            expect(
+              resolve(date: date, zone: zone, recurring: '1.$unit', now: now),
+              now,
+              reason: unit,
+            );
+            expect(
+              resolve(
+                date: date,
+                zone: zone,
+                recurring: '1.$unit',
+                now: now.add(const Duration(microseconds: 1)),
+              ),
+              now.add(
+                unit == 'seconds'
+                    ? const Duration(seconds: 1)
+                    : const Duration(milliseconds: 1),
+              ),
+              reason: '$unit just after the boundary',
+            );
+          }
+        });
+      }
+    }
+
+    test('keeps the first eligible wall recurrence across a spring gap', () {
+      // 02:50 normalizes to 03:50; the next wall occurrence, 03:30,
+      // maps backwards and has already elapsed at this deadline.
+      expect(
+        resolve(
+          date: '2026-03-08',
+          time: '00:50:00',
+          recurring: '40.minutes',
+          now: DateTime.utc(2026, 3, 8, 7, 35),
+        ),
+        DateTime.utc(2026, 3, 8, 7, 50),
+      );
+      expect(
+        resolve(
+          date: '2026-03-08',
+          time: '01:59:59',
+          recurring: '7.milliseconds',
+          now: DateTime.utc(2026, 3, 8, 7, 0, 0, 0, 1),
+        ),
+        DateTime.utc(2026, 3, 8, 7, 0, 0, 1),
+      );
+    });
+
+    test('does not invent a second occurrence during the New York fold', () {
+      expect(
+        resolve(date: '2026-11-01', now: DateTime.utc(2026, 11, 1, 6, 30)),
+        DateTime.utc(2026, 11, 1, 7),
+      );
+    });
+
+    test('preserves Lord Howe gap normalization and overlap selection', () {
+      expect(
+        resolve(
+          date: '2026-10-04',
+          time: '00:55:00',
+          zone: 'Australia/Lord_Howe',
+          recurring: '20.minutes',
+          now: DateTime.utc(2026, 10, 3, 15, 40),
+        ),
+        DateTime.utc(2026, 10, 3, 15, 45),
+      );
+      // The constructor chooses the later 01:30 here, so it is the first
+      // eligible wall occurrence even while the clock first reads 01:45.
+      expect(
+        resolve(
+          date: '2026-04-05',
+          zone: 'Australia/Lord_Howe',
+          now: DateTime.utc(2026, 4, 4, 14, 45),
+        ),
+        DateTime.utc(2026, 4, 4, 15),
+      );
+    });
+
+    test(
+      'resolves across Apia’s skipped day without skipping an occurrence',
+      () {
+        expect(
+          resolve(
+            date: '2011-12-29',
+            time: '12:00:00',
+            zone: 'Pacific/Apia',
+            recurring: '20.hours',
+            now: DateTime.utc(2011, 12, 30, 15),
+          ),
+          DateTime.utc(2011, 12, 30, 18),
+        );
+        expect(
+          resolve(
+            date: '2011-01-01',
+            zone: 'Pacific/Apia',
+            now: DateTime.utc(2012, 1, 2),
+          ),
+          DateTime.utc(2012, 1, 2),
+        );
+      },
+    );
+
+    for (final (recurring, date, boundary, next) in [
+      (
+        '1.days',
+        '2026-03-06',
+        DateTime.utc(2026, 3, 8, 7, 30),
+        DateTime.utc(2026, 3, 9, 6, 30),
+      ),
+      (
+        '1.weeks',
+        '2026-03-01',
+        DateTime.utc(2026, 3, 8, 7, 30),
+        DateTime.utc(2026, 3, 15, 6, 30),
+      ),
+      (
+        '1.months',
+        '2026-02-08',
+        DateTime.utc(2026, 3, 8, 7, 30),
+        DateTime.utc(2026, 4, 8, 6, 30),
+      ),
+      (
+        '1.months',
+        '2026-01-31',
+        DateTime.utc(2026, 2, 28, 7, 30),
+        DateTime.utc(2026, 3, 31, 6, 30),
+      ),
+      (
+        '1.quarters',
+        '2026-01-31',
+        DateTime.utc(2026, 4, 30, 6, 30),
+        DateTime.utc(2026, 7, 31, 6, 30),
+      ),
+      (
+        '1.years',
+        '2024-02-29',
+        DateTime.utc(2027, 2, 28, 7, 30),
+        DateTime.utc(2028, 2, 29, 7, 30),
+      ),
+    ]) {
+      test(
+        '$recurring from $date keeps its boundary and original wall anchor',
+        () {
+          expect(
+            resolve(
+              date: date,
+              time: '02:30:00',
+              recurring: recurring,
+              now: boundary,
+            ),
+            boundary,
+          );
+          expect(
+            resolve(
+              date: date,
+              time: '02:30:00',
+              recurring: recurring,
+              now: boundary.add(const Duration(microseconds: 1)),
+            ),
+            next,
+          );
+        },
+      );
+    }
+
+    test('keeps an invalid recurring source in a DST gap unresolved', () {
+      expect(
+        resolve(
+          date: '2026-03-08',
+          time: '02:30:00',
+          now: DateTime.utc(2026, 7, 1),
+        ),
+        isNull,
+      );
+    });
+
+    for (final (zone, date, transition, offsetChange) in [
+      (
+        'America/New_York',
+        '2026-03-07',
+        DateTime.utc(2026, 3, 8, 7),
+        const Duration(hours: 1),
+      ),
+      (
+        'America/New_York',
+        '2026-10-31',
+        DateTime.utc(2026, 11, 1, 6),
+        const Duration(hours: -1),
+      ),
+      (
+        'Australia/Lord_Howe',
+        '2026-10-03',
+        DateTime.utc(2026, 10, 3, 15, 30),
+        const Duration(minutes: 30),
+      ),
+      (
+        'Australia/Lord_Howe',
+        '2026-04-04',
+        DateTime.utc(2026, 4, 4, 15),
+        const Duration(minutes: -30),
+      ),
+      (
+        'Pacific/Apia',
+        '2011-12-29',
+        DateTime.utc(2011, 12, 30, 10),
+        const Duration(days: 1),
+      ),
+      (
+        'Pacific/Kwajalein',
+        '1969-09-29',
+        DateTime.utc(1969, 9, 30, 13),
+        const Duration(hours: -23),
+      ),
+    ]) {
+      test('matches sequential wall occurrences around $zone $date', () {
+        final location = tz.getLocation(zone);
+        // Guard the corpus: each named instant must still exercise its offset
+        // change in the bundled timezone database.
+        expect(
+          tz.TZDateTime.from(transition, location).timeZoneOffset -
+              tz.TZDateTime.from(
+                transition.subtract(const Duration(microseconds: 1)),
+                location,
+              ).timeZoneOffset,
+          offsetChange,
+        );
+        for (final minutes in [17, 40, 90]) {
+          for (final delta in const [
+            Duration(microseconds: -1),
+            Duration.zero,
+            Duration(microseconds: 1),
+            Duration(minutes: 30),
+            Duration(minutes: 90),
+            Duration(hours: 23),
+          ]) {
+            final now = transition.add(delta);
+            expect(
+              resolve(
+                date: date,
+                zone: zone,
+                recurring: '$minutes.minutes',
+                now: now,
+              ),
+              _firstWallOccurrence(
+                location,
+                DateTime.parse('${date}T00:00:00Z'),
+                Duration(minutes: minutes),
+                now,
+              ),
+              reason: '$minutes minutes, now=$now',
+            );
+          }
+        }
+      });
+    }
+
+    test('fine intervals do not scan every skipped DST millisecond', () {
+      final now = DateTime.utc(2026, 7, 1);
+      var best = const Duration(days: 1);
+      for (var trial = 0; trial < 3; trial++) {
+        final stopwatch = Stopwatch()..start();
+        for (var render = 0; render < 8; render++) {
+          expect(resolve(date: '2026-01-01', now: now), now);
+        }
+        stopwatch.stop();
+        if (stopwatch.elapsed < best) best = stopwatch.elapsed;
+      }
+      // The old correction loop took several seconds for this batch. Leave
+      // ample room for loaded CI machines; no microsecond timing contract.
+      expect(best, lessThan(const Duration(seconds: 1)));
+    });
+  });
+
   group('Moment formatting', () {
     final value = tz.TZDateTime(
       tz.getLocation('America/New_York'),
@@ -369,4 +667,29 @@ void main() {
       );
     });
   });
+}
+
+// Enumerate a small wall-clock series independently of the formatter's
+// estimation and transition skipping. The bound keeps test mistakes finite.
+DateTime _firstWallOccurrence(
+  tz.Location location,
+  DateTime wall,
+  Duration interval,
+  DateTime now,
+) {
+  for (var repetition = 0; repetition < 500; repetition++) {
+    final instant = tz.TZDateTime(
+      location,
+      wall.year,
+      wall.month,
+      wall.day,
+      wall.hour,
+      wall.minute,
+      wall.second,
+      wall.millisecond,
+    ).toUtc();
+    if (!instant.isBefore(now)) return instant;
+    wall = wall.add(interval);
+  }
+  throw StateError('reference series did not reach $now in $location');
 }
