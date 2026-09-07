@@ -238,6 +238,86 @@ void main() {
     expect(controller.stateFor(_siteUrl).until, DateTime.utc(2030, 8, 28, 12));
   });
 
+  group('live-message dates', () {
+    for (final value in [
+      '',
+      'not a date',
+      '2030-01-01T',
+      'Wed, 28 Bog 2030 12:00:00 GMT',
+      'Wed, 28 Aug 2030 12:00:00',
+      'Wed, 28 Aug 2030 12:00:00 GMT trailing',
+    ]) {
+      test('ignores malformed "$value" without changing state', () {
+        final until = DateTime.utc(2030, 1, 2);
+        final committed = <DateTime?>[];
+        final controller = _controller(
+          _Api(),
+          clock: () => DateTime.utc(2030),
+          onCommitted: (_, value) => committed.add(value),
+        )..restoreSnapshot(_siteUrl, until);
+        addTearDown(controller.dispose);
+        var notifications = 0;
+        controller.addListener(() => notifications++);
+
+        controller.applyMessage(_siteUrl, {'ends_at': value});
+
+        expect(controller.stateFor(_siteUrl).until, until);
+        expect(controller.stateFor(_siteUrl).saving, isFalse);
+        expect(committed, isEmpty);
+        expect(notifications, 0);
+
+        // Invalid messages must not become authoritative over snapshots.
+        final nextUntil = until.add(const Duration(hours: 1));
+        expect(controller.acceptSnapshot(_siteUrl, nextUntil), nextUntil);
+      });
+    }
+
+    for (final value in [
+      '2030-08-28T12:00:00Z',
+      '2030-08-28T14:00:00+02:00',
+      'Wed, 28 Aug 2030 12:00:00 GMT',
+      'Wed Aug 28 12:00:00 2030',
+    ]) {
+      test('commits a valid date "$value" in UTC', () {
+        final committed = <DateTime?>[];
+        final controller = _controller(
+          _Api(),
+          clock: () => DateTime.utc(2030),
+          onCommitted: (_, until) => committed.add(until),
+        );
+        addTearDown(controller.dispose);
+        var notifications = 0;
+        controller.addListener(() => notifications++);
+
+        controller.applyMessage(_siteUrl, {'ends_at': value});
+
+        final until = DateTime.utc(2030, 8, 28, 12);
+        expect(controller.stateFor(_siteUrl).until, until);
+        expect(controller.stateFor(_siteUrl).until!.isUtc, isTrue);
+        expect(committed, [until]);
+        expect(notifications, 1);
+      });
+    }
+
+    test('null clears the pause and commits the change', () {
+      final committed = <DateTime?>[];
+      final controller = _controller(
+        _Api(),
+        clock: () => DateTime.utc(2030),
+        onCommitted: (_, until) => committed.add(until),
+      )..restoreSnapshot(_siteUrl, DateTime.utc(2030, 1, 2));
+      addTearDown(controller.dispose);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      controller.applyMessage(_siteUrl, const {'ends_at': null});
+
+      expect(controller.stateFor(_siteUrl).until, isNull);
+      expect(committed, [null]);
+      expect(notifications, 1);
+    });
+  });
+
   test('foreground expiration clears persisted display state', () {
     var now = DateTime.utc(2030, 1, 1, 12);
     final committed = <DateTime?>[];
