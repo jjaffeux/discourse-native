@@ -1097,7 +1097,7 @@ class _CategoryChip extends StatelessWidget {
                 overlayColor: overlayColor,
                 splashFactory: NoSplash.splashFactory,
                 child: Container(
-                  constraints: const BoxConstraints(minHeight: 28),
+                  constraints: const BoxConstraints(minHeight: 24),
                   padding: EdgeInsets.symmetric(
                     horizontal: compact ? 2 : 7,
                     vertical: 5,
@@ -1164,7 +1164,7 @@ class _CategoryChip extends StatelessWidget {
                   splashFactory: NoSplash.splashFactory,
                   child: Container(
                     width: 25,
-                    height: 28,
+                    height: 24,
                     decoration: BoxDecoration(
                       border: BorderDirectional(
                         start: BorderSide(color: color.withValues(alpha: .22)),
