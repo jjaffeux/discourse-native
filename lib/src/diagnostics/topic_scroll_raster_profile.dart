@@ -23,17 +23,85 @@ const _phaseMarkers = {
   'SurfaceFrame::BuildDisplayList',
 };
 
+/// Bounded, content-free storage for streamed native rendering events.
+/// Native begin/end events carry their label, so unrelated Dart events can be
+/// discarded before retaining any data, including their names or arguments.
+final class TopicRasterTraceBuffer {
+  TopicRasterTraceBuffer({required this.startUs, this.maximumEvents = 100000});
+
+  final int startUs;
+  final int maximumEvents;
+  final _events = <(String, String, int, int, int, int?), vm.TimelineEvent>{};
+  int discardedEventCount = 0;
+
+  int get length => _events.length;
+
+  void add(Iterable<vm.TimelineEvent> events) {
+    for (final event in events) {
+      final json = event.json;
+      if (json == null) continue;
+      final name = json['name'];
+      final phase = json['ph'];
+      final pid = json['pid'];
+      final tid = json['tid'];
+      final timestamp = _timestamp(json);
+      if (name is! String ||
+          (!_frameMarkers.contains(name) && !_phaseMarkers.contains(name)) ||
+          (phase != 'B' && phase != 'E' && phase != 'X') ||
+          pid is! int ||
+          tid is! int ||
+          timestamp < startUs) {
+        continue;
+      }
+      final rawDuration = json['dur'];
+      final duration = rawDuration is num && rawDuration.isFinite
+          ? rawDuration.toInt()
+          : null;
+      final key = (name, phase as String, pid, tid, timestamp, duration);
+      if (_events.containsKey(key)) continue;
+      if (_events.length >= maximumEvents) {
+        discardedEventCount++;
+        continue;
+      }
+      _events[key] = vm.TimelineEvent.parse({
+        'name': name,
+        'ph': phase,
+        'pid': pid,
+        'tid': tid,
+        'ts': timestamp,
+        'dur': ?duration,
+      })!;
+    }
+  }
+
+  vm.Timeline timeline({required int endUs}) => vm.Timeline(
+    traceEvents: [
+      for (final event in _events.values)
+        if (_timestamp(event.json!) <= endUs) event,
+    ],
+  );
+}
+
 /// Summarizes recorded engine spans on the raster thread matching each frame.
-/// This runs on export, with the existing VM timeline streams left untouched.
+/// This runs off the UI isolate, without changing enabled VM timeline streams.
 Map<String, Object?> summarizeTopicRasterProfile(
   vm.Timeline timeline,
   List<TopicRasterFrame> frames,
 ) {
   final spans = _spans(timeline);
-  final roots = spans.where((span) => _frameMarkers.contains(span.name));
+  final roots = spans
+      .where((span) => _frameMarkers.contains(span.name))
+      .toList();
+  final firstStart = roots.isEmpty
+      ? null
+      : roots.map((span) => span.start).reduce(math.min);
+  final lastEnd = roots.isEmpty
+      ? null
+      : roots.map((span) => span.end).reduce(math.max);
   final selected = List.of(frames)
     ..sort((a, b) => (b.endUs - b.startUs).compareTo(a.endUs - a.startUs));
   final profiled = <Map<String, Object?>>[];
+  final unmatched = <Map<String, Object?>>[];
   for (final frame in selected.take(20)) {
     final candidates =
         roots
@@ -44,7 +112,19 @@ Map<String, Object?> summarizeTopicRasterProfile(
             )
             .toList()
           ..sort((a, b) => _distance(a, frame).compareTo(_distance(b, frame)));
-    if (candidates.isEmpty) continue;
+    if (candidates.isEmpty) {
+      unmatched.add({
+        'frameNumber': frame.frameNumber,
+        'reason': roots.isEmpty
+            ? 'no-frame-markers'
+            : frame.endUs < firstStart!
+            ? 'before-trace-window'
+            : frame.startUs > lastEnd!
+            ? 'after-trace-window'
+            : 'no-overlapping-frame',
+      });
+      continue;
+    }
     final root = candidates.first;
     if (candidates
         .skip(1)
@@ -55,6 +135,10 @@ Map<String, Object?> summarizeTopicRasterProfile(
         )) {
       // Multiple engines can share a VM. Do not guess between equally good
       // frame matches on different raster threads.
+      unmatched.add({
+        'frameNumber': frame.frameNumber,
+        'reason': 'ambiguous-raster-thread',
+      });
       continue;
     }
     final intervals = <String, List<(int, int)>>{};
@@ -90,7 +174,9 @@ Map<String, Object?> summarizeTopicRasterProfile(
     'requestedFrameCount': frames.length,
     'profiledFrameCount': math.min(20, frames.length),
     'matchedFrameCount': profiled.length,
+    'engineFrameSpanCount': roots.length,
     'frames': profiled,
+    'unmatchedFrames': unmatched,
   };
 }
 

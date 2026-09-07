@@ -6,6 +6,63 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vm_service/vm_service.dart' as vm;
 
 void main() {
+  test('streamed frames survive a later ring-buffer snapshot', () {
+    final buffer = TopicRasterTraceBuffer(startUs: 100);
+    buffer.add([
+      _event('Rasterizer::DrawToSurfaces', 100, phase: 'B'),
+      _event('SkCanvas::Flush', 110, phase: 'B'),
+      _event('PRIVATE POST TEXT', 120, phase: 'B'),
+    ]);
+    buffer.add([
+      _event('SkCanvas::Flush', 190, phase: 'E'),
+      _event('Rasterizer::DrawToSurfaces', 200, phase: 'E'),
+    ]);
+    final tail = [_event('Rasterizer::DrawToSurfaces', 400, duration: 50)];
+    buffer.add(tail);
+    buffer.add(tail);
+    expect(buffer.length, 5);
+    final profile = summarizeTopicRasterProfile(buffer.timeline(endUs: 500), [
+      (frameNumber: 42, startUs: 100, endUs: 200),
+    ]);
+    expect(profile['matchedFrameCount'], 1);
+    expect(_frames(profile).single['phases'], [
+      {'name': 'SkCanvas::Flush', 'durationUs': 80},
+    ]);
+    final encoded = jsonEncode(buffer.timeline(endUs: 500).toJson());
+    expect(encoded, isNot(contains('PRIVATE')));
+    expect(encoded, isNot(contains('example.test')));
+    expect(encoded, isNot(contains('args')));
+  });
+
+  test('bounds retained markers and excludes other captures', () {
+    final buffer = TopicRasterTraceBuffer(startUs: 100, maximumEvents: 2);
+    buffer.add([
+      _event('Rasterizer::DrawToSurfaces', 90, duration: 5),
+      _event('Rasterizer::DrawToSurfaces', 100, duration: 50),
+      _event('Rasterizer::DrawToSurfaces', 300, duration: 50),
+      _event('Rasterizer::DrawToSurfaces', 400, duration: 50),
+    ]);
+    expect(buffer.length, 2);
+    expect(buffer.discardedEventCount, 1);
+    expect(buffer.timeline(endUs: 200).traceEvents, hasLength(1));
+  });
+
+  test('explains frames outside the retained engine trace', () {
+    final profile = summarizeTopicRasterProfile(
+      vm.Timeline(
+        traceEvents: [_event('Rasterizer::DrawToSurfaces', 400, duration: 50)],
+      ),
+      [
+        (frameNumber: 42, startUs: 100, endUs: 200),
+        (frameNumber: 43, startUs: 500, endUs: 600),
+      ],
+    );
+    expect(profile['unmatchedFrames'], [
+      {'frameNumber': 42, 'reason': 'before-trace-window'},
+      {'frameNumber': 43, 'reason': 'after-trace-window'},
+    ]);
+  });
+
   test(
     'matches rendering phases to their frame and thread without double counting',
     () {

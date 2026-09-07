@@ -28,6 +28,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
+import 'support/topic_scroll_capture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -592,7 +593,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
     await tester.pumpAndSettle();
     expect(find.text('Recording'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('topic-scroll-capture-stop')));
+    // Stop creates the recording result that the real export isolate awaits.
+    // Keep that future outside the test clock, like the clipboard operation.
+    await tester.runAsync(
+      () => tester.tap(find.byKey(const ValueKey('topic-scroll-capture-stop'))),
+    );
     await tester.pump();
     expect(find.text('Capture ready'), findsOneWidget);
 
@@ -928,6 +933,7 @@ Future<DiagnosticsController> _pumpPopulatedDiagnosticsPanel(
 }
 
 Future<DiagnosticsController> _controller() => DiagnosticsController.create(
+  topicScrollCapture: topicScrollCaptureWithoutVm(),
   persistence: MemoryDiagnosticsPersistence(),
   sessionId: 'diagnostics-panel-test',
   clock: () => DateTime.utc(2026, 8, 8, 10, 12, 37),

@@ -30,6 +30,7 @@ import 'package:http/testing.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
+import 'support/topic_scroll_capture.dart';
 
 void main() {
   group('TopicView', () {
@@ -861,6 +862,7 @@ void main() {
           trackers: FakeSiteTracker.reset(),
         );
         final diagnostics = await DiagnosticsController.create(
+          topicScrollCapture: topicScrollCaptureWithoutVm(),
           persistence: MemoryDiagnosticsPersistence(),
           sessionId: 'topic-scroll-capture-test',
         );
@@ -884,7 +886,10 @@ void main() {
         );
         await tester.drag(vertical.first, const Offset(0, -500));
         await tester.pumpAndSettle();
-        diagnostics.topicScrollCapture.stop();
+        await tester.runAsync(() async {
+          diagnostics.topicScrollCapture.stop();
+        });
+        await tester.pump();
 
         final events = diagnostics.topicScrollCapture.events;
         final names = events.map((event) => event.name).toSet();
@@ -924,6 +929,7 @@ void main() {
           trackers: FakeSiteTracker.reset(),
         );
         final diagnostics = await DiagnosticsController.create(
+          topicScrollCapture: topicScrollCaptureWithoutVm(),
           persistence: MemoryDiagnosticsPersistence(),
           sessionId: 'topic-scroll-detach-test',
         );
@@ -964,6 +970,7 @@ void main() {
             trackers: FakeSiteTracker.reset(),
           );
           final diagnostics = await DiagnosticsController.create(
+            topicScrollCapture: topicScrollCaptureWithoutVm(),
             persistence: MemoryDiagnosticsPersistence(),
             sessionId: 'topic-scroll-latest-long-post-test',
           );

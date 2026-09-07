@@ -422,7 +422,10 @@ final class DiagnosticsController
     required this._timerFactory,
     required this.sessionId,
     required DiagnosticsJournal journal,
-  }) : _sequence = journal.maximumSequence,
+    TopicScrollCaptureController? topicScrollCapture,
+  }) : topicScrollCapture =
+           topicScrollCapture ?? TopicScrollCaptureController(),
+       _sequence = journal.maximumSequence,
        _journal = journal,
        _panelStateNotifier = FrameSafeValueNotifier(DiagnosticsPanelState()),
        _panelOpenNotifier = FrameSafeValueNotifier(false),
@@ -445,8 +448,7 @@ final class DiagnosticsController
   final Map<String, int> _httpGenerations = {};
 
   /// Opt-in high-frequency trace kept separate from persisted diagnostics.
-  final TopicScrollCaptureController topicScrollCapture =
-      TopicScrollCaptureController();
+  final TopicScrollCaptureController topicScrollCapture;
 
   final List<(DiagnosticEvent, int)> _pendingWrites = [];
   final Map<String, int> _pendingWriteIndexes = {};
@@ -483,6 +485,7 @@ final class DiagnosticsController
     DateTime Function()? clock,
     DiagnosticsTimerFactory? timerFactory,
     String? sessionId,
+    TopicScrollCaptureController? topicScrollCapture,
   }) async {
     final controller = start(
       persistence: persistence,
@@ -490,6 +493,7 @@ final class DiagnosticsController
       clock: clock,
       timerFactory: timerFactory,
       sessionId: sessionId,
+      topicScrollCapture: topicScrollCapture,
     );
     await controller.flush();
     return controller;
@@ -506,6 +510,7 @@ final class DiagnosticsController
     DateTime Function()? clock,
     DiagnosticsTimerFactory? timerFactory,
     String? sessionId,
+    TopicScrollCaptureController? topicScrollCapture,
   }) {
     final resolvedClock = clock ?? _utcNow;
     final createPersistence = persistence != null
@@ -517,6 +522,7 @@ final class DiagnosticsController
       timerFactory: timerFactory ?? Timer.new,
       sessionId: sessionId ?? _newSessionId(resolvedClock()),
       journal: DiagnosticsJournal(sizeOf: diagnosticEventSerializedBytes),
+      topicScrollCapture: topicScrollCapture,
     );
     controller._recordSessionStart();
     return controller;

@@ -418,9 +418,41 @@ void _writeRasterProfile(StringBuffer output, Map<String, Object?> profile) {
     'Rendering timeline: ${profile['matchedFrameCount']}/${profile['profiledFrameCount']} '
     'profiled slow raster frames matched (up to 20 of $requested).',
   );
+  if (profile['source'] == 'live-stream') {
+    output.writeln(
+      'Engine markers retained during capture: ${_int(profile['streamedEventCount'])}; '
+      '${_int(profile['retainedEventCount'])} including the final snapshot; '
+      '${_int(profile['discardedEventCount'])} discarded at the capture limit.',
+    );
+    output.writeln(
+      'Live timeline collection adds diagnostic overhead during recording.',
+    );
+    if (profile['tailAvailable'] == false) {
+      output.writeln(
+        'Final engine snapshot unavailable; the last event block may be missing.',
+      );
+    }
+  } else if (profile['source'] == 'export-buffer') {
+    output.writeln(
+      'Rendering uses the rolling VM buffer; live recording was unavailable.',
+    );
+  }
+  final unmatched = _maps(profile['unmatchedFrames']);
+  for (final frame in unmatched) {
+    final reason = switch (frame['reason']) {
+      'before-trace-window' => 'older than the retained engine trace',
+      'after-trace-window' => 'newer than the retained engine trace',
+      'ambiguous-raster-thread' => 'multiple raster threads match',
+      'no-frame-markers' => 'no engine frame markers were recorded',
+      _ => 'no overlapping engine frame marker',
+    };
+    output.writeln(
+      '  Rendering frame ${frame['frameNumber']} unmatched: $reason.',
+    );
+  }
   if (_int(profile['matchedFrameCount']) == 0) {
     output.writeln(
-      'No matching engine spans found. Copy soon after stopping; the timeline buffer can overwrite them.',
+      'Rendering data is incomplete; the stall cannot be attributed to an engine phase.',
     );
   } else {
     output.writeln(
