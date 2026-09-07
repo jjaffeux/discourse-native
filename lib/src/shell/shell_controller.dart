@@ -211,6 +211,7 @@ class ShellController extends FrameSafeNotifier
     this.forumTabsEnabled = true,
     Store? store,
     SiteLifecycle? lifecycle,
+    DateTime Function()? clock,
     SiteImageRepository? siteImages,
     this.trackers = SiteTracker.new,
     Updater updater = const UnsupportedUpdater(),
@@ -239,6 +240,7 @@ class ShellController extends FrameSafeNotifier
        assert(pluginNotificationFeedRefreshDebounce >= Duration.zero),
        store = store ?? Store(policy: _shellEntityStorePolicy),
        lifecycle = lifecycle ?? SiteLifecycle(),
+       _clock = clock ?? DateTime.now,
        _providedSiteImages = siteImages,
        _rootMode = initialRootMode,
        _ownsPlugins = plugins == null,
@@ -277,6 +279,7 @@ class ShellController extends FrameSafeNotifier
   final DraftStore drafts;
   final EmojiPickerStore emojiPickerStore;
   final SiteLifecycle lifecycle;
+  final DateTime Function() _clock;
   late final AccountSessionCoordinator _accountSessions =
       AccountSessionCoordinator(
         authenticator: authenticator,
@@ -713,6 +716,7 @@ class ShellController extends FrameSafeNotifier
     credentials: authenticator,
     lifecycle: lifecycle,
     onCommitted: _commitDoNotDisturb,
+    clock: _clock,
   );
 
   late final DraftListController draftList = DraftListController(
@@ -4195,6 +4199,9 @@ class ShellController extends FrameSafeNotifier
       if (credential.failure case final failure?) return failure.message;
       final clientId = await authenticator.clientId();
       if (!ownsWrite()) return null;
+      if (endsAt != null && !endsAt.isAfter(_clock())) {
+        return 'Choose a time in the future.';
+      }
       await api.site.setUserStatus(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
@@ -4220,12 +4227,17 @@ class ShellController extends FrameSafeNotifier
       });
       if (!ownsWrite()) return null;
       if (pauseNotifications case final pause?) {
+        final now = _clock();
+        // The status is saved. If it expired during the request, there is no
+        // remaining time to pause and no failure to report for that write.
+        if (pause && endsAt != null && !endsAt.isAfter(now)) return null;
         final error = pause
             ? await doNotDisturb.pause(
                 siteUrl,
-                endsAt == null
-                    ? doNotDisturbDurationUntil(eternalDoNotDisturbUntil)
-                    : doNotDisturbDurationUntil(endsAt),
+                doNotDisturbDurationUntil(
+                  endsAt ?? eternalDoNotDisturbUntil,
+                  now: now,
+                ),
               )
             : await doNotDisturb.resume(siteUrl);
         if (!ownsWrite()) return null;

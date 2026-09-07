@@ -52,17 +52,14 @@ DoNotDisturbDuration doNotDisturbDurationUntil(
   DateTime until, {
   DateTime? now,
 }) {
-  final minutes = until
-      .toUtc()
-      .difference((now ?? DateTime.now()).toUtc())
-      .inMinutes;
-  if (minutes <= 0) {
-    throw ArgumentError.value(
-      until,
-      'until',
-      'must be at least one minute away',
-    );
+  final remaining = until.toUtc().difference((now ?? DateTime.now()).toUtc());
+  if (remaining <= Duration.zero) {
+    throw ArgumentError.value(until, 'until', 'must be in the future');
   }
+  // The API accepts whole minutes; round up so the pause covers the expiry.
+  final minutes =
+      (remaining.inMicroseconds + Duration.microsecondsPerMinute - 1) ~/
+      Duration.microsecondsPerMinute;
   return DoNotDisturbDuration.minutes(minutes);
 }
 
