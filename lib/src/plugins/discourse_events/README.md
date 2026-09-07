@@ -11,10 +11,69 @@ and My Events, calendar export, event images, and links to event Chat and
 livestreams. The module installs without Poll, Local Dates, Chat, or video
 plugins. Unknown/missing event data leaves a readable cooked fallback.
 
-The event menu links to the web for bulk invitations and reports. Calendar grid
-views and provider-specific livestream/Zoom interfaces also retain web entry
-points. Category calendars, holidays, and group timezones are separate server
+The event menu links to the web for bulk invitations and reports. Upcoming-event
+calendar grids and provider-specific livestream/Zoom interfaces also retain web
+entry points. Category calendars and group timezones are separate server
 features and are outside this module's scope.
+
+## Topic calendars
+
+The first post's dynamic `[calendar]` block renders with
+[Kalender](https://pub.dev/packages/kalender), pinned to `0.29.1`:
+
+```markdown
+[calendar weekends=true tzPicker="true" showAddToCalendar="false" fullDay="true"]
+[/calendar]
+```
+
+Add entries by replying with a local date or date range, using the existing
+date/time composer action or raw syntax such as:
+
+```markdown
+Away
+[date-range from=2026-09-07 to=2026-09-10 timezone="Europe/Paris"]
+```
+
+Discourse extracts the reply's dates and returns the complete `calendar_details`
+list on the first post. The native renderer uses that list, so entries do not
+depend on which replies have been loaded. Calendar processing is asynchronous;
+the server's `calendar_change` message refreshes the topic through core's
+existing invalidation hook. Deletion/recovery messages also refresh it. No
+calendar write endpoint or client-side reply scanner is introduced.
+
+Kalender owns the month, week, day, and agenda layouts, navigation, range
+clipping, and overlap placement. The plugin supplies the toolbar, colored
+event tiles, direct reply navigation, and a day list for crowded cells. It
+honors `fullDay`, `defaultTimezone`, and the site's
+`calendar_first_day_of_week`. Full-day end dates are inclusive and retain the
+author's timezone date; the adapter supplies exclusive local-midnight endpoints
+to Kalender, including across 23/25-hour days. Timed events use the selected
+reader zone. Weekly `1.weeks` entries expand only for the displayed window and
+neighboring pages, retaining wall times across DST. Calendar timezone selection
+does not change account preferences. Creation, dragging, and resizing are
+disabled: replies remain the source of calendar entries.
+Grouped holiday rows remain readable with their participant names, and a
+configured holiday topic uses usernames for its standalone entries.
+
+The current upstream cooker no longer serializes `tzPicker`; native calendars
+always offer a timezone selector. Kalender's month view has seven fixed weekday
+columns; `weekends=false` and nonempty `hiddenDays` retain an explicit web
+fallback. **Open web calendar** also covers year views, static blocks, calendar
+subscriptions, and add-to-calendar exports. There is no native export button,
+including when `showAddToCalendar="false"`. Quoted calendars and cooked fragments
+without the first post's data retain a readable fallback. Review Kalender's
+pre-1.0 API changes and rerun the adapter/widget tests before upgrading it.
+
+`TopicCalendarPlugin` owns a separate post record and settings codec under the
+existing events module. Calendar rendering works without the post-event RSVP
+setting and without installing Local Dates, Poll, or Chat. Date authoring still
+uses the existing Local Dates composer when that module is installed.
+
+The source contract was checked against Discourse `2e9dc47bd88`: the post
+serializer in `plugins/discourse-events/plugin.rb`,
+`app/models/discourse_events/calendar/event.rb`, the calendar Markdown rule,
+and `post-calendar.gjs`. The calendar cooker, decorator and component are
+included in the module's markup drift snapshots.
 
 ## Ownership and data flow
 
@@ -69,6 +128,12 @@ and calendar downloads. `discourse_events_plugin_test.dart` exercises standalone
 installation, core-only decoding, notifications, host routing, quoted markup,
 and linked-card write identity. Generic text transport tests verify same-origin
 authentication, subfolder paths, UTF-8, and response bounds.
+
+`test/src/plugins/discourse_events/topic_calendar*_test.dart` covers the topic
+calendar's data contract, inclusive ranges, timezone/DST behavior, recurrence,
+Kalender view changes and range clipping, overflow day lists, narrow layouts
+with large text, live invalidation, cooked-wrapper rendering, and navigation to
+unloaded replies.
 
 `tool/markup_contract.json` owns upstream Markdown/decorator snapshots from
 Discourse `2e9dc47bd88`. The generic markup drift runner discovers this catalog.

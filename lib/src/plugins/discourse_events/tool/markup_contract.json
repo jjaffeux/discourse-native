@@ -7,7 +7,10 @@
       "readers": "lib/src/plugins/discourse_events/",
       "watched": [
         "plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/discourse-post-event-block.js",
-        "plugins/discourse-events/assets/javascripts/discourse/initializers/discourse-post-event-decorator.gjs"
+        "plugins/discourse-events/assets/javascripts/discourse/initializers/discourse-post-event-decorator.gjs",
+        "plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/discourse-calendar.js",
+        "plugins/discourse-events/assets/javascripts/discourse/initializers/discourse-calendar.gjs",
+        "plugins/discourse-events/assets/javascripts/discourse/components/post-calendar.gjs"
       ]
     }
   ]

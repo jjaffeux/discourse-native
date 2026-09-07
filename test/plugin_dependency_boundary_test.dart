@@ -502,6 +502,10 @@ void main() {
         for (final schema in const [
           'discourse-post-event',
           'event_oneboxes',
+          'calendar_details',
+          'calendar_change',
+          'calendar_first_day_of_week',
+          'holiday_calendar_topic_id',
           'event_starts_at',
           'can_create_discourse_post_event',
         ]) {

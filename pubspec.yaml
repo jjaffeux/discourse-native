@@ -21,6 +21,9 @@ dependencies:
   vm_service: ^15.2.0
   intl: ^0.20.2
   timezone: ^0.11.1
+  # Kalender's pre-1.0 minor releases can change its API. Upgrade deliberately
+  # after checking the post calendar's date ranges and embedded layouts.
+  kalender: 0.29.1
   flutter_timezone: ^5.1.0
   relative_time: ^5.0.0
   shared_preferences: ^2.5.5
