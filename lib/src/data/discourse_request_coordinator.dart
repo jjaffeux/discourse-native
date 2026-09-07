@@ -132,6 +132,7 @@ final class DiscourseRequestCoordinator {
       response.headers['retry-after'],
       maximum: maximumRetryAfter,
       now: now ?? DateTime.now(),
+      serverDate: response.headers['date'],
     );
     if (headerDuration != null) return headerDuration;
 

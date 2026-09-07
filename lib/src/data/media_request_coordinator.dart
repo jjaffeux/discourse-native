@@ -93,6 +93,7 @@ final class MediaRequestCoordinator {
           headers['retry-after'],
           maximum: _maximumRetryAfter,
           now: _clock(),
+          serverDate: headers['date'],
         ) ??
         defaultRateLimitCooldown;
     lease.extendCooldown(delay);
