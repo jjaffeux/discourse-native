@@ -124,7 +124,7 @@ class LocalDatesPlugin
     String cooked, {
     required String? accountTimezone,
   }) {
-    final root = dom.Element.html(cooked);
+    final root = dom.DocumentFragment.html(cooked);
     final now = DateTime.now();
     final locale = WidgetsBinding.instance.platformDispatcher.locale;
     for (final element in root.querySelectorAll('span.discourse-local-date')) {
