@@ -128,6 +128,79 @@ void main() {
   );
 
   testWidgets(
+    'stationary toolbar controls stay visible and clickable through both transitions',
+    (tester) async {
+      final setup = await _setup(
+        tester,
+        registry: const PluginRegistry([AssignPlugin()]),
+        topicPluginPayload: const {
+          'can_assign': false,
+          'assigned_to_user': {'username': 'sam', 'name': 'Sam'},
+        },
+      );
+      tester.view.physicalSize = const Size(1400, 800);
+      final shell = setup.controller;
+      shell.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      await _scrollReaderToTop(tester);
+      final controls = [
+        for (final finder in [
+          find.byKey(const ValueKey('topic-close-reader')),
+          find.byKey(const ValueKey('inbox-previous-topic')),
+          find.byKey(const ValueKey('inbox-next-topic')),
+          find.byKey(const ValueKey('topic-status-button')),
+          find.byType(TopicShareButton),
+        ])
+          (
+            finder: finder,
+            element: tester.element(finder),
+            bounds: tester.getRect(finder),
+          ),
+      ];
+      final scroll = tester
+          .widget<SuperListView>(
+            find.descendant(
+              of: find.byType(TopicView),
+              matching: find.byType(SuperListView),
+            ),
+          )
+          .controller!;
+
+      for (final offset in [200.0, 0.0]) {
+        scroll.jumpTo(offset);
+        await tester.pump();
+        for (var frame = 0; frame < 3; frame++) {
+          await tester.pump(const Duration(milliseconds: 190));
+          for (final control in controls) {
+            expect(control.finder, findsOneWidget);
+            expect(tester.element(control.finder), same(control.element));
+            expect(tester.getRect(control.finder), control.bounds);
+            expect(control.finder.hitTestable(), findsOneWidget);
+            for (final fade in tester.widgetList<FadeTransition>(
+              find.ancestor(
+                of: control.finder,
+                matching: find.byType(FadeTransition),
+              ),
+            )) {
+              expect(fade.opacity.value, 1);
+            }
+          }
+        }
+        await tester.pumpAndSettle();
+      }
+
+      scroll.jumpTo(200);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 190));
+      await tester.tap(find.byKey(const ValueKey('topic-close-reader')));
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, isNull);
+      expect(find.byType(TopicView), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'compact category navigates and assignment details remain available',
     (tester) async {
       const registry = PluginRegistry([AssignPlugin()]);
