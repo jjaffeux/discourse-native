@@ -122,5 +122,5 @@ class UnsupportedUpdater implements Updater {
   Future<void> installAndRestart() async => throw _failure;
 
   @override
-  Future<void> discard() async => throw _failure;
+  Future<void> discard() async {}
 }

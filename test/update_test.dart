@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/app_release.dart';
 import 'package:discourse_native/src/data/updater.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/shell/update_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -113,16 +114,32 @@ void main() {
   group('what can update', () {
     test(
       'a build with no updater behind it says so rather than pretending',
-      () {
+      () async {
         const updater = UnsupportedUpdater();
+        final failure = throwsA(
+          isA<UpdateException>().having(
+            (error) => error.failure,
+            'failure',
+            UpdateFailure.install,
+          ),
+        );
 
         expect(updater.isSupported, isFalse);
-        expect(
-          () => updater.check(channel: UpdateChannel.stable),
-          throwsA(isA<UpdateException>()),
+        await expectLater(
+          updater.check(channel: UpdateChannel.stable),
+          failure,
         );
+        await expectLater(updater.download(release('1.4.0')), failure);
+        await expectLater(updater.installAndRestart(), failure);
       },
     );
+
+    test('discarding an unsupported updater is repeatedly harmless', () async {
+      const updater = UnsupportedUpdater();
+
+      await expectLater(updater.discard(), completes);
+      await expectLater(updater.discard(), completes);
+    });
 
     test('a build the release pipeline never stamped is not a release', () {
       // No --dart-define under `flutter test`, so a local build never presents
@@ -684,10 +701,64 @@ void main() {
       },
     );
 
-    test('an updater cleanup failure cannot break controller disposal', () {
-      final controller = controllerWith(updater: _ThrowingDiscardUpdater());
+    group('disposal diagnostics', () {
+      late DiagnosticsController diagnostics;
 
-      expect(controller.dispose, returnsNormally);
+      setUp(() async {
+        diagnostics = await DiagnosticsController.create(
+          persistence: MemoryDiagnosticsPersistence(),
+        );
+        addTearDown(diagnostics.close);
+        final binding = DiagnosticsSink.install(diagnostics);
+        addTearDown(binding.close);
+      });
+
+      test(
+        'an unsupported updater disposes without reporting a failure',
+        () async {
+          final controller = UpdateController(
+            updater: const UnsupportedUpdater(),
+            store: FakeUpdateStore(),
+          );
+
+          await controller.load();
+          expect(controller.status, UpdateStatus.idle);
+
+          expect(controller.dispose, returnsNormally);
+          await Future<void>.delayed(Duration.zero);
+
+          expect(
+            diagnostics.events.whereType<ErrorDiagnosticEvent>().map(
+              (event) => event.operation,
+            ),
+            isEmpty,
+          );
+        },
+      );
+
+      for (final asyncFailure in [false, true]) {
+        test(
+          'reports a ${asyncFailure ? 'future' : 'synchronous'} cleanup failure without breaking disposal',
+          () async {
+            final controller = controllerWith(
+              updater: _ThrowingDiscardUpdater(asyncFailure: asyncFailure),
+            );
+
+            expect(controller.dispose, returnsNormally);
+            await Future<void>.delayed(Duration.zero);
+
+            final event = diagnostics.events
+                .whereType<ErrorDiagnosticEvent>()
+                .single;
+            expect(event.operation, 'updater.dispose');
+            expect(event.source, 'updater');
+            expect(event.severity, DiagnosticSeverity.warning);
+            expect(event.errorType, 'StateError');
+            expect(event.handled, isTrue);
+            expect(event.degraded, isTrue);
+          },
+        );
+      }
     });
 
     test('progress is reported as it arrives', () async {
@@ -734,8 +805,15 @@ void main() {
 }
 
 final class _ThrowingDiscardUpdater extends FakeUpdater {
-  _ThrowingDiscardUpdater({super.releases}) : super(isSupported: true);
+  _ThrowingDiscardUpdater({super.releases, this.asyncFailure = false})
+    : super(isSupported: true);
+
+  final bool asyncFailure;
 
   @override
-  Future<void> discard() => throw StateError('cleanup failed');
+  Future<void> discard() {
+    final error = StateError('cleanup failed');
+    if (asyncFailure) return Future<void>.error(error);
+    throw error;
+  }
 }
