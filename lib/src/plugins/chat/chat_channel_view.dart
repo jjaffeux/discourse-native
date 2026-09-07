@@ -301,7 +301,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
     return ChatUploadDropRegion(
       controller: _uploadDropController,
-      title: 'Drop images to upload to #$channelTitle',
+      title: 'Drop files to upload to #$channelTitle',
       child: Column(
         children: [
           ChatChannelSearchBar(

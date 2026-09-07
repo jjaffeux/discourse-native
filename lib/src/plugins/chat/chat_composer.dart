@@ -66,7 +66,7 @@ class ChatUploadDropController {
     final offset = selection.isValid
         ? selection.extentOffset
         : composer.text.text.length;
-    composer.addImages(composerUploadFilesFromDrop(items), offset);
+    composer.addFiles(composerUploadFilesFromDrop(items), offset);
     composer.focus.requestFocus();
   }
 }

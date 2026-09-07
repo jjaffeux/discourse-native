@@ -590,6 +590,24 @@ void main() {
   });
 
   group('composer uploads', () {
+    test('file uploads honor video, attachment, and staff permissions', () {
+      final config = SiteConfig.fromSettings(
+        settings(
+          authorizedExtensions: 'png|mp4|pdf',
+          authorizedExtensionsForStaff: 'mov',
+        ),
+      );
+
+      expect(config.canUploadFile('screen.MP4', staff: false), isTrue);
+      expect(config.canUploadFile('notes.pdf', staff: false), isTrue);
+      expect(config.canUploadFile('screen.mov', staff: false), isFalse);
+      expect(config.canUploadFile('screen.mov', staff: true), isTrue);
+      expect(config.canUploadFile('archive.zip', staff: true), isFalse);
+      expect(config.canUploadImage('screen.mp4', staff: true), isFalse);
+      expect(config.canUploadFile('no-extension', staff: true), isFalse);
+      expect(config.canUploadFile('trailing.', staff: true), isFalse);
+    });
+
     test('reads site limits and separates staff-only extensions', () {
       final config = SiteConfig.fromSettings(
         settings(
@@ -659,6 +677,8 @@ void main() {
 
       expect(config.canUploadImage('photo.webp', staff: false), isTrue);
       expect(config.canUploadImage('archive.zip', staff: false), isFalse);
+      expect(config.canUploadFile('archive.zip', staff: false), isTrue);
+      expect(config.canUploadFile('screen.mov', staff: false), isTrue);
       expect(config.canUploadImage('no-extension', staff: false), isFalse);
     });
 

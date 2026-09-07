@@ -364,11 +364,19 @@ class SiteConfig {
     return '$url?u=${Uri.encodeQueryComponent(account)}';
   }
 
-  bool canUploadImage(String filename, {required bool staff}) {
+  static bool isImageFilename(String filename) {
+    final dot = filename.lastIndexOf('.');
+    return dot >= 0 &&
+        imageExtensions.contains(filename.substring(dot + 1).toLowerCase());
+  }
+
+  bool canUploadImage(String filename, {required bool staff}) =>
+      isImageFilename(filename) && canUploadFile(filename, staff: staff);
+
+  bool canUploadFile(String filename, {required bool staff}) {
     final dot = filename.lastIndexOf('.');
     if (dot < 0 || dot == filename.length - 1) return false;
     final extension = filename.substring(dot + 1).toLowerCase();
-    if (!imageExtensions.contains(extension)) return false;
     final permitted = [
       ...authorizedExtensions,
       if (staff) ...authorizedExtensionsForStaff,

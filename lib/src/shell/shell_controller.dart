@@ -6424,6 +6424,10 @@ class ShellController extends FrameSafeNotifier
         filename,
         staff: currentUserFor(target.siteUrl)?.staff == true,
       ),
+      canUploadFile: (filename) => config.canUploadFile(
+        filename,
+        staff: currentUserFor(target.siteUrl)?.staff == true,
+      ),
       simultaneousUploads: config.simultaneousUploads,
       enableAutoGridImages: config.enableAutoGridImages,
       enableMarkdownLinkify: config.enableMarkdownLinkify,

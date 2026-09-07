@@ -526,15 +526,15 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     );
   }
 
-  void dropImages(Iterable<ComposerUploadFile> files, {required int offset}) {
+  void dropFiles(Iterable<ComposerUploadFile> files, {required int offset}) {
     if (isDisposed) return;
     final gallery = _state.dropGallery;
     cancelDrag();
     if (gallery != null) {
-      _composer.addImagesToGallery(files, gallery);
+      _composer.addFiles(files, gallery.end, gallery: gallery);
       selectGallery(gallery);
     } else {
-      _composer.addImages(files, offset);
+      _composer.addFiles(files, offset);
     }
   }
 
