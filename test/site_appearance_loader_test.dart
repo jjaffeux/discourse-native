@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/discourse_transport.dart';
+import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/site_appearance_loader.dart';
+import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -667,6 +671,123 @@ void main() {
       );
       expect(client.requests, hasLength(6));
     });
+  });
+
+  group('shared transport bounds', () {
+    for (final appearanceFirst in [true, false]) {
+      test(
+        'bounds appearance independently of bootstrap, appearance first=$appearanceFirst',
+        () async {
+          final documentStarted = Completer<void>();
+          final releaseDocument = Completer<void>();
+          addTearDown(() {
+            if (!releaseDocument.isCompleted) releaseDocument.complete();
+          });
+          final document =
+              '''
+<script type="application/json" id="data-preloaded">
+${jsonEncode({
+                'currentUser': jsonEncode({'id': 42, 'username': 'alice', 'notification_channel_position': 91}),
+              })}
+</script>
+<!-- ${'x' * 4096} -->
+''';
+          final client = _Client((request) async {
+            if (request.url.path == '/') {
+              if (!documentStarted.isCompleted) documentStarted.complete();
+              await releaseDocument.future;
+              return _response(request, document, contentType: 'text/html');
+            }
+            return switch (request.url.path) {
+              '/site.json' => _response(
+                request,
+                _siteJson(includeAlternate: false),
+              ),
+              '/u/alice.json' => _response(request, _userJson()),
+              '/color-scheme-stylesheet/10/5.json' => _response(
+                request,
+                _details('/colors.css'),
+              ),
+              '/colors.css' => _response(request, _paletteCss),
+              _ => throw StateError('Unexpected request: ${request.url}'),
+            };
+          });
+          final transport = DiscourseTransport(
+            SafeHttpClient.owned(client),
+            const Duration(minutes: 1),
+            8192,
+          );
+          final api = DiscourseApi(transport: transport);
+          addTearDown(api.close);
+          // Keep the production coordinator/client relationship while using
+          // small, different caps to exercise the shared document boundary.
+          final loader = SiteAppearanceLoader(
+            client: client,
+            coordinator: transport.coordinator,
+            timeout: transport.timeout,
+            maxResponseBytes: 2048,
+          );
+
+          Future<Object?> appearance() => loader.load(
+            siteUrl: 'https://forum.example',
+            username: 'alice',
+            apiKey: 'secret',
+            clientId: 'client',
+          );
+          Future<Object?> bootstrap() => api.messageBusBootstrap(
+            siteUrl: 'https://forum.example',
+            apiKey: 'secret',
+            clientId: 'client',
+          );
+          Future<Object?> capture(Future<Object?> result) =>
+              result.then((value) => value, onError: (Object error) => error);
+
+          final first = capture(appearanceFirst ? appearance() : bootstrap());
+          await documentStarted.future;
+          final second = capture(appearanceFirst ? bootstrap() : appearance());
+          await Future<void>.delayed(Duration.zero);
+          releaseDocument.complete();
+          final results = await Future.wait([first, second]);
+
+          expect(
+            results[appearanceFirst ? 0 : 1],
+            isA<SiteAppearanceLoadException>()
+                .having(
+                  (error) => error.failure,
+                  'failure',
+                  SiteAppearanceLoadFailure.responseTooLarge,
+                )
+                .having((error) => error.url.path, 'path', '/'),
+          );
+          expect(
+            results[appearanceFirst ? 1 : 0],
+            isA<SiteMessageBusBootstrap>().having(
+              (value) => value.notificationChannelPosition,
+              'notificationChannelPosition',
+              91,
+            ),
+          );
+          expect(
+            client.requests.map((request) => request.url.path),
+            appearanceFirst
+                ? [
+                    '/site.json',
+                    '/u/alice.json',
+                    '/color-scheme-stylesheet/10/5.json',
+                    '/',
+                    '/',
+                  ]
+                : [
+                    '/',
+                    '/site.json',
+                    '/u/alice.json',
+                    '/color-scheme-stylesheet/10/5.json',
+                    '/',
+                  ],
+          );
+        },
+      );
+    }
   });
 
   group('bounds', () {

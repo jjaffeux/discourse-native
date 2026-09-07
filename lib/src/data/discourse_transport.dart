@@ -233,25 +233,24 @@ final class DiscourseTransport {
       for (var redirects = 0; ; redirects++) {
         final requestUrl = requireSafeHttpUrl(current);
         if (apiKey != null) _requireCredentialOrigin(requestUrl, siteUrl);
+        final request = http.Request('GET', requestUrl);
+        if (accept != null) request.headers['Accept'] = accept;
+        if (apiKey != null) {
+          request.headers.addAll(authHeaders(apiKey, clientId: clientId));
+        }
         response = await coordinator.run(
           requestUrl,
-          () {
-            final request = http.Request('GET', requestUrl);
-            if (accept != null) request.headers['Accept'] = accept;
-            if (apiKey != null) {
-              request.headers.addAll(authHeaders(apiKey, clientId: clientId));
-            }
-            return sendBoundedHttpRequest(
-              _client,
-              request,
-              timeout: timeout,
-              maxBodyBytes: _maxResponseBytes,
-            );
-          },
+          () => sendBoundedHttpRequest(
+            _client,
+            request,
+            timeout: timeout,
+            maxBodyBytes: _maxResponseBytes,
+          ),
           coalesce: DiscourseGetRequestKey(
             requestUrl,
-            apiKey: apiKey,
-            clientId: clientId,
+            headers: request.headers,
+            timeout: timeout,
+            maxResponseBytes: _maxResponseBytes,
           ),
         );
 

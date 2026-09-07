@@ -377,8 +377,9 @@ final class SiteAppearanceLoader {
         coalesce: request.method == 'GET'
             ? DiscourseGetRequestKey(
                 request.url,
-                apiKey: request.headers['User-Api-Key'],
-                clientId: request.headers['User-Api-Client-Id'],
+                headers: request.headers,
+                timeout: timeout,
+                maxResponseBytes: maxResponseBytes,
               )
             : null,
       );

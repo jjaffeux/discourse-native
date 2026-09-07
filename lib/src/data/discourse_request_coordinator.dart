@@ -8,26 +8,48 @@ import 'origin_cooldown.dart';
 import 'origin_request_gate.dart';
 import 'retry_after.dart';
 
-/// Identity of one safe GET for in-flight request sharing.
+/// Identity of one safe GET hop for in-flight request sharing.
 ///
-/// Credentials are part of the identity so two accounts can never receive one
-/// another's response. The value stays process-local and is never logged.
+/// Callers may share only the same representation and transport limits. The
+/// header snapshot includes credentials so accounts stay isolated; it remains
+/// process-local and is never logged. Redirects are checked by each caller
+/// after the shared hop completes.
 final class DiscourseGetRequestKey {
-  const DiscourseGetRequestKey(this.url, {this.apiKey, this.clientId});
+  DiscourseGetRequestKey(
+    this.url, {
+    required Map<String, String> headers,
+    required this.timeout,
+    required this.maxResponseBytes,
+  }) : _headers = Map.unmodifiable({
+         for (final entry in headers.entries)
+           entry.key.toLowerCase(): entry.value,
+       });
 
   final Uri url;
-  final String? apiKey;
-  final String? clientId;
+  final Map<String, String> _headers;
+  final Duration timeout;
+  final int maxResponseBytes;
 
   @override
   bool operator ==(Object other) =>
       other is DiscourseGetRequestKey &&
       other.url == url &&
-      other.apiKey == apiKey &&
-      other.clientId == clientId;
+      other.timeout == timeout &&
+      other.maxResponseBytes == maxResponseBytes &&
+      other._headers.length == _headers.length &&
+      _headers.entries.every(
+        (entry) => other._headers[entry.key] == entry.value,
+      );
 
   @override
-  int get hashCode => Object.hash(url, apiKey, clientId);
+  int get hashCode => Object.hash(
+    url,
+    timeout,
+    maxResponseBytes,
+    Object.hashAllUnordered(
+      _headers.entries.map((entry) => Object.hash(entry.key, entry.value)),
+    ),
+  );
 }
 
 /// Bounds requests per origin and turns a 429 into a shared origin cooldown.
