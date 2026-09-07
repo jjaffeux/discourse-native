@@ -6,7 +6,6 @@ import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/origin_cooldown.dart';
-import 'package:discourse_native/src/data/site_appearance_loader.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -135,7 +134,7 @@ void main() {
       expect(calls, 1);
     });
 
-    test('appearance and API reads share site metadata in flight', () async {
+    test('identical appearance reads share site metadata in flight', () async {
       final gate = Completer<void>();
       var calls = 0;
       final client = MockClient((request) async {
@@ -149,20 +148,16 @@ void main() {
         1024,
       );
       addTearDown(transport.close);
-      final appearance = SiteAppearanceLoader(
-        client: client,
-        coordinator: transport.coordinator,
-      ).load(siteUrl: 'https://example.com');
-      final metadata = transport.get(
-        Uri.parse('https://example.com/site.json'),
+      final appearance = transport.siteAppearance(
         siteUrl: 'https://example.com',
       );
+      final repeated = transport.siteAppearance(siteUrl: 'https://example.com');
       await Future<void>.delayed(Duration.zero);
 
       expect(calls, 1);
       gate.complete();
       expect(await appearance, isNull);
-      await metadata;
+      expect(await repeated, isNull);
       expect(calls, 1);
     });
 

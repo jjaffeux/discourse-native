@@ -196,6 +196,51 @@ void main() {
   });
 
   group('DiscourseRequestCoordinator', () {
+    test(
+      'shares immutable headers regardless of name case and order',
+      () async {
+        final coordinator = DiscourseRequestCoordinator();
+        addTearDown(coordinator.close);
+        final url = Uri.https('forum.example', '/site.json');
+        final response = Completer<http.Response>();
+        var sends = 0;
+
+        Future<http.Response> read(Map<String, String> headers) =>
+            coordinator.run(
+              url,
+              () {
+                sends++;
+                return response.future;
+              },
+              coalesce: DiscourseGetRequestKey(
+                url,
+                headers: headers,
+                timeout: const Duration(seconds: 10),
+                maxResponseBytes: 1024,
+              ),
+            );
+
+        final headers = {
+          'Accept': 'application/json',
+          'User-Api-Key': 'secret',
+        };
+        final first = read(headers);
+        headers['Accept'] = 'text/html';
+        final repeated = read({
+          'user-api-key': 'secret',
+          'accept': 'application/json',
+        });
+        final buffered = http.Response('{}', 200);
+        response.complete(buffered);
+
+        expect(await first, same(buffered));
+        expect(await repeated, same(buffered));
+        expect(sends, 1);
+        await read({'Accept': 'application/json', 'User-Api-Key': 'secret'});
+        expect(sends, 2);
+      },
+    );
+
     for (final scenario in cooldownCases) {
       test('holds queued requests ${scenario.name}', () async {
         final scheduler = ManualScheduler();
