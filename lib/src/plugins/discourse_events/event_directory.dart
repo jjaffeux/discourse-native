@@ -133,7 +133,8 @@ class _EventDirectoryState extends State<EventDirectory> {
   int _accountRevision = 0;
   int _foregroundRevision = 0;
   bool _loading = true;
-  bool _exporting = false;
+  EventExportOperation? _exportOperation;
+  bool get _exporting => _exportOperation?.isCurrent ?? false;
   @override
   void initState() {
     super.initState();
@@ -168,6 +169,7 @@ class _EventDirectoryState extends State<EventDirectory> {
     if (controllerChanged ||
         oldWidget.site != widget.site ||
         oldWidget.mine != widget.mine) {
+      _exportOperation?.cancel();
       _accountRevision = widget.controller.accountRevision(widget.site);
       _foregroundRevision = widget.controller.foregroundRevision;
       _events = const [];
@@ -205,31 +207,43 @@ class _EventDirectoryState extends State<EventDirectory> {
   }
 
   Future<void> _export() async {
-    setState(() => _exporting = true);
+    if (!mounted || _exporting) return;
+    final controller = widget.controller;
+    final site = widget.site;
+    final mine = widget.mine;
+    final operation = EventExportOperation(controller, site);
+    setState(() => _exportOperation = operation);
     try {
       final calendar = await eventCalendar(
-        widget.controller,
-        widget.site,
-        mine: widget.mine,
+        controller,
+        site,
+        mine: mine,
+        isCurrent: () => operation.isCurrent,
       );
-      if (!mounted) return;
+      if (!mounted || !operation.isCurrent) return;
       final box = context.findRenderObject() as RenderBox?;
       await saveEventCalendar(
         calendar,
-        filename: widget.mine ? 'my-events.ics' : 'upcoming-events.ics',
+        filename: mine ? 'my-events.ics' : 'upcoming-events.ics',
+        isCurrent: () => operation.isCurrent,
         sharePositionOrigin: box == null
             ? null
             : box.localToGlobal(Offset.zero) & box.size,
       );
     } catch (error) {
-      if (mounted) setState(() => _error = eventError(error, reading: true));
+      if (mounted && operation.isCurrent) {
+        setState(() => _error = eventError(error, reading: true));
+      }
     } finally {
-      if (mounted) setState(() => _exporting = false);
+      if (mounted && identical(_exportOperation, operation)) {
+        setState(() => _exportOperation = null);
+      }
     }
   }
 
   @override
   void dispose() {
+    _exportOperation?.cancel();
     _generation++;
     widget.controller.removeListener(_changed);
     _search.dispose();

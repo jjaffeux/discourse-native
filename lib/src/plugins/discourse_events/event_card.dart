@@ -520,6 +520,8 @@ class PostEventCard extends StatefulWidget {
 
 class _PostEventCardState extends State<PostEventCard> {
   late EventHandle _handle;
+  EventExportOperation? _exportOperation;
+  bool get _exporting => _exportOperation?.isCurrent ?? false;
   @override
   void initState() {
     super.initState();
@@ -532,12 +534,14 @@ class _PostEventCardState extends State<PostEventCard> {
     if (oldWidget.site != widget.site ||
         oldWidget.event.id != widget.event.id ||
         oldWidget.controller != widget.controller) {
+      _exportOperation?.cancel();
       _handle.dispose();
       _handle = widget.controller.acquire(widget.site, widget.event);
     } else if (!_handle.isCurrent &&
         !identical(oldWidget.event, widget.event)) {
       // A fresh snapshot may equal the previous account's seed. Replace only
       // this card's handle; dialogs and pending requests keep their old lifetime.
+      _exportOperation?.cancel();
       _handle.dispose();
       _handle = widget.controller.acquire(
         widget.site,
@@ -551,31 +555,51 @@ class _PostEventCardState extends State<PostEventCard> {
 
   @override
   void dispose() {
+    _exportOperation?.cancel();
     _handle.dispose();
     super.dispose();
   }
 
-  Future<void> _export() async {
+  Future<void> _export(EventHandle handle, int accountRevision) async {
+    if (!mounted ||
+        !identical(handle, _handle) ||
+        !handle.authoritative ||
+        handle.pending ||
+        widget.controller.accountRevision(widget.site) != accountRevision ||
+        _exporting) {
+      return;
+    }
+    final controller = widget.controller;
+    final site = widget.site;
+    final eventId = widget.event.id;
+    final operation = EventExportOperation(controller, site);
+    setState(() => _exportOperation = operation);
     try {
       final calendar = await eventCalendar(
-        widget.controller,
-        widget.site,
-        eventId: widget.event.id,
+        controller,
+        site,
+        eventId: eventId,
+        isCurrent: () => operation.isCurrent,
       );
-      if (!mounted) return;
+      if (!mounted || !operation.isCurrent) return;
       final box = context.findRenderObject() as RenderBox?;
       await saveEventCalendar(
         calendar,
-        filename: 'event-${widget.event.id}.ics',
+        filename: 'event-$eventId.ics',
+        isCurrent: () => operation.isCurrent,
         sharePositionOrigin: box == null
             ? null
             : box.localToGlobal(Offset.zero) & box.size,
       );
     } catch (error) {
-      if (mounted) {
+      if (mounted && operation.isCurrent) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(content: Text(eventError(error, reading: true))),
         );
+      }
+    } finally {
+      if (mounted && identical(_exportOperation, operation)) {
+        setState(() => _exportOperation = null);
       }
     }
   }
@@ -596,6 +620,7 @@ class _PostEventCardState extends State<PostEventCard> {
         );
       }
       final available = handle.authoritative && !handle.pending;
+      final accountRevision = widget.controller.accountRevision(widget.site);
       return EventCard(
         event: event,
         siteUrl: widget.site,
@@ -627,7 +652,9 @@ class _PostEventCardState extends State<PostEventCard> {
         onInvite: available && event.canManage
             ? () => showEventInvitations(context, handle)
             : null,
-        onExport: available ? () => unawaited(_export()) : null,
+        onExport: available && !_exporting
+            ? () => unawaited(_export(handle, accountRevision))
+            : null,
         onOpen: () => widget.navigation.openEvent(widget.site, event),
         onWeb: () => unawaited(widget.navigation.openWeb(widget.site, event)),
         onRetry: () => unawaited(handle.refresh()),
