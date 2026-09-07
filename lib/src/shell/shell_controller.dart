@@ -193,6 +193,22 @@ final class PostNoticeTarget {
   final SiteLease _lease;
 }
 
+final class TopicPostOwnerTarget {
+  const TopicPostOwnerTarget._({
+    required this.siteUrl,
+    required this.topicId,
+    required this.postId,
+    required this._lease,
+  });
+
+  final String siteUrl;
+  final int topicId;
+
+  // Null retains selected-post mode: read the topic's selection on submit.
+  final int? postId;
+  final SiteLease _lease;
+}
+
 class ShellController extends FrameSafeNotifier
     implements
         PluginNavigationHost,
@@ -8088,57 +8104,160 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<String?> changeSelectedTopicPostOwner(
-    String siteUrl,
-    int topicId,
+    TopicPostOwnerTarget target,
     String username,
-  ) {
+  ) async {
+    final siteUrl = target.siteUrl;
+    final topicId = target.topicId;
     final posts = selectedTopicPosts(siteUrl, topicId);
+    final postIds = [for (final post in posts) post.id];
     final trimmedUsername = username.trim();
-    if (!canChangeSelectedTopicPostOwner(siteUrl, topicId) ||
-        trimmedUsername.isEmpty ||
-        posts.first.username == trimmedUsername) {
-      return Future.value(const WriteException(WriteFailure.forbidden).message);
+    if (target.postId != null) {
+      return const WriteException(WriteFailure.forbidden).message;
     }
-    return _mutateSelectedTopicPosts(
-      siteUrl,
-      topicId,
-      posts,
-      (apiKey, ids) => api.postMutations.changePostOwners(
+    if (_topicPostOwnerRefusal(target, postIds, trimmedUsername)
+        case final error?) {
+      return error;
+    }
+    final error = await _mutateSelectedTopicPosts(siteUrl, topicId, posts, (
+      apiKey,
+      ids,
+    ) async {
+      if (_topicPostOwnerRefusal(target, ids, trimmedUsername)
+          case final error?) {
+        throw WriteException(WriteFailure.forbidden, errors: [error]);
+      }
+      await api.postMutations.changePostOwners(
         siteUrl: siteUrl,
         apiKey: apiKey,
         topicId: topicId,
         postIds: ids,
         username: trimmedUsername,
-      ),
-    );
+      );
+    });
+    return _ownsTopicPostOwnerTarget(target) ? error : _obsoleteTopicPostOwner;
   }
 
   bool canChangeTopicPostOwner(Post post) {
+    final instance = currentInstance;
     final topic = currentTopic;
-    return currentInstance?.user?.canChangePostOwner == true &&
+    return instance?.isConnected == true &&
+        instance?.user?.canChangePostOwner == true &&
         topic != null &&
-        topic.stream.contains(post.id);
+        topic.stream.contains(post.id) &&
+        store.read<Post>(instance!.url, post.id) != null;
   }
 
-  Future<String?> changeTopicPostOwner(Post post, String username) {
-    final topic = currentTopic;
-    final trimmedUsername = username.trim();
-    if (!canChangeTopicPostOwner(post) ||
+  TopicPostOwnerTarget captureTopicPostOwnerTarget({
+    required String siteUrl,
+    required int topicId,
+    int? postId,
+  }) => TopicPostOwnerTarget._(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    postId: postId,
+    lease: lifecycle.capture(siteUrl),
+  );
+
+  static const _obsoleteTopicPostOwner =
+      'Your connection changed. Reopen Change owner and try again.';
+
+  bool _ownsTopicPostOwnerTarget(TopicPostOwnerTarget target) =>
+      !isDisposed && target._lease.isCurrent;
+
+  String? _topicPostOwnerRefusal(
+    TopicPostOwnerTarget target,
+    List<int> postIds,
+    String username,
+  ) {
+    if (!_ownsTopicPostOwnerTarget(target)) return _obsoleteTopicPostOwner;
+    final instance = _instanceAt(target.siteUrl);
+    final topic = store.read<TopicDetail>(target.siteUrl, target.topicId);
+    final posts = [
+      for (final id in postIds) ?store.read<Post>(target.siteUrl, id),
+    ];
+    if (instance?.isConnected != true ||
+        instance?.user?.canChangePostOwner != true ||
         topic == null ||
-        trimmedUsername.isEmpty ||
-        trimmedUsername == post.username) {
-      return Future.value(const WriteException(WriteFailure.forbidden).message);
+        (target.postId == null &&
+            (currentInstance?.url != target.siteUrl ||
+                !topic.canSelectPosts)) ||
+        postIds.isEmpty ||
+        posts.length != postIds.length ||
+        postIds.any((id) => !topic.stream.contains(id)) ||
+        posts.map((post) => post.username).toSet().length != 1 ||
+        username.isEmpty ||
+        posts.first.username == username) {
+      return const WriteException(WriteFailure.forbidden).message;
     }
-    return _mutatePost(
-      post,
-      (siteUrl, apiKey) => api.postMutations.changePostOwners(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        topicId: topic.id,
-        postIds: [post.id],
-        username: trimmedUsername,
-      ),
+    return null;
+  }
+
+  Future<List<FoundUser>> searchTopicPostOwnerUsers(
+    TopicPostOwnerTarget target,
+    String term,
+  ) async {
+    if (!_ownsTopicPostOwnerTarget(target)) return const [];
+    final users = await searchUsers(
+      siteUrl: target.siteUrl,
+      topicId: target.topicId,
+      term: term,
     );
+    return _ownsTopicPostOwnerTarget(target) ? users : const [];
+  }
+
+  Future<String?> changeTopicPostOwner(
+    TopicPostOwnerTarget target,
+    String username,
+  ) async {
+    final postId = target.postId;
+    if (postId == null) {
+      return const WriteException(WriteFailure.forbidden).message;
+    }
+    final siteUrl = target.siteUrl;
+    final lease = target._lease;
+    final trimmedUsername = username.trim();
+    String? refusal() =>
+        _topicPostOwnerRefusal(target, [postId], trimmedUsername);
+    if (refusal() case final error?) return error;
+    if (!_beginPostWrite(_postKey(siteUrl, postId))) {
+      return 'Another action on this post is still being saved.';
+    }
+
+    try {
+      // The write guard notifies listeners. Recheck the opening account and
+      // current target records both there and after acquiring credentials.
+      if (refusal() case final error?) return error;
+      final credential = await _credentialForWrite(siteUrl);
+      if (refusal() case final error?) return error;
+      if (credential.failure case final failure?) return failure.message;
+      await api.postMutations.changePostOwners(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+        topicId: target.topicId,
+        postIds: [postId],
+        username: trimmedUsername,
+      );
+      if (!_ownsTopicPostOwnerTarget(target)) return _obsoleteTopicPostOwner;
+      await _refreshPost(
+        siteUrl,
+        target.topicId,
+        postId,
+        credential.apiKey,
+        lease,
+      );
+      return _ownsTopicPostOwnerTarget(target) ? null : _obsoleteTopicPostOwner;
+    } on WriteException catch (error) {
+      return _ownsTopicPostOwnerTarget(target)
+          ? error.message
+          : _obsoleteTopicPostOwner;
+    } catch (error, stackTrace) {
+      if (!_ownsTopicPostOwnerTarget(target)) return _obsoleteTopicPostOwner;
+      _reportOperationalError(error, stackTrace, 'post.changeOwner');
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      lease.commit(() => _endPostWrite(siteUrl, postId));
+    }
   }
 
   Future<String?> deletePost(Post post) async {
