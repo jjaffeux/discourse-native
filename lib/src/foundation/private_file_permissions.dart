@@ -87,12 +87,12 @@ Future<T> withPrivateAdvisoryFileLock<T>(
 
   try {
     // LOCK_EX | LOCK_NB.
-    final deadline = DateTime.now().add(_lockTimeout);
+    final elapsed = Stopwatch()..start();
     while (_nativeFlock(descriptor, 0x0002 | 0x0004) != 0) {
       // Every plausible failure here is contention: the descriptor was just
       // opened, so the remaining errno values are not states a retry could
-      // reach. The deadline is what keeps that assumption from hanging.
-      if (!DateTime.now().isBefore(deadline)) {
+      // reach. Monotonic elapsed time bounds retries even if the device clock changes.
+      if (elapsed.elapsed >= _lockTimeout) {
         throw FileSystemException('Could not lock private file', file.path);
       }
       await Future<void>.delayed(_lockRetryInterval);
