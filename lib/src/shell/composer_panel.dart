@@ -3190,6 +3190,21 @@ class _Header extends StatelessWidget {
               ),
             ),
             for (final control in pluginControls) control,
+            if (onMove != null)
+              Tooltip(
+                message: 'Drag composer',
+                triggerMode: TooltipTriggerMode.manual,
+                child: SizedBox(
+                  key: const ValueKey('composer-move-control'),
+                  width: 40,
+                  height: 40,
+                  child: Icon(
+                    Icons.open_with,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             if (onRestore case final restore?)
               IconButton(
                 key: const ValueKey('composer-restore'),

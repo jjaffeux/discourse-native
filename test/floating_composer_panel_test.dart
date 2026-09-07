@@ -68,10 +68,15 @@ void main() {
       expect(initial.center.dx, 450);
       expect(initial.bottom, 634);
 
-      await tester.drag(
-        find.byKey(const ValueKey('composer-drag-handle')),
-        const Offset(-48, -72),
+      final moveControl = find.byKey(const ValueKey('composer-move-control'));
+      expect(find.byTooltip('Drag composer'), findsOneWidget);
+      expect(
+        tester.getRect(moveControl).right,
+        lessThanOrEqualTo(
+          tester.getRect(find.byKey(const ValueKey('composer-minimize'))).left,
+        ),
       );
+      await tester.drag(moveControl, const Offset(-48, -72));
       await tester.pump();
 
       final moved = tester.getRect(find.byType(ComposerPanel));
