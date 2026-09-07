@@ -118,13 +118,16 @@ final class PreferencesController extends FrameSafeNotifier {
     final active = _loadTasks[instance.url];
     if (active != null) return active;
 
-    late final Future<void> task;
-    task = _load(instance, identity).whenComplete(() {
-      if (identical(_loadTasks[instance.url], task)) {
-        final _ = _loadTasks.remove(instance.url);
-      }
-    });
+    final completion = Completer<void>();
+    final task = completion.future;
     _loadTasks[instance.url] = task;
+    completion.complete(
+      _load(instance, identity).whenComplete(() {
+        if (identical(_loadTasks[instance.url], task)) {
+          final _ = _loadTasks.remove(instance.url);
+        }
+      }),
+    );
     return task;
   }
 
@@ -163,14 +166,18 @@ final class PreferencesController extends FrameSafeNotifier {
       final preferences = await _operations.read(
         owner: api,
         key: lane,
-        operation: () => api.loadUserPreferences(
-          siteUrl: siteUrl,
-          apiKey: session.apiKey,
-          clientId: session.clientId,
-          username: instance.user!.username,
-        ),
+        operation: () async {
+          if (!_isCurrentLoad(lease, lane, request)) return null;
+          return api.loadUserPreferences(
+            siteUrl: siteUrl,
+            apiKey: session.apiKey,
+            clientId: session.clientId,
+            username: instance.user!.username,
+          );
+        },
       );
-      if (!_isCurrentLoad(lease, lane, request) ||
+      if (preferences == null ||
+          !_isCurrentLoad(lease, lane, request) ||
           (_revisions[lane] ?? 0) != revision) {
         return;
       }
@@ -243,6 +250,8 @@ final class PreferencesController extends FrameSafeNotifier {
     final draft = state?.draft;
     final confirmed = state?.confirmed;
     if (state == null ||
+        state.accountIdentity !=
+            _accountIdentity(instance.user!.id, instance.user!.username) ||
         draft == null ||
         confirmed == null ||
         !_canEditSection(draft, section) ||

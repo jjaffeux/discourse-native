@@ -37,6 +37,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
 
   ShellController? _shell;
   PreferencesController? _preferences;
+  bool _hydrationScheduled = false;
   PreferenceSection _selectedSection = PreferenceSection.notifications;
 
   @override
@@ -83,6 +84,19 @@ class _PreferencesPageState extends State<PreferencesPage> {
     unawaited(shell.preferences.load(instance, refresh: refresh));
   }
 
+  void _scheduleHydration() {
+    if (_hydrationScheduled) return;
+    _hydrationScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hydrationScheduled = false;
+      if (!mounted) return;
+      final shell = _shell;
+      if (shell != null && shell.preferences.stateFor(widget.siteUrl) == null) {
+        _hydrate(shell);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.identityOf(context);
@@ -114,6 +128,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
           message: 'Reconnect to this forum to load preferences.',
         );
       }
+      if (state == null) _scheduleHydration();
       return _LoadingPreferences(host: instance.host);
     }
 

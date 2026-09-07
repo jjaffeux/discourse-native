@@ -460,6 +460,10 @@ no idempotency guarantee. Local revisions prevent an older read or response
 from replacing newer form input, and every credential read, request and commit
 is guarded by the site's lifecycle lease. Disconnecting, removing a forum, or
 rotating the account forgets the controller state and invalidates late work.
+Loads register before announcing progress so reentrant callers join the same
+result, and queued reads recheck ownership when their turn starts. Save actions
+must match the loaded account. A mounted page reloads forgotten state after
+the current frame, allowing account renewal without leaving a permanent spinner.
 Discourse's validation messages are shown as returned, while permission,
 network and rate-limit failures remain retryable without discarding edits.
 
