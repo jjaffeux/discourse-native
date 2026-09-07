@@ -152,11 +152,10 @@ class _PostReactionButtonState extends State<PostReactionButton> {
           current.canReact &&
           !_busy &&
           !controller.writeInFlight(widget.siteUrl, widget.post.id);
-      final icon = mine == null
-          ? DIcons.byName['far-${settings.likeIcon}'] ??
-                DIcons.byName[settings.likeIcon] ??
-                DIcons.farHeart
-          : DIcons.byName[settings.likeIcon] ?? DIcons.heart;
+      final icon =
+          DIcons.byName['far-${settings.likeIcon}'] ??
+          DIcons.byName[settings.likeIcon] ??
+          DIcons.farHeart;
       final label = mine == null
           ? 'Add reaction'
           : 'Remove your $mine reaction';
@@ -211,7 +210,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
                         child: SizedBox.square(
                           dimension: ReactionGrid.cell,
                           child: Center(
-                            child: mine != null && mine != settings.mainReaction
+                            child: mine != null
                                 ? EmojiImage(
                                     url: controller.emojiUrlFor(
                                       widget.siteUrl,
@@ -223,9 +222,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
                                 : DIcon(
                                     icon,
                                     size: 24,
-                                    color: mine != null
-                                        ? theme.colorScheme.primary
-                                        : theme.colorScheme.onSurfaceVariant,
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
                           ),
                         ),

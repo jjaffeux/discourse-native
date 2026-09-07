@@ -570,6 +570,12 @@ void _registerReactionAndLikeTests() {
       expect(find.byType(PostLikes), findsNothing);
       expect(pill('5'), findsOneWidget);
       expect(pill('2'), findsOneWidget);
+      expect(
+        tester.getRect(find.byType(PostReactionButton)).left,
+        greaterThan(
+          tester.getRect(find.bySemanticsLabel('2 clap reactions')).right,
+        ),
+      );
       // And no grand total beside them — it is not their sum and can exceed it.
       expect(pill('7'), findsNothing);
     });
@@ -780,14 +786,23 @@ void _registerReactionAndLikeTests() {
       await tester.pumpAndSettle();
 
       expect(api.reacted, [(postId: 1, reaction: 'clap')]);
-      expect(icon(), DIcons.star);
+      expect(
+        tester
+            .widget<EmojiImage>(
+              find.descendant(of: button, matching: find.byType(EmojiImage)),
+            )
+            .alt,
+        ':clap:',
+      );
       expect(
         find.bySemanticsLabel('Remove your clap reaction'),
         findsOneWidget,
       );
       expect(
-        tester.getRect(button).right,
-        lessThan(tester.getRect(find.bySemanticsLabel('1 clap reaction')).left),
+        tester.getRect(button).left,
+        greaterThan(
+          tester.getRect(find.bySemanticsLabel('1 clap reaction')).right,
+        ),
       );
 
       await tester.tap(button);

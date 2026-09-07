@@ -53,14 +53,6 @@ class ReactionsRow extends StatelessWidget {
     final writeInFlight = controller?.writeInFlight(siteUrl, post.id) == true;
     return ReactionPills(
       children: [
-        if (post.canReact && controller != null && emoji != null)
-          PostReactionButton(
-            key: ValueKey('post-reaction-button-${post.id}'),
-            controller: controller,
-            emoji: emoji,
-            siteUrl: siteUrl,
-            post: post,
-          ),
         for (final entry in reactions.entries)
           ReactionPill(
             key: ValueKey('post-reaction-${post.id}-${entry.id}'),
@@ -89,6 +81,14 @@ class ReactionsRow extends StatelessWidget {
                     filter: entry.id,
                     controller: controller,
                   ),
+          ),
+        if (post.canReact && controller != null && emoji != null)
+          PostReactionButton(
+            key: ValueKey('post-reaction-button-${post.id}'),
+            controller: controller,
+            emoji: emoji,
+            siteUrl: siteUrl,
+            post: post,
           ),
       ],
     );
