@@ -23,6 +23,87 @@ const _memberError = "Couldn't load this channel's members.";
 
 void main() {
   group('ChatChannelInfoView members', () {
+    testWidgets('advances by server rows after filtering malformed members', (
+      tester,
+    ) async {
+      final api = _MemberApi({
+        _pageKey(): _page([1], rowCount: 20, more: true),
+        _pageKey(offset: 20): _page([21]),
+      });
+      await _pumpMembers(tester, api);
+
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+
+      expect(_requests(api), [('', 0), ('', 20)]);
+      expect(_visibleMembers(tester), ['member1', 'member21']);
+      expect(find.text('Load more'), findsNothing);
+    });
+
+    testWidgets('pages and retries while all received members are filtered', (
+      tester,
+    ) async {
+      final api = _MemberApi({
+        _pageKey(): _page([], rowCount: 20, more: true),
+        _pageKey(offset: 20): _page([], rowCount: 20, more: true),
+        _pageKey(offset: 40): _page([41]),
+      })..failures[_pageKey(offset: 20)] = StateError('offline');
+      await _pumpMembers(tester, api);
+
+      expect(find.text('No members.'), findsNothing);
+      expect(find.text('Load more').hitTestable(), findsOneWidget);
+      expect(_requests(api), [('', 0)]);
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(_memberError), findsOneWidget);
+      expect(find.text('Retry').hitTestable(), findsOneWidget);
+      expect(_requests(api), [('', 0), ('', 20)]);
+      api.failures.clear();
+      final gate = _holdPage(api, offset: 20);
+      await tester.tap(find.text('Retry'));
+      await tester.pump();
+
+      expect(find.text(_memberError), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(_requests(api), [('', 0), ('', 20), ('', 20)]);
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.text('No members.'), findsNothing);
+      expect(find.text('Load more').hitTestable(), findsOneWidget);
+      expect(_requests(api), [('', 0), ('', 20), ('', 20)]);
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+
+      expect(_visibleMembers(tester), ['member41']);
+      expect(find.text('Load more'), findsNothing);
+      expect(_requests(api), [('', 0), ('', 20), ('', 20), ('', 40)]);
+    });
+
+    for (final terminal in [
+      (rowCount: 1, more: false),
+      (rowCount: 0, more: true),
+    ]) {
+      testWidgets('stops an initially empty page with $terminal', (
+        tester,
+      ) async {
+        final api = _MemberApi({
+          _pageKey(): _page(
+            [],
+            rowCount: terminal.rowCount,
+            more: terminal.more,
+          ),
+        });
+        await _pumpMembers(tester, api);
+
+        expect(find.text('No members.'), findsOneWidget);
+        expect(find.text('Load more'), findsNothing);
+        expect(find.text('Retry'), findsNothing);
+        expect(_requests(api), [('', 0)]);
+      });
+    }
+
     testWidgets('advances past overlapping and all-duplicate pages', (
       tester,
     ) async {
@@ -295,8 +376,13 @@ String _pageKey({String username = '', int offset = 0}) =>
       offset: offset,
     );
 
-ChatChannelMembersPage _page(List<int> ids, {bool more = false}) => (
+ChatChannelMembersPage _page(
+  List<int> ids, {
+  int? rowCount,
+  bool more = false,
+}) => (
   members: [for (final id in ids) ChatUser(id: id, username: 'member$id')],
+  rowCount: rowCount ?? ids.length,
   totalRows: 100,
   canLoadMore: more,
 );

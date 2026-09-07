@@ -31,6 +31,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   Timer? _filterTimer;
   Object? _request;
   List<ChatChannel> _channels = const [];
+  int _nextOffset = 0;
   ChatChannelBrowseStatus _status = ChatChannelBrowseStatus.all;
   ChatChannelJoinedFilter _joined = ChatChannelJoinedFilter.all;
   bool _loading = true;
@@ -95,16 +96,18 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     setState(() {
       if (reset) {
         _loading = true;
+        _nextOffset = 0;
         _error = null;
       } else {
         _loadingMore = true;
       }
     });
+    final offset = _nextOffset;
     final result = await _chat.fetchBrowseChannels(
       widget.siteUrl,
       filter: _filterController.text,
       status: _status,
-      offset: reset ? 0 : _channels.length,
+      offset: offset,
     );
     if (!mounted || !identical(_request, token)) return;
     setState(() {
@@ -112,10 +115,11 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
       _loadingMore = false;
       _error = result.error;
       if (result.page case final page?) {
+        _nextOffset = offset + page.rowCount;
         _channels = reset
             ? page.channels
             : List.unmodifiable([..._channels, ...page.channels]);
-        _hasMore = page.hasMore;
+        _hasMore = page.hasMore && page.rowCount > 0;
       } else if (reset) {
         _channels = const [];
         _hasMore = false;

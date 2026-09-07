@@ -411,7 +411,11 @@ class ChatChannels {
 
 @immutable
 class ChatChannelBrowsePage {
-  const ChatChannelBrowsePage({this.channels = const [], this.hasMore = false});
+  const ChatChannelBrowsePage({
+    this.channels = const [],
+    this._rowCount,
+    this.hasMore = false,
+  });
 
   static const int pageSize = 25;
 
@@ -420,20 +424,27 @@ class ChatChannelBrowsePage {
     String siteUrl, {
     int limit = pageSize,
   }) {
+    final rows = jsonArray(json['channels']).take(limit).toList();
     final channels = List<ChatChannel>.unmodifiable([
-      for (final entry in jsonObjects(json['channels']).take(limit))
+      for (final entry in jsonObjects(rows))
         ChatChannel.fromJson(entry, siteUrl),
     ]);
     return ChatChannelBrowsePage(
       channels: channels,
+      rowCount: rows.length,
       // Older serializers emitted load-more URLs even on short terminal pages.
       hasMore:
-          channels.length == limit &&
+          rows.length == limit &&
           jsonText(jsonObject(json['meta'])['load_more_url']) != null,
     );
   }
 
   final List<ChatChannel> channels;
+  final int? _rowCount;
+
+  /// Server rows consumed, including rows skipped during decoding.
+  int get rowCount => _rowCount ?? channels.length;
+
   final bool hasMore;
 }
 
@@ -444,6 +455,7 @@ typedef ChatChannelBrowseResult = ({
 
 typedef ChatChannelMembersPage = ({
   List<ChatUser> members,
+  int rowCount,
   int totalRows,
   bool canLoadMore,
 });

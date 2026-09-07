@@ -4224,11 +4224,13 @@ void _registerChatShellTests() {
               ChatUser(id: 2, username: 'sam', name: 'Sam'),
               ChatUser(id: 3, username: 'hawk', name: 'Hawk'),
             ],
+            rowCount: 2,
             totalRows: 2,
             canLoadMore: false,
           ),
           FakeDiscourseApi.chatChannelMembersKey(9, username: 'ha'): (
             members: const [ChatUser(id: 3, username: 'hawk', name: 'Hawk')],
+            rowCount: 1,
             totalRows: 3,
             canLoadMore: false,
           ),
@@ -4360,6 +4362,7 @@ void _registerChatShellTests() {
             ChatUser(id: 3, username: 'hawk', name: 'Hawk'),
             ChatUser(id: 4, username: 'kris', name: 'Kris'),
           ],
+          rowCount: 3,
           totalRows: 3,
           canLoadMore: false,
         );
@@ -4415,6 +4418,7 @@ void _registerChatShellTests() {
           chatChannelMemberPagesByKey: {
             FakeDiscourseApi.chatChannelMembersKey(9): (
               members: const [],
+              rowCount: 0,
               totalRows: 0,
               canLoadMore: false,
             ),
@@ -4481,6 +4485,7 @@ void _registerChatShellTests() {
           chatChannelMemberPagesByKey: {
             FakeDiscourseApi.chatChannelMembersKey(9): (
               members: const [],
+              rowCount: 0,
               totalRows: 0,
               canLoadMore: false,
             ),
@@ -4544,6 +4549,7 @@ void _registerChatShellTests() {
           chatChannelMemberPagesByKey: {
             FakeDiscourseApi.chatChannelMembersKey(9): (
               members: const [],
+              rowCount: 0,
               totalRows: 0,
               canLoadMore: false,
             ),
@@ -4602,6 +4608,7 @@ void _registerChatShellTests() {
           chatChannelMemberPagesByKey: {
             FakeDiscourseApi.chatChannelMembersKey(9): (
               members: const [],
+              rowCount: 0,
               totalRows: 0,
               canLoadMore: false,
             ),
