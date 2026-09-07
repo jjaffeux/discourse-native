@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/plugin_transport.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -115,12 +117,102 @@ void main() {
     ]);
     expect(transport.writes.single.path, '/edit-directory-columns.json');
   });
+
+  test('forgotten metadata cannot repopulate a replacement account', () async {
+    final transport = _ControllerTransport();
+    final metadataStarted = Completer<void>();
+    final oldMetadata = Completer<Map<String, dynamic>>();
+    transport.nextColumns = () {
+      metadataStarted.complete();
+      return oldMetadata.future;
+    };
+    final controller = UserDirectoryController(
+      api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+      credentials: const _Credentials(),
+      lifecycle: SiteLifecycle(),
+    );
+    addTearDown(controller.dispose);
+    const instance = DiscourseInstance(
+      url: 'https://example.com',
+      title: 'Example',
+      user: DiscourseUser(username: 'former-account', groups: ['private']),
+    );
+
+    final loading = controller.load(instance);
+    await metadataStarted.future;
+    controller.forget(instance.url);
+    oldMetadata.complete(const {
+      'directory_columns': [
+        {'id': 9, 'name': 'former-column', 'type': 'plugin'},
+      ],
+    });
+    await loading;
+
+    expect(controller.stateFor(instance.url).columns, isEmpty);
+    expect(controller.stateFor(instance.url).groupNames, isEmpty);
+    expect(transport.requests, [
+      '/directory-columns.json',
+      '/groups.json?order=name&asc=true',
+    ]);
+
+    await controller.load(
+      instance.copyWith(user: const DiscourseUser(username: 'replacement')),
+    );
+    final replacement = controller.stateFor(instance.url);
+    expect(replacement.columns.map((column) => column.name), [
+      'likes_received',
+    ]);
+    expect(replacement.groupNames, ['design']);
+  });
+
+  test('updating columns invalidates cached directory queries', () async {
+    final transport = _ControllerTransport();
+    final controller = UserDirectoryController(
+      api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+      credentials: const _Credentials(),
+      lifecycle: SiteLifecycle(),
+    );
+    addTearDown(controller.dispose);
+    const instance = DiscourseInstance(
+      url: 'https://example.com',
+      title: 'Example',
+      user: DiscourseUser(username: 'admin', staff: true),
+    );
+
+    await controller.load(instance);
+    controller.replaceQuery(
+      instance.url,
+      const UserDirectoryQuery(search: 'sam'),
+    );
+    await controller.load(instance);
+    final columns = controller.stateFor(instance.url).availableColumns;
+    expect(
+      await controller.updateColumns(instance, [
+        for (final column in columns)
+          column.name == 'solutions' ? column.copyWith(enabled: true) : column,
+      ]),
+      isTrue,
+    );
+
+    controller.replaceQuery(instance.url, const UserDirectoryQuery());
+    await controller.load(instance);
+
+    expect(
+      controller.stateFor(instance.url).columns.map((column) => column.name),
+      ['likes_received', 'solutions'],
+    );
+    expect(
+      Uri.parse(transport.requests.last).queryParameters['plugin_column_ids'],
+      '9',
+    );
+  });
 }
 
 final class _ControllerTransport implements PluginApiTransport {
   final List<String> requests = [];
   final List<({String path, Map<String, Object?> body})> writes = [];
   final Map<int, bool> columnEnabled = {1: true, 9: false, 14: false};
+  Future<Map<String, dynamic>> Function()? nextColumns;
 
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -131,6 +223,12 @@ final class _ControllerTransport implements PluginApiTransport {
   }) async {
     requests.add(path);
     final uri = Uri.parse(path);
+    if (nextColumns case final load?
+        when uri.path == '/directory-columns.json' ||
+            uri.path == '/edit-directory-columns.json') {
+      nextColumns = null;
+      return load();
+    }
     if (uri.path == '/edit-directory-columns.json') {
       return {
         'directory_columns': [

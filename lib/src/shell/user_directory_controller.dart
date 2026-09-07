@@ -184,6 +184,7 @@ final class UserDirectoryController extends FrameSafeNotifier {
     bool refresh = false,
     bool more = false,
   }) async {
+    if (isDisposed) return;
     final query = queryFor(instance.url);
     final key = (siteUrl: instance.url, query: query);
     final held = stateFor(instance.url, query);
@@ -329,13 +330,16 @@ final class UserDirectoryController extends FrameSafeNotifier {
       if (!isCurrent()) return false;
 
       _metadata.remove(instance.url);
-      for (final key
-          in _requests.keys
-              .where((key) => key.siteUrl == instance.url)
-              .toList()) {
-        _requests.remove(key);
-        _leases.remove(key);
-      }
+      _metadataLoads.remove(instance.url)?.ignore();
+      // Every query was decoded against the previous column configuration.
+      // Retain only the visible rows while refreshing them, so returning to
+      // another filter cannot revive its old columns or plugin field values.
+      final currentQuery = queryFor(instance.url);
+      _states.removeWhere(
+        (key, _) => key.siteUrl == instance.url && key.query != currentQuery,
+      );
+      _requests.removeWhere((key, _) => key.siteUrl == instance.url);
+      _leases.removeWhere((key, _) => key.siteUrl == instance.url);
       await load(instance, refresh: true);
       return isCurrent();
     } catch (error, stackTrace) {
@@ -377,7 +381,11 @@ final class UserDirectoryController extends FrameSafeNotifier {
     _metadataLoads[instance.url] = future;
     try {
       final loaded = await future;
-      if (!isDisposed && lease.isCurrent) _metadata[instance.url] = loaded;
+      if (!isDisposed &&
+          lease.isCurrent &&
+          identical(_metadataLoads[instance.url], future)) {
+        _metadata[instance.url] = loaded;
+      }
       return loaded;
     } finally {
       if (identical(_metadataLoads[instance.url], future)) {
