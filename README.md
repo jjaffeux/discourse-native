@@ -614,6 +614,13 @@ Column widths persist per forum. Search timers, visible-column choices, and
 column-management dialogs belong to the forum and account that opened them;
 a pending interaction cannot carry its values into a replacement page.
 
+Hover updates only the affected row backgrounds across the pinned identity
+and scrolling metric columns. The lazy lists keep their row contents, and
+column maxima stay with the current data snapshot through search edits,
+resizing, theme changes, and column visibility choices. Appending or replacing
+rows, changing configured columns, or switching query, forum, or account
+recomputes those maxima without retaining previous snapshots.
+
 ### Groups
 
 `/g` and `/g/:name` are native, restorable routes. The directory owns its

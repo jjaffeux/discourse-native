@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
@@ -7,6 +8,7 @@ import 'package:discourse_native/src/shell/user_directory_controller.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -61,6 +63,362 @@ const _hawk = UserDirectoryItem(
 );
 
 void main() {
+  testWidgets('directory hover updates only the affected row backgrounds', (
+    tester,
+  ) async {
+    final items = _countedItems();
+    await _pump(
+      tester,
+      UsersPage(
+        siteUrl: 'https://example.com',
+        data: UsersPageData(
+          items: items,
+          columns: _countedColumns,
+          currentUsername: 'USER2',
+          loaded: true,
+        ),
+      ),
+      size: const Size(1100, 820),
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(1, 1));
+    addTearDown(mouse.removePointer);
+    await tester.pump();
+    final stableWidgets = [
+      for (final key in [
+        'users-toolbar',
+        'users-search',
+        'users-metric-column-width-1',
+        'user-avatar-user0',
+        'user-identity-background-user5',
+        'user-metrics-background-user5',
+      ])
+        (key, tester.widget(find.byKey(ValueKey(key)))),
+    ];
+    for (final item in items) {
+      (item.values as _CountingValues).reads = 0;
+    }
+    for (var index = 0; index < 5; index++) {
+      await mouse.moveTo(
+        tester.getCenter(find.byKey(ValueKey('user-row-user$index'))),
+      );
+      await tester.pump();
+      expect(_rowColors(tester, 'user$index'), [
+        AppTheme.light.shell.hover,
+        AppTheme.light.shell.hover,
+      ]);
+    }
+    final reads = items.fold<int>(
+      0,
+      (total, item) => total + (item.values as _CountingValues).reads,
+    );
+    expect(reads, 0, reason: '1000 users, 5 metrics, 5 mouse moves');
+    for (final (key, widget) in stableWidgets) {
+      expect(
+        tester.widget(find.byKey(ValueKey(key))),
+        same(widget),
+        reason: key,
+      );
+    }
+    expect(_rowColors(tester, 'user2'), [
+      AppTheme.light.colorScheme.tertiaryContainer,
+      AppTheme.light.colorScheme.tertiaryContainer,
+    ]);
+    await mouse.moveTo(const Offset(1, 1));
+    await tester.pump();
+    expect(_rowColors(tester, 'user4'), [
+      AppTheme.light.shell.content,
+      AppTheme.light.shell.content,
+    ]);
+  });
+
+  testWidgets(
+    'hover follows split scrolling and theme changes with lazy rows',
+    (tester) async {
+      final items = _countedItems();
+      var theme = AppTheme.light;
+      late StateSetter update;
+      await _pump(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return Theme(
+              data: theme,
+              child: UsersPage(
+                siteUrl: 'https://example.com',
+                data: UsersPageData(
+                  items: items,
+                  columns: _countedColumns,
+                  currentUsername: 'user21',
+                  loaded: true,
+                ),
+              ),
+            );
+          },
+        ),
+        size: const Size(700, 700),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      final firstRow = find.byKey(const ValueKey('user-row-user0'));
+      await mouse.addPointer(location: tester.getCenter(firstRow));
+      addTearDown(mouse.removePointer);
+      await tester.pump();
+      final identity = tester.widget<ListView>(
+        find.byKey(const PageStorageKey('users-identity-scroll')),
+      );
+      final metrics = tester.widget<ListView>(
+        find.byKey(const PageStorageKey('users-metrics-scroll')),
+      );
+      identity.controller!.jumpTo(56 * 20);
+      await tester.pumpAndSettle();
+      expect(metrics.controller!.offset, identity.controller!.offset);
+      expect(firstRow, findsNothing);
+      expect(find.byKey(const ValueKey('user-row-user999')), findsNothing);
+      expect(_rowColors(tester, 'user20'), [
+        theme.shell.hover,
+        theme.shell.hover,
+      ]);
+      final row = find.byKey(const ValueKey('user-row-user20'));
+      final metricRow = find.byKey(
+        const ValueKey('user-metrics-background-user20'),
+      );
+      final identityPosition = tester.getTopLeft(row);
+      expect(tester.getTopLeft(metricRow).dy, identityPosition.dy);
+
+      await mouse.moveTo(tester.getTopLeft(metricRow) + const Offset(30, 28));
+      await tester.pump();
+      expect(_rowColors(tester, 'user20'), [
+        theme.shell.hover,
+        theme.shell.hover,
+      ]);
+      final horizontal = tester.widget<SingleChildScrollView>(
+        find.descendant(
+          of: find.byKey(const ValueKey('users-table')),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal,
+          ),
+        ),
+      );
+      final metricLeft = tester.getTopLeft(metricRow).dx;
+      horizontal.controller!.jumpTo(100);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(row), identityPosition);
+      expect(tester.getTopLeft(metricRow).dx, metricLeft - 100);
+      expect(_rowColors(tester, 'user20'), [
+        theme.shell.hover,
+        theme.shell.hover,
+      ]);
+
+      update(() => theme = AppTheme.dark);
+      await tester.pumpAndSettle();
+      expect(_rowColors(tester, 'user20'), [
+        theme.shell.hover,
+        theme.shell.hover,
+      ]);
+      expect(_rowColors(tester, 'user21'), [
+        theme.colorScheme.tertiaryContainer,
+        theme.colorScheme.tertiaryContainer,
+      ]);
+      await mouse.moveTo(const Offset(1, 1));
+      await tester.pump();
+      expect(_rowColors(tester, 'user20'), [
+        theme.shell.content,
+        theme.shell.content,
+      ]);
+      metrics.controller!.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(identity.controller!.offset, 0);
+      expect(_rowColors(tester, 'user0'), [
+        theme.shell.content,
+        theme.shell.content,
+      ]);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final change in [
+    'page append',
+    'refresh',
+    'query',
+    'forum',
+    'account',
+    'column definition',
+    'column addition',
+  ]) {
+    testWidgets('metric bars use the new maxima after $change', (tester) async {
+      const first = UserDirectoryItem(
+        id: 1,
+        user: UserDirectoryUser(id: 1, username: 'first'),
+        values: {'likes_received': 10, 'post_count': 40},
+      );
+      const second = UserDirectoryItem(
+        id: 2,
+        user: UserDirectoryUser(id: 2, username: 'second'),
+        values: {'likes_received': 20, 'post_count': 50},
+      );
+      var items = [first, second];
+      var columns = [_likes];
+      var query = const UserDirectoryQuery();
+      var site = 'https://example.com';
+      var account = 'first';
+      late StateSetter update;
+      await _pump(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return UsersPage(
+              siteUrl: site,
+              data: UsersPageData(
+                items: items,
+                columns: columns,
+                currentUsername: account,
+                query: query,
+                loaded: true,
+              ),
+            );
+          },
+        ),
+      );
+      expect(_barWidths(tester, 'first'), [.5]);
+      if (['query', 'forum', 'account'].contains(change)) {
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(
+          location: tester.getCenter(
+            find.byKey(const ValueKey('user-row-first')),
+          ),
+        );
+        addTearDown(mouse.removePointer);
+        await tester.pump();
+        expect(_rowColors(tester, 'first'), [
+          AppTheme.light.shell.hover,
+          AppTheme.light.shell.hover,
+        ]);
+      }
+      var expected = [.25];
+      update(() {
+        switch (change) {
+          case 'page append':
+            items = [
+              ...items,
+              const UserDirectoryItem(
+                id: 3,
+                user: UserDirectoryUser(id: 3, username: 'third'),
+                values: {'likes_received': 40},
+              ),
+            ];
+          case 'column definition':
+            columns = [
+              const UserDirectoryColumn(
+                id: 1,
+                name: 'post_count',
+                type: UserDirectoryColumnType.plugin,
+                position: 1,
+              ),
+            ];
+            expected = [.8];
+          case 'column addition':
+            columns = [_likes, _replies];
+            expected = [.5, .8];
+          default:
+            if (change == 'query') {
+              query = const UserDirectoryQuery(
+                period: UserDirectoryPeriod.daily,
+              );
+            }
+            if (change == 'forum') site = 'https://another.example';
+            if (change == 'account') account = 'second';
+            items = [
+              first,
+              UserDirectoryItem(
+                id: second.id,
+                user: second.user,
+                values: const {'likes_received': 40},
+              ),
+            ];
+        }
+      });
+      await tester.pump();
+      expect(_barWidths(tester, 'first'), expected);
+      expect(_rowColors(tester, account), [
+        AppTheme.light.colorScheme.tertiaryContainer,
+        AppTheme.light.colorScheme.tertiaryContainer,
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('unchanged metrics reuse maxima through directory interactions', (
+    tester,
+  ) async {
+    final items = _countedItems();
+    final offscreenValues = items.last.values as _CountingValues;
+    var loadingMore = false;
+    var theme = AppTheme.light;
+    late StateSetter update;
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return Theme(
+            data: theme,
+            child: UsersPage(
+              siteUrl: 'https://example.com',
+              data: UsersPageData(
+                items: List.of(items),
+                columns: List.of(_countedColumns),
+                loadingMore: loadingMore,
+                loaded: true,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    expect(offscreenValues.reads, 5);
+    offscreenValues.reads = 0;
+    await tester.enterText(
+      find.byKey(const ValueKey('users-search')),
+      'person',
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(offscreenValues.reads, 0, reason: 'typing');
+    await tester.drag(
+      find.byKey(const ValueKey('users-resize-1-handle')),
+      const Offset(60, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(offscreenValues.reads, 0, reason: 'resizing');
+    update(() {
+      loadingMore = true;
+      theme = AppTheme.dark;
+    });
+    await tester.pumpAndSettle();
+    expect(offscreenValues.reads, 0, reason: 'loading feedback and theme');
+    await tester.tap(find.byKey(const ValueKey('users-columns')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('users-column-2')));
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('Metric1'), findsNothing);
+    expect(offscreenValues.reads, 0, reason: 'hiding a column');
+    await tester.tap(find.byKey(const ValueKey('users-columns')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('users-column-2')));
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('Metric1'), findsOneWidget);
+    expect(offscreenValues.reads, 0, reason: 'showing a column');
+    expect(_barWidths(tester, 'user1'), [
+      for (var metric = 0; metric < 5; metric++) .06,
+    ]);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'Matrix supports search, periods, sorting, columns, and omits selection',
     (tester) async {
@@ -901,6 +1259,78 @@ void main() {
     expect(refreshes, 0);
     expect(tester.takeException(), isNull);
   });
+}
+
+final _countedColumns = [
+  for (var index = 0; index < 5; index++)
+    UserDirectoryColumn(
+      id: index + 1,
+      name: 'metric$index',
+      type: UserDirectoryColumnType.automatic,
+      position: index,
+    ),
+];
+
+List<UserDirectoryItem> _countedItems() => [
+  for (var index = 0; index < 1000; index++)
+    UserDirectoryItem(
+      id: index + 1,
+      user: UserDirectoryUser(id: index + 1, username: 'user$index'),
+      values: _CountingValues({
+        for (var metric = 0; metric < 5; metric++)
+          'metric$metric': index + metric,
+      }),
+    ),
+];
+
+List<Color?> _rowColors(WidgetTester tester, String username) => [
+  (tester
+              .widget<Container>(
+                find.byKey(ValueKey('user-identity-background-$username')),
+              )
+              .decoration!
+          as BoxDecoration)
+      .color,
+  tester
+      .widget<ColoredBox>(
+        find.byKey(ValueKey('user-metrics-background-$username')),
+      )
+      .color,
+];
+
+List<double?> _barWidths(WidgetTester tester, String username) => [
+  for (final bar in tester.widgetList<FractionallySizedBox>(
+    find.descendant(
+      of: find.byKey(ValueKey('user-metrics-background-$username')),
+      matching: find.byType(FractionallySizedBox),
+    ),
+  ))
+    bar.widthFactor,
+];
+
+final class _CountingValues extends MapBase<String, Object?> {
+  _CountingValues(this._values);
+
+  final Map<String, Object?> _values;
+  int reads = 0;
+
+  @override
+  Object? operator [](Object? key) {
+    reads++;
+    return _values[key];
+  }
+
+  @override
+  void operator []=(String key, Object? value) => _values[key] = value;
+
+  @override
+  Iterable<String> get keys => _values.keys;
+
+  @override
+  void clear() => _values.clear();
+
+  @override
+  Object? remove(Object? key) => _values.remove(key);
 }
 
 Future<void> _pump(
