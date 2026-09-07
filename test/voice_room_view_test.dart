@@ -3,6 +3,9 @@ import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost, RecordingPluginLiveChannels;
+import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
@@ -17,6 +20,7 @@ import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
 import 'package:discourse_native/src/plugins/voice/voice_room_view.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
+import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_plugin_api/testing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +39,7 @@ void main() {
   _roomSurfaceTests();
   _directCallTests();
   _inviteTests();
+  _microphoneTests();
 
   group('room availability and layout', () {
     testWidgets('renders unavailable and empty states without a shell', (
@@ -726,6 +731,7 @@ void main() {
         final microphoneGate = Completer<void>();
         final microphoneStarted = Completer<void>();
         final nativeCalls = <String>[];
+        Object? microphoneConstraints;
         rtc.WebRTC.initialized = false;
         messenger.setMockStreamHandler(
           eventChannel,
@@ -734,6 +740,7 @@ void main() {
         messenger.setMockMethodCallHandler(webRtcChannel, (call) async {
           nativeCalls.add(call.method);
           if (call.method == 'getUserMedia') {
+            microphoneConstraints = call.arguments;
             microphoneStarted.complete();
             await microphoneGate.future;
             return <String, Object?>{
@@ -876,6 +883,16 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Microphone is available.'), findsOneWidget);
+        expect(microphoneConstraints, {
+          'constraints': {
+            'audio': {
+              'deviceId': 'microphone-2',
+              'echoCancellation': true,
+              'noiseSuppression': true,
+            },
+            'video': false,
+          },
+        });
         expect(nativeCalls, [
           'initialize',
           'getUserMedia',
@@ -2045,6 +2062,348 @@ void _meshPrivacyTests() {
   });
 }
 
+void _microphoneTests() {
+  group('microphone test', () {
+    late DiagnosticsController diagnostics;
+    late VoiceDiagnosticsController microphoneDiagnostics;
+    final harnesses = <_Harness>[];
+
+    Future<_Harness> open(WidgetTester tester) async {
+      final harness = await _openMicrophoneTest(tester, microphoneDiagnostics);
+      harnesses.add(harness);
+      return harness;
+    }
+
+    void testMicrophone(
+      String description,
+      Future<void> Function(WidgetTester) runTest,
+    ) {
+      testWidgets(description, (tester) async {
+        diagnostics = await DiagnosticsController.create(
+          persistence: MemoryDiagnosticsPersistence(),
+          sessionId: 'voice-microphone-test',
+        );
+        microphoneDiagnostics = await VoiceDiagnosticsController.create(
+          reporter: PluginDiagnosticsReporter.fixed(diagnostics),
+          persistence: MemoryVoiceDiagnosticsPersistence(),
+        );
+        try {
+          await runTest(tester);
+        } finally {
+          for (final harness in harnesses) {
+            await harness.controller.leave();
+          }
+          await tester.pumpWidget(const SizedBox.shrink());
+          for (final harness in harnesses) {
+            harness.dispose();
+          }
+          await tester.pump();
+          harnesses.clear();
+          await microphoneDiagnostics.close();
+          await diagnostics.close();
+        }
+      });
+    }
+
+    List<DiagnosticLogEvent> failures() => diagnostics.events
+        .whereType<DiagnosticLogEvent>()
+        .where((event) => event.name == 'microphone.test.failed')
+        .toList();
+
+    testMicrophone('handles permission denial and allows an explicit retry', (
+      tester,
+    ) async {
+      var denied = true;
+      final calls = _mockMicrophone(
+        tester,
+        beforeCall: (call) async {
+          if (call.method == 'getUserMedia' && denied) {
+            throw PlatformException(code: 'NotAllowedError', message: 'Denied');
+          }
+        },
+      );
+      await open(tester);
+      expect(calls, isEmpty);
+
+      await tester.tap(find.text('Test microphone'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.text("Couldn't test the microphone. Please try again."),
+        findsOneWidget,
+      );
+      expect(find.text('Microphone is available.'), findsNothing);
+      expect(find.text('Testing…'), findsNothing);
+      expect(calls.map((call) => call.method), ['initialize', 'getUserMedia']);
+      expect(
+        failures().single.attributes['operation'],
+        'voice.microphone.test.capture',
+      );
+      expect(failures().single.handled, isTrue);
+      expect(failures().single.severity, DiagnosticSeverity.warning);
+      expect(failures().single.source, 'voice');
+
+      denied = false;
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Test microphone'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Microphone is available.'), findsOneWidget);
+      expect(
+        calls.where((call) => call.method == 'getUserMedia'),
+        hasLength(2),
+      );
+      _expectMicrophoneReleased(calls);
+    });
+
+    for (final failure in [
+      (name: 'track cleanup', track: true, stream: false),
+      (name: 'stream disposal', track: false, stream: true),
+      (name: 'track cleanup and stream disposal', track: true, stream: true),
+    ]) {
+      testMicrophone(
+        'contains ${failure.name} failure and attempts all cleanup',
+        (tester) async {
+          final calls = _mockMicrophone(
+            tester,
+            beforeCall: (call) async {
+              if (failure.track &&
+                  call.method == 'trackDispose' &&
+                  (call.arguments as Map<Object?, Object?>)['trackId'] ==
+                      'microphone-test-track-1') {
+                throw PlatformException(code: 'TrackStopFailed');
+              }
+              if (failure.stream && call.method == 'streamDispose') {
+                throw PlatformException(code: 'StreamDisposeFailed');
+              }
+            },
+          );
+          await open(tester);
+
+          await tester.tap(find.text('Test microphone'));
+          await tester.pumpAndSettle();
+
+          expect(tester.takeException(), isNull);
+          _expectMicrophoneReleased(calls);
+          expect(find.text('Microphone is available.'), findsNothing);
+          expect(
+            find.text("Couldn't test the microphone. Please try again."),
+            findsOneWidget,
+          );
+          expect(find.text('Testing…'), findsNothing);
+          expect(failures().map((event) => event.attributes['operation']), [
+            if (failure.track) 'voice.microphone.test.stopTrack',
+            if (failure.stream) 'voice.microphone.test.disposeStream',
+          ]);
+          expect(failures().every((event) => event.handled), isTrue);
+          expect(
+            calls.where((call) => call.method == 'getUserMedia'),
+            hasLength(1),
+          );
+        },
+      );
+    }
+
+    testMicrophone('admits only one native request while busy', (tester) async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final calls = _mockMicrophone(
+        tester,
+        beforeCall: (call) async {
+          if (call.method == 'getUserMedia') await gate.future;
+        },
+      );
+      final harness = await open(tester);
+      await harness.controller.setMuted(true);
+      final button = tester.widget<DButton>(
+        find.widgetWithText(DButton, 'Test microphone'),
+      );
+      button.onPressed!();
+      button.onPressed!();
+      await tester.pump();
+
+      expect(find.text('Testing…'), findsOneWidget);
+      expect(
+        tester
+            .widget<DButton>(find.widgetWithText(DButton, 'Testing…'))
+            .onPressed,
+        isNull,
+      );
+      expect(
+        calls.where((call) => call.method == 'getUserMedia'),
+        hasLength(1),
+      );
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      _expectMicrophoneReleased(calls);
+      expect(find.text('Microphone is available.'), findsOneWidget);
+      expect(harness.media.sessions.single.muted, isTrue);
+      expect(failures(), isEmpty);
+    });
+
+    for (final retirement in [
+      'closing dialog',
+      'closed dialog',
+      'disposed room',
+      'disposed app',
+    ]) {
+      for (final denied in [false, true]) {
+        testMicrophone(
+          'suppresses late ${denied ? 'failure' : 'success'} for $retirement',
+          (tester) async {
+            final gate = Completer<void>();
+            addTearDown(() {
+              if (!gate.isCompleted) gate.complete();
+            });
+            final calls = _mockMicrophone(
+              tester,
+              beforeCall: (call) async {
+                if (call.method == 'getUserMedia') {
+                  await gate.future;
+                  if (denied) {
+                    throw PlatformException(
+                      code: 'NotAllowedError',
+                      message: 'Denied',
+                    );
+                  }
+                }
+              },
+            );
+            final harness = await open(tester);
+            await tester.tap(find.text('Test microphone'));
+            await tester.pump();
+            expect(
+              calls.where((call) => call.method == 'getUserMedia'),
+              hasLength(1),
+            );
+
+            switch (retirement) {
+              case 'closing dialog':
+              case 'closed dialog':
+                await tester.tap(find.text('Done'));
+                if (retirement == 'closed dialog') {
+                  await tester.pumpAndSettle();
+                } else {
+                  await tester.pump();
+                  expect(find.byType(AlertDialog), findsOneWidget);
+                }
+              case 'disposed room':
+                await tester.pumpWidget(
+                  _app(
+                    harness.controller,
+                    room: harness.controller.call!.room,
+                    call: harness.controller.call,
+                    showRoom: false,
+                  ),
+                );
+                expect(find.byType(VoiceRoomContent), findsNothing);
+                expect(find.byType(AlertDialog), findsOneWidget);
+              case 'disposed app':
+                await tester.pumpWidget(const SizedBox.shrink());
+            }
+
+            gate.complete();
+            await tester.pump();
+            expect(tester.takeException(), isNull);
+            expect(find.byType(SnackBar), findsNothing);
+            if (!denied) _expectMicrophoneReleased(calls);
+            expect(failures().map((event) => event.attributes['operation']), [
+              if (denied) 'voice.microphone.test.capture',
+            ]);
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pumpAndSettle();
+          },
+        );
+      }
+    }
+  });
+}
+
+Future<_Harness> _openMicrophoneTest(
+  WidgetTester tester,
+  VoiceDiagnosticsRecorder diagnostics,
+) async {
+  final room = _room(participants: const []);
+  final harness = _Harness(joinRoom: room, diagnostics: diagnostics);
+  addTearDown(harness.dispose);
+  await _join(harness, room);
+  await tester.pumpWidget(
+    _app(harness.controller, room: room, call: harness.controller.call),
+  );
+  await tester.tap(find.byTooltip('Media settings'));
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('Test microphone'));
+  await tester.pumpAndSettle();
+  return harness;
+}
+
+List<MethodCall> _mockMicrophone(
+  WidgetTester tester, {
+  Future<void> Function(MethodCall)? beforeCall,
+}) {
+  const channel = MethodChannel('FlutterWebRTC.Method');
+  const eventChannel = EventChannel('FlutterWebRTC.Event');
+  final messenger = tester.binding.defaultBinaryMessenger;
+  final calls = <MethodCall>[];
+  rtc.WebRTC.initialized = false;
+  messenger.setMockStreamHandler(
+    eventChannel,
+    const MockStreamHandler.inline(onListen: _ignoreEvents),
+  );
+  messenger.setMockMethodCallHandler(channel, (call) async {
+    calls.add(call);
+    await beforeCall?.call(call);
+    return switch (call.method) {
+      'initialize' || 'trackDispose' || 'streamDispose' => null,
+      'getUserMedia' => <String, Object?>{
+        'streamId': 'microphone-test-stream',
+        'audioTracks': [
+          for (final id in [
+            'microphone-test-track-1',
+            'microphone-test-track-2',
+          ])
+            <String, Object?>{
+              'id': id,
+              'label': 'Test microphone',
+              'kind': 'audio',
+              'enabled': true,
+              'settings': <String, Object?>{},
+            },
+        ],
+        'videoTracks': <Object?>[],
+      },
+      _ => throw UnsupportedError('Unexpected WebRTC call: ${call.method}'),
+    };
+  });
+  addTearDown(() {
+    rtc.WebRTC.initialized = false;
+    messenger.setMockMethodCallHandler(channel, null);
+    messenger.setMockStreamHandler(eventChannel, null);
+  });
+  return calls;
+}
+
+void _expectMicrophoneReleased(List<MethodCall> calls) {
+  final cleanup = calls
+      .where((call) => call.method.endsWith('Dispose'))
+      .toList();
+  expect(cleanup.map((call) => call.method), [
+    'trackDispose',
+    'trackDispose',
+    'streamDispose',
+  ]);
+  expect(cleanup.map((call) => call.arguments), [
+    {'trackId': 'microphone-test-track-1'},
+    {'trackId': 'microphone-test-track-2'},
+    {'streamId': 'microphone-test-stream'},
+  ]);
+}
+
 Future<_Harness> _pumpJoinedManagedRoom(WidgetTester tester) async {
   final activeRoom = _room(
     canManage: true,
@@ -2132,11 +2491,13 @@ Widget _app(
   bool autoStatusAvailable = false,
   String? inviteLink,
   VoiceController Function()? controllerResolver,
+  bool showRoom = true,
 }) => MaterialApp(
   home: Scaffold(
     body: ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
+        if (!showRoom) return const SizedBox.shrink();
         final active = followCall ? controller.call : call;
         return VoiceRoomContent(
           controller: controller,
@@ -2234,6 +2595,7 @@ final class _Harness {
     FakeChatConversationCapability? chatConversations,
     RecordingPluginLiveChannels? tracker,
     _SystemCall? systemCall,
+    VoiceDiagnosticsRecorder diagnostics = const NoopVoiceDiagnosticsRecorder(),
   }) : preferences = preferences ?? _Preferences(),
        chatConversations =
            chatConversations ?? FakeChatConversationCapability(),
@@ -2278,6 +2640,7 @@ final class _Harness {
       onCallSiteChanged: () {},
       mediaFactory: media,
       systemCall: systemCall ?? _SystemCall(),
+      diagnostics: diagnostics,
       preferences: this.preferences,
       heartbeatInterval: const Duration(days: 1),
     );

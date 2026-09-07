@@ -10,6 +10,7 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 
 import '../../theme/d_button.dart';
 import 'voice_controller.dart';
+import 'voice_diagnostics.dart';
 import 'voice_icons.dart';
 import 'voice_incoming_call.dart';
 import 'voice_join.dart';
@@ -1403,6 +1404,7 @@ Future<void> _showMediaSettings(
   var pushToTalk = controller.pushToTalkEnabled;
   var autoStatus = controller.autoStatusEnabled;
   var testing = false;
+  final ownerContext = context;
   await showDialog<void>(
     context: context,
     builder: (context) => StatefulBuilder(
@@ -1479,30 +1481,30 @@ Future<void> _showMediaSettings(
                   onPressed: testing
                       ? null
                       : () async {
+                          if (testing) return;
                           setState(() => testing = true);
                           try {
-                            final stream = await rtc.navigator.mediaDevices
-                                .getUserMedia({
-                                  'audio': {
-                                    'deviceId': ?input,
-                                    'echoCancellation': true,
-                                    'noiseSuppression': true,
-                                  },
-                                  'video': false,
-                                });
-                            for (final track in stream.getTracks()) {
-                              await track.stop();
-                            }
-                            await stream.dispose();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Microphone is available.'),
+                            final available = await _testMicrophone(
+                              input,
+                              controller.diagnostics,
+                            );
+                            if (ownerContext.mounted &&
+                                context.mounted &&
+                                ModalRoute.of(context)?.isCurrent == true) {
+                              ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    available
+                                        ? 'Microphone is available.'
+                                        : "Couldn't test the microphone. Please try again.",
+                                  ),
                                 ),
                               );
                             }
                           } finally {
-                            if (context.mounted) {
+                            if (ownerContext.mounted &&
+                                context.mounted &&
+                                ModalRoute.of(context)?.isActive == true) {
                               setState(() => testing = false);
                             }
                           }
@@ -1525,6 +1527,64 @@ Future<void> _showMediaSettings(
       ),
     ),
   );
+}
+
+Future<bool> _testMicrophone(
+  String? input,
+  VoiceDiagnosticsRecorder diagnostics,
+) async {
+  rtc.MediaStream? stream;
+  var available = true;
+
+  void failed(Object error, StackTrace stackTrace, String operation) {
+    available = false;
+    try {
+      diagnostics.record(
+        'microphone.test.failed',
+        component: 'media',
+        severity: DiagnosticSeverity.warning,
+        data: {'operation': operation, 'errorType': '${error.runtimeType}'},
+      );
+      diagnostics.recordRaw(
+        'microphone.test.failure_detail',
+        component: 'media',
+        severity: DiagnosticSeverity.warning,
+        message: error.toString(),
+        data: {'operation': operation, 'stackTrace': stackTrace.toString()},
+      );
+    } catch (_) {
+      // Diagnostics must not interrupt the remaining native cleanup.
+    }
+  }
+
+  try {
+    stream = await rtc.navigator.mediaDevices.getUserMedia({
+      'audio': {
+        'deviceId': ?input,
+        'echoCancellation': true,
+        'noiseSuppression': true,
+      },
+      'video': false,
+    });
+    for (final track in stream.getTracks()) {
+      try {
+        await track.stop();
+      } catch (error, stackTrace) {
+        failed(error, stackTrace, 'voice.microphone.test.stopTrack');
+      }
+    }
+  } catch (error, stackTrace) {
+    failed(error, stackTrace, 'voice.microphone.test.capture');
+  } finally {
+    if (stream != null) {
+      try {
+        await stream.dispose();
+      } catch (error, stackTrace) {
+        failed(error, stackTrace, 'voice.microphone.test.disposeStream');
+      }
+    }
+  }
+  return available;
 }
 
 String? _heldDevice(String? held, List<rtc.MediaDeviceInfo> devices) =>
