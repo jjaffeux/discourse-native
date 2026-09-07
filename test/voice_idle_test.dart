@@ -14,11 +14,14 @@ final class _Harness {
       afk: Duration(minutes: 15),
       disconnect: Duration(minutes: 30),
     ),
+    void Function(VoiceIdleState state)? onStateChanged,
   }) {
     tracker = VoiceIdleTracker(
       thresholds: () => thresholds,
-      onStateChanged: (state, {required wasAutoMuted}) =>
-          changes.add((state: state, wasAutoMuted: wasAutoMuted)),
+      onStateChanged: (state, {required wasAutoMuted}) {
+        changes.add((state: state, wasAutoMuted: wasAutoMuted));
+        onStateChanged?.call(state);
+      },
       onAutoMute: () => autoMutes++,
       onDisconnect: () => disconnects++,
       clock: scheduler.now,
@@ -100,6 +103,53 @@ void main() {
   });
 
   group('VoiceIdleTracker', () {
+    for (final restart in [false, true]) {
+      test(
+        'does not auto-mute when an away observer ${restart ? 'restarts' : 'stops'} the tracker',
+        () {
+          late final _Harness harness;
+          harness = _Harness(
+            onStateChanged: (state) {
+              if (state != VoiceIdleState.afk) return;
+              harness.tracker.stop();
+              if (restart) harness.tracker.start();
+            },
+          );
+          addTearDown(harness.tracker.stop);
+          harness.tracker.start();
+
+          harness.scheduler.advance(const Duration(minutes: 15));
+
+          expect(harness.autoMutes, 0);
+          expect(harness.tracker.wasAutoMuted, isFalse);
+          expect(harness.tracker.state, VoiceIdleState.active);
+          expect(harness.tracker.running, restart);
+          expect(harness.scheduler.activeTimerCount, restart ? 1 : 0);
+        },
+      );
+    }
+
+    test('activity during an away notification cancels the pending mute', () {
+      late final _Harness harness;
+      harness = _Harness(
+        onStateChanged: (state) {
+          if (state == VoiceIdleState.afk) harness.tracker.recordActivity();
+        },
+      );
+      addTearDown(harness.tracker.stop);
+      harness.tracker.start();
+
+      harness.scheduler.advance(const Duration(minutes: 15));
+
+      expect(harness.autoMutes, 0);
+      expect(harness.tracker.wasAutoMuted, isFalse);
+      expect(harness.changes.last, (
+        state: VoiceIdleState.active,
+        wasAutoMuted: false,
+      ));
+      expect(harness.scheduler.activeTimerCount, 1);
+    });
+
     test('climbs idle, away with an auto-mute, then disconnects', () {
       final harness = _Harness();
       harness.tracker.start();
