@@ -4,6 +4,8 @@ import 'dart:isolate';
 
 import 'package:vm_service/vm_service.dart' as vm;
 
+import 'topic_scroll_raster_profile.dart';
+
 typedef TopicCpuFrame = ({int frameNumber, int startUs, int endUs});
 
 typedef TopicCpuProfileCollector =
@@ -11,6 +13,7 @@ typedef TopicCpuProfileCollector =
       required int startUs,
       required int endUs,
       required List<TopicCpuFrame> slowFrames,
+      required List<TopicRasterFrame> slowRasterFrames,
     });
 
 /// Reads existing samples only on export. No profiler flags, buffers, or
@@ -19,6 +22,7 @@ Future<Map<String, Object?>> collectTopicCpuProfile({
   required int startUs,
   required int endUs,
   required List<TopicCpuFrame> slowFrames,
+  List<TopicRasterFrame> slowRasterFrames = const [],
 }) async {
   if (const bool.fromEnvironment('dart.vm.product')) {
     return const {'status': 'unavailable', 'reason': 'release-build'};
@@ -32,7 +36,14 @@ Future<Map<String, Object?>> collectTopicCpuProfile({
   // Keep the service URL, raw stacks, parsing, and aggregation off the UI
   // isolate. Only bounded summaries of function names return to the caller.
   return Isolate.run(
-    () => _readProfile(uri, isolateId, startUs, endUs, slowFrames),
+    () => _readProfile(
+      uri,
+      isolateId,
+      startUs,
+      endUs,
+      slowFrames,
+      slowRasterFrames,
+    ),
   );
 }
 
@@ -42,6 +53,7 @@ Future<Map<String, Object?>> _readProfile(
   int startUs,
   int endUs,
   List<TopicCpuFrame> slowFrames,
+  List<TopicRasterFrame> slowRasterFrames,
 ) async {
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 2);
   vm.VmService? service;
@@ -51,6 +63,28 @@ Future<Map<String, Object?>> _readProfile(
       customClient: client,
     ).timeout(const Duration(seconds: 3));
     service = vm.VmService(socket, socket.add, disposeHandler: socket.close);
+    final profiles = await Future.wait([
+      _readCpuSamples(service, isolateId, startUs, endUs, slowFrames),
+      _readRasterTimeline(service, startUs, endUs, slowRasterFrames),
+    ]);
+    return {...profiles[0], 'rasterTimeline': profiles[1]};
+  } on Object {
+    // Exceptions may contain authenticated debugger URLs or local paths.
+    return const {'status': 'unavailable', 'reason': 'vm-connection-failed'};
+  } finally {
+    await service?.dispose();
+    client.close(force: true);
+  }
+}
+
+Future<Map<String, Object?>> _readCpuSamples(
+  vm.VmService service,
+  String isolateId,
+  int startUs,
+  int endUs,
+  List<TopicCpuFrame> frames,
+) async {
+  try {
     final samples = await service
         .getCpuSamples(isolateId, startUs, endUs - startUs)
         .timeout(const Duration(seconds: 4));
@@ -58,7 +92,7 @@ Future<Map<String, Object?>> _readProfile(
       samples,
       startUs: startUs,
       endUs: endUs,
-      slowFrames: slowFrames,
+      slowFrames: frames,
     );
   } on vm.RPCError catch (error) {
     return {
@@ -66,11 +100,27 @@ Future<Map<String, Object?>> _readProfile(
       'reason': error.code == 100 ? 'profiler-disabled' : 'vm-request-failed',
     };
   } on Object {
-    // Exceptions may contain authenticated debugger URLs or local paths.
-    return const {'status': 'unavailable', 'reason': 'vm-connection-failed'};
-  } finally {
-    await service?.dispose();
-    client.close(force: true);
+    return const {'status': 'unavailable', 'reason': 'cpu-collection-failed'};
+  }
+}
+
+Future<Map<String, Object?>> _readRasterTimeline(
+  vm.VmService service,
+  int startUs,
+  int endUs,
+  List<TopicRasterFrame> frames,
+) async {
+  if (frames.isEmpty) return summarizeTopicRasterProfile(vm.Timeline(), frames);
+  try {
+    final timeline = await service
+        .getVMTimeline(
+          timeOriginMicros: startUs,
+          timeExtentMicros: endUs - startUs,
+        )
+        .timeout(const Duration(seconds: 4));
+    return summarizeTopicRasterProfile(timeline, frames);
+  } on Object {
+    return const {'status': 'unavailable', 'reason': 'timeline-unavailable'};
   }
 }
 
