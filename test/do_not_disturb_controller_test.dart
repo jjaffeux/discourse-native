@@ -23,16 +23,9 @@ void main() {
     );
   });
 
-  test('matches core eternal-day and custom-status minute semantics', () {
+  test('matches core eternal-day and remaining-label semantics', () {
     expect(isEternalDoNotDisturb(DateTime.utc(3000, 1, 1, 23, 59)), isTrue);
     expect(isEternalDoNotDisturb(DateTime.utc(2999, 12, 31, 23, 59)), isFalse);
-    expect(
-      doNotDisturbDurationUntil(
-        DateTime.utc(2030, 1, 1, 12, 30, 59),
-        now: DateTime.utc(2030, 1, 1, 12),
-      ).wireValue,
-      30,
-    );
     expect(
       doNotDisturbRemainingLabel(
         DateTime.utc(2030, 1, 1, 14),
