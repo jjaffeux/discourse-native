@@ -442,7 +442,7 @@ void main() {
 
   for (final save in [true, false]) {
     testWidgets(
-      'clicking the compact title focuses editing and ${save ? 'saves on Enter' : 'cancels on Escape'}',
+      'compact title click takes focus from another control and ${save ? 'saves on Enter' : 'cancels on Escape'}',
       (tester) async {
         final setup = await _setup(tester);
         final shell = setup.controller;
@@ -452,7 +452,16 @@ void main() {
         final compact = find.byKey(const ValueKey('topic-header-compact'));
         final title = find.byKey(const ValueKey('topic-header-compact-title'));
         final field = find.byKey(const ValueKey('topic-header-title-field'));
-        await tester.tap(title);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        expect(FocusScope.of(tester.element(title)).focusedChild, isNotNull);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: tester.getCenter(title));
+        await tester.pump();
+        await mouse.down(tester.getCenter(title));
+        await tester.pump(const Duration(milliseconds: 16));
+        await mouse.up();
         await tester.pumpAndSettle();
         expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
         expect(compact, findsNothing);
@@ -474,6 +483,7 @@ void main() {
         }
         expect(tester.takeException(), isNull);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     );
   }
 

@@ -60,6 +60,8 @@ class InlineTopicTitleEditor extends StatefulWidget {
   final TextStyle? style;
   final int maxLines;
   final bool showEditingFrame;
+
+  /// Requests editing focus on insertion or when changed to true.
   final bool autofocus;
 
   /// Keeps the surrounding header expanded while editing or saving a title.
@@ -83,6 +85,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     _savedTitle = widget.title;
     _controller = _newController();
     _focus.addListener(_focusChanged);
+    if (widget.autofocus) _requestEditingFocus();
   }
 
   @override
@@ -94,6 +97,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   @override
   void didUpdateWidget(InlineTopicTitleEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.autofocus && !oldWidget.autofocus) _requestEditingFocus();
     if (oldWidget.siteUrl != widget.siteUrl) {
       _catalogRequestSite = null;
       final oldController = _controller;
@@ -112,6 +116,14 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
 
   _TopicTitleEditingController _newController() =>
       _TopicTitleEditingController(text: widget.title, siteUrl: widget.siteUrl);
+
+  void _requestEditingFocus() {
+    // A title click must take focus even when its scope already has a focused
+    // control, which TextField.autofocus deliberately leaves alone.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.autofocus) _focus.requestFocus();
+    });
+  }
 
   void _replaceText(String text) {
     _controller.value = TextEditingValue(
@@ -250,7 +262,6 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
                       key: const ValueKey('topic-header-title-field'),
                       controller: _controller,
                       focusNode: _focus,
-                      autofocus: widget.autofocus,
                       readOnly: _saving,
                       maxLines: widget.maxLines,
                       textInputAction: TextInputAction.done,
