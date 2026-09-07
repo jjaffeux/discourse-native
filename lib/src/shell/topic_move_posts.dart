@@ -15,25 +15,34 @@ Future<void> showTopicMovePosts({
   required TopicDetail topic,
   required List<Post> selectedPosts,
 }) async {
+  final target = controller.captureTopicPostMoveTarget(siteUrl, topic.id);
+  final categories = controller
+      .topicComposerCategories(siteUrl)
+      .where(
+        (category) => category.permission == null || category.permission == 1,
+      )
+      .toList();
   final destinationUrl = await showDialog<String>(
     context: context,
     barrierDismissible: false,
     builder: (context) => _TopicMovePostsDialog(
       controller: controller,
-      siteUrl: siteUrl,
+      target: target,
       topic: topic,
       selectedPosts: selectedPosts,
-      categories: controller
-          .topicComposerCategories(siteUrl)
-          .where(
-            (category) =>
-                category.permission == null || category.permission == 1,
-          )
-          .toList(),
+      categories: categories,
     ),
   );
-  if (destinationUrl == null || !context.mounted) return;
-  if (!controller.openTopicUrl(destinationUrl)) {
+  if (destinationUrl == null ||
+      !context.mounted ||
+      !controller.isTopicPostMoveTargetCurrent(target)) {
+    return;
+  }
+  final absoluteDestination = controller.absoluteUrl(
+    destinationUrl,
+    siteUrl: target.siteUrl,
+  );
+  if (!controller.openTopicUrl(absoluteDestination)) {
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       const SnackBar(content: Text("Couldn't open the destination topic.")),
     );
@@ -45,14 +54,14 @@ enum _MoveMode { newTopic, existingTopic }
 class _TopicMovePostsDialog extends StatefulWidget {
   const _TopicMovePostsDialog({
     required this.controller,
-    required this.siteUrl,
+    required this.target,
     required this.topic,
     required this.selectedPosts,
     required this.categories,
   });
 
   final ShellController controller;
-  final String siteUrl;
+  final TopicPostMoveTarget target;
   final TopicDetail topic;
   final List<Post> selectedPosts;
   final List<TopicCategory> categories;
@@ -110,8 +119,7 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
     if (value.trim().isEmpty) return;
     _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
       final result = await widget.controller.searchTopicMoveDestinations(
-        widget.siteUrl,
-        widget.topic.id,
+        widget.target,
         value,
       );
       if (!mounted || generation != _searchGeneration) return;
@@ -132,15 +140,13 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
     });
     final result = switch (_mode) {
       _MoveMode.newTopic => await widget.controller.moveSelectedTopicPostsToNew(
-        widget.siteUrl,
-        widget.topic.id,
+        widget.target,
         title: _title.text,
         categoryId: _categoryId,
       ),
       _MoveMode.existingTopic =>
         await widget.controller.moveSelectedTopicPostsToExisting(
-          widget.siteUrl,
-          widget.topic.id,
+          widget.target,
           _destination!.id,
           chronologicalOrder: _chronologicalOrder,
         ),
@@ -265,7 +271,7 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
                 children: [
                   CategoryIcon(
                     category: category,
-                    siteUrl: widget.siteUrl,
+                    siteUrl: widget.target.siteUrl,
                     size: 16,
                     squareSize: 11,
                   ),
