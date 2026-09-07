@@ -23,6 +23,11 @@ String encodeTopicScrollReport(
     for (final frame in _maps(cpuProfile['frames']))
       frame['frameNumber']: frame,
   };
+  final rasterTimeline = _map(cpuProfile['rasterTimeline']);
+  final rasterByFrame = {
+    for (final frame in _maps(rasterTimeline['frames']))
+      frame['frameNumber']: frame,
+  };
   final contexts = <Map<String, Object?>>[];
   final frames = <Map<String, Object?>>[];
 
@@ -106,6 +111,7 @@ String encodeTopicScrollReport(
                   ),
           },
           'cpu': ?cpuByFrame[frame['frameNumber']],
+          'rendering': ?rasterByFrame[frame['frameNumber']],
         },
     ],
   };
@@ -270,6 +276,10 @@ String _formatReport(Map<String, Object?> report) {
     }
   }
   _writeCpuProfile(output, _map(report['cpuProfile']));
+  _writeRasterProfile(
+    output,
+    _map(_map(report['cpuProfile'])['rasterTimeline']),
+  );
   final worstFrames = _maps(analysis['worstFrames']);
   if (worstFrames.isNotEmpty) {
     output
@@ -291,6 +301,15 @@ String _formatReport(Map<String, Object?> report) {
         output.writeln(
           '    CPU (${cpu['sampleCount']} samples): '
           '${_cpuFunctionsLine(cpu, limit: 3)}',
+        );
+      }
+      final rendering = _map(frame['rendering']);
+      if (rendering.isNotEmpty) {
+        final phases = _maps(rendering['phases']);
+        output.writeln(
+          '    Rendering: '
+          '${phases.isEmpty ? 'no named phases' : phases.map((phase) => '${phase['name']} ${_ms(phase['durationUs'])} ms').join(', ')}; '
+          '${_ms(rendering['outsidePhaseMarkersUs'])} ms outside phase markers',
         );
       }
     }
@@ -381,6 +400,34 @@ String _cpuFunctionsLine(Map<String, Object?> summary, {required int limit}) =>
         .take(limit)
         .map((entry) => _cpuEntry(entry, _int(summary['sampleCount'])))
         .join(', ');
+
+void _writeRasterProfile(StringBuffer output, Map<String, Object?> profile) {
+  output.writeln();
+  if (profile['status'] != 'available') {
+    output.writeln(
+      'Rendering timeline unavailable. Run in profile mode to record engine phases.',
+    );
+    return;
+  }
+  final requested = _int(profile['requestedFrameCount']);
+  if (requested == 0) {
+    output.writeln('Rendering timeline: no over-budget topic raster frames.');
+    return;
+  }
+  output.writeln(
+    'Rendering timeline: ${profile['matchedFrameCount']}/${profile['profiledFrameCount']} '
+    'profiled slow raster frames matched (up to 20 of $requested).',
+  );
+  if (_int(profile['matchedFrameCount']) == 0) {
+    output.writeln(
+      'No matching engine spans found. Copy soon after stopping; the timeline buffer can overwrite them.',
+    );
+  } else {
+    output.writeln(
+      'Rendering phases are recorded engine durations, not GPU execution times. Nested phases overlap; do not add them.',
+    );
+  }
+}
 
 String _cpuEntry(Map<String, Object?> entry, int total) =>
     '${entry['name']} ${entry['samples']}/$total '

@@ -94,7 +94,7 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
        _currentFrameNumber = currentFrameNumber ?? _readCurrentFrameNumber,
        _cpuProfileCollector = cpuProfileCollector ?? collectTopicCpuProfile;
 
-  static const int reportFormatVersion = 3;
+  static const int reportFormatVersion = 4;
   static const int defaultMaximumEvents = 12000;
   static const Duration defaultMaximumDuration = Duration(minutes: 2);
   static const Duration slowFrameThreshold = Duration(microseconds: 16667);
@@ -278,6 +278,7 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
           'Flutter UI-thread build and raster frame timings',
           'post layout and viewport bookkeeping durations',
           'sampled CPU functions in slow topic frames when available',
+          'recorded rendering phases in slow topic raster frames when available',
         ],
         'excluded': [
           'post bodies and titles',
@@ -322,26 +323,37 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
           event.frameNumber!,
     };
     final slowFrames = <TopicCpuFrame>[];
+    final slowRasterFrames = <TopicCpuFrame>[];
     for (final event in _events) {
       if (event.category != 'frame' || event.name != 'frame.timing') continue;
       final data = event.data;
       final frameNumber = data['frameNumber'] as int?;
       final duration = data['buildUs']! as int;
-      if (!topicFrames.contains(frameNumber) || duration <= _frameBudgetUs) {
-        continue;
+      if (!topicFrames.contains(frameNumber)) continue;
+      if (duration > _frameBudgetUs) {
+        final start = data['buildStartUs']! as int;
+        slowFrames.add((
+          frameNumber: frameNumber!,
+          startUs: start,
+          endUs: start + duration,
+        ));
       }
-      final start = data['buildStartUs']! as int;
-      slowFrames.add((
-        frameNumber: frameNumber!,
-        startUs: start,
-        endUs: start + duration,
-      ));
+      final rasterDuration = data['rasterUs']! as int;
+      if (rasterDuration > _frameBudgetUs) {
+        final start = data['rasterStartUs']! as int;
+        slowRasterFrames.add((
+          frameNumber: frameNumber!,
+          startUs: start,
+          endUs: start + rasterDuration,
+        ));
+      }
     }
     try {
       return await _cpuProfileCollector(
         startUs: _startedAtTimelineUs,
         endUs: _endedAtTimelineUs,
         slowFrames: slowFrames,
+        slowRasterFrames: slowRasterFrames,
       ).timeout(const Duration(seconds: 10));
     } on Object {
       return const {'status': 'unavailable', 'reason': 'collection-failed'};
@@ -425,6 +437,9 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
           if (timing.frameNumber >= 0) 'frameNumber': timing.frameNumber,
           'vsyncStartUs': vsyncUs,
           'buildStartUs': timing.timestampInMicroseconds(FramePhase.buildStart),
+          'rasterStartUs': timing.timestampInMicroseconds(
+            FramePhase.rasterStart,
+          ),
           'buildUs': buildUs,
           'rasterUs': rasterUs,
           'vsyncOverheadUs': timing.vsyncOverhead.inMicroseconds,

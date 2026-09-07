@@ -237,12 +237,19 @@ void main() {
     var now = 100;
     var frame = 42;
     final calls = <({int start, int end, List<TopicCpuFrame> frames})>[];
+    final rasterCalls = <List<TopicCpuFrame>>[];
     final capture = TopicScrollCaptureController(
       timelineClock: () => now,
       currentFrameNumber: () => frame,
       cpuProfileCollector:
-          ({required startUs, required endUs, required slowFrames}) async {
+          ({
+            required startUs,
+            required endUs,
+            required slowFrames,
+            required slowRasterFrames,
+          }) async {
             calls.add((start: startUs, end: endUs, frames: slowFrames));
+            rasterCalls.add(slowRasterFrames);
             return {'status': 'available'};
           },
     );
@@ -253,7 +260,12 @@ void main() {
     capture.recordTopicEvent('viewport.work', const {'durationUs': 100});
     PlatformDispatcher.instance.onReportTimings?.call([
       _timing(vsyncStart: 100, frameNumber: 42, buildUs: 20000),
-      _timing(vsyncStart: 25000, frameNumber: 43, buildUs: 1000),
+      _timing(
+        vsyncStart: 25000,
+        frameNumber: 43,
+        buildUs: 1000,
+        rasterUs: 16000,
+      ),
       _timing(vsyncStart: 30000, frameNumber: 44, buildUs: 20000),
     ]);
     await capture.buildPerformanceReport();
@@ -271,6 +283,9 @@ void main() {
     expect(calls.single.frames, [
       (frameNumber: 42, startUs: 1100, endUs: 21100),
     ]);
+    expect(rasterCalls.single, [
+      (frameNumber: 43, startUs: 28000, endUs: 44000),
+    ]);
     capture.start();
     now = 70000;
     capture.stop();
@@ -286,8 +301,12 @@ void main() {
     final capture = TopicScrollCaptureController(
       timelineClock: () => now,
       cpuProfileCollector:
-          ({required startUs, required endUs, required slowFrames}) =>
-              pending.future,
+          ({
+            required startUs,
+            required endUs,
+            required slowFrames,
+            required slowRasterFrames,
+          }) => pending.future,
     );
     addTearDown(capture.dispose);
     capture.start();
@@ -312,8 +331,12 @@ void main() {
     () async {
       final capture = TopicScrollCaptureController(
         cpuProfileCollector:
-            ({required startUs, required endUs, required slowFrames}) =>
-                throw StateError('ws://localhost:1234/PRIVATE-TOKEN/ws'),
+            ({
+              required startUs,
+              required endUs,
+              required slowFrames,
+              required slowRasterFrames,
+            }) => throw StateError('ws://localhost:1234/PRIVATE-TOKEN/ws'),
       );
       addTearDown(capture.dispose);
       capture.start();
