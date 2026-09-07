@@ -4358,10 +4358,11 @@ class ShellController extends FrameSafeNotifier
   final Map<String, List<int>> _topicSummaryStreams = {};
   final Set<String> _topicSummariesLoading = {};
   final Set<(String, int, int, bool)> _postGapsLoading = {};
-  final Map<String, int> _topicNotificationRevisions = {};
+  final Map<String, _QueuedTopicNotification> _topicNotificationWrites = {};
   final Map<String, Future<void>> _topicNotificationTails = {};
   final Map<String, TopicNotificationLevel> _topicNotificationConfirmed = {};
-  final Map<String, int> _categoryNotificationRevisions = {};
+  final Map<String, _QueuedCategoryNotification> _categoryNotificationWrites =
+      {};
   final Map<String, Future<void>> _categoryNotificationTails = {};
   final Map<String, CategoryNotificationLevel> _categoryNotificationConfirmed =
       {};
@@ -5619,22 +5620,13 @@ class ShellController extends FrameSafeNotifier
       return Future.value(true);
     }
     _topicNotificationConfirmed.putIfAbsent(key, () => held.notificationLevel);
-    final revision = (_topicNotificationRevisions[key] ?? 0) + 1;
-    _topicNotificationRevisions[key] = revision;
-    store.update<TopicDetail>(
-      siteUrl,
-      topicId,
-      (topic) => topic.withNotificationLevel(level),
-    );
-    _notify();
-
     final write = _QueuedTopicNotification(
       siteUrl: siteUrl,
       topicId: topicId,
       level: level,
-      revision: revision,
       lease: lifecycle.capture(siteUrl),
     );
+    _topicNotificationWrites[key] = write;
     final previousTail = _topicNotificationTails[key] ?? Future.value();
     late final Future<void> tail;
     tail = previousTail
@@ -5646,22 +5638,27 @@ class ShellController extends FrameSafeNotifier
         .whenComplete(() {
           if (!identical(_topicNotificationTails[key], tail)) return;
           final _ = _topicNotificationTails.remove(key);
-          _topicNotificationRevisions.remove(key);
+          _topicNotificationWrites.remove(key);
           _topicNotificationConfirmed.remove(key);
         });
     _topicNotificationTails[key] = tail;
     unawaited(tail);
+    // Store and shell listeners can synchronously replace this selection or
+    // account. Own the lease and queue slot before either can run.
+    _projectTopicNotificationLevel(key, write, level);
     return write.result.future;
   }
+
+  bool _isLatestTopicNotification(String key, _QueuedTopicNotification write) =>
+      identical(_topicNotificationWrites[key], write) &&
+      write.lease.isCurrent &&
+      !isDisposed;
 
   Future<void> _performTopicNotificationWrite(
     String key,
     _QueuedTopicNotification write,
   ) async {
-    bool isLatest() =>
-        _topicNotificationRevisions[key] == write.revision &&
-        write.lease.isCurrent &&
-        !isDisposed;
+    bool isLatest() => _isLatestTopicNotification(key, write);
 
     if (!isLatest()) {
       write.complete(false);
@@ -5696,16 +5693,7 @@ class ShellController extends FrameSafeNotifier
         return;
       }
       _topicNotificationConfirmed[key] = write.level;
-      if (isLatest()) {
-        write.lease.commit(() {
-          store.update<TopicDetail>(
-            write.siteUrl,
-            write.topicId,
-            (topic) => topic.withNotificationLevel(write.level),
-          );
-          _notify();
-        });
-      }
+      _projectTopicNotificationLevel(key, write, write.level);
       write.complete(true);
     } catch (error, stackTrace) {
       if (write.lease.isCurrent && !isDisposed) {
@@ -5722,17 +5710,23 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _rollbackTopicNotification(String key, _QueuedTopicNotification write) {
-    if (!write.lease.isCurrent || isDisposed) return;
     final confirmed = _topicNotificationConfirmed[key];
     if (confirmed == null) return;
-    write.lease.commit(() {
-      store.update<TopicDetail>(
-        write.siteUrl,
-        write.topicId,
-        (topic) => topic.withNotificationLevel(confirmed),
-      );
-      _notify();
-    });
+    _projectTopicNotificationLevel(key, write, confirmed);
+  }
+
+  void _projectTopicNotificationLevel(
+    String key,
+    _QueuedTopicNotification write,
+    TopicNotificationLevel level,
+  ) {
+    if (!_isLatestTopicNotification(key, write)) return;
+    store.update<TopicDetail>(
+      write.siteUrl,
+      write.topicId,
+      (topic) => topic.withNotificationLevel(level),
+    );
+    if (write.lease.isCurrent && !isDisposed) _notify();
   }
 
   Future<bool> updateCategoryNotificationLevel(
@@ -5753,17 +5747,13 @@ class ShellController extends FrameSafeNotifier
       key,
       () => held.notificationLevel,
     );
-    final revision = (_categoryNotificationRevisions[key] ?? 0) + 1;
-    _categoryNotificationRevisions[key] = revision;
-    _projectCategoryNotificationLevel(siteUrl, categoryId, level);
-
     final write = _QueuedCategoryNotification(
       siteUrl: siteUrl,
       categoryId: categoryId,
       level: level,
-      revision: revision,
       lease: lifecycle.capture(siteUrl),
     );
+    _categoryNotificationWrites[key] = write;
     final previousTail = _categoryNotificationTails[key] ?? Future.value();
     late final Future<void> tail;
     tail = previousTail
@@ -5775,22 +5765,30 @@ class ShellController extends FrameSafeNotifier
         .whenComplete(() {
           if (!identical(_categoryNotificationTails[key], tail)) return;
           final _ = _categoryNotificationTails.remove(key);
-          _categoryNotificationRevisions.remove(key);
+          _categoryNotificationWrites.remove(key);
           _categoryNotificationConfirmed.remove(key);
         });
     _categoryNotificationTails[key] = tail;
     unawaited(tail);
+    // Reentrant selections must append after this write, even when they are
+    // made by a listener during optimistic projection.
+    _projectCategoryNotificationLevel(key, write, level);
     return write.result.future;
   }
+
+  bool _isLatestCategoryNotification(
+    String key,
+    _QueuedCategoryNotification write,
+  ) =>
+      identical(_categoryNotificationWrites[key], write) &&
+      write.lease.isCurrent &&
+      !isDisposed;
 
   Future<void> _performCategoryNotificationWrite(
     String key,
     _QueuedCategoryNotification write,
   ) async {
-    bool isLatest() =>
-        _categoryNotificationRevisions[key] == write.revision &&
-        write.lease.isCurrent &&
-        !isDisposed;
+    bool isLatest() => _isLatestCategoryNotification(key, write);
 
     if (!isLatest()) {
       write.complete(false);
@@ -5825,15 +5823,7 @@ class ShellController extends FrameSafeNotifier
         return;
       }
       _categoryNotificationConfirmed[key] = write.level;
-      if (isLatest()) {
-        write.lease.commit(
-          () => _projectCategoryNotificationLevel(
-            write.siteUrl,
-            write.categoryId,
-            write.level,
-          ),
-        );
-      }
+      _projectCategoryNotificationLevel(key, write, write.level);
       write.complete(true);
     } catch (error, stackTrace) {
       if (write.lease.isCurrent && !isDisposed) {
@@ -5853,27 +5843,33 @@ class ShellController extends FrameSafeNotifier
     String key,
     _QueuedCategoryNotification write,
   ) {
-    if (!write.lease.isCurrent || isDisposed) return;
     final confirmed = _categoryNotificationConfirmed[key];
     if (confirmed == null) return;
-    write.lease.commit(
-      () => _projectCategoryNotificationLevel(
-        write.siteUrl,
-        write.categoryId,
-        confirmed,
-      ),
-    );
+    _projectCategoryNotificationLevel(key, write, confirmed);
   }
 
   void _projectCategoryNotificationLevel(
-    String siteUrl,
-    int categoryId,
+    String key,
+    _QueuedCategoryNotification write,
     CategoryNotificationLevel level,
   ) {
-    final held = store.read<TopicCategory>(siteUrl, categoryId);
+    if (!_isLatestCategoryNotification(key, write)) return;
+    final siteUrl = write.siteUrl;
+    final held = store.read<TopicCategory>(siteUrl, write.categoryId);
     if (held == null || held.notificationLevel == level) return;
-    _mergeCategories(siteUrl, [held.withNotificationLevel(level)]);
-    _notify();
+    final category = held.withNotificationLevel(level);
+    // Stage the cache before Store Ref listeners can select another level or
+    // clear the account. No stale category snapshot may be merged afterwards.
+    final byId = <int, TopicCategory>{
+      for (final category
+          in _categoriesBySite[siteUrl] ?? const <TopicCategory>[])
+        category.id: category,
+      category.id: category,
+    };
+    _categoriesBySite[siteUrl] = List.unmodifiable(byId.values);
+    _categorySidebarCache.remove(siteUrl);
+    store.put(siteUrl, category);
+    if (write.lease.isCurrent && !isDisposed) _notify();
   }
 
   bool topicPinWriteInFlight(String siteUrl, int topicId) =>
@@ -11859,7 +11855,7 @@ class ShellController extends FrameSafeNotifier
     _earlierPostsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicSummaryStreams.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _topicSummariesLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _topicNotificationRevisions.removeWhere(
+    _topicNotificationWrites.removeWhere(
       (key, _) => key.startsWith('$siteUrl#'),
     );
     _topicNotificationTails.removeWhere(
@@ -11868,7 +11864,7 @@ class ShellController extends FrameSafeNotifier
     _topicNotificationConfirmed.removeWhere(
       (key, _) => key.startsWith('$siteUrl#'),
     );
-    _categoryNotificationRevisions.removeWhere(
+    _categoryNotificationWrites.removeWhere(
       (key, _) => key.startsWith('$siteUrl^'),
     );
     _categoryNotificationTails.removeWhere(
@@ -13096,11 +13092,11 @@ class ShellController extends FrameSafeNotifier
     if (_tabSelectionPersistencePending || _anchorPersistencePending) {
       _persistWorkspaces();
     }
-    _topicNotificationRevisions.clear();
+    _topicNotificationWrites.clear();
     _closedForumTabs.clear();
     _topicNotificationTails.clear();
     _topicNotificationConfirmed.clear();
-    _categoryNotificationRevisions.clear();
+    _categoryNotificationWrites.clear();
     _categoryNotificationTails.clear();
     _categoryNotificationConfirmed.clear();
     _topicPinWrites.clear();
@@ -14059,14 +14055,12 @@ final class _QueuedTopicNotification {
     required this.siteUrl,
     required this.topicId,
     required this.level,
-    required this.revision,
     required this.lease,
   });
 
   final String siteUrl;
   final int topicId;
   final TopicNotificationLevel level;
-  final int revision;
   final SiteLease lease;
   final Completer<bool> result = Completer<bool>();
 
@@ -14080,14 +14074,12 @@ final class _QueuedCategoryNotification {
     required this.siteUrl,
     required this.categoryId,
     required this.level,
-    required this.revision,
     required this.lease,
   });
 
   final String siteUrl;
   final int categoryId;
   final CategoryNotificationLevel level;
-  final int revision;
   final SiteLease lease;
   final Completer<bool> result = Completer<bool>();
 
