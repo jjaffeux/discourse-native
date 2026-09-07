@@ -340,7 +340,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
               controller: controller,
               compact: true,
               fromList: true,
-              showLabel: !split && constraints.maxWidth >= 760,
+              showLabel: constraints.maxWidth >= 760,
               leadingPadding: false,
             ),
           ],
