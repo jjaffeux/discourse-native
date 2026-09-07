@@ -25,6 +25,7 @@ import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/models/user_flair.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
@@ -126,6 +127,10 @@ const _keys = [
   'site_settings',
   'primary_group_name',
   'flair_url',
+  'flair_group_id',
+  'flair_name',
+  'flair_color',
+  'flair_bg_color',
   'chat_notifications',
   'ignored_users',
   'topic_tracking',
@@ -510,6 +515,7 @@ void main() {
         loose,
       );
       probe('ChatReaction', () => ChatReaction.fromJson(json), json);
+      probe('UserFlair', () => UserFlair.fromJson(loose, site), loose);
       probe('ChatUpload', () => ChatUpload.fromJson(json), json);
       probe('ChatReplyTo', () => ChatReplyTo.fromJson(json, site), json);
       probe(

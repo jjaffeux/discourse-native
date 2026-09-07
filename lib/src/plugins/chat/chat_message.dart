@@ -4,6 +4,7 @@ import '../../data/store.dart';
 import '../../models/bookmark.dart';
 import '../../models/composer_upload.dart';
 import '../../models/json.dart';
+import '../../models/user_flair.dart';
 import '../../models/user_status.dart';
 import 'chat_bookmark.dart';
 import 'chat_preview.dart';
@@ -78,6 +79,7 @@ class ChatMessageAuthor {
     this.name,
     this.avatarUrl,
     this.status,
+    this.flair,
     this.isStaff = false,
   });
 
@@ -91,6 +93,7 @@ class ChatMessageAuthor {
       name: jsonText(value['name']),
       avatarUrl: resolveAvatarUrl(jsonText(value['avatar_template']), siteUrl),
       status: UserStatus.fromJson(value['status']),
+      flair: UserFlair.fromJson(value, siteUrl),
       // Discourse serializes `staff` alongside the two constituent roles.
       isStaff:
           value['admin'] == true ||
@@ -104,6 +107,7 @@ class ChatMessageAuthor {
   final String? name;
   final String? avatarUrl;
   final UserStatus? status;
+  final UserFlair? flair;
   final bool isStaff;
 
   String get displayName => name ?? username;
@@ -116,11 +120,12 @@ class ChatMessageAuthor {
       other.name == name &&
       other.avatarUrl == avatarUrl &&
       other.status == status &&
+      other.flair == flair &&
       other.isStaff == isStaff;
 
   @override
   int get hashCode =>
-      Object.hash(id, username, name, avatarUrl, status, isStaff);
+      Object.hash(id, username, name, avatarUrl, status, flair, isStaff);
 }
 
 /// [reactorIds] is a truncated deduplication aid; [count] is authoritative.
@@ -369,6 +374,7 @@ class ChatReplyTo {
     required this.excerpt,
     required this.username,
     this.avatarUrl,
+    this.flair,
   });
 
   factory ChatReplyTo.fromJson(Map<String, dynamic> json, String siteUrl) {
@@ -379,6 +385,7 @@ class ChatReplyTo {
       excerpt: jsonHtmlText(json['excerpt']) ?? '',
       username: jsonString(user['username']),
       avatarUrl: resolveAvatarUrl(jsonText(user['avatar_template']), siteUrl),
+      flair: UserFlair.fromJson(user, siteUrl),
     );
   }
 
@@ -387,6 +394,7 @@ class ChatReplyTo {
   final String excerpt;
   final String username;
   final String? avatarUrl;
+  final UserFlair? flair;
 
   @override
   bool operator ==(Object other) =>
@@ -395,10 +403,12 @@ class ChatReplyTo {
       other.userId == userId &&
       other.excerpt == excerpt &&
       other.username == username &&
-      other.avatarUrl == avatarUrl;
+      other.avatarUrl == avatarUrl &&
+      other.flair == flair;
 
   @override
-  int get hashCode => Object.hash(id, userId, excerpt, username, avatarUrl);
+  int get hashCode =>
+      Object.hash(id, userId, excerpt, username, avatarUrl, flair);
 }
 
 /// Discourse includes this only on a thread's original message; replies are

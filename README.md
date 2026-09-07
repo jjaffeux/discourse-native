@@ -2411,6 +2411,14 @@ Avatars go through [`AvatarLoader`](lib/src/data/avatar_loader.dart) rather than
 
 Anything undecodable falls back to a placeholder rather than throwing.
 
+Chat authors also retain the optional `UserFlairMixin` fields supplied by the
+server. `ChatUserAvatar` overlays the group icon, image, or background badge
+without changing the avatar's layout size or live presence ring. Messages,
+reply indicators, thread summaries/lists, and pinned-message lists share this
+treatment. The `discourse-ai` icon comes from Discourse AI's own sprite; other
+group flairs do not imply that an author is a bot. Missing flair fields on older
+servers leave avatars unchanged, and flair-only updates replace stored messages.
+
 Categories are fetched once per site from
 `/categories.json?include_subcategories=true&include_topics=true` and flattened,
 because topic rows look categories up by id and subcategories arrive nested.

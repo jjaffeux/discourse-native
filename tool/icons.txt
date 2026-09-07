@@ -6,8 +6,9 @@
 #
 # Naming follows SvgSprite.prepare_symbol: a bare name is Font Awesome solid,
 # `far-` is regular, `fab-` is brands, and anything else comes from
-# discourse-additional.svg. `name = other` records one of Discourse's own icon
-# aliases (its REPLACEMENTS table) so payloads that use the alias resolve too.
+# discourse-additional.svg or the AI plugin's sprite. `name = other` records
+# one of Discourse's icon aliases (its REPLACEMENTS table) so payloads that
+# use the alias resolve too.
 
 # --- Sidebar and navigation
 layer-group
@@ -90,6 +91,8 @@ star
 far-star
 user
 users
+discourse-ai
+robot
 user-plus
 at
 bell

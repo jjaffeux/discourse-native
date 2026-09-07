@@ -3,10 +3,11 @@ library;
 import 'dart:io';
 
 const List<(String, String)> _spriteFiles = [
-  ('', 'fontawesome/solid.svg'),
-  ('far-', 'fontawesome/regular.svg'),
-  ('fab-', 'fontawesome/brands.svg'),
-  ('', 'discourse-additional.svg'),
+  ('', 'vendor/assets/svg-icons/fontawesome/solid.svg'),
+  ('far-', 'vendor/assets/svg-icons/fontawesome/regular.svg'),
+  ('fab-', 'vendor/assets/svg-icons/fontawesome/brands.svg'),
+  ('', 'vendor/assets/svg-icons/discourse-additional.svg'),
+  ('', 'plugins/discourse-ai/svg-icons/icons-sprite.svg'),
 ];
 
 const String _output = 'lib/src/theme/d_icons.dart';
@@ -91,7 +92,7 @@ Map<String, (String, String)> _readSprites(String root) {
   final symbols = <String, (String, String)>{};
 
   for (final (prefix, path) in _spriteFiles) {
-    final file = File('$root/vendor/assets/svg-icons/$path');
+    final file = File('$root/$path');
     if (!file.existsSync()) {
       stderr.writeln('Missing sprite: ${file.path}');
       exit(1);

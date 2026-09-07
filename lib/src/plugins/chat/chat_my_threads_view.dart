@@ -219,6 +219,7 @@ class ChatThreadListRow extends StatelessWidget {
                   siteUrl: siteUrl,
                   userId: author?.id ?? 0,
                   url: author?.avatarUrl,
+                  flair: author?.flair,
                   size: 40,
                   fallback: _AvatarFallback(name: author?.displayName),
                 ),
@@ -515,6 +516,7 @@ class _LatestReplyCard extends StatelessWidget {
       siteUrl: siteUrl,
       userId: displayedUser?.id ?? 0,
       url: latestAvatarUrl,
+      flair: displayedUser?.flair,
       size: _avatarSize,
       fallback: _AvatarFallback(name: latestName),
     );
@@ -753,6 +755,7 @@ class _ThreadParticipants extends StatelessWidget {
                           siteUrl: siteUrl,
                           userId: user.id,
                           url: user.avatarUrl,
+                          flair: user.flair,
                           size: _avatarSize - 4,
                           fallback: _AvatarFallback(name: user.displayName),
                         ),

@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/user_flair.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
@@ -23,6 +24,7 @@ import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -78,6 +80,12 @@ ChatThread _thread(int channelId, int threadId) {
   );
 }
 
+const _aiFlair = UserFlair(
+  groupId: 12,
+  name: 'discourse_ai_users',
+  url: 'discourse-ai',
+);
+
 const ChatThread _myThread = ChatThread(
   id: 3,
   channelId: 9,
@@ -90,18 +98,28 @@ const ChatThread _myThread = ChatThread(
     replyCount: 4,
     lastReplyId: 44,
     lastReplyExcerpt: 'Latest answer',
-    lastReplyUser: ChatMessageAuthor(id: 3, username: 'lee', name: 'Lee'),
+    lastReplyUser: ChatMessageAuthor(
+      id: 3,
+      username: 'lee',
+      name: 'Lee',
+      flair: _aiFlair,
+    ),
     participantCount: 3,
     participantUsers: [
       ChatMessageAuthor(id: 2, username: 'sam', name: 'Sam'),
-      ChatMessageAuthor(id: 3, username: 'lee', name: 'Lee'),
+      ChatMessageAuthor(id: 3, username: 'lee', name: 'Lee', flair: _aiFlair),
       ChatMessageAuthor(id: 4, username: 'kris', name: 'Kris'),
     ],
   ),
   originalMessage: ChatThreadOriginalMessage(
     id: 40,
     channelId: 9,
-    author: ChatMessageAuthor(id: 2, username: 'sam', name: 'Sam'),
+    author: ChatMessageAuthor(
+      id: 2,
+      username: 'sam',
+      name: 'Sam',
+      flair: _aiFlair,
+    ),
     excerpt: 'Can someone check this?',
   ),
 );
@@ -959,6 +977,13 @@ void main() {
 
         expect(find.text('Support thread'), findsOneWidget);
         expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('chat-my-thread-3')),
+            matching: find.byType(GroupFlairBadge),
+          ),
+          findsNWidgets(2),
+        );
+        expect(
           find.byKey(const ValueKey('chat-my-thread-unread-3')),
           findsOneWidget,
         );
@@ -983,6 +1008,39 @@ void main() {
         expect(shell.handleBack(), isTrue);
         expect(shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
       });
+
+      for (final nestedPreview in [false, true]) {
+        testWidgets(
+          'show author flair in My threads with nestedPreview=$nestedPreview',
+          (tester) async {
+            await shell.chat.loadChannels(_site);
+            await tester.pumpWidget(
+              ShellScope(
+                controller: shell,
+                child: MaterialApp(
+                  theme: AppTheme.light,
+                  home: Scaffold(
+                    body: PluginUiScope.own(
+                      chatPluginId,
+                      ChatThreadListRow(
+                        siteUrl: _site,
+                        thread: _myThread,
+                        nestedPreview: nestedPreview,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pump();
+            expect(
+              find.byType(GroupFlairBadge),
+              findsNWidgets(nestedPreview ? 2 : 1),
+            );
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
 
       testWidgets('adapt a nested My threads row to a narrow pane', (
         tester,
