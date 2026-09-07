@@ -47,6 +47,7 @@ final class _RecordingDraftsApi implements DraftsApi {
 
 final class _GatedDraftsApi implements DraftsApi {
   final List<Completer<List<UserDraft>>> pages = [];
+  final List<int> offsets = [];
   final List<(String, String)> deletions = [];
 
   @override
@@ -59,6 +60,7 @@ final class _GatedDraftsApi implements DraftsApi {
   }) {
     final page = Completer<List<UserDraft>>();
     pages.add(page);
+    offsets.add(offset);
     return page.future;
   }
 
@@ -218,6 +220,103 @@ void main() {
   });
 
   group('stale page reconciliation', () {
+    test(
+      'a concurrent deletion preserves loading and a full page cursor',
+      () async {
+        final api = _GatedDraftsApi();
+        final controller = DraftListController(
+          api: api,
+          credentials: _ReadyApiKeys(),
+          lifecycle: SiteLifecycle(),
+        );
+        addTearDown(controller.dispose);
+        final page = [
+          for (var index = 0; index < DraftListController.pageSize; index++)
+            UserDraft(key: 'topic_$index', sequence: 1, data: null),
+        ];
+        final load = controller.load(_instance);
+        await pumpEventQueue();
+        controller.recordDeleted(_siteUrl, page[3].key, knownToExist: true);
+        expect(controller.feedFor(_siteUrl).loading, isTrue);
+
+        api.pages.single.complete(page);
+        await load;
+        final feed = controller.feedFor(_siteUrl);
+        expect(feed.loading, isFalse);
+        expect(feed.drafts, hasLength(29));
+        expect(feed.hasMore, isTrue);
+        expect(
+          feed.drafts.map((draft) => draft.key),
+          isNot(contains('topic_3')),
+        );
+
+        final more = controller.load(_instance);
+        await pumpEventQueue();
+        expect(api.offsets, [0, 29]);
+        api.pages[1].complete(const [
+          UserDraft(key: 'topic_30', sequence: 1, data: null),
+        ]);
+        await more;
+        expect(controller.feedFor(_siteUrl).drafts, hasLength(30));
+        expect(controller.feedFor(_siteUrl).hasMore, isFalse);
+      },
+    );
+
+    test(
+      'a queued refresh expires with the account that requested it',
+      () async {
+        final api = _GatedDraftsApi();
+        final lifecycle = SiteLifecycle();
+        final controller = DraftListController(
+          api: api,
+          credentials: _ReadyApiKeys(),
+          lifecycle: lifecycle,
+        );
+        addTearDown(controller.dispose);
+        final initial = controller.load(_instance);
+        await pumpEventQueue();
+        await controller.load(_instance, refresh: true);
+        lifecycle.invalidate(_siteUrl);
+
+        api.pages.single.complete(const [_draft]);
+        await initial;
+        await pumpEventQueue();
+        expect(api.pages, hasLength(1));
+
+        final refresh = controller.load(_instance, refresh: true);
+        await pumpEventQueue();
+        api.pages[1].complete(const []);
+        await refresh;
+        expect(controller.feedFor(_siteUrl).loading, isFalse);
+        expect(controller.feedFor(_siteUrl).loaded, isTrue);
+      },
+    );
+
+    test('a current account refresh can follow an expired page', () async {
+      final api = _GatedDraftsApi();
+      final lifecycle = SiteLifecycle();
+      final controller = DraftListController(
+        api: api,
+        credentials: _ReadyApiKeys(),
+        lifecycle: lifecycle,
+      );
+      addTearDown(controller.dispose);
+      final initial = controller.load(_instance);
+      await pumpEventQueue();
+      lifecycle.invalidate(_siteUrl);
+      await controller.load(_instance, refresh: true);
+
+      api.pages.single.complete(const [_draft]);
+      await initial;
+      await pumpEventQueue();
+      expect(api.pages, hasLength(2));
+      expect(controller.feedFor(_siteUrl).drafts, isEmpty);
+      api.pages[1].complete(const []);
+      await pumpEventQueue();
+      expect(controller.feedFor(_siteUrl).loaded, isTrue);
+      expect(controller.feedFor(_siteUrl).loading, isFalse);
+    });
+
     test('queues a live refresh received while a page is in flight', () async {
       final api = _GatedDraftsApi();
       final controller = DraftListController(
