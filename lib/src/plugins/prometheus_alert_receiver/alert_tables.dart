@@ -4,9 +4,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../shell/cooked_html.dart';
+import '../../shell/emoji.dart';
 import '../../shell/open_link.dart';
+import '../../shell/platform.dart';
 import '../../shell/route_aware_selection_area.dart';
-import '../../theme/d_button.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'alert_data.dart';
@@ -19,12 +22,14 @@ class AlertTables extends StatelessWidget {
     required this.siteUrl,
     this.settings = const AlertLinkSettings(),
     this.onQuote,
+    this.emojiUrl,
   });
 
   final AlertData data;
   final String siteUrl;
   final AlertLinkSettings settings;
   final ValueChanged<PrometheusAlert>? onQuote;
+  final String Function(String name)? emojiUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -36,12 +41,12 @@ class AlertTables extends StatelessWidget {
             if (index == 0 ||
                 data.groups[index - 1].status != data.groups[index].status)
               Padding(
-                padding: const EdgeInsets.only(top: 16, bottom: 8),
+                padding: EdgeInsets.only(top: index == 0 ? 0 : 12, bottom: 6),
                 child: Semantics(
                   header: true,
-                  child: Text(
-                    data.groups[index].status.label,
-                    style: Theme.of(context).textTheme.titleMedium,
+                  child: _AlertHeading(
+                    status: data.groups[index].status,
+                    emojiUrl: emojiUrl,
                   ),
                 ),
               ),
@@ -58,6 +63,46 @@ class AlertTables extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _AlertHeading extends StatelessWidget {
+  const _AlertHeading({required this.status, required this.emojiUrl});
+
+  final AlertStatus status;
+  final String Function(String name)? emojiUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final emoji = switch (status) {
+      AlertStatus.firing => (name: 'fire', fallback: '🔥'),
+      AlertStatus.suppressed => (name: 'shushing_face', fallback: '🤫'),
+      _ => null,
+    };
+    final style = Theme.of(context).textTheme.titleMedium?.copyWith(
+      fontSize: DiscourseTypography.fontUp2,
+      fontWeight: FontWeight.w600,
+    );
+    return Row(
+      children: [
+        if (emoji != null) ...[
+          ExcludeSemantics(
+            child: emojiUrl == null
+                ? Text(emoji.fallback, style: style)
+                : EmojiImage(
+                    url: emojiUrl!(emoji.name),
+                    size: MediaQuery.textScalerOf(
+                      context,
+                    ).scale(DiscourseTypography.fontUp2),
+                    alt: emoji.fallback,
+                    style: style,
+                  ),
+          ),
+          const SizedBox(width: 4),
+        ],
+        Flexible(child: Text(status.label, style: style)),
+      ],
     );
   }
 }
@@ -96,8 +141,11 @@ class _AlertTableState extends State<_AlertTable> {
     final collapsed = _collapsed ?? group.defaultCollapsed;
     final theme = Theme.of(context);
     final manager = alertWebUri(group.alerts.first.externalUrl);
+    final textScale =
+        MediaQuery.textScalerOf(context).scale(DiscourseTypography.base) /
+        DiscourseTypography.base;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         border: Border.all(color: theme.dividerColor),
         borderRadius: BorderRadius.circular(4),
@@ -108,18 +156,37 @@ class _AlertTableState extends State<_AlertTable> {
           Row(
             children: [
               Expanded(
-                child: DButton(
-                  variant: DButtonVariant.transparent,
-                  alignment: Alignment.centerLeft,
-                  icon: DIcon(
-                    collapsed ? DIcons.chevronRight : DIcons.chevronDown,
-                    size: 12,
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    minimumSize: Size(0, _actionSize(context)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    foregroundColor: theme.colorScheme.onSurface,
+                    textStyle: theme.textTheme.bodyMedium,
+                    alignment: Alignment.centerLeft,
+                    shape: const RoundedRectangleBorder(),
                   ),
-                  label: Text('${group.heading} (${group.alerts.length})'),
-                  tooltip:
-                      '${collapsed ? 'Expand' : 'Collapse'} '
-                      '${group.status.label}: ${group.heading}',
                   onPressed: () => setState(() => _collapsed = !collapsed),
+                  child: Row(
+                    children: [
+                      DIcon(
+                        collapsed ? DIcons.chevronRight : DIcons.chevronDown,
+                        size: 10,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          '${group.heading} (${group.alerts.length})',
+                          semanticsLabel:
+                              '${collapsed ? 'Expand' : 'Collapse'} '
+                              '${group.status.label}: ${group.heading} (${group.alerts.length})',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               if (manager != null)
@@ -133,39 +200,50 @@ class _AlertTableState extends State<_AlertTable> {
           ),
           if (!collapsed)
             LayoutBuilder(
-              builder: (context, constraints) => Scrollbar(
-                controller: _scroll,
-                thumbVisibility: true,
-                child: SingleChildScrollView(
+              builder: (context, constraints) {
+                final width = math.max(
+                  constraints.maxWidth,
+                  (group.showDescription ? 620 : 460) * textScale,
+                );
+                return Scrollbar(
                   controller: _scroll,
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: SizedBox(
-                    width: math.max(
-                      constraints.maxWidth,
-                      group.showDescription ? 680 : 460,
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    controller: _scroll,
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.only(
+                      bottom: width > constraints.maxWidth ? 6 : 0,
                     ),
-                    child: Table(
-                      defaultVerticalAlignment: TableCellVerticalAlignment.top,
-                      columnWidths: {
-                        0: const FlexColumnWidth(2),
-                        1: const FlexColumnWidth(2),
-                        if (group.showDescription) 2: const FlexColumnWidth(3),
-                        group.showDescription ? 3 : 2: FixedColumnWidth(
-                          widget.onQuote == null ? 48 : 96,
+                    child: SizedBox(
+                      width: width,
+                      child: Table(
+                        defaultVerticalAlignment:
+                            TableCellVerticalAlignment.middle,
+                        columnWidths: {
+                          0: const FlexColumnWidth(2),
+                          1: FixedColumnWidth(180 * textScale),
+                          if (group.showDescription)
+                            2: const FlexColumnWidth(3),
+                          group.showDescription ? 3 : 2: FixedColumnWidth(
+                            _actionSize(context) *
+                                (widget.onQuote == null ? 1 : 2),
+                          ),
+                        },
+                        border: TableBorder(
+                          top: BorderSide(color: theme.dividerColor),
+                          horizontalInside: BorderSide(
+                            color: theme.dividerColor,
+                          ),
                         ),
-                      },
-                      border: TableBorder(
-                        top: BorderSide(color: theme.dividerColor),
-                        horizontalInside: BorderSide(color: theme.dividerColor),
+                        children: [
+                          for (final alert in group.alerts)
+                            _row(context, alert),
+                        ],
                       ),
-                      children: [
-                        for (final alert in group.alerts) _row(context, alert),
-                      ],
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
         ],
       ),
@@ -183,7 +261,7 @@ class _AlertTableState extends State<_AlertTable> {
     return TableRow(
       children: [
         Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.fromLTRB(8, 3, 3, 3),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -203,12 +281,9 @@ class _AlertTableState extends State<_AlertTable> {
                           siteUrl: widget.siteUrl,
                         ),
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: DefaultTextStyle.merge(
-                          style: TextStyle(color: theme.colorScheme.primary),
-                          child: identifier,
-                        ),
+                      child: DefaultTextStyle.merge(
+                        style: TextStyle(color: theme.colorScheme.primary),
+                        child: identifier,
                       ),
                     ),
                   ),
@@ -229,12 +304,15 @@ class _AlertTableState extends State<_AlertTable> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(8),
-          child: Text(alertDateRange(alert)),
+          padding: const EdgeInsets.fromLTRB(8, 3, 3, 3),
+          child: CookedHtml(
+            html: _alertDateRangeHtml(alert),
+            siteUrl: widget.siteUrl,
+          ),
         ),
         if (widget.group.showDescription)
           Padding(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.fromLTRB(8, 3, 3, 3),
             child: Text(alert.description),
           ),
         Row(
@@ -247,10 +325,9 @@ class _AlertTableState extends State<_AlertTable> {
                 label: alert.linkText,
               ),
             if (widget.onQuote case final quote?)
-              DButton.iconOnly(
-                icon: const DIcon(DIcons.quoteLeft, size: 14),
-                tooltip: 'Quote Alert',
-                variant: DButtonVariant.flat,
+              _AlertActionButton(
+                icon: DIcons.quoteLeft,
+                label: 'Quote Alert',
                 onPressed: () => quote(alert),
               ),
           ],
@@ -277,28 +354,65 @@ class _AlertLinkButton extends StatelessWidget {
   Widget build(BuildContext context) => LinkTarget(
     url: uri.toString(),
     siteUrl: siteUrl,
-    child: DButton.iconOnly(
-      icon: DIcon(icon, size: 14),
-      tooltip: label,
-      variant: DButtonVariant.flat,
+    child: _AlertActionButton(
+      icon: icon,
+      label: label,
       onPressed: () =>
           unawaited(openLink(context, uri.toString(), siteUrl: siteUrl)),
     ),
   );
 }
 
-String alertDateRange(PrometheusAlert alert) {
+double _actionSize(BuildContext context) => context.isTouch ? 40 : 28;
+
+class _AlertActionButton extends StatelessWidget {
+  const _AlertActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final DIconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    icon: DIcon(icon, size: 14),
+    tooltip: label,
+    onPressed: onPressed,
+    style: IconButton.styleFrom(
+      minimumSize: Size.square(_actionSize(context)),
+      maximumSize: Size.square(_actionSize(context)),
+      padding: EdgeInsets.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+    ),
+  );
+}
+
+String _alertDateRangeHtml(PrometheusAlert alert) {
   final start = alert.start;
   final end = alert.end;
   if (start == null) return 'Unknown time';
-  final startDate = DateFormat('yyyy-MM-dd HH:mm').format(start);
-  if (end == null) return '$startDate UTC';
+  final startDate = _dateHtml(start);
+  if (end == null) return startDate;
   final sameDay =
       start.year == end.year &&
       start.month == end.month &&
       start.day == end.day;
-  final endDate = DateFormat(
-    sameDay ? 'HH:mm' : 'yyyy-MM-dd HH:mm',
-  ).format(end);
-  return '$startDate – $endDate UTC';
+  return '$startDate – ${_dateHtml(end, hideDate: sameDay)}';
+}
+
+String _dateHtml(DateTime time, {bool hideDate = false}) {
+  final format = hideDate ? 'HH:mm' : 'YYYY-MM-DD HH:mm';
+  final fallback = DateFormat(
+    hideDate ? 'HH:mm' : 'yyyy-MM-dd HH:mm',
+  ).format(time);
+  return '<span class="discourse-local-date" '
+      'data-date="${DateFormat('yyyy-MM-dd').format(time)}" '
+      'data-time="${DateFormat('HH:mm:ss').format(time)}" '
+      'data-timezone="UTC" data-displayed-timezone="UTC" '
+      'data-format="$format" data-calendar="off">$fallback (UTC)</span>';
 }

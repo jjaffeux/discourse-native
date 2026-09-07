@@ -14,6 +14,8 @@ const _intentionalMaterialButtons = <String, int>{
   'lib/src/theme/d_button.dart': 1, // DButton's rendering primitive.
   'lib/src/plugins/poll/poll_card.dart': 3, // Vote/result control group.
   'lib/src/plugins/chat/chat_channel_view.dart': 2, // Dense selection strips.
+  // Datacenter disclosure headers match the compact alert rows (28px on desktop).
+  'lib/src/plugins/prometheus_alert_receiver/alert_tables.dart': 1,
   'lib/src/shell/composer_panel.dart': 2, // Submit and taxonomy controls.
   'lib/src/shell/do_not_disturb_dialog.dart': 1, // Fixed 44px option grid.
   'lib/src/shell/reaction_presentation.dart': 1, // Fixed 44px picker action.

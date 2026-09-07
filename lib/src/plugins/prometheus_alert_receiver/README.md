@@ -8,8 +8,11 @@ decodes that array and `PostDecorationPlugin` renders it after the opening
 post. Ordinary replies and topics without alert data receive no decoration.
 
 The native tables follow upstream's Firing, Silenced, Stale, and History order,
-group by datacenter, show descriptions only where present, and retain UTC date
-ranges. Groups can be collapsed; a status with more than thirty alerts also
+including the site's fire and shushing-face emoji. Compact rows give names most
+of the available width, with larger action targets on touch devices. Dates use
+the installed Local Dates renderer: UTC inline labels open timezone previews
+for the reader. Plain UTC text remains available without that module.
+Groups can be collapsed; a status with more than thirty alerts also
 collapses subsequent statuses by default. Explicit user choices survive topic
 refreshes. Narrow windows scroll tables horizontally and all cell text remains
 selectable. Recently silenced firing alerts display the ninety-day indicator.

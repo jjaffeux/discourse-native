@@ -27,9 +27,17 @@ final class PrometheusAlertReceiverModule implements PluginModule {
             alertQuoteService,
             bindings.require(corePluginPostQuotePort),
           ),
+          PluginService<Object>(
+            alertEmojiService,
+            bindings.require(corePluginEmojiPort),
+          ),
         ],
       ),
-      requires: const [corePluginSiteStatePort, corePluginPostQuotePort],
+      requires: const [
+        corePluginSiteStatePort,
+        corePluginPostQuotePort,
+        corePluginEmojiPort,
+      ],
     );
   }
 }

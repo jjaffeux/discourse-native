@@ -803,8 +803,9 @@ metadata row, including for readers without moderation permissions. The badge
 updates when the topic is closed or reopened.
 
 Prometheus Alert Receiver topics render their alert tables below the opening
-post, grouped by status and datacenter. Tables support collapsing, horizontal
-scrolling, alert links with the matching time range, and quoting a single alert
+post, grouped by status and datacenter with the site's status emoji. Compact
+tables support collapsing, horizontal scrolling, clickable Local Dates,
+alert links with the matching time range, and quoting a single alert
 into a reply. Live topic updates refresh the tables. See the
 [module notes](lib/src/plugins/prometheus_alert_receiver/README.md).
 

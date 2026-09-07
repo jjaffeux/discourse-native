@@ -1,36 +1,56 @@
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_module.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_data.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_links.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_tables.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/prometheus_alert_receiver_module.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/prometheus_alert_receiver_plugin.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/alert_fixtures.dart';
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 import 'support/shell_test_harness.dart' show renderedText;
 
 const _site = 'https://meta.discourse.org';
 
-InstalledPlugins _plugins() {
+InstalledPlugins _plugins({bool localDates = false}) {
+  final environment = LocalDateEnvironment.forTesting(
+    detectDeviceTimezone: () async => 'Europe/Paris',
+  )..setDeviceTimezone('Europe/Paris');
+  addTearDown(environment.dispose);
   final plugins = PluginInstaller.install(
-    const PluginManifest([prometheusAlertReceiverModule]),
+    PluginManifest([
+      prometheusAlertReceiverModule,
+      if (localDates) LocalDatesModule(environment: environment),
+    ]),
   );
   addTearDown(plugins.close);
   return plugins;
 }
 
 void main() {
+  setUp(() {
+    installTestMediaPipeline(
+      client: MockClient((_) async => http.Response('', 404)),
+    );
+  });
+
   test(
     'the module owns topic alerts and site settings without enabling core-only models',
     () {
@@ -66,6 +86,42 @@ void main() {
             .get(alertLinkSettingsKey),
         config.plugins.get(alertLinkSettingsKey),
       );
+    },
+  );
+
+  testWidgets(
+    'topic tables use site emoji and the installed Local Dates renderer',
+    (tester) async {
+      final plugins = _plugins(localDates: true);
+      final api = FakeDiscourseApi(
+        models: plugins.models,
+        siteConfigs: const {_site: SiteConfig(emojiSet: 'apple')},
+        topics: {
+          7: plugins.models.topic(
+            alertTopicJson([alertJson(), alertJson(status: 'suppressed')]),
+            _site,
+          ),
+        },
+      );
+      await _open(tester, plugins, api);
+      final emoji = tester.widgetList<EmojiImage>(
+        find.descendant(
+          of: find.byType(AlertTables),
+          matching: find.byType(EmojiImage),
+        ),
+      );
+      expect(emoji.map((image) => image.url), [
+        '$_site/images/emoji/apple/fire.png',
+        '$_site/images/emoji/apple/shushing_face.png',
+      ]);
+      // Unavailable artwork still leaves a visible status emoji.
+      expect(find.text('🔥'), findsOneWidget);
+      expect(find.text('🤫'), findsOneWidget);
+      expect(find.byType(LocalDateInline), findsNWidgets(2));
+      await tester.tap(find.bySemanticsLabel(RegExp('Paris:')).first);
+      await tester.pumpAndSettle();
+      expect(find.text('Paris'), findsOneWidget);
+      expect(find.textContaining('Device'), findsOneWidget);
     },
   );
 
@@ -131,7 +187,7 @@ void main() {
       );
       final shell = await _open(tester, plugins, api);
       final quoteButton = find.byWidgetPredicate(
-        (widget) => widget is DButton && widget.tooltip == 'Quote Alert',
+        (widget) => widget is IconButton && widget.tooltip == 'Quote Alert',
       );
       await tester.ensureVisible(quoteButton);
       await tester.tap(quoteButton);
@@ -185,7 +241,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.byWidgetPredicate(
-          (widget) => widget is DButton && widget.tooltip == 'Quote Alert',
+          (widget) => widget is IconButton && widget.tooltip == 'Quote Alert',
         ),
         findsNothing,
       );
