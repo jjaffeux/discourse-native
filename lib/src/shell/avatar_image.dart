@@ -28,6 +28,7 @@ class AvatarImage extends StatefulWidget {
 
 class _AvatarImageState extends State<AvatarImage> {
   AvatarBytes? _bytes;
+  AvatarLoader? _sourceLoader;
   bool _resolved = false;
 
   @override
@@ -45,6 +46,7 @@ class _AvatarImageState extends State<AvatarImage> {
   void _resolve() {
     final url = widget.url;
     if (url == null || url.isEmpty) {
+      _sourceLoader = null;
       _bytes = null;
       _resolved = true;
       return;
@@ -52,6 +54,7 @@ class _AvatarImageState extends State<AvatarImage> {
 
     final pipeline = MediaPipeline.instance;
     final loader = pipeline.avatars;
+    _sourceLoader = loader;
     if (loader.isCached(url)) {
       // Paint synchronously on rebuild, so scrolling back does not flicker.
       _bytes = loader.cached(url);
@@ -78,7 +81,9 @@ class _AvatarImageState extends State<AvatarImage> {
   @override
   Widget build(BuildContext context) {
     final bytes = _bytes;
-    if (!_resolved || bytes == null) return widget.fallback;
+    final url = widget.url;
+    if (!_resolved || bytes == null || url == null) return widget.fallback;
+    final loader = _sourceLoader;
 
     if (bytes.isSvg) {
       return SvgPicture.memory(
@@ -87,6 +92,8 @@ class _AvatarImageState extends State<AvatarImage> {
         height: widget.size,
         fit: widget.fit,
         placeholderBuilder: (context) => widget.fallback,
+        errorBuilder: (context, error, stackTrace) =>
+            _decodeFallback(loader, url, bytes, error, stackTrace),
       );
     }
 
@@ -100,10 +107,22 @@ class _AvatarImageState extends State<AvatarImage> {
       height: widget.size,
       fit: widget.fit,
       gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) {
-        reportImageError(error, stackTrace, operation: 'avatar.decode');
-        return widget.fallback;
-      },
+      errorBuilder: (context, error, stackTrace) =>
+          _decodeFallback(loader, url, bytes, error, stackTrace),
     );
+  }
+
+  Widget _decodeFallback(
+    AvatarLoader? loader,
+    String url,
+    AvatarBytes image,
+    Object error,
+    StackTrace? stackTrace,
+  ) {
+    if (loader?.rejectAfterDecodeFailure(url, image) != false) {
+      reportImageError(error, stackTrace, operation: 'avatar.decode');
+    }
+    if (widget.url == url && identical(_bytes, image)) _bytes = null;
+    return widget.fallback;
   }
 }
