@@ -43,6 +43,25 @@ into the About panel. This distinguishes local builds even when the declared
 version has not changed. Rebuild and relaunch to refresh this information;
 Flutter hot reload does not rebuild the native bundle.
 
+### Diagnosing slow topic scrolling
+
+Open the affected topic, then **Diagnostics → Topic scroll → Start capture**.
+The panel closes so it does not compete with scrolling. Reproduce the slowdown
+for 5–10 seconds, pause for a second to let Flutter deliver its batched frame
+timings, then reopen Diagnostics and choose **Stop capture → Copy performance
+report**. Paste that report into an issue or conversation. **Copy full JSON
+capture** retains the detailed trace when a deeper investigation needs it.
+
+The report includes the platform and build mode, the display's frame budget,
+UI and raster timing percentiles, viewport bookkeeping cost, the most expensive
+post layouts, and paging/anchor activity. Engine frame numbers associate topic
+work with the correct timing batch. Post bodies, titles, site URLs, and
+credentials are excluded; post IDs and HTML character counts identify expensive
+rows. Recording stays in memory, does not refresh the diagnostics UI per event,
+and stops after two minutes or 12,000 events. Export analysis runs in a separate
+isolate. Use a profile or release build to assess device performance; a debug
+build can reveal work patterns but adds substantial overhead.
+
 ## Connecting a site
 
 The dashed `+` at the end of the rail's scrolling forum list resolves whatever

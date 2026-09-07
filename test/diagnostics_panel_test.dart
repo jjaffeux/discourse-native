@@ -554,6 +554,8 @@ void main() {
   testWidgets('starts, stops, and copies a topic scroll capture', (
     tester,
   ) async {
+    tester.view.display.refreshRate = 120;
+    addTearDown(tester.view.display.resetRefreshRate);
     final copied = <String>[];
     final messenger = tester.binding.defaultBinaryMessenger;
     addTearDown(
@@ -575,6 +577,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(diagnostics.topicScrollCapture.isRecording, isTrue);
+    expect(diagnostics.topicScrollCapture.state.frameBudgetMicroseconds, 8333);
     expect(diagnostics.isPanelOpen, isFalse);
     diagnostics.topicScrollCapture.recordTopicEvent(
       'scroll.notification',
@@ -611,6 +614,28 @@ void main() {
     expect(copied, hasLength(1));
     expect(copied.single, contains('"kind": "topic-scroll-capture"'));
     expect(copied.single, contains('scroll.notification'));
+
+    await tester.runAsync(() async {
+      final clipboardWrite = Completer<void>();
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied.add(
+            (call.arguments as Map<Object?, Object?>)['text']! as String,
+          );
+          if (!clipboardWrite.isCompleted) clipboardWrite.complete();
+        }
+        return null;
+      });
+      await tester.tap(
+        find.byKey(const ValueKey('topic-scroll-performance-copy')),
+      );
+      await clipboardWrite.future.timeout(const Duration(seconds: 5));
+    });
+    await tester.pump();
+    expect(copied, hasLength(2));
+    expect(copied.last, startsWith('Topic scrolling performance report'));
+    expect(copied.last, contains('120.0 Hz'));
+    expect(copied.last, contains('scroll.notification=1'));
   });
 
   testWidgets('Escape returns from details, then closes the panel', (

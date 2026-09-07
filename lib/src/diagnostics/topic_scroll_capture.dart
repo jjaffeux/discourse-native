@@ -1,12 +1,14 @@
 import 'dart:async';
-import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:isolate';
+import 'dart:ui' show FramePhase;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../data/app_release.dart';
-import 'diagnostics_redactor.dart';
+import '../foundation/frame_safe_notifier.dart';
+import 'topic_scroll_report.dart';
 
 enum TopicScrollCaptureStopReason { manual, durationLimit, eventLimit }
 
@@ -24,6 +26,8 @@ final class TopicScrollCaptureState {
     required this.endedAtUtc,
     required this.duration,
     required this.stopReason,
+    required this.displayRefreshRate,
+    required this.frameBudgetMicroseconds,
   });
 
   final bool isRecording;
@@ -37,6 +41,8 @@ final class TopicScrollCaptureState {
   final DateTime? endedAtUtc;
   final Duration? duration;
   final TopicScrollCaptureStopReason? stopReason;
+  final double displayRefreshRate;
+  final int frameBudgetMicroseconds;
 }
 
 @immutable
@@ -47,6 +53,7 @@ final class TopicScrollCaptureEvent {
     required this.category,
     required this.name,
     required this.data,
+    this.frameNumber,
   });
 
   final int sequence;
@@ -54,12 +61,14 @@ final class TopicScrollCaptureEvent {
   final String category;
   final String name;
   final Map<String, Object?> data;
+  final int? frameNumber;
 
   Map<String, Object?> toJson() => {
     'sequence': sequence,
     'elapsedUs': elapsedMicroseconds,
     'category': category,
     'name': name,
+    if (frameNumber != null) 'frameNumber': frameNumber,
     if (data.isNotEmpty) 'data': data,
   };
 }
@@ -69,16 +78,20 @@ final class TopicScrollCaptureEvent {
 /// I/O plus per-event UI notification would contaminate the performance being
 /// measured. This recorder only allocates while explicitly armed, never writes
 /// to disk, and publishes state only when capture starts or stops.
-final class TopicScrollCaptureController extends ChangeNotifier {
+final class TopicScrollCaptureController extends FrameSafeNotifier {
   TopicScrollCaptureController({
     this.maximumEvents = defaultMaximumEvents,
     this.maximumDuration = defaultMaximumDuration,
     DateTime Function()? clock,
+    int Function()? timelineClock,
+    int? Function()? currentFrameNumber,
   }) : assert(maximumEvents > 0),
        assert(maximumDuration > Duration.zero),
-       _clock = clock ?? _utcNow;
+       _clock = clock ?? _utcNow,
+       _timelineClock = timelineClock ?? (() => developer.Timeline.now),
+       _currentFrameNumber = currentFrameNumber ?? _readCurrentFrameNumber;
 
-  static const int reportFormatVersion = 1;
+  static const int reportFormatVersion = 2;
   static const int defaultMaximumEvents = 12000;
   static const Duration defaultMaximumDuration = Duration(minutes: 2);
   static const Duration slowFrameThreshold = Duration(microseconds: 16667);
@@ -86,6 +99,8 @@ final class TopicScrollCaptureController extends ChangeNotifier {
   final int maximumEvents;
   final Duration maximumDuration;
   final DateTime Function() _clock;
+  final int Function() _timelineClock;
+  final int? Function() _currentFrameNumber;
   final List<TopicScrollCaptureEvent> _events = [];
   final Stopwatch _elapsed = Stopwatch();
 
@@ -105,6 +120,9 @@ final class TopicScrollCaptureController extends ChangeNotifier {
   int _maximumBuildMicroseconds = 0;
   int _maximumRasterMicroseconds = 0;
   int _maximumTotalSpanMicroseconds = 0;
+  int _startedAtTimelineUs = 0;
+  double _displayRefreshRate = 60;
+  int _frameBudgetUs = slowFrameThreshold.inMicroseconds;
 
   bool get isRecording => _recording;
 
@@ -131,10 +149,12 @@ final class TopicScrollCaptureController extends ChangeNotifier {
           ? null
           : (ended ?? _clock().toUtc()).difference(started),
       stopReason: _stopReason,
+      displayRefreshRate: _displayRefreshRate,
+      frameBudgetMicroseconds: _frameBudgetUs,
     );
   }
 
-  void start() {
+  void start({double? displayRefreshRate}) {
     if (_disposed) return;
     if (_recording) _stop(TopicScrollCaptureStopReason.manual, notify: false);
     _events.clear();
@@ -146,6 +166,15 @@ final class TopicScrollCaptureController extends ChangeNotifier {
     _maximumBuildMicroseconds = 0;
     _maximumRasterMicroseconds = 0;
     _maximumTotalSpanMicroseconds = 0;
+    _displayRefreshRate =
+        displayRefreshRate != null &&
+            displayRefreshRate.isFinite &&
+            displayRefreshRate >= 1 &&
+            displayRefreshRate <= 1000
+        ? displayRefreshRate
+        : 60;
+    _frameBudgetUs = (1000000 / _displayRefreshRate).round().clamp(1, 1000000);
+    _startedAtTimelineUs = _timelineClock();
     _captureId += 1;
     _startedAtUtc = _clock().toUtc();
     _endedAtUtc = null;
@@ -159,7 +188,7 @@ final class TopicScrollCaptureController extends ChangeNotifier {
       maximumDuration,
       () => _stop(TopicScrollCaptureStopReason.durationLimit),
     );
-    notifyListeners();
+    notifySafely();
   }
 
   void stop() => _stop(TopicScrollCaptureStopReason.manual);
@@ -179,7 +208,7 @@ final class TopicScrollCaptureController extends ChangeNotifier {
     _maximumBuildMicroseconds = 0;
     _maximumRasterMicroseconds = 0;
     _maximumTotalSpanMicroseconds = 0;
-    notifyListeners();
+    notifySafely();
   }
 
   void recordTopicEvent(String name, Map<String, Object?> data) {
@@ -195,7 +224,12 @@ final class TopicScrollCaptureController extends ChangeNotifier {
   /// The small envelope is captured on the caller. Traversing all events,
   /// scrubbing strings, normalizing values, and encoding JSON happen only on
   /// export, in a background isolate after the reproduction is over.
-  Future<String> buildJsonReport() {
+  Future<String> buildJsonReport() => _buildReport(compact: false);
+
+  /// A bounded text report suitable for pasting into an issue or conversation.
+  Future<String> buildPerformanceReport() => _buildReport(compact: true);
+
+  Future<String> _buildReport({required bool compact}) {
     final snapshot = state;
     final report = <String, Object?>{
       'version': reportFormatVersion,
@@ -233,6 +267,7 @@ final class TopicScrollCaptureController extends ChangeNotifier {
           'topic window, paging, and extent invalidation decisions',
           'viewport anchor capture and correction decisions',
           'Flutter UI-thread build and raster frame timings',
+          'post layout and viewport bookkeeping durations',
         ],
         'excluded': [
           'post bodies and titles',
@@ -246,14 +281,15 @@ final class TopicScrollCaptureController extends ChangeNotifier {
         'frameCount': snapshot.frameCount,
         'slowBuildFrameCount': snapshot.slowBuildFrameCount,
         'slowRasterFrameCount': snapshot.slowRasterFrameCount,
-        'slowFrameThresholdUs': slowFrameThreshold.inMicroseconds,
+        'displayRefreshRate': snapshot.displayRefreshRate,
+        'slowFrameThresholdUs': snapshot.frameBudgetMicroseconds,
         'maximumBuildUs': _maximumBuildMicroseconds,
         'maximumRasterUs': _maximumRasterMicroseconds,
         'maximumTotalSpanUs': _maximumTotalSpanMicroseconds,
       },
       'events': [for (final event in _events) event.toJson()],
     };
-    return Isolate.run(() => _encodeJsonSafeReport(report));
+    return Isolate.run(() => encodeTopicScrollReport(report, compact: compact));
   }
 
   void _append({
@@ -268,6 +304,7 @@ final class TopicScrollCaptureController extends ChangeNotifier {
         elapsedMicroseconds: _elapsed.elapsedMicroseconds,
         category: category,
         name: name,
+        frameNumber: category == 'topic' ? _currentFrameNumber() : null,
         // Producers hand the recorder fresh maps of primitive values. Keep
         // this shallow on the hot path; deep copying, redaction, and JSON
         // normalization are intentionally deferred until export.
@@ -302,14 +339,18 @@ final class TopicScrollCaptureController extends ChangeNotifier {
   void _recordFrameTimings(List<FrameTiming> timings) {
     for (final timing in timings) {
       if (!_recording) return;
+      final vsyncUs = timing.timestampInMicroseconds(FramePhase.vsyncStart);
+      // The engine delivers timings in batches. Do not count frames that
+      // started before the user armed this recording.
+      if (vsyncUs < _startedAtTimelineUs) continue;
       final buildUs = timing.buildDuration.inMicroseconds;
       final rasterUs = timing.rasterDuration.inMicroseconds;
       final totalUs = timing.totalSpan.inMicroseconds;
       _frameCount += 1;
-      if (buildUs > slowFrameThreshold.inMicroseconds) {
+      if (buildUs > _frameBudgetUs) {
         _slowBuildFrameCount += 1;
       }
-      if (rasterUs > slowFrameThreshold.inMicroseconds) {
+      if (rasterUs > _frameBudgetUs) {
         _slowRasterFrameCount += 1;
       }
       _maximumBuildMicroseconds = _maximumBuildMicroseconds > buildUs
@@ -326,6 +367,7 @@ final class TopicScrollCaptureController extends ChangeNotifier {
         name: 'frame.timing',
         data: {
           if (timing.frameNumber >= 0) 'frameNumber': timing.frameNumber,
+          'vsyncStartUs': vsyncUs,
           'buildUs': buildUs,
           'rasterUs': rasterUs,
           'vsyncOverheadUs': timing.vsyncOverhead.inMicroseconds,
@@ -348,7 +390,7 @@ final class TopicScrollCaptureController extends ChangeNotifier {
     _durationTimer?.cancel();
     _durationTimer = null;
     _detachFrameTimings();
-    if (notify && !_disposed) notifyListeners();
+    if (notify && !_disposed) notifySafely();
   }
 
   @override
@@ -363,24 +405,15 @@ final class TopicScrollCaptureController extends ChangeNotifier {
   }
 }
 
-String _encodeJsonSafeReport(Map<String, Object?> report) =>
-    const JsonEncoder.withIndent('  ').convert(_jsonSafe(report));
-
-Object? _jsonSafe(Object? value) {
-  if (value == null || value is bool || value is int) return value;
-  if (value is double) return value.isFinite ? value : value.toString();
-  if (value is num) return value.toString();
-  if (value is String) return DiagnosticsRedactor.scrub(value);
-  if (value is Iterable<Object?>) {
-    return [for (final item in value) _jsonSafe(item)];
+int? _readCurrentFrameNumber() {
+  try {
+    final scheduler = SchedulerBinding.instance;
+    if (scheduler.schedulerPhase == SchedulerPhase.idle) return null;
+    final number = scheduler.platformDispatcher.frameData.frameNumber;
+    return number >= 0 ? number : null;
+  } on Object {
+    return null;
   }
-  if (value is Map<Object?, Object?>) {
-    return {
-      for (final entry in value.entries)
-        DiagnosticsRedactor.scrub('${entry.key}'): _jsonSafe(entry.value),
-    };
-  }
-  return DiagnosticsRedactor.safeString(value);
 }
 
 DateTime _utcNow() => DateTime.now().toUtc();
