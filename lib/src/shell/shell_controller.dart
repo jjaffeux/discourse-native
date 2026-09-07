@@ -7232,10 +7232,10 @@ class ShellController extends FrameSafeNotifier
     }
 
     final key = _postKey(siteUrl, post.id);
+    final lease = lifecycle.capture(siteUrl);
     if (!_beginPostWrite(key)) {
       return 'Another action on this post is still being saved.';
     }
-    final lease = lifecycle.capture(siteUrl);
 
     try {
       final credential = await _credentialForWrite(siteUrl);
@@ -8387,10 +8387,10 @@ class ShellController extends FrameSafeNotifier
     }
 
     final key = _postKey(siteUrl, held.id);
+    final lease = lifecycle.capture(siteUrl);
     if (!_beginPostWrite(key)) {
       return 'Another action on this post is still being saved.';
     }
-    final lease = lifecycle.capture(siteUrl);
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
@@ -8469,8 +8469,8 @@ class ShellController extends FrameSafeNotifier
     if (!_topicFlagWrites.add(key)) {
       return 'Another flag on this topic is still being saved.';
     }
-    _notify();
     final lease = lifecycle.capture(siteUrl);
+    _notify();
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
@@ -8523,8 +8523,8 @@ class ShellController extends FrameSafeNotifier
     // undo at once — the second reads the guess the first just wrote — and
     // whichever answer lands last decides what is drawn, which is not
     // necessarily the one the site ended up believing.
-    if (!_beginPostWrite(key)) return null;
     final lease = lifecycle.capture(targetSite);
+    if (!_beginPostWrite(key)) return null;
 
     try {
       return await _writeLike(targetSite, post, lease);
@@ -8546,7 +8546,7 @@ class ShellController extends FrameSafeNotifier
       store.update<Post>(siteUrl, post.id, (held) => held.withLike(liked));
       _notify();
     });
-    if (!applied) return null;
+    if (!applied || !lease.isCurrent) return null;
 
     void revert() {
       lease.commit(() {
@@ -9844,7 +9844,9 @@ class ShellController extends FrameSafeNotifier
     final whisper = composer.whisper;
     final lease = lifecycle.capture(target.siteUrl);
 
-    if (target.isEdit) return _submitEdit(composer, target, composer.raw);
+    if (target.isEdit) {
+      return _submitEdit(composer, target, composer.raw, lease);
+    }
 
     // Before any await: the credential round trip below is a gap a second tap
     // can pass through, and a create sent twice posts twice — unlike an edit,
@@ -9971,6 +9973,7 @@ class ShellController extends FrameSafeNotifier
     ComposerController composer,
     ComposerTarget target,
     String raw,
+    SiteLease lease,
   ) async {
     if (target.isCategoryEdit) {
       return _submitCategoryEdit(composer, target);
@@ -9989,9 +9992,9 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     try {
-      await _submitEditNow(composer, target, raw);
+      await _submitEditNow(composer, target, raw, lease);
     } finally {
-      _endPostWrite(target.siteUrl, target.editingPostId!);
+      lease.commit(() => _endPostWrite(target.siteUrl, target.editingPostId!));
     }
   }
 
@@ -9999,8 +10002,9 @@ class ShellController extends FrameSafeNotifier
     ComposerController composer,
     ComposerTarget target,
     String raw,
+    SiteLease lease,
   ) async {
-    final lease = lifecycle.capture(target.siteUrl);
+    if (!lease.isCurrent || !_ownsComposer(composer)) return;
     composer.beginSubmit();
     // A missing baseline means the body fetch failed. Never build a destructive
     // edit without the original text used for conflict detection.
@@ -10076,6 +10080,7 @@ class ShellController extends FrameSafeNotifier
       }
     }
 
+    if (!lease.isCurrent || !_ownsComposer(composer)) return;
     final Post updated;
     try {
       updated = await api.composerPersistence.updatePost(

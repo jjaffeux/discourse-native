@@ -102,6 +102,7 @@ Post _post({
   Poll? otherPoll,
   Reactions? reactions,
   String cooked = '<p>Initial</p>',
+  bool canLike = false,
 }) {
   var plugins = PluginData.none;
   if (poll != null) {
@@ -120,7 +121,7 @@ Post _post({
     postNumber: 2,
     username: 'sam',
     cooked: cooked,
-    canLike: reactions != null,
+    canLike: canLike || reactions != null,
     plugins: plugins,
   );
 }
@@ -333,6 +334,76 @@ void main() {
 
       expect(api.calls, [_site, _site2]);
     });
+  });
+
+  group('account changes during write admission', () {
+    for (final scenario in [
+      (action: 'like', optimistic: false),
+      (action: 'reaction', optimistic: false),
+      (action: 'poll', optimistic: false),
+      (action: 'like', optimistic: true),
+      (action: 'reaction', optimistic: true),
+    ]) {
+      final action = scenario.action;
+      final stage = scenario.optimistic
+          ? 'optimistic update'
+          : 'write admission';
+      test('$action stops after account replacement during $stage', () async {
+        final poll = _poll();
+        final api = _api(
+          initial: _post(
+            poll: poll,
+            canLike: true,
+            reactions: action == 'reaction'
+                ? const Reactions(entries: [])
+                : null,
+          ),
+          voteResponses: {
+            FakeDiscourseApi.pollVoteKey(11, 'poll'): _answer(poll),
+          },
+        );
+        final shell = (await _loadShell(api)).shell;
+        addTearDown(shell.dispose);
+        final post = shell.store.read<Post>(_site, 11)!;
+        var replaced = false;
+        shell.addListener(() {
+          if (replaced || !shell.pluginPostWriteInFlight(_site, post.id)) {
+            return;
+          }
+          if (scenario.optimistic) {
+            final current = shell.store.read<Post>(_site, post.id)!;
+            final applied = action == 'like'
+                ? current.liked
+                : current.reactions?.mine?.id == 'clap';
+            if (!applied) return;
+          }
+          replaced = true;
+          shell.lifecycle.invalidate(_site);
+          shell.endPluginPostWrite(_site, post.id);
+          shell.beginPluginPostWrite(_site, post.id);
+        });
+
+        switch (action) {
+          case 'like':
+            await shell.toggleLike(post, siteUrl: _site);
+          case 'reaction':
+            await _reactions(shell).toggle(post, 'clap', siteUrl: _site);
+          case 'poll':
+            await _castPollVote(shell, post, poll, ['b']);
+        }
+
+        expect(replaced, isTrue);
+        expect(api.liked, isEmpty);
+        expect(api.reacted, isEmpty);
+        expect(api.pollVotes, isEmpty);
+        expect(
+          shell.pluginPostWriteInFlight(_site, post.id),
+          isTrue,
+          reason:
+              'the obsolete operation must not release the new account write',
+        );
+      });
+    }
   });
 
   group('successful poll writes', () {

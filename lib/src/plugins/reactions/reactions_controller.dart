@@ -218,13 +218,13 @@ class ReactionsController extends FrameSafeNotifier {
     required String siteUrl,
   }) async {
     if (isDisposed || !post.canReact) return null;
+    final lease = _requestHost.capture(siteUrl);
     if (!_posts.beginWrite(siteUrl, post.id)) return null;
     notifySafely();
-    final lease = _requestHost.capture(siteUrl);
 
     try {
       final credential = await _requestHost.writeCredentialFor(siteUrl);
-      if (!lease.isCurrent) return null;
+      if (isDisposed || !lease.isCurrent) return null;
       if (credential.failure case final failure?) return failure.message;
       final apiKey = credential.apiKey!;
       final current = _posts.readPost(siteUrl, post.id) ?? post;
@@ -246,7 +246,7 @@ class ReactionsController extends FrameSafeNotifier {
               ),
         );
       });
-      if (!applied) return null;
+      if (!applied || isDisposed || !lease.isCurrent) return null;
 
       void revert() {
         lease.commit(() {

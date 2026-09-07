@@ -126,12 +126,18 @@ final class EventTestConnection implements PluginAccountConnectionHost {
 final class EventTestPosts implements PluginPostHost {
   final lanes = <(String, int)>{};
   bool archived = false;
+  void Function()? onBeginWrite;
   @override
   Post? readPost(String siteUrl, int postId) => null;
   @override
   bool topicArchived(String siteUrl, int topicId) => archived;
   @override
-  bool beginWrite(String siteUrl, int postId) => lanes.add((siteUrl, postId));
+  bool beginWrite(String siteUrl, int postId) {
+    final added = lanes.add((siteUrl, postId));
+    if (added) onBeginWrite?.call();
+    return added;
+  }
+
   @override
   void endWrite(String siteUrl, int postId) => lanes.remove((siteUrl, postId));
   @override

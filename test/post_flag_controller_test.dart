@@ -168,6 +168,40 @@ void main() {
     expect(shell.postWriteInFlight(42, siteUrl: _siteUrl), isFalse);
   });
 
+  for (final target in ['post', 'topic']) {
+    test(
+      '$target flagging stops when its loading listener changes the account',
+      () async {
+        final (:shell, :api) = await _shell(flagResponse: _actedPost());
+        addTearDown(shell.dispose);
+        var replaced = false;
+        shell.addListener(() {
+          final pending = target == 'post'
+              ? shell.postWriteInFlight(42, siteUrl: _siteUrl)
+              : shell.topicFlagWriteInFlight(_siteUrl, 7);
+          if (replaced || !pending) return;
+          replaced = true;
+          shell.lifecycle.invalidate(_siteUrl);
+        });
+        final error = target == 'post'
+            ? await shell.createPostFlag(_siteUrl, _post(), _offTopic)
+            : await shell.createTopicFlag(
+                _siteUrl,
+                shell.store.read<TopicDetail>(_siteUrl, 7)!,
+                _topicOnly,
+              );
+
+        expect(replaced, isTrue);
+        expect(
+          error,
+          'Your connection changed. Reopen the flag form and try again.',
+        );
+        expect(api.flagsCreated, isEmpty);
+        expect(api.topicFlagsCreated, isEmpty);
+      },
+    );
+  }
+
   test(
     'topic flagging intersects its own catalog and action summary',
     () async {

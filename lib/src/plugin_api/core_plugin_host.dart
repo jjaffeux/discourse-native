@@ -104,6 +104,9 @@ abstract interface class PluginPostHost {
     T? Function(T? held) update,
   );
 
+  // Admission and record updates can notify listeners synchronously. Capture
+  // the account lease before admission, recheck it after updates, and release
+  // the lane through that same lease so an old operation cannot release a new one.
   bool beginWrite(String siteUrl, int postId);
   void endWrite(String siteUrl, int postId);
   bool writeInFlight(String siteUrl, int postId);

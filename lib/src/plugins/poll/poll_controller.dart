@@ -106,20 +106,22 @@ class PollController extends FrameSafeNotifier
     required Poll poll,
     required List<String>? options,
   }) async {
-    if (!poll.isOpen) return const PollVoteWriteResult.saved();
+    if (isDisposed || !poll.isOpen) return const PollVoteWriteResult.saved();
     if (archived || _posts.topicArchived(siteUrl, topicId)) {
       return const PollVoteWriteResult.refused(
         'Voting is unavailable in archived topics.',
       );
     }
+    final lease = _requests.capture(siteUrl);
     if (!_posts.beginWrite(siteUrl, post.id)) {
       return const PollVoteWriteResult.reconciled();
     }
     notifySafely();
-    final lease = _requests.capture(siteUrl);
     try {
       final credential = await _requests.writeCredentialFor(siteUrl);
-      if (!lease.isCurrent) return const PollVoteWriteResult.saved();
+      if (isDisposed || !lease.isCurrent) {
+        return const PollVoteWriteResult.saved();
+      }
       if (credential.failure case final failure?) {
         return PollVoteWriteResult.refused(failure.message);
       }
