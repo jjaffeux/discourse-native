@@ -57,9 +57,14 @@ final class DiscourseSiteApi {
   }
 
   Future<DiscourseInstance> lookup(String term) async {
-    // Joined as text, not resolved as an absolute path: a forum served from
-    // a subfolder keeps the path the reader typed.
-    final probe = Uri.parse('${normalize(term)}/user-api-key/new');
+    const authPath = '/user-api-key/new';
+    final address = normalize(term);
+    // Append to the encoded path so subfolders survive and page extras never
+    // become part of the endpoint.
+    final probe = _discoveryUrl(
+      address,
+      '${address.path.replaceFirst(RegExp(r'/+$'), '')}$authPath',
+    );
 
     final DiscourseHeadResponse head;
     try {
@@ -98,20 +103,25 @@ final class DiscourseSiteApi {
       throw SiteLookupException(SiteLookupFailure.notDiscourse, term);
     }
 
-    // Redirects may have moved us; keep where we landed, not where we started.
-    //
-    // Unlike DiscourseMobile we keep any port, which it strips — that would
-    // break connecting to a site on localhost during development.
-    final baseUrl = head.url
-        .toString()
-        .replaceFirst(RegExp(r'/user-api-key/new/*$'), '')
-        .replaceFirst(RegExp(r'/+$'), '');
+    // Only an auth-route redirect identifies a forum base. A version header
+    // on an unrelated page does not make that page a valid API prefix.
+    final landedPath = head.url.path.replaceFirst(RegExp(r'/+$'), '');
+    if (!landedPath.endsWith(authPath)) {
+      throw SiteLookupException(SiteLookupFailure.notDiscourse, term);
+    }
+    final base = _discoveryUrl(
+      head.url,
+      landedPath
+          .substring(0, landedPath.length - authPath.length)
+          .replaceFirst(RegExp(r'/+$'), ''),
+    );
+    final baseUrl = base.toString();
 
     final Map<String, dynamic> info;
     try {
       final response = await _transport.request(
         'GET',
-        Uri.parse('$baseUrl/site/basic-info.json'),
+        base.replace(path: '${base.path}/site/basic-info.json'),
       );
       if (response.statusCode != 200) {
         throw SiteLookupException(
@@ -136,13 +146,22 @@ final class DiscourseSiteApi {
 
     return DiscourseInstance(
       url: baseUrl,
-      title: title == null || title.isEmpty ? Uri.parse(baseUrl).host : title,
+      title: title == null || title.isEmpty ? base.host : title,
       description: jsonText(info['description']),
       iconUrl: _absoluteIcon(jsonText(info['apple_touch_icon_url']), baseUrl),
       apiVersion: apiVersion,
       loginRequired: info['login_required'] == true,
     );
   }
+
+  // Omit query and fragment entirely while preserving the escaped path and
+  // any explicit port, including those used by loopback development forums.
+  static Uri _discoveryUrl(Uri url, String path) => Uri(
+    scheme: url.scheme,
+    host: url.host,
+    port: url.hasPort ? url.port : null,
+    path: path,
+  );
 
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
