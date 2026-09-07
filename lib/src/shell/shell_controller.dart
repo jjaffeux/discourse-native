@@ -10075,6 +10075,7 @@ class ShellController extends FrameSafeNotifier
     final freshById = <int, Post>{};
     try {
       for (var start = 0; start < postIds.length; start += 20) {
+        if (isDisposed || !lease.isCurrent) return;
         final end = start + 20 < postIds.length ? start + 20 : postIds.length;
         final fetched = await api.topicContent.posts(
           siteUrl: siteUrl,
@@ -10082,6 +10083,7 @@ class ShellController extends FrameSafeNotifier
           ids: postIds.sublist(start, end),
           apiKey: apiKey,
         );
+        if (isDisposed || !lease.isCurrent) return;
         for (final post in fetched) {
           if (postIds.contains(post.id)) freshById[post.id] = post;
         }
