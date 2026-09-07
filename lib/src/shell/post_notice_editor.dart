@@ -9,17 +9,32 @@ import 'shell_controller.dart';
 Future<void> showPostNoticeEditor({
   required BuildContext context,
   required ShellController controller,
+  required String siteUrl,
+  required int topicId,
   required Post post,
-}) => showDialog<void>(
-  context: context,
-  barrierDismissible: false,
-  builder: (context) => _PostNoticeDialog(controller: controller, post: post),
-);
+}) {
+  final target = controller.capturePostNoticeTarget(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    postId: post.id,
+  );
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) =>
+        _PostNoticeDialog(controller: controller, target: target, post: post),
+  );
+}
 
 class _PostNoticeDialog extends StatefulWidget {
-  const _PostNoticeDialog({required this.controller, required this.post});
+  const _PostNoticeDialog({
+    required this.controller,
+    required this.target,
+    required this.post,
+  });
 
   final ShellController controller;
+  final PostNoticeTarget target;
   final Post post;
 
   @override
@@ -45,7 +60,7 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
       _saving = true;
       _error = null;
     });
-    final error = await widget.controller.setPostNotice(widget.post, notice);
+    final error = await widget.controller.setPostNotice(widget.target, notice);
     if (!mounted) return;
     if (error != null) {
       setState(() {

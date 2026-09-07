@@ -179,6 +179,20 @@ final class _PluginBookmarkWriteContext extends _BookmarkWriteContext {
 
 const _pluginBookmarkWriteContext = _PluginBookmarkWriteContext();
 
+final class PostNoticeTarget {
+  const PostNoticeTarget._({
+    required this.siteUrl,
+    required this.topicId,
+    required this.postId,
+    required this._lease,
+  });
+
+  final String siteUrl;
+  final int topicId;
+  final int postId;
+  final SiteLease _lease;
+}
+
 class ShellController extends FrameSafeNotifier
     implements
         PluginNavigationHost,
@@ -8341,28 +8355,89 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  bool canEditPostNotice(Post post) {
-    final instance = currentInstance;
-    final topic = currentTopic;
-    return instance != null &&
+  bool canEditPostNotice({
+    required String siteUrl,
+    required int topicId,
+    required int postId,
+  }) {
+    final topic = store.read<TopicDetail>(siteUrl, topicId);
+    return _instanceAt(siteUrl)?.isConnected == true &&
         topic?.canEditStaffNotes == true &&
-        topic!.stream.contains(post.id);
+        topic!.stream.contains(postId) &&
+        store.read<Post>(siteUrl, postId) != null;
   }
 
-  Future<String?> setPostNotice(Post post, String? notice) {
-    if (!canEditPostNotice(post)) return Future.value();
+  PostNoticeTarget capturePostNoticeTarget({
+    required String siteUrl,
+    required int topicId,
+    required int postId,
+  }) => PostNoticeTarget._(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    postId: postId,
+    lease: lifecycle.capture(siteUrl),
+  );
+
+  static const _obsoletePostNotice =
+      'Your connection changed. Reopen the post notice and try again.';
+
+  String? _postNoticeRefusal(PostNoticeTarget target) {
+    if (isDisposed || !target._lease.isCurrent) return _obsoletePostNotice;
+    if (!canEditPostNotice(
+      siteUrl: target.siteUrl,
+      topicId: target.topicId,
+      postId: target.postId,
+    )) {
+      return 'This post notice can no longer be edited.';
+    }
+    return null;
+  }
+
+  Future<String?> setPostNotice(PostNoticeTarget target, String? notice) async {
+    if (_postNoticeRefusal(target) case final error?) return error;
+    final siteUrl = target.siteUrl;
+    final postId = target.postId;
+    final lease = target._lease;
     final trimmed = notice?.trim();
     final next = trimmed == null || trimmed.isEmpty ? null : trimmed;
-    if (next == post.notice?.raw) return Future.value();
-    return _mutatePost(
-      post,
-      (siteUrl, apiKey) => api.postMutations.updatePostNotice(
+    if (next == store.read<Post>(siteUrl, postId)?.notice?.raw) return null;
+    if (!_beginPostWrite(_postKey(siteUrl, postId))) {
+      return 'Another action on this post is still being saved.';
+    }
+
+    try {
+      // Acquiring the write guard notifies listeners, which may retire the
+      // opening account. Keep that lease through credential reads and refresh.
+      if (_postNoticeRefusal(target) case final error?) return error;
+      final credential = await _credentialForWrite(siteUrl);
+      if (_postNoticeRefusal(target) case final error?) return error;
+      if (credential.failure case final failure?) return failure.message;
+      if (next == store.read<Post>(siteUrl, postId)?.notice?.raw) return null;
+
+      await api.postMutations.updatePostNotice(
         siteUrl: siteUrl,
-        apiKey: apiKey,
-        postId: post.id,
+        apiKey: credential.apiKey!,
+        postId: postId,
         notice: next,
-      ),
-    );
+      );
+      if (!lease.isCurrent) return _obsoletePostNotice;
+      await _refreshPost(
+        siteUrl,
+        target.topicId,
+        postId,
+        credential.apiKey,
+        lease,
+      );
+      return lease.isCurrent ? null : _obsoletePostNotice;
+    } on WriteException catch (error) {
+      return lease.isCurrent ? error.message : _obsoletePostNotice;
+    } catch (error, stackTrace) {
+      if (!lease.isCurrent) return _obsoletePostNotice;
+      _reportOperationalError(error, stackTrace, 'post.setNotice');
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      lease.commit(() => _endPostWrite(siteUrl, postId));
+    }
   }
 
   Future<String?> createPostFlag(
