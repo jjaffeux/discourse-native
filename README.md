@@ -851,6 +851,9 @@ titles are dimmed, while unread-post badges stay beside titles and remain
 separate from total reply counts. New topics have a dot; nested topics use
 their new-replies dot instead of a flat unread-post count. These states update
 in the retained list as read receipts and topic updates reach the shared store.
+A failed receipt keeps that optimistic styling but can be sent again when the
+reader observes the same position. Newer queued reads supersede failed ones;
+failure itself never starts a retry loop.
 Reply totals in lists and topic summaries use `posts_count - 1`, like the web
 client, rather than the API's directed-reply counter. Sparse records without
 a post count retain their supplied reply count.
