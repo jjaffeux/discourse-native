@@ -162,6 +162,49 @@ void main() {
     },
   );
 
+  testWidgets(
+    'an explicit edit request takes focus once on an existing editor',
+    (tester) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      Future<void> pumpEditor({required bool autofocus}) async {
+        await tester.pumpWidget(
+          _TestEditor(
+            controller: controller,
+            title: 'Original title',
+            autofocus: autofocus,
+            showEditingFrame: true,
+            onSave: (_) async => null,
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pumpEditor(autofocus: false);
+      final field = find.byKey(const ValueKey('topic-header-title-field'));
+      final fieldElement = tester.element(field);
+      final outsideFocus = Focus.of(tester.element(find.text('Outside')));
+      outsideFocus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(outsideFocus.hasPrimaryFocus, isTrue);
+
+      await pumpEditor(autofocus: true);
+      expect(tester.element(field), same(fieldElement));
+      expect(
+        tester.widget<TextField>(field).focusNode!.hasPrimaryFocus,
+        isTrue,
+      );
+      expect(find.text('Enter to save · Esc to cancel'), findsOneWidget);
+
+      outsideFocus.requestFocus();
+      await tester.pumpAndSettle();
+      await pumpEditor(autofocus: true);
+      expect(outsideFocus.hasPrimaryFocus, isTrue);
+      expect(find.text('Enter to save · Esc to cancel'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('failed inline save keeps the edit focused and Escape cancels', (
     tester,
   ) async {
@@ -362,6 +405,7 @@ class _TestEditor extends StatelessWidget {
     this.width,
     this.maxLines = 1,
     this.showEditingFrame = false,
+    this.autofocus = false,
     this.theme,
     this.textScaler = TextScaler.noScaling,
   });
@@ -373,6 +417,7 @@ class _TestEditor extends StatelessWidget {
   final double? width;
   final int maxLines;
   final bool showEditingFrame;
+  final bool autofocus;
   final ThemeData? theme;
   final TextScaler textScaler;
 
@@ -398,6 +443,7 @@ class _TestEditor extends StatelessWidget {
                 onSave: onSave,
                 maxLines: maxLines,
                 showEditingFrame: showEditingFrame,
+                autofocus: autofocus,
               ),
             ),
             TextButton(
