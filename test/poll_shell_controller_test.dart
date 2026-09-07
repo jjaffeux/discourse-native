@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -552,6 +553,75 @@ void main() {
   });
 
   group('poll write ordering', () {
+    for (final channel in ['/polls/7', '/topic/7/reactions']) {
+      test(
+        '$channel rejects invalid IDs without queuing a post refresh',
+        () async {
+          final gate = Completer<void>();
+          final initialPoll = _poll();
+          final answered = _poll(
+            voters: 2,
+            firstVotes: 1,
+            selected: const ['b'],
+          );
+          final api = _api(
+            initial: _post(poll: initialPoll),
+            pollGate: gate,
+            voteResponses: {
+              FakeDiscourseApi.pollVoteKey(11, 'poll'): _answer(answered),
+            },
+            postsById: {11: _post(poll: answered, cooked: '<p>Live</p>')},
+          );
+          final (:shell, :tracker) = await _loadShell(api);
+          addTearDown(shell.dispose);
+          addTearDown(() {
+            if (!gate.isCompleted) gate.complete();
+          });
+
+          final voting = _castPollVote(
+            shell,
+            shell.store.read<Post>(_site, 11)!,
+            initialPoll,
+            const ['b'],
+          );
+          await _waitFor(
+            () => api.pollVotes.isNotEmpty,
+            description: 'the poll vote request',
+          );
+          expect(shell.postWriteInFlight(11), isTrue);
+
+          tracker.deliverTopicMessage(channel, jsonDecode('{"post_id":1e999}'));
+          for (final id in <Object?>[
+            double.infinity,
+            double.negativeInfinity,
+            double.nan,
+            0,
+            -1,
+            11.75,
+            9223372036854775808.0,
+            '11',
+          ]) {
+            tracker.deliverTopicMessage(channel, {'post_id': id});
+          }
+          await pumpEventQueue();
+          expect(api.postFetches, isEmpty);
+
+          gate.complete();
+          final result = await voting;
+          expect(result.message, isNull);
+          await pumpEventQueue();
+          expect(api.postFetches, isEmpty);
+
+          tracker.deliverTopicMessage(channel, const {'post_id': 11.0});
+          await pumpEventQueue();
+          expect(api.postFetches, [
+            [11],
+          ]);
+          expect(shell.store.read<Post>(_site, 11)?.cooked, '<p>Live</p>');
+        },
+      );
+    }
+
     test('queues and replays invalidations received during a write', () async {
       final gate = Completer<void>();
       final initialPoll = _poll();

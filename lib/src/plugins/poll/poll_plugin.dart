@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../models/live_refresh_id.dart';
 import '../../models/post.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
@@ -144,10 +145,8 @@ class PollPlugin
   List<int> stalePosts(String channel, Object? data) {
     if (!channel.startsWith('/polls/')) return const [];
     if (data is! Map<Object?, Object?>) return const [];
-    return switch (data['post_id']) {
-      final num id => [id.toInt()],
-      _ => const [],
-    };
+    final postId = liveRefreshId(data['post_id']);
+    return postId == null ? const [] : [postId];
   }
 }
 

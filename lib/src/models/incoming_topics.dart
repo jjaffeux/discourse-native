@@ -1,3 +1,5 @@
+import 'live_refresh_id.dart';
+
 class IncomingTopics {
   static const Set<String> _newTopicLists = {'latest', 'new'};
 
@@ -17,10 +19,7 @@ class IncomingTopics {
   bool notify(Object? message) {
     if (message is! Map) return false;
 
-    final topicId = switch (message['topic_id']) {
-      final num id => id.toInt(),
-      _ => null,
-    };
+    final topicId = liveRefreshId(message['topic_id']);
     if (topicId == null) return false;
 
     // `muted` and `unmuted` also arrive on /latest, and carry no payload; they

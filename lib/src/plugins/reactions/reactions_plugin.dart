@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../models/live_refresh_id.dart';
 import '../../models/post.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
@@ -73,10 +74,8 @@ class ReactionsPlugin
       return const [];
     }
     if (data is! Map) return const [];
-    return switch (data['post_id']) {
-      final num id => [id.toInt()],
-      _ => const [],
-    };
+    final postId = liveRefreshId(data['post_id']);
+    return postId == null ? const [] : [postId];
   }
 
   @override
