@@ -268,17 +268,13 @@ class TopicInboxRow extends StatelessWidget {
                                     when topic.excerpt == null) ...[
                                   Tooltip(
                                     message: '@$username',
-                                    child: CircleAvatar(
-                                      radius: 10,
-                                      backgroundColor: theme.shell.hover,
-                                      foregroundColor: muted,
-                                      child: Text(
-                                        username.isEmpty
-                                            ? '?'
-                                            : username
-                                                  .substring(0, 1)
-                                                  .toUpperCase(),
-                                        style: smallStyle,
+                                    child: ClipOval(
+                                      child: AvatarImage(
+                                        url: topic.lastPosterAvatarUrl,
+                                        size: 20,
+                                        fallback: const SizedBox.square(
+                                          dimension: 20,
+                                        ),
                                       ),
                                     ),
                                   ),

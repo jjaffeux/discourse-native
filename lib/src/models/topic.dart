@@ -150,6 +150,7 @@ class Topic with Storable<Topic> {
     this.categoryId,
     this.excerpt,
     this.lastPosterUsername,
+    this.lastPosterAvatarUrl,
     this.postsCount = 0,
     int replyCount = 0,
     this.views = 0,
@@ -177,6 +178,7 @@ class Topic with Storable<Topic> {
     Map<String, dynamic> json,
     Map<int, String?> avatarsByUserId,
     String siteUrl, {
+    Map<String, String?> avatarsByUsername = const {},
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
   }) {
     final resolvedPosters = <String>[];
@@ -198,6 +200,9 @@ class Topic with Storable<Topic> {
       slug: jsonString(json['slug']),
       excerpt: jsonHtmlText(json['excerpt']),
       lastPosterUsername: jsonText(json['last_poster_username']),
+      lastPosterAvatarUrl:
+          avatarsByUsername[jsonText(json['last_poster_username'])
+              ?.toLowerCase()],
       categoryId: json['category_id'] == null
           ? null
           : jsonInt(json['category_id']),
@@ -231,6 +236,7 @@ class Topic with Storable<Topic> {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
   }) {
     final avatars = <int, String?>{};
+    final avatarsByUsername = <String, String?>{};
     for (final poster in jsonObjects(json['posters'])) {
       final user = jsonObject(poster['user']);
       final id = jsonIntOrNull(user['id']);
@@ -239,8 +245,18 @@ class Topic with Storable<Topic> {
         jsonText(user['avatar_template']),
         siteUrl,
       );
+      final username = jsonText(user['username']);
+      if (username != null) {
+        avatarsByUsername[username.toLowerCase()] = avatars[id];
+      }
     }
-    return Topic.fromJson(json, avatars, siteUrl, extensions: extensions);
+    return Topic.fromJson(
+      json,
+      avatars,
+      siteUrl,
+      avatarsByUsername: avatarsByUsername,
+      extensions: extensions,
+    );
   }
 
   final int id;
@@ -249,6 +265,7 @@ class Topic with Storable<Topic> {
   final int? categoryId;
   final String? excerpt;
   final String? lastPosterUsername;
+  final String? lastPosterAvatarUrl;
   final int postsCount;
   final int _fallbackReplyCount;
 
@@ -340,6 +357,7 @@ class Topic with Storable<Topic> {
     slug: slug,
     excerpt: excerpt,
     lastPosterUsername: lastPosterUsername,
+    lastPosterAvatarUrl: lastPosterAvatarUrl,
     categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
     postsCount: postsCount ?? this.postsCount,
     replyCount: replyCount,
@@ -372,6 +390,7 @@ class Topic with Storable<Topic> {
     slug: slug,
     excerpt: excerpt,
     lastPosterUsername: lastPosterUsername,
+    lastPosterAvatarUrl: lastPosterAvatarUrl,
     categoryId: categoryId,
     postsCount: postsCount,
     replyCount: replyCount,
@@ -403,6 +422,7 @@ class Topic with Storable<Topic> {
           other.slug == slug &&
           other.excerpt == excerpt &&
           other.lastPosterUsername == lastPosterUsername &&
+          other.lastPosterAvatarUrl == lastPosterAvatarUrl &&
           other.categoryId == categoryId &&
           other.postsCount == postsCount &&
           other.replyCount == replyCount &&
@@ -431,6 +451,7 @@ class Topic with Storable<Topic> {
     slug,
     excerpt,
     lastPosterUsername,
+    lastPosterAvatarUrl,
     categoryId,
     postsCount,
     replyCount,
@@ -558,6 +579,7 @@ class TopicList {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
   }) {
     final avatars = <int, String?>{};
+    final avatarsByUsername = <String, String?>{};
     for (final value in jsonArray(json['users']).take(maximumUsersPerPage)) {
       if (value is! Map<String, dynamic>) continue;
       final user = value;
@@ -567,6 +589,10 @@ class TopicList {
         jsonText(user['avatar_template']),
         siteUrl,
       );
+      final username = jsonText(user['username']);
+      if (username != null) {
+        avatarsByUsername[username.toLowerCase()] = avatars[id];
+      }
     }
 
     final list = jsonObject(json['topic_list']);
@@ -574,7 +600,13 @@ class TopicList {
       topics: List.unmodifiable([
         for (final value in jsonArray(list['topics']).take(maximumPageSize))
           if (value is Map<String, dynamic>)
-            Topic.fromJson(value, avatars, siteUrl, extensions: extensions),
+            Topic.fromJson(
+              value,
+              avatars,
+              siteUrl,
+              avatarsByUsername: avatarsByUsername,
+              extensions: extensions,
+            ),
       ]),
       categories: List.unmodifiable([
         for (final value in jsonObjects(
