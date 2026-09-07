@@ -251,6 +251,73 @@ void main() {
   });
 
   group('legacy preference migration', () {
+    for (final (type, legacyValue) in <(String, Object)>[
+      ('int', 42),
+      ('bool', true),
+      ('double', 1.5),
+      ('list', <String>['private draft text']),
+    ]) {
+      test('$type legacy drafts fail conservatively and can retry', () async {
+        SharedPreferences.setMockInitialValues({storageKey: legacyValue});
+        final prefs = await SharedPreferences.getInstance();
+
+        expect(await store.readChecked(siteUrl, draftKey), (
+          value: null,
+          succeeded: false,
+        ));
+        expect(await store.read(siteUrl, draftKey), isNull);
+        expect(prefs.get(storageKey), legacyValue);
+        expect(persistence.values, isEmpty);
+        expect(persistence.writeCount, 0);
+
+        await prefs.setString(storageKey, 'recovered legacy text');
+
+        expect(await store.readChecked(siteUrl, draftKey), (
+          value: 'recovered legacy text',
+          succeeded: true,
+        ));
+        expect(persistence.values[storageKey], 'recovered legacy text');
+        expect(prefs.containsKey(storageKey), isFalse);
+      });
+    }
+
+    test('malformed lookup diagnostics omit preference contents', () async {
+      const secretDraft = 'private legacy draft sentinel';
+      const unrelatedValue = 'unrelated preference sentinel';
+      SharedPreferences.setMockInitialValues({
+        storageKey: <String>[secretDraft],
+        'unrelated': unrelatedValue,
+      });
+      final diagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'legacy-draft-privacy',
+      );
+      final binding = DiagnosticsSink.install(diagnostics);
+      addTearDown(() async {
+        binding.close();
+        await diagnostics.close();
+      });
+
+      expect(await store.readChecked(siteUrl, draftKey), (
+        value: null,
+        succeeded: false,
+      ));
+
+      final event = diagnostics.events.whereType<ErrorDiagnosticEvent>().single;
+      expect(event.operation, 'draft.readLegacy');
+      expect(event.source, 'storage');
+      expect(event.severity, DiagnosticSeverity.warning);
+      expect(event.handled, isTrue);
+      expect(event.degraded, isTrue);
+      final report = diagnostics.buildJsonReport();
+      expect(report, isNot(contains(secretDraft)));
+      expect(report, isNot(contains(unrelatedValue)));
+      expect(
+        (await SharedPreferences.getInstance()).getString('unrelated'),
+        unrelatedValue,
+      );
+    });
+
     test('migrates a plaintext legacy draft into secure persistence', () async {
       SharedPreferences.setMockInitialValues({storageKey: 'legacy text'});
 
@@ -312,6 +379,33 @@ void main() {
         isFalse,
       );
     });
+
+    test(
+      'private values and blockers bypass malformed legacy drafts',
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        persistence
+          ..values[storageKey] = 'secure text'
+          ..allowPreferenceFallback = false;
+        await prefs.setInt(storageKey, 42);
+
+        expect(await store.readChecked(siteUrl, draftKey), (
+          value: 'secure text',
+          succeeded: true,
+        ));
+        expect(prefs.containsKey(storageKey), isFalse);
+
+        persistence.values.remove(storageKey);
+        await prefs.setBool(storageKey, true);
+
+        expect(await store.readChecked(siteUrl, draftKey), (
+          value: null,
+          succeeded: true,
+        ));
+        expect(prefs.containsKey(storageKey), isFalse);
+        expect(persistence.writeCount, 0);
+      },
+    );
   });
 }
 

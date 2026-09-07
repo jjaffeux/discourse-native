@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/src/app.dart';
+import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -67,7 +68,7 @@ Future<void> pumpShell(
   FakeDiscourseApi? api,
   FakeInstanceStore? store,
   FakeAuthenticator? authenticator,
-  FakeDraftStore? drafts,
+  DraftStore? drafts,
   FakeForumTabStore? forumTabs,
   FakeUpdater? updater,
   FakeUpdateStore? updateStore,
