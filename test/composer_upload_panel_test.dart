@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/shell/composer_clipboard.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_galleries.dart';
@@ -24,6 +25,74 @@ import 'support/fakes.dart';
 
 void main() {
   group('upload lifecycle', () {
+    for (final ontoGallery in [false, true]) {
+      testWidgets(
+        'video drops insert attachment markdown (gallery: $ontoGallery)',
+        (tester) async {
+          final files = <String>[];
+          const config = SiteConfig(authorizedExtensions: ['png', 'mp4']);
+          final composer = ComposerController(
+            _target,
+            canUploadImage: (name) => config.canUploadImage(name, staff: false),
+            canUploadFile: (name) => config.canUploadFile(name, staff: false),
+            imageUploader:
+                (file, {required onProgress, required abortTrigger}) async {
+                  files.add(file.name);
+                  return const ComposerUploadResult(
+                    id: 73,
+                    originalFilename: 'screen.mp4',
+                    shortUrl: 'upload://screen.mp4',
+                    url: 'https://meta.discourse.org/uploads/screen.mp4',
+                    width: 1920,
+                    height: 1080,
+                  );
+                },
+          );
+          const gallery =
+              '[grid]\n![one](upload://one)\n![two](upload://two)\n[/grid]\n';
+          if (ontoGallery) composer.text.text = gallery;
+          final shell = await _shell();
+          addTearDown(shell.dispose);
+          addTearDown(composer.dispose);
+          await _pumpPanel(tester, shell, composer);
+          await tester.pumpAndSettle();
+          final position = tester.getCenter(
+            ontoGallery
+                ? find.byType(ComposerImageGalleryControl)
+                : find.byType(ComposerEditor),
+          );
+          final dropTarget = tester.widget<DropTarget>(find.byType(DropTarget));
+          dropTarget.onDragEntered!(
+            DropEventDetails(localPosition: position, globalPosition: position),
+          );
+          await tester.pump();
+          dropTarget.onDragDone!(
+            DropDoneDetails(
+              files: [
+                DropItemFile(
+                  '/tmp/screen.mp4',
+                  bytes: Uint8List.fromList([1, 2, 3]),
+                ),
+              ],
+              localPosition: position,
+              globalPosition: position,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(files, ['screen.mp4']);
+          expect(composer.notice, isNull);
+          expect(
+            composer.text.text,
+            '${ontoGallery ? gallery : ''}[screen.mp4](upload://screen.mp4)${ontoGallery ? '\n' : ''}',
+          );
+          expect(composer.text.imageBlocks, hasLength(ontoGallery ? 2 : 0));
+          if (ontoGallery) {
+            expect(composer.text.galleryBlocks.single.images, hasLength(2));
+          }
+        },
+      );
+    }
+
     testWidgets('native clipboard images become retryable PNG uploads', (
       tester,
     ) async {

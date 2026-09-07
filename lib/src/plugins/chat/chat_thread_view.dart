@@ -507,7 +507,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
 
     return ChatUploadDropRegion(
       controller: _uploadDropController,
-      title: 'Drop images to upload to this thread',
+      title: 'Drop files to upload to this thread',
       child: Column(
         children: [
           if (stream.notice case final notice?)

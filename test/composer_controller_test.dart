@@ -919,6 +919,87 @@ void main() {
     });
   });
 
+  group('file uploads', () {
+    const video = ComposerUploadResult(
+      id: 73,
+      originalFilename: 'screen.mp4',
+      shortUrl: 'upload://screen.mp4',
+      url: 'https://meta.discourse.org/uploads/screen.mp4',
+      width: 1920,
+      height: 1080,
+    );
+
+    testWidgets('mixed drops preserve order without creating image galleries', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        canUploadFile: (name) => name.endsWith('.png') || name.endsWith('.mp4'),
+      );
+      addTearDown(composer.dispose);
+      composer.addFiles([
+        _file('one.png'),
+        _file('screen.mp4'),
+        _file('two.png'),
+        _file('three.png'),
+        _file('blocked.exe'),
+      ], 0);
+      expect(calls, hasLength(4));
+      expect(composer.notice, 'That file type is not allowed on this site.');
+      calls[3].complete(_result('three'));
+      calls[2].complete(_result('two'));
+      calls[1].complete(video);
+      await tester.pump();
+      expect(composer.text.text, isEmpty);
+      calls[0].complete(_result('one'));
+      await tester.pump();
+      expect(
+        composer.text.text,
+        '![one|640x480](upload://one)\n'
+        '[screen.mp4](upload://screen.mp4)\n'
+        '![two|640x480](upload://two)\n'
+        '![three|640x480](upload://three)',
+      );
+      expect(composer.text.galleryBlocks, isEmpty);
+      expect(composer.text.imageBlocks, hasLength(3));
+      expect(composer.uploads, isEmpty);
+    });
+
+    testWidgets('image-only file drops still create galleries', (tester) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.addFiles([
+        _file('one.png'),
+        _file('two.png'),
+        _file('three.png'),
+      ], 0);
+      for (final call in calls) {
+        call.complete(_result(call.file.name.split('.').first));
+      }
+      await tester.pump();
+      expect(composer.text.galleryBlocks.single.images, hasLength(3));
+    });
+
+    test('file drops enforce the batch limit before starting uploads', () {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+        simultaneousUploads: 1,
+      );
+      addTearDown(composer.dispose);
+      composer.addFiles([_file('screen.mp4'), _file('photo.png')], 0);
+      expect(calls, isEmpty);
+      expect(composer.notice, 'Upload at most one file at a time.');
+    });
+  });
+
   group('image uploads', () {
     testWidgets('automatically groups three accepted images in picker order', (
       tester,

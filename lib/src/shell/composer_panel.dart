@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import '../data/composer_geometry_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/composer_upload.dart';
+import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../plugin_api/composer_syntax.dart';
 import '../plugin_api/plugin_registry.dart';
@@ -1643,13 +1644,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
     widget.composer.focus.requestFocus();
   }
 
-  void _dropImages(DropDoneDetails details) {
+  void _dropFiles(DropDoneDetails details) {
     _moveDropCaret(details.globalPosition);
     if (dropContainsDirectory(details.files)) {
       widget.composer.showNotice('Folders cannot be uploaded here.');
     }
     final files = composerUploadFilesFromDrop(details.files);
-    _media.dropImages(
+    _media.dropFiles(
       files,
       offset: widget.composer.text.selection.extentOffset,
     );
@@ -2313,7 +2314,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                       padding: const EdgeInsets.all(8),
                       child: Text(
                         state.dropGallery == null
-                            ? 'Drop images to upload'
+                            ? 'Drop files to upload'
                             : 'Drop images into this gallery',
                       ),
                     ),
@@ -2354,7 +2355,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         },
         onDragUpdated: (details) => _moveDropCaret(details.globalPosition),
         onDragExited: (_) => _media.cancelDrag(),
-        onDragDone: _dropImages,
+        onDragDone: _dropFiles,
         child: Stack(
           key: _stackKey,
           clipBehavior: Clip.none,
@@ -3540,12 +3541,14 @@ class ComposerUploadQueue extends StatelessWidget {
           final failed = upload.status == ComposerUploadStatus.failed;
           final completed = upload.status == ComposerUploadStatus.completed;
           final thumbnail = completed ? upload.result : null;
+          final isImage = SiteConfig.isImageFilename(upload.file.name);
           return SizedBox(
             height: failed ? 52 : 40,
             child: Row(
               children: [
                 const SizedBox(width: 10),
-                if (thumbnail != null)
+                if (thumbnail != null &&
+                    (isImage || thumbnail.thumbnailUrl != null))
                   _ComposerUploadThumbnail(
                     siteUrl: composer.target.siteUrl,
                     filename: upload.file.name,
@@ -3554,7 +3557,11 @@ class ComposerUploadQueue extends StatelessWidget {
                   )
                 else
                   Icon(
-                    failed ? Icons.error_outline : Icons.image_outlined,
+                    failed
+                        ? Icons.error_outline
+                        : isImage
+                        ? Icons.image_outlined
+                        : Icons.attach_file,
                     size: 18,
                     color: failed
                         ? theme.colorScheme.error

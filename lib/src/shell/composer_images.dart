@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/composer_upload.dart';
+import '../models/site_config.dart';
 import 'markdown_highlight.dart';
 
 @immutable
@@ -118,6 +119,13 @@ ComposerImageBlock? imageAtComposerOffset(
 ) => images
     .where((image) => offset >= image.start && offset <= image.end)
     .firstOrNull;
+
+String uploadFileMarkdown(ComposerUploadResult upload) {
+  if (SiteConfig.isImageFilename(upload.originalFilename)) {
+    return uploadImageMarkdown(upload);
+  }
+  return '[${composerImageAlt(upload.originalFilename)}](${upload.shortUrl})';
+}
 
 String uploadImageMarkdown(ComposerUploadResult upload) {
   final filename = upload.originalFilename;

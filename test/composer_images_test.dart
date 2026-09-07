@@ -6,6 +6,21 @@ import 'package:discourse_native/src/shell/composer_images.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('attachment markdown preserves and escapes the full filename', () {
+    const upload = ComposerUploadResult(
+      id: 1,
+      originalFilename: 'screen [1].mp4',
+      shortUrl: 'upload://video.mp4',
+      url: 'https://example.com/video.mp4',
+      width: 1920,
+      height: 1080,
+    );
+    expect(
+      uploadFileMarkdown(upload),
+      r'[screen \[1\].mp4](upload://video.mp4)',
+    );
+  });
+
   group('uploadImageMarkdown', () {
     test(
       'writes core upload markdown with sanitized alt and thumbnail size',

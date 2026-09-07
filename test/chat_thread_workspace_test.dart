@@ -240,8 +240,8 @@ void main() {
               )
               .map((region) => region.title),
           containsAll([
-            'Drop images to upload to #$_channelTitle',
-            'Drop images to upload to this thread',
+            'Drop files to upload to #$_channelTitle',
+            'Drop files to upload to this thread',
           ]),
         );
 
@@ -752,7 +752,7 @@ void _expectThreadBodyTargets(WidgetTester tester) {
       matching: find.byType(ChatUploadDropRegion),
     ),
   );
-  expect(dropRegion.title, 'Drop images to upload to this thread');
+  expect(dropRegion.title, 'Drop files to upload to this thread');
 }
 
 Future<({ShellController shell, _WorkspaceApi api})> _fixture({

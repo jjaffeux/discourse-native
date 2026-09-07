@@ -835,6 +835,67 @@ void main() {
       },
     );
 
+    for (final allowed in [true, false]) {
+      testWidgets('dropped videos respect site authorization ($allowed)', (
+        tester,
+      ) async {
+        const upload = ComposerUploadResult(
+          id: 73,
+          originalFilename: 'screen.mp4',
+          shortUrl: 'upload://screen.mp4',
+          url: 'https://chat.example/uploads/screen.mp4',
+          width: 1920,
+          height: 1080,
+        );
+        final fixture = await _fixture(
+          pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+          config: SiteConfig(authorizedExtensions: ['png', if (allowed) 'mp4']),
+          composerUploadResult: upload,
+        );
+        addTearDown(fixture.shell.dispose);
+        await tester.pumpWidget(_TestView(shell: fixture.shell));
+        await tester.pumpAndSettle();
+        final finder = find.byKey(const ValueKey('chat-upload-drop-target'));
+        final position = tester.getCenter(finder);
+        tester.widget<DropTarget>(finder).onDragDone!(
+          DropDoneDetails(
+            files: [
+              DropItemFile(
+                '/tmp/screen.mp4',
+                bytes: Uint8List.fromList([1, 2, 3]),
+              ),
+            ],
+            localPosition: position,
+            globalPosition: position,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(_text(tester), isEmpty);
+        if (!allowed) {
+          expect(fixture.api.composerUploads, isEmpty);
+          expect(
+            find.text('That file type is not allowed on this site.'),
+            findsOneWidget,
+          );
+          return;
+        }
+        expect(
+          fixture.api.composerUploads.single.uploadType,
+          ChatPlugin.messageUploadType,
+        );
+        expect(find.text('screen.mp4'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('composer-upload-thumbnail-73')),
+          findsNothing,
+        );
+        expect(find.byIcon(Icons.attach_file), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+        await tester.pumpAndSettle();
+        expect(fixture.api.chatMessagesSent.single.message, isEmpty);
+        expect(fixture.api.chatMessagesSent.single.uploadIds, [73]);
+      });
+    }
+
     testWidgets(
       'the whole channel accepts an image and sends it as a chat attachment',
       (tester) async {
@@ -870,7 +931,7 @@ void main() {
 
         final overlay = find.byKey(const ValueKey('chat-upload-drop-overlay'));
         expect(overlay, findsOneWidget);
-        expect(find.text('Drop images to upload to #design'), findsOneWidget);
+        expect(find.text('Drop files to upload to #design'), findsOneWidget);
         expect(
           tester.getRect(overlay),
           tester.getRect(find.byType(ChatUploadDropRegion)),

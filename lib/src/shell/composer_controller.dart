@@ -310,6 +310,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     this.imageUploader,
     ComposerUploadUrlResolver? resolveUploadUrls,
     this.canUploadImage,
+    this.canUploadFile,
     this.simultaneousUploads = 15,
     bool enableAutoGridImages = true,
     bool enableMarkdownLinkify = true,
@@ -375,6 +376,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   final ComposerImageUploader? imageUploader;
   final bool Function(String filename)? canUploadImage;
+  final bool Function(String filename)? canUploadFile;
   final int simultaneousUploads;
   bool _enableAutoGridImages;
   bool get enableAutoGridImages => _enableAutoGridImages;
@@ -726,9 +728,27 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         upload.status == ComposerUploadStatus.retrying,
   );
 
+  void addFiles(
+    Iterable<ComposerUploadFile> files,
+    int offset, {
+    ComposerImageGalleryBlock? gallery,
+  }) {
+    gallery = gallery == null
+        ? _galleryAtContentOffset(offset)
+        : _resolveGalleryIdentity(gallery);
+    _addUploads(
+      files,
+      offset,
+      gallery: gallery,
+      imagesOnly: false,
+      forceStandalone:
+          gallery == null && _isInsideUnprojectedGridLikeBlock(offset),
+    );
+  }
+
   void addImages(Iterable<ComposerUploadFile> files, int offset) {
     final gallery = _galleryAtContentOffset(offset);
-    _addImages(
+    _addUploads(
       files,
       offset,
       gallery: gallery,
@@ -745,7 +765,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (queued.isEmpty) return;
     final current = _resolveGalleryIdentity(gallery);
     if (current != null) {
-      _addImages(queued, current.contentEnd, gallery: current);
+      _addUploads(queued, current.contentEnd, gallery: current);
       return;
     }
 
@@ -754,7 +774,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     // choice into a no-op. Keep the upload, but do not silently create a new
     // gallery in place of one the author changed or removed.
     showNotice('That gallery changed, so the images will be added outside it.');
-    _addImages(
+    _addUploads(
       queued,
       _formerGalleryMemberSequenceEnd(gallery) ??
           gallery.start.clamp(0, text.text.length),
@@ -762,32 +782,49 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     );
   }
 
-  void _addImages(
+  void _addUploads(
     Iterable<ComposerUploadFile> files,
     int offset, {
     ComposerImageGalleryBlock? gallery,
     bool forceStandalone = false,
+    bool imagesOnly = true,
   }) {
     if (_disposed || imageUploader == null) return;
     final all = files.toList();
+    final validator = imagesOnly ? canUploadImage : canUploadFile;
     final valid = all
-        .where((file) => canUploadImage?.call(file.name) ?? true)
+        .where((file) => validator?.call(file.name) ?? true)
         .toList();
     final rejected = all.length - valid.length;
     if (rejected > 0) {
+      final purpose = imagesOnly ? ' for images' : '';
       showNotice(
         rejected == 1
-            ? 'That file type is not allowed for images on this site.'
-            : '$rejected file types are not allowed for images on this site.',
+            ? 'That file type is not allowed$purpose on this site.'
+            : '$rejected file types are not allowed$purpose on this site.',
       );
     }
     if (valid.isEmpty) return;
     if (simultaneousUploads > 0 && valid.length > simultaneousUploads) {
+      final kind = imagesOnly ? 'image' : 'file';
       final limit = simultaneousUploads == 1
-          ? 'one image'
-          : '$simultaneousUploads images';
+          ? 'one $kind'
+          : '$simultaneousUploads ${kind}s';
       showNotice('Upload at most $limit at a time.');
       return;
+    }
+
+    if (valid.any((file) => !SiteConfig.isImageFilename(file.name))) {
+      // Mixed drops stay together, outside image-only galleries.
+      // The native caret can also land inside a projected gallery's tags.
+      gallery ??= _target.isPlugin
+          ? null
+          : text.galleryBlocks
+                .where((block) => offset > block.start && offset < block.end)
+                .firstOrNull;
+      offset = gallery?.end ?? offset;
+      gallery = null;
+      forceStandalone = true;
     }
 
     final batch = _nextUploadBatch++;
@@ -895,7 +932,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         (result) {
           if (_disposed || !_pendingUploads.containsKey(id)) return;
           pending.result = result;
-          text.cacheImageUrl(result.shortUrl, result.previewUrl);
+          if (SiteConfig.isImageFilename(result.originalFilename)) {
+            text.cacheImageUrl(result.shortUrl, result.previewUrl);
+          }
           _flushReadyUploads(pending.batch);
         },
         onError: (Object error) {
@@ -954,7 +993,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
           .map((entry) => entry.value)
           .toList();
       var insertionOffset = first.value.anchor;
-      final markdown = uploadImageMarkdown(result);
+      final markdown = uploadFileMarkdown(result);
       var destination = first.value.destination;
       if (destination == _ComposerUploadDestination.newGallery &&
           _isInsideUnprojectedGridLikeBlock(insertionOffset)) {
