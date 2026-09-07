@@ -344,6 +344,30 @@ void main() {
     );
   });
 
+  group('load admission', () {
+    test('a reentrant load joins the original pending result', () async {
+      final page = Completer<UserPreferences>();
+      final api = _PreferencesApi(onLoad: (_) => page.future);
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      Future<void>? reentrant;
+      var joined = false;
+      controller.addListener(() {
+        if (joined || controller.stateFor(_siteUrl)?.loading != true) return;
+        joined = true;
+        reentrant = controller.load(_accountA);
+      });
+
+      final original = controller.load(_accountA);
+      page.complete(_initial);
+      await Future.wait([original, reentrant!]);
+
+      expect(reentrant, same(original));
+      expect(api.loads, hasLength(1));
+      expect(controller.stateFor(_siteUrl)?.draft, _initial);
+    });
+  });
+
   group('write and refresh ordering', () {
     test('serializes writes and supersedes an obsolete queued value', () async {
       final firstWrite = Completer<UserPreferences>();
@@ -444,6 +468,84 @@ void main() {
   });
 
   group('site and account invalidation', () {
+    for (final forget in [false, true]) {
+      test(
+        'a queued refresh cannot dispatch after ${forget ? 'forgetting its state' : 'account rotation'}',
+        () async {
+          final writeStarted = Completer<void>();
+          final written = Completer<UserPreferences>();
+          final api = _PreferencesApi(
+            onUpdate: (_) {
+              writeStarted.complete();
+              return written.future;
+            },
+          );
+          final lifecycle = SiteLifecycle();
+          final controller = _controller(api, lifecycle: lifecycle);
+          addTearDown(controller.dispose);
+          await _seed(controller);
+          controller.edit(
+            _siteUrl,
+            PreferenceSection.notifications,
+            (current) => current.copyWith(notifyOnLinkedPosts: false),
+          );
+          final saving = controller.save(
+            _accountA,
+            PreferenceSection.notifications,
+          );
+          await writeStarted.future;
+          final refreshing = controller.load(_accountA, refresh: true);
+          // Let the refresh join the read-after-write lane behind the gate.
+          await pumpEventQueue();
+          expect(api.loads, hasLength(1));
+          if (forget) {
+            controller.forget(_siteUrl);
+          } else {
+            lifecycle.invalidate(_siteUrl);
+          }
+          written.complete(_initial.copyWith(notifyOnLinkedPosts: false));
+          await Future.wait<Object?>([saving, refreshing]);
+
+          expect(api.loads, hasLength(1));
+          if (forget) expect(controller.stateFor(_siteUrl), isNull);
+        },
+      );
+    }
+
+    for (final (loaded, submitting) in [
+      (_accountA, _accountB),
+      (_accountB, _accountA),
+    ]) {
+      test(
+        'rejects ${submitting.user!.username} saving ${loaded.user!.username} preferences',
+        () async {
+          final api = _PreferencesApi(
+            onLoad: (call) async => _initial.copyWith(username: call.username),
+          );
+          final controller = _controller(api);
+          addTearDown(controller.dispose);
+          await controller.load(loaded);
+          controller.edit(
+            _siteUrl,
+            PreferenceSection.notifications,
+            (current) => current.copyWith(notifyOnLinkedPosts: false),
+          );
+
+          expect(
+            await controller.save(submitting, PreferenceSection.notifications),
+            isFalse,
+          );
+          expect(api.updates, isEmpty);
+          expect(
+            controller
+                .stateFor(_siteUrl)!
+                .dirty(PreferenceSection.notifications),
+            isTrue,
+          );
+        },
+      );
+    }
+
     test(
       'dispatches no stale load after forget during credential lookup',
       () async {

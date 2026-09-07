@@ -9,7 +9,170 @@ import 'package:discourse_native/src/shell/group/group_page_types.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('GroupMemberFilterController', () {
+    test('refreshing the committed filter preserves pending input', () async {
+      final original = <String>[];
+      final updated = <String>[];
+      final controller = GroupMemberFilterController(
+        filter: '',
+        onFilterChanged: original.add,
+        debounceDuration: Duration.zero,
+      );
+      addTearDown(controller.dispose);
+      controller.searchController.text = 'sam';
+      controller.search('sam');
+
+      controller.update(filter: '', onFilterChanged: updated.add);
+
+      expect(controller.searchController.text, 'sam');
+      await _flushTimers();
+      expect(original, isEmpty);
+      expect(updated, ['sam']);
+    });
+
+    test('an external filter replacement cancels the pending draft', () async {
+      final searches = <String>[];
+      final controller = GroupMemberFilterController(
+        filter: '',
+        onFilterChanged: searches.add,
+        debounceDuration: Duration.zero,
+      );
+      addTearDown(controller.dispose);
+      controller.searchController.text = 'old draft';
+      controller.search('old draft');
+
+      controller.update(filter: 'restored', onFilterChanged: searches.add);
+      await _flushTimers();
+
+      expect(controller.searchController.text, 'restored');
+      expect(searches, isEmpty);
+    });
+  });
+
   group('GroupMemberAdditionController', () {
+    test('a failed search clears progress and allows a retry', () async {
+      var attempts = 0;
+      final controller = GroupMemberAdditionController(
+        searchDebounce: Duration.zero,
+        searchUsers: (_) async {
+          if (++attempts == 1) throw StateError('offline');
+          return const [FoundUser(username: 'sam')];
+        },
+        addMembers: (_, _) async => const GroupMembershipMutationResult(),
+      );
+      addTearDown(controller.dispose);
+
+      controller.search('sam');
+      await _flushTimers();
+      expect(controller.searching, isFalse);
+      expect(controller.results, isEmpty);
+      expect(controller.error, 'Members could not be searched. Try again.');
+
+      controller.search('sam');
+      await _flushTimers();
+      expect(controller.error, isNull);
+      expect(controller.results, const [FoundUser(username: 'sam')]);
+      expect(controller.searching, isFalse);
+    });
+
+    test('a stale search error does not finish a newer search', () async {
+      final first = Completer<List<FoundUser>>();
+      final second = Completer<List<FoundUser>>();
+      final controller = GroupMemberAdditionController(
+        searchDebounce: Duration.zero,
+        searchUsers: (query) => query == 'sam' ? first.future : second.future,
+        addMembers: (_, _) async => const GroupMembershipMutationResult(),
+      );
+      addTearDown(controller.dispose);
+      controller.search('sam');
+      await _flushTimers();
+      controller.search('lee');
+      await _flushTimers();
+
+      first.completeError(StateError('old request failed'));
+      await _flushTimers();
+      expect(controller.searching, isTrue);
+      expect(controller.error, isNull);
+      second.complete(const [FoundUser(username: 'lee')]);
+      await _flushTimers();
+      expect(controller.results, const [FoundUser(username: 'lee')]);
+      expect(controller.searching, isFalse);
+    });
+
+    test('a rejected save retains selection and allows a retry', () async {
+      var attempts = 0;
+      final controller = GroupMemberAdditionController(
+        searchUsers: (_) async => const [],
+        addMembers: (usernames, emails) async {
+          expect(usernames, ['sam']);
+          expect(emails, ['member@example.com']);
+          if (++attempts == 1) throw StateError('offline');
+          return const GroupMembershipMutationResult();
+        },
+      );
+      addTearDown(controller.dispose);
+      controller.toggleUsername('sam', selected: true);
+      controller.toggleEmail('member@example.com', selected: true);
+
+      expect(await controller.save(), isFalse);
+      expect(controller.saving, isFalse);
+      expect(controller.canSave, isTrue);
+      expect(controller.error, 'The selected members could not be added.');
+      expect(await controller.save(), isTrue);
+      expect(attempts, 2);
+    });
+
+    test(
+      'a save uses the selection accepted before progress is announced',
+      () async {
+        List<String>? submitted;
+        final controller = GroupMemberAdditionController(
+          searchUsers: (_) async => const [],
+          addMembers: (usernames, _) async {
+            submitted = usernames;
+            return const GroupMembershipMutationResult();
+          },
+        );
+        addTearDown(controller.dispose);
+        controller.toggleUsername('sam', selected: true);
+        var edited = false;
+        controller.addListener(() {
+          if (!controller.saving || edited) return;
+          edited = true;
+          controller.toggleUsername('lee', selected: true);
+        });
+
+        expect(await controller.save(), isTrue);
+        expect(submitted, ['sam']);
+      },
+    );
+
+    test('retained member commands stop after disposal', () async {
+      var calls = 0;
+      final controller = GroupMemberAdditionController(
+        searchDebounce: Duration.zero,
+        searchUsers: (_) async {
+          calls++;
+          return const [];
+        },
+        addMembers: (_, _) async {
+          calls++;
+          return const GroupMembershipMutationResult();
+        },
+      );
+      controller.toggleUsername('sam', selected: true);
+      controller.search('sam');
+      controller.dispose();
+
+      controller.search('lee');
+      controller.toggleUsername('lee', selected: true);
+      controller.toggleEmail('member@example.com', selected: true);
+      expect(await controller.save(), isFalse);
+      await _flushTimers();
+      expect(controller.canSave, isFalse);
+      expect(calls, 0);
+    });
+
     test('ignores stale searches and exposes only the latest result', () async {
       final first = Completer<List<FoundUser>>();
       final second = Completer<List<FoundUser>>();
@@ -67,6 +230,69 @@ void main() {
   });
 
   group('GroupInviteController', () {
+    test('a failed invitation clears progress and allows a retry', () async {
+      var attempts = 0;
+      final controller = GroupInviteController(
+        siteUrl: 'https://meta.discourse.org',
+        createInvite: ({email, customMessage}) async {
+          expect(email, 'member@example.com');
+          expect(customMessage, 'Welcome');
+          if (++attempts == 1) throw StateError('offline');
+          return const GroupInvite(id: 8);
+        },
+      );
+      addTearDown(controller.dispose);
+      controller.email.text = ' member@example.com ';
+      controller.message.text = ' Welcome ';
+
+      expect(await controller.create(), GroupInviteSubmission.failed);
+      expect(controller.saving, isFalse);
+      expect(controller.error, 'The invitation could not be created.');
+      expect(await controller.create(), GroupInviteSubmission.sent);
+      expect(controller.error, isNull);
+      expect(attempts, 2);
+    });
+
+    test(
+      'an invite uses the input accepted before progress is announced',
+      () async {
+        String? submitted;
+        final controller = GroupInviteController(
+          siteUrl: 'https://meta.discourse.org',
+          createInvite: ({email, customMessage}) async {
+            submitted = email;
+            return const GroupInvite(id: 8);
+          },
+        );
+        addTearDown(controller.dispose);
+        controller.email.text = 'first@example.com';
+        var edited = false;
+        controller.addListener(() {
+          if (!controller.saving || edited) return;
+          edited = true;
+          controller.email.text = 'second@example.com';
+        });
+
+        expect(await controller.create(), GroupInviteSubmission.sent);
+        expect(submitted, 'first@example.com');
+      },
+    );
+
+    test('a retained invite command stops after disposal', () async {
+      var calls = 0;
+      final controller = GroupInviteController(
+        siteUrl: 'https://meta.discourse.org',
+        createInvite: ({email, customMessage}) async {
+          calls++;
+          return const GroupInvite(id: 8);
+        },
+      );
+      controller.dispose();
+
+      expect(await controller.create(), GroupInviteSubmission.failed);
+      expect(calls, 0);
+    });
+
     test('normalizes invite input and resolves a returned link', () async {
       String? submittedEmail;
       String? submittedMessage;
@@ -89,6 +315,22 @@ void main() {
   });
 
   group('GroupManageController', () {
+    test('a retained management command stops after disposal', () async {
+      var calls = 0;
+      final controller = GroupManageController(
+        group: const Group(id: 9, name: 'support'),
+        onSubmit: (_) async {
+          calls++;
+          return true;
+        },
+      );
+      controller.textController('full_name').text = 'Support';
+      controller.dispose();
+
+      expect(await controller.submit(), isFalse);
+      expect(calls, 0);
+    });
+
     test('owns dirty state and serializes subsection-specific updates', () {
       final controller = GroupManageController(
         group: const Group(

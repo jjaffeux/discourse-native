@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/user_directory.dart';
+import 'package:discourse_native/src/shell/user_directory_controller.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_button.dart';
@@ -206,6 +207,186 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final changesAccount in [false, true]) {
+    testWidgets(
+      'pending search stays with its ${changesAccount ? 'account' : 'forum'}',
+      (tester) async {
+        var site = 'https://example.com';
+        var username = 'reader';
+        var query = const UserDirectoryQuery();
+        final searches = <String>[];
+        late StateSetter update;
+        await _pump(
+          tester,
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return UsersPage(
+                siteUrl: site,
+                data: UsersPageData(
+                  items: const [_sam],
+                  columns: const [_likes],
+                  loaded: true,
+                  currentUsername: username,
+                  query: query,
+                ),
+                onSearchChanged: searches.add,
+              );
+            },
+          ),
+        );
+        final search = find.byKey(const ValueKey('users-search'));
+        await tester.enterText(search, 'unfinished');
+        await tester.pump(const Duration(milliseconds: 100));
+        update(() {
+          if (changesAccount) {
+            username = 'replacement';
+          } else {
+            site = 'https://another.example';
+          }
+          query = const UserDirectoryQuery(search: 'restored');
+        });
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(searches, isEmpty);
+        expect(tester.widget<TextField>(search).controller?.text, 'restored');
+        await tester.enterText(search, 'new search');
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(searches, ['new search']);
+      },
+    );
+  }
+
+  testWidgets('switching forums permits the new directory to load more', (
+    tester,
+  ) async {
+    var site = 'https://example.com';
+    final loads = <String>[];
+    late StateSetter update;
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return UsersPage(
+            siteUrl: site,
+            data: const UsersPageData(
+              items: [_sam],
+              columns: [_likes],
+              loaded: true,
+              hasMore: true,
+            ),
+            onLoadMore: () => loads.add(site),
+          );
+        },
+      ),
+    );
+    expect(loads, ['https://example.com']);
+    update(() => site = 'https://another.example');
+    await tester.pump();
+    expect(loads, ['https://example.com', 'https://another.example']);
+  });
+
+  for (final dialogOpen in [false, true]) {
+    testWidgets(
+      'column visibility ${dialogOpen ? 'drafts' : 'choices'} stay with their forum',
+      (tester) async {
+        var site = 'https://example.com';
+        late StateSetter update;
+        await _pump(
+          tester,
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return UsersPage(
+                siteUrl: site,
+                data: const UsersPageData(
+                  items: [_sam],
+                  columns: [_likes, _replies],
+                  loaded: true,
+                ),
+              );
+            },
+          ),
+        );
+        await tester.tap(find.byKey(const ValueKey('users-columns')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('users-column-2')));
+        if (!dialogOpen) {
+          await tester.tap(find.text('Done'));
+          await tester.pumpAndSettle();
+          expect(find.text('Replies posted'), findsNothing);
+        }
+
+        update(() => site = 'https://another.example');
+        await tester.pump();
+        if (dialogOpen) {
+          await tester.tap(find.text('Done'));
+          await tester.pumpAndSettle();
+        }
+        expect(find.text('Likes received'), findsOneWidget);
+        expect(find.text('Replies posted'), findsOneWidget);
+      },
+    );
+  }
+
+  for (final boundary in ['forum', 'account', 'permission']) {
+    testWidgets('column management stops after the $boundary changes', (
+      tester,
+    ) async {
+      var site = 'https://example.com';
+      var username = 'admin';
+      var canManage = true;
+      var writes = 0;
+      late StateSetter update;
+      await _pump(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return UsersPage(
+              siteUrl: site,
+              data: UsersPageData(
+                items: const [_sam],
+                columns: const [_likes],
+                availableColumns: const [_likes, _solutions],
+                loaded: true,
+                currentUsername: username,
+                canManageColumns: canManage,
+              ),
+              onManageColumns: canManage
+                  ? (_) async {
+                      writes++;
+                      return true;
+                    }
+                  : null,
+            );
+          },
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('users-columns')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('users-manage-column-9')));
+      update(() {
+        switch (boundary) {
+          case 'forum':
+            site = 'https://another.example';
+          case 'account':
+            username = 'replacement';
+          case 'permission':
+            canManage = false;
+        }
+      });
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('users-save-columns')));
+      await tester.pumpAndSettle();
+
+      expect(writes, 0);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('every column resizes and restores its forum-specific width', (
     tester,

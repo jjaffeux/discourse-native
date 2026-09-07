@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/site_image_repository.dart';
@@ -73,6 +74,44 @@ void main() {
     expect(environment.bytes, orderedEquals([1, 2, 3]));
     expect(environment.shareCalls, 0);
   });
+
+  test(
+    'an account change during the save dialog cancels the image fetch',
+    () async {
+      var requests = 0;
+      final repository = _repository((_) async {
+        requests++;
+        return http.Response.bytes([1], 200);
+      });
+      addTearDown(repository.dispose);
+      final choice = Completer<String?>();
+      final environment = _FakeImageDownloadEnvironment(
+        saveChoice: choice.future,
+      );
+      final downloader = NativeLightboxImageDownloader(
+        platform: TargetPlatform.macOS,
+        environment: environment,
+      );
+
+      final download = downloader.download(
+        url: '/uploads/image.png',
+        title: 'image.png',
+        siteUrl: siteUrl,
+        repository: repository,
+      );
+      final failure = expectLater(
+        download,
+        throwsA(isA<ImageDownloadException>()),
+      );
+      repository.lifecycle.invalidate(siteUrl);
+      choice.complete('/chosen/image.png');
+      await failure;
+
+      expect(requests, 0);
+      expect(environment.savedPath, isNull);
+      expect(environment.shareCalls, 0);
+    },
+  );
 
   test('mobile downloads bytes into the native file-sharing sheet', () async {
     final repository = _repository(
@@ -190,10 +229,12 @@ SiteImageRepository _repository(
 final class _FakeImageDownloadEnvironment implements ImageDownloadEnvironment {
   _FakeImageDownloadEnvironment({
     this.savePath,
+    this.saveChoice,
     this.shareOutcome = ImageDownloadOutcome.cancelled,
   });
 
   final String? savePath;
+  final Future<String?>? saveChoice;
   final ImageDownloadOutcome shareOutcome;
 
   String? suggestedName;
@@ -207,7 +248,7 @@ final class _FakeImageDownloadEnvironment implements ImageDownloadEnvironment {
   @override
   Future<String?> chooseSavePath({required String suggestedName}) async {
     this.suggestedName = suggestedName;
-    return savePath;
+    return saveChoice == null ? savePath : await saveChoice;
   }
 
   @override

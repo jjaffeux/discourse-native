@@ -92,7 +92,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   late bool _foreground;
   late final PlatformNotificationOpens _platformNotificationOpens;
   StreamSubscription<String>? _notificationOpenSubscription;
-  final Queue<String> _pendingNotificationUrls = Queue<String>();
+  final Queue<_PendingNotificationUrl> _pendingNotificationUrls = Queue();
   ShellController? _notificationNavigationController;
   bool _drainingNotificationUrls = false;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
@@ -339,7 +339,7 @@ class _DiscourseAppState extends State<DiscourseApp>
 
   void _queueNotificationUrl(String url) {
     if (url.isEmpty) return;
-    _pendingNotificationUrls.addLast(url);
+    _pendingNotificationUrls.addLast(_PendingNotificationUrl(url));
     if (_pendingNotificationUrls.length > _maximumPendingNotificationUrls) {
       _pendingNotificationUrls.removeFirst();
     }
@@ -362,9 +362,9 @@ class _DiscourseAppState extends State<DiscourseApp>
       while (mounted &&
           identical(_controller, controller) &&
           _pendingNotificationUrls.isNotEmpty) {
-        final url = _pendingNotificationUrls.first;
+        final pending = _pendingNotificationUrls.first;
         try {
-          await controller.openNotificationUrl(url);
+          await controller.openNotificationUrl(pending.url);
         } catch (error, stackTrace) {
           DiagnosticsSink.current.reportError(
             error,
@@ -377,7 +377,10 @@ class _DiscourseAppState extends State<DiscourseApp>
           );
         }
         if (!mounted || !identical(_controller, controller)) return;
-        _pendingNotificationUrls.removeFirst();
+        // A burst of taps can evict this entry while its navigation is in
+        // flight. Remove only this delivery, even when a later tap has the
+        // same URL, so finishing it cannot discard another destination.
+        _pendingNotificationUrls.remove(pending);
       }
     } finally {
       _drainingNotificationUrls = false;
@@ -599,6 +602,12 @@ class _DiscourseAppState extends State<DiscourseApp>
     ),
     home: const AdaptiveShell(),
   );
+}
+
+final class _PendingNotificationUrl {
+  _PendingNotificationUrl(this.url);
+
+  final String url;
 }
 
 class _MouseNavigationRegion extends StatelessWidget {

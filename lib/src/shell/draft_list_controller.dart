@@ -12,6 +12,7 @@ import '../models/draft_feed.dart';
 import '../models/user_draft.dart';
 
 typedef _DraftDeletionKey = ({String siteUrl, String draftKey});
+typedef _PendingDraftRefresh = ({DiscourseInstance instance, SiteLease lease});
 
 final class DraftListController extends FrameSafeNotifier {
   DraftListController({
@@ -28,7 +29,7 @@ final class DraftListController extends FrameSafeNotifier {
 
   final Map<String, DraftFeed> _feeds = {};
   final Map<String, Object> _requests = {};
-  final Map<String, DiscourseInstance> _pendingRefreshes = {};
+  final Map<String, _PendingDraftRefresh> _pendingRefreshes = {};
   final Map<_DraftDeletionKey, Object> _deletions = {};
   // Draft keys deleted while a page request was in flight. That response was
   // produced against an older server state, so these keys outrank it.
@@ -68,7 +69,12 @@ final class DraftListController extends FrameSafeNotifier {
     if (isDisposed || !instance.isConnected) return;
     final siteUrl = instance.url;
     if (_requests.containsKey(siteUrl)) {
-      if (refresh) _pendingRefreshes[siteUrl] = instance;
+      if (refresh) {
+        _pendingRefreshes[siteUrl] = (
+          instance: instance,
+          lease: lifecycle.capture(siteUrl),
+        );
+      }
       return;
     }
     final held = refresh ? const DraftFeed() : feedFor(siteUrl);
@@ -112,6 +118,7 @@ final class DraftListController extends FrameSafeNotifier {
           ],
           limit: pageSize,
           reportedCount: instance.user?.draftCount,
+          receivedCount: page.length,
         );
       });
     } catch (error, stackTrace) {
@@ -130,8 +137,8 @@ final class DraftListController extends FrameSafeNotifier {
         _requests.remove(siteUrl);
         _deletedWhileLoading.remove(siteUrl);
         final pending = _pendingRefreshes.remove(siteUrl);
-        if (pending != null) {
-          unawaited(load(pending, refresh: true));
+        if (pending != null && pending.lease.isCurrent) {
+          unawaited(load(pending.instance, refresh: true));
         }
       }
     }

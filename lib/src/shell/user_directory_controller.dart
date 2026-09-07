@@ -134,6 +134,8 @@ final class UserDirectoryController extends FrameSafeNotifier {
     required this.lifecycle,
   });
 
+  static const int _cachedQueriesPerSite = 16;
+
   final UserDirectoryApi api;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
@@ -168,6 +170,7 @@ final class UserDirectoryController extends FrameSafeNotifier {
       _columnUpdates.containsKey(siteUrl);
 
   bool replaceQuery(String siteUrl, UserDirectoryQuery query) {
+    if (isDisposed) return false;
     final normalized = query.copyWith(
       search: query.search.trim(),
       group: query.group?.trim().isEmpty == true ? null : query.group?.trim(),
@@ -175,8 +178,28 @@ final class UserDirectoryController extends FrameSafeNotifier {
     );
     if (queryFor(siteUrl) == normalized) return false;
     _queries[siteUrl] = normalized;
+    _touchQuery((siteUrl: siteUrl, query: normalized));
     notifySafely();
     return true;
+  }
+
+  void _touchQuery(_DirectoryKey key) {
+    final held = _states.remove(key);
+    if (held != null) _states[key] = held;
+  }
+
+  void _trimQueries(String siteUrl) {
+    final keys = _states.keys
+        .where((key) => key.siteUrl == siteUrl)
+        .toList(growable: false);
+    if (keys.length <= _cachedQueriesPerSite) return;
+    for (final key in keys.take(keys.length - _cachedQueriesPerSite)) {
+      _states.remove(key);
+      // A delayed page must not restore evicted rows or release a newer load
+      // when the same query is selected again.
+      _requests.remove(key);
+      _leases.remove(key);
+    }
   }
 
   Future<void> load(
@@ -184,9 +207,11 @@ final class UserDirectoryController extends FrameSafeNotifier {
     bool refresh = false,
     bool more = false,
   }) async {
+    if (isDisposed) return;
     final query = queryFor(instance.url);
     final key = (siteUrl: instance.url, query: query);
     final held = stateFor(instance.url, query);
+    _touchQuery(key);
     if (_requests.containsKey(key) ||
         (!refresh && !more && held.loaded) ||
         (more && (!held.loaded || !held.hasMore))) {
@@ -211,6 +236,7 @@ final class UserDirectoryController extends FrameSafeNotifier {
       loadingMore: more,
       loaded: held.loaded,
     );
+    _trimQueries(instance.url);
     notifySafely();
 
     try {
@@ -329,13 +355,16 @@ final class UserDirectoryController extends FrameSafeNotifier {
       if (!isCurrent()) return false;
 
       _metadata.remove(instance.url);
-      for (final key
-          in _requests.keys
-              .where((key) => key.siteUrl == instance.url)
-              .toList()) {
-        _requests.remove(key);
-        _leases.remove(key);
-      }
+      _metadataLoads.remove(instance.url)?.ignore();
+      // Every query was decoded against the previous column configuration.
+      // Retain only the visible rows while refreshing them, so returning to
+      // another filter cannot revive its old columns or plugin field values.
+      final currentQuery = queryFor(instance.url);
+      _states.removeWhere(
+        (key, _) => key.siteUrl == instance.url && key.query != currentQuery,
+      );
+      _requests.removeWhere((key, _) => key.siteUrl == instance.url);
+      _leases.removeWhere((key, _) => key.siteUrl == instance.url);
       await load(instance, refresh: true);
       return isCurrent();
     } catch (error, stackTrace) {
@@ -377,7 +406,11 @@ final class UserDirectoryController extends FrameSafeNotifier {
     _metadataLoads[instance.url] = future;
     try {
       final loaded = await future;
-      if (!isDisposed && lease.isCurrent) _metadata[instance.url] = loaded;
+      if (!isDisposed &&
+          lease.isCurrent &&
+          identical(_metadataLoads[instance.url], future)) {
+        _metadata[instance.url] = loaded;
+      }
       return loaded;
     } finally {
       if (identical(_metadataLoads[instance.url], future)) {

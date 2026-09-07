@@ -404,7 +404,7 @@ final class _WebViewInlineVideoPlaybackSession
         },
       ),
     );
-    if (isDisposed) return;
+    if (!_isCurrent(controller)) return;
     _publishReady(isPlaying: false);
     await controller.loadHtmlString(
       buildInlineVideoHtml(source.url, posterUrl: request.posterUrl),
@@ -457,8 +457,6 @@ final class _WebViewInlineVideoPlaybackSession
 
   void _fail(Object error, StackTrace stackTrace, String operation) {
     if (isDisposed || state.phase == InlineVideoPlaybackPhase.failed) return;
-    final controller = _controller;
-    if (controller != null) unawaited(_pauseIgnoringErrors(controller));
     reportFailure(error, stackTrace, operation);
   }
 

@@ -116,6 +116,106 @@ void main() {
     expect(committed, isEmpty);
   });
 
+  test(
+    'forget releases a pending change even when the account was paused',
+    () async {
+      final firstStarted = Completer<void>();
+      final secondStarted = Completer<void>();
+      final firstReply = Completer<void>();
+      final secondReply = Completer<void>();
+      addTearDown(() {
+        if (!firstReply.isCompleted) firstReply.complete();
+        if (!secondReply.isCompleted) secondReply.complete();
+      });
+      final api = _Api()
+        ..pauseGate = firstReply
+        ..onPause = firstStarted.complete
+        ..pauseResponse = DateTime.utc(2040);
+      final committed = <DateTime?>[];
+      final controller = _controller(
+        api,
+        onCommitted: (_, until) => committed.add(until),
+      )..restoreSnapshot(_siteUrl, DateTime.utc(2030));
+      addTearDown(controller.dispose);
+
+      final first = controller.pause(
+        _siteUrl,
+        DoNotDisturbOption.oneHour.duration,
+      );
+      await firstStarted.future;
+      controller.forget(_siteUrl);
+      expect(controller.stateFor(_siteUrl).saving, isFalse);
+      expect(controller.stateFor(_siteUrl).until, isNull);
+
+      api
+        ..pauseGate = secondReply
+        ..onPause = secondStarted.complete;
+      final second = controller.pause(
+        _siteUrl,
+        DoNotDisturbOption.twoHours.duration,
+      );
+      await secondStarted.future;
+      firstReply.complete();
+      expect(await first, isNull);
+      expect(controller.stateFor(_siteUrl).saving, isTrue);
+      expect(committed, isEmpty);
+      secondReply.complete();
+      expect(await second, isNull);
+      expect(committed, [DateTime.utc(2040)]);
+      expect(controller.stateFor(_siteUrl).saving, isFalse);
+    },
+  );
+
+  test(
+    'a rejected first change still accepts later account snapshots',
+    () async {
+      final api = _Api()
+        ..failure = const WriteException(
+          WriteFailure.validation,
+          errors: ['Not saved'],
+        );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+
+      expect(
+        await controller.pause(_siteUrl, DoNotDisturbOption.oneHour.duration),
+        'Not saved',
+      );
+      final until = DateTime.utc(2030);
+      expect(controller.acceptSnapshot(_siteUrl, until), until);
+      expect(controller.stateFor(_siteUrl).until, until);
+    },
+  );
+
+  test(
+    'a live update during a rejected change still wins over later snapshots',
+    () async {
+      final started = Completer<void>();
+      final reply = Completer<void>();
+      final api = _Api()
+        ..pauseGate = reply
+        ..onPause = started.complete
+        ..failure = const WriteException(
+          WriteFailure.validation,
+          errors: ['Not saved'],
+        );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+
+      final pause = controller.pause(
+        _siteUrl,
+        DoNotDisturbOption.oneHour.duration,
+      );
+      await started.future;
+      controller.applyMessage(_siteUrl, const {
+        'ends_at': '2030-01-01T00:00:00Z',
+      });
+      reply.complete();
+      expect(await pause, 'Not saved');
+      expect(controller.acceptSnapshot(_siteUrl, null), DateTime.utc(2030));
+    },
+  );
+
   test('a live update supersedes an older in-flight response', () async {
     final gate = Completer<void>();
     final api = _Api()
@@ -180,6 +280,7 @@ final class _Credentials implements ApiCredentialReader {
 final class _Api implements DoNotDisturbApi {
   DateTime pauseResponse = DateTime.utc(2030);
   Completer<void>? pauseGate;
+  void Function()? onPause;
   WriteException? failure;
   final List<DoNotDisturbDuration> pauseDurations = [];
   int resumeCalls = 0;
@@ -192,6 +293,7 @@ final class _Api implements DoNotDisturbApi {
     String? clientId,
   }) async {
     pauseDurations.add(duration);
+    onPause?.call();
     await pauseGate?.future;
     if (failure case final error?) throw error;
     return pauseResponse;

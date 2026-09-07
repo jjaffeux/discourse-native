@@ -9,6 +9,10 @@ incoming direct calls the Dart side reports from the plugin's ring channel;
 answer, decline, mute, and end actions taken in the system UI flow back over
 the same method channel. It holds one system call at a time, and a join that
 follows a system answer reuses that call instead of placing another.
+Pending hang-up and decline results also settle when the app reports a call
+failure or an expired ring; they do not depend on a provider action arriving
+after the call has already ended. Late provider callbacks cannot complete the
+same result twice.
 
 The Dart module, UI, controllers, diagnostics, and media integrations live in
 `../../lib/src/plugins/voice` and are part of every application manifest.

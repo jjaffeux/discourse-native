@@ -83,9 +83,18 @@ final class IOSPushNotifications: NSObject, FlutterStreamHandler {
   private var notificationOpenSink: FlutterEventSink?
   private var pendingNotificationUrls: [String] = []
   private var handledResponseIdentifiers: [String] = []
-  private var token: String?
-  private var pendingResults: [FlutterResult] = []
-  private var registrationInProgress = false
+  private let registration = PushRegistrationCoordinator(
+    requestAuthorization: { completion in
+      UNUserNotificationCenter.current().requestAuthorization(
+        options: [.alert, .badge, .sound]
+      ) { granted, error in
+        completion(granted && error == nil)
+      }
+    },
+    registerForRemoteNotifications: {
+      UIApplication.shared.registerForRemoteNotifications()
+    }
+  )
 
   func attach(to messenger: FlutterBinaryMessenger) {
     let registrationChannel = FlutterMethodChannel(
@@ -97,7 +106,11 @@ final class IOSPushNotifications: NSObject, FlutterStreamHandler {
         result(FlutterMethodNotImplemented)
         return
       }
-      self?.registrationToken(result)
+      guard let self else {
+        result(nil)
+        return
+      }
+      self.registrationToken(result)
     }
     self.registrationChannel = registrationChannel
 
@@ -110,11 +123,15 @@ final class IOSPushNotifications: NSObject, FlutterStreamHandler {
   }
 
   func didRegister(_ deviceToken: Data) {
-    finish(with: pushTokenHex(deviceToken))
+    DispatchQueue.main.async { [weak self] in
+      self?.registration.didRegister(pushTokenHex(deviceToken))
+    }
   }
 
   func didFailToRegister() {
-    finish(with: nil)
+    DispatchQueue.main.async { [weak self] in
+      self?.registration.didFailToRegister()
+    }
   }
 
   func didOpen(_ response: UNNotificationResponse) {
@@ -167,37 +184,7 @@ final class IOSPushNotifications: NSObject, FlutterStreamHandler {
         result(nil)
         return
       }
-      if let token = self.token {
-        result(token)
-        return
-      }
-
-      self.pendingResults.append(result)
-      guard !self.registrationInProgress else { return }
-      self.registrationInProgress = true
-
-      UNUserNotificationCenter.current().requestAuthorization(
-        options: [.alert, .badge, .sound]
-      ) { granted, error in
-        DispatchQueue.main.async {
-          guard granted, error == nil else {
-            self.finish(with: nil)
-            return
-          }
-          UIApplication.shared.registerForRemoteNotifications()
-        }
-      }
-    }
-  }
-
-  private func finish(with token: String?) {
-    DispatchQueue.main.async { [weak self] in
-      guard let self else { return }
-      self.token = token
-      self.registrationInProgress = false
-      let results = self.pendingResults
-      self.pendingResults.removeAll()
-      results.forEach { $0(token) }
+      self.registration.registrationToken { result($0) }
     }
   }
 

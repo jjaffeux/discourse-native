@@ -10,8 +10,14 @@ import 'byte_cache_store.dart';
 import 'discourse_api.dart';
 import 'http_transport.dart';
 import 'media_request_coordinator.dart';
+import 'serial_operation_queue.dart';
 
 abstract class ByteCache<T extends Object> {
+  // Avatar and emoji caches, including replacement pipelines, share the same
+  // store. A late disk write must finish before decoder rejection removes it,
+  // and later readers must observe those accepted mutations.
+  static final _storeOperations = ReadAfterWriteOperationQueue();
+
   ByteCache({
     http.Client? client,
     this.maxConcurrent,
@@ -113,7 +119,11 @@ abstract class ByteCache<T extends Object> {
     String url,
   ) async {
     try {
-      await persistent.remove(url);
+      await _storeOperations.write<void>(
+        owner: persistent,
+        key: url,
+        operation: () => persistent.remove(url),
+      );
     } catch (error, stackTrace) {
       _report(error, stackTrace, url, 'image.cacheDelete');
     }
@@ -203,7 +213,13 @@ abstract class ByteCache<T extends Object> {
       final persistent = store;
       if (persistent != null) {
         try {
-          final bytes = await persistent.read(url);
+          final bytes = await _storeOperations.read<Uint8List?>(
+            owner: persistent,
+            key: url,
+            operation: () => identical(_generation, generation)
+                ? persistent.read(url)
+                : Future.value(null),
+          );
           if (bytes != null && identical(_generation, generation)) {
             final response = http.Response.bytes(
               bytes,
@@ -278,10 +294,17 @@ abstract class ByteCache<T extends Object> {
         );
         if (expiresAt != null && current()) {
           try {
-            await persistent.write(
-              url,
-              response.bodyBytes,
-              expiresAt: expiresAt,
+            await _storeOperations.write<void>(
+              owner: persistent,
+              key: url,
+              operation: () async {
+                if (!current()) return;
+                await persistent.write(
+                  url,
+                  response.bodyBytes,
+                  expiresAt: expiresAt,
+                );
+              },
             );
           } catch (error, stackTrace) {
             _report(error, stackTrace, url, 'image.cacheWrite');

@@ -169,16 +169,16 @@ final class EventController extends FrameSafeNotifier
     }
     if (!accounts.isConnected(entry.site) ||
         (entry.topicId != null &&
-            posts.topicArchived(entry.site, entry.topicId!)) ||
-        !posts.beginWrite(entry.site, entry.id)) {
+            posts.topicArchived(entry.site, entry.topicId!))) {
       return false;
     }
+    final lease = requests.capture(entry.site);
+    if (!posts.beginWrite(entry.site, entry.id)) return false;
 
     entry.pending = true;
     entry.generation++;
     entry.error = null;
     notifySafely();
-    final lease = requests.capture(entry.site);
     String? failure;
     var mayHaveChanged = false;
     try {

@@ -21,13 +21,25 @@ class AvatarLoader extends ByteCache<AvatarBytes> {
   });
 
   @override
-  AvatarBytes decode(http.Response response) => AvatarBytes(
-    response.bodyBytes,
-    isSvg: looksLikeSvg(
-      response.bodyBytes,
-      contentType: response.headers['content-type'],
-    ),
-  );
+  AvatarBytes? decode(http.Response response) {
+    final bytes = response.bodyBytes;
+    if (bytes.isEmpty) return null;
+    return AvatarBytes(
+      bytes,
+      isSvg: looksLikeSvg(bytes, contentType: response.headers['content-type']),
+    );
+  }
+
+  /// Discards invalid bytes once, even when many rows share the same avatar.
+  /// Late failures cannot evict a replacement cached under the same URL.
+  bool rejectAfterDecodeFailure(String url, AvatarBytes image) {
+    if (_decoderRejections[image] == true) return false;
+    _decoderRejections[image] = true;
+    discardCachedValue(url, image);
+    return true;
+  }
+
+  final Expando<bool> _decoderRejections = Expando<bool>();
 
   /// Whether [bytes] are an SVG document.
   ///

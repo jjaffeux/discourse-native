@@ -155,6 +155,12 @@ succeeds with the ordinary per-install client id and without a push URL. The
 forum must include the relevant endpoint in `allowed_user_api_push_urls` before
 Discourse will forward notifications to it.
 
+Apple registration attempts share one fifteen-second deadline across waiting
+callers. A timeout releases those callers and permits a retry; an older
+permission reply cannot finish or start registration for that newer attempt.
+A late APNs token is retained for the next caller. The iOS and macOS runners
+use the same coordinator under `darwin/` so their retry behavior stays aligned.
+
 Opening an Apple notification whose payload contains `discourse_url` routes
 that URL inside the app. Cold-start taps wait until the connected forums have
 loaded; URLs are accepted only when they use a safe transport, belong to a
@@ -368,7 +374,20 @@ capture a per-topic bookmark generation, so a response sent before the write
 may refresh ordinary content but cannot put its older personalized bookmark
 state over the confirmed result. An ambiguous create is never repeated: the
 topic is read again because a timed-out first request may already have created
-the one bookmark the target permits.
+the one bookmark the target permits. The write and its follow-up refresh retain
+the original account lease, so a delayed response or timeout cannot refresh a
+replacement account's personalized data.
+
+### Draft lists
+
+The account's draft list loads rows as they approach the viewport and keeps its
+paging control reachable without laying out every saved draft. Compact rows
+constrain long category names beside their edit and removal actions; empty
+states remain scrollable in short windows and at larger text sizes.
+
+A mounted list reloads after its account generation changes. Removal dialogs
+retain the forum, controller and account lease that presented the draft, so a
+confirmation arriving after a replacement cannot delete another account's draft.
 
 ### User summary
 
@@ -441,6 +460,10 @@ no idempotency guarantee. Local revisions prevent an older read or response
 from replacing newer form input, and every credential read, request and commit
 is guarded by the site's lifecycle lease. Disconnecting, removing a forum, or
 rotating the account forgets the controller state and invalidates late work.
+Loads register before announcing progress so reentrant callers join the same
+result, and queued reads recheck ownership when their turn starts. Save actions
+must match the loaded account. A mounted page reloads forgotten state after
+the current frame, allowing account renewal without leaving a permanent spinner.
 Discourse's validation messages are shown as returned, while permission,
 network and rate-limit failures remain retryable without discarding edits.
 
@@ -511,6 +534,15 @@ notifications** enters DND until the status expires, or until core's eternal
 sentinel when the status has no end; unselecting it and clearing a status leave
 DND through the normal endpoint, matching the web status service.
 
+### Forum search
+
+Debounced queries retain the account lease captured when the query was entered.
+Recent-history reads, resets and search-click logging recheck that same owner
+after credential waits. Forgetting an account clears its query, results and
+cached recent searches, including when the selected forum URL stays unchanged.
+Ordinary query clearing preserves recent history for reuse; reconnecting loads
+history for the new account session.
+
 ### Topic lists
 
 Discovery lists keep **Recent**, **Top**, and **Trending** available to signed-out
@@ -551,8 +583,12 @@ recipients, or addresses the selected group directly.
 
 Lists are cached per site and destination — revisiting one does not refetch.
 Tapping the destination you are already looking at forces a refresh; merely
-scrolling past the first row does not. It works signed out too, since
-`/latest.json` is public; unread state simply arrives as zero.
+scrolling past the first row does not. Repeated loads share the pending request;
+forced refreshes queue one replay with the latest path. Ownership is registered
+before loading is announced and rechecked as records are published, so a
+listener that forgets the account cannot leave an old request blocking or
+repopulating its replacement. It works signed out too, since `/latest.json` is
+public; unread state simply arrives as zero.
 
 Two things the payload makes you handle:
 
@@ -565,6 +601,19 @@ Two things the payload makes you handle:
   resolves those shortcodes through the site's emoji set without asking an
   HTML renderer to interpret the rest of the title.
 
+### User directory
+
+The Users directory owns search, period, group, sorting, and pagination state
+per forum. It retains the sixteen most recently selected or loaded queries per
+forum, preserving rows for a quick return without accumulating every past
+search. Eviction also disowns pending pages so a late response cannot restore
+evicted rows or finish a replacement request. Column configuration changes
+invalidate snapshots decoded against the previous columns.
+
+Column widths persist per forum. Search timers, visible-column choices, and
+column-management dialogs belong to the forum and account that opened them;
+a pending interaction cannot carry its values into a replacement page.
+
 ### Groups
 
 `/g` and `/g/:name` are native, restorable routes. The directory owns its
@@ -576,6 +625,18 @@ and topic navigation behave exactly like the rest of the app. Public group
 directory, detail, member, activity, and permission reads work without an API
 key, while the server-authored capability fields on the group guard every
 authenticated mutation and management surface.
+
+Directory, member and requester searches each retain sixteen recent queries
+per forum. Revisiting a query keeps it recent; evicting one also revokes its
+pending page so an old response cannot repopulate the cache or block a reload.
+Paging stops on empty member, requester or log pages and on cursors that do
+not advance. Full activity pages need a timestamp older than the previous
+cursor, preventing a stale or incomplete response from repeating indefinitely.
+
+Member search preserves a pending text draft through unrelated page refreshes;
+an externally changed filter cancels the old debounce. Member addition and
+invitation forms retain their input after a failed callback, clear progress,
+and expose a retry. A submission captures its input before announcing progress.
 
 Permissions read the bare JSON array at `/g/:name/permissions.json`. The JSON
 extension is required because native requests do not carry core's AJAX header.
@@ -2285,11 +2346,18 @@ is kept alive while the item scrolls offscreen so playback is not reset. Once
 active, the WebView claims its pointer sequences ahead of the surrounding text
 selection and timeline gestures, keeping the iframe's pause, seek, volume and
 fullscreen controls interactive.
+On macOS, the player uses a route-owned portal in the root overlay, keeping
+later dialogs above it without reconstructing playback. Forwarded wheel events
+check the visible Flutter hit target; a covering dialog or floating panel
+receives the scroll instead of the topic underneath it.
 
 Playback uses YouTube's official iframe, never an extracted media stream. The
 wrapper supplies the source forum's origin as the referrer/client identity,
 allows iframe navigation, and prevents a link from replacing the app's
 top-level WebView — safe links are handed to the system browser instead.
+Native setup and navigation callbacks belong to the player that created them;
+closing the player or changing its source revokes further setup and prevents
+retired callbacks from opening browser windows or changing the new document.
 `webview_all` is confined to app-owned activated media surfaces, keeping
 Discourse markup parsing and the native posters independent of the platform
 package.
@@ -2302,7 +2370,9 @@ the same lazy poster and accessible Play/Open/Download actions. Download is
 available before playback and in the full-screen player. Desktop downloads use
 the native save dialog; mobile downloads use the file share sheet. Videos stream
 to a private temporary file before saving or sharing, without the image cache's
-size limit. Downloads follow redirects explicitly and send user API credentials
+size limit. Download and source-probe responses arriving after a timeout or
+closure have their bodies cancelled, including transports that race an abort.
+Downloads follow redirects explicitly and send user API credentials
 only to the forum origin. Its app-owned
 [`inline_video_playback.dart`](lib/src/shell/inline_video_playback.dart) session
 boundary exposes platform-neutral state and playback intents while keeping
@@ -2310,8 +2380,9 @@ platform controller ownership behind adapters. iOS and macOS use Flutter's
 official `video_player` AVFoundation backend and small Flutter controls,
 including a full-screen route that keeps the current playback position. Linux
 reuses the existing WebKitGTK surface with an owned HTML5 `<video>` document
-and native controls. This keeps Apple builds on Swift Package Manager and
-avoids shipping a second Linux media framework.
+and native controls. A failed document or media element releases that session
+and prevents pending native setup from loading it again. This keeps Apple
+builds on Swift Package Manager and avoids shipping a second Linux media framework.
 
 A protected same-origin upload is resolved before playback. User API headers
 are sent only to the forum while redirects are walked explicitly; the player
@@ -2425,7 +2496,14 @@ Avatars go through [`AvatarLoader`](lib/src/data/avatar_loader.dart) rather than
   caches, aborts their requests, and prevents late results from repainting the
   new generation.
 
-Anything undecodable falls back to a placeholder rather than throwing.
+Anything undecodable falls back to a placeholder rather than throwing. Empty
+responses and rejected raster or SVG bytes leave the shared cache, including
+its disk copy, so corrupted media cannot survive relaunch. Decoder failures
+are reported once per shared image; a late failure cannot evict newer bytes
+already loaded for the same URL.
+Disk reads, writes and decoder removals share a queue per store and URL across
+avatar and emoji caches. A pending write finishes before rejection removes it,
+and a replacement cache observes those accepted operations before reading.
 
 Chat authors also retain the optional `UserFlairMixin` fields supplied by the
 server. `ChatUserAvatar` overlays the group icon, image, or background badge
@@ -2660,6 +2738,14 @@ forum or Aggregate workspace has only one tab. Tabs can be dragged onto one
 another to reorder them; the active context stays selected and the new order
 is restored after launch. The app-wide Aggregate workspace uses the same tab
 ordering interaction.
+
+Aggregate refreshes and paging share their admitted futures. Each forum source
+retains its original account lease through credential reads, queued transport,
+and buffered topic delivery. Disconnecting or replacing an account removes its
+rows and paging credentials from every affected tab; other visible rows and
+saved tab filters remain, and reopening refreshes the invalidated feed. Server
+pagination cycles stop after the last distinct page rather than repeatedly
+fetching empty or duplicate-only results.
 
 Active tabs join the content with rounded top corners and curved feet. Inactive
 tabs use an inset, rounded tertiary-low hover surface; adjacent dividers

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_lazy_videos_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_lazy_videos/lazy_youtube.dart';
@@ -438,44 +440,193 @@ void main() {
       },
     );
 
-    testWidgets('keeps an activated player alive while it scrolls offscreen', (
-      tester,
-    ) async {
-      final scroll = ScrollController();
-      addTearDown(scroll.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ListView(
-              controller: scroll,
-              children: [
-                YoutubeVideo(
-                  data: _video,
-                  siteUrl: 'https://meta.discourse.org',
-                  playerBuilder: (_, _) => const ColoredBox(
-                    key: ValueKey('kept-youtube-player'),
-                    color: Colors.black,
+    for (final modal in [true, false]) {
+      testWidgets(
+        'forwards macOS wheel input to a covering ${modal ? 'dialog' : 'overlay'}',
+        (tester) async {
+          await _withTargetPlatform(TargetPlatform.macOS, () async {
+            final background = ScrollController();
+            final foreground = ScrollController();
+            addTearDown(background.dispose);
+            addTearDown(foreground.dispose);
+            await tester.pumpWidget(
+              MaterialApp(
+                home: Scaffold(
+                  body: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: 400,
+                      height: 300,
+                      child: ListView(
+                        controller: background,
+                        children: [
+                          YoutubeVideo(
+                            data: _video,
+                            siteUrl: 'https://meta.discourse.org',
+                            playerBuilder: (_, _) => const ColoredBox(
+                              key: ValueKey('covered-player'),
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 900),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                for (var i = 0; i < 20; i++) const SizedBox(height: 200),
-              ],
-            ),
-          ),
-        ),
+              ),
+            );
+            await tester.tap(
+              find.bySemanticsLabel('Play video: A useful video'),
+            );
+            await tester.pump();
+            await tester.pump();
+            final player = find.byKey(const ValueKey('covered-player'));
+            final originalPlayer = tester.element(player);
+            final context = tester.element(find.byType(YoutubeVideo));
+            final panel = Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 400,
+                height: 300,
+                child: Material(
+                  child: ListView(
+                    controller: foreground,
+                    children: const [SizedBox(height: 900)],
+                  ),
+                ),
+              ),
+            );
+            OverlayEntry? entry;
+            if (modal) {
+              unawaited(
+                showDialog<void>(context: context, builder: (_) => panel),
+              );
+            } else {
+              entry = OverlayEntry(builder: (_) => panel);
+              Overlay.of(context, rootOverlay: true).insert(entry);
+            }
+            try {
+              await tester.pumpAndSettle();
+              await _sendMacOSYoutubeScroll(
+                tester,
+                position: const Offset(200, 150),
+                delta: 40,
+              );
+              await tester.pump();
+              expect(background.offset, 0);
+              expect(foreground.offset, 40);
+            } finally {
+              if (entry != null) {
+                entry.remove();
+                entry.dispose();
+              } else {
+                Navigator.of(context).pop();
+              }
+              await tester.pumpAndSettle();
+            }
+            expect(tester.element(player), same(originalPlayer));
+          });
+        },
       );
+    }
 
-      await tester.tap(find.bySemanticsLabel('Play video: A useful video'));
-      await tester.pump();
-      expect(find.byKey(const ValueKey('kept-youtube-player')), findsOneWidget);
+    for (final platform in [TargetPlatform.android, TargetPlatform.macOS]) {
+      testWidgets(
+        'keeps the ${platform.name} player alive while it scrolls offscreen',
+        (tester) async {
+          await _withTargetPlatform(platform, () async {
+            final scroll = ScrollController();
+            addTearDown(scroll.dispose);
+            await tester.pumpWidget(
+              MaterialApp(
+                home: Scaffold(
+                  body: ListView(
+                    controller: scroll,
+                    children: [
+                      YoutubeVideo(
+                        data: _video,
+                        siteUrl: 'https://meta.discourse.org',
+                        playerBuilder: (_, _) => const ColoredBox(
+                          key: ValueKey('kept-youtube-player'),
+                          color: Colors.black,
+                        ),
+                      ),
+                      for (var i = 0; i < 20; i++) const SizedBox(height: 200),
+                    ],
+                  ),
+                ),
+              ),
+            );
+            await tester.tap(
+              find.bySemanticsLabel('Play video: A useful video'),
+            );
+            await tester.pumpAndSettle();
+            final player = find.byKey(const ValueKey('kept-youtube-player'));
+            final original = tester.element(player);
+            scroll.jumpTo(2000);
+            await tester.pump();
+            scroll.jumpTo(0);
+            await tester.pump();
+            expect(tester.element(player), same(original));
+            expect(
+              find.bySemanticsLabel('Play video: A useful video'),
+              findsNothing,
+            );
+          });
+        },
+      );
+    }
 
-      scroll.jumpTo(2000);
-      await tester.pump();
-      scroll.jumpTo(0);
-      await tester.pump();
-
-      expect(find.byKey(const ValueKey('kept-youtube-player')), findsOneWidget);
-      expect(find.bySemanticsLabel('Play video: A useful video'), findsNothing);
-    });
+    testWidgets(
+      'replaces the macOS player only after activating a changed source',
+      (tester) async {
+        await _withTargetPlatform(TargetPlatform.macOS, () async {
+          final source = ValueNotifier('https://meta.discourse.org');
+          addTearDown(source.dispose);
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: ValueListenableBuilder<String>(
+                  valueListenable: source,
+                  builder: (context, siteUrl, _) => YoutubeVideo(
+                    data: _video,
+                    siteUrl: siteUrl,
+                    playerBuilder: (_, origin) => ColoredBox(
+                      key: ValueKey(origin.toString()),
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          final play = find.bySemanticsLabel('Play video: A useful video');
+          await tester.tap(play);
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('https://meta.discourse.org')),
+            findsOneWidget,
+          );
+          source.value = 'https://team.discourse.org';
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('https://meta.discourse.org')),
+            findsNothing,
+          );
+          expect(
+            find.byKey(const ValueKey('https://team.discourse.org')),
+            findsNothing,
+          );
+          await tester.tap(play);
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('https://team.discourse.org')),
+            findsOneWidget,
+          );
+        });
+      },
+    );
   });
 
   group('cooked content integration', () {

@@ -22,6 +22,10 @@ class and by making a failure useful to diagnose.
 - `integration_test/` is reserved for behavior that needs a real platform,
   such as Keychain persistence. Unit tests still cover all controllable
   success, failure, migration, and ordering branches around that seam.
+- `darwin/Tests/` owns shared Apple coordinator tests. Run
+  `swift test --package-path darwin` on macOS; both app profiles compile the
+  same sources into their iOS and macOS runners. Injected callbacks and timeout
+  schedulers exercise ordering without requesting real notification permission.
 - `lib/discourse_plugin_test.dart` is a test-support entrypoint for plugin
   packages, not a runner. It exports deterministic host adapters; application
   behavior remains in the owning package's test directory.

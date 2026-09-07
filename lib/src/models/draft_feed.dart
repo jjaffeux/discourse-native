@@ -39,13 +39,15 @@ class DraftFeed {
     List<UserDraft> page, {
     required int limit,
     required int? reportedCount,
+    int? receivedCount,
   }) {
     final byKey = <String, UserDraft>{
       for (final draft in drafts) draft.key: draft,
       for (final draft in page) draft.key: draft,
     };
     final combined = List<UserDraft>.unmodifiable(byKey.values);
-    final more = page.length >= limit;
+    // Concurrent deletions can hide rows from an otherwise full server page.
+    final more = (receivedCount ?? page.length) >= limit;
     return DraftFeed(
       drafts: combined,
       loaded: true,
@@ -66,6 +68,7 @@ class DraftFeed {
     final decrement = contained || knownToExist;
     return DraftFeed(
       drafts: updated,
+      loading: loading,
       loaded: loaded,
       hasMore: hasMore,
       totalCount: totalCount == null

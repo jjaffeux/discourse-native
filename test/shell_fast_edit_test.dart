@@ -86,6 +86,42 @@ void main() {
     },
   );
 
+  test('fast edit stops when write admission changes the account', () async {
+    const post = Post(
+      id: 22,
+      postNumber: 2,
+      username: 'author',
+      cooked: '<p>selected</p>',
+      raw: 'selected',
+      canEdit: true,
+    );
+    final api = FakeDiscourseApi(postsById: const {22: post});
+    final shell = await _shell(api, post);
+    addTearDown(shell.dispose);
+    var replaced = false;
+    shell.addListener(() {
+      if (replaced || !shell.postWriteInFlight(22)) return;
+      replaced = true;
+      shell.lifecycle.invalidate(_siteUrl);
+      shell.endPluginPostWrite(_siteUrl, 22);
+      shell.beginPluginPostWrite(_siteUrl, 22);
+    });
+
+    final error = await shell.saveFastEdit(
+      siteUrl: _siteUrl,
+      topicId: 7,
+      post: post,
+      selectedMarkdown: 'selected',
+      replacement: 'changed',
+    );
+
+    expect(replaced, isTrue);
+    expect(error, 'The topic changed before the edit could be saved.');
+    expect(api.postFetches, isEmpty);
+    expect(api.updated, isEmpty);
+    expect(shell.postWriteInFlight(22), isTrue);
+  });
+
   test('fast edit rejects missing and ambiguous source text', () async {
     for (final raw in ['Before something else', 'selected then selected']) {
       final post = Post(

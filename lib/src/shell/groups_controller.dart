@@ -340,12 +340,28 @@ typedef _FilterListKey = ({String siteUrl, String groupName, String filter});
 typedef _ActivityKey = ({String siteUrl, String groupName, bool mentions});
 typedef _GroupCredentials = ({String? apiKey, String? clientId});
 
+final class _GroupRequest {
+  _GroupRequest({
+    required this.key,
+    required this.siteUrl,
+    required this.lease,
+    this.groupName,
+  });
+
+  final Object key;
+  final String siteUrl;
+  final SiteLease lease;
+  final String? groupName;
+}
+
 final class GroupsController extends FrameSafeNotifier {
   GroupsController({
     required this.api,
     required this.credentials,
     required this.lifecycle,
   });
+
+  static const int _cachedQueriesPerSite = 16;
 
   final GroupsApi api;
   final ApiCredentialReader credentials;
@@ -359,7 +375,7 @@ final class GroupsController extends FrameSafeNotifier {
   final Map<_GroupKey, GroupPermissionsState> _permissions = {};
   final Map<_GroupKey, GroupLogsState> _logs = {};
   final Map<String, GroupDirectoryQuery> _presentedDirectoryQueries = {};
-  final Map<Object, Object> _requests = {};
+  final Map<Object, _GroupRequest> _requests = {};
   final Map<_GroupKey, Object> _mutations = {};
 
   GroupDirectoryState directoryState(
@@ -420,7 +436,9 @@ final class GroupsController extends FrameSafeNotifier {
     bool refresh = false,
     bool more = false,
   }) async {
+    if (isDisposed) return;
     final key = (siteUrl: instance.url, query: query);
+    _touchQuery(_directories, key);
     final held = directoryState(instance.url, query);
     final presentedChanged = _presentedDirectoryQueries[instance.url] != query;
     _presentedDirectoryQueries[instance.url] = query;
@@ -441,6 +459,7 @@ final class GroupsController extends FrameSafeNotifier {
       loadingMore: more,
       loaded: held.loaded,
     );
+    _trimQueries(_directories, instance.url, siteOf: (key) => key.siteUrl);
     notifySafely();
     if (!_current(token)) return;
     try {
@@ -510,7 +529,7 @@ final class GroupsController extends FrameSafeNotifier {
     final key = _groupKey(instance.url, groupName);
     final held = detailState(instance.url, groupName);
     if (_requests.containsKey(key) || (!refresh && held.loaded)) return;
-    final token = _start(key, instance.url);
+    final token = _start(key, instance.url, groupName: groupName);
     _details[key] = GroupDetailState(
       detail: held.detail,
       loading: true,
@@ -552,6 +571,7 @@ final class GroupsController extends FrameSafeNotifier {
     bool refresh = false,
     bool more = false,
   }) async {
+    if (isDisposed) return;
     final key = _memberListKey(
       instance.url,
       groupName,
@@ -559,6 +579,7 @@ final class GroupsController extends FrameSafeNotifier {
       order,
       ascending,
     );
+    _touchQuery(_members, key);
     final held = membersState(
       instance.url,
       groupName,
@@ -575,7 +596,7 @@ final class GroupsController extends FrameSafeNotifier {
         (more && (!held.loaded || !held.hasMore))) {
       return;
     }
-    final token = _start(key, instance.url);
+    final token = _start(key, instance.url, groupName: groupName);
     _members[key] = GroupMembersState._(
       members: held.members,
       total: held.total,
@@ -585,6 +606,7 @@ final class GroupsController extends FrameSafeNotifier {
       loadingMore: more,
       loaded: held.loaded,
     );
+    _trimQueries(_members, instance.url, siteOf: (key) => key.siteUrl);
     notifySafely();
     try {
       final auth = await _credentialsFor(instance, token);
@@ -620,7 +642,8 @@ final class GroupsController extends FrameSafeNotifier {
           members: List.unmodifiable(rows),
           total: _totalAfterRemovals(page.total, removed),
           nextOffset: page.nextOffset,
-          hasMore: page.hasMore,
+          hasMore:
+              page.hasMore && page.nextOffset > (more ? held.nextOffset : 0),
           loaded: true,
         );
       });
@@ -652,7 +675,9 @@ final class GroupsController extends FrameSafeNotifier {
     bool refresh = false,
     bool more = false,
   }) async {
+    if (isDisposed) return;
     final key = _filterListKey(instance.url, groupName, filter);
+    _touchQuery(_requesters, key);
     final held = requestersState(instance.url, groupName, filter: filter);
     if (_requests.containsKey(('requesters', key)) ||
         (!refresh && !more && held.loaded) ||
@@ -660,7 +685,7 @@ final class GroupsController extends FrameSafeNotifier {
       return;
     }
     final requestKey = ('requesters', key);
-    final token = _start(requestKey, instance.url);
+    final token = _start(requestKey, instance.url, groupName: groupName);
     _requesters[key] = GroupRequestersState._(
       requesters: held.requesters,
       total: held.total,
@@ -669,6 +694,12 @@ final class GroupsController extends FrameSafeNotifier {
       loading: !more,
       loadingMore: more,
       loaded: held.loaded,
+    );
+    _trimQueries(
+      _requesters,
+      instance.url,
+      siteOf: (key) => key.siteUrl,
+      requestKeyOf: (key) => ('requesters', key),
     );
     notifySafely();
     try {
@@ -699,7 +730,8 @@ final class GroupsController extends FrameSafeNotifier {
           requesters: List.unmodifiable(rows),
           total: _totalAfterRemovals(page.total, removed),
           nextOffset: page.nextOffset,
-          hasMore: page.hasMore,
+          hasMore:
+              page.hasMore && page.nextOffset > (more ? held.nextOffset : 0),
           loaded: true,
         );
       });
@@ -742,7 +774,7 @@ final class GroupsController extends FrameSafeNotifier {
         (more && (!held.loaded || !held.hasMore))) {
       return;
     }
-    final token = _start(key, instance.url);
+    final token = _start(key, instance.url, groupName: groupName);
     _activities[key] = GroupActivityState._(
       posts: held.posts,
       hasMore: held.hasMore,
@@ -782,7 +814,8 @@ final class GroupsController extends FrameSafeNotifier {
         }
         _activities[key] = GroupActivityState(
           posts: List.unmodifiable(rows),
-          hasMore: page.hasMore,
+          hasMore:
+              page.hasMore && (before == null || page.before!.isBefore(before)),
           loaded: true,
         );
       });
@@ -814,7 +847,7 @@ final class GroupsController extends FrameSafeNotifier {
     final requestKey = ('permissions', key);
     final held = permissionsState(instance.url, groupName);
     if (_requests.containsKey(requestKey) || (!refresh && held.loaded)) return;
-    final token = _start(requestKey, instance.url);
+    final token = _start(requestKey, instance.url, groupName: groupName);
     _permissions[key] = GroupPermissionsState._(
       permissions: held.permissions,
       loading: true,
@@ -863,7 +896,7 @@ final class GroupsController extends FrameSafeNotifier {
         (more && (!held.loaded || !held.hasMore))) {
       return;
     }
-    final token = _start(requestKey, instance.url);
+    final token = _start(requestKey, instance.url, groupName: groupName);
     _logs[key] = GroupLogsState._(
       logs: held.logs,
       nextPage: held.nextPage,
@@ -889,7 +922,7 @@ final class GroupsController extends FrameSafeNotifier {
         _logs[key] = GroupLogsState(
           logs: List.unmodifiable([if (more) ...current.logs, ...page.logs]),
           nextPage: (more ? held.nextPage : 0) + 1,
-          hasMore: !page.allLoaded,
+          hasMore: page.logs.isNotEmpty && !page.allLoaded,
           loaded: true,
         );
       });
@@ -1169,6 +1202,11 @@ final class GroupsController extends FrameSafeNotifier {
     );
     if (!saved) return false;
     final normalized = _normalize(group.name);
+    _requests.removeWhere(
+      (_, request) =>
+          request.siteUrl == instance.url &&
+          (request.groupName == null || request.groupName == normalized),
+    );
     _details.remove(_groupKey(instance.url, group.name));
     _members.removeWhere(
       (key, _) => key.siteUrl == instance.url && key.groupName == normalized,
@@ -1281,7 +1319,9 @@ final class GroupsController extends FrameSafeNotifier {
         _requests.remove(key);
         await loadDetail(instance, group.name, refresh: true);
       }
-      return true;
+      return !isDisposed &&
+          lease.isCurrent &&
+          identical(_mutations[key], token);
     } catch (error, stackTrace) {
       if (lease.isCurrent && identical(_mutations[key], token)) {
         _report(error, stackTrace, operation);
@@ -1300,6 +1340,29 @@ final class GroupsController extends FrameSafeNotifier {
     }
   }
 
+  void _touchQuery<K, V>(Map<K, V> states, K key) {
+    final held = states.remove(key);
+    if (held != null) states[key] = held;
+  }
+
+  void _trimQueries<K, V>(
+    Map<K, V> states,
+    String siteUrl, {
+    required String Function(K) siteOf,
+    Object Function(K)? requestKeyOf,
+  }) {
+    final keys = states.keys
+        .where((key) => siteOf(key) == siteUrl)
+        .toList(growable: false);
+    if (keys.length <= _cachedQueriesPerSite) return;
+    for (final key in keys.take(keys.length - _cachedQueriesPerSite)) {
+      states.remove(key);
+      // Eviction also revokes the old page, so returning to this query can
+      // load immediately without an earlier completion replacing it.
+      _requests.remove(requestKeyOf == null ? key : requestKeyOf(key));
+    }
+  }
+
   void forget(String siteUrl) {
     _directories.removeWhere((key, _) => key.siteUrl == siteUrl);
     _details.removeWhere((key, _) => key.siteUrl == siteUrl);
@@ -1310,31 +1373,29 @@ final class GroupsController extends FrameSafeNotifier {
     _logs.removeWhere((key, _) => key.siteUrl == siteUrl);
     _presentedDirectoryQueries.remove(siteUrl);
     _mutations.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _requests.removeWhere((key, _) => _requestSite[key] == siteUrl);
-    _requestSite.removeWhere((_, value) => value == siteUrl);
+    _requests.removeWhere((_, request) => request.siteUrl == siteUrl);
     notifySafely();
   }
 
-  final Map<Object, String> _requestSite = {};
-
-  ({Object key, Object token, SiteLease lease}) _start(
-    Object key,
-    String siteUrl,
-  ) {
-    final token = Object();
-    _requests[key] = token;
-    _requestSite[key] = siteUrl;
-    return (key: key, token: token, lease: lifecycle.capture(siteUrl));
+  _GroupRequest _start(Object key, String siteUrl, {String? groupName}) {
+    final request = _GroupRequest(
+      key: key,
+      siteUrl: siteUrl,
+      lease: lifecycle.capture(siteUrl),
+      groupName: groupName == null ? null : _normalize(groupName),
+    );
+    _requests[key] = request;
+    return request;
   }
 
-  bool _current(({Object key, Object token, SiteLease lease}) request) =>
+  bool _current(_GroupRequest request) =>
       !isDisposed &&
       request.lease.isCurrent &&
-      identical(_requests[request.key], request.token);
+      identical(_requests[request.key], request);
 
   Future<_GroupCredentials?> _credentialsFor(
     DiscourseInstance instance,
-    ({Object key, Object token, SiteLease lease}) request,
+    _GroupRequest request,
   ) async {
     if (!instance.isConnected) {
       return _current(request) ? (apiKey: null, clientId: null) : null;
@@ -1348,7 +1409,7 @@ final class GroupsController extends FrameSafeNotifier {
 
   Future<_GroupCredentials?> _requiredCredentials(
     DiscourseInstance instance,
-    ({Object key, Object token, SiteLease lease}) request,
+    _GroupRequest request,
   ) async {
     final auth = await _credentialsFor(instance, request);
     if (auth == null || auth.apiKey != null) return auth;
@@ -1374,10 +1435,7 @@ final class GroupsController extends FrameSafeNotifier {
   static int _totalAfterRemovals(int total, Set<int> removed) =>
       total > removed.length ? total - removed.length : 0;
 
-  void _commit(
-    ({Object key, Object token, SiteLease lease}) request,
-    VoidCallback mutation,
-  ) {
+  void _commit(_GroupRequest request, VoidCallback mutation) {
     if (!_current(request)) return;
     request.lease.commit(() {
       if (!_current(request)) return;
@@ -1387,7 +1445,7 @@ final class GroupsController extends FrameSafeNotifier {
   }
 
   void _fail(
-    ({Object key, Object token, SiteLease lease}) request,
+    _GroupRequest request,
     String operation,
     Object error,
     StackTrace stackTrace,
@@ -1398,10 +1456,9 @@ final class GroupsController extends FrameSafeNotifier {
     _commit(request, mutation);
   }
 
-  void _finish(({Object key, Object token, SiteLease lease}) request) {
-    if (identical(_requests[request.key], request.token)) {
+  void _finish(_GroupRequest request) {
+    if (identical(_requests[request.key], request)) {
       _requests.remove(request.key);
-      _requestSite.remove(request.key);
     }
   }
 
@@ -1448,7 +1505,6 @@ final class GroupsController extends FrameSafeNotifier {
   @override
   void dispose() {
     _requests.clear();
-    _requestSite.clear();
     _mutations.clear();
     super.dispose();
   }

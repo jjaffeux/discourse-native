@@ -601,6 +601,94 @@ void main() {
     );
   });
 
+  group('bookmark account ownership', () {
+    const initial = Bookmark(
+      id: 73,
+      bookmarkableId: 12,
+      bookmarkableType: 'Post',
+      postNumber: 2,
+    );
+
+    for (final action in _BookmarkAction.values) {
+      test(
+        '${action.name} stops when admission replaces the account',
+        () async {
+          final api = _BookmarkFakeApi(
+            bookmark: action == _BookmarkAction.create ? null : initial,
+          );
+          final shell = await _loadShell(api);
+          addTearDown(shell.dispose);
+          var replaced = false;
+          shell.addListener(() {
+            if (replaced ||
+                !shell.bookmarkWriteInFlight(
+                  siteUrl: _site,
+                  topicId: 7,
+                  targetType: action == _BookmarkAction.deleteAll
+                      ? BookmarkTargetType.topic
+                      : BookmarkTargetType.post,
+                  targetId: action == _BookmarkAction.deleteAll ? 7 : 12,
+                )) {
+              return;
+            }
+            replaced = true;
+            shell.lifecycle.invalidate(_site);
+            shell.endPluginPostWrite(_site, 12);
+            shell.beginPluginPostWrite(_site, 12);
+          });
+
+          final result = await _writeBookmark(shell, action, initial);
+
+          expect(replaced, isTrue);
+          expect(result.reconciled, isTrue);
+          expect(api.createdBookmarks, isEmpty);
+          expect(api.updatedBookmarks, isEmpty);
+          expect(api.deletedBookmarks, isEmpty);
+          expect(api.deletedTopics, isEmpty);
+          expect(shell.postWriteInFlight(12, siteUrl: _site), isTrue);
+        },
+      );
+
+      for (final fails in [false, true]) {
+        test(
+          '${action.name} ${fails ? 'timeout' : 'response'} cannot refresh a replacement account',
+          () async {
+            final api = _BookmarkFakeApi(
+              bookmark: action == _BookmarkAction.create ? null : initial,
+            );
+            final shell = await _loadShell(api);
+            addTearDown(shell.dispose);
+            final started = Completer<void>();
+            final response = Completer<void>();
+            addTearDown(() {
+              if (!response.isCompleted) response.complete();
+            });
+            api.beforeReply = () {
+              started.complete();
+              return response.future;
+            };
+            final write = _writeBookmark(shell, action, initial);
+            await started.future;
+
+            shell.lifecycle.invalidate(_site);
+            if (fails) {
+              response.completeError(
+                const WriteException(WriteFailure.unreachable),
+              );
+            } else {
+              response.complete();
+            }
+            await write;
+            await pumpEventQueue();
+
+            expect(api.topicsOpened, [7]);
+            expect(api.bookmarksRequested, isEmpty);
+          },
+        );
+      }
+    }
+  });
+
   group('response ordering', () {
     test('a pre-write topic response cannot erase a saved bookmark', () async {
       final api = _StaleTopicBookmarkApi();
@@ -682,6 +770,37 @@ void main() {
     });
   });
 }
+
+enum _BookmarkAction { create, update, delete, deleteAll }
+
+Future<BookmarkWriteResult> _writeBookmark(
+  ShellController shell,
+  _BookmarkAction action,
+  Bookmark bookmark,
+) => switch (action) {
+  _BookmarkAction.create => shell.createBookmark(
+    siteUrl: _site,
+    topicId: 7,
+    targetType: BookmarkTargetType.post,
+    targetId: 12,
+  ),
+  _BookmarkAction.update => shell.updateBookmark(
+    siteUrl: _site,
+    topicId: 7,
+    bookmark: bookmark,
+    name: 'Updated',
+    autoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
+  ),
+  _BookmarkAction.delete => shell.deleteBookmark(
+    siteUrl: _site,
+    topicId: 7,
+    bookmark: bookmark,
+  ),
+  _BookmarkAction.deleteAll => shell.deleteAllTopicBookmarks(
+    siteUrl: _site,
+    topicId: 7,
+  ),
+};
 
 Future<ShellController> _loadShell(FakeDiscourseApi api) async {
   final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
@@ -920,6 +1039,8 @@ final class _BookmarkFakeApi extends FakeDiscourseApi {
       );
 
   Bookmark? _bookmark;
+  Future<void> Function()? beforeReply;
+  final List<int> deletedTopics = [];
 
   @override
   Future<int> createBookmark({
@@ -942,6 +1063,7 @@ final class _BookmarkFakeApi extends FakeDiscourseApi {
       autoDeletePreference: autoDeletePreference,
       clientId: clientId,
     );
+    await beforeReply?.call();
     _bookmark = Bookmark(
       id: id,
       bookmarkableId: targetId,
@@ -975,6 +1097,7 @@ final class _BookmarkFakeApi extends FakeDiscourseApi {
       autoDeletePreference: autoDeletePreference,
       clientId: clientId,
     );
+    await beforeReply?.call();
     _bookmark = _bookmark!.copyWith(
       name: name,
       clearName: name == null,
@@ -1000,9 +1123,23 @@ final class _BookmarkFakeApi extends FakeDiscourseApi {
       targetType: targetType,
       clientId: clientId,
     );
+    await beforeReply?.call();
     _bookmark = null;
     topics[7] = _payload();
     return false;
+  }
+
+  @override
+  Future<void> deleteTopicBookmarks({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) async {
+    deletedTopics.add(topicId);
+    await beforeReply?.call();
+    _bookmark = null;
+    topics[7] = _payload();
   }
 }
 

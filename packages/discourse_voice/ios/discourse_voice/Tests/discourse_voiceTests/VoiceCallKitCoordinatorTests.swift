@@ -154,6 +154,58 @@ final class VoiceCallKitCoordinatorTests: XCTestCase {
     XCTAssertEqual(transactions.actions.count, 2)
   }
 
+  func testReportedFailureCompletesPendingEndExactlyOnce() {
+    let transactions = TransactionRecorder()
+    var endedCall: UUID?
+    let coordinator = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request,
+      reportCallEnded: { uuid, reason in
+        endedCall = uuid
+        XCTAssertEqual(reason, .failed)
+      }
+    )
+    XCTAssertNil(invoke(coordinator, method: "start"))
+    var endResults: [Any?] = []
+    coordinator.handle(FlutterMethodCall(methodName: "end", arguments: nil)) {
+      endResults.append($0)
+    }
+    let end = tryUnwrap(transactions.actions.last as? CXEndCallAction)
+    XCTAssertTrue(endResults.isEmpty)
+
+    XCTAssertNil(invoke(coordinator, method: "failed"))
+
+    XCTAssertEqual(endedCall, end.callUUID)
+    XCTAssertEqual(endResults.count, 1)
+    XCTAssertNil(endResults.first ?? nil)
+    coordinator.handleEndAction(end)
+    coordinator.handleProviderReset()
+    XCTAssertEqual(endResults.count, 1)
+  }
+
+  func testExpiredRingCompletesPendingDeclineExactlyOnce() {
+    let transactions = TransactionRecorder()
+    let incoming = IncomingCallRecorder()
+    let coordinator = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request,
+      reportIncomingCall: incoming.report
+    )
+    XCTAssertEqual(invoke(coordinator, method: "reportIncomingCall") as? Bool, true)
+    var declineResults: [Any?] = []
+    coordinator.handle(FlutterMethodCall(methodName: "declineIncomingCall", arguments: nil)) {
+      declineResults.append($0)
+    }
+    let decline = tryUnwrap(transactions.actions.last as? CXEndCallAction)
+    XCTAssertTrue(declineResults.isEmpty)
+
+    XCTAssertNil(invoke(coordinator, method: "endIncomingCall", arguments: ["reason": "unanswered"]))
+
+    XCTAssertEqual(declineResults.count, 1)
+    XCTAssertNil(declineResults.first ?? nil)
+    coordinator.handleEndAction(decline)
+    coordinator.handleProviderReset()
+    XCTAssertEqual(declineResults.count, 1)
+  }
+
   func testProviderResetClearsCallAndEmitsEnd() {
     let transactions = TransactionRecorder()
     var emittedMethods: [String] = []

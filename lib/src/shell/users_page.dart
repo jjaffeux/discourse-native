@@ -209,6 +209,7 @@ class _UsersPageState extends State<UsersPage> {
   final ScrollController _identityVertical = ScrollController();
   final ScrollController _metricsVertical = ScrollController();
   Timer? _searchDebounce;
+  int _ownerGeneration = 0;
   Set<int>? _visibleColumnIds;
   int? _hoveredId;
   bool _syncingVerticalScroll = false;
@@ -231,6 +232,15 @@ class _UsersPageState extends State<UsersPage> {
   @override
   void didUpdateWidget(UsersPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final ownerChanged =
+        oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.data.currentUsername != widget.data.currentUsername;
+    if (ownerChanged) {
+      _ownerGeneration++;
+      _searchDebounce?.cancel();
+      _visibleColumnIds = null;
+      _hoveredId = null;
+    }
     if (oldWidget.siteUrl != widget.siteUrl ||
         !identical(oldWidget.columnWidthStore, widget.columnWidthStore)) {
       _flushColumnWidths(
@@ -241,8 +251,9 @@ class _UsersPageState extends State<UsersPage> {
       _columnWidthsDirty = false;
       _restoreColumnWidths();
     }
-    if (!_searchFocus.hasFocus &&
-        widget.data.query.search != _searchController.text) {
+    if (ownerChanged ||
+        (!_searchFocus.hasFocus &&
+            widget.data.query.search != _searchController.text)) {
       _searchController.value = TextEditingValue(
         text: widget.data.query.search,
         selection: TextSelection.collapsed(
@@ -258,7 +269,8 @@ class _UsersPageState extends State<UsersPage> {
         ..removeWhere((id) => !newIds.contains(id))
         ..addAll(newIds.difference(oldIds));
     }
-    if (oldWidget.data.items.length != widget.data.items.length ||
+    if (ownerChanged ||
+        oldWidget.data.items.length != widget.data.items.length ||
         oldWidget.data.loadingMore != widget.data.loadingMore ||
         oldWidget.data.hasMore != widget.data.hasMore ||
         oldWidget.data.query != widget.data.query) {
@@ -437,8 +449,10 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   Future<void> _chooseVisibleColumns() async {
+    final generation = _ownerGeneration;
+    final columns = widget.data.columns;
     final draft = Set<int>.from(
-      _visibleColumnIds ?? widget.data.columns.map((column) => column.id),
+      _visibleColumnIds ?? columns.map((column) => column.id),
     );
     final result = await showDialog<Set<int>>(
       context: context,
@@ -453,7 +467,7 @@ class _UsersPageState extends State<UsersPage> {
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  for (final column in widget.data.columns)
+                  for (final column in columns)
                     CheckboxListTile(
                       key: ValueKey('users-column-${column.id}'),
                       value: draft.contains(column.id),
@@ -477,7 +491,7 @@ class _UsersPageState extends State<UsersPage> {
               onPressed: () => updateDialog(() {
                 draft
                   ..clear()
-                  ..addAll(widget.data.columns.map((column) => column.id));
+                  ..addAll(columns.map((column) => column.id));
               }),
               label: const Text('Show all'),
               variant: DButtonVariant.transparent,
@@ -491,11 +505,14 @@ class _UsersPageState extends State<UsersPage> {
         ),
       ),
     );
-    if (!mounted || result == null) return;
+    if (!mounted || generation != _ownerGeneration || result == null) return;
     setState(() => _visibleColumnIds = result);
   }
 
   Future<void> _manageColumns() async {
+    final generation = _ownerGeneration;
+    final save = widget.onManageColumns;
+    if (save == null) return;
     var draft = [...widget.data.availableColumns]
       ..sort((a, b) => a.position.compareTo(b.position));
     final result = await showDialog<List<UserDirectoryColumn>>(
@@ -651,9 +668,15 @@ class _UsersPageState extends State<UsersPage> {
         },
       ),
     );
-    if (!mounted || result == null) return;
-    final saved = await widget.onManageColumns!(List.unmodifiable(result));
-    if (!mounted || saved) return;
+    if (!mounted ||
+        generation != _ownerGeneration ||
+        result == null ||
+        !widget.data.canManageColumns ||
+        widget.onManageColumns == null) {
+      return;
+    }
+    final saved = await save(List.unmodifiable(result));
+    if (!mounted || generation != _ownerGeneration || saved) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Couldn't update directory columns.")),
     );

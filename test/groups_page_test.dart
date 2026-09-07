@@ -97,6 +97,70 @@ void main() {
     );
   }
 
+  testWidgets('a pending group search stays with its forum', (tester) async {
+    var site = 'https://example.com';
+    var query = '';
+    final searches = <String>[];
+    late StateSetter update;
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return GroupsPage(
+            siteUrl: site,
+            data: GroupsPageData(
+              groups: const [_support],
+              loaded: true,
+              query: query,
+            ),
+            onSearchChanged: searches.add,
+          );
+        },
+      ),
+    );
+    final search = find.byKey(const ValueKey('groups-search'));
+    await tester.enterText(search, 'unfinished');
+    await tester.pump(const Duration(milliseconds: 100));
+    update(() {
+      site = 'https://another.example';
+      query = 'restored';
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(searches, isEmpty);
+    expect(tester.widget<TextField>(search).controller?.text, 'restored');
+    await tester.enterText(search, 'new search');
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(searches, ['new search']);
+  });
+
+  testWidgets('group search can be cleared before its debounce completes', (
+    tester,
+  ) async {
+    final searches = <String>[];
+    await _pump(
+      tester,
+      GroupsPage(
+        siteUrl: 'https://example.com',
+        data: const GroupsPageData(groups: [_support], loaded: true),
+        onSearchChanged: searches.add,
+      ),
+    );
+    final search = find.byKey(const ValueKey('groups-search'));
+    await tester.enterText(search, 'unfinished');
+    await tester.pump();
+    expect(find.byTooltip('Clear search'), findsOneWidget);
+    await tester.tap(find.byTooltip('Clear search'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(searches, ['']);
+    expect(tester.widget<TextField>(search).controller?.text, '');
+    expect(find.byTooltip('Clear search'), findsNothing);
+  });
+
   testWidgets(
     'masonry supports scrolling, pagination, resizing, and filtering',
     (tester) async {

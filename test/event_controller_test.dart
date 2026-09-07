@@ -241,6 +241,31 @@ void main() {
   );
 
   test(
+    'account replacement during write admission preserves the new post lane',
+    () async {
+      final handle = ports.controller.acquire(
+        eventSite,
+        PostEvent.decode(current)!,
+      );
+      addTearDown(handle.dispose);
+      await handle.refresh();
+      ports.posts.onBeginWrite = () {
+        ports.posts.onBeginWrite = null;
+        ports.requests.forget(eventSite);
+        ports.controller.forget(eventSite);
+        ports.posts.lanes.clear();
+        ports.posts.beginWrite(eventSite, 42);
+      };
+
+      await handle.respond('going');
+
+      expect(ports.transport.writes, isEmpty);
+      expect(ports.posts.lanes, {(eventSite, 42)});
+      expect(ports.refreshedTopics, isEmpty);
+    },
+  );
+
+  test(
     'tracker replacement and backgrounding cancel subscriptions and refresh on return',
     () async {
       final handle = ports.controller.acquire(

@@ -90,10 +90,16 @@ final class FileByteCacheStore implements ByteCacheStore {
       await _delete(file);
       return null;
     }
-    final expiresAt = DateTime.fromMillisecondsSinceEpoch(
-      ByteData.sublistView(encoded, 4, 12).getInt64(0, Endian.big),
-      isUtc: true,
-    );
+    final DateTime expiresAt;
+    try {
+      expiresAt = DateTime.fromMillisecondsSinceEpoch(
+        ByteData.sublistView(encoded, 4, 12).getInt64(0, Endian.big),
+        isUtc: true,
+      );
+    } on RangeError {
+      await _delete(file);
+      return null;
+    }
     final bodyLength = encoded.length - _headerBytes;
     if (!expiresAt.isAfter(_clock().toUtc()) || bodyLength > maxEntryBytes) {
       await _delete(file);

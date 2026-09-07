@@ -33,19 +33,27 @@ final class AssignmentRestorePermit {
     required this.siteUrl,
     required this.target,
     required Assignment assignment,
+    required PluginSiteLease lease,
+    required Object session,
     required this.expiresAt,
-  }) : _assignment = assignment;
+  }) : _assignment = assignment,
+       _lease = lease,
+       _session = session;
 
   final AssignmentController _owner;
   final String siteUrl;
   final AssignmentTarget target;
   final Assignment _assignment;
+  final PluginSiteLease _lease;
+  final Object _session;
   final DateTime expiresAt;
   bool _used = false;
 
   bool _take(AssignmentController owner) {
     if (_used ||
         !identical(_owner, owner) ||
+        !_lease.isCurrent ||
+        !identical(owner._restoreSessions[siteUrl], _session) ||
         !DateTime.now().isBefore(expiresAt)) {
       return false;
     }
@@ -87,7 +95,8 @@ class AssignmentController extends FrameSafeNotifier
   final AssignmentTopicReloader _reloadTopic;
   final AssignmentFallbackInvalidator? _legacyInvalidator;
 
-  final Set<({String siteUrl, AssignmentTarget target})> _writes = {};
+  final Map<({String siteUrl, AssignmentTarget target}), Object> _writes = {};
+  final Map<String, Object> _restoreSessions = {};
   final Set<String> _legacyFallbackUnavailable = {};
 
   static const _targetUnavailable =
@@ -97,7 +106,7 @@ class AssignmentController extends FrameSafeNotifier
   static const _restorePermitDuration = Duration(seconds: 10);
 
   bool isWriting(String siteUrl, AssignmentTarget target) =>
-      _writes.contains((siteUrl: siteUrl, target: target));
+      _writes.containsKey((siteUrl: siteUrl, target: target));
 
   bool canAssign(String siteUrl, AssignmentTarget target) {
     final snapshot = _permissionSnapshot?.call(siteUrl, target);
@@ -126,7 +135,8 @@ class AssignmentController extends FrameSafeNotifier
 
   void forget(String siteUrl) {
     final before = _writes.length;
-    _writes.removeWhere((key) => key.siteUrl == siteUrl);
+    _writes.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _restoreSessions.remove(siteUrl);
     final fallbackChanged = _legacyFallbackUnavailable.remove(siteUrl);
     if (_writes.length != before || fallbackChanged) notifySafely();
   }
@@ -195,6 +205,8 @@ class AssignmentController extends FrameSafeNotifier
     AssignmentTarget target,
     Assignment assignment,
   ) async {
+    final lease = _requests.capture(siteUrl);
+    final session = _restoreSessions.putIfAbsent(siteUrl, Object.new);
     var removed = false;
     final error = await _mutate(
       siteUrl,
@@ -207,12 +219,18 @@ class AssignmentController extends FrameSafeNotifier
       ),
       afterWrite: () => removed = true,
     );
-    final permit = error == null && removed
+    final permit =
+        error == null &&
+            removed &&
+            _isCurrent(lease) &&
+            identical(_restoreSessions[siteUrl], session)
         ? AssignmentRestorePermit._(
             owner: this,
             siteUrl: siteUrl,
             target: target,
             assignment: assignment,
+            lease: lease,
+            session: session,
             expiresAt: DateTime.now().add(_restorePermitDuration),
           )
         : null;
@@ -253,22 +271,27 @@ class AssignmentController extends FrameSafeNotifier
     }
 
     final key = (siteUrl: siteUrl, target: target);
-    if (!_writes.add(key)) return _writeAlreadyInProgress;
-    notifySafely();
+    if (_writes.containsKey(key)) return _writeAlreadyInProgress;
+    final token = Object();
     final lease = _requests.capture(siteUrl);
+    _writes[key] = token;
+    notifySafely();
+
+    bool current() => _isCurrent(lease) && identical(_writes[key], token);
 
     try {
       final session = await _session(siteUrl, lease: lease);
-      if (!_isCurrent(lease)) return null;
+      if (!current()) return null;
       await write(session);
-      if (!_isCurrent(lease)) return null;
+      if (!current()) return null;
       afterWrite?.call();
+      if (!current()) return null;
 
       // Assign writes can change tracking and return no assignment snapshot.
       await _reloadTopic(siteUrl, target.topicId);
       return null;
     } on WriteException catch (error) {
-      if (_isCurrent(lease) && error.statusCode == 404) {
+      if (current() && error.statusCode == 404) {
         // A scoped reload distinguishes neither missing route nor deleted
         // target, but avoids disabling Assign for unrelated records.
         _invalidateLegacyFallback(siteUrl);
@@ -277,7 +300,7 @@ class AssignmentController extends FrameSafeNotifier
       }
       return error.message;
     } catch (error, stackTrace) {
-      if (_isCurrent(lease)) {
+      if (current()) {
         diagnostics.reportError(
           error,
           stackTrace,
@@ -289,8 +312,10 @@ class AssignmentController extends FrameSafeNotifier
       }
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
-      _writes.remove(key);
-      notifySafely();
+      if (identical(_writes[key], token)) {
+        _writes.remove(key);
+        notifySafely();
+      }
     }
   }
 
@@ -376,6 +401,7 @@ class AssignmentController extends FrameSafeNotifier
   @override
   void dispose() {
     _writes.clear();
+    _restoreSessions.clear();
     _legacyFallbackUnavailable.clear();
     super.dispose();
   }

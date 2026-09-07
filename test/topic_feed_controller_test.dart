@@ -46,6 +46,18 @@ final class _GatedCredentialReader implements SiteApiKeyReader {
   }
 }
 
+final class _FirstGatedCredentialReader implements SiteApiKeyReader {
+  final Completer<void> started = Completer<void>();
+  final Completer<String?> result = Completer<String?>();
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    if (started.isCompleted) return Future.value('new-key');
+    started.complete();
+    return result.future;
+  }
+}
+
 TopicList _page(int id, {String? moreTopicsUrl}) => TopicList(
   topics: [Topic(id: id, title: 'Topic $id', slug: 'topic-$id')],
   moreTopicsUrl: moreTopicsUrl,
@@ -77,7 +89,14 @@ void main() {
     );
   });
 
-  tearDown(() => controller.dispose());
+  tearDown(() {
+    controller.dispose();
+    for (final request in api.requests) {
+      if (!request.response.isCompleted) {
+        request.response.complete(const TopicList(topics: []));
+      }
+    }
+  });
 
   group('initial loading and refresh', () {
     test('coalesces one retry after an initial failure', () async {
@@ -353,6 +372,192 @@ void main() {
   });
 
   group('request lifecycle', () {
+    test('shares the load with a synchronous loading listener', () async {
+      final site = instance('one.example');
+      Future<void>? duplicate;
+      controller.addListener(() {
+        if (duplicate != null) return;
+        duplicate = controller.load(
+          instance: site,
+          destinationId: 'latest',
+          path: '/latest.json',
+          incoming: null,
+        );
+      });
+
+      final loading = controller.load(
+        instance: site,
+        destinationId: 'latest',
+        path: '/latest.json',
+        incoming: null,
+      );
+      expect(duplicate, same(loading));
+      await pumpEventQueue();
+      api.requests.single.response.complete(_page(1));
+      await loading;
+      expect(controller.feedFor(site.url, 'latest')?.topicIds, [1]);
+    });
+
+    test('forgetting during loading does not block a new account', () async {
+      final site = instance('one.example');
+      final gated = _FirstGatedCredentialReader();
+      addTearDown(() {
+        if (!gated.result.isCompleted) gated.result.complete('old-key');
+      });
+      final guarded = TopicFeedController(
+        api: api,
+        credentials: gated,
+        lifecycle: SiteLifecycle(),
+        store: store,
+      );
+      addTearDown(guarded.dispose);
+      var forgotten = false;
+      guarded.addListener(() {
+        if (forgotten) return;
+        forgotten = true;
+        guarded.forget(site.url);
+      });
+      final old = guarded.load(
+        instance: site,
+        destinationId: 'latest',
+        path: '/old.json',
+        incoming: null,
+      );
+      await gated.started.future;
+      final replacement = guarded.load(
+        instance: site,
+        destinationId: 'latest',
+        path: '/replacement.json',
+        incoming: null,
+      );
+      await pumpEventQueue();
+
+      expect(api.requests.map((request) => request.path), [
+        '/replacement.json',
+      ]);
+      api.requests.single.response.complete(_page(2));
+      await replacement;
+      gated.result.complete('old-key');
+      await old;
+      expect(guarded.feedFor(site.url, 'latest')?.topicIds, [2]);
+    });
+
+    for (final source in ['initial', 'incoming', 'page']) {
+      test(
+        '$source stops absorbing rows when a record listener forgets the site',
+        () async {
+          final site = instance('one.example');
+          final incoming = IncomingTopics();
+          if (source != 'initial') {
+            final first = controller.load(
+              instance: site,
+              destinationId: 'latest',
+              path: '/latest.json',
+              incoming: incoming,
+            );
+            await pumpEventQueue();
+            api.requests.single.response.complete(
+              _page(1, moreTopicsUrl: '/latest?page=1'),
+            );
+            await first;
+          }
+          final row = store.ref<Topic>(site.url, 2);
+          var forgotten = false;
+          void forget() {
+            if (forgotten || row.value == null) return;
+            forgotten = true;
+            controller.forget(site.url);
+            store.forget(site.url);
+          }
+
+          row.addListener(forget);
+          addTearDown(() => row.removeListener(forget));
+          incoming.notify({'message_type': 'new_topic', 'topic_id': 2});
+          incoming.notify({'message_type': 'new_topic', 'topic_id': 3});
+          final loading = switch (source) {
+            'initial' => controller.load(
+              instance: site,
+              destinationId: 'latest',
+              path: '/latest.json',
+              incoming: incoming,
+            ),
+            'incoming' => controller.showIncoming(
+              instance: site,
+              destinationId: 'latest',
+              path: '/latest.json',
+              incoming: incoming,
+            ),
+            _ => controller.loadMore(instance: site, destinationId: 'latest'),
+          };
+          await pumpEventQueue();
+          api.requests.last.response.complete(_pages([2, 3]));
+          await loading;
+
+          expect(forgotten, isTrue);
+          expect(controller.feedFor(site.url, 'latest'), isNull);
+          expect(store.read<Topic>(site.url, 2), isNull);
+          expect(store.read<Topic>(site.url, 3), isNull);
+        },
+      );
+    }
+
+    for (final source in ['initial', 'incoming']) {
+      test(
+        '$source cannot run its completion hook after the site is forgotten',
+        () async {
+          final site = instance('one.example');
+          var completions = 0;
+          final guarded = TopicFeedController(
+            api: api,
+            credentials: credentials,
+            lifecycle: SiteLifecycle(),
+            store: store,
+            onFeedLoaded: (_, _, _, _) => completions++,
+          );
+          addTearDown(guarded.dispose);
+          final incoming = IncomingTopics();
+          if (source == 'incoming') {
+            final first = guarded.load(
+              instance: site,
+              destinationId: 'latest',
+              path: '/latest.json',
+              incoming: incoming,
+            );
+            await pumpEventQueue();
+            api.requests.single.response.complete(_page(1));
+            await first;
+            completions = 0;
+          }
+          guarded.addListener(() {
+            if (guarded.feedFor(site.url, 'latest')?.topicIds.contains(2) ==
+                true) {
+              guarded.forget(site.url);
+            }
+          });
+          incoming.notify({'message_type': 'new_topic', 'topic_id': 2});
+          final loading = source == 'initial'
+              ? guarded.load(
+                  instance: site,
+                  destinationId: 'latest',
+                  path: '/latest.json',
+                  incoming: incoming,
+                )
+              : guarded.showIncoming(
+                  instance: site,
+                  destinationId: 'latest',
+                  path: '/latest.json',
+                  incoming: incoming,
+                );
+          await pumpEventQueue();
+          api.requests.last.response.complete(_page(2));
+          await loading;
+
+          expect(guarded.feedFor(site.url, 'latest'), isNull);
+          expect(completions, 0);
+        },
+      );
+    }
+
     test(
       'retains existing rows while the next page is being prepared',
       () async {

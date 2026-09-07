@@ -12,6 +12,38 @@ import 'support/fakes.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('disconnect clears private aggregate rows in every tab', () async {
+    const topic = Topic(id: 42, title: 'Private topic', slug: 'private-topic');
+    final authenticator = FakeAuthenticator()..keys[_site.url] = 'key';
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore(const [_site]),
+      api: FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [],
+          '/filter.json?per_page=30': [topic],
+        },
+      ),
+      authenticator: authenticator,
+      drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
+      aggregatePreferences: AggregatePreferencesStore.memory(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    await controller.aggregate.refresh(controller.instances);
+    final firstTab = controller.activeAggregateTabId;
+    controller.aggregate.createTab();
+    await controller.aggregate.refresh(controller.instances);
+    expect(controller.aggregate.state.topics, hasLength(1));
+
+    expect(await controller.disconnectInstance(_site.url), isTrue);
+
+    expect(controller.aggregate.state.topics, isEmpty);
+    controller.aggregate.selectTab(firstTab);
+    expect(controller.aggregate.state.topics, isEmpty);
+  });
+
   test('aggregate topic gets a new forum tab and then reuses it', () async {
     final store = Store();
     final controller = _controller(store: store);

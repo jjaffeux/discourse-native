@@ -85,6 +85,35 @@ void main() {
   });
 
   group('AvatarLoader.load', () {
+    test('a late decoder failure cannot discard replacement bytes', () async {
+      var requests = 0;
+      final loader = AvatarLoader(
+        client: MockClient((_) async => http.Response.bytes([++requests], 200)),
+      );
+      addTearDown(loader.close);
+      const url = 'https://site/replaced.png';
+      final old = (await loader.load(url))!;
+      loader.clear();
+      final current = (await loader.load(url))!;
+
+      expect(loader.rejectAfterDecodeFailure(url, old), isTrue);
+      expect(loader.rejectAfterDecodeFailure(url, old), isFalse);
+      expect(loader.cached(url), same(current));
+      expect((await loader.load(url))?.bytes, orderedEquals([2]));
+      expect(requests, 2);
+    });
+
+    test('an empty successful response is unavailable', () async {
+      final loader = AvatarLoader(
+        client: MockClient((_) async => http.Response.bytes(const [], 200)),
+      );
+      addTearDown(loader.close);
+
+      expect(await loader.load('https://site/empty.png'), isNull);
+      expect(loader.isCached('https://site/empty.png'), isTrue);
+      expect(loader.cached('https://site/empty.png'), isNull);
+    });
+
     test('reports the format Discourse actually served', () async {
       final loader = AvatarLoader(
         client: MockClient(

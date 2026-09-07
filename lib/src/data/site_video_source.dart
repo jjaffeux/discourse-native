@@ -132,19 +132,32 @@ final class SiteVideoSourceResolver {
     )..headers.addAll(headers);
     final pending = _client.send(request);
     try {
-      final response = await Future.any<http.StreamedResponse>([
-        pending.timeout(
-          timeout,
-          onTimeout: () {
+      late final http.StreamedResponse response;
+      try {
+        response = await Future.any<http.StreamedResponse>([
+          pending.timeout(
+            timeout,
+            onTimeout: () {
+              if (!abort.isCompleted) abort.complete();
+              throw TimeoutException(
+                'Timed out resolving video source',
+                timeout,
+              );
+            },
+          ),
+          _closedSignal.future.then<http.StreamedResponse>((_) {
             if (!abort.isCompleted) abort.complete();
-            throw TimeoutException('Timed out resolving video source', timeout);
-          },
-        ),
-        _closedSignal.future.then<http.StreamedResponse>((_) {
-          if (!abort.isCompleted) abort.complete();
-          throw StateError('Video source resolver is closed.');
-        }),
-      ]);
+            throw StateError('Video source resolver is closed.');
+          }),
+        ]);
+      } on Object {
+        // Closing or timing out can win just before the transport delivers
+        // headers. The abandoned response still needs its body cancelled.
+        pending
+            .then<void>((late) => late.stream.listen(null).cancel())
+            .ignore();
+        rethrow;
+      }
       // Only status and redirect headers are needed. Do not wait for or buffer
       // a broken server's HEAD body, and release the connection promptly.
       await response.stream.listen(null).cancel();

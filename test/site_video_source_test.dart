@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/manual_scheduler.dart';
+
 void main() {
   const siteUrl = 'https://meta.discourse.org';
 
@@ -183,6 +185,61 @@ void main() {
     );
     await abortObserved.future;
   });
+
+  for (final timeout in [false, true]) {
+    test(
+      'cancels a probe body arriving after ${timeout ? 'its deadline' : 'closure'}',
+      () async {
+        final started = Completer<void>();
+        final headers = Completer<http.StreamedResponse>();
+        var cancelled = false;
+        final body = StreamController<List<int>>(
+          onCancel: () => cancelled = true,
+        );
+        addTearDown(() async {
+          if (!cancelled) await body.stream.listen(null).cancel();
+          await body.close();
+        });
+        final scheduler = ManualScheduler();
+        final resolver = SiteVideoSourceResolver(
+          credentials: const _Credentials(apiKey: 'secret'),
+          lifecycle: SiteLifecycle(),
+          requestTimeout: const Duration(minutes: 1),
+          client: MockClient.streaming((request, _) {
+            started.complete();
+            return headers.future;
+          }),
+        );
+        addTearDown(resolver.close);
+        final resolving = runZoned(
+          () => resolver.resolve(
+            siteUrl: siteUrl,
+            url: Uri.parse('$siteUrl/secure-uploads/demo.mp4'),
+          ),
+          zoneSpecification: ZoneSpecification(
+            createTimer: (_, _, zone, duration, callback) =>
+                scheduler.createTimer(duration, zone.bindCallback(callback)),
+          ),
+        );
+        await started.future;
+        final stopped = expectLater(
+          resolving,
+          timeout ? throwsA(isA<TimeoutException>()) : throwsStateError,
+        );
+        if (timeout) {
+          scheduler.advance(const Duration(minutes: 1));
+        } else {
+          resolver.close();
+        }
+        await stopped;
+
+        headers.complete(http.StreamedResponse(body.stream, 200));
+        // Drain the late-response continuation queued by completing headers.
+        await Future<void>.delayed(Duration.zero);
+        expect(cancelled, isTrue);
+      },
+    );
+  }
 
   test('closing aborts a stalled redirect probe', () async {
     final requestStarted = Completer<void>();

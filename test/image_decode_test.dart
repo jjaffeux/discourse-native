@@ -162,6 +162,55 @@ void main() {
     );
   });
 
+  for (final svg in [false, true]) {
+    testWidgets(
+      'quarantines invalid ${svg ? 'SVG' : 'raster'} avatars after one diagnostic',
+      (tester) async {
+        final diagnostics = _RecordingDiagnosticsSink();
+        addTearDown(DiagnosticsSink.install(diagnostics).close);
+        final url = 'https://site.test/broken-avatar.${svg ? 'svg' : 'png'}';
+        final pipeline = installTestMediaPipeline(
+          client: MockClient(
+            (_) async => http.Response.bytes(
+              svg ? utf8.encode('<svg><g></svg>') : [1, 2, 3],
+              200,
+              headers: {'content-type': svg ? 'image/svg+xml' : 'image/png'},
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Row(
+                children: [
+                  AvatarImage(
+                    url: url,
+                    size: 24,
+                    fallback: const Text('First avatar'),
+                  ),
+                  AvatarImage(
+                    url: url,
+                    size: 32,
+                    fallback: const Text('Second avatar'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('First avatar'), findsOneWidget);
+        expect(find.text('Second avatar'), findsOneWidget);
+        expect(pipeline.avatars.isCached(url), isTrue);
+        expect(pipeline.avatars.cached(url), isNull);
+        expect(diagnostics.operations, ['avatar.decode']);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('quarantines invalid emoji bytes after one diagnostic', (
     tester,
   ) async {

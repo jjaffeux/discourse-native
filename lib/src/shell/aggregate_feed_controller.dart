@@ -156,7 +156,8 @@ final class AggregateFeedController extends FrameSafeNotifier {
     ]);
   }
 
-  bool get canCreateTab => _tabs.length < AggregatePreferencesStore.maximumTabs;
+  bool get canCreateTab =>
+      !isDisposed && _tabs.length < AggregatePreferencesStore.maximumTabs;
 
   Set<String> get excludedForums => Set.unmodifiable(_activeTab.excludedForums);
 
@@ -166,6 +167,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
       _activeTab.sources[siteUrl]?.filterOptions ?? const [];
 
   Future<void> loadPreferences(Iterable<DiscourseInstance> instances) async {
+    if (isDisposed) return;
     final loaded = await preferences.load();
     if (isDisposed) return;
     final valid = {for (final instance in instances) instance.url};
@@ -204,6 +206,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
     required Set<String> includedConnectedForums,
     required Map<String, String> queries,
   }) async {
+    if (isDisposed) return;
     final tab = _activeTab;
     final valid = {for (final instance in allForums) instance.url};
     final nextExcluded = tab.excludedForums.intersection(valid);
@@ -404,6 +407,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
   );
 
   Future<void> open(Iterable<DiscourseInstance> instances) {
+    if (isDisposed) return Future.value();
     final updated = state.updatedAt;
     final stale =
         updated == null || DateTime.now().difference(updated) >= freshness;
@@ -415,17 +419,29 @@ final class AggregateFeedController extends FrameSafeNotifier {
     Iterable<DiscourseInstance> instances, {
     bool force = false,
   }) {
+    if (isDisposed) return Future.value();
     final tab = _activeTab;
     final selected = [
       for (final instance in instances)
         if (instance.isConnected && !tab.excludedForums.contains(instance.url))
-          _ConfiguredAggregateForum(instance, tab.queries[instance.url] ?? ''),
+          _ConfiguredAggregateForum(
+            instance,
+            tab.queries[instance.url] ?? '',
+            lifecycle.capture(instance.url),
+          ),
     ];
     final active = tab.refreshRequest;
     if (active != null && !force) return active;
 
     final revision = Object();
     tab.revision = revision;
+    tab.pageRequest = null;
+    tab.forums
+      ..clear()
+      ..addAll(selected.map((forum) => forum.instance.url));
+    final completion = Completer<void>();
+    final request = completion.future;
+    tab.refreshRequest = request;
     final held = tab.state;
     tab.state = held.copyWith(
       loading: held.topics.isEmpty,
@@ -438,11 +454,11 @@ final class AggregateFeedController extends FrameSafeNotifier {
     );
     notifySafely();
 
-    late final Future<void> request;
-    request = _performRefresh(tab, selected, revision).whenComplete(() {
-      if (identical(tab.refreshRequest, request)) tab.refreshRequest = null;
-    });
-    tab.refreshRequest = request;
+    completion.complete(
+      _performRefresh(tab, selected, revision).whenComplete(() {
+        if (identical(tab.refreshRequest, request)) tab.refreshRequest = null;
+      }),
+    );
     return request;
   }
 
@@ -451,6 +467,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
     List<_ConfiguredAggregateForum> forums,
     Object revision,
   ) async {
+    if (!_isCurrent(tab, revision)) return;
     final pageSize = (batchSize / (forums.isEmpty ? 1 : forums.length))
         .ceil()
         .clamp(10, 30);
@@ -465,6 +482,10 @@ final class AggregateFeedController extends FrameSafeNotifier {
               if (source != null) sources[source.instance.url] = source;
             })
             .catchError((Object error, StackTrace stackTrace) {
+              if (!_isCurrent(tab, revision) ||
+                  !forums[index].lease.isCurrent) {
+                return;
+              }
               final instance = forums[index].instance;
               failures[instance.url] = "Couldn't refresh ${instance.host}.";
               _report(error, stackTrace, 'aggregate.loadForum');
@@ -517,7 +538,8 @@ final class AggregateFeedController extends FrameSafeNotifier {
     Object revision,
   ) async {
     final instance = configured.instance;
-    final lease = lifecycle.capture(instance.url);
+    final lease = configured.lease;
+    if (!_isCurrent(tab, revision) || !lease.isCurrent) return null;
     final apiKey = await credentials.apiKeyFor(instance.url);
     if (!_isCurrent(tab, revision) || !lease.isCurrent) {
       return null;
@@ -528,34 +550,35 @@ final class AggregateFeedController extends FrameSafeNotifier {
 
     final source = _AggregateSource(
       instance: instance,
+      lease: lease,
       order: order,
       apiKey: apiKey,
       query: configured.query,
       pageSize: pageSize,
     );
     await _loadPage(tab, source, source.firstPagePath, revision);
-    return source;
+    return _ownsSource(tab, source, revision) ? source : null;
   }
 
   Future<void> loadMore() {
+    if (isDisposed) return Future.value();
     final tab = _activeTab;
-    if (tab.state.loadingMore ||
-        !tab.state.hasMore ||
-        tab.refreshRequest != null) {
-      return Future.value();
-    }
     final active = tab.pageRequest;
     if (active != null) return active;
+    if (!tab.state.hasMore || tab.refreshRequest != null) return Future.value();
     final revision = tab.revision;
     if (revision == null) return Future.value();
 
+    final completion = Completer<void>();
+    final request = completion.future;
+    tab.pageRequest = request;
     tab.state = tab.state.copyWith(loadingMore: true);
     notifySafely();
-    late final Future<void> request;
-    request = _performLoadMore(tab, revision).whenComplete(() {
-      if (identical(tab.pageRequest, request)) tab.pageRequest = null;
-    });
-    tab.pageRequest = request;
+    completion.complete(
+      _performLoadMore(tab, revision).whenComplete(() {
+        if (identical(tab.pageRequest, request)) tab.pageRequest = null;
+      }),
+    );
     return request;
   }
 
@@ -563,6 +586,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
     _AggregateTabSession tab,
     Object revision,
   ) async {
+    if (!_isCurrent(tab, revision)) return;
     final topics = [...tab.state.topics];
     final failures = {...tab.state.failures};
     await _appendBatch(
@@ -604,6 +628,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
               Object error,
               StackTrace stackTrace,
             ) {
+              if (!_ownsSource(tab, source, revision)) return;
               source.complete = true;
               source.nextPagePath = null;
               failures[source.instance.url] =
@@ -616,7 +641,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
 
       _AggregateSource? best;
       for (final source in sources.values) {
-        if (source.buffer.isEmpty) continue;
+        if (!source.lease.isCurrent || source.buffer.isEmpty) continue;
         if (best == null || _comesBefore(source, best)) best = source;
       }
       if (best == null) return;
@@ -652,35 +677,83 @@ final class AggregateFeedController extends FrameSafeNotifier {
     String path,
     Object revision,
   ) async {
-    final lease = lifecycle.capture(source.instance.url);
+    if (!_ownsSource(tab, source, revision)) return;
     final personalizationVersion = readPersonalizationVersion(
       source.instance.url,
     );
-    final list = await _requests.run(
-      () => api.topicList(
+    final list = await _requests.run<TopicList?>(() async {
+      // A pooled request can wait across a tab or account replacement.
+      if (!_ownsSource(tab, source, revision)) return null;
+      return api.topicList(
         siteUrl: source.instance.url,
         path: path,
         apiKey: source.apiKey,
-      ),
-    );
-    if (!_isCurrent(tab, revision) || !lease.isCurrent) return;
+      );
+    });
+    if (list == null || !_ownsSource(tab, source, revision)) return;
 
     final accepted = <Topic>[];
     for (final incoming in list.topics) {
+      if (!_ownsSource(tab, source, revision)) return;
       final topic = prepareTopic(
         source.instance.url,
         incoming,
         personalizationVersion,
       );
+      if (!_ownsSource(tab, source, revision)) return;
       accepted.add(store.put(source.instance.url, topic));
+      if (!_ownsSource(tab, source, revision)) return;
     }
     accepted.sort(_compareTopics);
     source.buffer.addAll(accepted);
     if (list.filterOptions.isNotEmpty) {
       source.filterOptions = list.filterOptions;
     }
-    source.nextPagePath = list.nextPagePath;
-    source.complete = list.nextPagePath == null;
+    source.loadedPagePaths.add(path);
+    final nextPagePath = list.nextPagePath;
+    source.nextPagePath = source.loadedPagePaths.contains(nextPagePath)
+        ? null
+        : nextPagePath;
+    source.complete = source.nextPagePath == null;
+  }
+
+  bool _ownsSource(
+    _AggregateTabSession tab,
+    _AggregateSource source,
+    Object revision,
+  ) => _isCurrent(tab, revision) && source.lease.isCurrent;
+
+  /// Drops account-bound rows and paging credentials from every affected tab.
+  /// Other visible forum rows remain until the next open refreshes that tab.
+  void forget(String siteUrl) {
+    if (isDisposed) return;
+    var changed = false;
+    for (final tab in _tabs.values) {
+      final held = tab.state;
+      if (!tab.forums.contains(siteUrl) &&
+          !tab.sources.containsKey(siteUrl) &&
+          !held.topics.any((topic) => topic.siteUrl == siteUrl) &&
+          !held.failures.containsKey(siteUrl)) {
+        continue;
+      }
+      final remainingForums = tab.forums.where((url) => url != siteUrl).toSet();
+      tab.invalidate();
+      tab.forums.addAll(remainingForums);
+      tab.state = AggregateFeedState(
+        topics: List.unmodifiable(
+          held.topics.where((topic) => topic.siteUrl != siteUrl),
+        ),
+        loaded: held.loaded,
+        includedForums: remainingForums.length,
+        loadedForums: held.loadedForums.clamp(0, remainingForums.length),
+        failures: Map.unmodifiable({
+          for (final entry in held.failures.entries)
+            if (entry.key != siteUrl) entry.key: entry.value,
+        }),
+      );
+      changed = true;
+    }
+    if (changed) notifySafely();
   }
 
   bool _comesBefore(_AggregateSource left, _AggregateSource right) {
@@ -761,6 +834,7 @@ final class _AggregateTabSession {
   Set<String> excludedForums;
   Map<String, String> queries;
   AggregateFeedState state = const AggregateFeedState();
+  final Set<String> forums = {};
   final Map<String, _AggregateSource> sources = {};
   final Set<AggregateTopicRef> emitted = {};
   Object? revision;
@@ -776,21 +850,26 @@ final class _AggregateTabSession {
 
   void invalidate() {
     revision = null;
+    refreshRequest = null;
+    pageRequest = null;
+    forums.clear();
     sources.clear();
     emitted.clear();
   }
 }
 
 final class _ConfiguredAggregateForum {
-  const _ConfiguredAggregateForum(this.instance, this.query);
+  const _ConfiguredAggregateForum(this.instance, this.query, this.lease);
 
   final DiscourseInstance instance;
   final String query;
+  final SiteLease lease;
 }
 
 final class _AggregateSource {
   _AggregateSource({
     required this.instance,
+    required this.lease,
     required this.order,
     required this.apiKey,
     required this.query,
@@ -798,11 +877,14 @@ final class _AggregateSource {
   });
 
   final DiscourseInstance instance;
+  final SiteLease lease;
   final int order;
   final String apiKey;
   final String query;
   final int pageSize;
   final Queue<Topic> buffer = Queue();
+  // Empty or duplicate-only pages must not walk a server cursor cycle.
+  final Set<String> loadedPagePaths = {};
   List<TopicFilterOption> filterOptions = const [];
   String? nextPagePath;
   bool complete = false;
@@ -815,7 +897,9 @@ final class _AggregateSource {
     },
   ).toString();
 
-  bool get hasMore => buffer.isNotEmpty || (!complete && nextPagePath != null);
+  bool get hasMore =>
+      lease.isCurrent &&
+      (buffer.isNotEmpty || (!complete && nextPagePath != null));
 }
 
 final class _AggregateRequestPool {

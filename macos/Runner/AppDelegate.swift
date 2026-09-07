@@ -66,17 +66,24 @@ func discourseUrl(in userInfo: [AnyHashable: Any]) -> String? {
 
 final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
   static let shared = MacOSPushNotifications()
-  private static let registrationTimeout: TimeInterval = 15
 
   private var registrationChannel: FlutterMethodChannel?
   private var notificationOpenChannel: FlutterEventChannel?
   private var notificationOpenSink: FlutterEventSink?
   private var pendingNotificationUrls: [String] = []
   private var handledResponseIdentifiers: [String] = []
-  private var token: String?
-  private var pendingResults: [FlutterResult] = []
-  private var registrationInProgress = false
-  private var registrationTimeoutWorkItem: DispatchWorkItem?
+  private let registration = PushRegistrationCoordinator(
+    requestAuthorization: { completion in
+      UNUserNotificationCenter.current().requestAuthorization(
+        options: [.alert, .badge, .sound]
+      ) { granted, error in
+        completion(granted && error == nil)
+      }
+    },
+    registerForRemoteNotifications: {
+      NSApplication.shared.registerForRemoteNotifications()
+    }
+  )
 
   private override init() {
     super.init()
@@ -92,7 +99,11 @@ final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
         result(FlutterMethodNotImplemented)
         return
       }
-      self?.registrationToken(result)
+      guard let self else {
+        result(nil)
+        return
+      }
+      self.registrationToken(result)
     }
     self.registrationChannel = registrationChannel
 
@@ -105,11 +116,15 @@ final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
   }
 
   func didRegister(_ deviceToken: Data) {
-    finish(with: pushTokenHex(deviceToken))
+    DispatchQueue.main.async { [weak self] in
+      self?.registration.didRegister(pushTokenHex(deviceToken))
+    }
   }
 
   func didFailToRegister() {
-    finish(with: nil)
+    DispatchQueue.main.async { [weak self] in
+      self?.registration.didFailToRegister()
+    }
   }
 
   func didOpen(_ response: UNNotificationResponse) {
@@ -162,55 +177,7 @@ final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
         result(nil)
         return
       }
-      if let token = self.token {
-        result(token)
-        return
-      }
-
-      self.pendingResults.append(result)
-      guard !self.registrationInProgress else { return }
-      self.registrationInProgress = true
-
-      let timeout = DispatchWorkItem { [weak self] in
-        guard let self, self.registrationInProgress else { return }
-        self.finish(with: nil)
-      }
-      self.registrationTimeoutWorkItem = timeout
-      DispatchQueue.main.asyncAfter(
-        deadline: .now() + Self.registrationTimeout,
-        execute: timeout
-      )
-
-      UNUserNotificationCenter.current().requestAuthorization(
-        options: [.alert, .badge, .sound]
-      ) { granted, error in
-        DispatchQueue.main.async {
-          guard granted, error == nil else {
-            self.finish(with: nil)
-            return
-          }
-          NSApplication.shared.registerForRemoteNotifications()
-        }
-      }
-    }
-  }
-
-  private func finish(with token: String?) {
-    DispatchQueue.main.async { [weak self] in
-      guard let self else { return }
-      guard self.registrationInProgress else {
-        // A successful APNs reply which arrives just after the timeout is still
-        // useful for the next caller. A late failure must not erase a token.
-        if let token { self.token = token }
-        return
-      }
-      self.registrationTimeoutWorkItem?.cancel()
-      self.registrationTimeoutWorkItem = nil
-      self.token = token
-      self.registrationInProgress = false
-      let results = self.pendingResults
-      self.pendingResults.removeAll()
-      results.forEach { $0(token) }
+      self.registration.registrationToken { result($0) }
     }
   }
 

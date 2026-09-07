@@ -968,7 +968,10 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<bool> openNotificationUrl(String url) async {
-    if (!loaded || url.isEmpty || url.length > TopicLink.maximumUrlLength) {
+    if (isDisposed ||
+        !loaded ||
+        url.isEmpty ||
+        url.length > TopicLink.maximumUrlLength) {
       return false;
     }
 
@@ -981,13 +984,23 @@ class ShellController extends FrameSafeNotifier
       return false;
     }
 
-    final owned = _instances.any(
-      (instance) => instance.isConnected && instance.serves(target),
-    );
-    if (!owned) return false;
+    final owner = _instances
+        .where((instance) => instance.isConnected && instance.serves(target))
+        .firstOrNull;
+    if (owner == null) return false;
 
+    final lease = lifecycle.capture(owner.url);
     final absolute = target.toString();
-    if (await openPluginUrl(absolute, origin: PluginLinkOrigin.inApp)) {
+    final pluginHandled = await openPluginUrl(
+      absolute,
+      origin: PluginLinkOrigin.inApp,
+    );
+    if (isDisposed ||
+        !lease.isCurrent ||
+        _instanceAt(owner.url)?.isConnected != true) {
+      return false;
+    }
+    if (pluginHandled) {
       return _revealNotificationTarget();
     }
     if (openGroupUrl(absolute)) return _revealNotificationTarget();
@@ -7219,10 +7232,10 @@ class ShellController extends FrameSafeNotifier
     }
 
     final key = _postKey(siteUrl, post.id);
+    final lease = lifecycle.capture(siteUrl);
     if (!_beginPostWrite(key)) {
       return 'Another action on this post is still being saved.';
     }
-    final lease = lifecycle.capture(siteUrl);
 
     try {
       final credential = await _credentialForWrite(siteUrl);
@@ -8374,10 +8387,10 @@ class ShellController extends FrameSafeNotifier
     }
 
     final key = _postKey(siteUrl, held.id);
+    final lease = lifecycle.capture(siteUrl);
     if (!_beginPostWrite(key)) {
       return 'Another action on this post is still being saved.';
     }
-    final lease = lifecycle.capture(siteUrl);
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
@@ -8456,8 +8469,8 @@ class ShellController extends FrameSafeNotifier
     if (!_topicFlagWrites.add(key)) {
       return 'Another flag on this topic is still being saved.';
     }
-    _notify();
     final lease = lifecycle.capture(siteUrl);
+    _notify();
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
@@ -8510,8 +8523,8 @@ class ShellController extends FrameSafeNotifier
     // undo at once — the second reads the guess the first just wrote — and
     // whichever answer lands last decides what is drawn, which is not
     // necessarily the one the site ended up believing.
-    if (!_beginPostWrite(key)) return null;
     final lease = lifecycle.capture(targetSite);
+    if (!_beginPostWrite(key)) return null;
 
     try {
       return await _writeLike(targetSite, post, lease);
@@ -8533,7 +8546,7 @@ class ShellController extends FrameSafeNotifier
       store.update<Post>(siteUrl, post.id, (held) => held.withLike(liked));
       _notify();
     });
-    if (!applied) return null;
+    if (!applied || !lease.isCurrent) return null;
 
     void revert() {
       lease.commit(() {
@@ -8829,12 +8842,12 @@ class ShellController extends FrameSafeNotifier
         'This bookmark target is not available in this build.',
       );
     }
+    final lease = lifecycle.capture(siteUrl);
     if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
         'Another action on this bookmark is still finishing.',
       );
     }
-    final lease = lifecycle.capture(siteUrl);
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
@@ -8865,6 +8878,7 @@ class ShellController extends FrameSafeNotifier
           _reconcileBookmarks(
             instance,
             context,
+            lease,
             targetType: targetType,
             targetId: targetId,
           );
@@ -8879,6 +8893,7 @@ class ShellController extends FrameSafeNotifier
           _reconcileBookmarks(
             instance,
             context,
+            lease,
             targetType: targetType,
             targetId: targetId,
           );
@@ -8910,6 +8925,7 @@ class ShellController extends FrameSafeNotifier
       _reconcileBookmarks(
         instance,
         context,
+        lease,
         targetType: targetType,
         targetId: targetId,
       );
@@ -8962,12 +8978,12 @@ class ShellController extends FrameSafeNotifier
       );
     }
     final refreshTarget = targetType.refreshLabel;
+    final lease = lifecycle.capture(siteUrl);
     if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
         'Another action on this bookmark is still finishing.',
       );
     }
-    final lease = lifecycle.capture(siteUrl);
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
@@ -8992,6 +9008,7 @@ class ShellController extends FrameSafeNotifier
           _reconcileBookmarks(
             instance,
             context,
+            lease,
             targetType: targetType,
             targetId: targetId,
           );
@@ -9006,6 +9023,7 @@ class ShellController extends FrameSafeNotifier
           _reconcileBookmarks(
             instance,
             context,
+            lease,
             targetType: targetType,
             targetId: targetId,
           );
@@ -9032,6 +9050,7 @@ class ShellController extends FrameSafeNotifier
       _reconcileBookmarks(
         instance,
         context,
+        lease,
         targetType: targetType,
         targetId: targetId,
       );
@@ -9087,12 +9106,12 @@ class ShellController extends FrameSafeNotifier
       );
     }
     final refreshTarget = targetType.refreshLabel;
+    final lease = lifecycle.capture(siteUrl);
     if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
         'Another action on this bookmark is still finishing.',
       );
     }
-    final lease = lifecycle.capture(siteUrl);
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
@@ -9119,6 +9138,7 @@ class ShellController extends FrameSafeNotifier
           _reconcileBookmarks(
             instance,
             context,
+            lease,
             targetType: targetType,
             targetId: targetId,
           );
@@ -9133,6 +9153,7 @@ class ShellController extends FrameSafeNotifier
           _reconcileBookmarks(
             instance,
             context,
+            lease,
             targetType: targetType,
             targetId: targetId,
           );
@@ -9157,6 +9178,7 @@ class ShellController extends FrameSafeNotifier
       _reconcileBookmarks(
         instance,
         context,
+        lease,
         targetType: targetType,
         targetId: targetId,
       );
@@ -9195,10 +9217,10 @@ class ShellController extends FrameSafeNotifier
         'Another bookmark action is still finishing.',
       );
     }
+    final lease = lifecycle.capture(siteUrl);
     _topicBookmarkWritesInFlight.add(key);
     postKeys.forEach(_holdPostWrite);
     _notify();
-    final lease = lifecycle.capture(siteUrl);
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
@@ -9217,7 +9239,7 @@ class ShellController extends FrameSafeNotifier
         );
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
-          _reconcileBookmarks(instance, context);
+          _reconcileBookmarks(instance, context, lease);
           return const BookmarkWriteResult.reconciled(
             "Couldn't confirm the deletion. The topic is being refreshed.",
           );
@@ -9226,14 +9248,14 @@ class ShellController extends FrameSafeNotifier
       } catch (error, stackTrace) {
         if (lease.isCurrent) {
           _reportOperationalError(error, stackTrace, 'bookmark.deleteAll');
-          _reconcileBookmarks(instance, context);
+          _reconcileBookmarks(instance, context, lease);
         }
         return const BookmarkWriteResult.reconciled(
           "Couldn't confirm the deletion. The topic is being refreshed.",
         );
       }
       lease.commit(() => _removeAllBookmarks(siteUrl, topicId));
-      _reconcileBookmarks(instance, context);
+      _reconcileBookmarks(instance, context, lease);
       return const BookmarkWriteResult.saved();
     } finally {
       lease.commit(() {
@@ -9387,10 +9409,12 @@ class ShellController extends FrameSafeNotifier
 
   void _reconcileBookmarks(
     DiscourseInstance instance,
-    _BookmarkWriteContext context, {
+    _BookmarkWriteContext context,
+    SiteLease lease, {
     BookmarkTargetType targetType = BookmarkTargetType.topic,
     int? targetId,
   }) {
+    if (isDisposed || !lease.isCurrent) return;
     final plugin = _pluginBookmarkStrategy(targetType);
     if (plugin != null && targetId != null) {
       _observePluginLifecycle(
@@ -9411,6 +9435,7 @@ class ShellController extends FrameSafeNotifier
         ),
       );
     }
+    if (isDisposed || !lease.isCurrent) return;
     unawaited(accountActivity.loadBookmarks(instance, force: true));
   }
 
@@ -9446,9 +9471,9 @@ class ShellController extends FrameSafeNotifier
     final key = _postKey(targetSite, postId);
     if (!_likersLoading.add(key)) return;
     _likersErrors.remove(key);
+    final lease = lifecycle.capture(targetSite);
     _notify();
 
-    final lease = lifecycle.capture(targetSite);
     try {
       final credential = await _readSessionValue(
         lease,
@@ -9778,14 +9803,28 @@ class ShellController extends FrameSafeNotifier
     required void Function(double progress) onProgress,
     required Future<void> abortTrigger,
   }) async {
-    final credential = await _credentialForWrite(target.siteUrl);
-    if (credential.failure case final failure?) {
+    if (isDisposed) {
+      throw const ComposerUploadException('Upload cancelled.');
+    }
+    final lease = lifecycle.capture(target.siteUrl);
+    final held = await _readSessionValue(
+      lease,
+      () => _credentialForWrite(target.siteUrl),
+    );
+    if (held == null) {
+      throw const ComposerUploadException('Upload cancelled.');
+    }
+    if (held.value.failure case final failure?) {
       throw ComposerUploadException(failure.message);
+    }
+    final identity = await _readSessionValue(lease, authenticator.clientId);
+    if (identity == null || !lease.isCurrent) {
+      throw const ComposerUploadException('Upload cancelled.');
     }
     return api.composerPersistence.uploadComposerImage(
       siteUrl: target.siteUrl,
-      apiKey: credential.apiKey!,
-      clientId: await authenticator.clientId(),
+      apiKey: held.value.apiKey!,
+      clientId: identity.value,
       file: file,
       onProgress: onProgress,
       abortTrigger: abortTrigger,
@@ -9831,7 +9870,9 @@ class ShellController extends FrameSafeNotifier
     final whisper = composer.whisper;
     final lease = lifecycle.capture(target.siteUrl);
 
-    if (target.isEdit) return _submitEdit(composer, target, composer.raw);
+    if (target.isEdit) {
+      return _submitEdit(composer, target, composer.raw, lease);
+    }
 
     // Before any await: the credential round trip below is a gap a second tap
     // can pass through, and a create sent twice posts twice — unlike an edit,
@@ -9958,6 +9999,7 @@ class ShellController extends FrameSafeNotifier
     ComposerController composer,
     ComposerTarget target,
     String raw,
+    SiteLease lease,
   ) async {
     if (target.isCategoryEdit) {
       return _submitCategoryEdit(composer, target);
@@ -9976,9 +10018,9 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     try {
-      await _submitEditNow(composer, target, raw);
+      await _submitEditNow(composer, target, raw, lease);
     } finally {
-      _endPostWrite(target.siteUrl, target.editingPostId!);
+      lease.commit(() => _endPostWrite(target.siteUrl, target.editingPostId!));
     }
   }
 
@@ -9986,8 +10028,9 @@ class ShellController extends FrameSafeNotifier
     ComposerController composer,
     ComposerTarget target,
     String raw,
+    SiteLease lease,
   ) async {
-    final lease = lifecycle.capture(target.siteUrl);
+    if (!lease.isCurrent || !_ownsComposer(composer)) return;
     composer.beginSubmit();
     // A missing baseline means the body fetch failed. Never build a destructive
     // edit without the original text used for conflict detection.
@@ -10063,6 +10106,7 @@ class ShellController extends FrameSafeNotifier
       }
     }
 
+    if (!lease.isCurrent || !_ownsComposer(composer)) return;
     final Post updated;
     try {
       updated = await api.composerPersistence.updatePost(
@@ -10678,9 +10722,9 @@ class ShellController extends FrameSafeNotifier
 
     _userCardsLoading.add(key);
     _userCardErrors.remove(key);
+    final lease = lifecycle.capture(targetSite);
     _notify();
 
-    final lease = lifecycle.capture(targetSite);
     try {
       final credential = await _readSessionValue(
         lease,
@@ -11664,7 +11708,7 @@ class ShellController extends FrameSafeNotifier
     if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
     siteImages.forget(siteUrl);
     _removeWorkspace(siteUrl);
-    if (currentInstance?.url == siteUrl) search.clear();
+    search.forget(siteUrl);
     _composerDrafts.forgetSite(siteUrl);
 
     for (final composer in _composersForSite(siteUrl).toList()) {
@@ -11673,6 +11717,7 @@ class ShellController extends FrameSafeNotifier
       _removeComposer(composer);
     }
 
+    aggregate.forget(siteUrl);
     accountActivity.forget(siteUrl);
     draftList.forget(siteUrl);
     userSummary.forget(siteUrl);

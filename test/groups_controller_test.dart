@@ -26,6 +26,185 @@ Completer<T> _completed<T>(T value) => Completer<T>()..complete(value);
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final kind in _SearchableGroupCache.values) {
+    group('${kind.name} query retention', () {
+      test(
+        'keeps sixteen recent queries per forum and refreshes reuse order',
+        () async {
+          const other = DiscourseInstance(
+            url: 'https://other.example',
+            title: 'Other',
+            user: DiscourseUser(username: 'sam'),
+          );
+          final transport = _ControlledGroupTransport();
+          final credentials = FakeApiCredentialReader()
+            ..keys[_site] = 'key'
+            ..keys[other.url] = 'other-key';
+          final controller = _controller(transport, credentials: credentials);
+          addTearDown(controller.dispose);
+          transport.objects.add(_completed(kind.page(99)));
+          await kind.load(controller, other, 'other');
+          for (var index = 0; index < 16; index++) {
+            transport.objects.add(_completed(kind.page(index)));
+            await kind.load(controller, _connectedInstance, 'query-$index');
+          }
+          await kind.load(controller, _connectedInstance, 'query-0');
+          transport.objects.add(_completed(kind.page(16)));
+          await kind.load(controller, _connectedInstance, 'query-16');
+
+          expect(kind.ids(controller, _site, 'query-0'), [0]);
+          expect(kind.ids(controller, _site, 'query-1'), isEmpty);
+          expect(kind.ids(controller, _site, 'query-16'), [16]);
+          expect(kind.ids(controller, other.url, 'other'), [99]);
+          expect(transport.gets, hasLength(18));
+
+          transport.objects.add(_completed(kind.page(101)));
+          await kind.load(controller, _connectedInstance, 'query-1');
+          expect(kind.ids(controller, _site, 'query-1'), [101]);
+          expect(transport.gets, hasLength(19));
+        },
+      );
+
+      test(
+        'evicts request ownership so late completion cannot replace a reload',
+        () async {
+          final firstStarted = Completer<void>();
+          final first = Completer<Map<String, dynamic>>();
+          addTearDown(() {
+            if (!first.isCompleted) first.complete(kind.page(1));
+          });
+          final transport = _ControlledGroupTransport()
+            ..objects.add(first)
+            ..onGet = (_) {
+              if (!firstStarted.isCompleted) firstStarted.complete();
+            };
+          final credentials = FakeApiCredentialReader()..keys[_site] = 'key';
+          final controller = _controller(transport, credentials: credentials);
+          addTearDown(controller.dispose);
+          final loading = kind.load(controller, _connectedInstance, 'old');
+          await firstStarted.future;
+          for (var index = 0; index < 16; index++) {
+            transport.objects.add(_completed(kind.page(index + 10)));
+            await kind.load(controller, _connectedInstance, 'query-$index');
+          }
+          transport.objects.add(_completed(kind.page(100)));
+          await kind.load(controller, _connectedInstance, 'old');
+          first.complete(kind.page(1));
+          await loading;
+
+          expect(kind.ids(controller, _site, 'old'), [100]);
+          expect(transport.gets, hasLength(18));
+        },
+      );
+    });
+  }
+
+  for (final requesters in [false, true]) {
+    test(
+      '${requesters ? 'requesters' : 'members'} stop when the server repeats an offset',
+      () async {
+        final transport = _ControlledGroupTransport()
+          ..objects.addAll([
+            for (var id = 1; id <= 2; id++)
+              _completed({
+                'members': [
+                  {'id': id, 'username': 'user$id'},
+                ],
+                'meta': {'total': 100, 'limit': 30, 'offset': 0},
+              }),
+          ]);
+        final credentials = FakeApiCredentialReader()..keys[_site] = 'key';
+        final controller = _controller(transport, credentials: credentials);
+        addTearDown(controller.dispose);
+        Future<void> load({bool more = false}) => requesters
+            ? controller.loadRequesters(
+                _connectedInstance,
+                'support',
+                more: more,
+              )
+            : controller.loadMembers(_connectedInstance, 'support', more: more);
+        await load();
+        await load(more: true);
+        final ids = requesters
+            ? controller
+                  .requestersState(_site, 'support')
+                  .requesters
+                  .map((member) => member.id)
+            : controller
+                  .membersState(_site, 'support')
+                  .members
+                  .map((member) => member.id);
+        final hasMore = requesters
+            ? controller.requestersState(_site, 'support').hasMore
+            : controller.membersState(_site, 'support').hasMore;
+        expect(ids, [1, 2]);
+        expect(hasMore, isFalse);
+        await load(more: true);
+        expect(
+          transport.gets.map(
+            (request) => Uri.parse(request.path).queryParameters['offset'],
+          ),
+          ['0', '30'],
+        );
+      },
+    );
+  }
+
+  test(
+    'group logs stop after an empty page despite an incomplete marker',
+    () async {
+      final transport = _ControlledGroupTransport()
+        ..objects.add(_completed({'logs': <Object?>[], 'all_loaded': false}));
+      final credentials = FakeApiCredentialReader()..keys[_site] = 'key';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      await controller.loadLogs(_connectedInstance, 'support');
+      expect(controller.logsState(_site, 'support').hasMore, isFalse);
+      await controller.loadLogs(_connectedInstance, 'support', more: true);
+      expect(transport.gets, hasLength(1));
+    },
+  );
+
+  test(
+    'activity stops when a full page repeats the same timestamp cursor',
+    () async {
+      final payload = <String, dynamic>{
+        'posts': [
+          for (var id = 1; id <= 20; id++)
+            {'id': id, 'topic_id': id, 'created_at': '2026-09-01T12:00:00Z'},
+        ],
+      };
+      final transport = _ControlledGroupTransport()
+        ..objects.addAll([_completed(payload), _completed(payload)]);
+      final controller = _controller(transport);
+      addTearDown(controller.dispose);
+      await controller.loadActivity(_instance, 'support', mentions: false);
+      expect(
+        controller.activityState(_site, 'support', mentions: false).hasMore,
+        isTrue,
+      );
+      await controller.loadActivity(
+        _instance,
+        'support',
+        mentions: false,
+        more: true,
+      );
+      final state = controller.activityState(_site, 'support', mentions: false);
+      expect(
+        state.posts.map((post) => post.id),
+        List.generate(20, (index) => index + 1),
+      );
+      expect(state.hasMore, isFalse);
+      await controller.loadActivity(
+        _instance,
+        'support',
+        mentions: false,
+        more: true,
+      );
+      expect(transport.gets, hasLength(2));
+    },
+  );
+
   test('group state snapshots defensively own every exposed list', () {
     final groups = [const Group(id: 1, name: 'alpha')];
     final typeFilters = ['public'];
@@ -616,56 +795,181 @@ void main() {
     expect(state.loadingMore, isFalse);
   });
 
-  test('a directory page landing after a deletion is not kept', () async {
-    final nextPage = Completer<Map<String, dynamic>>();
-    final transport = _ControlledGroupTransport()
-      ..objects.addAll([
-        _completed({
-          'groups': [
-            {'id': 7, 'name': 'support'},
-            {'id': 8, 'name': 'other'},
-          ],
-          'total_rows_groups': 3,
-          'load_more_groups': '/groups?page=1',
-        }),
-        nextPage,
-      ]);
-    final credentials = FakeApiCredentialReader(clientIdValue: 'native-client')
-      ..keys[_site] = 'secret';
-    final controller = _controller(transport, credentials: credentials);
-    addTearDown(controller.dispose);
-    const query = GroupDirectoryQuery();
+  test(
+    'a deleted group directory can reload before its old page returns',
+    () async {
+      final pageStarted = Completer<void>();
+      final nextPage = Completer<Map<String, dynamic>>();
+      final transport = _ControlledGroupTransport()
+        ..onGet = (path) {
+          if (path == '/groups.json?page=1&asc=true') pageStarted.complete();
+        }
+        ..objects.addAll([
+          _completed({
+            'groups': [
+              {'id': 7, 'name': 'support'},
+              {'id': 8, 'name': 'other'},
+            ],
+            'total_rows_groups': 3,
+            'load_more_groups': '/groups?page=1',
+          }),
+          nextPage,
+          _completed({
+            'groups': [
+              {'id': 8, 'name': 'other'},
+              {'id': 9, 'name': 'third'},
+            ],
+            'total_rows_groups': 2,
+          }),
+        ]);
+      final credentials = FakeApiCredentialReader(
+        clientIdValue: 'native-client',
+      )..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      const query = GroupDirectoryQuery();
 
-    await controller.loadDirectory(_connectedInstance, query);
-    expect(controller.directoryState(_site, query).hasMore, isTrue);
-    final pageLoad = controller.loadDirectory(
-      _connectedInstance,
-      query,
-      more: true,
-    );
-    await pumpEventQueue();
-    expect(transport.gets, hasLength(2));
-    expect(
-      await controller.deleteGroup(
+      await controller.loadDirectory(_connectedInstance, query);
+      expect(controller.directoryState(_site, query).hasMore, isTrue);
+      final pageLoad = controller.loadDirectory(
+        _connectedInstance,
+        query,
+        more: true,
+      );
+      await pageStarted.future;
+      expect(transport.gets, hasLength(2));
+      expect(
+        await controller.deleteGroup(
+          _connectedInstance,
+          const Group(id: 7, name: 'support'),
+        ),
+        isTrue,
+      );
+
+      await controller.loadDirectory(_connectedInstance, query);
+      final reloaded = controller.directoryState(_site, query);
+      expect(reloaded.loaded, isTrue);
+      expect(reloaded.groups.map((group) => group.id), [8, 9]);
+      expect(reloaded.totalRows, 2);
+
+      nextPage.complete({
+        'groups': [
+          {'id': 9, 'name': 'third'},
+        ],
+        'total_rows_groups': 3,
+      });
+      await pageLoad;
+
+      final state = controller.directoryState(_site, query);
+      expect(state, same(reloaded));
+      expect(state.loadingMore, isFalse);
+    },
+  );
+
+  test(
+    'deleted group reads cannot restore its detail or permissions',
+    () async {
+      final readsStarted = Completer<void>();
+      var starts = 0;
+      final detail = Completer<Map<String, dynamic>>();
+      final otherDetail = Completer<Map<String, dynamic>>();
+      final permissions = Completer<List<Map<String, dynamic>>>();
+      final transport = _ControlledGroupTransport()
+        ..onGet = (_) {
+          if (++starts == 3) readsStarted.complete();
+        }
+        ..objects.addAll([detail, otherDetail])
+        ..lists.add(permissions);
+      final credentials = FakeApiCredentialReader(
+        clientIdValue: 'native-client',
+      )..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+
+      final detailLoad = controller.loadDetail(_connectedInstance, 'support');
+      final permissionLoad = controller.loadPermissions(
+        _connectedInstance,
+        'support',
+      );
+      final otherLoad = controller.loadDetail(_connectedInstance, 'other');
+      await readsStarted.future;
+      expect(transport.gets, hasLength(2));
+      expect(transport.listGets, hasLength(1));
+
+      expect(
+        await controller.deleteGroup(
+          _connectedInstance,
+          const Group(id: 7, name: 'Support'),
+        ),
+        isTrue,
+      );
+      detail.complete({
+        'group': {'id': 7, 'name': 'support'},
+      });
+      permissions.complete([]);
+      otherDetail.complete({
+        'group': {'id': 8, 'name': 'other'},
+      });
+      await Future.wait([detailLoad, permissionLoad, otherLoad]);
+
+      expect(controller.detailState(_site, 'support').loaded, isFalse);
+      expect(controller.permissionsState(_site, 'support').loaded, isFalse);
+      expect(controller.detailState(_site, 'other').detail?.group.id, 8);
+    },
+  );
+
+  test(
+    'an expired group mutation does not refresh the new account members',
+    () async {
+      final detailStarted = Completer<void>();
+      final detail = Completer<Map<String, dynamic>>();
+      final transport = _ControlledGroupTransport()
+        ..onGet = (path) {
+          if (path == '/groups/support.json') detailStarted.complete();
+        }
+        ..objects.addAll([
+          detail,
+          _completed({'members': <Object?>[]}),
+        ]);
+      final lifecycle = SiteLifecycle();
+      final credentials = FakeApiCredentialReader(
+        clientIdValue: 'native-client',
+      )..keys[_site] = 'old-secret';
+      final controller = _controller(
+        transport,
+        credentials: credentials,
+        lifecycle: lifecycle,
+      );
+      addTearDown(controller.dispose);
+
+      final mutation = controller.addMembers(
         _connectedInstance,
         const Group(id: 7, name: 'support'),
-      ),
-      isTrue,
-    );
+        usernames: ['lee'],
+      );
+      await detailStarted.future;
+      expect(transport.writes, hasLength(1));
+      expect(transport.gets.map((request) => request.path), [
+        '/groups/support.json',
+      ]);
+      lifecycle.invalidate(_site);
+      controller.forget(_site);
+      credentials.keys[_site] = 'new-secret';
+      detail.complete({
+        'group': {'id': 7, 'name': 'support'},
+      });
 
-    nextPage.complete({
-      'groups': [
-        {'id': 9, 'name': 'third'},
-      ],
-      'total_rows_groups': 3,
-    });
-    await pageLoad;
-
-    final state = controller.directoryState(_site, query);
-    expect(state.loaded, isFalse);
-    expect(state.groups, isEmpty);
-    expect(state.loadingMore, isFalse);
-  });
+      expect(await mutation, isNull);
+      expect(transport.gets, [
+        (
+          path: '/groups/support.json',
+          apiKey: 'old-secret',
+          clientId: 'native-client',
+        ),
+      ]);
+      expect(controller.membersState(_site, 'support').loaded, isFalse);
+    },
+  );
 
   test('a request handled while the next page loads stays handled', () async {
     final nextPage = Completer<Map<String, dynamic>>();
@@ -731,6 +1035,7 @@ GroupsController _controller(
 
 final class _ControlledGroupTransport
     implements PluginApiTransport, PluginJsonListTransport {
+  void Function(String path)? onGet;
   final List<Completer<Map<String, dynamic>>> objects = [];
   final List<Completer<List<Map<String, dynamic>>>> lists = [];
   final List<({String path, String? apiKey, String? clientId})> gets = [];
@@ -748,6 +1053,7 @@ final class _ControlledGroupTransport
     String? clientId,
   }) {
     gets.add((path: path, apiKey: apiKey, clientId: clientId));
+    onGet?.call(path);
     return objects.removeAt(0).future;
   }
 
@@ -759,6 +1065,7 @@ final class _ControlledGroupTransport
     String? clientId,
   }) {
     listGets.add((path: path, apiKey: apiKey, clientId: clientId));
+    onGet?.call(path);
     return lists.removeAt(0).future;
   }
 
@@ -774,4 +1081,64 @@ final class _ControlledGroupTransport
     writes.add((path: path, method: method, body: body, clientId: clientId));
     return const {};
   }
+}
+
+enum _SearchableGroupCache {
+  directory,
+  members,
+  requesters;
+
+  Future<void> load(
+    GroupsController controller,
+    DiscourseInstance instance,
+    String filter,
+  ) => switch (this) {
+    directory => controller.loadDirectory(
+      instance,
+      GroupDirectoryQuery(filter: filter),
+    ),
+    members => controller.loadMembers(instance, 'support', filter: filter),
+    requesters => controller.loadRequesters(
+      instance,
+      'support',
+      filter: filter,
+    ),
+  };
+
+  Iterable<int> ids(
+    GroupsController controller,
+    String siteUrl,
+    String filter,
+  ) => switch (this) {
+    directory =>
+      controller
+          .directoryState(siteUrl, GroupDirectoryQuery(filter: filter))
+          .groups
+          .map((group) => group.id),
+    members =>
+      controller
+          .membersState(siteUrl, 'support', filter: filter)
+          .members
+          .map((member) => member.id),
+    requesters =>
+      controller
+          .requestersState(siteUrl, 'support', filter: filter)
+          .requesters
+          .map((member) => member.id),
+  };
+
+  Map<String, dynamic> page(int id) => switch (this) {
+    directory => {
+      'groups': [
+        {'id': id, 'name': 'group-$id'},
+      ],
+      'total_rows_groups': 1,
+    },
+    members || requesters => {
+      'members': [
+        {'id': id, 'username': 'user$id'},
+      ],
+      'meta': {'total': 1, 'limit': 30, 'offset': 0},
+    },
+  };
 }

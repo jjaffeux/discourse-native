@@ -185,7 +185,7 @@ final class GroupManageController extends ChangeNotifier {
 
   Future<bool> submit() async {
     final submit = onSubmit;
-    if (submit == null || _submitting) return false;
+    if (_disposed || submit == null || _submitting) return false;
 
     final errors = _validationErrors();
     if (errors.isNotEmpty) {
@@ -203,6 +203,7 @@ final class GroupManageController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!_isCurrent(generation)) return false;
       final saved = await submit(update);
       if (!_isCurrent(generation)) return false;
       if (saved) {

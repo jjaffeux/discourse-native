@@ -808,6 +808,30 @@ void main() {
     });
   });
 
+  testWidgets(
+    'a mounted preferences page reloads a forgotten account generation',
+    (tester) async {
+      final fixture = await _fixture();
+      await _pumpPage(tester, fixture);
+      final page = tester.element(find.byType(PreferencesPage));
+      expect(fixture.shell.preferences.stateFor(_siteUrl)?.loaded, isTrue);
+
+      fixture.shell.lifecycle.invalidate(_siteUrl);
+      fixture.shell.preferences.forget(_siteUrl);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(tester.element(find.byType(PreferencesPage)), same(page));
+      expect(fixture.shell.preferences.stateFor(_siteUrl)?.loaded, isTrue);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(
+        find.byKey(const ValueKey('notify-on-linked-posts')),
+        findsOneWidget,
+      );
+    },
+  );
+
   group('account mirror updates', () {
     testWidgets('persist whether like notifications are disabled', (
       tester,
