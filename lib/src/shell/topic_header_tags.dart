@@ -130,16 +130,21 @@ class TopicHeaderTags extends StatelessWidget {
                   key: key,
                   onTap: tag == null ? open : () => onTagNavigate(tag),
                   borderRadius: BorderRadius.circular(4),
-                  child: Padding(
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 28),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 7,
                       vertical: 5,
                     ),
-                    child: Text(
-                      label,
-                      style: style,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: Center(
+                      widthFactor: 1,
+                      heightFactor: 1,
+                      child: Text(
+                        label,
+                        style: style,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 ),
