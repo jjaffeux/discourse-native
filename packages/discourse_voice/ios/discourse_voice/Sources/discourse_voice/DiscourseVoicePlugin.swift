@@ -245,8 +245,9 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
   /// Rings the user through the system: the phone rings with the system
   /// ringtone, on the lock screen too, and the answer arrives as a provider
   /// action. Answers `false` when the system would not present it (a call
-  /// already up, Do Not Disturb filtering, CallKit unavailable) so Dart
-  /// can fall back to its own banner.
+  /// already up, Do Not Disturb filtering, CallKit unavailable), or when
+  /// the call was retired before reporting completed, so Dart can fall
+  /// back to its own banner.
   private func handleReportIncomingCall(
     _ arguments: [String: Any]?,
     result: @escaping FlutterResult
@@ -276,10 +277,21 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
     emitDiagnostic("callkit.incoming.requested")
     reportIncomingCall(uuid, update) { error in
       DispatchQueue.main.async {
+        // Dart may withdraw a reported presentation. A retired UUID must
+        // never claim that the coordinator's current ring belongs to it.
+        guard self.incomingCall == uuid else {
+          self.emitDiagnostic("callkit.incoming.skipped", data: ["reason": "stale_call"])
+          result(false)
+          return
+        }
         if let error {
-          if self.incomingCall == uuid {
-            self.clearIncomingCall()
+          self.clearIncomingCall()
+          if self.activeCall == uuid {
+            self.activeCall = nil
+            self.muted = false
           }
+          // A rejected report has no provider call to finish a pending end.
+          self.completePendingEnd(call: uuid, result: nil)
           self.emitDiagnostic("callkit.incoming.failed", data: self.errorData(error))
           result(false)
         } else {
