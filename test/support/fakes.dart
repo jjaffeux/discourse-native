@@ -3674,7 +3674,7 @@ class FakeDiscourseApi
   }
 
   @override
-  Future<List<UserDraft>> userDrafts({
+  Future<UserDraftPage> userDrafts({
     required String siteUrl,
     required String apiKey,
     int offset = 0,
@@ -3683,7 +3683,11 @@ class FakeDiscourseApi
   }) async {
     userDraftRequests.add((siteUrl: siteUrl, offset: offset, limit: limit));
     await userDraftGate?.future;
-    return userDraftList.skip(offset).take(limit).toList(growable: false);
+    final drafts = userDraftList
+        .skip(offset)
+        .take(limit)
+        .toList(growable: false);
+    return UserDraftPage(drafts: drafts, rawItemCount: drafts.length);
   }
 
   @override

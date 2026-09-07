@@ -103,7 +103,7 @@ final class DraftListController extends FrameSafeNotifier {
       final page = await api.userDrafts(
         siteUrl: siteUrl,
         apiKey: apiKey,
-        offset: held.drafts.length,
+        offset: feedFor(siteUrl).nextOffset,
         limit: pageSize,
       );
       // The commit must build on the feed as it stands now, not the [held]
@@ -111,14 +111,25 @@ final class DraftListController extends FrameSafeNotifier {
       // row, and replaying the snapshot would put the row back.
       _commit(lease, siteUrl, request, () {
         final removed = _deletedWhileLoading[siteUrl] ?? const <String>{};
+        // Deletions of already loaded rows adjusted the cursor in `without`.
+        // Only newly encountered deleted keys still need that adjustment.
+        final heldKeys = {for (final draft in held.drafts) draft.key};
+        final deletedFromPage = {
+          for (final draft in page.drafts)
+            if (removed.contains(draft.key) && !heldKeys.contains(draft.key))
+              draft.key,
+        };
         _feeds[siteUrl] = feedFor(siteUrl).withPage(
-          [
-            for (final draft in page)
-              if (!removed.contains(draft.key)) draft,
-          ],
+          UserDraftPage(
+            drafts: [
+              for (final draft in page.drafts)
+                if (!removed.contains(draft.key)) draft,
+            ],
+            rawItemCount: page.rawItemCount,
+          ),
           limit: pageSize,
           reportedCount: instance.user?.draftCount,
-          receivedCount: page.length,
+          deletedCount: deletedFromPage.length,
         );
       });
     } catch (error, stackTrace) {

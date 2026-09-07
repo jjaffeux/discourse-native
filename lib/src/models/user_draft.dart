@@ -4,6 +4,16 @@ import 'composer_draft.dart';
 import 'json.dart';
 
 @immutable
+class UserDraftPage {
+  const UserDraftPage({required this.drafts, required this.rawItemCount});
+
+  final List<UserDraft> drafts;
+
+  /// Rows consumed before rejecting malformed entries or deduplicating keys.
+  final int rawItemCount;
+}
+
+@immutable
 class UserDraft {
   static const voiceTranscriptDraftKeyPrefix = 'new_topic_voice_';
 

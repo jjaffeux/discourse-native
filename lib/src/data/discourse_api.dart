@@ -1402,7 +1402,7 @@ class DiscourseApi
   );
 
   @override
-  Future<List<UserDraft>> userDrafts({
+  Future<UserDraftPage> userDrafts({
     required String siteUrl,
     required String apiKey,
     int offset = 0,

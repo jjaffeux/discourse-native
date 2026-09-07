@@ -3693,7 +3693,7 @@ void _writeGroups() {
         }),
       );
 
-      final drafts = await api.userDrafts(
+      final page = await api.userDrafts(
         siteUrl: 'https://meta.discourse.org',
         apiKey: 'the-key',
         offset: 30,
@@ -3702,9 +3702,10 @@ void _writeGroups() {
 
       expect(asked.path, '/drafts.json');
       expect(asked.queryParameters, {'offset': '30', 'limit': '15'});
-      expect(drafts.single.key, 'topic_12');
-      expect(drafts.single.data?.reply, 'Half a thought');
-      expect(drafts.single.displayTitle, 'Native drafts');
+      expect(page.rawItemCount, 1);
+      expect(page.drafts.single.key, 'topic_12');
+      expect(page.drafts.single.data?.reply, 'Half a thought');
+      expect(page.drafts.single.displayTitle, 'Native drafts');
     });
 
     test('deletes the named draft at its current sequence', () async {
