@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_controller.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -93,6 +94,119 @@ void main() {
       expect(b.event!.title, 'https://other.example');
       a.dispose();
       b.dispose();
+    },
+  );
+
+  for (final command in [
+    'refresh',
+    'updateSource',
+    'respond',
+    'withdraw',
+    'invite',
+    'participants',
+  ]) {
+    test('$command rejects a released handle with a live peer', () async {
+      current = eventJson(
+        overrides: {
+          'is_public': true,
+          'is_private': false,
+          'watching_invitee': watching(),
+        },
+      );
+      final seed = PostEvent.decode(current)!;
+      final released = ports.controller.acquire(eventSite, seed);
+      addTearDown(released.dispose);
+      final peer = ports.controller.acquire(eventSite, seed);
+      addTearDown(peer.dispose);
+      await peer.refresh();
+      ports.transport.responses.addAll({
+        'PUT /discourse-post-event/events/42/invitees/83.json': {},
+        'DELETE /discourse-post-event/events/42/invitees/83.json': {},
+        'POST /discourse-post-event/events/42/invite': {},
+        'GET /discourse-post-event/events/42/invitees.json?': {
+          'invitees': [watching()],
+        },
+      });
+      final source = PostEvent.decode(
+        eventJson(overrides: {'name': 'Updated source'}),
+      )!;
+      Future<void> run(EventHandle handle) async {
+        switch (command) {
+          case 'refresh':
+            await handle.refresh();
+          case 'updateSource':
+            handle.updateSource(source);
+          case 'respond':
+            await handle.respond('interested');
+          case 'withdraw':
+            await handle.withdraw();
+          case 'invite':
+            expect(await handle.invite(['sam']), handle.isCurrent);
+          case 'participants':
+            final rows = ports.controller.participants(handle);
+            if (handle.isCurrent) {
+              expect((await rows).map((row) => row.id), [83]);
+            } else {
+              await expectLater(rows, throwsA(isA<WriteException>()));
+            }
+        }
+      }
+
+      released.dispose();
+      final requests = ports.transport.requests.length;
+      await run(released);
+      expect(ports.transport.requests, hasLength(requests));
+      expect(ports.posts.lanes, isEmpty);
+      expect(released.isCurrent, isFalse);
+      expect(peer.authoritative, isTrue);
+
+      await run(peer);
+      expect(ports.transport.requests.length, greaterThan(requests));
+      current = eventJson(overrides: {'name': 'Still subscribed'});
+      ports.channels.deliver('/discourse-post-event/700', {'id': 42});
+      await peer.refresh();
+      expect(peer.event!.title, 'Still subscribed');
+      expect(ports.channels.subscriberCount('/discourse-post-event/700'), 1);
+      peer.dispose();
+      expect(ports.channels.channels, isEmpty);
+    });
+  }
+
+  test(
+    'releasing an initiating handle after write admission preserves the write and its live peer',
+    () async {
+      final seed = PostEvent.decode(current)!;
+      final handle = ports.controller.acquire(eventSite, seed);
+      addTearDown(handle.dispose);
+      final peer = ports.controller.acquire(eventSite, seed);
+      addTearDown(peer.dispose);
+      await peer.refresh();
+      ports.posts.onBeginWrite = handle.dispose;
+      ports.transport.responders[create] = (_) {
+        expect(handle.isCurrent, isFalse);
+        expect(peer.pending, isTrue);
+        current = eventJson(
+          overrides: {'watching_invitee': watching(recurring: true)},
+        );
+        return {'invitee': watching(recurring: true)};
+      };
+
+      await handle.respond('going', recurring: true);
+
+      final request = ports.transport.writes.single;
+      expect(
+        (request.method, request.path),
+        ('POST', '/discourse-post-event/events/42/invitees.json'),
+      );
+      expect(request.body, {
+        'invitee': {'status': 'going', 'recurring': true},
+      });
+      expect(peer.event!.watching!.recurring, isTrue);
+      expect(peer.authoritative, isTrue);
+      expect(peer.pending, isFalse);
+      expect(ports.posts.lanes, isEmpty);
+      expect(ports.refreshedTopics, [(eventSite, 700)]);
+      expect(ports.channels.subscriberCount('/discourse-post-event/700'), 1);
     },
   );
 
