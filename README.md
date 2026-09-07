@@ -2612,7 +2612,10 @@ route stacks and logical scroll anchors after launch. A composer belongs to
 the tab that opened it: navigation within that tab keeps it visible, switching
 tabs hides it without changing its origin, and closing its tab flushes the
 draft before disposal. Switching forums or opening Aggregate likewise hides
-the composer until its forum and tab are selected again.
+the composer until its forum and tab are selected again. Each tab retains its
+own composer, so replying, creating a topic, or editing in another tab does not
+close it. Pending draft restores and writes remain attached to their originating
+composer; closing or submitting one never closes another tab's editor.
 
 Forum tabs are a native-desktop capability, independent of window width. On a
 compact desktop layout, the strip stays with the main content pane and scrolls

@@ -1652,7 +1652,7 @@ final class _InteractionTrackingShellController extends ShellController {
   }
 
   @override
-  void closeComposer() => closeCalls++;
+  void closeComposer({ComposerController? composer}) => closeCalls++;
 
   @override
   bool hideComposerForClose(ComposerController composer) =>

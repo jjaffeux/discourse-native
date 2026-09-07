@@ -6110,7 +6110,41 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  ComposerController? _composer;
+  final Map<({String siteUrl, String? tabId}), ComposerController> _composers =
+      {};
+
+  // Commands target the selected tab; async continuations use _ownsComposer
+  // to stay attached to the tab that started them.
+  ComposerController? get _composer {
+    final instance = currentInstance;
+    if (instance == null) return null;
+    return _composers[(siteUrl: instance.url, tabId: activeTabId)];
+  }
+
+  void _setComposer(ComposerController composer) {
+    final target = composer.target;
+    _composers[(siteUrl: target.siteUrl, tabId: target.tabId)] = composer;
+  }
+
+  bool _ownsComposer(ComposerController? composer) {
+    if (composer == null) return false;
+    final target = composer.target;
+    return identical(
+      _composers[(siteUrl: target.siteUrl, tabId: target.tabId)],
+      composer,
+    );
+  }
+
+  void _removeComposer(ComposerController composer) {
+    if (!_ownsComposer(composer)) return;
+    final target = composer.target;
+    _composers.remove((siteUrl: target.siteUrl, tabId: target.tabId));
+    _composerDrafts.detach(composer);
+  }
+
+  Iterable<ComposerController> _composersForSite(String siteUrl) =>
+      _composers.values.where((composer) => composer.target.siteUrl == siteUrl);
+
   ComposerController? _floatingComposerBoundsOwner;
   Rect? _floatingComposerBounds;
 
@@ -6123,7 +6157,7 @@ class ShellController extends FrameSafeNotifier
         readCredential: _credentialForWrite,
         readClientId: authenticator.clientId,
         isDisposed: () => isDisposed,
-        isCurrentComposer: (composer) => identical(_composer, composer),
+        isCurrentComposer: _ownsComposer,
         readCachedDraft: (target) => target.createsTopic
             ? null
             : store.read<TopicDetail>(target.siteUrl, target.topicId)?.draft,
@@ -6158,8 +6192,7 @@ class ShellController extends FrameSafeNotifier
                     null),
         recordDraftDestroyed: _recordDraftDestroyed,
         onComposerClosed: (composer) {
-          if (!identical(_composer, composer)) return;
-          _composer = null;
+          _removeComposer(composer);
           _notify();
         },
         reportError: _reportOperationalError,
@@ -6260,7 +6293,7 @@ class ShellController extends FrameSafeNotifier
         ),
       ),
       pluginStateReader: readPluginState,
-      isCurrentComposer: () => identical(_composer, composer),
+      isCurrentComposer: () => _ownsComposer(composer),
       imageUploader: !(target.policy?.uploadsEnabled ?? true)
           ? null
           : (file, {required onProgress, required abortTrigger}) =>
@@ -6356,7 +6389,7 @@ class ShellController extends FrameSafeNotifier
       targetRecipients: recipients,
     );
     final composer = _buildTextComposer(target, persistsDraft: true);
-    _composer = composer;
+    _setComposer(composer);
     _notify();
     _composerDrafts.startRestore(composer);
     composer.requestFocus();
@@ -6437,7 +6470,7 @@ class ShellController extends FrameSafeNotifier
       persistsDraft: true,
       minimumRequiredTags: selectedCategory?.minimumRequiredTags ?? 0,
     );
-    _composer = composer;
+    _setComposer(composer);
     if (revealContent) _mobilePane = MobilePane.content;
     _composerDrafts.startRestore(composer);
     final enrichment = _enrichNewTopicComposer(
@@ -6461,9 +6494,7 @@ class ShellController extends FrameSafeNotifier
     final siteUrl = instance.url;
     final lease = lifecycle.capture(siteUrl);
     bool isCurrent() =>
-        lease.isCurrent &&
-        identical(_composer, composer) &&
-        !composer.isDisposed;
+        lease.isCurrent && _ownsComposer(composer) && !composer.isDisposed;
 
     // Categories and capabilities refine an already usable composer. Keeping
     // them off the presentation path makes the first frame independent of the
@@ -6598,7 +6629,7 @@ class ShellController extends FrameSafeNotifier
       persistsDraft: true,
       minimumRequiredTags: category?.minimumRequiredTags ?? 0,
     );
-    _composer = composer;
+    _setComposer(composer);
     _notify();
     _composerDrafts.startRestore(composer);
 
@@ -6606,7 +6637,7 @@ class ShellController extends FrameSafeNotifier
       await _composerDrafts.restoreTaskFor(composer);
     } catch (_) {}
     if (!lease.isCurrent ||
-        !identical(_composer, composer) ||
+        !_ownsComposer(composer) ||
         activeTabId != tabId ||
         currentContent?.topicId != sourceTopicId) {
       return;
@@ -6685,7 +6716,7 @@ class ShellController extends FrameSafeNotifier
         persistsDraft: true,
         minimumRequiredTags: category?.minimumRequiredTags ?? 0,
       );
-      _composer = composer;
+      _setComposer(composer);
       _notify();
       _composerDrafts.startRestore(composer);
     }
@@ -6695,7 +6726,7 @@ class ShellController extends FrameSafeNotifier
     } catch (_) {}
     if (!forumActive ||
         !lease.isCurrent ||
-        !identical(_composer, composer) ||
+        !_ownsComposer(composer) ||
         currentContent?.id != sourceRouteId ||
         !sourceIsCurrent() ||
         activeTabId != tabId) {
@@ -6724,7 +6755,7 @@ class ShellController extends FrameSafeNotifier
       lease,
       () => _credentialForWrite(target.siteUrl),
     );
-    if (held == null || !lease.isCurrent || !identical(_composer, composer)) {
+    if (held == null || !lease.isCurrent || !_ownsComposer(composer)) {
       return const TopicTagSearch();
     }
     if (held.value.failure case final failure?) {
@@ -6811,8 +6842,7 @@ class ShellController extends FrameSafeNotifier
     for (final selected in composer.tags) {
       try {
         final result = await searchComposerTags(composer, selected.name);
-        if (!identical(_composer, composer) ||
-            composer.categoryId != categoryId) {
+        if (!_ownsComposer(composer) || composer.categoryId != categoryId) {
           return;
         }
         final match = result.results
@@ -6829,7 +6859,7 @@ class ShellController extends FrameSafeNotifier
         return;
       }
     }
-    if (!identical(_composer, composer) || composer.categoryId != categoryId) {
+    if (!_ownsComposer(composer) || composer.categoryId != categoryId) {
       return;
     }
     if (kept.length != composer.tags.length) {
@@ -6878,7 +6908,7 @@ class ShellController extends FrameSafeNotifier
       replyingToWhisper: targetsWhisper,
     );
     final composer = _buildTextComposer(target, persistsDraft: true);
-    _composer = composer;
+    _setComposer(composer);
     _notify();
 
     _composerDrafts.startRestore(composer);
@@ -6927,7 +6957,7 @@ class ShellController extends FrameSafeNotifier
     }
     if (composer == null) return;
 
-    final restore = identical(_composer, composer)
+    final restore = _ownsComposer(composer)
         ? _composerDrafts.restoreTaskFor(composer)
         : null;
     if (restore != null) {
@@ -6937,7 +6967,7 @@ class ShellController extends FrameSafeNotifier
     }
 
     if (isDisposed ||
-        !identical(_composer, composer) ||
+        !_ownsComposer(composer) ||
         currentInstance?.url != instance.url ||
         currentContent?.topicId != topicId ||
         activeTabId != composer.target.tabId) {
@@ -6984,7 +7014,7 @@ class ShellController extends FrameSafeNotifier
                 0
           : 0,
     );
-    _composer = composer;
+    _setComposer(composer);
     _notify();
 
     unawaited(_loadEditBody(composer, post, focusText: focusText));
@@ -7118,14 +7148,16 @@ class ShellController extends FrameSafeNotifier
       initialCategoryId: detail.categoryId,
       initialTags: detail.tags,
     );
-    _composer = ComposerController(
-      target,
-      minimumRequiredTags:
-          categoryFor(
-            detail.categoryId,
-            siteUrl: instance.url,
-          )?.minimumRequiredTags ??
-          0,
+    _setComposer(
+      ComposerController(
+        target,
+        minimumRequiredTags:
+            categoryFor(
+              detail.categoryId,
+              siteUrl: instance.url,
+            )?.minimumRequiredTags ??
+            0,
+      ),
     );
     _notify();
   }
@@ -7308,14 +7340,16 @@ class ShellController extends FrameSafeNotifier
       initialCategoryId: detail.categoryId,
       initialTags: detail.tags,
     );
-    _composer = ComposerController(
-      target,
-      minimumRequiredTags:
-          categoryFor(
-            detail.categoryId,
-            siteUrl: instance.url,
-          )?.minimumRequiredTags ??
-          0,
+    _setComposer(
+      ComposerController(
+        target,
+        minimumRequiredTags:
+            categoryFor(
+              detail.categoryId,
+              siteUrl: instance.url,
+            )?.minimumRequiredTags ??
+            0,
+      ),
     );
     _notify();
   }
@@ -7488,9 +7522,7 @@ class ShellController extends FrameSafeNotifier
         lease,
         () => authenticator.apiKeyFor(target.siteUrl),
       );
-      if (credential == null ||
-          !lease.isCurrent ||
-          !identical(_composer, composer)) {
+      if (credential == null || !lease.isCurrent || !_ownsComposer(composer)) {
         return;
       }
       final fetched = await api.topicContent.posts(
@@ -7899,8 +7931,8 @@ class ShellController extends FrameSafeNotifier
       ),
     );
 
-    if (error == null && identical(_composer, editing)) {
-      closeComposer();
+    if (error == null && _ownsComposer(editing)) {
+      closeComposer(composer: editing);
     }
     return error;
   }
@@ -9529,29 +9561,29 @@ class ShellController extends FrameSafeNotifier
     if (existing.discarding) return false;
     _composerDrafts.retire(existing);
     existing.dispose();
-    _composer = null;
-    _composerDrafts.detach(existing);
+    _removeComposer(existing);
     return true;
   }
 
-  void closeComposer() {
-    final composer = _composer;
-    if (composer == null || composer.discarding) return;
+  void closeComposer({ComposerController? composer}) {
+    composer ??= _composer;
+    if (composer == null || composer.discarding || !_ownsComposer(composer)) {
+      return;
+    }
     _composerDrafts.retire(composer);
     composer.dispose();
-    _composer = null;
-    _composerDrafts.detach(composer);
+    _removeComposer(composer);
     _notify();
   }
 
   bool hideComposerForClose(ComposerController composer) {
-    if (!identical(_composer, composer) || !composer.beginClose()) return false;
+    if (!_ownsComposer(composer) || !composer.beginClose()) return false;
     _notify();
     return true;
   }
 
   void restoreComposerAfterFailedClose(ComposerController composer) {
-    if (!identical(_composer, composer) || composer.isDisposed) return;
+    if (!_ownsComposer(composer) || composer.isDisposed) return;
     composer.cancelClose();
     _notify();
   }
@@ -10023,9 +10055,9 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _closeSubmittedComposer(ComposerController composer) {
-    if (identical(_composer, composer)) {
+    if (_ownsComposer(composer)) {
       composer.dispose();
-      _composer = null;
+      _removeComposer(composer);
     }
     _notify();
   }
@@ -10237,9 +10269,9 @@ class ShellController extends FrameSafeNotifier
         target.topicId,
         (detail) => detail.withPostId(landed!.id),
       );
-      if (identical(_composer, composer)) {
+      if (_ownsComposer(composer)) {
         composer.dispose();
-        _composer = null;
+        _removeComposer(composer);
       }
       _notify();
     });
@@ -10288,9 +10320,9 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    if (identical(_composer, composer)) {
+    if (_ownsComposer(composer)) {
       composer.dispose();
-      _composer = null;
+      _removeComposer(composer);
     }
     _notify();
 
@@ -10340,12 +10372,25 @@ class ShellController extends FrameSafeNotifier
     String title,
   ) {
     _composerDrafts.settleAfterSubmission(composer, lease);
+    final wasRetained = _ownsComposer(composer);
     _closeSubmittedComposer(composer);
+    if (!wasRetained) return;
     final origin = target.originFeedId;
-    if (currentInstance?.url == target.siteUrl) {
+    if (currentInstance?.url == target.siteUrl && activeTabId == target.tabId) {
       _openTopic(topicId, slug, title);
       if (origin != null && target.isNewTopic) {
         unawaited(loadFeed(origin, force: true));
+      }
+    } else if (target.tabId case final tabId?) {
+      final tab = _forumWorkspaces[target.siteUrl]?.tabById(tabId);
+      if (tab != null) {
+        _replaceTab(
+          target.siteUrl,
+          tab.push(
+            ContentRoute.topic(topicId: topicId, slug: slug, title: title),
+          ),
+        );
+        _notify();
       }
     }
   }
@@ -10674,7 +10719,9 @@ class ShellController extends FrameSafeNotifier
         for (final hashtag in found) {
           known.put(hashtag.ref, hashtag);
         }
-        _composer?.text.artworkArrived();
+        for (final composer in _composersForSite(siteUrl)) {
+          composer.text.artworkArrived();
+        }
       });
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent && ask.any(inFlight.contains)) {
@@ -10728,7 +10775,9 @@ class ShellController extends FrameSafeNotifier
         for (final name in ask) {
           known.put(name, real.contains(name));
         }
-        _composer?.text.artworkArrived();
+        for (final composer in _composersForSite(siteUrl)) {
+          composer.text.artworkArrived();
+        }
       });
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent && ask.any(inFlight.contains)) {
@@ -10890,12 +10939,10 @@ class ShellController extends FrameSafeNotifier
         usePgHeadlinesForExcerpt: config.usePgHeadlinesForExcerpt,
       );
     }
-    if (!config.emojiEnabled && _composer?.target.siteUrl == siteUrl) {
-      _composer?.closeEmojiAutocomplete();
-    }
-    if (_composer?.target.siteUrl == siteUrl) {
-      _composer?.updateEnableAutoGridImages(config.enableAutoGridImages);
-      _composer?.updateMarkdownLinkify(
+    for (final composer in _composersForSite(siteUrl)) {
+      if (!config.emojiEnabled) composer.closeEmojiAutocomplete();
+      composer.updateEnableAutoGridImages(config.enableAutoGridImages);
+      composer.updateMarkdownLinkify(
         enabled: config.enableMarkdownLinkify,
         tlds: config.markdownLinkifyTlds,
       );
@@ -11384,12 +11431,10 @@ class ShellController extends FrameSafeNotifier
     if (currentInstance?.url == siteUrl) search.clear();
     _composerDrafts.forgetSite(siteUrl);
 
-    final composer = _composer;
-    if (composer?.target.siteUrl == siteUrl) {
-      composer!.draftSettled();
+    for (final composer in _composersForSite(siteUrl).toList()) {
+      composer.draftSettled();
       composer.dispose();
-      _composer = null;
-      _composerDrafts.detach(composer);
+      _removeComposer(composer);
     }
 
     accountActivity.forget(siteUrl);
@@ -12185,9 +12230,9 @@ class ShellController extends FrameSafeNotifier
     final index = workspace.tabs.indexWhere((tab) => tab.id == id);
     if (index < 0) return;
 
-    if (_composer case final composer? when composer.target.tabId == id) {
+    if (_composers[(siteUrl: instance.url, tabId: id)] case final composer?) {
       if (composer.discarding) return;
-      closeComposer();
+      closeComposer(composer: composer);
     }
 
     final closedActive = workspace.activeTabId == id;
@@ -12282,9 +12327,12 @@ class ShellController extends FrameSafeNotifier
     final kept = workspace.tabById(id);
     if (kept == null) return;
 
-    if (_composer case final composer? when composer.target.tabId != id) {
-      if (composer.discarding) return;
-      closeComposer();
+    final closingComposers = _composersForSite(
+      instance.url,
+    ).where((composer) => composer.target.tabId != id).toList();
+    if (closingComposers.any((composer) => composer.discarding)) return;
+    for (final composer in closingComposers) {
+      closeComposer(composer: composer);
     }
 
     // Remembered right to left so that reopening restores the leftmost tab
@@ -12642,10 +12690,11 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void dispose() {
-    final composer = _composer;
     // Queue the final local draft before lifecycle invalidation without
     // entering the normal remote-sync callback.
-    _composerDrafts.preservePendingLocally(composer);
+    for (final composer in _composers.values) {
+      _composerDrafts.preservePendingLocally(composer);
+    }
 
     // A window can close in the frame immediately after a selection or a
     // scroll. Keep the latest local choice and anchor durable, but never start
@@ -12738,8 +12787,10 @@ class ShellController extends FrameSafeNotifier
       presentation.removeListener(_notify);
       presentation.dispose();
     }
-    composer?.dispose();
-    _composer = null;
+    for (final composer in _composers.values) {
+      composer.dispose();
+    }
+    _composers.clear();
     for (final tracker in _trackers.values) {
       tracker.dispose().ignore();
     }

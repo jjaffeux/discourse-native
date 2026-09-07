@@ -21,11 +21,11 @@ Future<void> closeComposerFromPanel({
       return;
     }
     if (composer.hasUnappliedDraft && !composer.hasChanges) {
-      shell.closeComposer();
+      shell.closeComposer(composer: composer);
       return;
     }
     if (composer.hasChanges) {
-      shell.closeComposer();
+      shell.closeComposer(composer: composer);
       return;
     }
     final error = await shell.discardComposer(composer);
@@ -37,7 +37,7 @@ Future<void> closeComposerFromPanel({
   }
   if (!context.mounted) return;
   if (!composer.hasChanges) {
-    shell.closeComposer();
+    shell.closeComposer(composer: composer);
     return;
   }
 
@@ -61,7 +61,7 @@ Future<void> requestComposerDiscard({
   }
   if (!context.mounted) return;
   if (composer.hasUnappliedDraft && !composer.hasChanges) {
-    shell.closeComposer();
+    shell.closeComposer(composer: composer);
     return;
   }
   if (!composer.hasChanges) {
