@@ -61,6 +61,14 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
     _retireStaleOperation();
   }
 
+  @override
+  void deactivate() {
+    // The picker route can rebuild before this State is disposed.
+    _ownsTarget = null;
+    _saving = false;
+    super.deactivate();
+  }
+
   void _retireStaleOperation() {
     if (_ownsTarget?.call() == false) {
       _ownsTarget = null;
@@ -111,10 +119,16 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
         removeLabel: target.removeLabel,
         search: (term) async {
           if (!isCurrent()) return const [];
-          final results = await shell.searchTopicCategoriesForEditor(
-            siteUrl: target.siteUrl,
-            term: term,
-          );
+          final List<TopicCategory> results;
+          try {
+            results = await shell.searchTopicCategoriesForEditor(
+              siteUrl: target.siteUrl,
+              term: term,
+            );
+          } catch (_) {
+            if (isCurrent()) rethrow;
+            return const [];
+          }
           if (!isCurrent()) return const [];
           return results
               .where(

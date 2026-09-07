@@ -126,6 +126,99 @@ void main() {
       expect(harness.shell.searches, hasLength(1));
     });
 
+    for (final revoked in [false, true]) {
+      testWidgets(
+        '$kind search failure ${revoked ? 'expires with its account' : 'remains visible for its owner'}',
+        (tester) async {
+          final harness = _Harness(tags: tags);
+          final pending = Completer<void>();
+          addTearDown(() {
+            if (!pending.isCompleted) pending.complete();
+          });
+          harness.shell.searchGate = pending.future;
+          await harness.pump(tester);
+          await tester.tap(find.text('Edit'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(harness.shell.searches, hasLength(1));
+
+          if (revoked) harness.shell.reconnect(_siteA);
+          pending.completeError(StateError('Search failed'));
+          await tester.pumpAndSettle();
+
+          expect(
+            find.text(
+              tags ? "Couldn't load tags." : "Couldn't load categories.",
+            ),
+            revoked ? findsNothing : findsOneWidget,
+          );
+          if (revoked) {
+            await tester.enterText(harness.query, 'another');
+            await tester.pumpAndSettle(const Duration(milliseconds: 300));
+            expect(harness.shell.searches, hasLength(1));
+          }
+          expect(harness.shell.saves, isEmpty);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets('$kind route can rebuild while its anchor is removed', (
+      tester,
+    ) async {
+      final shell = _PickerShell();
+      addTearDown(shell.dispose);
+      Widget button(BuildContext context, VoidCallback? open, bool saving) =>
+          TextButton(onPressed: open, child: const Text('Edit'));
+      Widget host({required bool visible}) => ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: !visible
+                  ? const SizedBox.shrink()
+                  : tags
+                  ? TopicTagMenuAnchor(
+                      siteUrl: _siteA,
+                      topicId: 10,
+                      categoryId: 1,
+                      tags: const [_design],
+                      enabled: true,
+                      builder: button,
+                    )
+                  : TopicCategoryMenuAnchor(
+                      siteUrl: _siteA,
+                      topicId: 10,
+                      categoryId: 1,
+                      enabled: true,
+                      builder: button,
+                    ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(host(visible: true));
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(host(visible: false));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(
+        find.byKey(
+          tags
+              ? const ValueKey(('topic-tag-picker-option', 'mobile'))
+              : const ValueKey('topic-category-option-2'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.saves, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets(
       '$kind completion cannot clear a newer save or show its error',
       (tester) async {
