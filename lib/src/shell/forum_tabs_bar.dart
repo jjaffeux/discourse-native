@@ -84,7 +84,7 @@ class ForumTabsBar extends StatefulWidget {
 
   static const double maximumTabWidth = 184 + 2 * _tabContentInset;
 
-  static const double closeTargetWidth = 30;
+  static const double closeTargetWidth = 24;
 
   final String forumName;
   final List<ForumTabItem> items;
@@ -1174,8 +1174,8 @@ class _ForumTabState extends State<_ForumTab> {
   bool _badgeFits(double selectWidth, {required bool hasPrefix}) {
     final badge = widget.item.badge;
     if (!badge.isVisible) return false;
-    // Select padding consumes 14px. A prefix and its gap consume another 22px.
-    final leadingWidth = hasPrefix ? 36 : 14;
+    // Select padding consumes 9px. A prefix and its gap consume another 22px.
+    final leadingWidth = hasPrefix ? 31 : 9;
     if (badge.dot) return selectWidth >= leadingWidth + _dotGap + 8;
     final estimatedBadgeWidth = math.max(
       19,
@@ -1212,7 +1212,7 @@ class _ForumTabState extends State<_ForumTab> {
       ),
     };
     return Padding(
-      padding: const EdgeInsets.fromLTRB(9, 0, 5, 0),
+      padding: const EdgeInsets.only(left: 9),
       child: Row(
         children: [
           if (prefix != null) ...[
