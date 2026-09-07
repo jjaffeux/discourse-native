@@ -941,13 +941,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                 ],
               ],
               if (hasTags) ...[
-                if (hasCategories)
-                  Container(
-                    width: 1,
-                    height: 15,
-                    margin: const EdgeInsets.symmetric(horizontal: 10),
-                    color: Theme.of(context).shell.divider,
-                  ),
+                if (hasCategories) const SizedBox(width: 8),
                 Flexible(
                   child: TopicHeaderTags(
                     siteUrl: siteUrl,
