@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:discourse_native/src/models/incoming_topics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -86,6 +88,83 @@ void main() {
       );
       expect(incoming.count('latest'), 0);
     });
+
+    for (final messageType in ['new_topic', 'latest']) {
+      test('ignores an overflowing JSON identifier in $messageType', () {
+        final incoming = IncomingTopics();
+        final message = jsonDecode(
+          '{"topic_id":1e999,"message_type":"$messageType"}',
+        );
+
+        expect(incoming.notify(message), isFalse);
+        expect(incoming.topicIds('latest'), isEmpty);
+        expect(incoming.topicIds('new'), isEmpty);
+        expect(incoming.notify(newTopic(42)), isTrue);
+        expect(incoming.topicIds('latest'), [42]);
+        expect(incoming.topicIds('new'), [42]);
+      });
+
+      test('rejects invalid numeric identifiers in $messageType', () {
+        final incoming = IncomingTopics()..notify(newTopic(42));
+        for (final id in <Object?>[
+          double.infinity,
+          double.negativeInfinity,
+          double.nan,
+          0,
+          -1,
+          -9223372036854775808,
+          0.0,
+          -0.0,
+          -1.0,
+          0.5,
+          3.75,
+          9223372036854775807.toDouble(),
+          jsonDecode('9223372036854775808'),
+          1e100,
+          '43',
+          true,
+          null,
+        ]) {
+          expect(
+            incoming.notify({'topic_id': id, 'message_type': messageType}),
+            isFalse,
+            reason: 'Invalid topic ID: $id',
+          );
+          expect(incoming.topicIds('latest'), [42]);
+          expect(incoming.topicIds('new'), [42]);
+        }
+
+        expect(incoming.notify(newTopic(43)), isTrue);
+        expect(incoming.notify(bumped(43)), isFalse);
+        expect(incoming.topicIds('latest'), [42, 43]);
+        expect(incoming.topicIds('new'), [42, 43]);
+      });
+
+      test('preserves supported integral identifiers in $messageType', () {
+        final incoming = IncomingTopics();
+        for (final id in [
+          1,
+          42.0,
+          9223372036854774784.0,
+          9223372036854775807,
+        ]) {
+          final message = {'topic_id': id, 'message_type': messageType};
+          expect(incoming.notify(message), isTrue);
+          expect(incoming.notify(message), isFalse);
+        }
+
+        expect(
+          incoming.notify({'topic_id': 42, 'message_type': messageType}),
+          isFalse,
+        );
+        const expected = [1, 42, 9223372036854774784, 9223372036854775807];
+        expect(incoming.topicIds('latest'), expected);
+        expect(
+          incoming.topicIds('new'),
+          messageType == 'new_topic' ? expected : const <int>[],
+        );
+      });
+    }
 
     test('keeps arrival order, so the oldest is asked for first', () {
       final incoming = IncomingTopics()

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -131,6 +133,56 @@ void main() {
       ];
       expect(claiming, isNotEmpty);
     });
+
+    for (final channel in ['/polls/42', '/topic/42/reactions']) {
+      test('$channel ignores overflowing JSON post identifiers', () {
+        expect(
+          pluginRegistry.stalePosts(channel, jsonDecode('{"post_id":1e999}')),
+          isEmpty,
+        );
+        expect(pluginRegistry.stalePosts(channel, const {'post_id': 9}), {9});
+      });
+
+      test('$channel admits only supported positive integer post IDs', () {
+        for (final id in <Object?>[
+          double.infinity,
+          double.negativeInfinity,
+          double.nan,
+          0,
+          -1,
+          -9223372036854775808,
+          0.0,
+          -0.0,
+          -1.0,
+          0.5,
+          9.75,
+          9223372036854775807.toDouble(),
+          jsonDecode('9223372036854775808'),
+          1e100,
+          '9',
+          true,
+          null,
+        ]) {
+          expect(
+            pluginRegistry.stalePosts(channel, {'post_id': id}),
+            isEmpty,
+            reason: 'Invalid post ID: $id',
+          );
+        }
+
+        for (final (value, expected) in <(num, int)>[
+          (1, 1),
+          (9, 9),
+          (9.0, 9),
+          (9223372036854774784.0, 9223372036854774784),
+          (9223372036854775807, 9223372036854775807),
+        ]) {
+          expect(pluginRegistry.stalePosts(channel, {'post_id': value}), {
+            expected,
+          });
+        }
+      });
+    }
   });
 
   group('post model contributions', () {

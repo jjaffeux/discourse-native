@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
@@ -8,6 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:message_bus_client/message_bus_client.dart';
+
+import 'support/bundled_plugins.dart';
 
 void main() {
   group('SiteTracker', () {
@@ -155,6 +158,67 @@ void main() {
         bus.deliver('/unread/42', unread);
 
         expect(messages, [latest, unread]);
+      });
+
+      test('ignores invalid refresh IDs and keeps delivering updates', () {
+        final bus = _FakeMessageBusSession();
+        var incomingCalls = 0;
+        final tracker = _tracker(
+          bus,
+          userId: 42,
+          apiKey: 'secret',
+          onIncomingTopics: () => incomingCalls++,
+        );
+        addTearDown(tracker.dispose);
+        final trackingMessages = <Object?>[];
+        tracker.watchTopicTrackingState(42, trackingMessages.add);
+        final refreshes = <Set<int>>[];
+        tracker.watchTopic(7, pluginRegistry.topicChannels(7), (channel, data) {
+          final ids = pluginRegistry.stalePosts(channel, data);
+          if (ids.isNotEmpty) refreshes.add(ids);
+        });
+
+        for (final channel in ['/latest', '/new']) {
+          bus.deliver(
+            channel,
+            jsonDecode('{"topic_id":1e999,"message_type":"new_topic"}'),
+          );
+          bus.deliver(channel, const {
+            'topic_id': 3.75,
+            'message_type': 'latest',
+          });
+        }
+        for (final channel in ['/polls/7', '/topic/7/reactions']) {
+          bus.deliver(channel, jsonDecode('{"post_id":1e999}'));
+          bus.deliver(channel, const {'post_id': 9.75});
+          bus.deliver(channel, const {'post_id': double.nan});
+        }
+        expect(incomingCalls, 0);
+        expect(tracker.incoming.topicIds('latest'), isEmpty);
+        expect(tracker.incoming.topicIds('new'), isEmpty);
+        expect(trackingMessages, hasLength(4));
+        expect(refreshes, isEmpty);
+
+        bus.deliver('/latest', const {
+          'topic_id': 7,
+          'message_type': 'new_topic',
+        });
+        bus.deliver('/new', const {
+          'topic_id': 7.0,
+          'message_type': 'new_topic',
+        });
+        bus.deliver('/latest', const {'topic_id': 8, 'message_type': 'latest'});
+        bus.deliver('/polls/7', const {'post_id': 9.0});
+        bus.deliver('/topic/7/reactions', const {'post_id': 10});
+
+        expect(incomingCalls, 2);
+        expect(tracker.incoming.topicIds('latest'), [7, 8]);
+        expect(tracker.incoming.topicIds('new'), [7]);
+        expect(trackingMessages, hasLength(7));
+        expect(refreshes, [
+          {9},
+          {10},
+        ]);
       });
 
       test('limits signed-out subscriptions to public topics', () async {
