@@ -2513,6 +2513,10 @@ already loaded for the same URL.
 Disk reads, writes and decoder removals share a queue per store and URL across
 avatar and emoji caches. A pending write finishes before rejection removes it,
 and a replacement cache observes those accepted operations before reading.
+Downloaded images reach their consumers before optional disk persistence
+finishes. Pending writes share a budget of 16 operations and 16 MiB of retained
+byte buffers across all caches, including retired pipelines. At capacity, new
+downloads skip persistence while still reaching their consumers.
 
 Chat authors also retain the optional `UserFlairMixin` fields supplied by the
 server. `ChatUserAvatar` overlays the group icon, image, or background badge
