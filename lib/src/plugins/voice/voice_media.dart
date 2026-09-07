@@ -2858,13 +2858,20 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
 
   @override
   Future<void> selectAudioInput(String deviceId) async {
-    final enabled = shouldPublishMicrophone;
-    await _room.localParticipant?.setMicrophoneEnabled(false);
-    if (enabled) {
-      await _room.localParticipant?.setMicrophoneEnabled(
-        true,
-        audioCaptureOptions: lk.AudioCaptureOptions(deviceId: deviceId),
-      );
+    if (_closing || disposed) return;
+    await _room.setAudioInputDevice(
+      lk.MediaDevice(deviceId, '', 'audioinput', null),
+    );
+    if (_closing || disposed) return;
+
+    // LiveKit 2.10 switches native input and room defaults, but leaves an
+    // existing track's options unchanged. Unmute restarts from those options;
+    // retain the device without restarting or changing the publication's mute.
+    final track = _room.localParticipant
+        ?.getTrackPublicationBySource(lk.TrackSource.microphone)
+        ?.track;
+    if (track is lk.LocalAudioTrack) {
+      track.currentOptions = track.currentOptions.copyWith(deviceId: deviceId);
     }
     changed();
   }
