@@ -1034,6 +1034,13 @@ Post bodies are the `cooked` field — HTML the site already rendered, with its
 markdown, oneboxes, mentions and emoji resolved. `flutter_widget_from_html_core`
 draws it; reimplementing any of that client side would be a mistake.
 
+Link click counts come from the post's `link_counts` payload. Each cooked
+renderer indexes exact URLs and internal URLs before query parameters once,
+with the last matching positive payload record winning across matching rules.
+Internal upload paths keep their literal substring match, including overlapping
+paths, through a small fallback scan. The index stores only payload entries
+(the post parser accepts at most 100), never anchors or rendered documents.
+
 Edit history follows the same server-owned rule. A post's guardian-filtered
 `version` supplies the passive pencil count (`version - 1`), while
 `can_view_edit_history` alone adds **View edit history** to the post's More

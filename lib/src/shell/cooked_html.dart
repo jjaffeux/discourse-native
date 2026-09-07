@@ -65,42 +65,48 @@ class CookedHtml extends StatelessWidget {
     PluginContainingTopic? containingTopic,
     PluginRegistry registry,
     Map<String, UserStatusReference> mentionedUserStatuses,
-  ) => (element) {
-    if (post != null) {
-      _decorateLinkCount(element, post.linkCounts);
-    }
+  ) {
+    final counts = post?.linkCounts;
+    final linkCounts = counts == null || counts.isEmpty
+        ? null
+        : _LinkCountIndex(counts);
+    return (element) {
+      if (linkCounts != null) {
+        _decorateLinkCount(element, linkCounts);
+      }
 
-    return _pluginWidget(
-          context,
-          element,
-          siteUrl,
-          post,
-          containingTopic,
-          registry,
-        ) ??
-        registry.cookedElement(siteUrl, element) ??
-        emojiWidgetBuilder(element, siteUrl, textStyle) ??
-        mentionWidgetBuilder(
-          element,
-          textStyle,
-          siteUrl: siteUrl,
-          userStatuses: mentionedUserStatuses,
-        ) ??
-        hashtagWidgetBuilder(
-          element,
-          textStyle,
-          siteUrl: siteUrl,
-          pluginPresentation: registry.pluginHashtagPresentation,
-        ) ??
-        imageGridWidgetBuilder(element, siteUrl: siteUrl) ??
-        lightboxWidgetBuilder(element, siteUrl: siteUrl) ??
-        inlineVideoWidgetBuilder(element, siteUrl: siteUrl) ??
-        youtubeVideoWidgetBuilder(element, siteUrl: siteUrl) ??
-        oneboxWidgetBuilder(element, siteUrl: siteUrl) ??
-        quoteWidgetBuilder(element, siteUrl: siteUrl) ??
-        codeBlockWidgetBuilder(element) ??
-        inlineCodeWidgetBuilder(element, textStyle);
-  };
+      return _pluginWidget(
+            context,
+            element,
+            siteUrl,
+            post,
+            containingTopic,
+            registry,
+          ) ??
+          registry.cookedElement(siteUrl, element) ??
+          emojiWidgetBuilder(element, siteUrl, textStyle) ??
+          mentionWidgetBuilder(
+            element,
+            textStyle,
+            siteUrl: siteUrl,
+            userStatuses: mentionedUserStatuses,
+          ) ??
+          hashtagWidgetBuilder(
+            element,
+            textStyle,
+            siteUrl: siteUrl,
+            pluginPresentation: registry.pluginHashtagPresentation,
+          ) ??
+          imageGridWidgetBuilder(element, siteUrl: siteUrl) ??
+          lightboxWidgetBuilder(element, siteUrl: siteUrl) ??
+          inlineVideoWidgetBuilder(element, siteUrl: siteUrl) ??
+          youtubeVideoWidgetBuilder(element, siteUrl: siteUrl) ??
+          oneboxWidgetBuilder(element, siteUrl: siteUrl) ??
+          quoteWidgetBuilder(element, siteUrl: siteUrl) ??
+          codeBlockWidgetBuilder(element) ??
+          inlineCodeWidgetBuilder(element, textStyle);
+    };
+  }
 
   static Widget? _pluginWidget(
     BuildContext context,
@@ -326,7 +332,7 @@ class _CompactParagraphMargins {
 
 const _linkClickCountClass = 'discourse-native-link-click-count';
 
-void _decorateLinkCount(dom.Element element, List<PostLinkCount> linkCounts) {
+void _decorateLinkCount(dom.Element element, _LinkCountIndex linkCounts) {
   if (element.localName != 'a' ||
       element.attributes.containsKey('data-clicks') ||
       !_isCountedLink(element)) {
@@ -336,16 +342,9 @@ void _decorateLinkCount(dom.Element element, List<PostLinkCount> linkCounts) {
   final href = element.attributes['href'];
   if (href == null) return;
 
-  PostLinkCount? matched;
-  for (final count in linkCounts) {
-    if (count.clicks > 0 && _linkCountMatches(href, count)) {
-      // Core applies the records in payload order, so the final duplicate wins.
-      matched = count;
-    }
-  }
-  if (matched == null || !_isBestOneboxLink(element)) return;
+  final count = linkCounts.clicksFor(href);
+  if (count == null || !_isBestOneboxLink(element)) return;
 
-  final count = matched.clicks;
   final linkLabel = element.text.trim();
   final clickLabel = count == 1
       ? 'link clicked 1 time'
@@ -361,14 +360,54 @@ void _decorateLinkCount(dom.Element element, List<PostLinkCount> linkCounts) {
   );
 }
 
-bool _linkCountMatches(String href, PostLinkCount count) {
-  if (href == count.url) return true;
-  if (!count.internal) return false;
-  if (count.url.startsWith('/uploads/') && href.contains(count.url)) {
-    return true;
+typedef _LinkCountMatch = ({int order, int clicks});
+
+// Owned by one renderer's callback; storage depends only on its payload, never
+// on the number of anchors or reparsed documents passed through the callback.
+class _LinkCountIndex {
+  _LinkCountIndex(List<PostLinkCount> counts) {
+    for (final (order, count) in counts.indexed) {
+      if (count.clicks <= 0) continue;
+      final url = count.url;
+      final match = (order: order, clicks: count.clicks);
+      _exact[url] = match;
+      if (!count.internal) continue;
+      _internal[url] = match;
+      if (url.startsWith('/uploads/')) {
+        _uploads.add((url: url, match: match));
+      }
+    }
   }
-  final query = href.indexOf('?');
-  return query >= 0 && href.substring(0, query) == count.url;
+
+  final _exact = <String, _LinkCountMatch>{};
+  final _internal = <String, _LinkCountMatch>{};
+  final _uploads = <({String url, _LinkCountMatch match})>[];
+
+  int? clicksFor(String href) {
+    var matched = _exact[href];
+    if (_internal.isNotEmpty) {
+      final query = href.indexOf('?');
+      if (query >= 0) {
+        final internal = _internal[href.substring(0, query)];
+        // Payload order also wins across different kinds of matches.
+        if (internal != null &&
+            (matched == null || internal.order > matched.order)) {
+          matched = internal;
+        }
+      }
+    }
+
+    // Upload paths can overlap and occur anywhere in an href. Keep their
+    // literal contains rule, examining only records newer than the best match.
+    for (final upload in _uploads.reversed) {
+      if (matched != null && upload.match.order <= matched.order) break;
+      if (href.contains(upload.url)) {
+        matched = upload.match;
+        break;
+      }
+    }
+    return matched?.clicks;
+  }
 }
 
 bool _isCountedLink(dom.Element link) {
