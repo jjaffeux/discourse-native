@@ -69,6 +69,84 @@ void main() {
       },
     );
 
+    for (final failActive in [false, true]) {
+      test(
+        'invalidate drops queued work and ignores the active ${failActive ? 'error' : 'result'}',
+        () async {
+          final active = Completer<String>();
+          final started = <String>[];
+          final results = <String>[];
+          final errors = <Object>[];
+          final subject = LatestWinsQueuedLookupController<String, String>(
+            lookup: (term) {
+              started.add(term);
+              return term == 'active'
+                  ? active.future
+                  : Future.value('$term result');
+            },
+            onResult: results.add,
+            onError: (error, _) => errors.add(error),
+          );
+          addTearDown(subject.dispose);
+
+          subject
+            ..request('active')
+            ..request('queued')
+            ..invalidate();
+          if (failActive) {
+            active.completeError(StateError('stale'));
+          } else {
+            active.complete('stale result');
+          }
+          await _drainMicrotasks();
+
+          expect(started, ['active']);
+          expect(results, isEmpty);
+          expect(errors, isEmpty);
+
+          subject.request('current');
+          await _drainMicrotasks();
+          expect(started, ['active', 'current']);
+          expect(results, ['current result']);
+        },
+      );
+    }
+
+    test(
+      'invalidation keeps new requests queued behind the active lookup',
+      () async {
+        final active = Completer<String>();
+        final newest = Completer<String>();
+        final started = <String>[];
+        final results = <String>[];
+        final subject = LatestWinsQueuedLookupController<String, String>(
+          lookup: (term) {
+            started.add(term);
+            return term == 'active' ? active.future : newest.future;
+          },
+          onResult: results.add,
+          onError: (error, _) => fail('unexpected error: $error'),
+        );
+        addTearDown(subject.dispose);
+
+        subject
+          ..request('active')
+          ..invalidate()
+          ..request('superseded')
+          ..request('newest');
+        expect(started, ['active']);
+
+        active.complete('stale result');
+        await _drainMicrotasks();
+        expect(started, ['active', 'newest']);
+        expect(results, isEmpty);
+
+        newest.complete('newest result');
+        await _drainMicrotasks();
+        expect(results, ['newest result']);
+      },
+    );
+
     test('rejects stale errors and delivers the newest error', () async {
       final first = Completer<String>();
       final second = Completer<String>();

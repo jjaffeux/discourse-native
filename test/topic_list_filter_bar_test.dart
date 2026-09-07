@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
+import 'package:discourse_native/src/shell/anchored_picker.dart';
 import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
@@ -42,8 +45,11 @@ void main() {
     List<TopicCategory>? categories,
     int? selectedCategoryId,
     String? selectedTagName,
+    List<String>? selectedTagNames,
+    TopicListTagSearch? searchTags,
     ValueChanged<TopicCategory?>? onCategorySelected,
     ValueChanged<String?>? onTagSelected,
+    ValueChanged<List<String>>? onTagsSelected,
     Size size = const Size(390, 844),
     TargetPlatform platform = TargetPlatform.iOS,
   }) async {
@@ -62,12 +68,16 @@ void main() {
               knownTags: knownTags,
               selectedCategoryId: selectedCategoryId,
               selectedTagName: selectedTagName,
+              selectedTagNames: selectedTagNames,
               taggingEnabled: true,
-              searchTags: (term) async => term == 'design'
-                  ? const [TopicFilterLookupValue(name: 'design-system')]
-                  : const [],
+              searchTags:
+                  searchTags ??
+                  (term) async => term == 'design'
+                      ? const [TopicFilterLookupValue(name: 'design-system')]
+                      : const [],
               onCategorySelected: onCategorySelected ?? (_) {},
               onTagSelected: onTagSelected ?? (_) {},
+              onTagsSelected: onTagsSelected,
             ),
           ),
         ),
@@ -419,6 +429,232 @@ void main() {
 
     expect(selected.single, 'design-system');
   });
+
+  for (final failOldSearch in [false, true]) {
+    testWidgets(
+      'ignores stale tag ${failOldSearch ? 'errors' : 'results'} during debounce',
+      (tester) async {
+        final alpha = Completer<List<TopicFilterLookupValue>>();
+        final beta = Completer<List<TopicFilterLookupValue>>();
+        final started = <String>[];
+        final selected = <String?>[];
+        await pumpBar(
+          tester,
+          platform: TargetPlatform.macOS,
+          onTagSelected: selected.add,
+          searchTags: (term) {
+            started.add(term);
+            return switch (term) {
+              'alpha' => alpha.future,
+              'beta' => beta.future,
+              _ => Future.value(const []),
+            };
+          },
+        );
+        await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
+        await tester.pumpAndSettle();
+        final query = find.byKey(const ValueKey('topic-list-tag-filter-query'));
+
+        await tester.enterText(query, 'alpha');
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(started, ['', 'alpha']);
+
+        await tester.enterText(query, 'beta');
+        if (failOldSearch) {
+          alpha.completeError(StateError('stale search failed'));
+        } else {
+          alpha.complete(const [TopicFilterLookupValue(name: 'alpha-tag')]);
+        }
+        await tester.pump();
+
+        expect(find.text('alpha-tag'), findsNothing);
+        expect(find.byType(AnchoredPickerProgress), findsOneWidget);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump();
+        expect(selected, isEmpty);
+        expect(query, findsOneWidget);
+
+        await tester.pump(const Duration(milliseconds: 249));
+        expect(started, ['', 'alpha']);
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(started, ['', 'alpha', 'beta']);
+        beta.complete(const [TopicFilterLookupValue(name: 'beta-tag')]);
+        await tester.pumpAndSettle();
+        expect(find.text('beta-tag'), findsOneWidget);
+
+        await tester.showKeyboard(query);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+        expect(selected, ['beta-tag']);
+        expect(query, findsNothing);
+      },
+    );
+  }
+
+  for (final duringRequest in [false, true]) {
+    testWidgets(
+      'Enter ignores previous tag results ${duringRequest ? 'during search' : 'before debounce'}',
+      (tester) async {
+        final beta = Completer<List<TopicFilterLookupValue>>();
+        final selected = <String?>[];
+        final started = <String>[];
+        await pumpBar(
+          tester,
+          platform: TargetPlatform.macOS,
+          onTagSelected: selected.add,
+          searchTags: (term) {
+            started.add(term);
+            return term == 'beta'
+                ? beta.future
+                : Future.value(const [
+                    TopicFilterLookupValue(name: 'alpha-tag'),
+                  ]);
+          },
+        );
+        await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
+        await tester.pumpAndSettle();
+        final query = find.byKey(const ValueKey('topic-list-tag-filter-query'));
+        await tester.enterText(query, 'alpha');
+        await tester.pumpAndSettle(const Duration(milliseconds: 250));
+        expect(find.text('alpha-tag'), findsOneWidget);
+
+        await tester.enterText(query, 'beta');
+        await tester.pump(
+          duringRequest ? const Duration(milliseconds: 250) : Duration.zero,
+        );
+        expect(started, ['', 'alpha', if (duringRequest) 'beta']);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump();
+
+        expect(selected, isEmpty);
+        expect(query, findsOneWidget);
+        expect(find.text('alpha-tag'), findsNothing);
+        expect(find.byType(AnchoredPickerProgress), findsOneWidget);
+        if (!duringRequest) {
+          await tester.pump(const Duration(milliseconds: 250));
+        }
+        beta.complete(const [TopicFilterLookupValue(name: 'beta-tag')]);
+        await tester.pumpAndSettle();
+        await tester.showKeyboard(query);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+
+        expect(selected, ['beta-tag']);
+      },
+    );
+  }
+
+  testWidgets('drops superseded queued tag searches and keeps lookups serial', (
+    tester,
+  ) async {
+    final alpha = Completer<List<TopicFilterLookupValue>>();
+    final delta = Completer<List<TopicFilterLookupValue>>();
+    final started = <String>[];
+    await pumpBar(
+      tester,
+      platform: TargetPlatform.macOS,
+      searchTags: (term) {
+        started.add(term);
+        return switch (term) {
+          'alpha' => alpha.future,
+          'delta' => delta.future,
+          _ => Future.value(const []),
+        };
+      },
+    );
+    await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
+    await tester.pumpAndSettle();
+    final query = find.byKey(const ValueKey('topic-list-tag-filter-query'));
+
+    await tester.enterText(query, 'alpha');
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.enterText(query, 'beta');
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(started, ['', 'alpha']);
+
+    await tester.enterText(query, 'gamma');
+    alpha.complete(const [TopicFilterLookupValue(name: 'alpha-tag')]);
+    await tester.pump();
+    expect(started, ['', 'alpha']);
+    expect(find.byType(AnchoredPickerProgress), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.enterText(query, 'delta');
+    await tester.pump(const Duration(milliseconds: 249));
+    expect(started, ['', 'alpha']);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(started, ['', 'alpha', 'delta']);
+    delta.complete(const [TopicFilterLookupValue(name: 'delta-tag')]);
+    await tester.pumpAndSettle();
+    expect(find.text('delta-tag'), findsOneWidget);
+    expect(find.text('alpha-tag'), findsNothing);
+  });
+
+  for (final multiple in [false, true]) {
+    testWidgets(
+      'preserves known tag fallback and All tags in ${multiple ? 'multiple' : 'single'} selection mode',
+      (tester) async {
+        final selected = <String?>[];
+        final selections = <List<String>>[];
+        final pending = Completer<List<TopicFilterLookupValue>>();
+        await pumpBar(
+          tester,
+          platform: TargetPlatform.macOS,
+          selectedTagName: multiple ? 'Native' : 'native',
+          selectedTagNames: multiple
+              ? const ['Native', 'User experience']
+              : null,
+          onTagSelected: selected.add,
+          onTagsSelected: multiple ? selections.add : null,
+          searchTags: (term) => term == 'pending'
+              ? pending.future
+              : Future.error(StateError('search unavailable')),
+        );
+        final anchor = find.byKey(const ValueKey('topic-list-tag-filter'));
+        final query = find.byKey(const ValueKey('topic-list-tag-filter-query'));
+        await tester.tap(anchor);
+        await tester.pumpAndSettle();
+        await tester.enterText(query, ' UX ');
+        await tester.pumpAndSettle(const Duration(milliseconds: 250));
+
+        final known = find.byKey(
+          ValueKey((
+            'topic-list-tag-filter-option',
+            multiple ? 'User experience' : 'ux',
+          )),
+        );
+        expect(known, findsOneWidget);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+        if (multiple) {
+          expect(selections, [
+            <String>['Native'],
+          ]);
+          expect(selected, isEmpty);
+        } else {
+          expect(selected, ['ux']);
+        }
+
+        await tester.tap(anchor);
+        await tester.pumpAndSettle();
+        await tester.enterText(query, 'pending');
+        await tester.pump(const Duration(milliseconds: 250));
+        await tester.tap(
+          find.byKey(const ValueKey('topic-list-tag-filter-all')),
+        );
+        await tester.pumpAndSettle();
+        expect(query, findsNothing);
+        if (multiple) {
+          expect(selections.last, isEmpty);
+        } else {
+          expect(selected, ['ux', null]);
+        }
+        pending.complete(const [TopicFilterLookupValue(name: 'late-tag')]);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('filters subcategories and accepts keyboard selection', (
     tester,
