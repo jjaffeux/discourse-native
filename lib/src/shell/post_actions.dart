@@ -490,7 +490,7 @@ class _PostActionsState extends State<PostActions> {
             tooltip: 'Edit topic tags',
             onInvoke: controller.openTagsEdit,
           ),
-        if (controller.canPermanentlyDeletePost(post))
+        if (topic != null && controller.canPermanentlyDeletePost(post))
           PostAction(
             icon: DIcons.trashCan,
             placement: PostActionPlacement.overflow,
@@ -501,6 +501,8 @@ class _PostActionsState extends State<PostActions> {
               showPostPermanentDelete(
                 context: context,
                 controller: controller,
+                siteUrl: widget.siteUrl,
+                topicId: topic.id,
                 post: post,
               ),
             ),
