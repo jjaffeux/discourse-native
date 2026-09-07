@@ -300,6 +300,7 @@ final class EventController extends FrameSafeNotifier
       credentials,
       attendingUser: username,
       search: search,
+      upcoming: true,
     );
     if (!lease.isCurrent || isDisposed) {
       throw const WriteException(WriteFailure.forbidden);

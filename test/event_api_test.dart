@@ -128,4 +128,88 @@ void main() {
       expect(transport.reads.last.path, path);
     },
   );
+
+  group('event list date bounds', () {
+    for (final (name, upcoming, after, before, dates) in [
+      (
+        'unbounded requests retain historical events',
+        false,
+        null,
+        null,
+        <String, String>{},
+      ),
+      (
+        'upcoming requests use server now and retain an upper bound',
+        true,
+        null,
+        DateTime.parse('2100-02-01T12:00:00+02:00'),
+        {'after': 'now', 'before': '2100-02-01T10:00:00.000Z'},
+      ),
+      (
+        'historical ranges retain both UTC bounds',
+        false,
+        DateTime.parse('2000-01-01T12:00:00+02:00'),
+        DateTime.parse('2000-02-01T12:00:00+02:00'),
+        {
+          'after': '2000-01-01T10:00:00.000Z',
+          'before': '2000-02-01T10:00:00.000Z',
+        },
+      ),
+      (
+        'an explicit lower bound takes precedence over upcoming',
+        true,
+        DateTime.parse('2000-01-01T12:00:00+02:00'),
+        null,
+        {'after': '2000-01-01T10:00:00.000Z'},
+      ),
+      (
+        'an upper bound does not introduce an upcoming lower bound',
+        false,
+        null,
+        DateTime.parse('2000-02-01T12:00:00+02:00'),
+        {'before': '2000-02-01T10:00:00.000Z'},
+      ),
+    ]) {
+      test(name, () async {
+        final path = Uri(
+          path: '/discourse-post-event/events.json',
+          queryParameters: {
+            'include_details': 'true',
+            'include_ongoing': 'true',
+            'order': 'asc',
+            'limit': '200',
+            ...dates,
+          },
+        ).toString();
+        final transport = RecordingPluginTransport(
+          responses: {
+            'GET $path': {
+              'events': [
+                eventJson(
+                  overrides: {
+                    'recurrence': null,
+                    'starts_at': '2000-01-02T10:00:00Z',
+                    'ends_at': '2000-01-02T11:00:00Z',
+                  },
+                ),
+              ],
+            },
+          },
+        );
+
+        final result = await EventApi(transport).list(
+          eventSite,
+          credentials,
+          upcoming: upcoming,
+          after: after,
+          before: before,
+        );
+
+        expect(result.map((event) => event.id), [42]);
+        expect(transport.requests.map((r) => (r.method, r.path)), [
+          ('GET', path),
+        ]);
+      });
+    }
+  });
 }

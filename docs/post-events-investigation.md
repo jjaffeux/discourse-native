@@ -87,6 +87,17 @@ means a persisted invitee ID. JSON suffixes are supported by the request specs.
 | Export calendar | `GET /discourse-post-event/events.ics` | Filterable authenticated calendar feed |
 | Delete event record | `DELETE /discourse-post-event/events/E.json` | Exists, but the normal editor removes the raw block through post editing |
 
+The JSON index does not supply a default `after` bound to Finder. Its fallback
+to `Time.current` only controls recurring occurrence expansion; non-recurring
+occurrences retain their original dates. Upcoming / My Events must request
+`after=now` with `include_ongoing=true` so completed non-recurring events cannot
+fill the ascending query's first 200 rows. Finder resolves `now` using the
+server clock and retains events whose end is at or after that bound. Explicit
+historical API ranges and the ICS snapshot's server defaults remain separate.
+See [the index](/Users/joffreyjaffeux/Code/pr-discourse/plugins/discourse-events/app/controllers/discourse_events/events_controller.rb:9),
+[date filtering](/Users/joffreyjaffeux/Code/pr-discourse/plugins/discourse-events/lib/discourse_events/events/finder.rb:139),
+and [occurrence expansion](/Users/joffreyjaffeux/Code/pr-discourse/plugins/discourse-events/app/services/discourse_events/events/action/expand_occurrences.rb:24).
+
 There is **no registered event-create or event-update JSON endpoint** in this
 checkout. The JS API service still contains an `updateEvent` helper that issues
 a PUT to an unregistered route. Implement against routes, controllers, and
@@ -363,7 +374,8 @@ The remaining feature surfaces can stay in the same module:
   notification enum members or special counter are necessary.
 - Upcoming / My Events can use the existing content and route seams. Respect
   basic versus detailed list responses, server filtering/privacy, occurrence
-  expansion, and the list limit (default 50, capped at 200). A calendar page is
+  expansion, and the event query limit (default and maximum 200). Occurrence
+  expansion defaults to 50 per event and is capped at 200. A calendar page is
   additional product work beyond the post card.
 - For calendar export, prefer the server ICS representation when implementing
   authenticated feeds. `PluginApiTransport` currently returns JSON only: add a
