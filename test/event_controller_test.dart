@@ -19,6 +19,47 @@ void main() {
   });
   tearDown(() => ports.close());
 
+  for (final mine in [false, true]) {
+    for (final search in [null, 'planning & review']) {
+      test(
+        '${mine ? 'my' : 'upcoming'} events ${search == null ? 'without search' : 'with search'} request server now before the result limit',
+        () async {
+          final path = Uri(
+            path: '/discourse-post-event/events.json',
+            queryParameters: {
+              'include_details': 'true',
+              'include_ongoing': 'true',
+              'order': 'asc',
+              'limit': '200',
+              if (mine) 'attending_user': 'lee',
+              if (mine) 'include_interested': 'true',
+              'search': ?search,
+              'after': 'now',
+            },
+          ).toString();
+          ports.transport.responses['GET $path'] = {
+            'events': [current],
+          };
+
+          final rows = await ports.controller.list(
+            eventSite,
+            mine: mine,
+            search: search,
+          );
+
+          expect(rows.map((event) => event.id), [42]);
+          expect(ports.transport.requests.map((r) => (r.method, r.path)), [
+            ('GET', path),
+          ]);
+          final request = ports.transport.requests.single;
+          expect(request.siteUrl, eventSite);
+          expect(request.apiKey, 'key');
+          expect(request.clientId, 'test-client');
+        },
+      );
+    }
+  }
+
   test(
     'two cards share hydration and a reference-counted subscription',
     () async {

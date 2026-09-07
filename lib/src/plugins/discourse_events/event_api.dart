@@ -31,11 +31,13 @@ final class EventApi {
     return event;
   }
 
+  /// [upcoming] uses the server's current time unless [after] is provided.
   Future<List<PostEvent>> list(
     String site,
     PluginRequestCredentials credentials, {
     String? attendingUser,
     String? search,
+    bool upcoming = false,
     DateTime? after,
     DateTime? before,
   }) async {
@@ -49,7 +51,7 @@ final class EventApi {
         'attending_user': ?attendingUser,
         if (attendingUser != null) 'include_interested': 'true',
         'search': ?search,
-        'after': ?after?.toUtc().toIso8601String(),
+        'after': ?after?.toUtc().toIso8601String() ?? (upcoming ? 'now' : null),
         'before': ?before?.toUtc().toIso8601String(),
       },
     ).toString();
