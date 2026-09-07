@@ -34,6 +34,16 @@ Future<void> drain() async {
   }
 }
 
+class CountingCredentials extends FakeApiCredentialReader {
+  int reads = 0;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    reads++;
+    return super.apiKeyFor(siteUrl);
+  }
+}
+
 void main() {
   late FakeApiCredentialReader credentials;
   late Store store;
@@ -44,6 +54,135 @@ void main() {
     store = Store();
     lifecycle = SiteLifecycle();
   });
+
+  for (final scoped in [false, true]) {
+    final scope = scoped ? 'scoped' : 'global';
+    testWidgets('$scope rejects overlong retries and sort changes', (
+      tester,
+    ) async {
+      final credentials = CountingCredentials()..keys[site] = 'key';
+      final api = FakeDiscourseApi();
+      final search = ChatSearchController(
+        api: api,
+        requests: FakePluginRequestHost(credentials: credentials),
+        store: store,
+      );
+      addTearDown(search.dispose);
+      final query = 'x' * (ChatSearchController.maximumQueryLength + 1);
+      final phases = <ChatSearchPhase>[];
+      if (scoped) {
+        search.setScopedQuery(site, 9, query);
+        search.scopedRef(site, 9).addListener(() {
+          phases.add(search.scopedState(site, 9).phase);
+        });
+        search.retryScoped(site, 9);
+      } else {
+        search.setGlobalQuery(site, query);
+        search.globalRef(site).addListener(() {
+          phases.add(search.globalState(site).phase);
+        });
+        await search.retryGlobal(site);
+        search.setGlobalSort(site, ChatSearchSort.latest);
+      }
+      await tester.pump(const Duration(seconds: 1));
+      expect(credentials.reads, 0);
+      expect(api.chatSearchesRequested, isEmpty);
+      expect(phases, everyElement(ChatSearchPhase.failed));
+      expect(
+        scoped
+            ? search.scopedState(site, 9).error
+            : search.globalState(site).error,
+        'Search terms must be at most 2048 characters.',
+      );
+      if (!scoped) expect(search.globalState(site).sort, ChatSearchSort.latest);
+    });
+
+    for (final phase in [ChatSearchPhase.waiting, ChatSearchPhase.loading]) {
+      for (final action in [
+        'replace',
+        'clear',
+        'forget',
+        'invalidate',
+        if (phase == ChatSearchPhase.waiting) 'retry',
+      ]) {
+        testWidgets('$scope $action during $phase notification', (
+          tester,
+        ) async {
+          final credentials = CountingCredentials()..keys[site] = 'key';
+          final api = FakeDiscourseApi();
+          final search = ChatSearchController(
+            api: api,
+            requests: FakePluginRequestHost(
+              credentials: credentials,
+              lifecycle: lifecycle,
+            ),
+            store: store,
+          );
+          addTearDown(search.dispose);
+          void setQuery(String query) {
+            if (scoped) {
+              search.setScopedQuery(site, 9, query);
+            } else {
+              search.setGlobalQuery(site, query);
+            }
+          }
+
+          var changed = false;
+          void listener() {
+            final currentPhase = scoped
+                ? search.scopedState(site, 9).phase
+                : search.globalState(site).phase;
+            if (changed || currentPhase != phase) return;
+            changed = true;
+            switch (action) {
+              case 'replace':
+                setQuery('new');
+              case 'clear':
+                setQuery('');
+              case 'forget':
+                search.forget(site);
+              case 'invalidate':
+                lifecycle.invalidate(site);
+              case 'retry':
+                if (scoped) {
+                  search.retryScoped(site, 9);
+                } else {
+                  unawaited(search.retryGlobal(site));
+                }
+            }
+          }
+
+          if (scoped) {
+            search.scopedRef(site, 9).addListener(listener);
+          } else {
+            search.globalRef(site).addListener(listener);
+          }
+          setQuery('old');
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(changed, isTrue);
+          final expected = action == 'replace'
+              ? ['new']
+              : action == 'retry'
+              ? ['old']
+              : <String>[];
+          expect(
+            api.chatSearchesRequested.map((request) => request.query),
+            expected,
+          );
+          expect(credentials.reads, expected.length);
+          if (action == 'replace' || action == 'clear' || action == 'forget') {
+            expect(
+              scoped
+                  ? search.scopedState(site, 9).query
+                  : search.globalState(site).query,
+              action == 'replace' ? 'new' : '',
+            );
+          }
+        });
+      }
+    }
+  }
 
   group('global search', () {
     test('stores results and appends unique pages', () async {
@@ -93,6 +232,48 @@ void main() {
       ]);
       expect(api.chatSearchesRequested.last.offset, 4);
     });
+
+    test(
+      'retry and sort restart pagination and retain the state ref',
+      () async {
+        final api = FakeDiscourseApi(
+          chatSearchPagesByKey: {
+            for (final sort in ChatSearchSort.values)
+              FakeDiscourseApi.chatSearchKey('needle', sort: sort):
+                  ChatSearchPage(hits: [hit(1)], hasMore: true),
+            FakeDiscourseApi.chatSearchKey('needle', offset: 1): ChatSearchPage(
+              hits: [hit(2)],
+              hasMore: true,
+            ),
+          },
+        );
+        final search = ChatSearchController(
+          api: api,
+          requests: FakePluginRequestHost(credentials: credentials),
+          store: store,
+          debounceDuration: Duration.zero,
+        );
+        addTearDown(search.dispose);
+        final ref = search.globalRef(site);
+        search.setGlobalQuery(site, 'needle');
+        await drain();
+        search.loadMore(site);
+        await drain();
+        expect(ref.value.nextOffset, 2);
+        await search.retryGlobal(site);
+        expect(ref.value.nextOffset, 1);
+        expect(ref.value.hits.map((hit) => hit.id), [1]);
+        search.loadMore(site);
+        await drain();
+        search.setGlobalSort(site, ChatSearchSort.latest);
+        await drain();
+        expect(ref.value.nextOffset, 1);
+        expect(api.chatSearchesRequested.last.offset, 0);
+        expect(api.chatSearchesRequested.last.sort, ChatSearchSort.latest);
+        expect(identical(ref, search.globalRef(site)), isTrue);
+        expect(ref.value, search.globalState(site));
+      },
+    );
 
     test('a newer query owns the answer', () async {
       final gate = Completer<void>();

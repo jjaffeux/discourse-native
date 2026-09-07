@@ -204,6 +204,10 @@ final class ChatSearchController {
       );
       return;
     }
+    // Listeners may replace or cancel this operation while state is published.
+    final run = Object();
+    _globalRequests[siteUrl] = run;
+    final lease = _requests.capture(siteUrl);
     _setGlobal(
       siteUrl,
       GlobalChatSearchState(
@@ -212,10 +216,18 @@ final class ChatSearchController {
         phase: ChatSearchPhase.waiting,
       ),
     );
-    _globalTimers[siteUrl] = Timer(
-      debounceDuration,
-      () => _searchGlobal(siteUrl),
-    );
+    if (_disposed ||
+        !lease.isCurrent ||
+        !identical(_globalRequests[siteUrl], run)) {
+      return;
+    }
+    _globalTimers[siteUrl] = Timer(debounceDuration, () {
+      if (!_disposed &&
+          lease.isCurrent &&
+          identical(_globalRequests[siteUrl], run)) {
+        unawaited(_searchGlobal(siteUrl));
+      }
+    });
   }
 
   void setGlobalSort(String siteUrl, ChatSearchSort sort) {
@@ -223,28 +235,13 @@ final class ChatSearchController {
     final held = globalState(siteUrl);
     if (held.sort == sort) return;
     _cancelGlobal(siteUrl);
-    final phase = held.hasQuery
-        ? ChatSearchPhase.loading
-        : ChatSearchPhase.idle;
-    _setGlobal(
-      siteUrl,
-      GlobalChatSearchState(query: held.query, sort: sort, phase: phase),
-    );
-    if (held.hasQuery) unawaited(_searchGlobal(siteUrl));
+    unawaited(_searchGlobal(siteUrl, sort: sort));
   }
 
   Future<void> retryGlobal(String siteUrl) async {
     final held = globalState(siteUrl);
     if (_disposed || !held.hasQuery || held.loadingMore) return;
     _cancelGlobal(siteUrl);
-    _setGlobal(
-      siteUrl,
-      GlobalChatSearchState(
-        query: held.query,
-        sort: held.sort,
-        phase: ChatSearchPhase.loading,
-      ),
-    );
     await _searchGlobal(siteUrl);
   }
 
@@ -253,38 +250,34 @@ final class ChatSearchController {
     if (_disposed || held.hits.isEmpty || !held.hasMore || held.loadingMore) {
       return;
     }
-    _globalRequests.remove(siteUrl);
-    _setGlobal(
-      siteUrl,
-      GlobalChatSearchState(
-        query: held.query,
-        sort: held.sort,
-        phase: ChatSearchPhase.results,
-        hits: held.hits,
-        hasMore: held.hasMore,
-        nextOffset: held.nextOffset,
-        loadingMore: true,
-      ),
-    );
     unawaited(_searchGlobal(siteUrl, append: true));
   }
 
-  Future<void> _searchGlobal(String siteUrl, {bool append = false}) async {
+  Future<void> _searchGlobal(
+    String siteUrl, {
+    bool append = false,
+    ChatSearchSort? sort,
+  }) async {
     _globalTimers.remove(siteUrl)?.cancel();
     if (_disposed) return;
     final held = globalState(siteUrl);
     final term = held.query.trim();
-    if (term.isEmpty) return;
-    if (!append) {
+    final requestedSort = sort ?? held.sort;
+    if (term.isEmpty || term.length > maximumQueryLength) {
       _setGlobal(
         siteUrl,
         GlobalChatSearchState(
           query: held.query,
-          sort: held.sort,
-          phase: ChatSearchPhase.loading,
+          sort: requestedSort,
+          phase: term.isEmpty ? ChatSearchPhase.idle : ChatSearchPhase.failed,
+          error: term.isEmpty
+              ? null
+              : 'Search terms must be at most $maximumQueryLength characters.',
         ),
       );
+      return;
     }
+    // Listeners may replace or cancel this operation while state is published.
     final run = Object();
     _globalRequests[siteUrl] = run;
     final lease = _requests.capture(siteUrl);
@@ -294,6 +287,31 @@ final class ChatSearchController {
         identical(_globalRequests[siteUrl], run);
 
     try {
+      if (!current()) return;
+      if (append) {
+        _setGlobal(
+          siteUrl,
+          GlobalChatSearchState(
+            query: held.query,
+            sort: requestedSort,
+            phase: ChatSearchPhase.results,
+            hits: held.hits,
+            hasMore: held.hasMore,
+            nextOffset: held.nextOffset,
+            loadingMore: true,
+          ),
+        );
+      } else {
+        _setGlobal(
+          siteUrl,
+          GlobalChatSearchState(
+            query: held.query,
+            sort: requestedSort,
+            phase: ChatSearchPhase.loading,
+          ),
+        );
+      }
+      if (!current()) return;
       final requestCredentials = await _requests.credentialsFor(siteUrl);
       final apiKey = requestCredentials.apiKey;
       if (!current()) return;
@@ -305,7 +323,7 @@ final class ChatSearchController {
         apiKey: apiKey,
         clientId: clientId,
         query: term,
-        sort: held.sort,
+        sort: requestedSort,
         offset: append ? held.nextOffset : 0,
       );
       if (!current()) return;
@@ -316,13 +334,13 @@ final class ChatSearchController {
           siteUrl,
           GlobalChatSearchState(
             query: held.query,
-            sort: held.sort,
+            sort: requestedSort,
             phase: hits.isEmpty
                 ? ChatSearchPhase.empty
                 : ChatSearchPhase.results,
             hits: hits,
             hasMore: page.hasMore,
-            nextOffset: held.nextOffset + page.consumedCount,
+            nextOffset: (append ? held.nextOffset : 0) + page.consumedCount,
           ),
         );
       });
@@ -335,7 +353,7 @@ final class ChatSearchController {
           append
               ? GlobalChatSearchState(
                   query: held.query,
-                  sort: held.sort,
+                  sort: requestedSort,
                   phase: ChatSearchPhase.results,
                   hits: held.hits,
                   hasMore: held.hasMore,
@@ -344,7 +362,7 @@ final class ChatSearchController {
                 )
               : GlobalChatSearchState(
                   query: held.query,
-                  sort: held.sort,
+                  sort: requestedSort,
                   phase: ChatSearchPhase.failed,
                   error: 'Could not search Chat. Try again.',
                 ),
@@ -435,6 +453,9 @@ final class ChatSearchController {
       );
       return;
     }
+    final run = Object();
+    _scopedRequests[key] = run;
+    final lease = _requests.capture(siteUrl);
     _setScoped(
       siteUrl,
       channelId,
@@ -445,10 +466,18 @@ final class ChatSearchController {
         selectionRevision: held.selectionRevision,
       ),
     );
-    _scopedTimers[key] = Timer(
-      debounceDuration,
-      () => _searchScoped(siteUrl, channelId),
-    );
+    if (_disposed ||
+        !lease.isCurrent ||
+        !identical(_scopedRequests[key], run)) {
+      return;
+    }
+    _scopedTimers[key] = Timer(debounceDuration, () {
+      if (!_disposed &&
+          lease.isCurrent &&
+          identical(_scopedRequests[key], run)) {
+        unawaited(_searchScoped(siteUrl, channelId));
+      }
+    });
   }
 
   void retryScoped(String siteUrl, int channelId) {
@@ -456,16 +485,6 @@ final class ChatSearchController {
     if (_disposed || held.query.trim().isEmpty) return;
     final key = _scopedKey(siteUrl, channelId);
     _cancelScoped(key);
-    _setScoped(
-      siteUrl,
-      channelId,
-      ScopedChatSearchState(
-        open: true,
-        query: held.query,
-        phase: ChatSearchPhase.loading,
-        selectionRevision: held.selectionRevision,
-      ),
-    );
     unawaited(_searchScoped(siteUrl, channelId));
   }
 
@@ -476,16 +495,20 @@ final class ChatSearchController {
     final held = scopedState(siteUrl, channelId);
     final term = held.query.trim();
     if (!held.open || term.isEmpty) return;
-    _setScoped(
-      siteUrl,
-      channelId,
-      ScopedChatSearchState(
-        open: true,
-        query: held.query,
-        phase: ChatSearchPhase.loading,
-        selectionRevision: held.selectionRevision,
-      ),
-    );
+    if (term.length > maximumQueryLength) {
+      _setScoped(
+        siteUrl,
+        channelId,
+        ScopedChatSearchState(
+          open: true,
+          query: held.query,
+          phase: ChatSearchPhase.failed,
+          selectionRevision: held.selectionRevision,
+          error: 'Search terms must be at most $maximumQueryLength characters.',
+        ),
+      );
+      return;
+    }
     final run = Object();
     _scopedRequests[key] = run;
     final lease = _requests.capture(siteUrl);
@@ -496,6 +519,18 @@ final class ChatSearchController {
         scopedState(siteUrl, channelId).open;
 
     try {
+      if (!current()) return;
+      _setScoped(
+        siteUrl,
+        channelId,
+        ScopedChatSearchState(
+          open: true,
+          query: held.query,
+          phase: ChatSearchPhase.loading,
+          selectionRevision: held.selectionRevision,
+        ),
+      );
+      if (!current()) return;
       final requestCredentials = await _requests.credentialsFor(siteUrl);
       final apiKey = requestCredentials.apiKey;
       if (!current()) return;
@@ -622,6 +657,7 @@ final class ChatSearchController {
         in _scopedTimers.keys.where((key) => key.startsWith(prefix)).toList()) {
       _cancelScoped(key);
     }
+    _scopedRequests.removeWhere((key, _) => key.startsWith(prefix));
     _scoped.removeWhere((key, _) => key.startsWith(prefix));
     final forgotten = <FrameSafeValueNotifier<ScopedChatSearchState>>[];
     _scopedRefs.removeWhere((key, ref) {
