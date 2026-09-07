@@ -862,6 +862,10 @@ additional tags. The reader
 shares one text alignment for taxonomy, title, posts, and compact recommendations,
 with participants and assignment controls below the title. Bookmark and
 notification controls sit beside Reply in the footer.
+Suggested and related rows use a soft, borderless hover fill, inset from their
+separators and padded around the content without shifting its alignment.
+The fill fades over 120 ms (immediately with reduced motion); keyboard focus
+keeps a distinct accent outline.
 Closed topics show a lock and **Closed** badge at the start of the header's
 metadata row, including for readers without moderation permissions. The badge
 updates when the topic is closed or reopened.

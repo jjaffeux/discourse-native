@@ -82,7 +82,7 @@ class TopicInboxRow extends StatelessWidget {
         ),
       );
       return Padding(
-        padding: EdgeInsets.symmetric(horizontal: recommendation ? 0 : 8),
+        padding: EdgeInsets.symmetric(horizontal: recommendation ? 4 : 8),
         child: LinkTarget(
           url:
               '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
@@ -91,12 +91,13 @@ class TopicInboxRow extends StatelessWidget {
           child: _TopicInboxRowSurface(
             surfaceKey: ValueKey('inbox-row-${topic.id}'),
             selected: selected,
+            recommendation: recommendation,
             onTap: onTap,
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                recommendation ? 0 : 16,
+                recommendation ? 12 : 16,
                 12,
-                recommendation ? 0 : 10,
+                recommendation ? 12 : 10,
                 12,
               ),
               child: Row(
@@ -331,12 +332,14 @@ class _TopicInboxRowSurface extends StatefulWidget {
   const _TopicInboxRowSurface({
     required this.surfaceKey,
     required this.selected,
+    required this.recommendation,
     required this.onTap,
     required this.child,
   });
 
   final Key surfaceKey;
   final bool selected;
+  final bool recommendation;
   final VoidCallback onTap;
   final Widget child;
 
@@ -366,24 +369,26 @@ class _TopicInboxRowSurfaceState extends State<_TopicInboxRowSurface> {
         final highlighted =
             focused || pressed || states.contains(WidgetState.hovered);
         const radius = BorderRadius.all(Radius.circular(7));
+        final background = widget.selected
+            ? colors.primary.withValues(alpha: .12)
+            : highlighted
+            ? colors.onSurface.withValues(alpha: pressed ? .08 : .05)
+            : Colors.transparent;
+        final shape = RoundedRectangleBorder(
+          borderRadius: radius,
+          side: keyboardSelected || focused
+              ? BorderSide(color: colors.primary, width: 2)
+              : widget.selected
+              ? BorderSide(color: colors.primary.withValues(alpha: .4))
+              : highlighted && !widget.recommendation
+              ? BorderSide(color: colors.onSurface.withValues(alpha: .16))
+              : BorderSide.none,
+        );
         return Material(
           key: widget.surfaceKey,
-          color: widget.selected
-              ? colors.primary.withValues(alpha: .12)
-              : highlighted
-              ? colors.onSurface.withValues(alpha: pressed ? .08 : .05)
-              : Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: radius,
-            side: keyboardSelected || focused
-                ? BorderSide(color: colors.primary, width: 2)
-                : widget.selected
-                ? BorderSide(color: colors.primary.withValues(alpha: .4))
-                : highlighted
-                ? BorderSide(color: colors.onSurface.withValues(alpha: .16))
-                : BorderSide.none,
-          ),
-          clipBehavior: Clip.antiAlias,
+          color: widget.recommendation ? Colors.transparent : background,
+          shape: widget.recommendation ? null : shape,
+          clipBehavior: widget.recommendation ? Clip.none : Clip.antiAlias,
           child: Semantics(
             selected: widget.selected,
             child: InkWell(
@@ -392,7 +397,27 @@ class _TopicInboxRowSurfaceState extends State<_TopicInboxRowSurface> {
               borderRadius: radius,
               overlayColor: const WidgetStatePropertyAll(Colors.transparent),
               splashFactory: NoSplash.splashFactory,
-              child: child,
+              child: widget.recommendation
+                  ? Stack(
+                      children: [
+                        Positioned.fill(
+                          top: 3,
+                          bottom: 3,
+                          child: AnimatedContainer(
+                            duration: MediaQuery.disableAnimationsOf(context)
+                                ? Duration.zero
+                                : const Duration(milliseconds: 120),
+                            curve: Curves.easeOut,
+                            decoration: ShapeDecoration(
+                              color: background,
+                              shape: shape,
+                            ),
+                          ),
+                        ),
+                        child!,
+                      ],
+                    )
+                  : child,
             ),
           ),
         );
