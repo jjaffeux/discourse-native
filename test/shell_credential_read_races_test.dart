@@ -83,6 +83,31 @@ void main() {
       expect(fixture.api.userSearchRequests, isEmpty);
     },
   );
+
+  for (final kind in ['likers', 'user card']) {
+    test('$kind loading cannot adopt an account from a listener', () async {
+      final fixture = await _fixture();
+      addTearDown(fixture.shell.dispose);
+      var invalidated = false;
+      fixture.shell.addListener(() {
+        if (invalidated) return;
+        invalidated = true;
+        fixture.shell.lifecycle.invalidate(_siteUrl);
+      });
+
+      if (kind == 'likers') {
+        await fixture.shell.loadLikers(12, siteUrl: _siteUrl);
+      } else {
+        await fixture.shell.loadUserCard('sam', siteUrl: _siteUrl);
+      }
+
+      expect(invalidated, isTrue);
+      expect(fixture.api.likersRequested, isEmpty);
+      expect(fixture.api.cardsRequested, isEmpty);
+      expect(fixture.shell.likersError(12, siteUrl: _siteUrl), isNull);
+      expect(fixture.shell.userCardError('sam', siteUrl: _siteUrl), isNull);
+    });
+  }
 }
 
 typedef _Fixture = ({

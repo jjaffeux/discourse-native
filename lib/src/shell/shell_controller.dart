@@ -8842,12 +8842,12 @@ class ShellController extends FrameSafeNotifier
         'This bookmark target is not available in this build.',
       );
     }
+    final lease = lifecycle.capture(siteUrl);
     if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
         'Another action on this bookmark is still finishing.',
       );
     }
-    final lease = lifecycle.capture(siteUrl);
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
@@ -8878,6 +8878,7 @@ class ShellController extends FrameSafeNotifier
           _reconcileBookmarks(
             instance,
             context,
+            lease,
             targetType: targetType,
             targetId: targetId,
           );
@@ -8892,6 +8893,7 @@ class ShellController extends FrameSafeNotifier
           _reconcileBookmarks(
             instance,
             context,
+            lease,
             targetType: targetType,
             targetId: targetId,
           );
@@ -8923,6 +8925,7 @@ class ShellController extends FrameSafeNotifier
       _reconcileBookmarks(
         instance,
         context,
+        lease,
         targetType: targetType,
         targetId: targetId,
       );
@@ -8975,12 +8978,12 @@ class ShellController extends FrameSafeNotifier
       );
     }
     final refreshTarget = targetType.refreshLabel;
+    final lease = lifecycle.capture(siteUrl);
     if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
         'Another action on this bookmark is still finishing.',
       );
     }
-    final lease = lifecycle.capture(siteUrl);
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
@@ -9005,6 +9008,7 @@ class ShellController extends FrameSafeNotifier
           _reconcileBookmarks(
             instance,
             context,
+            lease,
             targetType: targetType,
             targetId: targetId,
           );
@@ -9019,6 +9023,7 @@ class ShellController extends FrameSafeNotifier
           _reconcileBookmarks(
             instance,
             context,
+            lease,
             targetType: targetType,
             targetId: targetId,
           );
@@ -9045,6 +9050,7 @@ class ShellController extends FrameSafeNotifier
       _reconcileBookmarks(
         instance,
         context,
+        lease,
         targetType: targetType,
         targetId: targetId,
       );
@@ -9100,12 +9106,12 @@ class ShellController extends FrameSafeNotifier
       );
     }
     final refreshTarget = targetType.refreshLabel;
+    final lease = lifecycle.capture(siteUrl);
     if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
       return const BookmarkWriteResult.refused(
         'Another action on this bookmark is still finishing.',
       );
     }
-    final lease = lifecycle.capture(siteUrl);
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
@@ -9132,6 +9138,7 @@ class ShellController extends FrameSafeNotifier
           _reconcileBookmarks(
             instance,
             context,
+            lease,
             targetType: targetType,
             targetId: targetId,
           );
@@ -9146,6 +9153,7 @@ class ShellController extends FrameSafeNotifier
           _reconcileBookmarks(
             instance,
             context,
+            lease,
             targetType: targetType,
             targetId: targetId,
           );
@@ -9170,6 +9178,7 @@ class ShellController extends FrameSafeNotifier
       _reconcileBookmarks(
         instance,
         context,
+        lease,
         targetType: targetType,
         targetId: targetId,
       );
@@ -9208,10 +9217,10 @@ class ShellController extends FrameSafeNotifier
         'Another bookmark action is still finishing.',
       );
     }
+    final lease = lifecycle.capture(siteUrl);
     _topicBookmarkWritesInFlight.add(key);
     postKeys.forEach(_holdPostWrite);
     _notify();
-    final lease = lifecycle.capture(siteUrl);
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
@@ -9230,7 +9239,7 @@ class ShellController extends FrameSafeNotifier
         );
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
-          _reconcileBookmarks(instance, context);
+          _reconcileBookmarks(instance, context, lease);
           return const BookmarkWriteResult.reconciled(
             "Couldn't confirm the deletion. The topic is being refreshed.",
           );
@@ -9239,14 +9248,14 @@ class ShellController extends FrameSafeNotifier
       } catch (error, stackTrace) {
         if (lease.isCurrent) {
           _reportOperationalError(error, stackTrace, 'bookmark.deleteAll');
-          _reconcileBookmarks(instance, context);
+          _reconcileBookmarks(instance, context, lease);
         }
         return const BookmarkWriteResult.reconciled(
           "Couldn't confirm the deletion. The topic is being refreshed.",
         );
       }
       lease.commit(() => _removeAllBookmarks(siteUrl, topicId));
-      _reconcileBookmarks(instance, context);
+      _reconcileBookmarks(instance, context, lease);
       return const BookmarkWriteResult.saved();
     } finally {
       lease.commit(() {
@@ -9400,10 +9409,12 @@ class ShellController extends FrameSafeNotifier
 
   void _reconcileBookmarks(
     DiscourseInstance instance,
-    _BookmarkWriteContext context, {
+    _BookmarkWriteContext context,
+    SiteLease lease, {
     BookmarkTargetType targetType = BookmarkTargetType.topic,
     int? targetId,
   }) {
+    if (isDisposed || !lease.isCurrent) return;
     final plugin = _pluginBookmarkStrategy(targetType);
     if (plugin != null && targetId != null) {
       _observePluginLifecycle(
@@ -9424,6 +9435,7 @@ class ShellController extends FrameSafeNotifier
         ),
       );
     }
+    if (isDisposed || !lease.isCurrent) return;
     unawaited(accountActivity.loadBookmarks(instance, force: true));
   }
 
@@ -9459,9 +9471,9 @@ class ShellController extends FrameSafeNotifier
     final key = _postKey(targetSite, postId);
     if (!_likersLoading.add(key)) return;
     _likersErrors.remove(key);
+    final lease = lifecycle.capture(targetSite);
     _notify();
 
-    final lease = lifecycle.capture(targetSite);
     try {
       final credential = await _readSessionValue(
         lease,
@@ -10696,9 +10708,9 @@ class ShellController extends FrameSafeNotifier
 
     _userCardsLoading.add(key);
     _userCardErrors.remove(key);
+    final lease = lifecycle.capture(targetSite);
     _notify();
 
-    final lease = lifecycle.capture(targetSite);
     try {
       final credential = await _readSessionValue(
         lease,
