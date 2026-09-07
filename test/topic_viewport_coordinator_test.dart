@@ -100,6 +100,28 @@ void main() {
     );
 
     test(
+      'a retired account binding is replaced even at the same topic and tab',
+      () {
+        final frames = _FrameQueue();
+        final subject = _coordinator(frames: frames, geometry: _Geometry());
+        _disposeAfter(subject, frames);
+        final shell = Object();
+        final snapshot = _snapshot(topicId: 1, postIds: const [10, 11]);
+        final first = _Owner(snapshot, owner: shell);
+        final replacement = _Owner(snapshot, owner: shell);
+        subject.bind(first.binding);
+        final initialScroll = subject.scrollController;
+
+        expect(subject.bind(replacement.binding), isFalse);
+        first.current = false;
+
+        expect(subject.bind(replacement.binding), isTrue);
+        expect(subject.isCurrent(replacement.binding), isTrue);
+        expect(subject.scrollController, isNot(same(initialScroll)));
+      },
+    );
+
+    test(
       'dispose rejects queued work and retires its controller generation',
       () {
         final frames = _FrameQueue();
@@ -432,8 +454,9 @@ TopicViewportSnapshot _snapshot({
 );
 
 final class _Owner {
-  _Owner(this.snapshot);
+  _Owner(this.snapshot, {this.owner});
 
+  final Object? owner;
   TopicViewportSnapshot snapshot;
   bool current = true;
   bool forumActive = true;
@@ -445,7 +468,7 @@ final class _Owner {
   final List<({int postNumber, double viewportOffset})> anchors = [];
 
   late final TopicViewportBinding binding = TopicViewportBinding(
-    owner: this,
+    owner: owner ?? this,
     identity: (
       siteUrl: snapshot.siteUrl!,
       topicId: snapshot.topicId!,

@@ -973,6 +973,9 @@ topic identity, rejects paging callbacks from retired generations, preserves a
 prepend anchor, and pauses or credits read dwell with the app lifecycle. The
 same coordinator publishes floating-day and progress state, so those changes
 do not become shell-wide notifications.
+Read callbacks retain the account session that displayed the posts, including
+when dwell completion is queued during navigation or disposal. Leaving a topic
+can still credit that reader; replacing the account revokes the old callback.
 
 The floating topic-progress control follows core's stream-index semantics: its
 current and total values count visible stream entries, and its expandable
