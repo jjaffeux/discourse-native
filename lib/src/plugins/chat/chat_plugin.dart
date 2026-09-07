@@ -105,8 +105,9 @@ class ChatPlugin
       'chat-c-$channelId-threads';
 
   static int? channelIdFromThreadsRoute(String routeId) {
+    if (routeId.length > ChatRoute.maximumRouteIdLength) return null;
     final match = RegExp(r'^chat-c-([1-9]\d*)-threads$').firstMatch(routeId);
-    return match == null ? null : int.parse(match.group(1)!);
+    return match == null ? null : int.tryParse(match.group(1)!);
   }
 
   static bool ownsRouteId(String? routeId) =>
