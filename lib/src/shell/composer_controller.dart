@@ -728,6 +728,16 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         upload.status == ComposerUploadStatus.retrying,
   );
 
+  // Admission only: uploads already owned by this draft must still settle or
+  // be cancelled while a close/discard is in progress.
+  bool get canUpload =>
+      !_disposed &&
+      !_discarding &&
+      !_closing &&
+      isEditing &&
+      !_loadingBody &&
+      imageUploader != null;
+
   void addFiles(
     Iterable<ComposerUploadFile> files,
     int offset, {
@@ -761,6 +771,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     Iterable<ComposerUploadFile> files,
     ComposerImageGalleryBlock gallery,
   ) {
+    if (!canUpload) return;
     final queued = files.toList();
     if (queued.isEmpty) return;
     final current = _resolveGalleryIdentity(gallery);
@@ -789,7 +800,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     bool forceStandalone = false,
     bool imagesOnly = true,
   }) {
-    if (_disposed || imageUploader == null) return;
+    if (!canUpload) return;
     final all = files.toList();
     final validator = imagesOnly ? canUploadImage : canUploadFile;
     final valid = all
@@ -871,9 +882,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   void retryUpload(int id) {
+    if (!canUpload) return;
     final index = _uploadIndex(id);
     final pending = _pendingUploads[id];
-    if (_disposed || index < 0 || pending == null) return;
+    if (index < 0 || pending == null) return;
     // A retry is a transition out of the terminal failed state. Starting one
     // for an already active row loses its abort trigger and lets two requests
     // race to decide which result is inserted.

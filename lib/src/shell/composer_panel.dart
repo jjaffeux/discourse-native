@@ -1480,9 +1480,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   bool get _canPasteImages =>
-      widget.composer.imageUploader != null &&
-      !widget.composer.loadingBody &&
-      widget.composer.text.selection.isValid;
+      widget.composer.canUpload && widget.composer.text.selection.isValid;
 
   void _scheduleMediaLayoutRefresh() {
     if (_mediaLayoutRefreshScheduled || !_media.value.hasSelectedMedia) return;
@@ -2284,6 +2282,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                 gallery: state.selectedGallery!,
                 hasStandaloneImages: state.hasStandaloneImages,
                 pickingImages: state.pickingGalleryImages,
+                canUpload: widget.composer.canUpload,
                 onMode: _media.setSelectedGalleryMode,
                 onUploadImages: () => unawaited(
                   _media.pickImagesForSelectedGallery(widget.pickImages),
@@ -2801,6 +2800,7 @@ class _GalleryComposerMenu extends StatelessWidget {
     required this.gallery,
     required this.hasStandaloneImages,
     required this.pickingImages,
+    required this.canUpload,
     required this.onMode,
     required this.onUploadImages,
     required this.onAddExistingImages,
@@ -2812,6 +2812,7 @@ class _GalleryComposerMenu extends StatelessWidget {
   final ComposerImageGalleryBlock gallery;
   final bool hasStandaloneImages;
   final bool pickingImages;
+  final bool canUpload;
   final ValueChanged<ComposerGalleryMode> onMode;
   final VoidCallback onUploadImages;
   final VoidCallback onAddExistingImages;
@@ -2904,9 +2905,10 @@ class _GalleryComposerMenu extends StatelessWidget {
                         }
                       },
                       itemBuilder: (context) => [
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: _GalleryAddChoice.upload,
-                          child: ListTile(
+                          enabled: canUpload,
+                          child: const ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: Icon(Icons.upload_outlined),
                             title: Text('Upload new images'),
@@ -3481,6 +3483,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
 
   Future<void> _pick() async {
     final composer = widget.composer;
+    if (!composer.canUpload || _picking) return;
     final selection = composer.text.selection;
     final offset = selection.isValid
         ? selection.extentOffset
@@ -3488,7 +3491,11 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
     setState(() => _picking = true);
     try {
       final files = await widget.pickImages();
-      if (!mounted || !identical(widget.composer, composer)) return;
+      if (!mounted ||
+          !identical(widget.composer, composer) ||
+          !composer.canUpload) {
+        return;
+      }
       composer.addImages(files, offset);
     } catch (error, stackTrace) {
       DiagnosticsSink.current.reportError(
@@ -3500,13 +3507,15 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
         handled: true,
         degraded: true,
       );
-      if (mounted && identical(widget.composer, composer)) {
+      if (mounted &&
+          identical(widget.composer, composer) &&
+          composer.canUpload) {
         composer.showNotice("Couldn't open the image picker.");
       }
     } finally {
       if (mounted) {
         setState(() => _picking = false);
-        if (identical(widget.composer, composer)) {
+        if (identical(widget.composer, composer) && composer.canUpload) {
           composer.focus.requestFocus();
         }
       }
@@ -3518,7 +3527,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
     final theme = Theme.of(context);
     return IconButton(
       key: const ValueKey('composer-upload'),
-      onPressed: widget.composer.loadingBody || _picking
+      onPressed: !widget.composer.canUpload || _picking
           ? null
           : () => unawaited(_pick()),
       icon: const DIcon(DIcons.upload, size: 18),
@@ -3620,7 +3629,9 @@ class ComposerUploadQueue extends StatelessWidget {
                 ),
                 if (failed) ...[
                   IconButton(
-                    onPressed: () => composer.retryUpload(upload.id),
+                    onPressed: composer.canUpload
+                        ? () => composer.retryUpload(upload.id)
+                        : null,
                     icon: const Icon(Icons.refresh, size: 17),
                     tooltip: 'Retry upload',
                     visualDensity: VisualDensity.compact,
