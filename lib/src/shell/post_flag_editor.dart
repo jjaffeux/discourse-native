@@ -21,6 +21,7 @@ Future<void> showPostFlagEditor({
   required List<PostFlagType> flagTypes,
 }) async {
   final controller = ShellScope.read(context);
+  final lease = controller.lifecycle.capture(siteUrl);
   final minimum = controller
       .siteConfigFor(siteUrl)
       .minPersonalMessagePostLength;
@@ -34,8 +35,12 @@ Future<void> showPostFlagEditor({
       post: post,
       flagTypes: flagTypes,
       minimumMessageLength: minimum,
-      save: (type, {message}) =>
-          controller.createPostFlag(siteUrl, post, type, message: message),
+      save: (type, {message}) async {
+        if (!lease.isCurrent) {
+          return 'Your connection changed. Reopen the flag form and try again.';
+        }
+        return controller.createPostFlag(siteUrl, post, type, message: message);
+      },
       onComplete: () => Navigator.of(sheetContext).pop(),
     ),
   );
@@ -48,6 +53,7 @@ Future<void> showTopicFlagEditor({
   required List<PostFlagType> flagTypes,
 }) async {
   final controller = ShellScope.read(context);
+  final lease = controller.lifecycle.capture(siteUrl);
   final firstPost = topic.stream.isEmpty
       ? null
       : controller.store.read<Post>(siteUrl, topic.stream.first);
@@ -65,8 +71,17 @@ Future<void> showTopicFlagEditor({
       targetNoun: 'topic',
       flagTypes: flagTypes,
       minimumMessageLength: minimum,
-      save: (type, {message}) =>
-          controller.createTopicFlag(siteUrl, topic, type, message: message),
+      save: (type, {message}) async {
+        if (!lease.isCurrent) {
+          return 'Your connection changed. Reopen the flag form and try again.';
+        }
+        return controller.createTopicFlag(
+          siteUrl,
+          topic,
+          type,
+          message: message,
+        );
+      },
       onComplete: () => Navigator.of(sheetContext).pop(),
       submitLabel: 'Flag Topic',
     ),
