@@ -66,7 +66,7 @@ class TopicHeaderTags extends StatelessWidget {
 
         String overflowLabel(int visible) => visible == 0
             ? 'Tags · ${tags.length}'
-            : '+${tags.length - visible} tags';
+            : '+${tags.length - visible}';
         // The overflow editor keeps editing available in narrow readers.
         final showEdit =
             topic.canEditTags &&
