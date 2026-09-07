@@ -18,6 +18,15 @@ abstract class ByteCache<T extends Object> {
   // and later readers must observe those accepted mutations.
   static final _storeOperations = ReadAfterWriteOperationQueue();
 
+  // Disk persistence must not delay image delivery or accumulate unbounded
+  // work after network slots are released. Share both limits across typed
+  // caches and replacement pipelines, including writes still finishing after
+  // close(). At capacity, skip optional persistence.
+  static const _maxPendingStoreWrites = 16;
+  static const _maxPendingStoreBytes = 16 * 1024 * 1024;
+  static int _pendingStoreWrites = 0;
+  static int _pendingStoreBytes = 0;
+
   ByteCache({
     http.Client? client,
     this.maxConcurrent,
@@ -126,6 +135,40 @@ abstract class ByteCache<T extends Object> {
       );
     } catch (error, stackTrace) {
       _report(error, stackTrace, url, 'image.cacheDelete');
+    }
+  }
+
+  Future<void> _persist(
+    ByteCacheStore persistent,
+    String url,
+    Uint8List bytes,
+    DateTime expiresAt,
+    Object generation,
+  ) async {
+    // A response can be a view into a larger transport buffer.
+    final byteSize = bytes.buffer.lengthInBytes;
+    if (_pendingStoreWrites >= _maxPendingStoreWrites ||
+        _pendingStoreBytes + byteSize > _maxPendingStoreBytes) {
+      return;
+    }
+    _pendingStoreWrites++;
+    _pendingStoreBytes += byteSize;
+    try {
+      // Register before load() completes so replacement readers and decoder
+      // rejections queue behind this write even if it has not started yet.
+      await _storeOperations.write<void>(
+        owner: persistent,
+        key: url,
+        operation: () async {
+          if (!identical(_generation, generation)) return;
+          await persistent.write(url, bytes, expiresAt: expiresAt);
+        },
+      );
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, url, 'image.cacheWrite');
+    } finally {
+      _pendingStoreWrites--;
+      _pendingStoreBytes -= byteSize;
     }
   }
 
@@ -293,22 +336,15 @@ abstract class ByteCache<T extends Object> {
           DateTime.now(),
         );
         if (expiresAt != null && current()) {
-          try {
-            await _storeOperations.write<void>(
-              owner: persistent,
-              key: url,
-              operation: () async {
-                if (!current()) return;
-                await persistent.write(
-                  url,
-                  response.bodyBytes,
-                  expiresAt: expiresAt,
-                );
-              },
-            );
-          } catch (error, stackTrace) {
-            _report(error, stackTrace, url, 'image.cacheWrite');
-          }
+          unawaited(
+            _persist(
+              persistent,
+              url,
+              response.bodyBytes,
+              expiresAt,
+              generation,
+            ),
+          );
         }
       }
       return _closed ? null : decoded;

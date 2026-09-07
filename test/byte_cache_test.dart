@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:discourse_native/src/data/avatar_loader.dart';
 import 'package:discourse_native/src/data/byte_cache.dart';
 import 'package:discourse_native/src/data/byte_cache_store.dart';
+import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/media_request_coordinator.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -210,6 +212,7 @@ void main() {
       expect(store.writes, isEmpty);
 
       expect(await cache.load(url), orderedEquals([2]));
+      await store.writeStarted.future;
       expect(store.writes, hasLength(1));
       expect(store.writes.single.url, url);
       expect(store.writes.single.bytes, orderedEquals([2]));
@@ -662,6 +665,247 @@ void main() {
 
   group('persistent cache policy and lifecycle', () {
     test(
+      'delivers downloaded bytes and releases admission before persistence',
+      () async {
+        final store = _GatedMutationByteCacheStore()..holdWrite = true;
+        addTearDown(store.release);
+        final requested = <String>[];
+        final cache = _TestByteCache(
+          maxConcurrent: 1,
+          store: store,
+          client: MockClient((request) async {
+            requested.add(request.url.toString());
+            return http.Response.bytes(
+              [requested.length],
+              200,
+              headers: {'cache-control': 'public, max-age=3600'},
+            );
+          }),
+        );
+        addTearDown(cache.close);
+        const firstUrl = 'https://cdn.test/first.png';
+        const secondUrl = 'https://cdn.test/second.png';
+        Uint8List? firstResult;
+        Uint8List? secondResult;
+        final first = cache.load(firstUrl).then((value) => firstResult = value);
+        final second = cache
+            .load(secondUrl)
+            .then((value) => secondResult = value);
+
+        await store.writeStarted.future;
+        await Future<void>.delayed(Duration.zero);
+
+        expect(firstResult, [1]);
+        expect(secondResult, [2]);
+        expect(requested, [firstUrl, secondUrl]);
+        expect(store.entries, isEmpty);
+
+        store.releaseWrite.complete();
+        await Future.wait([first, second]);
+        await Future<void>.delayed(Duration.zero);
+        expect(store.entries[firstUrl], [1]);
+        expect(store.entries[secondUrl], [2]);
+      },
+    );
+
+    test(
+      'bounds pending writes across typed and closed replacement caches',
+      () async {
+        final store = _GatedMutationByteCacheStore()..holdWrite = true;
+        addTearDown(store.release);
+        final client = MockClient(
+          (_) async => http.Response.bytes(
+            [1],
+            200,
+            headers: {'cache-control': 'public, max-age=3600'},
+          ),
+        );
+        for (var index = 0; index < 24; index++) {
+          final ByteCache<Object> cache = index.isEven
+              ? AvatarLoader(store: store, client: client)
+              : EmojiCache(store: store, client: client);
+          addTearDown(cache.close);
+          final url = 'https://cdn.test/image-$index';
+          expect(await cache.load(url), isNotNull);
+          expect(cache.isCached(url), isTrue);
+          await Future<void>.delayed(Duration.zero);
+          cache.close();
+        }
+
+        expect(store.writes, hasLength(16));
+        expect(store.entries, isEmpty);
+        await store.release();
+        expect(store.entries, hasLength(16));
+
+        final replacement = _TestByteCache(store: store, client: client);
+        addTearDown(replacement.close);
+        const recoveredUrl = 'https://cdn.test/recovered.png';
+        expect(await replacement.load(recoveredUrl), [1]);
+        await Future<void>.delayed(Duration.zero);
+        expect(store.writes, hasLength(17));
+        expect(store.entries[recoveredUrl], [1]);
+      },
+    );
+
+    test(
+      'bounds retained persistence bytes even after memory eviction',
+      () async {
+        const imageSize = 4 * 1024 * 1024;
+        final store = _GatedMutationByteCacheStore()..holdWrite = true;
+        addTearDown(store.release);
+        final cache = _TestByteCache(
+          store: store,
+          maxResponseBytes: imageSize,
+          maxCachedBytes: 1,
+          client: MockClient(
+            (_) async => http.Response.bytes(
+              Uint8List(imageSize),
+              200,
+              headers: {'cache-control': 'public, max-age=3600'},
+            ),
+          ),
+        );
+        addTearDown(cache.close);
+        for (var index = 0; index < 8; index++) {
+          final url = 'https://cdn.test/large-$index';
+          expect(await cache.load(url), hasLength(imageSize));
+          expect(cache.isCached(url), isFalse);
+        }
+        await Future<void>.delayed(Duration.zero);
+
+        expect(store.writes, hasLength(4));
+        expect(
+          store.writes.fold(0, (sum, write) => sum + write.bytes),
+          16 * 1024 * 1024,
+        );
+        await store.release();
+        expect(store.entries, hasLength(4));
+
+        const recoveredUrl = 'https://cdn.test/recovered.png';
+        expect(await cache.load(recoveredUrl), hasLength(imageSize));
+        await Future<void>.delayed(Duration.zero);
+        expect(store.entries[recoveredUrl], hasLength(imageSize));
+      },
+    );
+
+    test(
+      'counts the backing buffer of a response view toward the budget',
+      () async {
+        final store = _RecordingByteCacheStore();
+        final bytes = Uint8List.view(
+          Uint8List(16 * 1024 * 1024 + 1).buffer,
+          0,
+          1,
+        );
+        final cache = _TestByteCache(
+          store: store,
+          client: MockClient(
+            (_) async => http.Response.bytes(
+              bytes,
+              200,
+              headers: {'cache-control': 'public, max-age=3600'},
+            ),
+          ),
+        );
+        addTearDown(cache.close);
+
+        expect(await cache.load('https://cdn.test/view.png'), same(bytes));
+        await Future<void>.delayed(Duration.zero);
+
+        expect(store.writes, isEmpty);
+      },
+    );
+
+    test('reports background write errors and releases their budget', () async {
+      final diagnostics = _RecordingDiagnosticsSink();
+      addTearDown(DiagnosticsSink.install(diagnostics).close);
+      final store = _GatedMutationByteCacheStore()
+        ..holdWrite = true
+        ..writeError = const FileSystemException('Disk full');
+      addTearDown(store.release);
+      final cache = _TestByteCache(
+        store: store,
+        client: MockClient(
+          (_) async => http.Response.bytes(
+            [1],
+            200,
+            headers: {'cache-control': 'public, max-age=3600'},
+          ),
+        ),
+      );
+      addTearDown(cache.close);
+      for (var index = 0; index < 16; index++) {
+        expect(await cache.load('https://cdn.test/image-$index'), [1]);
+      }
+      await store.release();
+
+      expect(store.writes, hasLength(16));
+      expect(diagnostics.errors, hasLength(16));
+      expect(diagnostics.errors, everyElement(same(store.writeError)));
+      expect(
+        diagnostics.operations,
+        everyElement(startsWith('image.cacheWrite ')),
+      );
+      expect(cache.cached('https://cdn.test/image-0'), [1]);
+      expect(store.entries, isEmpty);
+
+      store.writeError = null;
+      cache.clear();
+      expect(await cache.load('https://cdn.test/image-0'), [1]);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.entries['https://cdn.test/image-0'], [1]);
+    });
+
+    for (final close in [false, true]) {
+      test('${close ? 'close' : 'clear'} skips a queued stale write', () async {
+        final store = _GatedMutationByteCacheStore()..holdWrite = true;
+        addTearDown(store.release);
+        final responses = List.generate(2, (_) => Completer<http.Response>());
+        var requests = 0;
+        final client = MockClient((_) => responses[requests++].future);
+        final first = _TestByteCache(store: store, client: client);
+        final stale = _TestByteCache(store: store, client: client);
+        addTearDown(first.close);
+        addTearDown(stale.close);
+        const url = 'https://cdn.test/queued.png';
+        final firstLoad = first.load(url);
+        final staleLoad = stale.load(url);
+        await Future<void>.delayed(Duration.zero);
+        expect(requests, 2);
+
+        responses[0].complete(
+          http.Response.bytes(
+            [1],
+            200,
+            headers: {'cache-control': 'public, max-age=3600'},
+          ),
+        );
+        expect(await firstLoad, [1]);
+        await store.writeStarted.future;
+        responses[1].complete(
+          http.Response.bytes(
+            [2],
+            200,
+            headers: {'cache-control': 'public, max-age=3600'},
+          ),
+        );
+        expect(await staleLoad, [2]);
+        if (close) {
+          stale.close();
+        } else {
+          stale.clear();
+        }
+        await store.release();
+
+        expect(stale.cached(url), isNull);
+        expect(store.writes, hasLength(1));
+        expect(store.entries[url], [1]);
+        expect(await stale.load(url), close ? isNull : [1]);
+        expect(requests, 2);
+      });
+    }
+
+    test(
       'a decoder rejection outlives the image write already in progress',
       () async {
         final store = _GatedMutationByteCacheStore()..holdWrite = true;
@@ -746,11 +990,15 @@ void main() {
         addTearDown(replacement.close);
         const url = 'https://cdn.test/pending.png';
         final first = previous.load(url);
+        expect(await first, [1]);
         await store.writeStarted.future;
+        previous.close();
         final second = replacement.load(url);
+        await Future<void>.delayed(Duration.zero);
+        expect(store.operations, ['read', 'write']);
+        expect(requests, 1);
         store.releaseWrite.complete();
 
-        expect(await first, [1]);
         expect(await second, [1]);
         expect(requests, 1);
       },
@@ -772,13 +1020,13 @@ void main() {
 
       final value = await cache.load(url);
       expect(value, isNotNull);
-      expect(store.writes, hasLength(1));
 
       expect(cache.discard(url, value!), isTrue);
       await Future<void>.delayed(Duration.zero);
 
       expect(cache.isCached(url), isTrue);
       expect(cache.cached(url), isNull);
+      expect(store.writes, hasLength(1));
       expect(store.removals, [url]);
       expect(cache.discard(url, value), isFalse);
     });
@@ -1107,6 +1355,7 @@ final class _BlockingByteCacheStore implements ByteCacheStore {
 }
 
 final class _RecordingByteCacheStore implements ByteCacheStore {
+  final writeStarted = Completer<void>();
   final List<({String url, Uint8List bytes})> writes = [];
   final List<String> removals = [];
 
@@ -1120,6 +1369,7 @@ final class _RecordingByteCacheStore implements ByteCacheStore {
     required DateTime expiresAt,
   }) async {
     writes.add((url: url, bytes: bytes));
+    if (!writeStarted.isCompleted) writeStarted.complete();
   }
 
   @override
@@ -1155,6 +1405,7 @@ final class _SeededByteCacheStore implements ByteCacheStore {
 
 final class _RecordingDiagnosticsSink implements DiagnosticsSink {
   final List<Object> errors = [];
+  final List<String?> operations = [];
 
   @override
   void recordLog({
@@ -1182,12 +1433,14 @@ final class _RecordingDiagnosticsSink implements DiagnosticsSink {
     String? correlationId,
   }) {
     errors.add(error);
+    operations.add(operation);
   }
 }
 
 final class _GatedMutationByteCacheStore implements ByteCacheStore {
   final Map<String, Uint8List> entries = {};
   final List<String> operations = [];
+  final List<({String url, int bytes})> writes = [];
   final writeStarted = Completer<void>();
   final releaseWrite = Completer<void>();
   final removeStarted = Completer<void>();
@@ -1195,10 +1448,12 @@ final class _GatedMutationByteCacheStore implements ByteCacheStore {
   final removed = Completer<void>();
   bool holdWrite = false;
   bool holdRemove = false;
+  Object? writeError;
 
-  void release() {
+  Future<void> release() async {
     if (!releaseWrite.isCompleted) releaseWrite.complete();
     if (!releaseRemove.isCompleted) releaseRemove.complete();
+    await Future<void>.delayed(Duration.zero);
   }
 
   @override
@@ -1214,8 +1469,11 @@ final class _GatedMutationByteCacheStore implements ByteCacheStore {
     required DateTime expiresAt,
   }) async {
     operations.add('write');
+    writes.add((url: url, bytes: bytes.length));
     if (!writeStarted.isCompleted) writeStarted.complete();
     if (holdWrite) await releaseWrite.future;
+    final error = writeError;
+    if (error != null) throw error;
     entries[url] = bytes;
     operations.add('written');
   }
