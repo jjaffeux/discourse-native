@@ -19,47 +19,94 @@ List<PostEvent> eventDirectoryOccurrences(
   List<PostEvent> events,
   PluginTimezoneHost zones,
 ) {
-  final result = <PostEvent>[];
+  final candidates =
+      <
+        ({
+          PostEvent event,
+          Map<String, Object?>? occurrence,
+          String startsAt,
+          DateTime? instant,
+          int index,
+        })
+      >[];
+  void add(PostEvent event, {Map<String, Object?>? occurrence}) {
+    Object? field(String key) => occurrence?.containsKey(key) == true
+        ? occurrence![key]
+        : event.fields[key];
+    final startsAt = eventText(field('starts_at'));
+    if (startsAt == null) return;
+    candidates.add((
+      event: event,
+      occurrence: occurrence,
+      startsAt: startsAt,
+      instant: eventDate(
+        startsAt,
+        zones: zones,
+        timezone: eventText(field('timezone')),
+        allDay: field('all_day') == true,
+        showLocalTime: field('show_local_time') == true,
+      ),
+      index: candidates.length,
+    ));
+  }
+
   for (final event in events) {
     final occurrences = event.fields['occurrences'];
     if (occurrences is List) {
       for (final raw in occurrences) {
-        final fields = eventObject(raw);
-        if (eventText(fields?['starts_at']) == null) continue;
-        result.add(
-          PostEvent.decode({
-            ...event.fields,
-            ...fields!,
+        // PostEvent already froze these maps; keep references until selected.
+        if (raw is Map<String, Object?> &&
+            eventText(raw['starts_at']) != null) {
+          add(event, occurrence: raw);
+        }
+      }
+    } else {
+      add(event);
+    }
+  }
+  candidates.sort((a, b) {
+    final first = a.instant;
+    final second = b.instant;
+    final int order;
+    if (first != null && second != null) {
+      order = first.compareTo(second);
+    } else if (first == null && second == null) {
+      order = a.startsAt.compareTo(b.startsAt);
+    } else {
+      // Unknown dates follow known instants, keeping the comparison transitive.
+      order = first == null ? 1 : -1;
+    }
+    return order != 0 ? order : a.index.compareTo(b.index);
+  });
+
+  final result = <PostEvent>[];
+  final seen = <(int, String)>{};
+  for (final candidate in candidates) {
+    final occurrence = candidate.occurrence;
+    final id = occurrence?.containsKey('id') == true
+        ? eventInt(occurrence!['id'])
+        : candidate.event.id;
+    if (id == null || seen.contains((id, candidate.startsAt))) continue;
+    // Decode until the view is full, without copying the recurrence array.
+    final event = occurrence == null
+        ? candidate.event
+        : PostEvent.decode({
+            for (final entry in candidate.event.fields.entries)
+              if (entry.key != 'occurrences') entry.key: entry.value,
+            for (final entry in occurrence.entries)
+              if (entry.key != 'occurrences') entry.key: entry.value,
             'should_display_invitees': false,
             'sample_invitees': null,
             'stats': null,
             'watching_invitee': null,
             'can_update_attendance': false,
-          }, topicId: event.topicId)!,
-        );
-      }
-    } else if (event.startsAt != null) {
-      result.add(event);
-    }
+          }, topicId: candidate.event.topicId);
+    if (event == null) continue;
+    seen.add((event.id, candidate.startsAt));
+    result.add(event);
+    if (result.length == 200) break;
   }
-  DateTime? instant(PostEvent event) => eventDate(
-    event.startsAt,
-    zones: zones,
-    timezone: event.timezone,
-    allDay: event.allDay,
-    showLocalTime: event.showLocalTime,
-  );
-  result.sort((a, b) {
-    final first = instant(a);
-    final second = instant(b);
-    return first != null && second != null
-        ? first.compareTo(second)
-        : a.startsAt!.compareTo(b.startsAt!);
-  });
-  final seen = <(int, String?)>{};
-  return List.unmodifiable(
-    result.where((event) => seen.add((event.id, event.startsAt))).take(200),
-  );
+  return List.unmodifiable(result);
 }
 
 class EventDirectory extends StatefulWidget {
