@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../data/app_settings_store.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/app_settings.dart';
@@ -18,7 +20,9 @@ final class AppSettingsController extends FrameSafeNotifier {
   bool _loaded = false;
   bool get loaded => _loaded;
 
-  int _mutationRevision = 0;
+  ContentAlignment? _selectedContentAlignment;
+  bool? _selectedDisableGifAnimations;
+  AppTextScale? _selectedTextScale;
   Future<void>? _loadTask;
 
   Future<void> load() {
@@ -27,61 +31,75 @@ final class AppSettingsController extends FrameSafeNotifier {
     if (active != null) return active;
     if (_loaded) return Future<void>.value();
 
-    final revision = _mutationRevision;
     late final Future<void> task;
-    task = _load(revision).whenComplete(() {
+    task = _load().whenComplete(() {
       if (identical(_loadTask, task)) _loadTask = null;
     });
     _loadTask = task;
     return task;
   }
 
-  Future<void> _load(int revision) async {
+  Future<void> _load() async {
     final loaded = await store.read();
-    if (isDisposed || revision != _mutationRevision) return;
-    _settings = loaded;
+    if (isDisposed) return;
+    // A choice can arrive even after the store's read future has completed.
+    _settings = loaded.copyWith(
+      contentAlignment: _selectedContentAlignment,
+      disableGifAnimations: _selectedDisableGifAnimations,
+      textScale: _selectedTextScale,
+    );
     _loaded = true;
     notifySafely();
   }
 
   Future<void> setContentAlignment(ContentAlignment alignment) {
-    if (isDisposed || (_loaded && alignment == contentAlignment)) {
+    if (isDisposed ||
+        ((_loaded || _selectedContentAlignment != null) &&
+            alignment == contentAlignment)) {
       return Future<void>.value();
     }
 
-    _mutationRevision++;
+    _selectedContentAlignment = alignment;
     _settings = _settings.copyWith(contentAlignment: alignment);
-    _loaded = true;
+    final saving = store.update(contentAlignment: alignment);
+    unawaited(load());
     notifySafely();
-    return store.write(_settings);
+    return saving;
   }
 
   Future<void> setDisableGifAnimations(bool disabled) {
-    if (isDisposed || (_loaded && disabled == disableGifAnimations)) {
+    if (isDisposed ||
+        ((_loaded || _selectedDisableGifAnimations != null) &&
+            disabled == disableGifAnimations)) {
       return Future<void>.value();
     }
 
-    _mutationRevision++;
+    _selectedDisableGifAnimations = disabled;
     _settings = _settings.copyWith(disableGifAnimations: disabled);
-    _loaded = true;
+    final saving = store.update(disableGifAnimations: disabled);
+    unawaited(load());
     notifySafely();
-    return store.write(_settings);
+    return saving;
   }
 
   Future<void> setTextScale(AppTextScale scale) {
-    if (isDisposed || (_loaded && scale == textScale)) {
+    if (isDisposed ||
+        ((_loaded || _selectedTextScale != null) && scale == textScale)) {
       return Future<void>.value();
     }
 
-    _mutationRevision++;
+    _selectedTextScale = scale;
     _settings = _settings.copyWith(textScale: scale);
-    _loaded = true;
+    final saving = store.update(textScale: scale);
+    unawaited(load());
     notifySafely();
-    return store.write(_settings);
+    return saving;
   }
 
   Future<void> increaseTextScale() {
-    if (!_loaded) return _changeTextScaleAfterLoad(increaseTextScale);
+    if (!_loaded && _selectedTextScale == null) {
+      return _changeTextScaleAfterLoad(increaseTextScale);
+    }
     final index = textScale.index;
     if (index == AppTextScale.values.length - 1) {
       return Future<void>.value();
@@ -90,14 +108,18 @@ final class AppSettingsController extends FrameSafeNotifier {
   }
 
   Future<void> decreaseTextScale() {
-    if (!_loaded) return _changeTextScaleAfterLoad(decreaseTextScale);
+    if (!_loaded && _selectedTextScale == null) {
+      return _changeTextScaleAfterLoad(decreaseTextScale);
+    }
     final index = textScale.index;
     if (index == 0) return Future<void>.value();
     return setTextScale(AppTextScale.values[index - 1]);
   }
 
   Future<void> resetTextScale() {
-    if (!_loaded) return _changeTextScaleAfterLoad(resetTextScale);
+    if (!_loaded && _selectedTextScale == null) {
+      return _changeTextScaleAfterLoad(resetTextScale);
+    }
     return setTextScale(AppTextScale.percent100);
   }
 

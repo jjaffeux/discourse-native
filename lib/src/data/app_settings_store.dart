@@ -117,18 +117,45 @@ final class AppSettingsStore {
       ReadAfterWriteOperationQueue();
 
   final AppSettingsPersistence _persistence;
-  AppSettings? _sessionSettings;
+  ContentAlignment? _sessionContentAlignment;
+  bool? _sessionDisableGifAnimations;
+  AppTextScale? _sessionTextScale;
+  AppSettings? _lastReadSettings;
+
+  bool get _hasSessionChanges =>
+      _sessionContentAlignment != null ||
+      _sessionDisableGifAnimations != null ||
+      _sessionTextScale != null;
 
   Future<AppSettings> read() async {
-    final sessionSettings = _sessionSettings;
-    if (sessionSettings != null) return sessionSettings;
+    final known = _lastReadSettings;
+    if (_hasSessionChanges && known != null) {
+      return _withSessionSettings(known);
+    }
+    if (_sessionContentAlignment != null &&
+        _sessionDisableGifAnimations != null &&
+        _sessionTextScale != null) {
+      return _withSessionSettings(AppSettings.defaults);
+    }
     final persisted = await _operations.read(
       owner: _persistence,
       key: _operationKey,
       operation: _read,
     );
-    return _sessionSettings ?? persisted;
+    // Retain known preferences with session edits if storage later fails.
+    // An older read must not replace a session another read already hydrated.
+    final settings = _hasSessionChanges
+        ? _lastReadSettings ?? persisted
+        : persisted;
+    _lastReadSettings = settings;
+    return _withSessionSettings(settings);
   }
+
+  AppSettings _withSessionSettings(AppSettings settings) => settings.copyWith(
+    contentAlignment: _sessionContentAlignment,
+    disableGifAnimations: _sessionDisableGifAnimations,
+    textScale: _sessionTextScale,
+  );
 
   Future<AppSettings> _read() async {
     var contentAlignment = ContentAlignment.center;
@@ -167,20 +194,42 @@ final class AppSettingsStore {
     );
   }
 
-  Future<void> write(AppSettings settings) {
-    _sessionSettings = settings;
+  Future<void> write(AppSettings settings) => update(
+    contentAlignment: settings.contentAlignment,
+    disableGifAnimations: settings.disableGifAnimations,
+    textScale: settings.textScale,
+  );
+
+  /// Saves explicit choices without replacing preferences still being read.
+  /// Session choices also override late reads when persistence fails.
+  Future<void> update({
+    ContentAlignment? contentAlignment,
+    bool? disableGifAnimations,
+    AppTextScale? textScale,
+  }) {
+    _sessionContentAlignment = contentAlignment ?? _sessionContentAlignment;
+    _sessionDisableGifAnimations =
+        disableGifAnimations ?? _sessionDisableGifAnimations;
+    _sessionTextScale = textScale ?? _sessionTextScale;
     return _operations.write<void>(
       owner: _persistence,
       key: _operationKey,
-      operation: () => _persist(settings),
+      operation: () => _persist(
+        contentAlignment: contentAlignment,
+        disableGifAnimations: disableGifAnimations,
+        textScale: textScale,
+      ),
     );
   }
 
-  Future<void> _persist(AppSettings settings) async {
+  Future<void> _persist({
+    ContentAlignment? contentAlignment,
+    bool? disableGifAnimations,
+    AppTextScale? textScale,
+  }) async {
     try {
-      if (!await _persistence.writeContentAlignment(
-        settings.contentAlignment.name,
-      )) {
+      if (contentAlignment != null &&
+          !await _persistence.writeContentAlignment(contentAlignment.name)) {
         throw StateError('Could not persist the app content alignment.');
       }
     } catch (error, stackTrace) {
@@ -191,9 +240,8 @@ final class AppSettingsStore {
       );
     }
     try {
-      if (!await _persistence.writeDisableGifAnimations(
-        settings.disableGifAnimations,
-      )) {
+      if (disableGifAnimations != null &&
+          !await _persistence.writeDisableGifAnimations(disableGifAnimations)) {
         throw StateError('Could not persist the GIF animation preference.');
       }
     } catch (error, stackTrace) {
@@ -204,7 +252,8 @@ final class AppSettingsStore {
       );
     }
     try {
-      if (!await _persistence.writeTextScale(settings.textScale.name)) {
+      if (textScale != null &&
+          !await _persistence.writeTextScale(textScale.name)) {
         throw StateError('Could not persist the app text scale.');
       }
     } catch (error, stackTrace) {

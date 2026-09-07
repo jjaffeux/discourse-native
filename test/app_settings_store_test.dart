@@ -149,6 +149,160 @@ void main() {
     expect(persistence.readCount, 1);
   });
 
+  test(
+    'a replacement patch follows queued writes without replacing other fields',
+    () async {
+      final persistence = _ControlledAppSettingsPersistence(
+        firstWriteGate: Completer<void>(),
+      );
+      final first = AppSettingsStore(persistence: persistence);
+      final replacement = AppSettingsStore(persistence: persistence);
+      final writing = first.write(
+        const AppSettings(
+          contentAlignment: ContentAlignment.left,
+          disableGifAnimations: true,
+          textScale: AppTextScale.percent175,
+        ),
+      );
+      await persistence.firstWriteStarted.future;
+      final updating = replacement.update(
+        contentAlignment: ContentAlignment.right,
+      );
+      final reading = replacement.read();
+      final fresh = AppSettingsStore(persistence: persistence).read();
+
+      await Future<void>.delayed(Duration.zero);
+      expect(persistence.readCount, 0);
+      expect(persistence.attemptedWrites, ['left']);
+
+      persistence.firstWriteGate!.complete();
+      await Future.wait([writing, updating]);
+
+      const expected = AppSettings(
+        contentAlignment: ContentAlignment.right,
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent175,
+      );
+      expect(await reading, expected);
+      expect(await fresh, expected);
+      expect(persistence.attemptedWrites, ['left', 'right']);
+      expect(persistence.attemptedGifAnimationWrites, [true]);
+      expect(persistence.attemptedTextScaleWrites, [
+        AppTextScale.percent175.name,
+      ]);
+    },
+  );
+
+  for (final throwWrites in [false, true]) {
+    test(
+      '${throwWrites ? 'throwing' : 'rejected'} patches retain only explicit session choices',
+      () async {
+        final diagnostics = await _installDiagnostics(
+          'app-settings-patch-failure',
+        );
+        final persistence = _ControlledAppSettingsPersistence(
+          contentAlignment: 'left',
+          disableGifAnimations: true,
+          textScale: AppTextScale.percent175.name,
+          acceptWrites: false,
+          throwWrites: throwWrites,
+        );
+        final store = AppSettingsStore(persistence: persistence);
+
+        await store.update(contentAlignment: ContentAlignment.right);
+
+        expect(
+          await store.read(),
+          const AppSettings(
+            contentAlignment: ContentAlignment.right,
+            disableGifAnimations: true,
+            textScale: AppTextScale.percent175,
+          ),
+        );
+        expect(
+          await AppSettingsStore(persistence: persistence).read(),
+          const AppSettings(
+            contentAlignment: ContentAlignment.left,
+            disableGifAnimations: true,
+            textScale: AppTextScale.percent175,
+          ),
+        );
+        expect(persistence.attemptedGifAnimationWrites, isEmpty);
+        expect(persistence.attemptedTextScaleWrites, isEmpty);
+        expect(diagnostics.events.whereType<ErrorDiagnosticEvent>(), [
+          _isStorageFailure('appSettings.writeContentAlignment', 'StateError'),
+        ]);
+
+        persistence.acceptWrites = true;
+        persistence.throwWrites = false;
+        await store.update(disableGifAnimations: false);
+        expect((await store.read()).contentAlignment, ContentAlignment.right);
+        expect(persistence.disableGifAnimations, isFalse);
+      },
+    );
+  }
+
+  test(
+    'session edits retain hydrated fields if storage becomes unavailable',
+    () async {
+      final persistence = _ControlledAppSettingsPersistence(
+        contentAlignment: 'left',
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent175.name,
+      );
+      final store = AppSettingsStore(persistence: persistence);
+      await store.read();
+      persistence.failReads = true;
+      persistence.acceptWrites = false;
+
+      await store.update(contentAlignment: ContentAlignment.right);
+
+      expect(
+        await store.read(),
+        const AppSettings(
+          contentAlignment: ContentAlignment.right,
+          disableGifAnimations: true,
+          textScale: AppTextScale.percent175,
+        ),
+      );
+      expect(persistence.readCount, 1);
+    },
+  );
+
+  test(
+    'a failed field read does not turn its fallback into a saved preference',
+    () async {
+      final diagnostics = await _installDiagnostics(
+        'app-settings-partial-read',
+      );
+      final persistence = _ControlledAppSettingsPersistence(
+        contentAlignment: 'left',
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent175.name,
+        failTextScaleRead: true,
+      );
+      final store = AppSettingsStore(persistence: persistence);
+
+      final loaded = await store.read();
+      expect(
+        loaded,
+        const AppSettings(
+          contentAlignment: ContentAlignment.left,
+          disableGifAnimations: true,
+        ),
+      );
+      await store.update(contentAlignment: ContentAlignment.right);
+
+      expect(persistence.contentAlignment, 'right');
+      expect(persistence.disableGifAnimations, isTrue);
+      expect(persistence.textScale, AppTextScale.percent175.name);
+      expect(persistence.attemptedTextScaleWrites, isEmpty);
+      expect(diagnostics.events.whereType<ErrorDiagnosticEvent>(), [
+        _isStorageFailure('appSettings.readTextScale', 'StateError'),
+      ]);
+    },
+  );
+
   test('storage failures degrade to defaults without escaping', () async {
     final diagnostics = await _installDiagnostics('app-settings-failures');
     final persistence = _ControlledAppSettingsPersistence(
@@ -208,19 +362,27 @@ Matcher _isStorageFailure(String operation, String errorType) =>
 final class _ControlledAppSettingsPersistence
     implements AppSettingsPersistence {
   _ControlledAppSettingsPersistence({
+    this.contentAlignment,
+    this.disableGifAnimations,
+    this.textScale,
     this.firstWriteGate,
     this.failReads = false,
+    this.failTextScaleRead = false,
     this.acceptWrites = true,
+    this.throwWrites = false,
   });
 
   String? contentAlignment;
   bool? disableGifAnimations;
   String? textScale;
   final Completer<void>? firstWriteGate;
-  final bool failReads;
-  final bool acceptWrites;
+  bool failReads;
+  final bool failTextScaleRead;
+  bool acceptWrites;
+  bool throwWrites;
   final Completer<void> firstWriteStarted = Completer<void>();
   final List<String> attemptedWrites = [];
+  final List<bool> attemptedGifAnimationWrites = [];
   final List<String> attemptedTextScaleWrites = [];
   int readCount = 0;
 
@@ -239,7 +401,9 @@ final class _ControlledAppSettingsPersistence
 
   @override
   Future<String?> readTextScale() async {
-    if (failReads) throw StateError('preferences unavailable');
+    if (failReads || failTextScaleRead) {
+      throw StateError('preferences unavailable');
+    }
     return textScale;
   }
 
@@ -250,6 +414,7 @@ final class _ControlledAppSettingsPersistence
       firstWriteStarted.complete();
       await firstWriteGate?.future;
     }
+    if (throwWrites) throw StateError('preferences unavailable');
     if (!acceptWrites) return false;
     contentAlignment = value;
     return true;
@@ -257,6 +422,8 @@ final class _ControlledAppSettingsPersistence
 
   @override
   Future<bool> writeDisableGifAnimations(bool value) async {
+    attemptedGifAnimationWrites.add(value);
+    if (throwWrites) throw StateError('preferences unavailable');
     if (!acceptWrites) return false;
     disableGifAnimations = value;
     return true;
@@ -265,6 +432,7 @@ final class _ControlledAppSettingsPersistence
   @override
   Future<bool> writeTextScale(String value) async {
     attemptedTextScaleWrites.add(value);
+    if (throwWrites) throw StateError('preferences unavailable');
     if (!acceptWrites) return false;
     textScale = value;
     return true;
