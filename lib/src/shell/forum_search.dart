@@ -13,6 +13,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'external_link.dart';
+import 'group_flair.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
 import 'shell_search_controller.dart';
@@ -1062,54 +1063,15 @@ class _SearchResultRow extends StatelessWidget {
       selected: selected,
       onFocus: onFocus,
       onTap: onTap,
-      leading: _GroupFlair(group: group),
+      leading: group.flairUrl == null
+          ? const DIcon(DIcons.users, size: 17)
+          : GroupFlair(
+              url: group.flairUrl,
+              color: group.flairColor,
+              backgroundColor: group.flairBackgroundColor,
+            ),
     ),
   };
-}
-
-class _GroupFlair extends StatelessWidget {
-  const _GroupFlair({required this.group});
-
-  final SearchGroupHit group;
-
-  @override
-  Widget build(BuildContext context) {
-    final flair = group.flairUrl;
-    if (flair == null) return const DIcon(DIcons.users, size: 17);
-
-    final foreground = _hexColor(
-      group.flairColor,
-      Theme.of(context).colorScheme.onSurfaceVariant,
-    );
-    final background = _hexColor(
-      group.flairBackgroundColor,
-      Colors.transparent,
-    );
-    final icon = flair.contains('/') ? null : DIcons.byName[flair];
-    return Container(
-      width: 24,
-      height: 24,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(5),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: icon == null
-          ? AvatarImage(
-              url: flair.contains('/') ? flair : null,
-              size: 24,
-              fallback: DIcon(DIcons.users, size: 16, color: foreground),
-            )
-          : DIcon(icon, size: 16, color: foreground),
-    );
-  }
-}
-
-Color _hexColor(String? value, Color fallback) {
-  final normalized = value?.replaceFirst('#', '');
-  if (normalized == null || normalized.length != 6) return fallback;
-  final parsed = int.tryParse(normalized, radix: 16);
-  return parsed == null ? fallback : Color(0xFF000000 | parsed);
 }
 
 class _CompactSearchResultRow extends StatelessWidget {

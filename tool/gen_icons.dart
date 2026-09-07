@@ -1,9 +1,9 @@
 /// Generates `lib/src/theme/d_icons.dart` from Discourse's SVG sprites.
 ///
-/// Discourse draws every icon from `vendor/assets/svg-icons/`: three Font
-/// Awesome Free subsets plus `discourse-additional.svg`, which holds the icons
-/// Font Awesome does not have. Taking the symbols straight from there — rather
-/// than from a Font Awesome package on pub.dev — is what makes an icon here the
+/// Discourse draws icons from `vendor/assets/svg-icons/` and plugin sprites:
+/// three Font Awesome Free subsets, `discourse-additional.svg`, and Discourse
+/// AI's sprite. Taking the symbols straight from there — rather than from a
+/// Font Awesome package on pub.dev — is what makes an icon here the
 /// same shape as the icon on the web, and it is the only way to get the
 /// `discourse-*` ones at all.
 ///
@@ -20,10 +20,11 @@ import 'dart:io';
 /// `SvgSprite.prepare_symbol` does it: `regular.svg` ids get a `far-` prefix,
 /// `brands.svg` ids get `fab-`, everything else keeps the id as written.
 const List<(String, String)> _spriteFiles = [
-  ('', 'fontawesome/solid.svg'),
-  ('far-', 'fontawesome/regular.svg'),
-  ('fab-', 'fontawesome/brands.svg'),
-  ('', 'discourse-additional.svg'),
+  ('', 'vendor/assets/svg-icons/fontawesome/solid.svg'),
+  ('far-', 'vendor/assets/svg-icons/fontawesome/regular.svg'),
+  ('fab-', 'vendor/assets/svg-icons/fontawesome/brands.svg'),
+  ('', 'vendor/assets/svg-icons/discourse-additional.svg'),
+  ('', 'plugins/discourse-ai/svg-icons/icons-sprite.svg'),
 ];
 
 const String _output = 'lib/src/theme/d_icons.dart';
@@ -112,7 +113,7 @@ Map<String, (String, String)> _readSprites(String root) {
   final symbols = <String, (String, String)>{};
 
   for (final (prefix, path) in _spriteFiles) {
-    final file = File('$root/vendor/assets/svg-icons/$path');
+    final file = File('$root/$path');
     if (!file.existsSync()) {
       stderr.writeln('Missing sprite: ${file.path}');
       exit(1);

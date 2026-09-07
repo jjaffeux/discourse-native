@@ -1077,10 +1077,14 @@ class _Tile extends StatelessWidget {
                           child: UserCardTarget.avatar(
                             username: message.author.username,
                             siteUrl: siteUrl,
+                            semanticLabel: message.author.flair == null
+                                ? null
+                                : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
                             child: ChatUserAvatar(
                               siteUrl: siteUrl,
                               userId: message.author.id,
                               url: message.author.avatarUrl,
+                              flair: message.author.flair,
                               size: 28,
                               fallback: ColoredBox(
                                 color: theme.shell.floating,
@@ -1328,7 +1332,9 @@ class _ReplyIndicator extends StatelessWidget {
     return Semantics(
       link: onJump != null,
       enabled: onJump != null,
-      label: 'Jump to message from @${reply.username}: ${reply.excerpt}',
+      label:
+          'Jump to message from @${reply.username}'
+          '${reply.flair == null ? '' : ', ${reply.flair!.label}'}: ${reply.excerpt}',
       onTap: onJump,
       child: ExcludeSemantics(
         child: Padding(
@@ -1354,6 +1360,7 @@ class _ReplyIndicator extends StatelessWidget {
                   siteUrl: siteUrl,
                   userId: reply.userId,
                   url: reply.avatarUrl,
+                  flair: reply.flair,
                   size: 20,
                   fallback: ColoredBox(color: theme.shell.floating),
                 ),
@@ -1646,6 +1653,7 @@ class _ThreadSummaryCard extends StatelessWidget {
     if (name != null || excerpt != null || time != null) {
       label.write(' Latest reply');
       if (name != null) label.write(' from $name');
+      if (user?.flair case final flair?) label.write(', ${flair.label}');
       if (time != null) label.write(', $time');
       if (excerpt != null) label.write(': $excerpt');
       label.write('.');
@@ -1680,6 +1688,7 @@ class _ThreadSummaryContents extends StatelessWidget {
           siteUrl: siteUrl,
           userId: user?.id ?? 0,
           url: avatarUrl,
+          flair: user?.flair,
           size: _ThreadSummaryCard._latestAvatarSize,
           fallback: _AvatarFallback(
             name: name,
@@ -1805,6 +1814,7 @@ class _ThreadParticipants extends StatelessWidget {
                           siteUrl: siteUrl,
                           userId: user.id,
                           url: user.avatarUrl,
+                          flair: user.flair,
                           size: _avatarSize - 4,
                           fallback: _AvatarFallback(
                             name: user.displayName,

@@ -4,6 +4,7 @@ import 'dart:ui' show Tristate;
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/user_flair.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
@@ -14,6 +15,7 @@ import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/site_plugin.dart';
+import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/shell/loading_skeleton.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -605,7 +607,15 @@ void main() {
   testWidgets('the pinned bar jumps to a pin and opens the complete list', (
     tester,
   ) async {
-    final first = _message(2).withPinned(true);
+    final first = _message(
+      2,
+      authorId: -4000,
+      flair: const UserFlair(
+        groupId: 12,
+        name: 'discourse_ai_users',
+        url: 'discourse-ai',
+      ),
+    ).withPinned(true);
     final second = _message(3).withPinned(true);
     final api = _ChatApi(
       user: const DiscourseUser(id: 7, username: 'reader'),
@@ -662,6 +672,13 @@ void main() {
     expect(find.text('Pinned messages'), findsOneWidget);
     expect(find.byKey(const ValueKey('chat-pin-91')), findsOneWidget);
     expect(find.byKey(const ValueKey('chat-pin-92')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-pin-91')),
+        matching: find.byType(GroupFlair),
+      ),
+      findsOneWidget,
+    );
     expect(api.chatPinsRead, [9]);
     expect(
       controller.chat.channel(firstSite, 9)?.membership.hasUnseenPins,
@@ -1391,6 +1408,7 @@ ChatMessage _message(
   ChatThreadPreview? thread,
   DateTime? createdAt,
   int authorId = 2,
+  UserFlair? flair,
   DateTime? deletedAt,
   int? deletedById,
   ChatReplyTo? replyTo,
@@ -1398,7 +1416,7 @@ ChatMessage _message(
   id: id,
   channelId: 9,
   cooked: cooked ?? '<p>Message $id</p>',
-  author: ChatMessageAuthor(id: authorId, username: 'sam'),
+  author: ChatMessageAuthor(id: authorId, username: 'sam', flair: flair),
   createdAt: createdAt ?? DateTime.utc(2026, 1, 1).add(Duration(minutes: id)),
   deletedAt: deletedAt,
   deletedById: deletedById,

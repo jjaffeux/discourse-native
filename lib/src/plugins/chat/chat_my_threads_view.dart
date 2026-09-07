@@ -192,6 +192,7 @@ class ChatThreadListRow extends StatelessWidget {
             siteUrl: siteUrl,
             userId: author?.id ?? 0,
             url: author?.avatarUrl,
+            flair: author?.flair,
             size: 40,
             fallback: _AvatarFallback(name: author?.displayName),
           ),

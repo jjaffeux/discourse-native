@@ -10,6 +10,7 @@ import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_pin.dart';
+import 'chat_user_avatar.dart';
 
 /// Compact native counterpart of core's channel pinned-message bar.
 class ChatPinnedBar extends StatefulWidget {
@@ -110,7 +111,17 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
           return ListTile(
             key: ValueKey('chat-pin-${pin.id}'),
             minTileHeight: 56,
-            leading: const DIcon(DIcons.thumbtack, size: 18),
+            leading: Semantics(
+              label: 'Message by ${pin.message.author.displayName}',
+              child: ChatUserAvatar(
+                siteUrl: widget.siteUrl,
+                userId: pin.message.author.id,
+                url: pin.message.author.avatarUrl,
+                flair: pin.message.author.flair,
+                size: 32,
+                fallback: const DIcon(DIcons.user, size: 20),
+              ),
+            ),
             title: Text(
               pin.excerpt.isEmpty ? pin.message.raw : pin.excerpt,
               maxLines: 2,

@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
+import 'package:discourse_native/src/models/user_flair.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
@@ -13,6 +14,7 @@ import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
@@ -111,7 +113,11 @@ void main() {
               originalMessage: ChatThreadOriginalMessage(
                 id: 40,
                 channelId: 9,
-                author: ChatMessageAuthor(id: 2, username: 'sam'),
+                author: ChatMessageAuthor(
+                  id: 2,
+                  username: 'sam',
+                  flair: UserFlair(groupId: 12, name: 'support', url: 'users'),
+                ),
                 excerpt: 'Can someone check this?',
               ),
             ),
@@ -475,6 +481,13 @@ void main() {
     }
 
     expect(find.text('Support thread'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-my-thread-3')),
+        matching: find.byType(GroupFlair),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('chat-my-thread-unread-3')),
       findsOneWidget,

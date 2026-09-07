@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/models/user_flair.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -18,6 +19,7 @@ import 'package:discourse_native/src/plugins/site_plugin.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
+import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -42,6 +44,200 @@ const _replyInThreadAction = CustomSemanticsAction(label: 'Reply in thread');
 const _copyLinkAction = CustomSemanticsAction(label: 'Copy link');
 
 void main() {
+  const aiFlair = UserFlair(
+    groupId: 12,
+    name: 'discourse_ai_users',
+    url: 'discourse-ai',
+  );
+
+  for (final direction in TextDirection.values) {
+    testWidgets('avatar flair follows the trailing edge in $direction', (
+      tester,
+    ) async {
+      final controller = await _controller(_message(null));
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: Directionality(
+                textDirection: direction,
+                child: const Center(
+                  child: ChatUserAvatar(
+                    siteUrl: _siteUrl,
+                    userId: -4000,
+                    url: null,
+                    size: 40,
+                    flair: aiFlair,
+                    fallback: SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final avatar = tester.getRect(find.byType(ChatUserAvatar));
+      final badge = tester.getRect(find.byType(GroupFlair));
+      expect(avatar.size, const Size.square(40));
+      expect(badge.size, const Size.square(18));
+      expect(badge.bottom, avatar.bottom + 4);
+      if (direction == TextDirection.ltr) {
+        expect(badge.right, avatar.right + 4);
+      } else {
+        expect(badge.left, avatar.left - 4);
+      }
+      expect(find.byTooltip('discourse_ai_users'), findsOneWidget);
+    });
+  }
+
+  for (final contextThreadId in <int?>[null, 3]) {
+    testWidgets(
+      'channel/thread $contextThreadId renders and updates author flair',
+      (tester) async {
+        final message = _message(
+          null,
+          authorId: -4000,
+          authorUsername: 'helper',
+          authorFlair: aiFlair,
+          threadId: contextThreadId,
+        );
+        final controller = await _controller(message);
+        addTearDown(controller.dispose);
+        final semantics = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(
+            _TestTile(
+              controller: controller,
+              onOpenThread: (_) {},
+              contextThreadId: contextThreadId,
+            ),
+          );
+          await tester.pumpAndSettle();
+          final avatar = find.byType(ChatUserAvatar);
+          expect(tester.getSize(avatar), const Size.square(28));
+          expect(find.byType(GroupFlair), findsOneWidget);
+          expect(
+            tester
+                .widget<DIcon>(
+                  find.descendant(
+                    of: find.byType(GroupFlair),
+                    matching: find.byType(DIcon),
+                  ),
+                )
+                .icon,
+            DIcons.discourseAi,
+          );
+          expect(
+            find.bySemanticsLabel(
+              'View profile for @helper, discourse_ai_users',
+            ),
+            findsOneWidget,
+          );
+
+          controller.store.put(
+            _siteUrl,
+            _message(
+              null,
+              authorId: -4000,
+              authorUsername: 'helper',
+              threadId: contextThreadId,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byType(GroupFlair), findsNothing);
+          expect(tester.getSize(avatar), const Size.square(28));
+        } finally {
+          semantics.dispose();
+        }
+      },
+    );
+  }
+
+  testWidgets('thread preview and reply indicator carry each author flair', (
+    tester,
+  ) async {
+    const user = ChatMessageAuthor(
+      id: -4000,
+      username: 'helper',
+      flair: aiFlair,
+    );
+    const preview = ChatThreadPreview(
+      threadId: 3,
+      replyCount: 1,
+      lastReplyId: 42,
+      lastReplyUser: user,
+      participantUsers: [user],
+    );
+    const reply = ChatReplyTo(
+      id: 6,
+      userId: -4000,
+      excerpt: 'Earlier',
+      username: 'helper',
+      flair: aiFlair,
+    );
+    final controller = await _controller(_message(preview, replyTo: reply));
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        onJumpToMessage: (_) {},
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(GroupFlair), findsNWidgets(3));
+    final flairedAvatars = tester
+        .widgetList<ChatUserAvatar>(find.byType(ChatUserAvatar))
+        .where((avatar) => avatar.userId == -4000);
+    expect(flairedAvatars, hasLength(3));
+    expect(flairedAvatars.every((avatar) => avatar.flair == aiFlair), isTrue);
+  });
+
+  testWidgets(
+    'flair leaves the live presence ring and avatar geometry intact',
+    (tester) async {
+      final controller = await _controller(
+        _message(null, authorId: 2, authorFlair: aiFlair),
+        api: FakeDiscourseApi(
+          chatChannelsBySite: {
+            _siteUrl: const ChatChannels(
+              public: [],
+              direct: [],
+              presence: ChatPresence(userIds: {2}, lastMessageId: 47),
+            ),
+          },
+        ),
+      );
+      addTearDown(controller.dispose);
+      await controller.chat.loadChannels(_siteUrl);
+      await tester.pumpWidget(
+        _TestTile(controller: controller, onOpenThread: (_) {}),
+      );
+      await tester.pumpAndSettle();
+      final ring = find.byKey(ChatUserAvatar.onlineRingKey(2));
+      expect(ring, findsOneWidget);
+      expect(tester.getSize(ring), const Size.square(28));
+      expect(find.byType(GroupFlair), findsOneWidget);
+      FakeSiteTracker.built.single.deliverPluginMessage(
+        '/presence/chat/online',
+        {
+          'leaving_user_ids': [2],
+        },
+      );
+      await tester.pumpAndSettle();
+      expect(ring, findsNothing);
+      expect(find.byType(GroupFlair), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(ChatUserAvatar)),
+        const Size.square(28),
+      );
+    },
+  );
+
   testWidgets(
     'direct-reply indicator matches core and jumps to the referenced message',
     (tester) async {
@@ -1493,6 +1689,7 @@ ChatMessage _message(
   String raw = '',
   int authorId = 99,
   String authorUsername = '',
+  UserFlair? authorFlair,
   int? threadId,
   DateTime? deletedAt,
   bool edited = false,
@@ -1510,6 +1707,7 @@ ChatMessage _message(
     id: authorId,
     username: authorUsername,
     name: 'Root author',
+    flair: authorFlair,
   ),
   deletedAt: deletedAt,
   edited: edited,
