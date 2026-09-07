@@ -59,6 +59,14 @@ class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
     _retireStaleOperation();
   }
 
+  @override
+  void deactivate() {
+    // The picker route can rebuild before this State is disposed.
+    _ownsTarget = null;
+    _saving = false;
+    super.deactivate();
+  }
+
   void _retireStaleOperation() {
     if (_ownsTarget?.call() == false) {
       _ownsTarget = null;
@@ -110,13 +118,18 @@ class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
               },
         search: (term) async {
           if (!isCurrent()) return const TopicTagSearch();
-          final results = await shell.searchTopicTagsForEditor(
-            siteUrl: target.siteUrl,
-            categoryId: target.categoryId,
-            selectedTags: tags,
-            term: term,
-          );
-          return isCurrent() ? results : const TopicTagSearch();
+          try {
+            final results = await shell.searchTopicTagsForEditor(
+              siteUrl: target.siteUrl,
+              categoryId: target.categoryId,
+              selectedTags: tags,
+              term: term,
+            );
+            return isCurrent() ? results : const TopicTagSearch();
+          } catch (_) {
+            if (isCurrent()) rethrow;
+            return const TopicTagSearch();
+          }
         },
       );
       if (!isCurrent() || selected == null) return;
