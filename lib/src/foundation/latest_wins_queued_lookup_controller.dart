@@ -37,6 +37,15 @@ final class LatestWinsQueuedLookupController<Request, Result> {
     unawaited(_run(request));
   }
 
+  /// Drops queued work and ignores the active lookup's result or error.
+  ///
+  /// An active lookup still finishes before any new request starts.
+  void invalidate() {
+    if (_disposed) return;
+    _revision++;
+    _queued = null;
+  }
+
   Future<void> _run(({int revision, Request value}) request) async {
     _running = true;
     try {

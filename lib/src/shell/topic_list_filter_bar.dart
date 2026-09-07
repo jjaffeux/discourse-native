@@ -493,6 +493,11 @@ class _TagFilterPickerState extends State<_TagFilterPicker> {
 
   void _changed(String value) {
     _debounce?.cancel();
+    _lookup.invalidate();
+    setState(() {
+      _results = const [];
+      _loading = true;
+    });
     _debounce = Timer(const Duration(milliseconds: 250), () => _search(value));
   }
 
@@ -530,7 +535,9 @@ class _TagFilterPickerState extends State<_TagFilterPicker> {
   }
 
   void _submitQuery() {
-    if (_results.isNotEmpty) widget.onSelected(_results.first.value);
+    if (!_loading && _results.isNotEmpty) {
+      widget.onSelected(_results.first.value);
+    }
   }
 
   @override
