@@ -9,6 +9,7 @@ import '../../shell/inline_video.dart';
 import '../../shell/lightbox.dart';
 import '../../shell/open_link.dart';
 import '../../shell/site_image.dart';
+import '../../shell/site_url.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -115,7 +116,7 @@ class _Image extends StatelessWidget {
     void open() => _open(context, absolute);
 
     Widget picture = SiteImage(
-      url: upload.thumbnailUrl ?? upload.url,
+      url: absolute(upload.thumbnailUrl ?? upload.url),
       siteUrl: siteUrl,
       fit: BoxFit.contain,
       width: double.infinity,
@@ -280,5 +281,5 @@ String _absoluteUploadUrl(String siteUrl, String url) {
 
   final parsed = Uri.tryParse(url);
   if (parsed == null || parsed.hasScheme) return url;
-  return '$siteUrl${url.startsWith('/') ? '' : '/'}$url';
+  return resolveSitePath(siteUrl, url);
 }
