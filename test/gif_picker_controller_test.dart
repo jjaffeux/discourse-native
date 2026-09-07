@@ -78,6 +78,109 @@ void main() {
       expect(controller.searching, isFalse);
     });
 
+    testWidgets('only starts the first-page retry requested by a listener', (
+      tester,
+    ) async {
+      final api = _ControllableGifsApi();
+      final credentials = _CountingCredentials();
+      final controller = _controller(api, credentials: credentials);
+      addTearDown(controller.dispose);
+
+      void retryWhenSearching() {
+        if (!controller.searching) return;
+        controller.removeListener(retryWhenSearching);
+        unawaited(controller.retry());
+      }
+
+      controller.addListener(retryWhenSearching);
+      final loading = controller.selectCategory(_shortCategory);
+      await tester.pump();
+
+      expect(credentials.apiKeyCalls, 1);
+      expect(api.requests, [(query: 'go', position: '0')]);
+      expect(controller.searching, isTrue);
+
+      api.responses.single.complete(GifSearchPage(results: const [_dogResult]));
+      await tester.pump();
+      await loading;
+      expect(controller.results, const [_dogResult]);
+      expect(controller.searching, isFalse);
+    });
+
+    for (final staleFinishesFirst in [true, false]) {
+      for (final staleFails in [true, false]) {
+        testWidgets('isolates overlapping first-page retries '
+            '(stale finishes first: $staleFinishesFirst, fails: $staleFails)', (
+          tester,
+        ) async {
+          final api = _ControllableGifsApi();
+          final controller = _controller(api);
+          addTearDown(controller.dispose);
+
+          final initial = controller.selectCategory(_shortCategory);
+          await tester.pump();
+          api.responses[0].completeError(Exception('Initial failure'));
+          await tester.pump();
+          await initial;
+          expect(controller.error, isNotNull);
+
+          final older = controller.retry();
+          await tester.pump();
+          final newer = controller.retry();
+          await tester.pump();
+          expect(api.requests, List.filled(3, (query: 'go', position: '0')));
+
+          void completeOlder() {
+            if (staleFails) {
+              api.responses[1].completeError(Exception('Stale failure'));
+            } else {
+              api.responses[1].complete(
+                GifSearchPage(results: const [_catResult]),
+              );
+            }
+          }
+
+          if (staleFinishesFirst) {
+            completeOlder();
+            await tester.pump();
+            await older;
+            expect(controller.results, isEmpty);
+            expect(controller.error, isNull);
+            expect(controller.searching, isTrue);
+          }
+
+          api.responses[2].complete(
+            GifSearchPage(
+              results: const [_dogResult],
+              nextPosition: 'new-cursor',
+            ),
+          );
+          await tester.pump();
+          await newer;
+
+          if (!staleFinishesFirst) {
+            completeOlder();
+            await tester.pump();
+            await older;
+          }
+
+          expect(controller.results, const [_dogResult]);
+          expect(controller.error, isNull);
+          expect(controller.searching, isFalse);
+          expect(controller.canLoadMore, isTrue);
+
+          final more = controller.loadMore();
+          await tester.pump();
+          expect(api.requests.last, (query: 'go', position: 'new-cursor'));
+          api.responses.last.complete(GifSearchPage(results: const []));
+          await tester.pump();
+          await more;
+          expect(controller.results, const [_dogResult]);
+          expect(controller.canLoadMore, isFalse);
+        });
+      }
+    }
+
     test('keeps a short category term as an active search', () async {
       const result = GifResult(
         title: 'Go',
@@ -127,6 +230,70 @@ void main() {
   });
 
   group('search pagination', () {
+    for (final change in ['query', 'category']) {
+      testWidgets('abandons load-more when a listener changes the $change', (
+        tester,
+      ) async {
+        final api = _ControllableGifsApi();
+        final credentials = _CountingCredentials();
+        final controller = _controller(
+          api,
+          credentials: credentials,
+          searchDebounce: const Duration(milliseconds: 700),
+        );
+        addTearDown(controller.dispose);
+
+        controller.updateQuery('cats');
+        await tester.pump(const Duration(milliseconds: 700));
+        api.responses.single.complete(
+          GifSearchPage(
+            results: const [_catResult],
+            nextPosition: 'cat-cursor',
+          ),
+        );
+        await tester.pump();
+
+        void changeSearchWhenLoadingMore() {
+          if (!controller.loadingMore) return;
+          controller.removeListener(changeSearchWhenLoadingMore);
+          if (change == 'query') {
+            controller.updateQuery('dogs');
+          } else {
+            unawaited(controller.selectCategory(_shortCategory));
+          }
+        }
+
+        controller.addListener(changeSearchWhenLoadingMore);
+        final loadingMore = controller.loadMore();
+        await tester.pump();
+
+        expect(credentials.apiKeyCalls, change == 'query' ? 1 : 2);
+        expect(controller.results, isEmpty);
+        expect(controller.loadingMore, isFalse);
+
+        if (change == 'query') {
+          expect(controller.searchPending, isTrue);
+          await tester.pump(const Duration(milliseconds: 699));
+          expect(api.requests, [(query: 'cats', position: '0')]);
+          await tester.pump(const Duration(milliseconds: 1));
+        }
+
+        expect(api.requests, [
+          (query: 'cats', position: '0'),
+          (query: change == 'query' ? 'dogs' : 'go', position: '0'),
+        ]);
+        expect(controller.searchPending, isFalse);
+        expect(controller.searching, isTrue);
+
+        api.responses.last.complete(GifSearchPage(results: const [_dogResult]));
+        await tester.pump();
+        await loadingMore;
+        expect(controller.results, const [_dogResult]);
+        expect(controller.error, isNull);
+        expect(controller.searching, isFalse);
+      });
+    }
+
     test(
       'deduplicates cursor pages and stops at the exact result cap',
       () async {
@@ -427,5 +594,15 @@ final class _GatedCredentials extends FakeApiCredentialReader {
   Future<String> clientId() async {
     clientIdCalls++;
     return super.clientId();
+  }
+}
+
+final class _CountingCredentials extends FakeApiCredentialReader {
+  int apiKeyCalls = 0;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    apiKeyCalls++;
+    return super.apiKeyFor(siteUrl);
   }
 }

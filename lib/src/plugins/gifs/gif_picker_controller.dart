@@ -161,6 +161,8 @@ final class GifPickerController extends ChangeNotifier {
   }) async {
     if (_disposed || request != _searchRequest) return;
     if (!bypassLengthCheck && query.length < minimumQueryLength) return;
+    // Retries must supersede earlier attempts before listeners can run.
+    final pageRequest = ++_searchRequest;
     _activeQuery = query;
     _searchPending = false;
     _searching = true;
@@ -169,19 +171,20 @@ final class GifPickerController extends ChangeNotifier {
     _results = const [];
     _nextPosition = null;
     _notify();
-    await _loadPage(query, request: request, position: '0', replace: true);
+    await _loadPage(query, request: pageRequest, position: '0', replace: true);
   }
 
   Future<void> loadMore() async {
     final query = _activeQuery;
     final position = _nextPosition;
     if (_disposed || query == null || position == null || !canLoadMore) return;
+    final request = ++_searchRequest;
     _loadingMore = true;
     _searchError = null;
     _notify();
     await _loadPage(
       query,
-      request: _searchRequest,
+      request: request,
       position: position,
       replace: false,
     );
@@ -205,6 +208,7 @@ final class GifPickerController extends ChangeNotifier {
     required String position,
     required bool replace,
   }) async {
+    if (!_searchIsCurrent(request)) return;
     final lease = _requests.capture(siteUrl);
     try {
       final session = await _session(lease);
