@@ -14,6 +14,7 @@ import 'package:discourse_native/src/plugins/gifs/gifs_module.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_module.dart';
 import 'package:discourse_native/src/plugins/poll/poll_module.dart';
 import 'package:discourse_native/src/plugins/poll/polls_api.dart';
+import 'package:discourse_native/src/plugins/prometheus_alert_receiver/prometheus_alert_receiver_module.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_module.dart';
 
@@ -35,6 +36,7 @@ final PluginManifest _testBundledPluginManifest = PluginManifest([
   const ReactionsModule(apiFactory: _reactionsApis),
   const PollModule(apiFactory: _pollsApi),
   discourseEventsModule,
+  prometheusAlertReceiverModule,
   const GifsModule(apiFactory: _gifsApi),
   discourseAiModule,
   assignModule,

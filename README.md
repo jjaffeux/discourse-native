@@ -802,6 +802,12 @@ Closed topics show a lock and **Closed** badge at the start of the header's
 metadata row, including for readers without moderation permissions. The badge
 updates when the topic is closed or reopened.
 
+Prometheus Alert Receiver topics render their alert tables below the opening
+post, grouped by status and datacenter. Tables support collapsing, horizontal
+scrolling, alert links with the matching time range, and quoting a single alert
+into a reply. Live topic updates refresh the tables. See the
+[module notes](lib/src/plugins/prometheus_alert_receiver/README.md).
+
 The list heading and discovery tabs occupy separate rows within the same
 reading lane as the topics. Wide lists place category/tag filters beside the
 people, replies, views, and activity column labels. The filters fit their

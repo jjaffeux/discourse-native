@@ -275,6 +275,19 @@ const corePluginPostEditorPort = PluginHostPortKey<PluginPostEditorHost>(
   name: 'post-editor',
 );
 
+/// Quotes a loaded post in the visible topic, subject to current reply
+/// permissions. The host owns the quote envelope and composer draft handling.
+final class PluginPostQuoteHost {
+  const PluginPostQuoteHost({required this.open});
+
+  final Future<void> Function(String siteUrl, int postId, String contents) open;
+}
+
+const corePluginPostQuotePort = PluginHostPortKey<PluginPostQuoteHost>(
+  owner: PluginId('core'),
+  name: 'post-quote',
+);
+
 const corePluginModelCodecPort = PluginHostPortKey<DiscourseModelCodec>(
   owner: PluginId('core'),
   name: 'model-codec',

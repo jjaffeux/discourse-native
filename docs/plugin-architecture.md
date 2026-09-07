@@ -172,6 +172,13 @@ Topic recommendation sources are a sibling resource, not values in a topic's
 payload into the shared recommendation-topic row shape before core constructs
 `Topic` values. Absence remains distinct from a present, empty source.
 
+Prometheus Alert Receiver owns the topic-view `alert_data` record and renders
+its status/datacenter tables through `PostDecorationPlugin` on the opening
+post. Its tables do not exist in cooked HTML. The narrow `PluginPostQuoteHost`
+lets an alert row quote the loaded opening post while core verifies the visible
+site, topic membership, and reply permissions and preserves composer drafts.
+See the [module notes](../lib/src/plugins/prometheus_alert_receiver/README.md).
+
 GIFs exposes one picker session rather than its wire API. That session owns the
 API client, credentials, lifecycle lease, settings lookup, and catalog/picker
 assembly; topic and Chat composers receive only availability and a selected

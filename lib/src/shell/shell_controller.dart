@@ -325,6 +325,26 @@ class ShellController extends FrameSafeNotifier
           },
         ),
       ),
+      PluginHostPort<Object>(
+        corePluginPostQuotePort,
+        PluginPostQuoteHost(
+          open: (siteUrl, postId, contents) async {
+            final post = store.read<Post>(siteUrl, postId);
+            final topic = currentTopic;
+            if (isDisposed ||
+                currentInstance?.url != siteUrl ||
+                topic == null ||
+                post == null ||
+                !topic.stream.contains(postId)) {
+              return;
+            }
+            await openQuote(
+              post,
+              buildPostQuote(post: post, topicId: topic.id, contents: contents),
+            );
+          },
+        ),
+      ),
       PluginHostPort<Object>(corePluginModelCodecPort, api.models),
       PluginHostPort<Object>(
         corePluginRequestPort,
