@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'composer_images.dart';
 import 'image_decode.dart';
+import 'shell_scope.dart';
 import 'site_image.dart';
 
 class ComposerImagePreview extends StatelessWidget {
@@ -48,6 +49,11 @@ class ComposerImagePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = displaySize(image);
+    // Repository bytes can be measured without a full-size image stream.
+    // Keep the network fallback's shared measurement/display request intact.
+    final boundedDecode =
+        image.hasDimensions ||
+        (siteUrl != null && ShellScope.maybeIdentityOf(context) != null);
     final source = url;
     final borderRadius = BorderRadius.circular(8);
     final border = Border.all(
@@ -84,10 +90,10 @@ class ComposerImagePreview extends StatelessWidget {
                 url: source,
                 siteUrl: siteUrl,
                 fit: BoxFit.contain,
-                cacheWidth: image.hasDimensions
+                cacheWidth: boundedDecode
                     ? imagePhysicalPixels(context, size.width)
                     : null,
-                cacheHeight: image.hasDimensions
+                cacheHeight: boundedDecode
                     ? imagePhysicalPixels(context, size.height)
                     : null,
                 onNaturalSize: image.hasDimensions ? null : onNaturalSize,

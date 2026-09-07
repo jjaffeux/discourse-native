@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -153,7 +154,28 @@ class _SiteImageState extends State<SiteImage> {
   void _listenToBytes() {
     final bytes = _bytes;
     if (bytes == null || bytes.isSvg || widget.onNaturalSize == null) return;
-    _listen(MemoryImage(bytes.bytes));
+    unawaited(_measureBytes(bytes, _generation));
+  }
+
+  Future<void> _measureBytes(SiteImageBytes bytes, int generation) async {
+    ui.ImmutableBuffer? buffer;
+    ui.ImageDescriptor? descriptor;
+    final Size size;
+    try {
+      buffer = await ui.ImmutableBuffer.fromUint8List(bytes.bytes);
+      descriptor = await ui.ImageDescriptor.encoded(buffer);
+      // Read intrinsic dimensions without decoding or caching a full-size
+      // frame alongside the image used for display.
+      size = Size(descriptor.width.toDouble(), descriptor.height.toDouble());
+    } catch (_) {
+      // The rendered image owns the error fallback.
+      return;
+    } finally {
+      descriptor?.dispose();
+      buffer?.dispose();
+    }
+    if (!mounted || generation != _generation) return;
+    widget.onNaturalSize?.call(size);
   }
 
   void _listen(ImageProvider<Object> provider) {
