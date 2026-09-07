@@ -61,6 +61,8 @@ final class DiscourseTransport {
   );
 
   static const String userAgent = 'DiscourseNative/1.0';
+  static const _redirectStatusCodes = {301, 302, 303, 307, 308};
+  static const int _maxGetRedirects = 5;
 
   Future<http.Response> request(String method, Uri url) =>
       send(http.Request(method, url));
@@ -89,13 +91,7 @@ final class DiscourseTransport {
     for (var hop = 0; hop <= maxRedirects; hop++) {
       final response = await request('HEAD', current);
       final location = response.headers['location'];
-      final isRedirect = const {
-        301,
-        302,
-        303,
-        307,
-        308,
-      }.contains(response.statusCode);
+      final isRedirect = _redirectStatusCodes.contains(response.statusCode);
 
       if (!isRedirect || location == null) {
         return DiscourseHeadResponse(
@@ -231,31 +227,51 @@ final class DiscourseTransport {
     String? clientId,
     String? accept,
   }) async {
-    final http.Response response;
+    late http.Response response;
     try {
-      requireSafeHttpUrl(url);
-      if (apiKey != null) _requireCredentialOrigin(url, siteUrl);
-      response = await coordinator.run(
-        url,
-        () {
-          final request = http.Request('GET', url);
-          if (accept != null) request.headers['Accept'] = accept;
-          if (apiKey != null) {
-            request.headers.addAll(authHeaders(apiKey, clientId: clientId));
-          }
-          return sendBoundedHttpRequest(
-            _client,
-            request,
-            timeout: timeout,
-            maxBodyBytes: _maxResponseBytes,
-          );
-        },
-        coalesce: DiscourseGetRequestKey(
-          url,
-          apiKey: apiKey,
-          clientId: clientId,
-        ),
-      );
+      var current = url;
+      for (var redirects = 0; ; redirects++) {
+        final requestUrl = requireSafeHttpUrl(current);
+        if (apiKey != null) _requireCredentialOrigin(requestUrl, siteUrl);
+        response = await coordinator.run(
+          requestUrl,
+          () {
+            final request = http.Request('GET', requestUrl);
+            if (accept != null) request.headers['Accept'] = accept;
+            if (apiKey != null) {
+              request.headers.addAll(authHeaders(apiKey, clientId: clientId));
+            }
+            return sendBoundedHttpRequest(
+              _client,
+              request,
+              timeout: timeout,
+              maxBodyBytes: _maxResponseBytes,
+            );
+          },
+          coalesce: DiscourseGetRequestKey(
+            requestUrl,
+            apiKey: apiKey,
+            clientId: clientId,
+          ),
+        );
+
+        final location = response.headers['location'];
+        if (!_redirectStatusCodes.contains(response.statusCode) ||
+            location == null ||
+            location.isEmpty ||
+            redirects >= _maxGetRedirects) {
+          break;
+        }
+
+        // Category slugs and tag synonyms can redirect even JSON reads. Keep
+        // those reads on their original origin and validate every hop before
+        // constructing another request with the connected site's credentials.
+        final target = resolveSafeHttpRedirect(requestUrl, location);
+        if (target.origin != url.origin) {
+          throw UnsafeHttpTransportException(target);
+        }
+        current = target;
+      }
     } catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
