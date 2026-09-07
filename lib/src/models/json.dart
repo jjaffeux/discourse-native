@@ -124,12 +124,24 @@ int categoryColorValue(String color) {
   return int.tryParse('FF$hex', radix: 16) ?? 0xFF888888;
 }
 
-/// Templates are normally site-relative and carry a `{size}` placeholder,
-/// while CDN-backed sites may answer with a protocol-relative or absolute URL.
+/// Root-relative templates already include the forum's subfolder, while
+/// relative paths belong under that folder. CDN URLs bypass the forum URL.
 String? resolveAvatarUrl(String? template, String siteUrl, {int size = 90}) {
   if (template == null || template.isEmpty) return null;
   final sized = template.replaceAll('{size}', '$size');
   if (sized.startsWith('//')) return 'https:$sized';
   if (sized.startsWith('http')) return sized;
-  return '$siteUrl${sized.startsWith('/') ? '' : '/'}$sized';
+  if (sized.startsWith('/')) {
+    final site = Uri.tryParse(siteUrl);
+    if (site != null &&
+        (site.scheme == 'https' || site.scheme == 'http') &&
+        site.host.isNotEmpty &&
+        site.userInfo.isEmpty) {
+      return '${site.origin}$sized';
+    }
+    // Keep malformed URLs non-throwing and credentials visible to the
+    // transport policy; taking the origin would silently strip user info.
+    return '$siteUrl$sized';
+  }
+  return '$siteUrl${siteUrl.endsWith('/') ? '' : '/'}$sized';
 }
