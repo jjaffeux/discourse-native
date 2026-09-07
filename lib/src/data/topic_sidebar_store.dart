@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'preference_snapshots.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
@@ -38,13 +39,19 @@ final class SharedPreferencesTopicSidebarPersistence
 }
 
 final class TopicSidebarStore {
-  const TopicSidebarStore({TopicSidebarPersistence? persistence})
+  TopicSidebarStore({TopicSidebarPersistence? persistence})
     : _persistence =
           persistence ?? const SharedPreferencesTopicSidebarPersistence();
 
   final TopicSidebarPersistence _persistence;
+  final _snapshots = PreferenceSnapshots<String, bool>();
   static final ReadAfterWriteOperationQueue _operations =
       ReadAfterWriteOperationQueue();
+
+  bool? collapsedFor(String siteUrl) => _snapshots.peek(siteUrl);
+
+  Future<bool> ensure({required String siteUrl}) =>
+      _snapshots.ensure(siteUrl, () => read(siteUrl: siteUrl));
 
   Future<bool> read({required String siteUrl}) => _operations.read(
     owner: _persistence,
@@ -61,12 +68,14 @@ final class TopicSidebarStore {
     }
   }
 
-  Future<void> write({required String siteUrl, required bool collapsed}) =>
-      _operations.write<void>(
-        owner: _persistence,
-        key: siteUrl,
-        operation: () => _persist(siteUrl: siteUrl, collapsed: collapsed),
-      );
+  Future<void> write({required String siteUrl, required bool collapsed}) {
+    _snapshots.remember(siteUrl, collapsed);
+    return _operations.write<void>(
+      owner: _persistence,
+      key: siteUrl,
+      operation: () => _persist(siteUrl: siteUrl, collapsed: collapsed),
+    );
+  }
 
   Future<void> _persist({
     required String siteUrl,

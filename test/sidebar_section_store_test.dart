@@ -5,10 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const store = SidebarSectionStore();
+  late SidebarSectionStore store;
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    store = SidebarSectionStore();
   });
 
   test('sections are expanded until a collapsed choice is saved', () async {

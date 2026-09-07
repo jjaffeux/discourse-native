@@ -69,7 +69,7 @@ class TopicView extends StatefulWidget {
     this.inbox = false,
     this.keepTopicListOpen = false,
     this.canReturnToSidebar = false,
-    this.sidebarStore = const TopicSidebarStore(),
+    this.sidebarStore,
     this.recommendationsTabStore = const TopicRecommendationsTabStore(),
     this.route,
     this.canReply = false,
@@ -92,7 +92,7 @@ class TopicView extends StatefulWidget {
 
   final bool canReturnToSidebar;
 
-  final TopicSidebarStore sidebarStore;
+  final TopicSidebarStore? sidebarStore;
 
   final TopicRecommendationsTabStore recommendationsTabStore;
 
@@ -218,6 +218,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   int _boundaryJumpRevision = 0;
   String? _recommendationsSiteUrl;
   bool _sidebarCollapsed = false;
+  bool _sidebarRestored = false;
+  TopicSidebarStore? _sidebarStoreIdentity;
   bool _sidebarOverlayOpen = false;
   int _sidebarRestoreGeneration = 0;
   TopicRecommendationSourceId _recommendationsSourceId =
@@ -752,26 +754,36 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   }
 
   void _syncRecommendationsSite(String siteUrl) {
-    if (_recommendationsSiteUrl == siteUrl) return;
+    final store = widget.sidebarStore ?? ShellScope.read(context).topicSidebar;
+    if (_recommendationsSiteUrl == siteUrl &&
+        identical(store, _sidebarStoreIdentity)) {
+      return;
+    }
+    _sidebarStoreIdentity = store;
     _recommendationsSiteUrl = siteUrl;
-    _sidebarCollapsed = false;
+    final collapsed = store.collapsedFor(siteUrl);
+    _sidebarRestored = collapsed != null;
+    _sidebarCollapsed = collapsed ?? false;
     _recommendationsSourceId = coreSuggestedTopicRecommendationSourceId;
     final sourceMigrations =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-    unawaited(_restoreSidebar(siteUrl));
+    unawaited(_restoreSidebar(siteUrl, store));
     unawaited(_restoreRecommendationsTab(siteUrl, sourceMigrations));
   }
 
-  Future<void> _restoreSidebar(String siteUrl) async {
+  Future<void> _restoreSidebar(String siteUrl, TopicSidebarStore store) async {
     final generation = ++_sidebarRestoreGeneration;
-    final collapsed = await widget.sidebarStore.read(siteUrl: siteUrl);
+    final collapsed = await store.ensure(siteUrl: siteUrl);
     if (!mounted ||
         generation != _sidebarRestoreGeneration ||
         _recommendationsSiteUrl != siteUrl) {
       return;
     }
-    if (collapsed != _sidebarCollapsed) {
-      setState(() => _sidebarCollapsed = collapsed);
+    if (!_sidebarRestored || collapsed != _sidebarCollapsed) {
+      setState(() {
+        _sidebarRestored = true;
+        _sidebarCollapsed = collapsed;
+      });
     }
   }
 
@@ -800,10 +812,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _sidebarRestoreGeneration++;
     setState(() {
       _sidebarCollapsed = collapsed;
+      _sidebarRestored = true;
       _sidebarOverlayOpen = false;
     });
     unawaited(
-      widget.sidebarStore.write(siteUrl: siteUrl, collapsed: collapsed),
+      _sidebarStoreIdentity!.write(siteUrl: siteUrl, collapsed: collapsed),
     );
   }
 
@@ -1698,7 +1711,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         !widget.inbox &&
         widget.showSidebar &&
         viewportWidth >= _TopicSidebarPanel.minimumPinnedViewportWidth;
-    final showPinnedSidebar = canPinSidebar && !_sidebarCollapsed;
+    final showPinnedSidebar =
+        canPinSidebar && _sidebarRestored && !_sidebarCollapsed;
     final showOverlaySidebar =
         !widget.inbox && !canPinSidebar && _sidebarOverlayOpen;
     final pinnedSidebarInset = showPinnedSidebar
@@ -1713,8 +1727,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           : EdgeInsets.zero,
     );
 
-    if (snapshot.topicId == null) {
-      if (snapshot.loading) {
+    final restoringSidebar =
+        widget.showSidebar && !widget.inbox && !_sidebarRestored;
+    if (snapshot.topicId == null || restoringSidebar) {
+      if (snapshot.loading || restoringSidebar) {
         const topicSkeleton = _TopicLoadingSkeleton(
           key: ValueKey('topic-loading-skeleton'),
         );
@@ -1728,7 +1744,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                     inbox: widget.inbox,
                     keepTopicListOpen: widget.keepTopicListOpen,
                     registry: widget.registry,
-                    title: widget.route?.title ?? 'Topic',
+                    title:
+                        snapshot.topic?.title ?? widget.route?.title ?? 'Topic',
                     siteUrl: snapshot.siteUrl,
                     route: widget.route,
                     canReturnToSidebar: widget.canReturnToSidebar,
@@ -3069,13 +3086,31 @@ class _TopicPropertiesCard extends StatelessWidget {
   final PluginRegistry registry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ShellSelector<({TopicCategory? category, TopicCategory? parent})>(
+        select: (controller) {
+          final category = controller.categoryFor(
+            topic.categoryId,
+            siteUrl: siteUrl,
+          );
+          return (
+            category: category,
+            parent: controller.categoryFor(
+              category?.parentCategoryId,
+              siteUrl: siteUrl,
+            ),
+          );
+        },
+        builder: (context, taxonomy, _) =>
+            _build(context, taxonomy.category, taxonomy.parent),
+      );
+
+  Widget _build(
+    BuildContext context,
+    TopicCategory? category,
+    TopicCategory? parentCategory,
+  ) {
     final controller = ShellScope.read(context);
-    final category = controller.categoryFor(topic.categoryId, siteUrl: siteUrl);
-    final parentCategory = controller.categoryFor(
-      category?.parentCategoryId,
-      siteUrl: siteUrl,
-    );
     final propertiesRebuildOn = registry.topicPropertiesRebuildOn(
       context,
       siteUrl,
