@@ -17,6 +17,8 @@ dependencies:
     sdk: flutter
 
   http: ^1.6.0
+  # Read the existing VM CPU sample buffer when exporting a scroll capture.
+  vm_service: ^15.2.0
   intl: ^0.20.2
   timezone: ^0.11.1
   flutter_timezone: ^5.1.0

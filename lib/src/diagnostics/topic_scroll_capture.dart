@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 
 import '../data/app_release.dart';
 import '../foundation/frame_safe_notifier.dart';
+import 'topic_scroll_cpu_profile.dart';
 import 'topic_scroll_report.dart';
 
 enum TopicScrollCaptureStopReason { manual, durationLimit, eventLimit }
@@ -85,13 +86,15 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
     DateTime Function()? clock,
     int Function()? timelineClock,
     int? Function()? currentFrameNumber,
+    TopicCpuProfileCollector? cpuProfileCollector,
   }) : assert(maximumEvents > 0),
        assert(maximumDuration > Duration.zero),
        _clock = clock ?? _utcNow,
        _timelineClock = timelineClock ?? (() => developer.Timeline.now),
-       _currentFrameNumber = currentFrameNumber ?? _readCurrentFrameNumber;
+       _currentFrameNumber = currentFrameNumber ?? _readCurrentFrameNumber,
+       _cpuProfileCollector = cpuProfileCollector ?? collectTopicCpuProfile;
 
-  static const int reportFormatVersion = 2;
+  static const int reportFormatVersion = 3;
   static const int defaultMaximumEvents = 12000;
   static const Duration defaultMaximumDuration = Duration(minutes: 2);
   static const Duration slowFrameThreshold = Duration(microseconds: 16667);
@@ -101,6 +104,7 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
   final DateTime Function() _clock;
   final int Function() _timelineClock;
   final int? Function() _currentFrameNumber;
+  final TopicCpuProfileCollector _cpuProfileCollector;
   final List<TopicScrollCaptureEvent> _events = [];
   final Stopwatch _elapsed = Stopwatch();
 
@@ -121,6 +125,8 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
   int _maximumRasterMicroseconds = 0;
   int _maximumTotalSpanMicroseconds = 0;
   int _startedAtTimelineUs = 0;
+  int _endedAtTimelineUs = 0;
+  Future<Map<String, Object?>>? _cpuProfile;
   double _displayRefreshRate = 60;
   int _frameBudgetUs = slowFrameThreshold.inMicroseconds;
 
@@ -175,6 +181,8 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
         : 60;
     _frameBudgetUs = (1000000 / _displayRefreshRate).round().clamp(1, 1000000);
     _startedAtTimelineUs = _timelineClock();
+    _endedAtTimelineUs = 0;
+    _cpuProfile = null;
     _captureId += 1;
     _startedAtUtc = _clock().toUtc();
     _endedAtUtc = null;
@@ -200,6 +208,7 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
     _startedAtUtc = null;
     _endedAtUtc = null;
     _stopReason = null;
+    _cpuProfile = null;
     _sequence = 0;
     _topicEventCount = 0;
     _frameCount = 0;
@@ -229,7 +238,7 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
   /// A bounded text report suitable for pasting into an issue or conversation.
   Future<String> buildPerformanceReport() => _buildReport(compact: true);
 
-  Future<String> _buildReport({required bool compact}) {
+  Future<String> _buildReport({required bool compact}) async {
     final snapshot = state;
     final report = <String, Object?>{
       'version': reportFormatVersion,
@@ -268,6 +277,7 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
           'viewport anchor capture and correction decisions',
           'Flutter UI-thread build and raster frame timings',
           'post layout and viewport bookkeeping durations',
+          'sampled CPU functions in slow topic frames when available',
         ],
         'excluded': [
           'post bodies and titles',
@@ -289,7 +299,53 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
       },
       'events': [for (final event in _events) event.toJson()],
     };
+    // Freeze the report before awaiting the VM: starting or clearing another
+    // capture must not mix its events or CPU samples into this export.
+    report['cpuProfile'] = await _cpuProfileForExport();
     return Isolate.run(() => encodeTopicScrollReport(report, compact: compact));
+  }
+
+  Future<Map<String, Object?>> _cpuProfileForExport() {
+    if (_recording || _startedAtUtc == null) {
+      return Future.value({
+        'status': 'unavailable',
+        'reason': _recording ? 'capture-in-progress' : 'no-capture',
+      });
+    }
+    return _cpuProfile ??= _collectCpuProfile();
+  }
+
+  Future<Map<String, Object?>> _collectCpuProfile() async {
+    final topicFrames = {
+      for (final event in _events)
+        if (event.category == 'topic' && event.frameNumber != null)
+          event.frameNumber!,
+    };
+    final slowFrames = <TopicCpuFrame>[];
+    for (final event in _events) {
+      if (event.category != 'frame' || event.name != 'frame.timing') continue;
+      final data = event.data;
+      final frameNumber = data['frameNumber'] as int?;
+      final duration = data['buildUs']! as int;
+      if (!topicFrames.contains(frameNumber) || duration <= _frameBudgetUs) {
+        continue;
+      }
+      final start = data['buildStartUs']! as int;
+      slowFrames.add((
+        frameNumber: frameNumber!,
+        startUs: start,
+        endUs: start + duration,
+      ));
+    }
+    try {
+      return await _cpuProfileCollector(
+        startUs: _startedAtTimelineUs,
+        endUs: _endedAtTimelineUs,
+        slowFrames: slowFrames,
+      ).timeout(const Duration(seconds: 10));
+    } on Object {
+      return const {'status': 'unavailable', 'reason': 'collection-failed'};
+    }
   }
 
   void _append({
@@ -368,6 +424,7 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
         data: {
           if (timing.frameNumber >= 0) 'frameNumber': timing.frameNumber,
           'vsyncStartUs': vsyncUs,
+          'buildStartUs': timing.timestampInMicroseconds(FramePhase.buildStart),
           'buildUs': buildUs,
           'rasterUs': rasterUs,
           'vsyncOverheadUs': timing.vsyncOverhead.inMicroseconds,
@@ -385,6 +442,7 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
     if (!_recording) return;
     _recording = false;
     _elapsed.stop();
+    _endedAtTimelineUs = _timelineClock();
     _endedAtUtc = _clock().toUtc();
     _stopReason = reason;
     _durationTimer?.cancel();
