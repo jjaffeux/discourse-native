@@ -162,6 +162,121 @@ void main() {
     expect(await Future.wait(loads), everyElement(isNotNull));
   });
 
+  test('forget suppresses a cached result already awaiting delivery', () async {
+    final repository = SiteImageRepository(
+      credentials: FakeApiCredentialReader(),
+      lifecycle: SiteLifecycle(),
+      client: MockClient((_) async => http.Response.bytes([1], 200)),
+    );
+    addTearDown(repository.dispose);
+    await repository.load(siteUrl: siteUrl, url: secureUrl);
+    final pending = repository.load(siteUrl: siteUrl, url: secureUrl);
+    repository.forget(siteUrl);
+    expect(await pending, isNull);
+  });
+
+  for (final abandon in ['forget', 'dispose']) {
+    test('$abandon rejects a delayed session opening', () async {
+      final credentials = _DelayedImageCredentials();
+      final client = MockClient((_) async => http.Response.bytes([2], 200));
+      final repository = SiteImageRepository(
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+        client: client,
+      );
+      addTearDown(repository.dispose);
+      final pending = repository.load(siteUrl: siteUrl, url: secureUrl);
+      await credentials.started.future;
+      if (abandon == 'forget') {
+        repository.forget(siteUrl);
+        expect(
+          (await repository.load(siteUrl: siteUrl, url: secureUrl))?.bytes,
+          [2],
+        );
+      } else {
+        repository.dispose();
+      }
+      credentials.firstKey.complete('old-key');
+      expect(await pending, isNull);
+      expect(
+        repository.cached(siteUrl: siteUrl, url: secureUrl)?.bytes,
+        abandon == 'forget' ? [2] : isNull,
+      );
+    });
+  }
+
+  for (final abandon in ['forget', 'replacement', 'dispose']) {
+    for (final lateResponse in ['abort', 'bytes', 'redirect']) {
+      test('$abandon aborts transfers and rejects late $lateResponse', () async {
+        final credentials = FakeApiCredentialReader()
+          ..keys[siteUrl] = 'old-key';
+        final lifecycle = SiteLifecycle();
+        final client = _ControlledImageClient(
+          honorAbort: lateResponse == 'abort',
+        );
+        final repository = SiteImageRepository(
+          credentials: credentials,
+          lifecycle: lifecycle,
+          client: client,
+        );
+        addTearDown(repository.dispose);
+
+        final stale = repository.load(siteUrl: siteUrl, url: secureUrl);
+        await client.started.future;
+        expect(client.requests.single.headers['User-Api-Key'], 'old-key');
+        if (abandon == 'dispose') {
+          repository.dispose();
+        } else {
+          if (abandon == 'replacement') {
+            lifecycle.invalidate(siteUrl);
+          } else {
+            // Forget must retire the session even if its lease is still current.
+            repository.forget(siteUrl);
+          }
+          credentials.keys[siteUrl] = 'new-key';
+          final fresh = await repository.load(siteUrl: siteUrl, url: secureUrl);
+          expect(fresh?.bytes, [2]);
+          expect(client.requests.last.headers['User-Api-Key'], 'new-key');
+          final other = await repository.load(
+            siteUrl: 'https://other.example',
+            url: 'https://other.example/image.png',
+          );
+          expect(other?.bytes, [2]);
+        }
+
+        // Observe the abort independently of whether the transport honors it.
+        await Future<void>.delayed(Duration.zero);
+        expect(client.aborted, isTrue);
+        if (lateResponse != 'abort') {
+          client.response.complete(
+            http.StreamedResponse(
+              Stream.value([1]),
+              lateResponse == 'redirect' ? 302 : 200,
+              headers: lateResponse == 'redirect'
+                  ? {'location': '$siteUrl/late-authenticated-hop'}
+                  : {},
+            ),
+          );
+        }
+        expect(await stale, isNull);
+        expect(
+          client.requests.where((r) => r.url.path == '/late-authenticated-hop'),
+          isEmpty,
+        );
+        if (abandon != 'dispose') {
+          expect(repository.cached(siteUrl: siteUrl, url: secureUrl)?.bytes, [
+            2,
+          ]);
+        }
+        repository.dispose();
+        repository.dispose();
+        expect(client.closed, isFalse);
+        expect((await client.get(Uri.parse('$siteUrl/shared'))).bodyBytes, [2]);
+        expect(await repository.load(siteUrl: siteUrl, url: secureUrl), isNull);
+      });
+    }
+  }
+
   test('an invalidated account cannot publish or retain stale bytes', () async {
     final credentials = FakeApiCredentialReader()..keys[siteUrl] = 'old-key';
     final lifecycle = SiteLifecycle();
@@ -197,4 +312,52 @@ void main() {
     expect(fresh?.bytes, orderedEquals([2]));
     expect(keys, ['old-key', 'new-key']);
   });
+}
+
+final class _ControlledImageClient extends http.BaseClient {
+  _ControlledImageClient({required this.honorAbort});
+
+  final bool honorAbort;
+  final started = Completer<void>();
+  final response = Completer<http.StreamedResponse>();
+  final requests = <http.BaseRequest>[];
+  bool aborted = false;
+  bool closed = false;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    if (closed) throw StateError('Shared client is closed');
+    requests.add(request);
+    if (requests.length != 1) {
+      return Future.value(http.StreamedResponse(Stream.value([2]), 200));
+    }
+    final abortable = request as http.AbortableRequest;
+    unawaited(
+      abortable.abortTrigger!.then((_) {
+        aborted = true;
+        if (honorAbort && !response.isCompleted) {
+          response.completeError(http.RequestAbortedException(request.url));
+        }
+      }),
+    );
+    started.complete();
+    return response.future;
+  }
+
+  @override
+  void close() => closed = true;
+}
+
+final class _DelayedImageCredentials extends FakeApiCredentialReader {
+  final started = Completer<void>();
+  final firstKey = Completer<String?>();
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    if (!started.isCompleted) {
+      started.complete();
+      return firstKey.future;
+    }
+    return Future.value('new-key');
+  }
 }

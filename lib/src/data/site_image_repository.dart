@@ -51,10 +51,14 @@ final class SiteImageRepository {
   }) async {
     if (_disposed) return null;
     final session = await _session(siteUrl);
-    if (session == null || !session.lease.isCurrent) return null;
+    if (_disposed || session == null || !session.lease.isCurrent) return null;
 
     final bytes = await session.cache.load(url);
-    return session.lease.isCurrent ? bytes : null;
+    return !_disposed &&
+            session.lease.isCurrent &&
+            identical(_sessions[siteUrl], session)
+        ? bytes
+        : null;
   }
 
   bool isCached({required String siteUrl, required String url}) {
@@ -66,7 +70,7 @@ final class SiteImageRepository {
 
   SiteImageBytes? cached({required String siteUrl, required String url}) {
     final session = _sessions[siteUrl];
-    if (session == null || !session.lease.isCurrent) return null;
+    if (_disposed || session == null || !session.lease.isCurrent) return null;
     return session.cache.cached(url);
   }
 
@@ -76,6 +80,9 @@ final class SiteImageRepository {
       return SynchronousFuture(existing);
     }
 
+    // A lifecycle change can replace an account without an explicit forget.
+    _sessions.remove(siteUrl)?.cache.close();
+
     final pending = _opening[siteUrl];
     if (pending != null) return pending;
 
@@ -83,13 +90,14 @@ final class SiteImageRepository {
     late final Future<_SiteImageSession?> opening;
     opening = _open(siteUrl, lease)
         .then((session) {
-          if (session != null &&
+          if (!_disposed &&
+              session != null &&
               session.lease.isCurrent &&
               identical(_opening[siteUrl], opening)) {
             _sessions[siteUrl] = session;
             return session;
           }
-          session?.cache.clear();
+          session?.cache.close();
           return null;
         })
         .whenComplete(() {
@@ -122,7 +130,7 @@ final class SiteImageRepository {
 
   void forget(String siteUrl) {
     final _ = _opening.remove(siteUrl);
-    _sessions.remove(siteUrl)?.cache.clear();
+    _sessions.remove(siteUrl)?.cache.close();
   }
 
   void dispose() {
@@ -130,7 +138,7 @@ final class SiteImageRepository {
     _disposed = true;
     _opening.clear();
     for (final session in _sessions.values) {
-      session.cache.clear();
+      session.cache.close();
     }
     _sessions.clear();
     if (_ownsClient) _client.close();
