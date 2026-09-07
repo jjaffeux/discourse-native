@@ -99,6 +99,112 @@ void main() {
     });
   }
 
+  for (final requesters in [false, true]) {
+    test(
+      '${requesters ? 'requesters' : 'members'} stop when the server repeats an offset',
+      () async {
+        final transport = _ControlledGroupTransport()
+          ..objects.addAll([
+            for (var id = 1; id <= 2; id++)
+              _completed({
+                'members': [
+                  {'id': id, 'username': 'user$id'},
+                ],
+                'meta': {'total': 100, 'limit': 30, 'offset': 0},
+              }),
+          ]);
+        final credentials = FakeApiCredentialReader()..keys[_site] = 'key';
+        final controller = _controller(transport, credentials: credentials);
+        addTearDown(controller.dispose);
+        Future<void> load({bool more = false}) => requesters
+            ? controller.loadRequesters(
+                _connectedInstance,
+                'support',
+                more: more,
+              )
+            : controller.loadMembers(_connectedInstance, 'support', more: more);
+        await load();
+        await load(more: true);
+        final ids = requesters
+            ? controller
+                  .requestersState(_site, 'support')
+                  .requesters
+                  .map((member) => member.id)
+            : controller
+                  .membersState(_site, 'support')
+                  .members
+                  .map((member) => member.id);
+        final hasMore = requesters
+            ? controller.requestersState(_site, 'support').hasMore
+            : controller.membersState(_site, 'support').hasMore;
+        expect(ids, [1, 2]);
+        expect(hasMore, isFalse);
+        await load(more: true);
+        expect(
+          transport.gets.map(
+            (request) => Uri.parse(request.path).queryParameters['offset'],
+          ),
+          ['0', '30'],
+        );
+      },
+    );
+  }
+
+  test(
+    'group logs stop after an empty page despite an incomplete marker',
+    () async {
+      final transport = _ControlledGroupTransport()
+        ..objects.add(_completed({'logs': <Object?>[], 'all_loaded': false}));
+      final credentials = FakeApiCredentialReader()..keys[_site] = 'key';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      await controller.loadLogs(_connectedInstance, 'support');
+      expect(controller.logsState(_site, 'support').hasMore, isFalse);
+      await controller.loadLogs(_connectedInstance, 'support', more: true);
+      expect(transport.gets, hasLength(1));
+    },
+  );
+
+  test(
+    'activity stops when a full page repeats the same timestamp cursor',
+    () async {
+      final payload = <String, dynamic>{
+        'posts': [
+          for (var id = 1; id <= 20; id++)
+            {'id': id, 'topic_id': id, 'created_at': '2026-09-01T12:00:00Z'},
+        ],
+      };
+      final transport = _ControlledGroupTransport()
+        ..objects.addAll([_completed(payload), _completed(payload)]);
+      final controller = _controller(transport);
+      addTearDown(controller.dispose);
+      await controller.loadActivity(_instance, 'support', mentions: false);
+      expect(
+        controller.activityState(_site, 'support', mentions: false).hasMore,
+        isTrue,
+      );
+      await controller.loadActivity(
+        _instance,
+        'support',
+        mentions: false,
+        more: true,
+      );
+      final state = controller.activityState(_site, 'support', mentions: false);
+      expect(
+        state.posts.map((post) => post.id),
+        List.generate(20, (index) => index + 1),
+      );
+      expect(state.hasMore, isFalse);
+      await controller.loadActivity(
+        _instance,
+        'support',
+        mentions: false,
+        more: true,
+      );
+      expect(transport.gets, hasLength(2));
+    },
+  );
+
   test('group state snapshots defensively own every exposed list', () {
     final groups = [const Group(id: 1, name: 'alpha')];
     final typeFilters = ['public'];

@@ -8,6 +8,58 @@ void main() {
   const siteUrl = 'https://forum.example';
   final extensions = PluginRegistry.validated(const [AssignPlugin()]);
 
+  for (final kind in ['members', 'requesters']) {
+    for (final scenario in [
+      (
+        name: 'empty rows with a stale total',
+        rows: <Map<String, Object?>>[],
+        limit: 30,
+      ),
+      (
+        name: 'a zero page limit',
+        rows: [
+          {'id': 1, 'username': 'sam'},
+        ],
+        limit: 0,
+      ),
+      (
+        name: 'a negative page limit',
+        rows: [
+          {'id': 1, 'username': 'sam'},
+        ],
+        limit: -1,
+      ),
+    ]) {
+      test('$kind stop paging after ${scenario.name}', () {
+        final payload = <String, dynamic>{
+          'members': scenario.rows,
+          'meta': {'offset': 30, 'limit': scenario.limit, 'total': 100},
+        };
+        final hasMore = kind == 'members'
+            ? GroupMembersPage.fromWire(
+                payload,
+                siteUrl,
+                groupName: 'support',
+              ).hasMore
+            : GroupRequestersPage.fromWire(payload, siteUrl).hasMore;
+        expect(hasMore, isFalse);
+      });
+    }
+  }
+
+  test(
+    'a full activity page without a timestamp cannot offer a continuation',
+    () {
+      final page = GroupActivityPage.fromWire({
+        'posts': [
+          for (var id = 1; id <= 20; id++) {'id': id, 'topic_id': id},
+        ],
+      }, siteUrl);
+      expect(page.posts, hasLength(20));
+      expect(page.hasMore, isFalse);
+    },
+  );
+
   test('detail keeps capabilities, management settings, and plugin data', () {
     final detail = GroupDetail.fromWire(
       const {

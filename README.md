@@ -616,6 +616,9 @@ authenticated mutation and management surface.
 Directory, member and requester searches each retain sixteen recent queries
 per forum. Revisiting a query keeps it recent; evicting one also revokes its
 pending page so an old response cannot repopulate the cache or block a reload.
+Paging stops on empty member, requester or log pages and on cursors that do
+not advance. Full activity pages need a timestamp older than the previous
+cursor, preventing a stale or incomplete response from repeating indefinitely.
 
 Member search preserves a pending text draft through unrelated page refreshes;
 an externally changed filter cancels the old debounce. Member addition and

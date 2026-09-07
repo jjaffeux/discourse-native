@@ -447,7 +447,8 @@ final class GroupMembersPage {
   final int limit;
   final int offset;
 
-  bool get hasMore => offset + members.length < total;
+  bool get hasMore =>
+      members.isNotEmpty && limit > 0 && offset + members.length < total;
   int get nextOffset => offset + limit;
 }
 
@@ -512,7 +513,8 @@ final class GroupRequestersPage {
   final int limit;
   final int offset;
 
-  bool get hasMore => offset + requesters.length < total;
+  bool get hasMore =>
+      requesters.isNotEmpty && limit > 0 && offset + requesters.length < total;
   int get nextOffset => offset + limit;
 }
 
@@ -628,7 +630,7 @@ final class GroupActivityPage {
   final List<TopicCategory> categories;
   final int rawPostCount;
 
-  bool get hasMore => rawPostCount == pageSize;
+  bool get hasMore => rawPostCount == pageSize && before != null;
   DateTime? get before => posts.isEmpty ? null : posts.last.createdAt;
 }
 

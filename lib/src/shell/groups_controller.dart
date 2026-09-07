@@ -642,7 +642,8 @@ final class GroupsController extends FrameSafeNotifier {
           members: List.unmodifiable(rows),
           total: _totalAfterRemovals(page.total, removed),
           nextOffset: page.nextOffset,
-          hasMore: page.hasMore,
+          hasMore:
+              page.hasMore && page.nextOffset > (more ? held.nextOffset : 0),
           loaded: true,
         );
       });
@@ -729,7 +730,8 @@ final class GroupsController extends FrameSafeNotifier {
           requesters: List.unmodifiable(rows),
           total: _totalAfterRemovals(page.total, removed),
           nextOffset: page.nextOffset,
-          hasMore: page.hasMore,
+          hasMore:
+              page.hasMore && page.nextOffset > (more ? held.nextOffset : 0),
           loaded: true,
         );
       });
@@ -812,7 +814,8 @@ final class GroupsController extends FrameSafeNotifier {
         }
         _activities[key] = GroupActivityState(
           posts: List.unmodifiable(rows),
-          hasMore: page.hasMore,
+          hasMore:
+              page.hasMore && (before == null || page.before!.isBefore(before)),
           loaded: true,
         );
       });
@@ -919,7 +922,7 @@ final class GroupsController extends FrameSafeNotifier {
         _logs[key] = GroupLogsState(
           logs: List.unmodifiable([if (more) ...current.logs, ...page.logs]),
           nextPage: (more ? held.nextPage : 0) + 1,
-          hasMore: !page.allLoaded,
+          hasMore: page.logs.isNotEmpty && !page.allLoaded,
           loaded: true,
         );
       });
