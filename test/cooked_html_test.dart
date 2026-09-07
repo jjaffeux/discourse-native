@@ -133,6 +133,23 @@ class _CountingSibling extends dom.Element {
   }
 }
 
+class _CountingLinkCount extends PostLinkCount {
+  const _CountingLinkCount({
+    required super.url,
+    required super.clicks,
+    super.internal,
+    required this.onUrlRead,
+  });
+
+  final VoidCallback onUrlRead;
+
+  @override
+  String get url {
+    onUrlRead();
+    return super.url;
+  }
+}
+
 final Uint8List onePixelPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8'
   'BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -633,6 +650,291 @@ void main() {
       );
 
       expect(paragraphOf(tester, 'Skip me'), isNot(contains('7')));
+    });
+
+    Future<CustomWidgetBuilder> countBuilder(
+      WidgetTester tester,
+      List<PostLinkCount> counts,
+    ) async {
+      await pumpCooked(
+        tester,
+        '',
+        post: Post(
+          id: 1,
+          postNumber: 1,
+          username: 'sam',
+          cooked: '',
+          linkCounts: counts,
+        ),
+      );
+      return tester
+          .widget<HtmlWidget>(find.byType(HtmlWidget))
+          .customWidgetBuilder!;
+    }
+
+    testWidgets('use payload order across exact, query, and upload counts', (
+      tester,
+    ) async {
+      const href = 'https://cdn.example/uploads/default/report.pdf?download=1';
+      const records = [
+        PostLinkCount(url: href, clicks: 1),
+        PostLinkCount(
+          url: 'https://cdn.example/uploads/default/report.pdf',
+          clicks: 2,
+          internal: true,
+        ),
+        PostLinkCount(
+          url: '/uploads/default/report.pdf',
+          clicks: 3,
+          internal: true,
+        ),
+        PostLinkCount(
+          url: '/uploads/default/report',
+          clicks: 4,
+          internal: true,
+        ),
+      ];
+      for (final first in records) {
+        for (final second in records) {
+          if (identical(first, second)) continue;
+          final builder = await countBuilder(tester, [
+            first,
+            second,
+            const PostLinkCount(url: href, clicks: 0),
+            const PostLinkCount(url: '/uploads/', clicks: -1, internal: true),
+          ]);
+          final anchor = html_parser
+              .parseFragment('<a href="$href"> Report </a>')
+              .querySelector('a')!;
+          builder(anchor);
+          builder(anchor);
+          expect(
+            anchor.attributes['data-clicks'],
+            '${second.clicks}',
+            reason: '${first.clicks} before ${second.clicks}',
+          );
+          expect(
+            anchor.attributes['aria-label'],
+            'Report link clicked ${second.clicks} ${second.clicks == 1 ? 'time' : 'times'}',
+          );
+          expect(
+            anchor
+                .querySelectorAll('.discourse-native-link-click-count')
+                .map((badge) => badge.text),
+            ['${second.clicks}'],
+          );
+        }
+      }
+
+      final builder = await countBuilder(tester, const [
+        PostLinkCount(url: href, clicks: 8),
+        PostLinkCount(url: href, clicks: 5),
+        PostLinkCount(url: href, clicks: 0),
+      ]);
+      final anchor = dom.Element.tag('a')..attributes['href'] = href;
+      builder(anchor);
+      expect(anchor.attributes['aria-label'], 'link clicked 5 times');
+    });
+
+    testWidgets('keep literal URL and internal-only matching boundaries', (
+      tester,
+    ) async {
+      final builder = await countBuilder(tester, const [
+        PostLinkCount(url: '/t/internal/1', clicks: 8, internal: true),
+        PostLinkCount(url: '/t/internal/1', clicks: 2, internal: true),
+        PostLinkCount(url: '/t/internal/1', clicks: 10),
+        PostLinkCount(url: '/t/external/2', clicks: 3),
+        PostLinkCount(url: '/t/internal/1?first', clicks: 4, internal: true),
+        PostLinkCount(
+          url: '/uploads/default/file.png',
+          clicks: 5,
+          internal: true,
+        ),
+        PostLinkCount(url: '/uploads/default/file.png', clicks: 11),
+        PostLinkCount(url: '/uploads/external.png', clicks: 6),
+      ]);
+      for (final (href, expected) in [
+        ('/t/internal/1', '10'),
+        ('/t/internal/1?first?second', '2'),
+        ('/t/internal/1#reply', null),
+        ('https://forum.example/t/internal/1?u=sam', null),
+        ('/t/external/2', '3'),
+        ('/t/external/2?u=sam', null),
+        ('/T/internal/1', null),
+        ('/uploads/default/file.png', '11'),
+        ('https://cdn.example/proxy?url=/uploads/default/file.png', '5'),
+        ('https://cdn.example/uploads/external.png', null),
+        ('/uploads/external.png', '6'),
+        ('/missing', null),
+      ]) {
+        final anchor = dom.Element.tag('a')..attributes['href'] = href;
+        builder(anchor);
+        expect(anchor.attributes['data-clicks'], expected, reason: href);
+      }
+    });
+
+    testWidgets('preserve tracking exclusions and supplied click labels', (
+      tester,
+    ) async {
+      final builder = await countBuilder(tester, const [
+        PostLinkCount(url: '/counted', clicks: 7),
+      ]);
+      for (final (markup, expected) in [
+        for (final name in [
+          'lightbox',
+          'no-track-link',
+          'hashtag',
+          'hashtag-cooked',
+          'back',
+        ])
+          ('<a class="$name track-link" href="/counted">Link</a>', null),
+        for (final name in ['elided', 'expanded-embed'])
+          (
+            '<div class="$name"><a class="track-link" href="/counted">Link</a></div>',
+            null,
+          ),
+        for (final name in [
+          'hashtag',
+          'hashtag-cooked',
+          'hashtag-icon-placeholder',
+          'badge-category',
+          'onebox-result',
+          'onebox-body',
+        ]) ...[
+          ('<div class="$name"><a href="/counted">Link</a></div>', null),
+          (
+            '<div class="$name"><a class="track-link" href="/counted">Link</a></div>',
+            '7',
+          ),
+        ],
+        (
+          '<aside class="quote"><a class="track-link" href="/counted">Link</a></aside>',
+          null,
+        ),
+        ('<blockquote><a href="/counted">Link</a></blockquote>', '7'),
+        ('<a>Link</a>', null),
+      ]) {
+        final anchor = html_parser.parseFragment(markup).querySelector('a')!;
+        builder(anchor);
+        expect(anchor.attributes['data-clicks'], expected, reason: markup);
+      }
+      final supplied = html_parser
+          .parseFragment(
+            '<a href="/counted" data-clicks="0" aria-label="Supplied label">Link</a>',
+          )
+          .querySelector('a')!;
+      final before = supplied.outerHtml;
+      builder(supplied);
+      expect(supplied.outerHtml, before);
+    });
+
+    testWidgets('count only the best eligible link in each onebox', (
+      tester,
+    ) async {
+      final builder = await countBuilder(tester, const [
+        PostLinkCount(url: '/counted', clicks: 7),
+      ]);
+      for (final (markup, expected) in [
+        (
+          '<header><a href="/counted">Header</a></header>'
+              '<article class="onebox-body"><h3><a href="/counted">Title</a></h3>'
+              '<p><a href="/counted">Repeated</a></p></article>',
+          ['Title'],
+        ),
+        ('<header><a href="/counted">Header</a></header>', ['Header']),
+        (
+          '<header><a href="/counted">Header</a></header>'
+              '<article class="onebox-result"><h3><a href="/counted">Lower</a></h3>'
+              '<h2><a href="/counted">Higher</a></h2></article>',
+          ['Higher'],
+        ),
+        (
+          '<header><a href="/other">Header</a></header>'
+              '<article class="onebox-body"><h3><a href="/counted">Title</a></h3></article>',
+          <String>[],
+        ),
+        (
+          '<header><a href="/other">Header</a></header>'
+              '<article class="onebox-body"><h3><a class="track-link" href="/counted">Title</a></h3></article>',
+          ['Title'],
+        ),
+      ]) {
+        final fragment = html_parser.parseFragment(
+          '<aside class="onebox">$markup</aside>',
+        );
+        final decorated = <String>[];
+        for (final anchor in fragment.querySelectorAll('a')) {
+          final label = anchor.text;
+          builder(anchor);
+          if (anchor.attributes['data-clicks'] == '7') decorated.add(label);
+        }
+        expect(decorated, expected, reason: markup);
+      }
+    });
+
+    testWidgets(
+      'bound count-record reads across fresh matching and missing links',
+      (tester) async {
+        for (final size in [20, Post.maximumLinkCounts]) {
+          var urlReads = 0;
+          final counts = [
+            for (var i = 0; i < size; i++)
+              _CountingLinkCount(
+                url: '/resource/$i',
+                clicks: i + 1,
+                internal: i.isEven,
+                onUrlRead: () => urlReads += 1,
+              ),
+          ];
+          final builder = await countBuilder(tester, counts);
+          for (var pass = 0; pass < 3; pass++) {
+            for (var i = 0; i < size; i++) {
+              final suffix = i.isEven ? '?reader=$pass' : '';
+              final anchor = dom.Element.tag('a')
+                ..attributes['href'] = '/resource/$i$suffix';
+              builder(anchor);
+              expect(anchor.attributes['data-clicks'], '${i + 1}');
+              final missing = dom.Element.tag('a')
+                ..attributes['href'] = '/missing/$i?reader=$pass';
+              builder(missing);
+              expect(missing.attributes['data-clicks'], isNull);
+            }
+          }
+          expect(
+            urlReads,
+            lessThanOrEqualTo(3 * size),
+            reason: '$size records must not be rescanned for each anchor',
+          );
+        }
+      },
+    );
+
+    testWidgets('refresh counts when the post or cooked HTML changes', (
+      tester,
+    ) async {
+      const firstHtml = '<p><a href="/first">Read first</a></p>';
+      const nextHtml = '<p><a href="/next">Read next</a></p>';
+      Post post(int clicks) => Post(
+        id: 1,
+        postNumber: 1,
+        username: 'sam',
+        cooked: firstHtml,
+        linkCounts: [
+          PostLinkCount(url: '/first', clicks: clicks),
+          const PostLinkCount(url: '/next', clicks: 12),
+        ],
+      );
+      await pumpCooked(tester, firstHtml, post: post(7));
+      expect(renderedText('7'), findsOneWidget);
+      final updatedPost = post(9);
+      await pumpCooked(tester, firstHtml, post: updatedPost);
+      expect(renderedText('7'), findsNothing);
+      expect(renderedText('9'), findsOneWidget);
+      await pumpCooked(tester, nextHtml, post: updatedPost);
+      expect(renderedText('9'), findsNothing);
+      expect(renderedText('12'), findsOneWidget);
+      await pumpCooked(tester, nextHtml);
+      expect(renderedText('12'), findsNothing);
     });
 
     testWidgets('are not underlined, the way Discourse draws them', (
