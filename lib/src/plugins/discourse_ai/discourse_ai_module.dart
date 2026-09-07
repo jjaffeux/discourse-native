@@ -42,7 +42,7 @@ final class DiscourseAiModule implements PluginModule {
           diagnostics: bindings.require(pluginDiagnosticsReporterPort),
         );
         return PluginSessionContribution(
-          lifecycle: _DiscourseAiSessionLifecycle(proofreading),
+          lifecycle: _DiscourseAiSessionLifecycle(summary, proofreading),
           services: [
             PluginService<Object>(aiSummaryControllerService, summary),
             PluginService<Object>(
@@ -66,10 +66,17 @@ final class DiscourseAiModule implements PluginModule {
 }
 
 final class _DiscourseAiSessionLifecycle extends PluginSessionLifecycle {
-  _DiscourseAiSessionLifecycle(this.proofreading);
+  _DiscourseAiSessionLifecycle(this.summary, this.proofreading);
 
+  final AiSummaryController summary;
   final AiProofreadingController proofreading;
 
   @override
-  void close() => proofreading.dispose();
+  void forget(String siteUrl) => summary.forget(siteUrl);
+
+  @override
+  void close() {
+    summary.dispose();
+    proofreading.dispose();
+  }
 }
