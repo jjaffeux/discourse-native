@@ -1,6 +1,11 @@
+import 'dart:async';
+
+import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';
+import 'package:discourse_native/src/shell/video_download.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
@@ -231,6 +236,233 @@ void main() {
 
     expect(find.byType(_DisposeSpy), findsNothing);
     expect(disposals, 1);
+  });
+
+  testWidgets(
+    'downloads from the poster and stays busy across playback and full screen',
+    (tester) async {
+      final gate = Completer<VideoDownloadOutcome>();
+      final downloader = _FakeVideoDownloader(() => gate.future);
+      final sessions = <_FakePlaybackSession>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: InlineVideo(
+              data: _videoData('demo.mp4', 'Demo'),
+              siteUrl: 'https://meta.discourse.org',
+              videoDownloader: downloader,
+              sessionFactory: (request) {
+                final session = _FakePlaybackSession(request)..completeReady();
+                sessions.add(session);
+                return session;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Download video'));
+      await tester.pump();
+      expect(sessions, isEmpty);
+      expect(downloader.calls, 1);
+      expect(
+        downloader.url,
+        Uri.parse('https://meta.discourse.org/uploads/demo.mp4'),
+      );
+      expect(downloader.title, 'Demo');
+      expect(downloader.siteUrl, 'https://meta.discourse.org');
+      expect(downloader.shareOrigin?.isEmpty, isFalse);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byKey(const ValueKey('inline-video-download')),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      await tester.tap(find.byTooltip('Downloading video…'));
+      expect(downloader.calls, 1);
+      await tester.tap(find.bySemanticsLabel('Play video: Demo'));
+      await tester.pump();
+      expect(sessions, hasLength(1));
+      expect(find.byTooltip('Downloading video…'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('inline-video-fullscreen')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(
+        find.byKey(const ValueKey('inline-video-fullscreen-view')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<IconButton>(
+              find.descendant(
+                of: find.byKey(const ValueKey('inline-video-fullscreen-view')),
+                matching: find.byKey(const ValueKey('inline-video-download')),
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      gate.complete(VideoDownloadOutcome.saved);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Download video'), findsOneWidget);
+      expect(sessions.single.state.isPlaying, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('inline-video-fullscreen-view')),
+        findsNothing,
+      );
+      expect(find.text('Saved Demo.mp4.'), findsOneWidget);
+      expect(downloader.calls, 1);
+    },
+  );
+
+  testWidgets('full-screen download uses the same video without pausing it', (
+    tester,
+  ) async {
+    final downloader = _FakeVideoDownloader(
+      () async => VideoDownloadOutcome.saved,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: InlineVideo(
+            data: _videoData('demo.mp4', 'Demo'),
+            siteUrl: 'https://meta.discourse.org',
+            videoDownloader: downloader,
+            sessionFactory: (request) =>
+                _FakePlaybackSession(request)..completeReady(),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.bySemanticsLabel('Play video: Demo'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('inline-video-fullscreen')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Download video'));
+    await tester.pump();
+
+    expect(downloader.calls, 1);
+    expect(find.text('Saved Demo.mp4.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('fake-player')), findsOneWidget);
+  });
+
+  testWidgets('a failed download shows feedback and allows retry', (
+    tester,
+  ) async {
+    var fail = true;
+    final downloader = _FakeVideoDownloader(() async {
+      if (fail) throw const VideoDownloadException();
+      return VideoDownloadOutcome.saved;
+    });
+    await tester.pumpWidget(_downloadApp(downloader));
+    await tester.tap(find.byTooltip('Download video'));
+    await tester.pump();
+    expect(find.text("Couldn't download video. Try again."), findsOneWidget);
+    expect(find.byTooltip('Download video'), findsOneWidget);
+
+    fail = false;
+    await tester.tap(find.byTooltip('Download video'));
+    await tester.pumpAndSettle();
+    expect(downloader.calls, 2);
+    expect(find.text('Saved Demo.mp4.'), findsOneWidget);
+  });
+
+  for (final outcome in [
+    VideoDownloadOutcome.cancelled,
+    VideoDownloadOutcome.shared,
+  ]) {
+    testWidgets('$outcome does not show a saved notification', (tester) async {
+      final downloader = _FakeVideoDownloader(() async => outcome);
+      await tester.pumpWidget(_downloadApp(downloader));
+      await tester.tap(find.byTooltip('Download video'));
+      await tester.pumpAndSettle();
+      expect(downloader.calls, 1);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byTooltip('Download video'), findsOneWidget);
+    });
+  }
+
+  testWidgets('download completion after disposal does not update the UI', (
+    tester,
+  ) async {
+    final gate = Completer<VideoDownloadOutcome>();
+    await tester.pumpWidget(
+      _downloadApp(_FakeVideoDownloader(() => gate.future)),
+    );
+    await tester.tap(find.byTooltip('Download video'));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    gate.complete(VideoDownloadOutcome.saved);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a narrow portrait video keeps both actions inside its preview', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: InlineVideo(
+            data: InlineVideoData.fromUpload(
+              url: '/uploads/portrait.mp4',
+              title: 'Portrait',
+              siteUrl: 'https://meta.discourse.org',
+              aspectRatio: 1 / 4,
+            )!,
+            siteUrl: 'https://meta.discourse.org',
+            maximumHeight: 240,
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    final preview = tester.getRect(
+      find.bySemanticsLabel('Play video: Portrait'),
+    );
+    final play = tester.getRect(
+      find.byKey(const ValueKey('inline-video-play')),
+    );
+    for (final action in [
+      find.byTooltip('Download video'),
+      find.byTooltip('Open video'),
+    ]) {
+      final bounds = tester.getRect(action);
+      expect(preview.contains(bounds.center), isTrue);
+      expect(bounds.left, greaterThanOrEqualTo(preview.left));
+      expect(bounds.right, lessThanOrEqualTo(preview.right));
+      expect(bounds.overlaps(play), isFalse);
+    }
+  });
+
+  testWidgets('a playback failure still offers the download button', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: InlineVideo(
+            data: _videoData('demo.mp4', 'Demo'),
+            siteUrl: 'https://meta.discourse.org',
+            sessionFactory: (request) => _FakePlaybackSession(request)..fail(),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.bySemanticsLabel('Play video: Demo'));
+    await tester.pump();
+    expect(find.text("Couldn't play this video."), findsOneWidget);
+    expect(find.byTooltip('Download video'), findsOneWidget);
   });
 
   testWidgets('session controls keep playback active in a full-screen route', (
@@ -513,6 +745,45 @@ void main() {
       throwsA(isA<UnsafeHttpTransportException>()),
     );
   });
+}
+
+Widget _downloadApp(VideoDownloader downloader) => MaterialApp(
+  theme: AppTheme.dark,
+  home: Scaffold(
+    body: InlineVideo(
+      data: _videoData('demo.mp4', 'Demo'),
+      siteUrl: 'https://meta.discourse.org',
+      videoDownloader: downloader,
+    ),
+  ),
+);
+
+class _FakeVideoDownloader implements VideoDownloader {
+  _FakeVideoDownloader(this.result);
+
+  final Future<VideoDownloadOutcome> Function() result;
+  int calls = 0;
+  Uri? url;
+  String? title;
+  String? siteUrl;
+  Rect? shareOrigin;
+
+  @override
+  Future<VideoDownloadOutcome> download({
+    required Uri url,
+    required String title,
+    required String? siteUrl,
+    required ApiCredentialReader? credentials,
+    required SiteLifecycle? lifecycle,
+    Rect? sharePositionOrigin,
+  }) {
+    calls++;
+    this.url = url;
+    this.title = title;
+    this.siteUrl = siteUrl;
+    shareOrigin = sharePositionOrigin;
+    return result();
+  }
 }
 
 class _DisposeSpy extends StatefulWidget {

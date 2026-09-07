@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:share_plus/share_plus.dart' as sharing;
 
 import '../data/site_image_repository.dart';
+import 'download_filename.dart';
 import 'site_url.dart';
 
 enum ImageDownloadOutcome { saved, shared, cancelled }
@@ -152,37 +153,8 @@ final class ImageDownloadException implements Exception {
   String toString() => 'The image could not be downloaded.';
 }
 
-String imageDownloadFilename({required String? title, required String url}) {
-  final uri = Uri.tryParse(url);
-  final urlName = uri?.pathSegments.lastOrNull;
-  final trimmedTitle = title?.trim();
-  // HTML parsing has already decoded the title, and Uri.pathSegments has
-  // already decoded the URL component. Decoding either again turns a valid
-  // literal percent sign into an illegal percent escape.
-  var filename = switch (trimmedTitle) {
-    final title? when title.isNotEmpty => title,
-    _ => urlName ?? 'image',
-  };
-  filename = filename
-      .replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1f]'), '_')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim()
-      .replaceAll(RegExp(r'[. ]+$'), '');
-  if (filename.isEmpty || filename == '.' || filename == '..') {
-    filename = 'image';
-  }
-
-  final extension = _extension(filename);
-  if (extension == null) {
-    final urlExtension = _extension(urlName ?? '');
-    if (urlExtension != null) filename = '$filename.$urlExtension';
-  }
-
-  // Windows refuses these device names even when they have an extension.
-  final stem = filename.split('.').first.toUpperCase();
-  if (_windowsDeviceNames.contains(stem)) filename = '_$filename';
-  return filename;
-}
+String imageDownloadFilename({required String? title, required String url}) =>
+    downloadFilename(title: title, url: url, fallback: 'image');
 
 String imageMimeType(String filename, {required bool isSvg}) {
   if (isSvg) return 'image/svg+xml';
@@ -205,28 +177,3 @@ String? _extension(String filename) {
   final match = RegExp(r'\.([A-Za-z0-9]{1,10})$').firstMatch(filename);
   return match?.group(1)?.toLowerCase();
 }
-
-const _windowsDeviceNames = {
-  'CON',
-  'PRN',
-  'AUX',
-  'NUL',
-  'COM1',
-  'COM2',
-  'COM3',
-  'COM4',
-  'COM5',
-  'COM6',
-  'COM7',
-  'COM8',
-  'COM9',
-  'LPT1',
-  'LPT2',
-  'LPT3',
-  'LPT4',
-  'LPT5',
-  'LPT6',
-  'LPT7',
-  'LPT8',
-  'LPT9',
-};

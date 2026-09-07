@@ -204,6 +204,7 @@ void main() {
 
       expect(find.byType(InlineVideo), findsOneWidget);
       expect(find.bySemanticsLabel('Play video: demo.mp4'), findsOneWidget);
+      expect(find.byTooltip('Download video'), findsOneWidget);
       expect(find.text('demo.mp4'), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp(r'^Open attachment:')), findsNothing);
     } finally {
