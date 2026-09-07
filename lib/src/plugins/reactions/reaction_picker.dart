@@ -39,6 +39,7 @@ class PostReactionButton extends StatefulWidget {
 
 class _PostReactionButtonState extends State<PostReactionButton> {
   final GlobalKey<HoverPanelState> _panel = GlobalKey();
+  final WidgetStatesController _states = WidgetStatesController();
   Object? _operation;
 
   bool get _busy => _operation != null;
@@ -58,6 +59,12 @@ class _PostReactionButtonState extends State<PostReactionButton> {
       _operation = null;
       unawaited(_loadSettings());
     }
+  }
+
+  @override
+  void dispose() {
+    _states.dispose();
+    super.dispose();
   }
 
   bool _isCurrent(ReactionPickerSession session) =>
@@ -197,6 +204,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
                   child: Material(
                     type: MaterialType.transparency,
                     child: InkWell(
+                      statesController: _states,
                       onTap: enabled ? () => _toggle(buttonContext) : null,
                       onLongPress: enabled
                           ? () => _panel.currentState?.open()
@@ -204,26 +212,51 @@ class _PostReactionButtonState extends State<PostReactionButton> {
                       mouseCursor: enabled
                           ? SystemMouseCursors.click
                           : SystemMouseCursors.basic,
-                      borderRadius: BorderRadius.circular(8),
-                      hoverColor: theme.shell.hover,
+                      borderRadius: BorderRadius.circular(14),
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                      splashFactory: NoSplash.splashFactory,
                       child: ExcludeSemantics(
                         child: SizedBox.square(
-                          dimension: ReactionGrid.cell,
+                          dimension: ReactionPill.minTarget,
                           child: Center(
-                            child: mine != null
-                                ? EmojiImage(
-                                    url: controller.emojiUrlFor(
-                                      widget.siteUrl,
-                                      mine,
-                                    ),
-                                    size: 22,
-                                    alt: ':$mine:',
-                                  )
-                                : DIcon(
-                                    icon,
-                                    size: 24,
-                                    color: theme.colorScheme.onSurfaceVariant,
+                            child: ValueListenableBuilder<Set<WidgetState>>(
+                              valueListenable: _states,
+                              builder: (context, states, child) {
+                                final highlighted =
+                                    enabled &&
+                                    (states.contains(WidgetState.hovered) ||
+                                        states.contains(WidgetState.focused) ||
+                                        states.contains(WidgetState.pressed));
+                                return Container(
+                                  width: 28,
+                                  height: 28,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: highlighted
+                                        ? theme.shell.hover
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
+                                  child: child,
+                                );
+                              },
+                              child: mine != null
+                                  ? EmojiImage(
+                                      url: controller.emojiUrlFor(
+                                        widget.siteUrl,
+                                        mine,
+                                      ),
+                                      size: 16,
+                                      alt: ':$mine:',
+                                    )
+                                  : DIcon(
+                                      icon,
+                                      size: 18,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                            ),
                           ),
                         ),
                       ),
