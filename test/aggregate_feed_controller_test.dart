@@ -134,6 +134,124 @@ void main() {
   });
 
   group('preference persistence and migration', () {
+    test('round-trips distinct same-origin subfolder filters', () async {
+      const first = 'https://example.com/forum-a';
+      const second = 'https://example.com/forum-b';
+      final persistence = MemoryAggregatePreferencesPersistence();
+      await AggregatePreferencesStore(persistence: persistence).save(
+        excludedForums: {second},
+        queries: {first: 'status:open', second: 'tag:ux'},
+      );
+      final restored = await AggregatePreferencesStore(
+        persistence: persistence,
+      ).load();
+      expect(restored.excludedForums, {second});
+      expect(restored.queries, {first: 'status:open', second: 'tag:ux'});
+    });
+
+    test(
+      'controller reload preserves subfolder inclusion and queries',
+      () async {
+        const first = 'https://example.com/forum-a';
+        const second = 'https://example.com/forum-b';
+        final forums = [_connected(first, 'A'), _connected(second, 'B')];
+        final persistence = MemoryAggregatePreferencesPersistence();
+        final api = _AggregateApi(pages: const {});
+        final credentials = FakeApiCredentialReader()
+          ..keys[first] = 'a-key'
+          ..keys[second] = 'b-key';
+        final original = _controller(
+          api,
+          credentials,
+          preferences: AggregatePreferencesStore(persistence: persistence),
+        );
+        addTearDown(original.dispose);
+        await original.setForumFilters(
+          allForums: forums,
+          includedConnectedForums: {first},
+          queries: {first: 'status:open', second: 'tag:ux'},
+        );
+        final restored = _controller(
+          api,
+          credentials,
+          preferences: AggregatePreferencesStore(persistence: persistence),
+        );
+        addTearDown(restored.dispose);
+        await restored.loadPreferences(forums);
+        expect(restored.includes(forums.first), isTrue);
+        expect(restored.includes(forums.last), isFalse);
+        expect(restored.queryFor(first), 'status:open');
+        expect(restored.queryFor(second), 'tag:ux');
+        await restored.refresh(forums);
+        expect(api.sitePaths, [
+          '$first|/filter.json?per_page=30&q=status%3Aopen',
+        ]);
+      },
+    );
+
+    for (final version in [1, 2, 3, 4]) {
+      test(
+        'version $version retains safe canonical forum identities',
+        () async {
+          const bases = {
+            'https://example.com/': 'https://example.com',
+            'https://example.com/forum-a/': 'https://example.com/forum-a',
+            'https://example.com/forum-b': 'https://example.com/forum-b',
+            'https://example.com:8443/forum': 'https://example.com:8443/forum',
+            'http://localhost:3000/forum/': 'http://localhost:3000/forum',
+            'http://[::1]:3000/forum': 'http://[::1]:3000/forum',
+          };
+          const invalid = [
+            'http://remote.example/forum',
+            'ftp://example.com/forum',
+            '//example.com/forum',
+            'example.com/forum',
+            'https:///forum',
+            'https://user:password@example.com/forum',
+            'https://example.com/forum?',
+            'https://example.com/forum#',
+            'https://example.com:0/forum',
+            'https://example.com:65536/forum',
+            'https://example.com:invalid/forum',
+            'https://[broken',
+          ];
+          final filters = {
+            'excluded_forums': [...bases.keys, ...invalid, 7],
+            'queries': {
+              for (final url in [...bases.keys, ...invalid]) url: ' tag:ux ',
+            },
+          };
+          final persistence = MemoryAggregatePreferencesPersistence()
+            ..value = jsonEncode({
+              'version': version,
+              if (version < 3) ...filters,
+              if (version >= 3)
+                'tabs': [
+                  {'id': 'saved', ...filters},
+                ],
+            });
+          final store = AggregatePreferencesStore(persistence: persistence);
+          final restored = await store.load();
+          expect(restored.excludedForums, bases.values.toSet());
+          expect(
+            restored.queries,
+            version == 1
+                ? <String, String>{}
+                : {for (final url in bases.values) url: 'tag:ux'},
+          );
+          await store.save(
+            tabs: restored.tabs,
+            activeTabId: restored.activeTabId,
+          );
+          final reloaded = await AggregatePreferencesStore(
+            persistence: persistence,
+          ).load();
+          expect(reloaded.excludedForums, restored.excludedForums);
+          expect(reloaded.queries, restored.queries);
+        },
+      );
+    }
+
     test('normalizes queries and persists exclusions', () async {
       final persistence = MemoryAggregatePreferencesPersistence();
       final store = AggregatePreferencesStore(persistence: persistence);

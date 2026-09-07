@@ -102,7 +102,7 @@ void main() {
       ]);
     });
 
-    test('drops unsafe, malformed, and non-origin stored URLs', () async {
+    test('drops unsafe and malformed stored forum bases', () async {
       SharedPreferences.setMockInitialValues({
         'discourse_native.instances': jsonEncode([
           {'url': 'https://kept.example', 'title': 'Kept'},
@@ -135,6 +135,8 @@ void main() {
           'discourse_native.instances': jsonEncode([
             {'url': 'https://remote.example/forum/', 'title': 'Subfolder'},
             {'url': 'https://root.example/', 'title': 'Root'},
+            {'url': 'https://remote.example/forum-b/', 'title': 'Other'},
+            {'url': 'https://remote.example/forum', 'title': 'Duplicate'},
           ]),
         });
 
@@ -143,6 +145,7 @@ void main() {
         expect(loaded.map((instance) => instance.url), [
           'https://remote.example/forum',
           'https://root.example',
+          'https://remote.example/forum-b',
         ]);
       },
     );
