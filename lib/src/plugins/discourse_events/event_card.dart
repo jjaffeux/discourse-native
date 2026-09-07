@@ -534,6 +534,16 @@ class _PostEventCardState extends State<PostEventCard> {
         oldWidget.controller != widget.controller) {
       _handle.dispose();
       _handle = widget.controller.acquire(widget.site, widget.event);
+    } else if (!_handle.isCurrent &&
+        !identical(oldWidget.event, widget.event)) {
+      // A fresh snapshot may equal the previous account's seed. Replace only
+      // this card's handle; dialogs and pending requests keep their old lifetime.
+      _handle.dispose();
+      _handle = widget.controller.acquire(
+        widget.site,
+        widget.event,
+        useSeed: false,
+      );
     } else {
       _handle.updateSource(widget.event);
     }
@@ -574,38 +584,39 @@ class _PostEventCardState extends State<PostEventCard> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.controller,
     builder: (context, _) {
-      final event = _handle.event;
+      final handle = _handle;
+      final event = handle.event;
       if (event == null) {
         return EventUnavailableCard(
-          error: _handle.error,
-          loading: _handle.loading,
-          onRetry: () => unawaited(_handle.refresh()),
+          error: handle.error,
+          loading: handle.loading,
+          onRetry: () => unawaited(handle.refresh()),
           onWeb: () =>
               unawaited(widget.navigation.openWeb(widget.site, widget.event)),
         );
       }
-      final available = _handle.authoritative && !_handle.pending;
+      final available = handle.authoritative && !handle.pending;
       return EventCard(
         event: event,
         siteUrl: widget.site,
         zones: widget.controller.zones,
         accountTimezone: widget.controller.accountTimezone(widget.site),
         settings: widget.controller.settings(widget.site),
-        pending: _handle.pending,
-        error: _handle.error,
-        onRespond: _handle.authoritative
+        pending: handle.pending,
+        error: handle.error,
+        onRespond: handle.authoritative
             ? (status, recurring) =>
-                  unawaited(_handle.respond(status, recurring: recurring))
+                  unawaited(handle.respond(status, recurring: recurring))
             : null,
         onWithdraw:
             available &&
                 event.public &&
                 event.canRespond &&
                 event.watching?.id != null
-            ? () => unawaited(_handle.withdraw())
+            ? () => unawaited(handle.withdraw())
             : null,
         onParticipants: available && event.displayInvitees
-            ? () => showEventParticipants(context, _handle)
+            ? () => showEventParticipants(context, handle)
             : null,
         onConnect: !widget.controller.accounts.isConnected(widget.site)
             ? () => unawaited(widget.controller.accounts.connect(widget.site))
@@ -614,12 +625,12 @@ class _PostEventCardState extends State<PostEventCard> {
             ? () => widget.navigation.edit(widget.site, event)
             : null,
         onInvite: available && event.canManage
-            ? () => showEventInvitations(context, _handle)
+            ? () => showEventInvitations(context, handle)
             : null,
         onExport: available ? () => unawaited(_export()) : null,
         onOpen: () => widget.navigation.openEvent(widget.site, event),
         onWeb: () => unawaited(widget.navigation.openWeb(widget.site, event)),
-        onRetry: () => unawaited(_handle.refresh()),
+        onRetry: () => unawaited(handle.refresh()),
       );
     },
   );

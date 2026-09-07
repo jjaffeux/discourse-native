@@ -53,12 +53,20 @@ final class EventController extends FrameSafeNotifier
   String? accountTimezone(String site) =>
       siteState.currentUserFor(site)?.timezone;
 
-  EventHandle acquire(String site, PostEvent seed) {
+  /// Recovery after a reset disables [useSeed] to hide personalized snapshot
+  /// fields until hydration, including when joining another card's entry.
+  EventHandle acquire(String site, PostEvent seed, {bool useSeed = true}) {
     final key = (site, seed.id);
     final entry = _entries.putIfAbsent(key, () => _EventEntry(site, seed));
     entry.references++;
+    final discardSeed = !useSeed && !entry.authoritative && entry.value != null;
+    if (discardSeed) entry.value = null;
     _subscribe(entry);
-    if (!entry.authoritative && !entry.reading) unawaited(_refresh(entry));
+    if (!entry.authoritative && !entry.reading) {
+      unawaited(_refresh(entry));
+    } else if (discardSeed) {
+      notifySafely();
+    }
     return EventHandle._(this, entry);
   }
 
@@ -344,6 +352,7 @@ final class EventController extends FrameSafeNotifier
     _trackers.remove(site);
     for (final entry in _entries.values.where((e) => e.site == site).toList()) {
       entry.subscription?.cancel();
+      entry.subscription = null;
       entry.value = null;
       entry.authoritative = false;
       entry.generation++;
@@ -395,7 +404,8 @@ final class EventHandle {
   PostEvent? get event => _entry.value;
   bool get pending => _entry.pending;
   bool get loading => _entry.reading;
-  bool get authoritative => _entry.authoritative && controller._current(_entry);
+  bool get isCurrent => !_released && controller._current(_entry);
+  bool get authoritative => _entry.authoritative && isCurrent;
   String? get error => _entry.error;
   void updateSource(PostEvent seed) => controller._sourceChanged(_entry, seed);
   Future<void> refresh() => controller._refresh(_entry);
