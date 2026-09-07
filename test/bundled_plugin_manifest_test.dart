@@ -27,6 +27,7 @@ void main() {
       'discourse-reactions',
       'poll',
       'discourse-events',
+      'discourse-prometheus-alert-receiver',
       'gifs',
       'discourse-ai',
       'discourse-assign',

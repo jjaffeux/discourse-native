@@ -13,6 +13,7 @@ const _pluginIdsByDirectory = <String, String>{
   'gifs': 'gifs',
   'local_dates': 'discourse-local-dates',
   'poll': 'poll',
+  'prometheus_alert_receiver': 'discourse-prometheus-alert-receiver',
   'reactions': 'discourse-reactions',
   'voice': 'voice',
 };
@@ -69,6 +70,7 @@ const _featureModuleEntrypoints = <String>{
   'gifs/gifs_module.dart',
   'local_dates/local_dates_module.dart',
   'poll/poll_module.dart',
+  'prometheus_alert_receiver/prometheus_alert_receiver_module.dart',
   'reactions/reactions_module.dart',
   'voice/voice_module.dart',
 };
