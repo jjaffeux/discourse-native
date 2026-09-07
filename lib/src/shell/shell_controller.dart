@@ -5152,6 +5152,7 @@ class ShellController extends FrameSafeNotifier
     final route = currentContent;
     final topic = currentTopic;
     final tabId = activeTabId;
+    final navigationRevision = _topicNavigationRevision;
     if (instance == null ||
         route?.topicId == null ||
         topic == null ||
@@ -5172,6 +5173,7 @@ class ShellController extends FrameSafeNotifier
         identical(_topicJumpRuns[key], token) &&
         lease.isCurrent &&
         !isDisposed &&
+        _topicNavigationRevision == navigationRevision &&
         activeTabId == tabId &&
         currentInstance?.url == instance.url &&
         currentContent?.topicId == topic.id;
