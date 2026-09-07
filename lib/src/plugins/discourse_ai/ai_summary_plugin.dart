@@ -151,6 +151,7 @@ class _AiSummaryDialog extends StatefulWidget {
 }
 
 class _AiSummaryDialogState extends State<_AiSummaryDialog> {
+  AiSummaryRequest? _request;
   AiTopicSummary? _summary;
   bool _loading = false;
   bool _generated = false;
@@ -163,6 +164,12 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
     unawaited(_load());
   }
 
+  @override
+  void dispose() {
+    _request?.cancel();
+    super.dispose();
+  }
+
   Future<void> _load({bool regenerate = false}) async {
     if (_loading) return;
     setState(() {
@@ -172,21 +179,26 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
       if (regenerate) _summary = null;
     });
     try {
-      final summary = await widget.controller.load(
+      final request = widget.controller.load(
         siteUrl: widget.siteUrl,
         topicId: widget.topicId,
         hasCachedSummary: widget.availability.hasCachedSummary || _generated,
         regenerate: regenerate,
       );
+      _request = request;
+      final summary = await request.result;
       if (!mounted) return;
       setState(() {
         _summary = summary;
         _generated = true;
       });
+    } on AiSummaryCancelled {
+      // Dismissal already owns the dialog's next state.
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = "Couldn't generate this summary.");
     } finally {
+      _request = null;
       if (mounted) {
         setState(() {
           _loading = false;
@@ -200,7 +212,7 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final summary = _summary;
-    return AlertDialog(
+    final dialog = AlertDialog(
       title: const Row(
         children: [
           DIcon(DiscourseAiIcons.sparkles, size: 18),
@@ -289,6 +301,12 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],
+    );
+    return PopScope<void>(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _request?.cancel();
+      },
+      child: dialog,
     );
   }
 }
