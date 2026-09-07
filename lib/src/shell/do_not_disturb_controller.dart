@@ -74,6 +74,7 @@ final class DoNotDisturbController extends FrameSafeNotifier {
     String siteUrl,
     Future<DateTime?> Function(String apiKey, String clientId) send,
   ) async {
+    if (isDisposed) return null;
     if (_requests.containsKey(siteUrl)) {
       return 'Another notification change is still finishing.';
     }
@@ -81,6 +82,8 @@ final class DoNotDisturbController extends FrameSafeNotifier {
     final request = Object();
     final lease = lifecycle.capture(siteUrl);
     final revision = _bumpRevision(siteUrl);
+    final wasAuthoritative = _locallyAuthoritative.contains(siteUrl);
+    var confirmed = false;
     _locallyAuthoritative.add(siteUrl);
     _requests[siteUrl] = request;
     _expiryTimers.remove(siteUrl)?.cancel();
@@ -102,6 +105,7 @@ final class DoNotDisturbController extends FrameSafeNotifier {
       final until = await send(apiKey, clientId);
       if (!isCurrent()) return null;
 
+      confirmed = true;
       // A MessageBus delivery received after this write began is newer than
       // the response snapshot, including one produced by another session.
       if (_revisions[siteUrl] == revision) {
@@ -123,6 +127,13 @@ final class DoNotDisturbController extends FrameSafeNotifier {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       if (identical(_requests[siteUrl], request)) {
+        // Only confirmed writes and live messages supersede account snapshots.
+        // A failed first write must not block later session reconciliation.
+        if (!confirmed &&
+            !wasAuthoritative &&
+            _revisions[siteUrl] == revision) {
+          _locallyAuthoritative.remove(siteUrl);
+        }
         _requests.remove(siteUrl);
         _schedule(siteUrl);
         if (!isDisposed) notifySafely();
@@ -155,9 +166,8 @@ final class DoNotDisturbController extends FrameSafeNotifier {
   }
 
   void forget(String siteUrl) {
-    final changed =
-        _untilBySite.remove(siteUrl) != null ||
-        _requests.remove(siteUrl) != null;
+    var changed = _untilBySite.remove(siteUrl) != null;
+    changed = _requests.remove(siteUrl) != null || changed;
     _locallyAuthoritative.remove(siteUrl);
     _revisions.remove(siteUrl);
     _expiryTimers.remove(siteUrl)?.cancel();
