@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webview_platform_interface/webview_platform_interface.dart';
 
+import 'support/fake_media_webview.dart';
+
 const _video = YoutubeVideoData(
   videoId: 'first_video',
   listId: null,
@@ -32,14 +34,13 @@ void main() {
   const launcher = MethodChannel('plugins.flutter.io/url_launcher');
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-  late _WebViewPlatform platform;
+  late FakeMediaWebViewPlatform platform;
   late WebViewPlatform previousPlatform;
   late List<String> launched;
 
   setUp(() {
-    previousPlatform =
-        WebViewPlatform.instance ?? _UnsupportedWebViewPlatform();
-    platform = _WebViewPlatform();
+    previousPlatform = WebViewPlatform.instance ?? FakeMediaWebViewPlatform();
+    platform = FakeMediaWebViewPlatform();
     WebViewPlatform.instance = platform;
     launched = [];
     messenger.setMockMethodCallHandler(launcher, (call) async {
@@ -55,7 +56,7 @@ void main() {
     messenger.setMockMethodCallHandler(launcher, null);
   });
 
-  for (final stage in _ConfigurationStage.values) {
+  for (final stage in MediaWebViewConfigurationStage.values) {
     testWidgets('closing the player during ${stage.name} stops native setup', (
       tester,
     ) async {
@@ -144,7 +145,10 @@ void main() {
     'a failed player cannot open external links from its retired view',
     (tester) async {
       final gate = Completer<void>();
-      platform.nextGate = (_ConfigurationStage.navigation, gate.future);
+      platform.nextGate = (
+        MediaWebViewConfigurationStage.navigation,
+        gate.future,
+      );
       await tester.pumpWidget(_player());
       final delegate = platform.controllers.single.delegate!;
       gate.completeError(StateError('Native player configuration failed'));
@@ -212,102 +216,3 @@ Widget _player({YoutubeVideoData data = _video, Uri? forum}) => MaterialApp(
     body: YoutubePlayerSurface(data: data, forumOrigin: forum ?? _forum),
   ),
 );
-
-enum _ConfigurationStage { javaScript, background, navigation }
-
-final class _UnsupportedWebViewPlatform extends WebViewPlatform {}
-
-final class _WebViewPlatform extends WebViewPlatform {
-  final controllers = <_WebViewController>[];
-  (_ConfigurationStage, Future<void>)? nextGate;
-
-  @override
-  PlatformWebViewController createPlatformWebViewController(
-    PlatformWebViewControllerCreationParams params,
-  ) {
-    final controller = _WebViewController(params, gate: nextGate);
-    nextGate = null;
-    controllers.add(controller);
-    return controller;
-  }
-
-  @override
-  PlatformNavigationDelegate createPlatformNavigationDelegate(
-    PlatformNavigationDelegateCreationParams params,
-  ) => _NavigationDelegate(params);
-
-  @override
-  PlatformWebViewWidget createPlatformWebViewWidget(
-    PlatformWebViewWidgetCreationParams params,
-  ) => _WebViewWidget(params);
-}
-
-final class _WebViewController extends PlatformWebViewController {
-  _WebViewController(super.params, {this.gate}) : super.implementation();
-
-  final (_ConfigurationStage, Future<void>)? gate;
-  final operations = <_ConfigurationStage>[];
-  final documents = <({String html, String? baseUrl})>[];
-  _NavigationDelegate? delegate;
-
-  Future<void> _configure(_ConfigurationStage stage) async {
-    operations.add(stage);
-    if (gate case (final heldStage, final completion) when heldStage == stage) {
-      await completion;
-    }
-  }
-
-  @override
-  Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) =>
-      _configure(_ConfigurationStage.javaScript);
-
-  @override
-  Future<void> setBackgroundColor(Color color) =>
-      _configure(_ConfigurationStage.background);
-
-  @override
-  Future<void> setPlatformNavigationDelegate(
-    PlatformNavigationDelegate handler,
-  ) {
-    delegate = handler as _NavigationDelegate;
-    return _configure(_ConfigurationStage.navigation);
-  }
-
-  @override
-  Future<void> loadHtmlString(String html, {String? baseUrl}) async {
-    documents.add((html: html, baseUrl: baseUrl));
-  }
-}
-
-final class _NavigationDelegate extends PlatformNavigationDelegate {
-  _NavigationDelegate(super.params) : super.implementation();
-
-  NavigationRequestCallback? onNavigationRequest;
-  PageEventCallback? onPageFinished;
-
-  @override
-  Future<void> setOnNavigationRequest(
-    NavigationRequestCallback callback,
-  ) async {
-    onNavigationRequest = callback;
-  }
-
-  @override
-  Future<void> setOnPageFinished(PageEventCallback callback) async {
-    onPageFinished = callback;
-  }
-
-  Future<NavigationDecision> navigate(
-    String url, {
-    bool isMainFrame = true,
-  }) async => await onNavigationRequest!(
-    NavigationRequest(url: url, isMainFrame: isMainFrame),
-  );
-}
-
-final class _WebViewWidget extends PlatformWebViewWidget {
-  _WebViewWidget(super.params) : super.implementation();
-
-  @override
-  Widget build(BuildContext context) => const SizedBox.expand();
-}

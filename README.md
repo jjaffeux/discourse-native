@@ -2379,8 +2379,9 @@ platform controller ownership behind adapters. iOS and macOS use Flutter's
 official `video_player` AVFoundation backend and small Flutter controls,
 including a full-screen route that keeps the current playback position. Linux
 reuses the existing WebKitGTK surface with an owned HTML5 `<video>` document
-and native controls. This keeps Apple builds on Swift Package Manager and
-avoids shipping a second Linux media framework.
+and native controls. A failed document or media element releases that session
+and prevents pending native setup from loading it again. This keeps Apple
+builds on Swift Package Manager and avoids shipping a second Linux media framework.
 
 A protected same-origin upload is resolved before playback. User API headers
 are sent only to the forum while redirects are walked explicitly; the player
