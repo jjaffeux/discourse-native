@@ -15,6 +15,7 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
+import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_layout.dart';
 import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
@@ -54,6 +55,75 @@ const _topWeekTopic = Topic(id: 7, title: 'Top this week', slug: 'top-week');
 const _popularTopic = Topic(id: 8, title: 'Popular topic', slug: 'popular');
 
 void main() {
+  for (final stacked in [false, true]) {
+    testWidgets(
+      'retains hydrated filter controls on unrelated notifications (stacked: $stacked)',
+      (tester) async {
+        final directoryTags = [
+          for (var id = 1; id <= 1000; id++)
+            SidebarTag(id: id, name: 'Tag $id', slug: 'tag-$id'),
+        ];
+        final setup = await _controller(
+          categoryList: const [
+            TopicCategory(id: 1, name: 'Support', color: '123456'),
+          ],
+          tagList: directoryTags,
+        );
+        final controller = setup.controller;
+        addTearDown(controller.dispose);
+        await controller.loadTags(controller.currentInstance!.url);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: TopicListNavigation(
+                  stacked: stacked,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        TopicListFilterBar filters() =>
+            tester.widget<TopicListFilterBar>(find.byType(TopicListFilterBar));
+        final hydrated = filters();
+        expect(hydrated.knownTags, hasLength(1000));
+        var notifications = 0;
+        controller.addListener(() => notifications++);
+        var recreatedControls = 0;
+        var previous = hydrated;
+        for (var index = 0; index < 20; index++) {
+          if (index.isEven) {
+            controller.openAppSettingsModal();
+          } else {
+            controller.closeAppSettingsModal();
+          }
+          await tester.pump();
+          final next = filters();
+          if (!identical(next, previous)) recreatedControls++;
+          previous = next;
+        }
+        expect(notifications, 20);
+        expect(recreatedControls, 0);
+
+        const added = SidebarTag(id: 1001, name: 'New tag', slug: 'new-tag');
+        directoryTags.add(added);
+        await controller.loadTags(controller.currentInstance!.url, force: true);
+        await tester.pumpAndSettle();
+        expect(filters(), isNot(same(hydrated)));
+        expect(filters().knownTags.last, added);
+
+        controller.selectTopicListTag(added.slug);
+        await tester.pumpAndSettle();
+        expect(find.text(added.name), findsOneWidget);
+      },
+    );
+  }
+
   test('keeps New out of the connected sidebar', () {
     final site = instance('meta.discourse.org').copyWith(user: _user);
     final destinationIds = [
@@ -65,6 +135,46 @@ void main() {
 
     expect(destinationIds, isNot(contains('new')));
   });
+
+  testWidgets(
+    'open tag picker keeps its query and selection through shell notifications',
+    (tester) async {
+      const tag = SidebarTag(id: 1, name: 'User experience', slug: 'ux');
+      final setup = await _controller(categorySiteTopTags: const [tag]);
+      final controller = setup.controller;
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: const Scaffold(
+              body: TopicListNavigation(child: SizedBox.expand()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
+      await tester.pumpAndSettle();
+      final query = find.byKey(const ValueKey('topic-list-tag-filter-query'));
+      await tester.enterText(query, 'experience');
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
+
+      controller.openAppSettingsModal();
+      await tester.pump();
+      controller.closeAppSettingsModal();
+      await tester.pump();
+      expect(tester.widget<TextField>(query).controller!.text, 'experience');
+      await tester.tap(
+        find.byKey(const ValueKey(('topic-list-tag-filter-option', 'ux'))),
+      );
+      await tester.pumpAndSettle();
+      expect(controller.topicListContent?.tagName, 'ux');
+      expect(find.text('User experience'), findsOneWidget);
+    },
+  );
 
   test('topic-list routes round trip with the Discourse subset paths', () {
     const expectations = {
@@ -1453,6 +1563,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   TopicTrackingState? trackingState,
   List<TopicCategory> categoryList = const [],
   List<SidebarTag> categorySiteTopTags = const [],
+  List<SidebarTag> tagList = const [],
   Map<String, List<Topic>> extraFeeds = const {},
   bool canCreateTopics = false,
   bool forumTabsEnabled = false,
@@ -1502,6 +1613,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
     },
     categoryList: categoryList,
     categorySiteTopTags: categorySiteTopTags,
+    tagList: tagList,
   );
   final controller = ShellController(
     instanceStore: FakeInstanceStore([site]),

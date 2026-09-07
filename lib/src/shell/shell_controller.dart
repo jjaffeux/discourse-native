@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ui' show Color, Rect;
 
 import 'package:flutter/foundation.dart'
-    show ChangeNotifier, Listenable, ValueListenable;
+    show ChangeNotifier, Listenable, ValueListenable, listEquals;
 import 'package:flutter/scheduler.dart';
 
 import '../data/account_session_coordinator.dart';
@@ -145,6 +145,17 @@ typedef _TagSidebarCache = ({
   bool display,
   String? username,
   SidebarSection section,
+});
+typedef _TopicListFilterTagSources = ({
+  (int?, String?) account,
+  List<SidebarTag> personal,
+  List<SidebarTag> siteTop,
+  List<SidebarTag> anonymousDefaults,
+  List<SidebarTag> directory,
+});
+typedef _TopicListFilterTagsCache = ({
+  _TopicListFilterTagSources sources,
+  List<SidebarTag> tags,
 });
 typedef _PluginPaneKey = ({String siteUrl, String tabId, PluginId owner});
 typedef _PluginPaneStateKey = ({String siteUrl, String tabId});
@@ -1768,6 +1779,8 @@ class ShellController extends FrameSafeNotifier
       clearAppearance: true,
     );
     _instances.removeAt(index);
+    // A selector may have read the final signed-out state during disconnect.
+    _topicListFilterTagsCache.remove(instance.url);
     if (_instances.isEmpty) _rootMode = ShellRootMode.forum;
 
     if (removingSelected) {
@@ -2402,6 +2415,7 @@ class ShellController extends FrameSafeNotifier
   final Map<String, List<SidebarTag>> _siteTopTagsBySite = {};
   final Map<String, List<SidebarTag>> _anonymousDefaultTagsBySite = {};
   final Map<String, _TagSidebarCache> _tagSidebarCache = {};
+  final Map<String, _TopicListFilterTagsCache> _topicListFilterTagsCache = {};
   final Map<String, TagDirectoryFeed> _tagDirectoryFeeds = {};
   final Map<String, Object> _tagDirectoryRequests = {};
   final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
@@ -2805,12 +2819,37 @@ class ShellController extends FrameSafeNotifier
       _categoriesBySite[siteUrl] ?? const [];
 
   List<SidebarTag> topicListFilterTagsFor(String siteUrl) {
+    final instance = _instanceAt(siteUrl);
+    if (instance == null) return const [];
+    final user = instance.user;
+    final sources = (
+      account: (user?.id, user?.username),
+      personal: user?.sidebarTags ?? const <SidebarTag>[],
+      siteTop: _siteTopTagsBySite[siteUrl] ?? const <SidebarTag>[],
+      anonymousDefaults:
+          _anonymousDefaultTagsBySite[siteUrl] ?? const <SidebarTag>[],
+      directory: tagDirectoryFeedFor(siteUrl).tags,
+    );
+    final held = _topicListFilterTagsCache[siteUrl];
+    // Taxonomy sources are replaced when loaded. Record equality checks their
+    // list identities, so shell selectors do not scan the directory on every
+    // unrelated notification (including current-user counter updates).
+    if (held != null && held.sources == sources) return held.tags;
+
     final byName = <String, SidebarTag>{};
     for (final tag in _knownTagsFor(siteUrl)) {
       if (tag.pmOnly) continue;
       byName.putIfAbsent(tag.name.toLowerCase(), () => tag);
     }
-    return List.unmodifiable(byName.values);
+    final tags = List<SidebarTag>.unmodifiable(byName.values);
+    final snapshot =
+        held != null &&
+            held.sources.account == sources.account &&
+            listEquals(held.tags, tags)
+        ? held.tags
+        : tags;
+    _topicListFilterTagsCache[siteUrl] = (sources: sources, tags: snapshot);
+    return snapshot;
   }
 
   Future<List<TopicCategory>> searchFilterCategories({
@@ -11895,6 +11934,7 @@ class ShellController extends FrameSafeNotifier
     _siteTopTagsBySite.remove(siteUrl);
     _anonymousDefaultTagsBySite.remove(siteUrl);
     _tagSidebarCache.remove(siteUrl);
+    _topicListFilterTagsCache.remove(siteUrl);
     _tagDirectoryFeeds.remove(siteUrl);
     _tagDirectoryRequests.remove(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
@@ -13124,6 +13164,7 @@ class ShellController extends FrameSafeNotifier
     _topicFlagWrites.clear();
     _topicJumpRuns.clear();
     _topicReads.dispose();
+    _topicListFilterTagsCache.clear();
     for (final instance in _instances) {
       lifecycle.invalidate(instance.url);
     }
