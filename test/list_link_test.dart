@@ -33,6 +33,26 @@ void main() {
       expect(read('/tag/ux'), 'tag:ux:null:/tag/ux.json');
     });
 
+    test('keeps encoded punctuation inside its original path segment', () {
+      for (final segment in ['café', 'qa?review#notes', 'a/b', '100%']) {
+        final encoded = Uri.encodeComponent(segment);
+        for (final path in ['/tag/$encoded', '/c/$encoded/12']) {
+          final link = ListLink.parse(path)!;
+          final feed = Uri.parse(link.feedPath);
+
+          expect(link.slug, segment);
+          expect(feed.hasQuery, isFalse);
+          expect(feed.hasFragment, isFalse);
+          expect(
+            feed.pathSegments,
+            path.startsWith('/tag/')
+                ? ['tag', '$segment.json']
+                : ['c', segment, '12.json'],
+          );
+        }
+      }
+    });
+
     test(
       'reads a bare number after /tag/ as an ID, the way Discourse does',
       () {

@@ -190,7 +190,7 @@ class DiscourseInstance {
 
   static String? pathWithinUrl(String siteUrl, Uri link) {
     final segments = pathSegmentsWithin(siteUrl, link);
-    return segments == null ? null : '/${segments.join('/')}';
+    return segments == null ? null : Uri(pathSegments: ['', ...segments]).path;
   }
 
   static List<String>? pathSegmentsWithin(String siteUrl, Uri link) {

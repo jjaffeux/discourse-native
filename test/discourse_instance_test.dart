@@ -4,6 +4,25 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('removing a forum prefix preserves encoded segment boundaries', () {
+    const instance = DiscourseInstance(
+      url: 'https://example.com/my%20forum',
+      title: 'Forum',
+    );
+    for (final segment in ['café', 'qa?review#notes', 'a/b', '100%']) {
+      final source = Uri(
+        scheme: 'https',
+        host: 'example.com',
+        pathSegments: ['my forum', 'tag', segment],
+      );
+      final path = Uri.parse(instance.pathWithin(source)!);
+
+      expect(path.hasQuery, isFalse);
+      expect(path.hasFragment, isFalse);
+      expect(path.pathSegments, ['tag', segment]);
+    }
+  });
+
   group('DiscourseInstance.monogram', () {
     String monogram(String title) =>
         DiscourseInstance(url: 'https://example.com', title: title).monogram;

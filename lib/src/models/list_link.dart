@@ -44,7 +44,14 @@ class ListLink {
 
     // Rebuilt from the segments rather than taken from `uri.path`, so a
     // trailing slash or a query string cannot end up inside the filename.
-    final path = '/${segments.join('/')}.json';
+    // Re-encode each segment so decoded punctuation remains part of its name.
+    final path = Uri(
+      pathSegments: [
+        '',
+        ...segments.take(segments.length - 1),
+        '${segments.last}.json',
+      ],
+    ).path;
     final rest = segments.sublist(1);
 
     // Anything past the id is a filter — `/l/top`, `/none`, `/subcategories` —
