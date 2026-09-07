@@ -44,6 +44,8 @@ void main() {
     final readGate = Completer<void>();
     final persistence = _ControlledAppSettingsPersistence(
       contentAlignment: 'left',
+      disableGifAnimations: true,
+      textScale: AppTextScale.percent175.name,
       readGate: readGate,
     );
     final controller = _controller(persistence);
@@ -52,7 +54,7 @@ void main() {
     await persistence.readStarted.future;
     final saving = controller.setContentAlignment(ContentAlignment.right);
 
-    expect(controller.loaded, isTrue);
+    expect(controller.loaded, isFalse);
     expect(controller.contentAlignment, ContentAlignment.right);
 
     readGate.complete();
@@ -60,7 +62,114 @@ void main() {
 
     expect(controller.contentAlignment, ContentAlignment.right);
     expect(persistence.contentAlignment, 'right');
+    await _expectSettings(
+      controller,
+      persistence,
+      const AppSettings(
+        contentAlignment: ContentAlignment.right,
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent175,
+      ),
+    );
   });
+
+  for (final startLoad in [false, true]) {
+    for (final (name, select, expected)
+        in <
+          (String, Future<void> Function(AppSettingsController), AppSettings)
+        >[
+          (
+            'alignment',
+            (controller) =>
+                controller.setContentAlignment(ContentAlignment.center),
+            const AppSettings(
+              disableGifAnimations: true,
+              textScale: AppTextScale.percent175,
+            ),
+          ),
+          (
+            'GIF animations',
+            (controller) => controller.setDisableGifAnimations(false),
+            const AppSettings(
+              contentAlignment: ContentAlignment.left,
+              textScale: AppTextScale.percent175,
+            ),
+          ),
+          (
+            'text scale',
+            (controller) => controller.setTextScale(AppTextScale.percent100),
+            const AppSettings(
+              contentAlignment: ContentAlignment.left,
+              disableGifAnimations: true,
+            ),
+          ),
+        ]) {
+      test(
+        'choosing default $name ${startLoad ? 'during' : 'before'} hydration '
+        'preserves unrelated saved fields',
+        () async {
+          final readGate = Completer<void>();
+          final persistence = _ControlledAppSettingsPersistence(
+            contentAlignment: 'left',
+            disableGifAnimations: true,
+            textScale: AppTextScale.percent175.name,
+            readGate: readGate,
+          );
+          final controller = _controller(persistence);
+          final loading = startLoad ? controller.load() : null;
+          if (startLoad) await persistence.readStarted.future;
+
+          final saving = select(controller);
+          expect(controller.settings, AppSettings.defaults);
+
+          readGate.complete();
+          await saving;
+          if (loading != null) await loading;
+          await controller.load();
+
+          await _expectSettings(controller, persistence, expected);
+        },
+      );
+    }
+  }
+
+  test(
+    'several pending edits preserve the last choice and stored scale',
+    () async {
+      final readGate = Completer<void>();
+      final persistence = _ControlledAppSettingsPersistence(
+        contentAlignment: 'left',
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent175.name,
+        readGate: readGate,
+      );
+      final controller = _controller(persistence);
+      final loading = controller.load();
+      await persistence.readStarted.future;
+
+      final saves = [
+        controller.setContentAlignment(ContentAlignment.right),
+        controller.setDisableGifAnimations(true),
+        controller.setContentAlignment(ContentAlignment.center),
+        controller.setDisableGifAnimations(false),
+      ];
+      expect(controller.settings, AppSettings.defaults);
+      // A slow hydration read must not delay persistence of explicit choices.
+      await Future.wait(saves);
+      expect(persistence.contentAlignment, 'center');
+      expect(persistence.disableGifAnimations, isFalse);
+      expect(persistence.textScale, AppTextScale.percent175.name);
+
+      readGate.complete();
+      await loading;
+
+      await _expectSettings(
+        controller,
+        persistence,
+        const AppSettings(textScale: AppTextScale.percent175),
+      );
+    },
+  );
 
   test(
     'choosing the initial default still supersedes a pending read',
@@ -88,6 +197,8 @@ void main() {
   test('a local text scale wins over a stale hydration read', () async {
     final readGate = Completer<void>();
     final persistence = _ControlledAppSettingsPersistence(
+      contentAlignment: 'left',
+      disableGifAnimations: true,
       textScale: AppTextScale.percent175.name,
       readGate: readGate,
     );
@@ -97,7 +208,7 @@ void main() {
     await persistence.readStarted.future;
     final saving = controller.setTextScale(AppTextScale.percent90);
 
-    expect(controller.loaded, isTrue);
+    expect(controller.loaded, isFalse);
     expect(controller.textScale, AppTextScale.percent90);
     expect(controller.textScaleFactor, 0.9);
 
@@ -106,6 +217,15 @@ void main() {
 
     expect(controller.textScale, AppTextScale.percent90);
     expect(persistence.textScale, AppTextScale.percent90.name);
+    await _expectSettings(
+      controller,
+      persistence,
+      const AppSettings(
+        contentAlignment: ContentAlignment.left,
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent90,
+      ),
+    );
   });
 
   test('resetting before hydration supersedes a stored text scale', () async {
@@ -129,42 +249,113 @@ void main() {
     ]);
   });
 
+  test('relative text changes hydrate before saving', () async {
+    final readGate = Completer<void>();
+    final persistence = _ControlledAppSettingsPersistence(
+      contentAlignment: ContentAlignment.left.name,
+      disableGifAnimations: true,
+      textScale: AppTextScale.percent125.name,
+      readGate: readGate,
+    );
+    final controller = _controller(persistence);
+
+    final firstIncrease = controller.increaseTextScale();
+    final secondIncrease = controller.increaseTextScale();
+    await persistence.readStarted.future;
+
+    expect(controller.loaded, isFalse);
+    expect(persistence.attemptedTextScaleWrites, isEmpty);
+
+    readGate.complete();
+    await Future.wait([firstIncrease, secondIncrease]);
+
+    expect(
+      controller.settings,
+      const AppSettings(
+        contentAlignment: ContentAlignment.left,
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent175,
+      ),
+    );
+    expect(persistence.contentAlignment, ContentAlignment.left.name);
+    expect(persistence.disableGifAnimations, isTrue);
+    expect(persistence.attemptedTextScaleWrites, [
+      AppTextScale.percent150.name,
+      AppTextScale.percent175.name,
+    ]);
+  });
+
   test(
-    'relative text changes hydrate before writing the settings snapshot',
+    'an alignment edit does not make the initial text scale authoritative',
     () async {
       final readGate = Completer<void>();
       final persistence = _ControlledAppSettingsPersistence(
-        contentAlignment: ContentAlignment.left.name,
+        contentAlignment: 'left',
         disableGifAnimations: true,
         textScale: AppTextScale.percent125.name,
         readGate: readGate,
       );
       final controller = _controller(persistence);
-
-      final firstIncrease = controller.increaseTextScale();
-      final secondIncrease = controller.increaseTextScale();
+      final loading = controller.load();
       await persistence.readStarted.future;
 
-      expect(controller.loaded, isFalse);
+      final alignment = controller.setContentAlignment(ContentAlignment.right);
+      final firstIncrease = controller.increaseTextScale();
+      final secondIncrease = controller.increaseTextScale();
+      expect(controller.contentAlignment, ContentAlignment.right);
+      expect(controller.textScale, AppTextScale.percent100);
+      await alignment;
       expect(persistence.attemptedTextScaleWrites, isEmpty);
 
       readGate.complete();
-      await Future.wait([firstIncrease, secondIncrease]);
+      await Future.wait([loading, firstIncrease, secondIncrease]);
 
-      expect(
-        controller.settings,
+      await _expectSettings(
+        controller,
+        persistence,
         const AppSettings(
-          contentAlignment: ContentAlignment.left,
+          contentAlignment: ContentAlignment.right,
           disableGifAnimations: true,
           textScale: AppTextScale.percent175,
         ),
       );
-      expect(persistence.contentAlignment, ContentAlignment.left.name);
-      expect(persistence.disableGifAnimations, isTrue);
-      expect(persistence.attemptedTextScaleWrites, [
-        AppTextScale.percent150.name,
-        AppTextScale.percent175.name,
-      ]);
+    },
+  );
+
+  test(
+    'relative text changes use an explicit scale immediately during hydration',
+    () async {
+      final readGate = Completer<void>();
+      final persistence = _ControlledAppSettingsPersistence(
+        contentAlignment: 'left',
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent175.name,
+        readGate: readGate,
+      );
+      final controller = _controller(persistence);
+      final loading = controller.load();
+      await persistence.readStarted.future;
+
+      final selection = controller.setTextScale(AppTextScale.percent90);
+      final increase = controller.increaseTextScale();
+      expect(controller.textScale, AppTextScale.percent100);
+      final decrease = controller.decreaseTextScale();
+      expect(controller.textScale, AppTextScale.percent90);
+      final reset = controller.resetTextScale();
+      expect(controller.textScale, AppTextScale.percent100);
+      await Future.wait([selection, increase, decrease, reset]);
+
+      readGate.complete();
+      await loading;
+
+      await _expectSettings(
+        controller,
+        persistence,
+        const AppSettings(
+          contentAlignment: ContentAlignment.left,
+          disableGifAnimations: true,
+        ),
+      );
     },
   );
 
@@ -176,6 +367,7 @@ void main() {
         firstWriteGate: firstWriteGate,
       );
       final controller = _controller(persistence);
+      await controller.load();
       var notifications = 0;
       controller.addListener(() => notifications++);
 
@@ -233,6 +425,7 @@ void main() {
         firstWriteGate: firstWriteGate,
       );
       final controller = _controller(persistence);
+      await controller.load();
       var notifications = 0;
       controller.addListener(() => notifications++);
 
@@ -242,7 +435,9 @@ void main() {
 
       expect(controller.textScale, AppTextScale.percent125);
       expect(notifications, 2);
-      expect(persistence.attemptedTextScaleWrites, isEmpty);
+      expect(persistence.attemptedTextScaleWrites, [
+        AppTextScale.percent110.name,
+      ]);
 
       firstWriteGate.complete();
       await Future.wait([saving110, saving125]);
@@ -258,6 +453,7 @@ void main() {
   test('text scale bounds and repeated selections are no-ops', () async {
     final persistence = _ControlledAppSettingsPersistence();
     final controller = _controller(persistence);
+    await controller.load();
     var notifications = 0;
     controller.addListener(() => notifications++);
 
@@ -281,6 +477,7 @@ void main() {
     final controller = _controller(persistence);
 
     await controller.setContentAlignment(ContentAlignment.right);
+    await controller.load();
 
     expect(controller.loaded, isTrue);
     expect(controller.contentAlignment, ContentAlignment.right);
@@ -293,6 +490,7 @@ void main() {
     final controller = _controller(persistence);
 
     await controller.setDisableGifAnimations(true);
+    await controller.load();
 
     expect(controller.loaded, isTrue);
     expect(controller.disableGifAnimations, isTrue);
@@ -301,7 +499,12 @@ void main() {
   });
 
   test('a replacement controller retains a rejected session choice', () async {
-    final persistence = _ControlledAppSettingsPersistence(acceptWrites: false);
+    final persistence = _ControlledAppSettingsPersistence(
+      contentAlignment: 'left',
+      disableGifAnimations: true,
+      textScale: AppTextScale.percent175.name,
+      acceptWrites: false,
+    );
     final store = AppSettingsStore(persistence: persistence);
     final first = AppSettingsController(store: store);
 
@@ -312,10 +515,17 @@ void main() {
     addTearDown(replacement.dispose);
     await replacement.load();
 
-    expect(replacement.contentAlignment, ContentAlignment.right);
-    expect(persistence.contentAlignment, isNull);
+    expect(
+      replacement.settings,
+      const AppSettings(
+        contentAlignment: ContentAlignment.right,
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent175,
+      ),
+    );
+    expect(persistence.contentAlignment, 'left');
     expect(persistence.attemptedWrites, ['right']);
-    expect(persistence.readCount, 0);
+    expect(await store.read(), replacement.settings);
   });
 
   test('replacement controllers cannot reorder rapid writes', () async {
@@ -359,6 +569,57 @@ void main() {
     expect(controller.contentAlignment, ContentAlignment.center);
     expect(persistence.attemptedWrites, isEmpty);
   });
+
+  test(
+    'disposal preserves an accepted edit without late hydration notifications',
+    () async {
+      final readGate = Completer<void>();
+      final firstWriteGate = Completer<void>();
+      final persistence = _ControlledAppSettingsPersistence(
+        contentAlignment: 'left',
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent175.name,
+        readGate: readGate,
+        firstWriteGate: firstWriteGate,
+      );
+      final controller = _controller(persistence, dispose: false);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+      final loading = controller.load();
+      await persistence.readStarted.future;
+      final saving = controller.setContentAlignment(ContentAlignment.right);
+      await persistence.firstWriteStarted.future;
+      expect(notifications, 1);
+
+      controller.dispose();
+      await controller.setContentAlignment(ContentAlignment.center);
+      await controller.setDisableGifAnimations(false);
+      await controller.setTextScale(AppTextScale.percent100);
+      await controller.increaseTextScale();
+      await controller.decreaseTextScale();
+      await controller.resetTextScale();
+      firstWriteGate.complete();
+      readGate.complete();
+      await Future.wait([loading, saving]);
+
+      expect(notifications, 1);
+      expect(controller.loaded, isFalse);
+      expect(
+        controller.settings,
+        const AppSettings(contentAlignment: ContentAlignment.right),
+      );
+      const expected = AppSettings(
+        contentAlignment: ContentAlignment.right,
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent175,
+      );
+      expect(await controller.store.read(), expected);
+      expect(await AppSettingsStore(persistence: persistence).read(), expected);
+      expect(persistence.attemptedWrites, ['right']);
+      expect(persistence.attemptedGifAnimationWrites, isEmpty);
+      expect(persistence.attemptedTextScaleWrites, isEmpty);
+    },
+  );
 }
 
 AppSettingsController _controller(
@@ -370,6 +631,16 @@ AppSettingsController _controller(
   );
   if (dispose) addTearDown(controller.dispose);
   return controller;
+}
+
+Future<void> _expectSettings(
+  AppSettingsController controller,
+  AppSettingsPersistence persistence,
+  AppSettings expected,
+) async {
+  expect(controller.settings, expected);
+  expect(await controller.store.read(), expected);
+  expect(await AppSettingsStore(persistence: persistence).read(), expected);
 }
 
 final class _ControlledAppSettingsPersistence
@@ -414,10 +685,7 @@ final class _ControlledAppSettingsPersistence
   @override
   Future<bool> writeContentAlignment(String value) async {
     attemptedWrites.add(value);
-    if (attemptedWrites.length == 1) {
-      firstWriteStarted.complete();
-      await firstWriteGate?.future;
-    }
+    await _waitForFirstWrite();
     if (!acceptWrites) return false;
     contentAlignment = value;
     return true;
@@ -426,6 +694,7 @@ final class _ControlledAppSettingsPersistence
   @override
   Future<bool> writeDisableGifAnimations(bool value) async {
     attemptedGifAnimationWrites.add(value);
+    await _waitForFirstWrite();
     if (!acceptWrites) return false;
     disableGifAnimations = value;
     return true;
@@ -434,8 +703,16 @@ final class _ControlledAppSettingsPersistence
   @override
   Future<bool> writeTextScale(String value) async {
     attemptedTextScaleWrites.add(value);
+    await _waitForFirstWrite();
     if (!acceptWrites) return false;
     textScale = value;
     return true;
+  }
+
+  Future<void> _waitForFirstWrite() async {
+    if (!firstWriteStarted.isCompleted) {
+      firstWriteStarted.complete();
+      await firstWriteGate?.future;
+    }
   }
 }

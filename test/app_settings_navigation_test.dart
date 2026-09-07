@@ -269,6 +269,72 @@ void main() {
   });
 
   group('Settings modal availability', () {
+    testWidgets('startup alignment edits retain saved GIF and text settings', (
+      tester,
+    ) async {
+      final persistence = _GatedAppSettingsPersistence();
+      final controller = _controller(
+        instanceStore: FakeInstanceStore(),
+        appSettingsPersistence: persistence,
+      );
+      addTearDown(controller.dispose);
+      final loading = controller.load();
+      await tester.binding.setSurfaceSize(const Size(700, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const AdaptiveShell(),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(controller.loadStatus, InstanceLoadStatus.loading);
+      expect(controller.appSettings.loaded, isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Right'));
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<SegmentedButton<ContentAlignment>>(
+              find.byKey(const ValueKey('content-alignment-segmented-button')),
+            )
+            .selected,
+        {ContentAlignment.right},
+      );
+      expect(controller.appSettings.contentAlignment, ContentAlignment.right);
+
+      persistence.readGate.complete();
+      await tester.pump();
+      await loading;
+      await tester.pump();
+
+      const expected = AppSettings(
+        contentAlignment: ContentAlignment.right,
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent175,
+      );
+      expect(controller.appSettings.settings, expected);
+      expect(find.text('175%'), findsOneWidget);
+      expect(
+        tester
+            .widget<SwitchListTile>(
+              find.byKey(const ValueKey('disable-gif-animations-switch')),
+            )
+            .value,
+        isTrue,
+      );
+      expect(await AppSettingsStore(persistence: persistence).read(), expected);
+
+      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('opens over the loading shell', (tester) async {
       final load = Completer<List<DiscourseInstance>>();
       final controller = _controller(instanceStore: _GatedInstanceStore(load));
@@ -320,6 +386,7 @@ ShellController _controller({
   required InstanceStore instanceStore,
   ShellRootMode initialRootMode = ShellRootMode.forum,
   FakeDiscourseApi? api,
+  AppSettingsPersistence? appSettingsPersistence,
 }) => ShellController(
   instanceStore: instanceStore,
   api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
@@ -330,7 +397,7 @@ ShellController _controller({
   updateStore: FakeUpdateStore(),
   initialRootMode: initialRootMode,
   appSettingsStore: AppSettingsStore(
-    persistence: MemoryAppSettingsPersistence(),
+    persistence: appSettingsPersistence ?? MemoryAppSettingsPersistence(),
   ),
 );
 
@@ -381,6 +448,40 @@ final class _GatedInstanceStore implements InstanceStore {
 
   @override
   Future<void> save(List<DiscourseInstance> instances) async {}
+}
+
+final class _GatedAppSettingsPersistence implements AppSettingsPersistence {
+  final readGate = Completer<void>();
+  final _delegate = MemoryAppSettingsPersistence(
+    contentAlignment: ContentAlignment.left.name,
+    disableGifAnimations: true,
+    textScale: AppTextScale.percent175.name,
+  );
+
+  @override
+  Future<String?> readContentAlignment() async {
+    final stored = await _delegate.readContentAlignment();
+    await readGate.future;
+    return stored;
+  }
+
+  @override
+  Future<bool?> readDisableGifAnimations() =>
+      _delegate.readDisableGifAnimations();
+
+  @override
+  Future<String?> readTextScale() => _delegate.readTextScale();
+
+  @override
+  Future<bool> writeContentAlignment(String value) =>
+      _delegate.writeContentAlignment(value);
+
+  @override
+  Future<bool> writeDisableGifAnimations(bool value) =>
+      _delegate.writeDisableGifAnimations(value);
+
+  @override
+  Future<bool> writeTextScale(String value) => _delegate.writeTextScale(value);
 }
 
 final class _FailingInstanceStore implements InstanceStore {
