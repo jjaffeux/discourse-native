@@ -964,7 +964,7 @@ abstract interface class BookmarksWriteApi {
 }
 
 abstract interface class DraftsApi {
-  Future<List<UserDraft>> userDrafts({
+  Future<UserDraftPage> userDrafts({
     required String siteUrl,
     required String apiKey,
     int offset = 0,

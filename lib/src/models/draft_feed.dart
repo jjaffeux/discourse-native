@@ -9,6 +9,7 @@ class DraftFeed {
     this.loading = false,
     this.loaded = false,
     this.hasMore = true,
+    this.nextOffset = 0,
     this.totalCount,
     this.error,
   });
@@ -22,36 +23,46 @@ class DraftFeed {
   final bool loading;
   final bool loaded;
   final bool hasMore;
+  final int nextOffset;
   final int? totalCount;
   final String? error;
 
-  bool get isEmpty => loaded && error == null && drafts.isEmpty;
+  bool get isEmpty => loaded && !hasMore && error == null && drafts.isEmpty;
 
   DraftFeed loadingMore() => DraftFeed(
     drafts: drafts,
     loading: true,
     loaded: loaded,
     hasMore: hasMore,
+    nextOffset: nextOffset,
     totalCount: totalCount,
   );
 
   DraftFeed withPage(
-    List<UserDraft> page, {
+    UserDraftPage page, {
     required int limit,
     required int? reportedCount,
-    int? receivedCount,
+    int deletedCount = 0,
   }) {
     final byKey = <String, UserDraft>{
       for (final draft in drafts) draft.key: draft,
-      for (final draft in page) draft.key: draft,
     };
+    for (final draft in page.drafts) {
+      byKey[draft.key] = _mergeDraft(byKey[draft.key], draft);
+    }
     final combined = List<UserDraft>.unmodifiable(byKey.values);
-    // Concurrent deletions can hide rows from an otherwise full server page.
-    final more = (receivedCount ?? page.length) >= limit;
+    // Invalid or overlapping rows consume server positions. Actual deletions
+    // shift those positions back, including deleted rows in a stale response.
+    final consumed = (page.rawItemCount - deletedCount).clamp(
+      0,
+      page.rawItemCount,
+    );
+    final more = page.rawItemCount >= limit && consumed > 0;
     return DraftFeed(
       drafts: combined,
       loaded: true,
       hasMore: more,
+      nextOffset: nextOffset + consumed,
       totalCount: more
           ? (reportedCount == null || reportedCount < combined.length
                 ? combined.length
@@ -71,6 +82,9 @@ class DraftFeed {
       loading: loading,
       loaded: loaded,
       hasMore: hasMore,
+      nextOffset: contained
+          ? (nextOffset - 1).clamp(0, nextOffset)
+          : nextOffset,
       totalCount: totalCount == null
           ? null
           : !decrement
@@ -83,6 +97,7 @@ class DraftFeed {
     drafts: drafts,
     loaded: true,
     hasMore: hasMore,
+    nextOffset: nextOffset,
     totalCount: totalCount,
     error: message,
   );
@@ -92,6 +107,23 @@ class DraftFeed {
     loading: loading,
     loaded: loaded,
     hasMore: hasMore,
+    nextOffset: nextOffset,
     error: error,
   );
+
+  static UserDraft _mergeDraft(UserDraft? held, UserDraft incoming) {
+    if (held == null || incoming.sequence > held.sequence) return incoming;
+    if (incoming.sequence < held.sequence) return held;
+    return UserDraft(
+      key: incoming.key,
+      sequence: incoming.sequence,
+      data: incoming.data ?? held.data,
+      createdAt: incoming.createdAt ?? held.createdAt,
+      topicId: incoming.topicId ?? held.topicId,
+      title: incoming.title ?? held.title,
+      slug: incoming.slug ?? held.slug,
+      categoryId: incoming.categoryId ?? held.categoryId,
+      archetype: incoming.archetype ?? held.archetype,
+    );
+  }
 }

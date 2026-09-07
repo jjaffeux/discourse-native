@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/app_shortcuts.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -729,6 +731,54 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('loads past an invalid full page without rendering fake rows', (
+      tester,
+    ) async {
+      final offsets = <int>[];
+      final draftApi = DiscourseApi(
+        client: MockClient((request) async {
+          final offset = int.parse(request.url.queryParameters['offset']!);
+          offsets.add(offset);
+          return http.Response(
+            jsonEncode({
+              'drafts': offset == 0
+                  ? List<Object?>.filled(30, null)
+                  : [
+                      {
+                        'draft_key': 'topic_30',
+                        'sequence': 1,
+                        'topic_id': 30,
+                        'title': 'The valid draft',
+                        'data': {'reply': 'Still reachable'},
+                      },
+                    ],
+            }),
+            200,
+          );
+        }),
+      );
+      await _pumpList(tester, api: _ApiBackedDrafts(draftApi));
+
+      expect(find.byTooltip('Remove draft'), findsNothing);
+      expect(find.text('No drafts yet'), findsNothing);
+      expect(find.text('Load more'), findsOneWidget);
+
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+
+      expect(offsets, [0, 30]);
+      expect(find.byTooltip('Remove draft'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is TopicTitle && widget.title == 'The valid draft',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Still reachable'), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('fits long category names beside compact draft actions', (
       tester,
     ) async {
@@ -923,6 +973,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpList(
   String categoryName = 'Support',
   List<UserDraft> userDrafts = const [_draft],
   ValueNotifier<String>? selectedSite,
+  FakeDiscourseApi? api,
 }) async {
   installTestMediaPipeline(
     client: MockClient((_) async => http.Response('', 404)),
@@ -940,7 +991,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpList(
         ),
       ),
   ];
-  final api = FakeDiscourseApi(
+  api ??= FakeDiscourseApi(
     user: sites.first.user,
     userDraftList: userDrafts,
     categoryList: [TopicCategory(id: 5, name: categoryName, color: '0088CC')],
@@ -985,4 +1036,29 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpList(
   );
   await tester.pumpAndSettle();
   return (controller: controller, api: api);
+}
+
+class _ApiBackedDrafts extends FakeDiscourseApi {
+  _ApiBackedDrafts(this.draftsApi)
+    : super(
+        user: const DiscourseUser(id: 7, username: 'reader'),
+        feeds: const {'/latest.json': []},
+      );
+
+  final DraftsApi draftsApi;
+
+  @override
+  Future<UserDraftPage> userDrafts({
+    required String siteUrl,
+    required String apiKey,
+    int offset = 0,
+    int limit = 30,
+    String? clientId,
+  }) => draftsApi.userDrafts(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    offset: offset,
+    limit: limit,
+    clientId: clientId,
+  );
 }

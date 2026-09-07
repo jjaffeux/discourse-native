@@ -152,14 +152,15 @@ void main() {
       }),
     );
 
-    final drafts = await api.userDrafts(
+    final page = await api.userDrafts(
       siteUrl: siteUrl,
       apiKey: 'key',
       limit: DiscourseApi.maximumUserDraftPageSize,
     );
 
-    expect(drafts, hasLength(30));
-    expect(drafts.last.key, 'topic_30');
+    expect(page.rawItemCount, 30);
+    expect(page.drafts, hasLength(30));
+    expect(page.drafts.last.key, 'topic_30');
     await expectLater(
       api.userDrafts(siteUrl: siteUrl, apiKey: 'key', offset: -1),
       throwsRangeError,
@@ -173,6 +174,35 @@ void main() {
       throwsRangeError,
     );
     expect(requestCount, 1, reason: 'invalid pages fail before transport');
+  });
+
+  test('draft page budgets count malformed rows before filtering', () async {
+    final api = DiscourseApi(
+      client: serving((request) {
+        expect(request.url.queryParameters, {'offset': '10', 'limit': '5'});
+        return {
+          'drafts': [
+            null,
+            false,
+            <String, Object?>{},
+            {'draft_key': ''},
+            {'draft_key': 'topic_14', 'sequence': 2},
+            {'draft_key': 'topic_15', 'sequence': 2},
+          ],
+        };
+      }),
+    );
+
+    final page = await api.userDrafts(
+      siteUrl: siteUrl,
+      apiKey: 'key',
+      offset: 10,
+      limit: 5,
+    );
+
+    expect(page.rawItemCount, 5);
+    expect(page.drafts.single.key, 'topic_14');
+    expect(() => page.drafts.clear(), throwsUnsupportedError);
   });
 
   test(

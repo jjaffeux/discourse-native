@@ -516,7 +516,7 @@ final class DiscourseAccountApi {
     );
   }
 
-  Future<List<UserDraft>> userDrafts({
+  Future<UserDraftPage> userDrafts({
     required String siteUrl,
     required String apiKey,
     int offset = 0,
@@ -538,11 +538,16 @@ final class DiscourseAccountApi {
       apiKey: apiKey,
       clientId: clientId,
     );
-    return List.unmodifiable(
-      jsonObjects(body['drafts'])
-          .take(limit)
-          .map(UserDraft.fromJson)
-          .where((draft) => draft.key.isNotEmpty),
+    final rawRows = jsonArray(
+      body['drafts'],
+    ).take(limit).toList(growable: false);
+    return UserDraftPage(
+      rawItemCount: rawRows.length,
+      drafts: List.unmodifiable(
+        jsonObjects(
+          rawRows,
+        ).map(UserDraft.fromJson).where((draft) => draft.key.isNotEmpty),
+      ),
     );
   }
 
