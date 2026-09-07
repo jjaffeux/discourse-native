@@ -173,6 +173,67 @@ void main() {
   });
 
   test(
+    'cancels an unread body when its account expires with the headers',
+    () async {
+      environment.savePath = '${directory.path}/expired.mp4';
+      final cancelled = Completer<void>();
+      final body = StreamController<List<int>>(onCancel: cancelled.complete);
+      addTearDown(() async {
+        if (!cancelled.isCompleted) await body.stream.listen(null).cancel();
+        await body.close();
+      });
+      final headers = Completer<http.StreamedResponse>();
+      final started = Completer<void>();
+      final pending = download(
+        MockClient.streaming((_, _) {
+          started.complete();
+          return headers.future;
+        }),
+      );
+      await started.future;
+      lifecycle.invalidate(siteUrl);
+      final rejected = expectLater(
+        pending,
+        throwsA(isA<VideoDownloadException>()),
+      );
+      headers.complete(http.StreamedResponse(body.stream, 200));
+
+      await rejected;
+      expect(cancelled.isCompleted, isTrue);
+      expect(directory.listSync(), isEmpty);
+    },
+  );
+
+  test(
+    'cancels the response body when the staging file cannot be opened',
+    () async {
+      environment.savePath = '${directory.path}/saved.mp4';
+      final cancelled = Completer<void>();
+      final body = StreamController<List<int>>(onCancel: cancelled.complete);
+      addTearDown(() async {
+        if (!cancelled.isCompleted) await body.stream.listen(null).cancel();
+        await body.close();
+      });
+      await expectLater(
+        download(
+          MockClient.streaming((_, _) async {
+            // Simulate the OS removing a temporary directory after the request
+            // starts, before the response is ready to stream into its file.
+            for (final staged in directory.listSync().whereType<Directory>()) {
+              await staged.delete(recursive: true);
+            }
+            return http.StreamedResponse(body.stream, 200);
+          }),
+        ),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      expect(cancelled.isCompleted, isTrue);
+      expect(directory.listSync(), isEmpty);
+    },
+  );
+
+  test(
     'an account change while choosing a save path cancels the fetch',
     () async {
       environment.savePath = '${directory.path}/expired.mp4';
@@ -292,6 +353,11 @@ void main() {
         '<html>Log in</html>',
         200,
         headers: {'content-type': 'text/html; charset=utf-8'},
+      ),
+      http.Response(
+        '<html>Log in</html>',
+        200,
+        headers: {'content-type': 'Text/HTML; charset=utf-8'},
       ),
     ]) {
       await expectLater(

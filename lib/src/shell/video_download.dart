@@ -175,22 +175,34 @@ final class NativeVideoDownloader implements VideoDownloader {
           continue;
         }
         if (response.statusCode != 200 ||
-            response.headers['content-type']?.split(';').first.trim() ==
+            response.headers['content-type']
+                    ?.split(';')
+                    .first
+                    .trim()
+                    .toLowerCase() ==
                 'text/html') {
           await response.stream.listen(null).cancel();
           throw const VideoDownloadException();
         }
 
-        final output = await file.open(mode: FileMode.write);
+        RandomAccessFile? output;
+        var bodyStarted = false;
         var length = 0;
         try {
+          _requireCurrent(lease);
+          output = await file.open(mode: FileMode.write);
+          _requireCurrent(lease);
+          bodyStarted = true;
           await for (final chunk in response.stream.timeout(requestTimeout)) {
             _requireCurrent(lease);
             await output.writeFrom(chunk);
             length += chunk.length;
           }
         } finally {
-          await output.close();
+          // Until the loop takes ownership, a retired account or a file-open
+          // failure still leaves the response waiting for a consumer.
+          if (!bodyStarted) response.stream.listen(null).cancel().ignore();
+          await output?.close();
         }
         if (length == 0) throw const VideoDownloadException();
         return;

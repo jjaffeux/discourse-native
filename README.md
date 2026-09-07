@@ -2372,6 +2372,8 @@ the native save dialog; mobile downloads use the file share sheet. Videos stream
 to a private temporary file before saving or sharing, without the image cache's
 size limit. Download and source-probe responses arriving after a timeout or
 closure have their bodies cancelled, including transports that race an abort.
+Downloads also cancel unread bodies when their account expires or the staging
+file cannot be opened, without waiting for the server to send another chunk.
 Downloads follow redirects explicitly and send user API credentials
 only to the forum origin. Its app-owned
 [`inline_video_playback.dart`](lib/src/shell/inline_video_playback.dart) session
