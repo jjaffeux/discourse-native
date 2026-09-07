@@ -1040,6 +1040,94 @@ class ShellController extends FrameSafeNotifier
   bool get canPopContent => (activeTab?.contentStack.length ?? 0) > 1;
   bool get canForwardContent => activeTab?.canGoForward ?? false;
 
+  Future<void>? Function()? _contentRefresher;
+  final _refreshingTabs = <(ShellRootMode, String?, String?, String?)>{};
+
+  (ShellRootMode, String?, String?, String?) get _currentRefreshKey => (
+    rootMode,
+    currentInstance?.url,
+    currentAccountIdentity,
+    rootMode == ShellRootMode.aggregate ? activeAggregateTabId : activeTabId,
+  );
+
+  bool get refreshingCurrentTab => _refreshingTabs.contains(_currentRefreshKey);
+
+  bool get canRefreshCurrentTab =>
+      loaded &&
+      hasInstances &&
+      (rootMode == ShellRootMode.aggregate ||
+          (currentContent != null &&
+              currentInstance != null &&
+              (!currentInstance!.loginRequired ||
+                  currentInstance!.isConnected)));
+
+  /// Returning null lets the shell use the route's standard loader.
+  VoidCallback registerContentRefresher(Future<void>? Function() refresh) {
+    _contentRefresher = refresh;
+    return () {
+      if (identical(_contentRefresher, refresh)) _contentRefresher = null;
+    };
+  }
+
+  Future<void> refreshCurrentTab() async {
+    if (!canRefreshCurrentTab) return;
+    final key = _currentRefreshKey;
+    if (!_refreshingTabs.add(key)) return;
+    _notify();
+    try {
+      if (rootMode == ShellRootMode.aggregate) {
+        await refreshAggregate();
+      } else {
+        await (_contentRefresher?.call() ?? _refreshCurrentContent());
+      }
+    } catch (error, stackTrace) {
+      _reportOperationalError(error, stackTrace, 'tab.refresh');
+    } finally {
+      _refreshingTabs.remove(key);
+      _notify();
+    }
+  }
+
+  Future<void> _refreshCurrentContent() async {
+    final instance = currentInstance;
+    final route = currentContent;
+    if (instance == null || route == null) return;
+    if (route.topicId case final topicId?) {
+      await Future.wait([
+        loadTopic(topicId, route.slug ?? '', force: true),
+        if (topicListContent case final source?)
+          loadFeed(source.id, force: true),
+      ]);
+      return;
+    }
+    final hydrator = _pluginSession
+        .capabilities<PluginRouteHydrator>()
+        .where((candidate) => candidate.handlesPluginRoute(route.id))
+        .firstOrNull;
+    if (hydrator != null) {
+      await hydrator.hydratePluginRoute(instance.url, route.id, force: true);
+      return;
+    }
+    switch (route.id) {
+      case 'all-categories':
+        await loadCategories(instance.url, force: true);
+      case 'all-tags':
+        await loadTags(instance.url, force: true);
+      case 'users':
+        await userDirectory.load(instance, refresh: true);
+      case 'drafts':
+        await draftList.load(instance, refresh: true);
+      case 'summary':
+        await userSummary.load(instance, refresh: true);
+      case 'activity':
+        await accountActivity.loadUserActivity(instance, refresh: true);
+      case 'preferences':
+        await preferences.load(instance, refresh: true);
+      default:
+        await loadFeed(route.id, force: true);
+    }
+  }
+
   MobilePane _mobilePane = MobilePane.sidebar;
   MobilePane get mobilePane => _mobilePane;
 
@@ -10958,8 +11046,11 @@ class ShellController extends FrameSafeNotifier
     await instanceStore.save(List.of(_instances));
   }
 
-  Future<void> loadCategories(String siteUrl) async {
+  Future<void> loadCategories(String siteUrl, {bool force = false}) async {
     final instance = _instanceAt(siteUrl);
+    if (force && !categoryFeedFor(siteUrl).loading) {
+      _categorised.remove(siteUrl);
+    }
     if (instance != null) await _ensureCategoriesFor(instance);
   }
 

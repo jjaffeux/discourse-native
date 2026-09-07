@@ -13,6 +13,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
+import 'content_navigation_controls.dart';
 import 'external_link.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
@@ -261,7 +262,7 @@ class _ForumSearchState extends State<ForumSearch> {
         ? 'Search this topic'
         : 'Search ${forumName ?? 'this forum'}';
 
-    return LayoutBuilder(
+    final field = LayoutBuilder(
       builder: (context, constraints) {
         final anchorWidth = constraints.hasBoundedWidth
             ? constraints.maxWidth
@@ -425,6 +426,14 @@ class _ForumSearchState extends State<ForumSearch> {
           ),
         );
       },
+    );
+    if (!ContentNavigationControls.isSupported) return field;
+    return Row(
+      children: [
+        const ContentNavigationControls(),
+        const SizedBox(width: 4),
+        Expanded(child: field),
+      ],
     );
   }
 }

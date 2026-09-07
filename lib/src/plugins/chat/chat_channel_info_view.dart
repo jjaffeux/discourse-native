@@ -766,6 +766,22 @@ class _ChannelMembersState extends State<_ChannelMembers> {
   bool _loading = false;
   bool _loaded = false;
   bool _canLoadMore = true;
+  VoidCallback? _unregisterRefresher;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _unregisterRefresher?.call();
+    _unregisterRefresher = PluginUiScope.require(context, chatShellService)
+        .registerRouteRefresher(
+          widget.siteUrl,
+          ChatRoute.info(
+            channelId: widget.channelId,
+            tab: ChatChannelInfoTab.members,
+          ).routeId,
+          () => _load(reset: true),
+        );
+  }
 
   @override
   void initState() {
@@ -787,6 +803,7 @@ class _ChannelMembersState extends State<_ChannelMembers> {
 
   @override
   void dispose() {
+    _unregisterRefresher?.call();
     _generation = Object();
     _searchTimer?.cancel();
     _scroll.dispose();

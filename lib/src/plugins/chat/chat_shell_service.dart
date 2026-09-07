@@ -461,6 +461,22 @@ final class ChatShellService
   @override
   bool handlesPluginRoute(String routeId) => ChatPlugin.ownsRouteId(routeId);
 
+  final _routeRefreshers = <(String, String), Future<void> Function()>{};
+
+  VoidCallback registerRouteRefresher(
+    String siteUrl,
+    String routeId,
+    Future<void> Function() refresh,
+  ) {
+    final key = (siteUrl, routeId);
+    _routeRefreshers[key] = refresh;
+    return () {
+      if (identical(_routeRefreshers[key], refresh)) {
+        _routeRefreshers.remove(key);
+      }
+    };
+  }
+
   @override
   PluginId get pluginPaneOwner => chatPluginId;
 
@@ -474,8 +490,26 @@ final class ChatShellService
           separateSidebarMode != ChatSeparateSidebarMode.never);
 
   @override
-  Future<void> hydratePluginRoute(String siteUrl, String routeId) =>
-      chat.loadChannels(siteUrl);
+  Future<void> hydratePluginRoute(
+    String siteUrl,
+    String routeId, {
+    bool force = false,
+  }) async {
+    if (!force) {
+      await chat.loadChannels(siteUrl);
+    } else if (_routeRefreshers[(siteUrl, routeId)] case final refresh?) {
+      await refresh();
+    } else if (ChatRoute.parse(routeId) != null) {
+      await retryPluginRoute(siteUrl, routeId);
+    } else if (routeId == ChatPlugin.myThreadsRouteId) {
+      await chat.loadMyThreads(siteUrl, force: true);
+    } else if (ChatPlugin.channelIdFromThreadsRoute(routeId)
+        case final channelId?) {
+      await chat.loadChannelThreads(siteUrl, channelId, force: true);
+    } else {
+      await chat.loadChannels(siteUrl, force: true);
+    }
+  }
 
   @override
   Future<void> pluginTotalsLoaded(
@@ -1288,6 +1322,7 @@ final class ChatShellService
     _disposed = true;
     _host.changes.removeListener(_handleHostChanged);
     _endDrawerViewing();
+    _routeRefreshers.clear();
     navigation.dispose();
     _changes.dispose();
   }

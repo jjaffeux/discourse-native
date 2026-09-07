@@ -9,6 +9,7 @@ import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_message_tile.dart';
+import 'chat_plugin.dart';
 import 'chat_search.dart';
 import 'chat_search_controller.dart';
 import 'chat_services.dart';
@@ -29,6 +30,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   late final FocusNode _focus;
   late final ScrollController _scroll;
   VoidCallback? _unregisterFocus;
+  VoidCallback? _unregisterRefresher;
   bool _ready = false;
 
   @override
@@ -48,12 +50,19 @@ class _ChatSearchViewState extends State<ChatSearchView> {
       widget.siteUrl,
       _focus.requestFocus,
     );
+    _unregisterRefresher = PluginUiScope.require(context, chatShellService)
+        .registerRouteRefresher(
+          widget.siteUrl,
+          ChatPlugin.searchRouteId,
+          () => _search.retryGlobal(widget.siteUrl),
+        );
     _ready = true;
   }
 
   @override
   void dispose() {
     _unregisterFocus?.call();
+    _unregisterRefresher?.call();
     _scroll.dispose();
     _focus.dispose();
     _query.dispose();

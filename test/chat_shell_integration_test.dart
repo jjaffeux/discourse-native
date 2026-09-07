@@ -3427,6 +3427,105 @@ void _registerChatShellTests() {
         }
       });
 
+      testWidgets(
+        'refreshes the current channel without replacing its composer',
+        (tester) async {
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            user: me,
+            chatChannelsBySite: {
+              site: ChatChannels(public: [channel(9)]),
+            },
+            chatMessagesByKey: {
+              key(9): page([msg(1)]),
+            },
+          );
+          await pumpChat(tester, api: api);
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          shell.openChatChannel(9);
+          await tester.pumpAndSettle();
+          final editor = find.descendant(
+            of: find.byType(ChatComposer),
+            matching: find.byType(EditableText),
+          );
+          final composer = tester.widget<EditableText>(editor).controller;
+          await tester.enterText(editor, 'Keep this chat draft');
+          await tester.pumpAndSettle();
+          final history = shell.contentStack;
+          api.chatMessagesRequested.clear();
+          api.chatMessagesByKey[key(9)] = page([
+            msg(1, cooked: '<p>Refreshed channel message</p>'),
+          ]);
+
+          unawaited(shell.refreshCurrentTab());
+          await tester.pumpAndSettle();
+
+          expect(api.chatMessagesRequested, hasLength(1));
+          expect(api.chatMessagesRequested.single.channelId, 9);
+          expect(renderedText('Refreshed channel message'), findsOneWidget);
+          expect(shell.contentStack, history);
+          expect(
+            tester.widget<EditableText>(editor).controller,
+            same(composer),
+          );
+          expect(composer.text, 'Keep this chat draft');
+        },
+      );
+
+      testWidgets('refreshes browse results with the current channel filter', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)]),
+          },
+          chatBrowsePagesByKey: {
+            FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
+              channels: [],
+            ),
+            FakeDiscourseApi.chatBrowseKey(filter: 'sup'):
+                const ChatChannelBrowsePage(channels: []),
+          },
+        );
+        await pumpChat(tester, api: api);
+        await tester.tap(sidebarDestination('Browse channels'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-browse-filter')),
+          'sup',
+        );
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        api.chatBrowseRequested.clear();
+        api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey(
+          filter: 'sup',
+        )] = ChatChannelBrowsePage(
+          channels: [channel(10, title: 'Support')],
+        );
+
+        unawaited(shell.refreshCurrentTab());
+        await tester.pumpAndSettle();
+
+        expect(api.chatBrowseRequested, const [
+          (
+            filter: 'sup',
+            status: ChatChannelBrowseStatus.all,
+            offset: 0,
+            limit: ChatChannelBrowsePage.pageSize,
+          ),
+        ]);
+        expect(
+          find.byKey(const ValueKey('chat-browse-channel-10')),
+          findsOneWidget,
+        );
+        expect(shell.currentContent?.id, ChatPlugin.browseRouteId);
+      });
+
       testWidgets('browses, filters, and joins public channels', (
         tester,
       ) async {
