@@ -435,7 +435,13 @@ class _PostActionsState extends State<PostActions> {
             onInvoke: () =>
                 _report(controller, controller.togglePostType(post)),
           ),
-        if (controller.canEditPostNotice(post))
+        if (instance?.url == widget.siteUrl &&
+            topic != null &&
+            controller.canEditPostNotice(
+              siteUrl: widget.siteUrl,
+              topicId: topic.id,
+              postId: post.id,
+            ))
           PostAction(
             icon: DIcons.user,
             placement: PostActionPlacement.overflow,
@@ -448,6 +454,8 @@ class _PostActionsState extends State<PostActions> {
             onInvoke: () => showPostNoticeEditor(
               context: context,
               controller: controller,
+              siteUrl: widget.siteUrl,
+              topicId: topic.id,
               post: post,
             ),
           ),
