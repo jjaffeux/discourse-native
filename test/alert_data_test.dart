@@ -1,5 +1,4 @@
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_data.dart';
-import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_tables.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/alert_fixtures.dart';
@@ -97,7 +96,6 @@ void main() {
         (alert.start, alert.end, alert.lastSuppressedAt),
         (null, null, null),
       );
-      expect(alertDateRange(alert), 'Unknown time');
       source['identifier'] = 'mutated';
       expect(alert.identifier, '');
       expect(() => data.alerts.clear(), throwsUnsupportedError);
@@ -116,26 +114,15 @@ void main() {
     },
   );
 
-  test(
-    'formats UTC ranges and quotes without losing the opening post timestamp',
-    () {
-      final alert = PrometheusAlert.decode(
-        alertJson(status: 'resolved', description: 'High latency'),
-      )!;
-      expect(alertDateRange(alert), '2020-07-27 17:26 – 17:35 UTC');
-      expect(
-        alert.quoteContents,
-        '**myalert** - sjc1 - [date=2020-07-27 time=17:26:49.526234Z displayedTimezone=UTC format="YYYY-MM-DD HH:mm"] - High latency',
-      );
-      final nextDay = PrometheusAlert.decode(
-        alertJson()..['ends_at'] = '2020-07-28T00:35:00Z',
-      )!;
-      expect(
-        alertDateRange(nextDay),
-        '2020-07-27 17:26 – 2020-07-28 00:35 UTC',
-      );
-    },
-  );
+  test('quotes the alert with its precise opening timestamp and description', () {
+    final alert = PrometheusAlert.decode(
+      alertJson(status: 'resolved', description: 'High latency'),
+    )!;
+    expect(
+      alert.quoteContents,
+      '**myalert** - sjc1 - [date=2020-07-27 time=17:26:49.526234Z displayedTimezone=UTC format="YYYY-MM-DD HH:mm"] - High latency',
+    );
+  });
 
   test(
     'previously silenced applies only to firing alerts within ninety days',

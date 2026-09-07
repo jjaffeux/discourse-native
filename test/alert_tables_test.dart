@@ -1,12 +1,16 @@
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_plugin.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_data.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_tables.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/alert_fixtures.dart';
-import 'support/shell_test_harness.dart' show watchBrowser;
+import 'support/shell_test_harness.dart' show renderedText, watchBrowser;
 
 void main() {
   testWidgets(
@@ -17,7 +21,7 @@ void main() {
         alertJson(status: 'suppressed', identifier: 'silenced'),
         alertJson(status: 'stale', identifier: 'stale'),
         alertJson(identifier: 'active', description: 'High latency'),
-      ]);
+      ], registry: _localDates());
       for (final name in [
         'history',
         'silenced',
@@ -27,7 +31,10 @@ void main() {
       ]) {
         expect(find.text(name), findsOneWidget);
       }
-      expect(find.text('2020-07-27 17:26 – 17:35 UTC'), findsOneWidget);
+      expect(find.byType(LocalDateInline), findsNWidgets(5));
+      expect(find.textContaining('17:35 (UTC)'), findsOneWidget);
+      expect(find.text('🔥'), findsOneWidget);
+      expect(find.text('🤫'), findsOneWidget);
       expect(
         tester.getTopLeft(find.text('Firing')).dy,
         lessThan(tester.getTopLeft(find.text('Silenced')).dy),
@@ -40,6 +47,75 @@ void main() {
         tester.getTopLeft(find.text('Stale')).dy,
         lessThan(tester.getTopLeft(find.text('History')).dy),
       );
+    },
+  );
+
+  testWidgets('alert timestamps open Local Dates timezone previews', (
+    tester,
+  ) async {
+    await _pump(tester, [alertJson()], registry: _localDates());
+    expect(find.textContaining('2020-07-27 17:26 (UTC)'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel(RegExp('Paris:')));
+    await tester.pumpAndSettle();
+    expect(find.text('Paris'), findsOneWidget);
+    expect(find.textContaining('Device'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'\b7:26\s+PM')), findsOneWidget);
+    expect(find.textContaining('Source'), findsOneWidget);
+  });
+
+  testWidgets(
+    'date ranges keep a later end date and malformed times remain readable',
+    (tester) async {
+      await _pump(tester, [
+        alertJson(status: 'resolved')..['ends_at'] = '2020-07-28T00:35:00Z',
+        alertJson(identifier: 'invalid time')..['starts_at'] = 'invalid',
+      ], registry: _localDates());
+      expect(find.textContaining('2020-07-28 00:35 (UTC)'), findsOneWidget);
+      expect(renderedText('Unknown time'), findsOneWidget);
+      expect(find.text('invalid time'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'dates retain readable UTC text when Local Dates is not installed',
+    (tester) async {
+      await _pump(tester, [alertJson(status: 'resolved')]);
+      expect(
+        renderedText('2020-07-27 17:26 (UTC) – 17:35 (UTC)'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'desktop tables give names most of the width and use compact controls',
+    (tester) async {
+      tester.view.physicalSize = const Size(880, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await _pump(
+        tester,
+        [alertJson()],
+        registry: _localDates(),
+        onQuote: (_) {},
+      );
+      final table = find.byType(Table);
+      final date = find.byType(LocalDateInline);
+      final nameWidth =
+          tester.getTopLeft(date).dx -
+          tester.getTopLeft(find.text('myalert')).dx;
+      expect(nameWidth, greaterThan(tester.getSize(table).width * .65));
+      expect(tester.getSize(_button('Quote Alert')).height, 28);
+      expect(
+        tester.getSize(find.widgetWithText(TextButton, 'sjc1 (1)')).height,
+        28,
+      );
+      expect(
+        tester.getSize(table).height,
+        lessThanOrEqualTo(tester.getSize(date).height + 8),
+      );
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -85,8 +161,11 @@ void main() {
         ],
         onQuote: quoted.add,
         scale: 2,
+        platform: TargetPlatform.iOS,
+        registry: _localDates(),
       );
       expect(tester.takeException(), isNull);
+      expect(tester.getSize(_button('Quote Alert')).height, 40);
       final before = tester.getTopLeft(find.text(identifier)).dx;
       final horizontal = find.byWidgetPredicate(
         (widget) =>
@@ -149,25 +228,38 @@ void main() {
 }
 
 Finder _button(String tooltip) => find.byWidgetPredicate(
-  (widget) => widget is DButton && widget.tooltip == tooltip,
+  (widget) => widget is IconButton && widget.tooltip == tooltip,
 );
+
+PluginRegistry _localDates() {
+  final environment = LocalDateEnvironment.forTesting(
+    detectDeviceTimezone: () async => 'Europe/Paris',
+  )..setDeviceTimezone('Europe/Paris');
+  addTearDown(environment.dispose);
+  return PluginRegistry([LocalDatesPlugin(environment: environment)]);
+}
 
 Future<void> _pump(
   WidgetTester tester,
   List<Object?> rows, {
   ValueChanged<PrometheusAlert>? onQuote,
   double scale = 1,
+  TargetPlatform platform = TargetPlatform.macOS,
+  PluginRegistry registry = PluginRegistry.empty,
 }) => tester.pumpWidget(
   MaterialApp(
-    theme: AppTheme.light,
+    theme: AppTheme.light.copyWith(platform: platform),
     home: Scaffold(
       body: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-        child: SingleChildScrollView(
-          child: AlertTables(
-            data: AlertData.decode({'alert_data': rows})!,
-            siteUrl: 'https://meta.discourse.org',
-            onQuote: onQuote,
+        child: PluginRegistryScope(
+          registry: registry,
+          child: SingleChildScrollView(
+            child: AlertTables(
+              data: AlertData.decode({'alert_data': rows})!,
+              siteUrl: 'https://meta.discourse.org',
+              onQuote: onQuote,
+            ),
           ),
         ),
       ),

@@ -19,6 +19,10 @@ const alertQuoteService = PluginServiceKey<PluginPostQuoteHost>(
   owner: prometheusAlertReceiverPluginId,
   name: 'post-quote',
 );
+const alertEmojiService = PluginServiceKey<PluginEmojiHost>(
+  owner: prometheusAlertReceiverPluginId,
+  name: 'emoji',
+);
 
 final class PrometheusAlertReceiverPlugin
     implements
@@ -61,11 +65,15 @@ final class PrometheusAlertReceiverPlugin
     }
     final sites = PluginUiScope.maybe(context, alertSiteStateService);
     final quote = PluginUiScope.maybe(context, alertQuoteService);
+    final emoji = PluginUiScope.maybe(context, alertEmojiService);
     return [
       AlertTables(
         key: ValueKey((siteUrl, topic.id, 'prometheus-alerts')),
         data: data,
         siteUrl: siteUrl,
+        emojiUrl: emoji == null
+            ? null
+            : (name) => emoji.resolveUrl(siteUrl, name),
         settings:
             sites?.siteConfigFor(siteUrl).plugins.get(alertLinkSettingsKey) ??
             const AlertLinkSettings(),
