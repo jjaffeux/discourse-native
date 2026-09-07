@@ -64,49 +64,55 @@ void main() {
     );
   }
 
-  testWidgets(
-    'a failed natural-size probe preserves the rendered image fallback',
-    (tester) async {
-      const provider = NetworkImage('https://images.example/broken.png');
-      final resized = ResizeImage.resizeIfNeeded(20, 10, provider);
-      final resizedKey = await resized.obtainKey(const ImageConfiguration());
-      final naturalFrames = _ImageFrames();
-      final displayFrames = _ImageFrames();
-      final naturalRetained = naturalFrames.keepAlive();
-      final displayRetained = displayFrames.keepAlive();
-      final cache = PaintingBinding.instance.imageCache;
-      cache.putIfAbsent(provider, () => naturalFrames);
-      cache.putIfAbsent(resizedKey, () => displayFrames);
-      addTearDown(() {
-        cache.evict(provider);
-        cache.evict(resizedKey);
-        naturalRetained.dispose();
-        displayRetained.dispose();
-      });
-      final sizes = <Size>[];
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: SiteImage(
-            url: provider.url,
-            siteUrl: null,
-            cacheWidth: 20,
-            cacheHeight: 10,
-            onNaturalSize: sizes.add,
-            errorBuilder: (_, _, _) => const Text('Image unavailable'),
+  for (final removed in [false, true]) {
+    testWidgets(
+      'a failed natural-size probe is handled after removal $removed',
+      (tester) async {
+        const provider = NetworkImage('https://images.example/broken.png');
+        final resized = ResizeImage.resizeIfNeeded(20, 10, provider);
+        final resizedKey = await resized.obtainKey(const ImageConfiguration());
+        final naturalFrames = _ImageFrames();
+        final displayFrames = _ImageFrames();
+        final naturalRetained = naturalFrames.keepAlive();
+        final displayRetained = displayFrames.keepAlive();
+        final cache = PaintingBinding.instance.imageCache;
+        cache.putIfAbsent(provider, () => naturalFrames);
+        cache.putIfAbsent(resizedKey, () => displayFrames);
+        addTearDown(() {
+          cache.evict(provider);
+          cache.evict(resizedKey);
+          naturalRetained.dispose();
+          displayRetained.dispose();
+        });
+        final sizes = <Size>[];
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: SiteImage(
+              url: provider.url,
+              siteUrl: null,
+              cacheWidth: 20,
+              cacheHeight: 10,
+              onNaturalSize: sizes.add,
+              errorBuilder: (_, _, _) => const Text('Image unavailable'),
+            ),
           ),
-        ),
-      );
+        );
 
-      naturalFrames.fail();
-      displayFrames.fail();
-      await tester.pump();
+        if (removed) await tester.pumpWidget(const SizedBox());
+        naturalFrames.fail();
+        displayFrames.fail();
+        await tester.pump();
 
-      expect(tester.takeException(), isNull);
-      expect(find.text('Image unavailable'), findsOneWidget);
-      expect(sizes, isEmpty);
-    },
-  );
+        expect(tester.takeException(), isNull);
+        expect(
+          find.text('Image unavailable'),
+          removed ? findsNothing : findsOneWidget,
+        );
+        expect(sizes, isEmpty);
+      },
+    );
+  }
 }
 
 final class _ImageFrames extends ImageStreamCompleter {

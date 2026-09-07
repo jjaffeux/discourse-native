@@ -177,6 +177,8 @@ class _SiteImageState extends State<SiteImage> {
         // The rendered image owns the fallback. A separate full-size probe
         // must not turn a handled decode failure into an uncaught error.
       },
+      // A decode may fail after navigation removes the measurement listener.
+      reportErrors: false,
     );
     _stream = stream;
     _streamListener = listener;
