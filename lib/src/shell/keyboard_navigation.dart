@@ -122,23 +122,52 @@ class KeyboardSelection extends StatelessWidget {
     super.key,
     required this.selected,
     required this.child,
-  });
+  }) : _drawBorder = true;
+
+  /// Lets row surfaces combine the cursor with their own focus and selection.
+  const KeyboardSelection.scope({
+    super.key,
+    required this.selected,
+    required this.child,
+  }) : _drawBorder = false;
 
   final bool selected;
   final Widget child;
+  final bool _drawBorder;
+
+  static bool isSelectedOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_KeyboardSelectionScope>()
+          ?.selected ??
+      false;
 
   @override
   Widget build(BuildContext context) => Semantics(
     selected: selected ? true : null,
-    child: DecoratedBox(
-      position: DecorationPosition.foreground,
-      decoration: BoxDecoration(
-        border: selected
-            ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
-            : null,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: child,
-    ),
+    child: _drawBorder
+        ? DecoratedBox(
+            position: DecorationPosition.foreground,
+            decoration: BoxDecoration(
+              border: selected
+                  ? Border.all(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    )
+                  : null,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: child,
+          )
+        : _KeyboardSelectionScope(selected: selected, child: child),
   );
+}
+
+class _KeyboardSelectionScope extends InheritedWidget {
+  const _KeyboardSelectionScope({required this.selected, required super.child});
+
+  final bool selected;
+
+  @override
+  bool updateShouldNotify(_KeyboardSelectionScope oldWidget) =>
+      selected != oldWidget.selected;
 }

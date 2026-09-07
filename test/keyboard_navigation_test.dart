@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -8,6 +9,7 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/keyboard_navigation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,6 +20,49 @@ import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
+  for (final openWithKeyboard in [false, true]) {
+    testWidgets(
+      'opening a topic with ${openWithKeyboard ? 'the keyboard' : 'the mouse'} keeps one row border as the cursor moves',
+      (tester) async {
+        final setup = await _setup(tester);
+        if (openWithKeyboard) {
+          await _moveTopic(tester, next: true);
+          expect(_topicBorders(tester, 1), hasLength(1));
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        } else {
+          await tester.tap(find.text('Keyboard topic 1'));
+        }
+        await tester.pumpAndSettle();
+        expect(setup.shell.currentContent?.topicId, 1);
+        expect(_topicBorders(tester, 1), hasLength(1));
+        expect(_topicBorders(tester, 1).single.width, 2);
+
+        await _moveTopic(tester, next: true);
+        expect(setup.shell.currentContent?.topicId, 1);
+        _scrollable(tester, find.byType(TopicListView)).controller!.jumpTo(0);
+        await tester.pumpAndSettle();
+        expect(_topicBorders(tester, 1), hasLength(1));
+        expect(_topicBorders(tester, 1).single.width, 1);
+        expect(_topicBorders(tester, 2), hasLength(1));
+        expect(_topicBorders(tester, 2).single.width, 2);
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer();
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(
+          tester.getCenter(find.byKey(const ValueKey('inbox-row-2'))),
+        );
+        await tester.pumpAndSettle();
+        expect(_topicBorders(tester, 2), hasLength(1));
+
+        await _moveTopic(tester, next: false);
+        expect(_topicBorders(tester, 1), hasLength(1));
+        expect(_topicBorders(tester, 1).single.width, 2);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final size in [desktop, laptop]) {
     for (final openKey in [LogicalKeyboardKey.keyO, LogicalKeyboardKey.enter]) {
       testWidgets(
@@ -311,6 +356,28 @@ void main() {
     expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isFalse);
     expect(setup.shell.visibleComposer, isNull);
   });
+}
+
+Iterable<BorderSide> _topicBorders(WidgetTester tester, int topicId) sync* {
+  final row = find.byKey(ValueKey('topic-list-keyboard-$topicId'));
+  for (final widget in tester.widgetList<Widget>(
+    find.descendant(
+      of: row,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Material || widget is DecoratedBox,
+      ),
+    ),
+  )) {
+    final side = switch (widget) {
+      Material(shape: RoundedRectangleBorder(:final side)) => side,
+      DecoratedBox(decoration: BoxDecoration(border: Border(:final top))) =>
+        top,
+      _ => null,
+    };
+    if (side != null && side.style == BorderStyle.solid && side.color.a > 0) {
+      yield side;
+    }
+  }
 }
 
 Future<void> _moveTopic(

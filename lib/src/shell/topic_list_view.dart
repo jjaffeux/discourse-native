@@ -540,11 +540,12 @@ class _TopicListViewState extends State<TopicListView> {
                       return ValueListenableBuilder<_TopicListCursor?>(
                         key: ValueKey(topicId),
                         valueListenable: _cursor!,
-                        builder: (context, cursor, child) => KeyboardSelection(
-                          key: ValueKey('topic-list-keyboard-$topicId'),
-                          selected: cursor?.topicId == topicId,
-                          child: child!,
-                        ),
+                        builder: (context, cursor, child) =>
+                            KeyboardSelection.scope(
+                              key: ValueKey('topic-list-keyboard-$topicId'),
+                              selected: cursor?.topicId == topicId,
+                              child: child!,
+                            ),
                         child: _TopicRow(
                           topicId: topicId,
                           inbox: widget.inbox,
@@ -1373,6 +1374,7 @@ class _TopicRowSurfaceState extends State<_TopicRowSurface> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
+    final keyboardSelected = KeyboardSelection.isSelectedOf(context);
     return Material(
       type: MaterialType.transparency,
       child: Semantics(
@@ -1410,7 +1412,9 @@ class _TopicRowSurfaceState extends State<_TopicRowSurface> {
                         decoration: BoxDecoration(
                           color: background,
                           borderRadius: BorderRadius.circular(7),
-                          border: states.contains(WidgetState.focused)
+                          border:
+                              keyboardSelected ||
+                                  states.contains(WidgetState.focused)
                               ? Border.all(color: accent, width: 2)
                               : null,
                         ),

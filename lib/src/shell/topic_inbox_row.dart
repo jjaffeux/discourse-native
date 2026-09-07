@@ -8,6 +8,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
+import 'keyboard_navigation.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';
@@ -359,6 +360,7 @@ class _TopicInboxRowSurfaceState extends State<_TopicInboxRowSurface> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final keyboardSelected = KeyboardSelection.isSelectedOf(context);
     return ValueListenableBuilder<Set<WidgetState>>(
       valueListenable: _states,
       child: widget.child,
@@ -377,7 +379,7 @@ class _TopicInboxRowSurfaceState extends State<_TopicInboxRowSurface> {
               : Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: radius,
-            side: focused
+            side: keyboardSelected || focused
                 ? BorderSide(color: colors.primary, width: 2)
                 : widget.selected
                 ? BorderSide(color: colors.primary.withValues(alpha: .4))
