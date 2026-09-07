@@ -28,6 +28,7 @@ import '../data/user_directory_api.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/bounded_lru_cache.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
 import '../models/bookmark_feed.dart';
 import '../models/category_feed.dart';
@@ -299,6 +300,31 @@ class ShellController extends FrameSafeNotifier
   late final PluginSession _pluginSession = plugins.openSession(
     PluginHostBindings(<PluginHostPort<Object>>[
       PluginHostPort<Object>(corePluginTransportPort, api.pluginTransport),
+      PluginHostPort<Object>(
+        corePluginTimezonePort,
+        PluginTimezoneHost(
+          readerTimezone: TimezoneEnvironment.instance.readerTimezone,
+          location: TimezoneEnvironment.instance.location,
+          timezoneNames: () => TimezoneEnvironment.instance.timezoneNames,
+          changes: Listenable.merge([TimezoneEnvironment.instance]),
+        ),
+      ),
+      PluginHostPort<Object>(
+        corePluginPostEditorPort,
+        PluginPostEditorHost(
+          open: (siteUrl, postId, {focusText}) {
+            final post = store.read<Post>(siteUrl, postId);
+            if (currentInstance?.url != siteUrl ||
+                post == null ||
+                currentTopic?.stream.contains(postId) != true ||
+                !post.canEdit) {
+              return false;
+            }
+            openEdit(post, focusText: focusText);
+            return _composer?.target.editingPostId == postId;
+          },
+        ),
+      ),
       PluginHostPort<Object>(corePluginModelCodecPort, api.models),
       PluginHostPort<Object>(
         corePluginRequestPort,
@@ -6348,6 +6374,8 @@ class ShellController extends FrameSafeNotifier
         editingPost: editingPost?.plugins ?? PluginData.none,
         accountTimezone: currentUser?.timezone,
         freshCurrentUserIsStaff: freshCurrentUser?.staff == true,
+        createsTopic: target.createsTopic,
+        editingPostNumber: target.editingPostNumber ?? editingPost?.postNumber,
       );
     }
 

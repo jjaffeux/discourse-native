@@ -159,8 +159,11 @@ shared API therefore parses and filters open values without importing any
 feature implementation.
 
 Plugin HTTP contracts and route/payload parsing live beside their feature
-(`poll`, `reactions`, `gifs`, and `chat`) and use the shared transport only as a
+(`poll`, `reactions`, `gifs`, `chat`, and `discourse_events`) and use the shared transport only as a
 narrow wire boundary. `DiscourseApi` exposes no typed plugin endpoint.
+The optional `PluginTextTransport` uses the same authenticated, same-origin,
+bounded request pipeline for text downloads. Plugins choose the endpoint and
+interpret its format; core does not acquire calendar or feed semantics.
 
 Topic recommendation sources are a sibling resource, not values in a topic's
 `PluginData`. Their catalog and decoder therefore use a separate
@@ -282,8 +285,15 @@ transforms, and reconciliation. The runtime ports are capability-shaped:
 - `PluginRequestHost` returns credentials only for an explicit site request
   and issues a commit-only `PluginSiteLease`; it exposes neither the
   authenticator nor lifecycle invalidation.
-- `PluginPostHost` grants Poll and Reactions only post/topic reads, scoped post
+- `PluginPostHost` grants only post/topic reads, scoped post
   mutation, the shared per-post write lane, and post reconciliation.
+- `PluginTimezoneHost` supplies timezone lookup, the reader's account/device
+  preference, and change notifications without exposing the mutable shared
+  environment. Post Events owns the distinction between instants, wall times,
+  and all-day dates.
+- `PluginPostEditorHost` opens the ordinary edit composer for a permitted post
+  in the visible topic. The shell retains navigation, permission checks, and
+  draft ownership; a plugin cannot start editing an arbitrary cached post.
 - `PluginTargetHost` and `PluginFreshAccountHost` are materialized per
   consumer; target and current-user reads accept only that plugin's
   namespaced record key, while Poll receives only staff/group presentation
@@ -400,6 +410,10 @@ editor host for guarded document edits. Poll option limits and permissions and
 Local Dates timezone/configuration therefore never appear in the generic
 composer API. Target policies likewise own upload permission, including Chat's
 policy, instead of passing an `isChat` boolean through a global upload gate.
+Composer state also supplies whether the target creates a topic and the edited
+post number. Post Events uses those generic facts to enforce its first-post
+authoring rule. Plugin syntax edit/remove callbacks receive the syntax owner's
+service scope; built-in core syntax retains the core editor context.
 
 Chat's provisional preview document, projector, renderers, and trusted GIF
 seed are all Chat-owned. Other modules extend that preview through Chat's typed

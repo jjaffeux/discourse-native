@@ -16,6 +16,9 @@ import 'notification_feed_host.dart';
 import 'plugin_data.dart';
 import 'plugin_manifest.dart';
 import 'shell_extensions.dart';
+import 'timezone_host.dart';
+
+export 'timezone_host.dart';
 
 typedef PluginCurrentUserReader = DiscourseUser? Function(String siteUrl);
 typedef PluginSiteConfigReader = SiteConfig Function(String siteUrl);
@@ -252,6 +255,24 @@ final class PluginEmojiHost {
 const corePluginTransportPort = PluginHostPortKey<PluginApiTransport>(
   owner: PluginId('core'),
   name: 'transport',
+);
+
+const corePluginTimezonePort = PluginHostPortKey<PluginTimezoneHost>(
+  owner: PluginId('core'),
+  name: 'timezone',
+);
+
+/// Opens the ordinary edit composer only for a post in the visible topic.
+/// The host checks current post permissions and retains draft ownership.
+final class PluginPostEditorHost {
+  const PluginPostEditorHost({required this.open});
+
+  final bool Function(String siteUrl, int postId, {String? focusText}) open;
+}
+
+const corePluginPostEditorPort = PluginHostPortKey<PluginPostEditorHost>(
+  owner: PluginId('core'),
+  name: 'post-editor',
 );
 
 const corePluginModelCodecPort = PluginHostPortKey<DiscourseModelCodec>(

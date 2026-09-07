@@ -1824,6 +1824,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
   }
 
+  BuildContext _syntaxUiContext(ComposerSyntaxOccurrence syntax) =>
+      syntax.kind.owner.value == 'core'
+      ? context
+      : PluginUiScope.contextFor(context, syntax.kind.owner);
+
   Future<void> _editSyntax(ComposerSyntaxOccurrence syntax) async {
     final text = widget.composer.text;
     text.keepSyntaxCollapsedForPointerEdit(syntax);
@@ -1831,7 +1836,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       offset: text.syntaxCaretAfter(syntax),
     );
     try {
-      await syntax.projection.edit(context, widget.composer);
+      await syntax.projection.edit(_syntaxUiContext(syntax), widget.composer);
     } finally {
       if (mounted &&
           identical(widget.composer.text, text) &&
@@ -2068,7 +2073,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
         continue;
       }
       unawaited(
-        Future.sync(() => syntax.projection.remove(context, widget.composer)),
+        Future.sync(
+          () => syntax.projection.remove(
+            _syntaxUiContext(syntax),
+            widget.composer,
+          ),
+        ),
       );
       return KeyEventResult.handled;
     }
@@ -2150,7 +2160,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
         return;
       case ComposerSyntaxOccurrence syntax:
         unawaited(
-          Future.sync(() => syntax.projection.remove(context, widget.composer)),
+          Future.sync(
+            () => syntax.projection.remove(
+              _syntaxUiContext(syntax),
+              widget.composer,
+            ),
+          ),
         );
         return;
     }

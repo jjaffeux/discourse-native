@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "contracts": [
+    {
+      "name": "discourse-events",
+      "snapshot": "markup_snapshot",
+      "readers": "lib/src/plugins/discourse_events/",
+      "watched": [
+        "plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/discourse-post-event-block.js",
+        "plugins/discourse-events/assets/javascripts/discourse/initializers/discourse-post-event-decorator.gjs"
+      ]
+    }
+  ]
+}
