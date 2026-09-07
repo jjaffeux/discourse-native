@@ -2981,7 +2981,8 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _trackersStarting = {};
   final Map<String, Future<void>> _trackerStartRequests = {};
   final Map<String, Map<int, UserStatus?>> _userStatusOverrides = {};
-  final Set<String> _userStatusWrites = {};
+  // Each captured lease identifies both one write and its account lifetime.
+  final Map<String, SiteLease> _userStatusWrites = {};
   final Map<String, bool> _optimisticHidePresence = {};
   final Map<String, Object> _hidePresenceWrites = {};
   final Map<String, String> _hidePresenceErrors = {};
@@ -4147,7 +4148,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool userStatusWriteInFlight(String siteUrl) =>
-      _userStatusWrites.contains(siteUrl);
+      _userStatusWrites[siteUrl]?.isCurrent ?? false;
 
   Future<String?> setUserStatus(
     String siteUrl, {
@@ -4163,17 +4164,23 @@ class ShellController extends FrameSafeNotifier
         !instance.config.userStatusEnabled) {
       return 'Custom status is not available for this account.';
     }
-    if (!_userStatusWrites.add(siteUrl)) {
+    if (userStatusWriteInFlight(siteUrl)) {
       return 'Another status change is still finishing.';
     }
     final lease = lifecycle.capture(siteUrl);
+    _userStatusWrites[siteUrl] = lease;
+    bool ownsWrite() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_userStatusWrites[siteUrl], lease);
     _notify();
     try {
+      if (!ownsWrite()) return null;
       final credential = await _credentialForWrite(siteUrl);
-      if (!lease.isCurrent || isDisposed) return null;
+      if (!ownsWrite()) return null;
       if (credential.failure case final failure?) return failure.message;
       final clientId = await authenticator.clientId();
-      if (!lease.isCurrent || isDisposed) return null;
+      if (!ownsWrite()) return null;
       await api.site.setUserStatus(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
@@ -4182,7 +4189,7 @@ class ShellController extends FrameSafeNotifier
         endsAt: endsAt,
         clientId: clientId,
       );
-      if (!lease.isCurrent || isDisposed) return null;
+      if (!ownsWrite()) return null;
       final status = UserStatus(
         description: description.trim(),
         emoji: emoji
@@ -4197,7 +4204,7 @@ class ShellController extends FrameSafeNotifier
         _notify();
         instanceStore.save(List.of(_instances)).ignore();
       });
-      if (!lease.isCurrent || isDisposed) return null;
+      if (!ownsWrite()) return null;
       if (pauseNotifications case final pause?) {
         final error = pause
             ? await doNotDisturb.pause(
@@ -4207,20 +4214,22 @@ class ShellController extends FrameSafeNotifier
                     : doNotDisturbDurationUntil(endsAt),
               )
             : await doNotDisturb.resume(siteUrl);
-        if (!lease.isCurrent || isDisposed) return null;
+        if (!ownsWrite()) return null;
         if (error != null) return error;
       }
       return null;
     } on WriteException catch (error) {
+      if (!ownsWrite()) return null;
       return error.message;
     } catch (error, stackTrace) {
-      if (lease.isCurrent && !isDisposed) {
-        _reportOperationalError(error, stackTrace, 'userStatus.set');
-      }
+      if (!ownsWrite()) return null;
+      _reportOperationalError(error, stackTrace, 'userStatus.set');
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
-      _userStatusWrites.remove(siteUrl);
-      if (!isDisposed) _notify();
+      if (identical(_userStatusWrites[siteUrl], lease)) {
+        _userStatusWrites.remove(siteUrl);
+        if (lease.isCurrent && !isDisposed) _notify();
+      }
     }
   }
 
@@ -4232,44 +4241,52 @@ class ShellController extends FrameSafeNotifier
         !instance.config.userStatusEnabled) {
       return 'Custom status is not available for this account.';
     }
-    if (!_userStatusWrites.add(siteUrl)) {
+    if (userStatusWriteInFlight(siteUrl)) {
       return 'Another status change is still finishing.';
     }
     final lease = lifecycle.capture(siteUrl);
+    _userStatusWrites[siteUrl] = lease;
+    bool ownsWrite() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_userStatusWrites[siteUrl], lease);
     _notify();
     try {
+      if (!ownsWrite()) return null;
       final credential = await _credentialForWrite(siteUrl);
-      if (!lease.isCurrent || isDisposed) return null;
+      if (!ownsWrite()) return null;
       if (credential.failure case final failure?) return failure.message;
       final clientId = await authenticator.clientId();
-      if (!lease.isCurrent || isDisposed) return null;
+      if (!ownsWrite()) return null;
       await api.site.clearUserStatus(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
         clientId: clientId,
       );
-      if (!lease.isCurrent || isDisposed) return null;
+      if (!ownsWrite()) return null;
       lease.commit(() {
         _userStatusOverrides.putIfAbsent(siteUrl, () => {})[user!.id!] = null;
         _applyOwnUserStatus(siteUrl, user.id!, null);
         _notify();
         instanceStore.save(List.of(_instances)).ignore();
       });
-      if (!lease.isCurrent || isDisposed) return null;
+      if (!ownsWrite()) return null;
       final doNotDisturbError = await doNotDisturb.resume(siteUrl);
-      if (!lease.isCurrent || isDisposed) return null;
+      if (!ownsWrite()) return null;
       if (doNotDisturbError != null) return doNotDisturbError;
       return null;
     } on WriteException catch (error) {
+      if (!ownsWrite()) return null;
       return error.message;
     } catch (error, stackTrace) {
-      if (lease.isCurrent && !isDisposed) {
-        _reportOperationalError(error, stackTrace, 'userStatus.clear');
-      }
+      if (!ownsWrite()) return null;
+      _reportOperationalError(error, stackTrace, 'userStatus.clear');
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
-      _userStatusWrites.remove(siteUrl);
-      if (!isDisposed) _notify();
+      if (identical(_userStatusWrites[siteUrl], lease)) {
+        _userStatusWrites.remove(siteUrl);
+        if (lease.isCurrent && !isDisposed) _notify();
+      }
     }
   }
 
