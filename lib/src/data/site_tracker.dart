@@ -329,6 +329,7 @@ class SiteTracker {
   void _onTopicMessage(Object? data) {
     if (_disposed) return;
     _emitTopicTrackingState(data);
+    if (_disposed) return;
     if (incoming.notify(data)) onIncomingTopics();
   }
 
@@ -365,13 +366,14 @@ class SiteTracker {
     final pending = _disposeFuture;
     if (pending != null) return pending;
 
+    final completion = Completer<void>();
+    _disposeFuture = completion.future;
     _disposed = true;
     _polling = false;
     unwatchTopic();
     incoming.resetAll();
-    final closing = _close();
-    _disposeFuture = closing;
-    return closing;
+    completion.complete(_close());
+    return completion.future;
   }
 
   Future<void> _close() async {
@@ -379,37 +381,13 @@ class SiteTracker {
     // important when construction fails part-way through subscribing: a real
     // message-bus client may already have scheduled its next poll, and test
     // sessions likewise promise that [close] is invoked synchronously.
-    Future<void>? cancellingErrors;
     try {
-      cancellingErrors = _errorSubscription?.cancel();
-    } catch (_) {
-      // The bus close below remains the authoritative cleanup boundary.
-    }
-
-    final Future<void> closingBus;
-    try {
-      closingBus = _bus.close();
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'messageBus.close',
-        source: 'message_bus',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
-      _http.close();
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-
-    try {
-      try {
-        await cancellingErrors;
-      } catch (_) {
-        // The bus close below remains the authoritative cleanup boundary.
-      }
-      await closingBus;
+      // Both futures need error handlers immediately. Awaiting cancellation
+      // first leaves an early bus-close failure unhandled while it is pending.
+      await Future.wait<void>([
+        _cancelErrorSubscription(),
+        Future<void>.sync(_bus.close),
+      ], eagerError: true);
     } catch (error, stackTrace) {
       DiagnosticsSink.current.reportError(
         error,
@@ -423,6 +401,16 @@ class SiteTracker {
       rethrow;
     } finally {
       _http.close();
+    }
+  }
+
+  Future<void> _cancelErrorSubscription() async {
+    try {
+      await _errorSubscription?.cancel();
+    } catch (_) {
+      // The bus close remains the authoritative cleanup boundary.
+    } finally {
+      _errorSubscription = null;
     }
   }
 
