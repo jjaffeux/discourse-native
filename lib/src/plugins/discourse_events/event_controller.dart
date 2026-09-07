@@ -46,6 +46,8 @@ final class EventController extends FrameSafeNotifier
   int get foregroundRevision => _foregroundRevision;
   final _accountRevisions = <String, int>{};
   int accountRevision(String site) => _accountRevisions[site] ?? 0;
+  bool isAccountCurrent(String site, int revision) =>
+      !isDisposed && accountRevision(site) == revision;
 
   EventSettings settings(String site) =>
       siteState.siteConfigFor(site).plugins.get(eventSettingsKey) ??

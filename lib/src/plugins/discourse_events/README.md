@@ -123,7 +123,11 @@ The directory expands the server's occurrence list and caps the view at 200
 occurrences. Future cards do not borrow current attendance or offer occurrence
 specific RSVP. Calendar export downloads the authenticated server ICS snapshot
 and shares/saves a file; it never exports an API-key-bearing URL. Server feed
-windows and occurrence limits still apply.
+windows and occurrence limits still apply. An export belongs to the initiating
+event or directory view and account through the fetch and native save dialog.
+Replacing that owner silently retires the export; ownership is checked before
+starting a file write or publishing an error. A share already handed to the OS
+cannot be recalled.
 
 ## Verification
 
