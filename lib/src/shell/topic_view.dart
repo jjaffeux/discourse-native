@@ -235,6 +235,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   TopicScrollCaptureController? _scrollCapture;
   TopicScrollCaptureController? _reportedScrollCaptureController;
   int? _reportedScrollCaptureId;
+  (String, int, int)? _reportedScrollCaptureTopic;
   late Size _viewportLogicalSize;
   late double _devicePixelRatio;
 
@@ -276,9 +277,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final capture = _scrollCapture;
     if (capture == null || !capture.isRecording) return;
     if (!identical(_reportedScrollCaptureController, capture) ||
-        _reportedScrollCaptureId != capture.captureId) {
+        _reportedScrollCaptureId != capture.captureId ||
+        _reportedScrollCaptureTopic != _topicIdentity) {
       _reportedScrollCaptureController = capture;
       _reportedScrollCaptureId = capture.captureId;
+      _reportedScrollCaptureTopic = _topicIdentity;
       final snapshot = _laidOutSnapshot;
       capture.recordTopicEvent('topic.capture.context', {
         'topicId': _topicIdentity?.$2 ?? snapshot?.topicId,
@@ -844,8 +847,18 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   }) {
     final controller = _controller;
     if (controller == null) return;
+    final timer = _isScrollCaptureRecording ? (Stopwatch()..start()) : null;
     _syncFloatingDay(snapshot);
     _noteWhatIsOnScreen(controller, snapshot, saveAnchor: saveAnchor);
+    if (timer != null) {
+      timer.stop();
+      _recordTopicScrollEvent('viewport.work', {
+        'durationUs': timer.elapsedMicroseconds,
+        'topicId': snapshot.topicId,
+        'attachedPostCount': _postContexts.length,
+        'saveAnchor': saveAnchor,
+      });
+    }
     if (_isScrollCaptureRecording) _recordViewportInspection(snapshot);
   }
 
@@ -1966,6 +1979,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             return _TopicPostItem(
               key: ValueKey(postId),
               postId: postId,
+              topicId: snapshot.topicId!,
+              htmlCharacters: post?.cooked.length ?? 0,
+              scrollCapture: _scrollCapture,
               viewportState: _viewportState,
               retainedMinimumHeight: _retainedPostMinimumHeight(
                 postId: postId,
@@ -3442,6 +3458,9 @@ class _TopicPostItem extends StatefulWidget {
   const _TopicPostItem({
     super.key,
     required this.postId,
+    required this.topicId,
+    required this.htmlCharacters,
+    required this.scrollCapture,
     required this.viewportState,
     required this.retainedMinimumHeight,
     required this.day,
@@ -3458,6 +3477,9 @@ class _TopicPostItem extends StatefulWidget {
   });
 
   final int postId;
+  final int topicId;
+  final int htmlCharacters;
+  final TopicScrollCaptureController? scrollCapture;
   final TopicViewportListenable viewportState;
   final double? retainedMinimumHeight;
   final DateTime? day;
@@ -3555,6 +3577,10 @@ class _TopicPostItemState extends State<_TopicPostItem> {
     final retainedMinimumHeight = _retainedMinimumHeight;
     return _RetainedMinimumHeight(
       minimumHeight: retainedMinimumHeight ?? 0,
+      topicId: widget.topicId,
+      postId: widget.postId,
+      htmlCharacters: widget.htmlCharacters,
+      scrollCapture: widget.scrollCapture,
       onNaturalHeightRestored: retainedMinimumHeight == null
           ? null
           : _releaseRetainedMinimumHeight,
@@ -4521,17 +4547,29 @@ class _RetainedMinimumHeight extends SingleChildRenderObjectWidget {
   const _RetainedMinimumHeight({
     required this.minimumHeight,
     required this.onNaturalHeightRestored,
+    required this.topicId,
+    required this.postId,
+    required this.htmlCharacters,
+    required this.scrollCapture,
     required super.child,
   });
 
   final double minimumHeight;
   final VoidCallback? onNaturalHeightRestored;
+  final int topicId;
+  final int postId;
+  final int htmlCharacters;
+  final TopicScrollCaptureController? scrollCapture;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
       _RenderRetainedMinimumHeight(
         minimumHeight: minimumHeight,
         onNaturalHeightRestored: onNaturalHeightRestored,
+        topicId: topicId,
+        postId: postId,
+        htmlCharacters: htmlCharacters,
+        scrollCapture: scrollCapture,
       );
 
   @override
@@ -4541,7 +4579,11 @@ class _RetainedMinimumHeight extends SingleChildRenderObjectWidget {
   ) {
     renderObject
       ..minimumHeight = minimumHeight
-      ..onNaturalHeightRestored = onNaturalHeightRestored;
+      ..onNaturalHeightRestored = onNaturalHeightRestored
+      ..topicId = topicId
+      ..postId = postId
+      ..htmlCharacters = htmlCharacters
+      ..scrollCapture = scrollCapture;
   }
 }
 
@@ -4549,10 +4591,18 @@ class _RenderRetainedMinimumHeight extends RenderProxyBox {
   _RenderRetainedMinimumHeight({
     required this._minimumHeight,
     required this._onNaturalHeightRestored,
+    required this.topicId,
+    required this.postId,
+    required this.htmlCharacters,
+    required this.scrollCapture,
   });
 
   double _minimumHeight;
   VoidCallback? _onNaturalHeightRestored;
+  int topicId;
+  int postId;
+  int htmlCharacters;
+  TopicScrollCaptureController? scrollCapture;
 
   set minimumHeight(double value) {
     if (value == _minimumHeight) return;
@@ -4566,6 +4616,28 @@ class _RenderRetainedMinimumHeight extends RenderProxyBox {
 
   @override
   void performLayout() {
+    final capture = scrollCapture;
+    if (capture == null || !capture.isRecording) {
+      _layout();
+      return;
+    }
+    // Reuse the row's existing render object. An unarmed recorder adds no
+    // wrapper, stopwatch, event allocation, or widget subscription.
+    final timer = Stopwatch()..start();
+    try {
+      _layout();
+    } finally {
+      timer.stop();
+      capture.recordTopicEvent('post.layout', {
+        'topicId': topicId,
+        'postId': postId,
+        'htmlCharacters': htmlCharacters,
+        'durationUs': timer.elapsedMicroseconds,
+      });
+    }
+  }
+
+  void _layout() {
     final child = this.child;
     if (child == null) {
       size = constraints.constrain(Size(0, _minimumHeight));

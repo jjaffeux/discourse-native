@@ -554,8 +554,8 @@ class _TopicScrollCapturePanel extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Record a short, high-detail trace while reproducing scrolling, '
-            'layout, or scrollbar problems in a topic. The capture stays in '
+            'Record scrolling in a topic, then copy a performance report '
+            'to share for investigation. The capture stays in '
             'memory and never includes post bodies, titles, site URLs, or '
             'credentials.',
             style: Theme.of(context).textTheme.bodyMedium,
@@ -569,7 +569,8 @@ class _TopicScrollCapturePanel extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Close Diagnostics, reproduce the issue in a topic, then return '
-              'here and stop the capture. Recording stops automatically after '
+              'here and stop the capture. Scroll for 5–10 seconds, then wait '
+              'a second for frame timings before stopping. Recording stops automatically after '
               '${controller.maximumDuration.inMinutes} minutes or '
               '${controller.maximumEvents} events.',
             ),
@@ -589,17 +590,24 @@ class _TopicScrollCapturePanel extends StatelessWidget {
             _CaptureSummary(state: state),
             const SizedBox(height: 16),
             DButton(
-              key: const ValueKey('topic-scroll-capture-copy'),
-              label: const Text('Copy capture'),
-              onPressed: () => _copyCapture(context),
+              key: const ValueKey('topic-scroll-performance-copy'),
+              label: const Text('Copy performance report'),
+              onPressed: () => _copyCapture(context, compact: true),
               icon: const DIcon(DIcons.copy, size: 15),
               variant: DButtonVariant.primary,
             ),
             const SizedBox(height: 8),
             DButton(
+              key: const ValueKey('topic-scroll-capture-copy'),
+              label: const Text('Copy full JSON capture'),
+              onPressed: () => _copyCapture(context, compact: false),
+              icon: const DIcon(DIcons.copy, size: 15),
+            ),
+            const SizedBox(height: 8),
+            DButton(
               key: const ValueKey('topic-scroll-capture-restart'),
               label: const Text('Start a new capture'),
-              onPressed: _startCapture,
+              onPressed: () => _startCapture(context),
             ),
             DButton(
               key: const ValueKey('topic-scroll-capture-clear'),
@@ -611,8 +619,9 @@ class _TopicScrollCapturePanel extends StatelessWidget {
             Text(
               'The trace includes every topic scroll notification, post-sliver '
               'visible range and geometry update, paging and anchor decision, '
-              'row attachment change, and Flutter frame timing reported during '
-              'the capture.',
+              'row layout cost, viewport bookkeeping cost, and Flutter frame '
+              'timing. The performance report summarizes slow frames and the '
+              'most expensive posts without copying the full event log.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -621,7 +630,7 @@ class _TopicScrollCapturePanel extends StatelessWidget {
             DButton(
               key: const ValueKey('topic-scroll-capture-start'),
               label: const Text('Start capture'),
-              onPressed: _startCapture,
+              onPressed: () => _startCapture(context),
               variant: DButtonVariant.primary,
             ),
           ],
@@ -630,18 +639,29 @@ class _TopicScrollCapturePanel extends StatelessWidget {
     },
   );
 
-  void _startCapture() {
-    controller.start();
+  void _startCapture(BuildContext context) {
+    controller.start(displayRefreshRate: View.of(context).display.refreshRate);
     onCaptureStarted();
   }
 
-  Future<void> _copyCapture(BuildContext context) async {
-    final report = await controller.buildJsonReport();
+  Future<void> _copyCapture(
+    BuildContext context, {
+    required bool compact,
+  }) async {
+    final report = await (compact
+        ? controller.buildPerformanceReport()
+        : controller.buildJsonReport());
     await Clipboard.setData(ClipboardData(text: report));
     if (!context.mounted) return;
     ScaffoldMessenger.maybeOf(context)
       ?..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('Scroll capture copied')));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            compact ? 'Performance report copied' : 'Scroll capture copied',
+          ),
+        ),
+      );
   }
 }
 
@@ -677,7 +697,9 @@ class _CaptureSummary extends StatelessWidget {
       '${state.eventCount} events over ${seconds.toStringAsFixed(1)}s\n'
       '${state.topicEventCount} topic events · ${state.frameCount} frames\n'
       '${state.slowBuildFrameCount} slow builds · '
-      '${state.slowRasterFrameCount} slow rasters',
+      '${state.slowRasterFrameCount} slow rasters\n'
+      'Budget: ${(state.frameBudgetMicroseconds / 1000).toStringAsFixed(2)} ms '
+      'at ${state.displayRefreshRate.toStringAsFixed(0)} Hz',
       key: const ValueKey('topic-scroll-capture-summary'),
       style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
     );

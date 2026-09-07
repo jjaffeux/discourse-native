@@ -895,6 +895,15 @@ void main() {
         expect(names, contains('sliver.post.attached'));
         expect(names, contains('scroll.notification'));
         expect(names, contains('viewport.inspected'));
+        expect(names, contains('viewport.work'));
+        expect(names, contains('post.layout'));
+        final layouts = events.where((event) => event.name == 'post.layout');
+        for (final event in layouts) {
+          expect(event.data['topicId'], 1);
+          expect(event.data['postId'], isA<int>());
+          expect(event.data['htmlCharacters'], greaterThan(0));
+          expect(event.data['durationUs'], greaterThanOrEqualTo(0));
+        }
         final report = await tester.runAsync(
           diagnostics.topicScrollCapture.buildJsonReport,
         );
