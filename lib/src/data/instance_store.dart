@@ -6,8 +6,8 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'coalescing_snapshot_writer.dart';
-import 'http_transport.dart';
 import 'store_diagnostics.dart';
+import 'stored_forum_base.dart';
 
 abstract interface class InstancePersistence {
   Future<String?> read();
@@ -73,7 +73,7 @@ class InstanceStore {
         // that crashes a later `DiscourseInstance.host` read during startup.
         final instance = _models.storedInstance({
           ...entry,
-          'url': _safeStoredBase(entry['url']),
+          'url': requireStoredForumBase(entry['url']),
         });
         if (seenUrls.add(instance.url)) instances.add(instance);
       } catch (error, stackTrace) {
@@ -82,32 +82,6 @@ class InstanceStore {
       }
     }
     return instances;
-  }
-
-  static String _safeStoredBase(Object? value) {
-    if (value is! String) {
-      throw const FormatException('Invalid stored forum base URL.');
-    }
-
-    final Uri parsed;
-    try {
-      parsed = Uri.parse(value);
-    } on FormatException {
-      // Uri.parse's exception retains its source. Do not put a damaged value
-      // (which may contain credentials) into diagnostics.
-      throw const FormatException('Invalid stored forum base URL.');
-    }
-
-    final safe = requireSafeHttpUrl(parsed);
-    if (safe.hasQuery || safe.hasFragment) {
-      throw UnsafeHttpTransportException(safe);
-    }
-
-    // `DiscourseInstance.url` is both identity and base URL, and a forum can
-    // be served from a subfolder. Keep one stable spelling — no trailing
-    // slash — even when an older entry persisted the root slash.
-    final path = safe.path.replaceFirst(RegExp(r'/+$'), '');
-    return '${safe.origin}$path';
   }
 
   Future<void> save(List<DiscourseInstance> instances) {

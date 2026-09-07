@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'coalescing_snapshot_writer.dart';
 import 'store_diagnostics.dart';
+import 'stored_forum_base.dart';
 
 abstract interface class AggregatePreferencesPersistence {
   Future<String?> read();
@@ -62,13 +63,15 @@ final class AggregateTabPreferences {
   Map<String, Object?> toJson() => {
     'id': id,
     if (name != null) 'name': name,
-    'excluded_forums': excludedForums.toList()..sort(),
+    'excluded_forums': {
+      for (final value in excludedForums) ?tryStoredForumBase(value),
+    }.toList()..sort(),
     'queries': Map.fromEntries(
       [
         for (final MapEntry(:key, :value) in queries.entries)
-          if (AggregatePreferencesStore._isOrigin(key) &&
-              AggregatePreferencesStore._normalizeQuery(value).isNotEmpty)
-            MapEntry(key, AggregatePreferencesStore._normalizeQuery(value)),
+          if (tryStoredForumBase(key) case final base?)
+            if (AggregatePreferencesStore._normalizeQuery(value).isNotEmpty)
+              MapEntry(base, AggregatePreferencesStore._normalizeQuery(value)),
       ]..sort((left, right) => left.key.compareTo(right.key)),
     ),
   };
@@ -84,19 +87,15 @@ final class AggregateTabPreferences {
       name: value['name'] is String ? value['name'] as String : null,
       excludedForums: {
         if (excluded is List)
-          for (final siteUrl in excluded)
-            if (siteUrl is String &&
-                AggregatePreferencesStore._isOrigin(siteUrl))
-              siteUrl,
+          for (final siteUrl in excluded) ?tryStoredForumBase(siteUrl),
       },
       queries: {
         if (queries is Map)
           for (final MapEntry(key: siteUrl, value: query) in queries.entries)
-            if (siteUrl is String &&
-                query is String &&
-                AggregatePreferencesStore._isOrigin(siteUrl) &&
-                AggregatePreferencesStore._normalizeQuery(query).isNotEmpty)
-              siteUrl: AggregatePreferencesStore._normalizeQuery(query),
+            if (tryStoredForumBase(siteUrl) case final base?)
+              if (query is String &&
+                  AggregatePreferencesStore._normalizeQuery(query).isNotEmpty)
+                base: AggregatePreferencesStore._normalizeQuery(query),
       },
     );
   }
@@ -214,17 +213,14 @@ final class AggregatePreferencesStore {
       return AggregatePreferences(
         excludedForums: {
           if (excluded is List)
-            for (final value in excluded)
-              if (value is String && _isOrigin(value)) value,
+            for (final value in excluded) ?tryStoredForumBase(value),
         },
         queries: {
           if (version == 2 && queries is Map)
             for (final MapEntry(key: siteUrl, value: query) in queries.entries)
-              if (siteUrl is String &&
-                  query is String &&
-                  _isOrigin(siteUrl) &&
-                  _normalizeQuery(query).isNotEmpty)
-                siteUrl: _normalizeQuery(query),
+              if (tryStoredForumBase(siteUrl) case final base?)
+                if (query is String && _normalizeQuery(query).isNotEmpty)
+                  base: _normalizeQuery(query),
         },
       );
     } catch (error, stackTrace) {
@@ -272,17 +268,6 @@ final class AggregatePreferencesStore {
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'aggregatePreferences.save');
     }
-  }
-
-  static bool _isOrigin(String value) {
-    final uri = Uri.tryParse(value);
-    return uri != null &&
-        (uri.scheme == 'https' || uri.scheme == 'http') &&
-        uri.hasAuthority &&
-        uri.userInfo.isEmpty &&
-        (uri.path.isEmpty || uri.path == '/') &&
-        !uri.hasQuery &&
-        !uri.hasFragment;
   }
 
   static String _normalizeQuery(String value) {
