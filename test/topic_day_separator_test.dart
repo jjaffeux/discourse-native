@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -6,6 +8,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -340,6 +343,95 @@ void main() {
     );
   });
 
+  for (final inbox in [false, true]) {
+    testWidgets('floating dates never paint over the header (inbox: $inbox)', (
+      tester,
+    ) async {
+      final site = instance('meta.example');
+      final firstDay = DateTime(2020, 1, 2);
+      final secondDay = DateTime(2020, 1, 3);
+      final posts = [
+        for (var id = 1; id <= 12; id++)
+          _post(id, day: id <= 6 ? firstDay : secondDay),
+      ];
+      final controller = _controller(site);
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.store
+        ..put(
+          site.url,
+          TopicDetail(
+            id: 1,
+            title: 'One',
+            stream: [for (final post in posts) post.id],
+            postsCount: posts.length,
+          ),
+        )
+        ..putAll(site.url, posts);
+      controller.pushContent(
+        ContentRoute.topic(
+          topicId: 1,
+          slug: 'one',
+          title: 'One',
+          postNumber: 7,
+        ),
+      );
+
+      const captureKey = ValueKey('topic-capture');
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.dark,
+            home: Scaffold(
+              body: RepaintBoundary(
+                key: captureKey,
+                child: TopicView(inbox: inbox),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      final scroll = list.controller!;
+      final boundaryOffset = scroll.offset;
+      final openingHeader = await _headerPixels(tester, captureKey);
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey(7))).dy,
+        closeTo(tester.getTopLeft(find.byType(SuperListView)).dy, 0.1),
+      );
+
+      scroll.jumpTo(boundaryOffset + StreamDaySeparator.height);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(ValueKey(('topic-floating-day', secondDay))),
+        findsOneWidget,
+      );
+      final clearHeader = await _headerPixels(tester, captureKey);
+      expect(
+        listEquals(openingHeader, clearHeader),
+        isTrue,
+        reason: 'opening at a day boundary must not paint a date in the header',
+      );
+
+      // The preceding date is halfway through being pushed off the list.
+      scroll.jumpTo(boundaryOffset - StreamDaySeparator.height / 2);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(ValueKey(('topic-floating-day', firstDay))),
+        findsOneWidget,
+      );
+      expect(
+        listEquals(await _headerPixels(tester, captureKey), clearHeader),
+        isTrue,
+        reason: 'a partially displaced date must stay below the header',
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('a date click pages back to the real start of that day', (
     tester,
   ) async {
@@ -397,6 +489,27 @@ void main() {
       findsOneWidget,
     );
   });
+}
+
+Future<List<int>> _headerPixels(WidgetTester tester, Key captureKey) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(captureKey),
+  );
+  final headerHeight = tester
+      .getSize(find.byKey(const ValueKey('topic-content-header')))
+      .height
+      .floor();
+  return (await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    try {
+      final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      return data!.buffer
+          .asUint8List(0, image.width * headerHeight * 4)
+          .toList();
+    } finally {
+      image.dispose();
+    }
+  }))!;
 }
 
 Post _post(int id, {required DateTime day, bool long = false}) => Post(
