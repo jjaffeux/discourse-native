@@ -12,6 +12,7 @@ ResolvedSitePalette palette({
   Brightness brightness = Brightness.light,
   double borderRadius = defaultDiscourseBorderRadius,
   AvatarBorderRadius avatarBorderRadius = defaultDiscourseAvatarBorderRadius,
+  Color? currentUserMentionBackground = const Color(0xFFAFE4FF),
 }) => ResolvedSitePalette(
   borderRadius: borderRadius,
   avatarBorderRadius: avatarBorderRadius,
@@ -44,7 +45,7 @@ ResolvedSitePalette palette({
   highlightLow: const Color(0xFFFFF1A8),
   dangerLow: const Color(0xFFF5C7C7),
   mentionBackground: const Color(0xFFE0E7EE),
-  currentUserMentionBackground: const Color(0xFFAFE4FF),
+  currentUserMentionBackground: currentUserMentionBackground,
   codeBlockBackground: const Color(0xFF20252B),
   inlineCodeBackground: const Color(0xFFE7EBEF),
   codeKeyword: const Color(0xFF8B2FA0),
@@ -74,7 +75,57 @@ double paintedContrast(
 }
 
 void main() {
+  test(
+    'shell colors without an own-mention color can be copied and animated',
+    () {
+      const legacy = ShellColors(
+        rail: Colors.black,
+        railForeground: Colors.white,
+        sidebar: Colors.black,
+        content: Colors.black,
+        panel: Colors.black,
+        divider: Colors.white,
+        floating: Colors.black,
+        hover: Colors.black,
+        selected: Colors.black,
+        selectedForeground: Colors.white,
+        placeholder: Colors.white,
+        marker: Colors.white,
+        mention: Colors.black,
+      );
+      final updated = legacy.copyWith(currentUserMention: Colors.white);
+
+      expect(legacy.currentUserMention, Colors.black);
+      expect(legacy.copyWith().currentUserMention, Colors.black);
+      expect(updated.currentUserMention, Colors.white);
+      expect(
+        legacy.lerp(updated, 0.5).currentUserMention.toARGB32(),
+        0xFF808080,
+      );
+      expect(
+        updated.lerp(legacy, 0.5).currentUserMention.toARGB32(),
+        0xFF808080,
+      );
+    },
+  );
+
   group('AppTheme.fromPalette', () {
+    test(
+      'builds own mention colors when the palette has no explicit color',
+      () {
+        for (final brightness in Brightness.values) {
+          final source = palette(
+            brightness: brightness,
+            currentUserMentionBackground: null,
+          );
+
+          final theme = AppTheme.fromPalette(source);
+
+          expect(theme.shell.currentUserMention, source.tertiaryLow);
+        }
+      },
+    );
+
     test('translates Discourse colors into Material roles', () {
       final source = palette();
       final theme = AppTheme.fromPalette(source);

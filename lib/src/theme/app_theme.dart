@@ -59,7 +59,7 @@ class ShellColors extends ThemeExtension<ShellColors> {
     required this.placeholder,
     required this.marker,
     required this.mention,
-    required this.currentUserMention,
+    this._currentUserMention,
   });
 
   final Color rail;
@@ -84,8 +84,11 @@ class ShellColors extends ThemeExtension<ShellColors> {
 
   final Color mention;
 
+  // AnimatedTheme can retain colors created before this field was added.
+  final Color? _currentUserMention;
+
   /// The current user's mention background, matching core's `--tertiary-400`.
-  final Color currentUserMention;
+  Color get currentUserMention => _currentUserMention ?? mention;
 
   static const ShellColors dark = ShellColors(
     rail: Color(0xFF131417),

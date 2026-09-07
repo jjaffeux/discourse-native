@@ -133,7 +133,7 @@ class ResolvedSitePalette {
     required this.highlightLow,
     required this.dangerLow,
     required this.mentionBackground,
-    required this.currentUserMentionBackground,
+    this._currentUserMentionBackground,
     required this.codeBlockBackground,
     required this.inlineCodeBackground,
     required this.codeKeyword,
@@ -200,10 +200,9 @@ class ResolvedSitePalette {
       highlightLow: _color(json['highlightLow']) ?? highlight,
       dangerLow: _color(json['dangerLow']) ?? danger,
       mentionBackground: _color(json['mentionBackground']) ?? primaryLow,
-      currentUserMentionBackground:
-          _color(json['currentUserMentionBackground']) ??
-          _color(json['tertiaryLow']) ??
-          tertiary,
+      currentUserMentionBackground: _color(
+        json['currentUserMentionBackground'],
+      ),
       codeBlockBackground:
           _color(json['codeBlockBackground']) ?? primaryVeryLow,
       inlineCodeBackground:
@@ -250,7 +249,12 @@ class ResolvedSitePalette {
   final Color highlightLow;
   final Color dangerLow;
   final Color mentionBackground;
-  final Color currentUserMentionBackground;
+  final Color? _currentUserMentionBackground;
+
+  // Palettes retained across hot reload can predate the own-mention color.
+  Color get currentUserMentionBackground =>
+      _currentUserMentionBackground ?? tertiaryLow;
+
   final Color codeBlockBackground;
   final Color inlineCodeBackground;
   final Color codeKeyword;
