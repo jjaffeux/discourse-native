@@ -219,7 +219,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
     final channels = _visibleChannels;
-    if (channels.isEmpty && _error != null) {
+    if (channels.isEmpty && !_hasMore && _error != null) {
       return _BrowseMessage(
         icon: DIcons.triangleExclamation,
         message: _error!,
@@ -227,13 +227,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
         onAction: () => unawaited(_load(reset: true)),
       );
     }
-    if (channels.isEmpty) {
-      return const _BrowseMessage(
-        icon: DIcons.magnifyingGlass,
-        message: 'No channels match these filters.',
-      );
-    }
-
+    final resultCount = channels.isEmpty ? 1 : channels.length;
     final hasFooter = _loadingMore || _error != null || _hasMore;
     return ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
@@ -244,8 +238,16 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
           controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: lane.padding,
-          itemCount: channels.length + (hasFooter ? 1 : 0),
+          itemCount: resultCount + (hasFooter ? 1 : 0),
           itemBuilder: (context, index) {
+            if (channels.isEmpty && index == 0) {
+              return _BrowseMessage(
+                icon: DIcons.magnifyingGlass,
+                message: _hasMore
+                    ? 'No matching channels loaded yet.'
+                    : 'No channels match these filters.',
+              );
+            }
             if (index < channels.length) {
               return _ChannelCard(
                 siteUrl: widget.siteUrl,
