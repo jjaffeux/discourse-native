@@ -488,6 +488,7 @@ void _registerReactionAndLikeTests() {
       WriteException? reactionFailure,
       Completer<void>? reactionGate,
       Completer<void>? siteConfigGate,
+      Future<void> Function()? beforeSettle,
     }) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
@@ -521,6 +522,7 @@ void _registerReactionAndLikeTests() {
         ],
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
+        beforeSettle: beforeSettle,
       );
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
@@ -643,42 +645,49 @@ void _registerReactionAndLikeTests() {
       expect(find.bySemanticsLabel('1 wave reaction'), findsOneWidget);
     });
 
-    testWidgets('the post picker waits for the site reaction policy', (
-      tester,
-    ) async {
-      final gate = Completer<void>();
-      await openTopic(
-        tester,
-        config: installedPlugins.models.siteConfig(const {
-          'discourse_reactions_enabled': true,
-          'discourse_reactions_reaction_for_like': 'heart',
-          'discourse_reactions_enabled_reactions': 'clap',
-          'discourse_reactions_allow_any_emoji': true,
-        }, site),
-        emojis: const [
-          SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
-        ],
-        posts: [
-          post(reactions: [(id: 'clap', count: 2)], userCount: 2),
-        ],
-        siteConfigGate: gate,
-      );
+    testWidgets(
+      'loads the site reaction policy before offering the post picker',
+      (tester) async {
+        final gate = Completer<void>();
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+        await openTopic(
+          tester,
+          config: installedPlugins.models.siteConfig(const {
+            'discourse_reactions_enabled': true,
+            'discourse_reactions_reaction_for_like': 'heart',
+            'discourse_reactions_enabled_reactions': 'clap',
+            'discourse_reactions_allow_any_emoji': true,
+          }, site),
+          emojis: const [
+            SiteEmoji(name: 'wave', url: 'https://meta.discourse.org/wave.png'),
+          ],
+          posts: [
+            post(reactions: [(id: 'clap', count: 2)], userCount: 2),
+          ],
+          siteConfigGate: gate,
+          beforeSettle: () async {
+            final row = find.text('A real topic');
+            expect(row, findsOneWidget);
+            final controller = ShellScope.read(tester.element(row));
+            expect(controller.siteConfigFor(site), const SiteConfig.unknown());
+            expect(find.byType(PostReactionButton), findsNothing);
+            gate.complete();
+          },
+        );
 
-      await tester.longPress(find.byType(PostReactionButton));
-      await tester.longPress(find.byType(PostReactionButton));
-      await tester.pump();
-      expect(find.byType(ReactionGrid), findsOneWidget);
-      expect(find.byType(EmojiPicker), findsNothing);
-      expect(find.byTooltip('More emojis'), findsNothing);
+        await tester.longPress(find.byType(PostReactionButton));
+        await tester.longPress(find.byType(PostReactionButton));
+        await tester.pumpAndSettle();
 
-      gate.complete();
-      await tester.pumpAndSettle();
-
-      expect(find.byType(ReactionGrid), findsOneWidget);
-      await tester.tap(find.byTooltip('More emojis'));
-      await tester.pumpAndSettle();
-      expect(find.byType(EmojiPicker), findsOneWidget);
-    });
+        expect(find.byType(ReactionGrid), findsOneWidget);
+        expect(find.byType(EmojiPicker), findsNothing);
+        await tester.tap(find.byTooltip('More emojis'));
+        await tester.pumpAndSettle();
+        expect(find.byType(EmojiPicker), findsOneWidget);
+      },
+    );
 
     testWidgets('a picker cannot react after the post loses permission', (
       tester,
