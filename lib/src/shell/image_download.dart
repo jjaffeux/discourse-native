@@ -64,6 +64,9 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
     required SiteImageRepository? repository,
     Rect? sharePositionOrigin,
   }) async {
+    final lease = siteUrl == null
+        ? null
+        : repository?.lifecycle.capture(siteUrl);
     final filename = imageDownloadFilename(title: title, url: url);
     final destination = _usesSaveDialog
         ? await _environment.chooseSavePath(suggestedName: filename)
@@ -72,12 +75,15 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
       return ImageDownloadOutcome.cancelled;
     }
 
-    if (repository == null || siteUrl == null) {
+    if (repository == null ||
+        siteUrl == null ||
+        lease == null ||
+        !lease.isCurrent) {
       throw const ImageDownloadException();
     }
     final absoluteUrl = resolveSiteUrl(url, siteUrl);
     final image = await repository.load(siteUrl: siteUrl, url: absoluteUrl);
-    if (image == null || image.bytes.isEmpty) {
+    if (image == null || image.bytes.isEmpty || !lease.isCurrent) {
       throw const ImageDownloadException();
     }
 
