@@ -1018,12 +1018,11 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       );
       rethrow;
     }
-    var registered = false;
     if (_closing || disposed || _peers.containsKey(peerId)) {
-      await peer.close();
-      await peer.dispose();
+      await _disposePeerConnection(peer);
       return;
     }
+    var setupSucceeded = false;
     try {
       peer.onIceCandidate = (candidate) {
         if (candidate.candidate == null) return;
@@ -1176,7 +1175,6 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         screenAudio: screenAudio.sender,
       );
       _peers[peerId] = peer;
-      registered = true;
       _recordDiagnostic(
         diagnostics,
         'mesh.peer.create.completed',
@@ -1189,6 +1187,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         await _applyAudioQuality(screenAudio.sender);
       }
       if (localUserId < peerId) await _offer(peerId);
+      setupSucceeded = true;
     } catch (error, stackTrace) {
       _recordDiagnostic(
         diagnostics,
@@ -1214,22 +1213,17 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
           'stackTrace': stackTrace.toString(),
         },
       );
-      if (registered && identical(_peers[peerId], peer)) {
-        await _closePeer(peerId);
-      } else {
-        await peer.close();
-        await peer.dispose();
-      }
       rethrow;
     } finally {
-      if (!registered &&
-          !identical(_peers[peerId], peer) &&
-          (_closing || disposed || _peers.containsKey(peerId))) {
+      if (!setupSucceeded) {
         try {
-          await peer.close();
-          await peer.dispose();
+          if (identical(_peers[peerId], peer)) {
+            await _closePeer(peerId);
+          } else {
+            await _disposePeerConnection(peer);
+          }
         } catch (_) {
-          // The peer may already have been released by the early-exit path.
+          // Cleanup must not replace the original setup failure.
         }
       }
     }
@@ -2010,6 +2004,20 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     }
   }
 
+  Future<void> _disposePeerConnection(rtc.RTCPeerConnection peer) async {
+    try {
+      await peer.close();
+    } catch (_) {
+      // Disposal releases the native peer and its event subscription even when
+      // close fails. Preserve the close error if both operations fail.
+      try {
+        await peer.dispose();
+      } catch (_) {}
+      rethrow;
+    }
+    await peer.dispose();
+  }
+
   Future<void> _closePeer(int id) async {
     final peer = _peers.remove(id);
     _sendSlots.remove(id);
@@ -2031,8 +2039,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         correlationId: correlationId,
         data: {'peerAlias': _peerDiagnosticAlias(id)},
       );
-      await peer.close();
-      await peer.dispose();
+      await _disposePeerConnection(peer);
       _recordDiagnostic(
         diagnostics,
         'mesh.peer.close.completed',
