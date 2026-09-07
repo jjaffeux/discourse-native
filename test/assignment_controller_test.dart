@@ -162,6 +162,108 @@ void main() {
     });
   });
 
+  group('account and request replacement', () {
+    test(
+      'a write cannot adopt an account selected by its loading listener',
+      () async {
+        var replaced = false;
+        controller.addListener(() {
+          if (replaced || !controller.isWriting(_site, _topic)) return;
+          replaced = true;
+          requests.invalidate();
+          controller.forget(_site);
+        });
+
+        await controller.assign(
+          _site,
+          _topic,
+          const AssignmentUser(username: 'sam'),
+        );
+
+        expect(replaced, isTrue);
+        expect(transport.writes, isEmpty);
+        expect(reloads, isEmpty);
+      },
+    );
+
+    for (final rotateLease in [false, true]) {
+      test(
+        'a forgotten write cannot finish its replacement (rotate lease: $rotateLease)',
+        () async {
+          final firstReply = Completer<void>();
+          final secondReply = Completer<void>();
+          final secondStarted = Completer<void>();
+          addTearDown(() {
+            if (!firstReply.isCompleted) firstReply.complete();
+            if (!secondReply.isCompleted) secondReply.complete();
+          });
+          transport.writeGate = firstReply;
+          final first = controller.assign(
+            _site,
+            _topic,
+            const AssignmentUser(username: 'sam'),
+          );
+          await transport.writeStarted.future;
+          if (rotateLease) requests.invalidate();
+          controller.forget(_site);
+          transport
+            ..writeGate = secondReply
+            ..onWrite = secondStarted.complete;
+          final second = controller.assign(
+            _site,
+            _topic,
+            const AssignmentUser(username: 'lee'),
+          );
+          await secondStarted.future;
+
+          firstReply.complete();
+          await first;
+          expect(controller.isWriting(_site, _topic), isTrue);
+          expect(reloads, isEmpty);
+          expect(
+            await controller.assign(
+              _site,
+              _topic,
+              const AssignmentUser(username: 'alex'),
+            ),
+            'An assignment update is already in progress.',
+          );
+          expect(transport.writes.map((write) => write.body['username']), [
+            'sam',
+            'lee',
+          ]);
+          secondReply.complete();
+          await second;
+          expect(controller.isWriting(_site, _topic), isFalse);
+          expect(reloads, [(siteUrl: _site, topicId: 7)]);
+        },
+      );
+    }
+
+    for (final invalidate in ['account lease', 'controller state']) {
+      test('an Undo permit is revoked with its $invalidate', () async {
+        final result = await controller.unassignForUndo(
+          _site,
+          _topic,
+          const Assignment(assignee: AssignmentUser(username: 'sam')),
+        );
+        final permit = result.permit;
+        expect(permit, isNotNull);
+        if (invalidate == 'account lease') {
+          requests.invalidate();
+        } else {
+          controller.forget(_site);
+        }
+        allowed = false;
+
+        expect(await controller.restoreAssignment(permit!), _forbiddenMessage);
+        expect(transport.writes.map((write) => write.path), [
+          '/assign/unassign.json',
+        ]);
+      });
+    }
+  });
+
   group('404 reconciliation', () {
     test(
       'returns target-unavailable and reloads after a failed write',
@@ -399,8 +501,20 @@ void _expectOnlyWrite(
 }
 
 final class _RequestHost implements PluginRequestHost {
+  final _leases = <_Lease>[];
+
   @override
-  PluginSiteLease capture(String siteUrl) => _Lease();
+  PluginSiteLease capture(String siteUrl) {
+    final lease = _Lease();
+    _leases.add(lease);
+    return lease;
+  }
+
+  void invalidate() {
+    for (final lease in _leases) {
+      lease.current = false;
+    }
+  }
 
   @override
   Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
@@ -471,6 +585,7 @@ class _PluginTransport implements PluginApiTransport {
   WriteException? writeFailure;
   SiteLookupException? getFailure;
   Completer<void>? writeGate;
+  void Function()? onWrite;
   final writeStarted = Completer<void>();
 
   @override
@@ -512,6 +627,7 @@ class _PluginTransport implements PluginApiTransport {
       clientId: clientId,
     ));
     if (!writeStarted.isCompleted) writeStarted.complete();
+    onWrite?.call();
     await writeGate?.future;
     if (writeFailure case final failure?) throw failure;
     return const {'success': 'OK'};
