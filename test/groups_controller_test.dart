@@ -26,6 +26,79 @@ Completer<T> _completed<T>(T value) => Completer<T>()..complete(value);
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final kind in _SearchableGroupCache.values) {
+    group('${kind.name} query retention', () {
+      test(
+        'keeps sixteen recent queries per forum and refreshes reuse order',
+        () async {
+          const other = DiscourseInstance(
+            url: 'https://other.example',
+            title: 'Other',
+            user: DiscourseUser(username: 'sam'),
+          );
+          final transport = _ControlledGroupTransport();
+          final credentials = FakeApiCredentialReader()
+            ..keys[_site] = 'key'
+            ..keys[other.url] = 'other-key';
+          final controller = _controller(transport, credentials: credentials);
+          addTearDown(controller.dispose);
+          transport.objects.add(_completed(kind.page(99)));
+          await kind.load(controller, other, 'other');
+          for (var index = 0; index < 16; index++) {
+            transport.objects.add(_completed(kind.page(index)));
+            await kind.load(controller, _connectedInstance, 'query-$index');
+          }
+          await kind.load(controller, _connectedInstance, 'query-0');
+          transport.objects.add(_completed(kind.page(16)));
+          await kind.load(controller, _connectedInstance, 'query-16');
+
+          expect(kind.ids(controller, _site, 'query-0'), [0]);
+          expect(kind.ids(controller, _site, 'query-1'), isEmpty);
+          expect(kind.ids(controller, _site, 'query-16'), [16]);
+          expect(kind.ids(controller, other.url, 'other'), [99]);
+          expect(transport.gets, hasLength(18));
+
+          transport.objects.add(_completed(kind.page(101)));
+          await kind.load(controller, _connectedInstance, 'query-1');
+          expect(kind.ids(controller, _site, 'query-1'), [101]);
+          expect(transport.gets, hasLength(19));
+        },
+      );
+
+      test(
+        'evicts request ownership so late completion cannot replace a reload',
+        () async {
+          final firstStarted = Completer<void>();
+          final first = Completer<Map<String, dynamic>>();
+          addTearDown(() {
+            if (!first.isCompleted) first.complete(kind.page(1));
+          });
+          final transport = _ControlledGroupTransport()
+            ..objects.add(first)
+            ..onGet = (_) {
+              if (!firstStarted.isCompleted) firstStarted.complete();
+            };
+          final credentials = FakeApiCredentialReader()..keys[_site] = 'key';
+          final controller = _controller(transport, credentials: credentials);
+          addTearDown(controller.dispose);
+          final loading = kind.load(controller, _connectedInstance, 'old');
+          await firstStarted.future;
+          for (var index = 0; index < 16; index++) {
+            transport.objects.add(_completed(kind.page(index + 10)));
+            await kind.load(controller, _connectedInstance, 'query-$index');
+          }
+          transport.objects.add(_completed(kind.page(100)));
+          await kind.load(controller, _connectedInstance, 'old');
+          first.complete(kind.page(1));
+          await loading;
+
+          expect(kind.ids(controller, _site, 'old'), [100]);
+          expect(transport.gets, hasLength(18));
+        },
+      );
+    });
+  }
+
   test('group state snapshots defensively own every exposed list', () {
     final groups = [const Group(id: 1, name: 'alpha')];
     final typeFilters = ['public'];
@@ -902,4 +975,64 @@ final class _ControlledGroupTransport
     writes.add((path: path, method: method, body: body, clientId: clientId));
     return const {};
   }
+}
+
+enum _SearchableGroupCache {
+  directory,
+  members,
+  requesters;
+
+  Future<void> load(
+    GroupsController controller,
+    DiscourseInstance instance,
+    String filter,
+  ) => switch (this) {
+    directory => controller.loadDirectory(
+      instance,
+      GroupDirectoryQuery(filter: filter),
+    ),
+    members => controller.loadMembers(instance, 'support', filter: filter),
+    requesters => controller.loadRequesters(
+      instance,
+      'support',
+      filter: filter,
+    ),
+  };
+
+  Iterable<int> ids(
+    GroupsController controller,
+    String siteUrl,
+    String filter,
+  ) => switch (this) {
+    directory =>
+      controller
+          .directoryState(siteUrl, GroupDirectoryQuery(filter: filter))
+          .groups
+          .map((group) => group.id),
+    members =>
+      controller
+          .membersState(siteUrl, 'support', filter: filter)
+          .members
+          .map((member) => member.id),
+    requesters =>
+      controller
+          .requestersState(siteUrl, 'support', filter: filter)
+          .requesters
+          .map((member) => member.id),
+  };
+
+  Map<String, dynamic> page(int id) => switch (this) {
+    directory => {
+      'groups': [
+        {'id': id, 'name': 'group-$id'},
+      ],
+      'total_rows_groups': 1,
+    },
+    members || requesters => {
+      'members': [
+        {'id': id, 'username': 'user$id'},
+      ],
+      'meta': {'total': 1, 'limit': 30, 'offset': 0},
+    },
+  };
 }

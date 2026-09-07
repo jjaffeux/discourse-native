@@ -361,6 +361,8 @@ final class GroupsController extends FrameSafeNotifier {
     required this.lifecycle,
   });
 
+  static const int _cachedQueriesPerSite = 16;
+
   final GroupsApi api;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
@@ -434,7 +436,9 @@ final class GroupsController extends FrameSafeNotifier {
     bool refresh = false,
     bool more = false,
   }) async {
+    if (isDisposed) return;
     final key = (siteUrl: instance.url, query: query);
+    _touchQuery(_directories, key);
     final held = directoryState(instance.url, query);
     final presentedChanged = _presentedDirectoryQueries[instance.url] != query;
     _presentedDirectoryQueries[instance.url] = query;
@@ -455,6 +459,7 @@ final class GroupsController extends FrameSafeNotifier {
       loadingMore: more,
       loaded: held.loaded,
     );
+    _trimQueries(_directories, instance.url, siteOf: (key) => key.siteUrl);
     notifySafely();
     if (!_current(token)) return;
     try {
@@ -566,6 +571,7 @@ final class GroupsController extends FrameSafeNotifier {
     bool refresh = false,
     bool more = false,
   }) async {
+    if (isDisposed) return;
     final key = _memberListKey(
       instance.url,
       groupName,
@@ -573,6 +579,7 @@ final class GroupsController extends FrameSafeNotifier {
       order,
       ascending,
     );
+    _touchQuery(_members, key);
     final held = membersState(
       instance.url,
       groupName,
@@ -599,6 +606,7 @@ final class GroupsController extends FrameSafeNotifier {
       loadingMore: more,
       loaded: held.loaded,
     );
+    _trimQueries(_members, instance.url, siteOf: (key) => key.siteUrl);
     notifySafely();
     try {
       final auth = await _credentialsFor(instance, token);
@@ -666,7 +674,9 @@ final class GroupsController extends FrameSafeNotifier {
     bool refresh = false,
     bool more = false,
   }) async {
+    if (isDisposed) return;
     final key = _filterListKey(instance.url, groupName, filter);
+    _touchQuery(_requesters, key);
     final held = requestersState(instance.url, groupName, filter: filter);
     if (_requests.containsKey(('requesters', key)) ||
         (!refresh && !more && held.loaded) ||
@@ -683,6 +693,12 @@ final class GroupsController extends FrameSafeNotifier {
       loading: !more,
       loadingMore: more,
       loaded: held.loaded,
+    );
+    _trimQueries(
+      _requesters,
+      instance.url,
+      siteOf: (key) => key.siteUrl,
+      requestKeyOf: (key) => ('requesters', key),
     );
     notifySafely();
     try {
@@ -1318,6 +1334,29 @@ final class GroupsController extends FrameSafeNotifier {
         _mutations.remove(key);
         notifySafely();
       }
+    }
+  }
+
+  void _touchQuery<K, V>(Map<K, V> states, K key) {
+    final held = states.remove(key);
+    if (held != null) states[key] = held;
+  }
+
+  void _trimQueries<K, V>(
+    Map<K, V> states,
+    String siteUrl, {
+    required String Function(K) siteOf,
+    Object Function(K)? requestKeyOf,
+  }) {
+    final keys = states.keys
+        .where((key) => siteOf(key) == siteUrl)
+        .toList(growable: false);
+    if (keys.length <= _cachedQueriesPerSite) return;
+    for (final key in keys.take(keys.length - _cachedQueriesPerSite)) {
+      states.remove(key);
+      // Eviction also revokes the old page, so returning to this query can
+      // load immediately without an earlier completion replacing it.
+      _requests.remove(requestKeyOf == null ? key : requestKeyOf(key));
     }
   }
 

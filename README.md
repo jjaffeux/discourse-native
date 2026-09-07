@@ -613,6 +613,10 @@ directory, detail, member, activity, and permission reads work without an API
 key, while the server-authored capability fields on the group guard every
 authenticated mutation and management surface.
 
+Directory, member and requester searches each retain sixteen recent queries
+per forum. Revisiting a query keeps it recent; evicting one also revokes its
+pending page so an old response cannot repopulate the cache or block a reload.
+
 Member search preserves a pending text draft through unrelated page refreshes;
 an externally changed filter cancels the old debounce. Member addition and
 invitation forms retain their input after a failed callback, clear progress,
