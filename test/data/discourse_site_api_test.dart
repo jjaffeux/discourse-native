@@ -163,7 +163,7 @@ http.Response _authResponse() =>
 http.Response _basicInfoResponse() => http.Response(
   jsonEncode({
     'title': 'Community',
-    'apple_touch_icon_url': '/uploads/icon.png',
+    'apple_touch_icon_url': 'uploads/icon.png',
   }),
   200,
 );

@@ -629,7 +629,9 @@ final class DiscourseSiteApi {
       return '${scheme == null || scheme.isEmpty ? 'https' : scheme}:$icon';
     }
     if (icon.startsWith('http://') || icon.startsWith('https://')) return icon;
-    return '$baseUrl${icon.startsWith('/') ? '' : '/'}$icon';
+    // Server-provided root-relative paths already include any forum subfolder.
+    if (icon.startsWith('/')) return '${Uri.parse(baseUrl).origin}$icon';
+    return '$baseUrl/$icon';
   }
 
   static Iterable<Map<String, dynamic>> _flattenCategories(
