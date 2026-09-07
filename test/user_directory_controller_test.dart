@@ -71,6 +71,140 @@ void main() {
     expect(controller.stateFor(instance.url).loaded, isFalse);
   });
 
+  test(
+    'bounds directory history per forum and retains recently selected queries',
+    () async {
+      final transport = _ControllerTransport();
+      final controller = UserDirectoryController(
+        api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+        credentials: const _Credentials(),
+        lifecycle: SiteLifecycle(),
+      );
+      addTearDown(controller.dispose);
+      const site = DiscourseInstance(
+        url: 'https://example.com',
+        title: 'Example',
+      );
+      const other = DiscourseInstance(
+        url: 'https://another.example',
+        title: 'Other',
+      );
+      await controller.load(other);
+      for (var index = 0; index < 16; index++) {
+        controller.replaceQuery(
+          site.url,
+          UserDirectoryQuery(search: 'query-$index'),
+        );
+        await controller.load(site);
+      }
+      final requestsBeforeRevisit = transport.requests.length;
+      controller.replaceQuery(
+        site.url,
+        const UserDirectoryQuery(search: 'query-0'),
+      );
+      await controller.load(site);
+      expect(transport.requests.length, requestsBeforeRevisit);
+
+      controller.replaceQuery(
+        site.url,
+        const UserDirectoryQuery(search: 'query-16'),
+      );
+      await controller.load(site);
+
+      expect(
+        controller
+            .stateFor(site.url, const UserDirectoryQuery(search: 'query-0'))
+            .loaded,
+        isTrue,
+      );
+      expect(
+        controller
+            .stateFor(site.url, const UserDirectoryQuery(search: 'query-1'))
+            .loaded,
+        isFalse,
+      );
+      expect(controller.stateFor(other.url).loaded, isTrue);
+      controller.replaceQuery(
+        site.url,
+        const UserDirectoryQuery(search: 'query-1'),
+      );
+      await controller.load(site);
+      expect(transport.requests.length, requestsBeforeRevisit + 2);
+      expect(
+        Uri.parse(transport.requests.last).queryParameters['name'],
+        'query-1',
+      );
+    },
+  );
+
+  for (final replaces in [false, true]) {
+    test(
+      'evicted directory replies cannot ${replaces ? 'finish a replacement load' : 'repopulate the cache'}',
+      () async {
+        final transport = _ControllerTransport();
+        final controller = UserDirectoryController(
+          api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+          credentials: const _Credentials(),
+          lifecycle: SiteLifecycle(),
+        );
+        addTearDown(controller.dispose);
+        const site = DiscourseInstance(
+          url: 'https://example.com',
+          title: 'Example',
+        );
+        const originalQuery = UserDirectoryQuery(search: 'original');
+        final oldStarted = Completer<void>();
+        final oldReply = Completer<void>();
+        final replacementStarted = Completer<void>();
+        final replacementReply = Completer<void>();
+        addTearDown(() {
+          if (!oldReply.isCompleted) oldReply.complete();
+          if (!replacementReply.isCompleted) replacementReply.complete();
+        });
+        transport.beforeDirectoryReply = (uri) async {
+          if (uri.queryParameters['name'] != 'original') return;
+          if (!oldStarted.isCompleted) {
+            oldStarted.complete();
+            await oldReply.future;
+          } else {
+            replacementStarted.complete();
+            await replacementReply.future;
+          }
+        };
+        controller.replaceQuery(site.url, originalQuery);
+        final old = controller.load(site);
+        await oldStarted.future;
+        for (var index = 0; index < 16; index++) {
+          controller.replaceQuery(
+            site.url,
+            UserDirectoryQuery(search: 'query-$index'),
+          );
+          await controller.load(site);
+        }
+        expect(controller.stateFor(site.url, originalQuery).loading, isFalse);
+
+        Future<void>? replacement;
+        if (replaces) {
+          controller.replaceQuery(site.url, originalQuery);
+          replacement = controller.load(site);
+          await replacementStarted.future;
+        }
+        oldReply.complete();
+        await old;
+        expect(controller.stateFor(site.url, originalQuery).loaded, isFalse);
+        expect(controller.stateFor(site.url, originalQuery).loading, replaces);
+        if (replacement != null) {
+          final requestsBeforeDuplicate = transport.requests.length;
+          await controller.load(site);
+          expect(transport.requests.length, requestsBeforeDuplicate);
+          replacementReply.complete();
+          await replacement;
+          expect(controller.stateFor(site.url).loaded, isTrue);
+        }
+      },
+    );
+  }
+
   test('staff can load and update the complete column configuration', () async {
     final transport = _ControllerTransport();
     final controller = UserDirectoryController(
@@ -213,6 +347,7 @@ final class _ControllerTransport implements PluginApiTransport {
   final List<({String path, Map<String, Object?> body})> writes = [];
   final Map<int, bool> columnEnabled = {1: true, 9: false, 14: false};
   Future<Map<String, dynamic>> Function()? nextColumns;
+  Future<void> Function(Uri uri)? beforeDirectoryReply;
 
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -277,6 +412,7 @@ final class _ControllerTransport implements PluginApiTransport {
         'total_rows_groups': 1,
       };
     }
+    await beforeDirectoryReply?.call(uri);
     final page = int.tryParse(uri.queryParameters['page'] ?? '0') ?? 0;
     final usernames = page == 0 ? const ['sam', 'hawk'] : const ['lindsey'];
     return {

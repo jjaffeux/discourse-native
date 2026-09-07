@@ -374,7 +374,9 @@ capture a per-topic bookmark generation, so a response sent before the write
 may refresh ordinary content but cannot put its older personalized bookmark
 state over the confirmed result. An ambiguous create is never repeated: the
 topic is read again because a timed-out first request may already have created
-the one bookmark the target permits.
+the one bookmark the target permits. The write and its follow-up refresh retain
+the original account lease, so a delayed response or timeout cannot refresh a
+replacement account's personalized data.
 
 ### User summary
 
@@ -557,8 +559,12 @@ recipients, or addresses the selected group directly.
 
 Lists are cached per site and destination — revisiting one does not refetch.
 Tapping the destination you are already looking at forces a refresh; merely
-scrolling past the first row does not. It works signed out too, since
-`/latest.json` is public; unread state simply arrives as zero.
+scrolling past the first row does not. Repeated loads share the pending request;
+forced refreshes queue one replay with the latest path. Ownership is registered
+before loading is announced and rechecked as records are published, so a
+listener that forgets the account cannot leave an old request blocking or
+repopulating its replacement. It works signed out too, since `/latest.json` is
+public; unread state simply arrives as zero.
 
 Two things the payload makes you handle:
 
@@ -570,6 +576,19 @@ Two things the payload makes you handle:
   plain unicode and emoji as `:shortcodes:`; [`TopicTitle`](lib/src/shell/topic_title.dart)
   resolves those shortcodes through the site's emoji set without asking an
   HTML renderer to interpret the rest of the title.
+
+### User directory
+
+The Users directory owns search, period, group, sorting, and pagination state
+per forum. It retains the sixteen most recently selected or loaded queries per
+forum, preserving rows for a quick return without accumulating every past
+search. Eviction also disowns pending pages so a late response cannot restore
+evicted rows or finish a replacement request. Column configuration changes
+invalidate snapshots decoded against the previous columns.
+
+Column widths persist per forum. Search timers, visible-column choices, and
+column-management dialogs belong to the forum and account that opened them;
+a pending interaction cannot carry its values into a replacement page.
 
 ### Groups
 
