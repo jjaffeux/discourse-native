@@ -2332,6 +2332,10 @@ is kept alive while the item scrolls offscreen so playback is not reset. Once
 active, the WebView claims its pointer sequences ahead of the surrounding text
 selection and timeline gestures, keeping the iframe's pause, seek, volume and
 fullscreen controls interactive.
+On macOS, the player uses a route-owned portal in the root overlay, keeping
+later dialogs above it without reconstructing playback. Forwarded wheel events
+check the visible Flutter hit target; a covering dialog or floating panel
+receives the scroll instead of the topic underneath it.
 
 Playback uses YouTube's official iframe, never an extracted media stream. The
 wrapper supplies the source forum's origin as the referrer/client identity,

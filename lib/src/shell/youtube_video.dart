@@ -4,7 +4,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart'
     show Factory, TargetPlatform, defaultTargetPlatform;
-import 'package:flutter/gestures.dart' show OneSequenceGestureRecognizer;
+import 'package:flutter/gestures.dart'
+    show
+        GestureBinding,
+        HitTestResult,
+        OneSequenceGestureRecognizer,
+        PointerDeviceKind,
+        PointerScrollEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
@@ -243,9 +249,10 @@ class _YoutubeVideoState extends State<YoutubeVideo>
     with AutomaticKeepAliveClientMixin {
   final LayerLink _playerLink = LayerLink();
   final GlobalKey _playerAnchorKey = GlobalKey();
+  final GlobalKey _playerSurfaceKey = GlobalKey();
 
   bool _loaded = false;
-  OverlayEntry? _playerEntry;
+  final OverlayPortalController _playerOverlay = OverlayPortalController();
   Size _playerSize = Size.zero;
   Rect? _playerViewport;
   Object? _geometrySyncToken;
@@ -264,11 +271,9 @@ class _YoutubeVideoState extends State<YoutubeVideo>
         youtubeForumOrigin(oldWidget.siteUrl) !=
             youtubeForumOrigin(widget.siteUrl);
     if (sourceChanged) {
-      _removePlayer();
+      _releasePlayer();
       _loaded = false;
       updateKeepAlive();
-    } else {
-      _playerEntry?.markNeedsBuild();
     }
   }
 
@@ -283,39 +288,38 @@ class _YoutubeVideoState extends State<YoutubeVideo>
 
   void _insertPlayer() {
     if (!mounted || !_loaded || !_usesRootPlayerOverlay) return;
-    if (_playerEntry != null) return;
+    if (_playerOverlay.isShowing) return;
     _syncPlayerGeometry();
-    final entry = OverlayEntry(
-      builder: (context) => Positioned.fill(
-        child: ClipRect(
-          clipper: _PlayerViewportClipper(_playerViewport),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                left: 0,
-                top: 0,
-                child: CompositedTransformFollower(
-                  link: _playerLink,
-                  showWhenUnlinked: false,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: SizedBox.fromSize(
-                      size: _playerSize,
-                      child: _buildPlayer(),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    _playerEntry = entry;
-    Overlay.of(context, rootOverlay: true).insert(entry);
+    _playerOverlay.show();
     _MacOSYoutubeScrollBridge.register(this, _handleMacOSScroll);
   }
+
+  Widget _buildOverlayPlayer(BuildContext context) => Positioned.fill(
+    child: ClipRect(
+      clipper: _PlayerViewportClipper(_playerViewport),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            child: CompositedTransformFollower(
+              link: _playerLink,
+              showWhenUnlinked: false,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox.fromSize(
+                  key: _playerSurfaceKey,
+                  size: _playerSize,
+                  child: _buildPlayer(),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _buildPlayer() =>
       widget.playerBuilder?.call(
@@ -359,7 +363,7 @@ class _YoutubeVideoState extends State<YoutubeVideo>
       _playerViewport = nextViewport;
       rebuildPlayer = true;
     }
-    if (rebuildPlayer) _playerEntry?.markNeedsBuild();
+    if (rebuildPlayer && _playerOverlay.isShowing) setState(() {});
   }
 
   bool _handleMacOSScroll(Offset globalPosition, double delta) {
@@ -381,25 +385,36 @@ class _YoutubeVideoState extends State<YoutubeVideo>
     }
     if (!visibleBounds.contains(globalPosition)) return false;
 
+    // AppKit still sees the WKWebView beneath Flutter dialogs and overlays.
+    // Only its actual Flutter hit path can establish whether the player is
+    // receiving this gesture or a covering surface owns it instead.
+    final surface = _playerSurfaceKey.currentContext?.findRenderObject();
+    if (surface == null) return false;
+    final hit = HitTestResult();
+    WidgetsBinding.instance.hitTestInView(
+      hit,
+      globalPosition,
+      View.of(context).viewId,
+    );
+    if (!hit.path.any((entry) => identical(entry.target, surface))) {
+      return false;
+    }
+
     final position = Scrollable.maybeOf(context)?.position;
     if (position == null || !position.hasContentDimensions) return true;
     position.pointerScroll(delta);
     return true;
   }
 
-  void _removePlayer() {
+  void _releasePlayer() {
     _geometrySyncToken = null;
     _MacOSYoutubeScrollBridge.unregister(this);
-    _playerEntry
-      ?..remove()
-      ..dispose();
-    _playerEntry = null;
     _playerViewport = null;
   }
 
   @override
   void dispose() {
-    _removePlayer();
+    _releasePlayer();
     super.dispose();
   }
 
@@ -407,7 +422,7 @@ class _YoutubeVideoState extends State<YoutubeVideo>
   Widget build(BuildContext context) {
     super.build(context);
 
-    return Padding(
+    final video = Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -445,6 +460,13 @@ class _YoutubeVideoState extends State<YoutubeVideo>
           );
         },
       ),
+    );
+    if (!_usesRootPlayerOverlay || !_loaded) return video;
+    return OverlayPortal(
+      controller: _playerOverlay,
+      overlayLocation: OverlayChildLocation.rootOverlay,
+      overlayChildBuilder: _buildOverlayPlayer,
+      child: video,
     );
   }
 }
@@ -501,6 +523,20 @@ final class _MacOSYoutubeScrollBridge {
     for (final target in _targets.values.toList().reversed) {
       if (target(position, delta)) return;
     }
+
+    // The native window consumed the wheel event before forwarding it here.
+    // Re-enter normal Flutter routing when a covering dialog or panel owns
+    // the hit, so its scrollable receives the gesture instead of the page.
+    final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+    if (view == null) return;
+    GestureBinding.instance.handlePointerEvent(
+      PointerScrollEvent(
+        viewId: view.viewId,
+        kind: PointerDeviceKind.mouse,
+        position: position,
+        scrollDelta: Offset(0, delta),
+      ),
+    );
   }
 }
 
