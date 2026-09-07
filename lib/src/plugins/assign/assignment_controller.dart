@@ -27,6 +27,21 @@ typedef AssignmentStatusOptions = ({bool enabled, List<String> values});
 typedef AssignmentStatusOptionsReader =
     AssignmentStatusOptions Function(String siteUrl);
 
+/// Binds an editor to its opening target and account without exposing the lease.
+final class AssignmentPickerSession {
+  const AssignmentPickerSession._({
+    required this.siteUrl,
+    required this.target,
+    required this._owner,
+    required this._lease,
+  });
+
+  final String siteUrl;
+  final AssignmentTarget target;
+  final AssignmentController _owner;
+  final PluginSiteLease _lease;
+}
+
 final class AssignmentRestorePermit {
   AssignmentRestorePermit._({
     required this._owner,
@@ -121,6 +136,19 @@ class AssignmentController extends FrameSafeNotifier
 
   AssignmentStatusOptions statusOptions(String siteUrl) =>
       _statusOptionsReader?.call(siteUrl) ?? (enabled: false, values: const []);
+
+  AssignmentPickerSession beginPicker(
+    String siteUrl,
+    AssignmentTarget target,
+  ) => AssignmentPickerSession._(
+    siteUrl: siteUrl,
+    target: target,
+    owner: this,
+    lease: _requests.capture(siteUrl),
+  );
+
+  bool isPickerCurrent(AssignmentPickerSession session) =>
+      identical(session._owner, this) && _isCurrent(session._lease);
 
   void _invalidateLegacyFallback(String siteUrl) {
     final changed = _legacyFallbackUnavailable.add(siteUrl);
