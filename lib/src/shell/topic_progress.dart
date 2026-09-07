@@ -87,27 +87,69 @@ Future<void> showTopicProgress({
   required ShellController controller,
   required int position,
   required int total,
-}) => showShellSheet<void>(
-  context: context,
-  title: 'Topic progress',
-  dialogOnDesktop: true,
-  builder: (context) => _TopicProgressEditor(
-    controller: controller,
-    position: position,
-    total: total,
-  ),
-);
+}) async {
+  final siteUrl = controller.currentInstance?.url;
+  final topicId = controller.currentContent?.topicId;
+  final tabId = controller.activeTabId;
+  if (controller.accountSessionDisposed ||
+      siteUrl == null ||
+      topicId == null ||
+      tabId == null) {
+    return;
+  }
+  final lease = controller.lifecycle.capture(siteUrl);
+  final accountIdentity = controller.currentAccountIdentity;
+  final rootMode = controller.rootMode;
+  var sourceIsCurrent = true;
+  void checkSource() {
+    sourceIsCurrent =
+        sourceIsCurrent &&
+        !controller.accountSessionDisposed &&
+        lease.isCurrent &&
+        controller.currentInstance?.url == siteUrl &&
+        controller.currentContent?.topicId == topicId &&
+        controller.activeTabId == tabId &&
+        controller.currentAccountIdentity == accountIdentity &&
+        controller.rootMode == rootMode;
+  }
+
+  // Returning to the same topic must not revive a sheet from an earlier visit.
+  controller.addListener(checkSource);
+  try {
+    await showShellSheet<void>(
+      context: context,
+      title: 'Topic progress',
+      dialogOnDesktop: true,
+      builder: (context) => _TopicProgressEditor(
+        controller: controller,
+        position: position,
+        total: total,
+        route: ModalRoute.of<void>(context)!,
+        ownsSource: () {
+          checkSource();
+          return sourceIsCurrent;
+        },
+      ),
+    );
+  } finally {
+    controller.removeListener(checkSource);
+  }
+}
 
 class _TopicProgressEditor extends StatefulWidget {
   const _TopicProgressEditor({
     required this.controller,
     required this.position,
     required this.total,
+    required this.route,
+    required this.ownsSource,
   });
 
   final ShellController controller;
   final int position;
   final int total;
+  final ModalRoute<void> route;
+  final bool Function() ownsSource;
 
   @override
   State<_TopicProgressEditor> createState() => _TopicProgressEditorState();
@@ -118,8 +160,19 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
   bool _jumping = false;
   String? _error;
 
+  bool _checkSource() {
+    if (widget.ownsSource()) return true;
+    setState(() {
+      _jumping = false;
+      _error = 'Close and reopen topic progress to jump in the current topic.';
+    });
+    return false;
+  }
+
   Future<void> _jump([int? position]) async {
-    if (_jumping) return;
+    if (!mounted || _jumping || !widget.route.isCurrent || !_checkSource()) {
+      return;
+    }
     final target = (position ?? _selected).clamp(1, widget.total);
     setState(() {
       _selected = target;
@@ -127,14 +180,16 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
       _error = null;
     });
     final opened = await widget.controller.jumpToCurrentTopicIndex(target);
-    if (!mounted) return;
-    if (opened) {
-      Navigator.of(context).pop();
+    // Dismissal leaves the editor mounted during its exit animation; only an
+    // active route may receive the result, and only a current one may pop.
+    if (!mounted || !widget.route.isActive || !_checkSource()) return;
+    if (opened && widget.route.isCurrent) {
+      widget.route.navigator!.pop();
       return;
     }
     setState(() {
       _jumping = false;
-      _error = 'Could not open that post. Try again.';
+      _error = opened ? null : 'Could not open that post. Try again.';
     });
   }
 
