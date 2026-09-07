@@ -11708,7 +11708,7 @@ class ShellController extends FrameSafeNotifier
     if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
     siteImages.forget(siteUrl);
     _removeWorkspace(siteUrl);
-    if (currentInstance?.url == siteUrl) search.clear();
+    search.forget(siteUrl);
     _composerDrafts.forgetSite(siteUrl);
 
     for (final composer in _composersForSite(siteUrl).toList()) {

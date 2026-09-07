@@ -534,6 +534,15 @@ notifications** enters DND until the status expires, or until core's eternal
 sentinel when the status has no end; unselecting it and clearing a status leave
 DND through the normal endpoint, matching the web status service.
 
+### Forum search
+
+Debounced queries retain the account lease captured when the query was entered.
+Recent-history reads, resets and search-click logging recheck that same owner
+after credential waits. Forgetting an account clears its query, results and
+cached recent searches, including when the selected forum URL stays unchanged.
+Ordinary query clearing preserves recent history for reuse; reconnecting loads
+history for the new account session.
+
 ### Topic lists
 
 Discovery lists keep **Recent**, **Top**, and **Trending** available to signed-out

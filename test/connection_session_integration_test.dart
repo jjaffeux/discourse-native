@@ -312,6 +312,29 @@ void _registerConnectionSessionTests() {
       ]);
     });
 
+    testWidgets('disconnecting removes cached private search history', (
+      tester,
+    ) async {
+      final api = _PrivateSearchHistoryApi();
+      final auth = FakeAuthenticator();
+      await pumpShell(tester, desktop, api: api, authenticator: auth);
+      await tester.tap(userMenu);
+      await tester.pumpAndSettle();
+      final shell = ShellScope.read(tester.element(find.byType(ShellTitleBar)));
+      shell.search.openPanel();
+      await tester.pump();
+      expect(shell.search.recentSearches, ['private account query']);
+
+      await shell.disconnectCurrentInstance();
+      await tester.pumpAndSettle();
+
+      expect(shell.currentInstance?.isConnected, isFalse);
+      expect(shell.search.recentSearches, isEmpty);
+      shell.search.openPanel();
+      await tester.pump();
+      expect(shell.search.recentSearches, isEmpty);
+    });
+
     testWidgets('disconnecting revokes the key with the site', (tester) async {
       final api = FakeDiscourseApi(totals: const NotificationTotals());
       final auth = FakeAuthenticator();
@@ -2628,4 +2651,13 @@ Future<void> _openProfileSection(WidgetTester tester) async {
   final tab = find.byTooltip('Profile');
   await tester.tap(tab.evaluate().isEmpty ? find.text('Profile') : tab);
   await tester.pumpAndSettle();
+}
+
+final class _PrivateSearchHistoryApi extends FakeDiscourseApi {
+  @override
+  Future<List<String>> recentSearches({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async => const ['private account query'];
 }

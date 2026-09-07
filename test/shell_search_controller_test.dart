@@ -307,6 +307,62 @@ void main() {
   });
 
   group('recent-search lifecycle', () {
+    testWidgets(
+      'forgetting history admits a new load before the old one settles',
+      (tester) async {
+        final api = _SearchApi()..gateRecentSearches = true;
+        final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
+        final search = ShellSearchController(
+          api: api,
+          credentials: credentials,
+          lifecycle: SiteLifecycle(),
+        )..selectSite(site);
+        addTearDown(search.dispose);
+        search.openPanel();
+        await tester.pump();
+        search.forget(site);
+        search.openPanel();
+        await tester.pump();
+        expect(api.recentSites, [site, site]);
+
+        api.completeRecent(1, const ['current account']);
+        await tester.pump();
+        api.completeRecent(0, const ['retired account']);
+        await tester.pump();
+
+        expect(search.recentSearches, ['current account']);
+      },
+    );
+
+    for (final unrelatedForum in [false, true]) {
+      testWidgets(
+        '${unrelatedForum ? 'forgetting another forum' : 'clearing an ordinary query'} preserves current history',
+        (tester) async {
+          final api = _SearchApi()..recent = const ['remembered'];
+          final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
+          final search = ShellSearchController(
+            api: api,
+            credentials: credentials,
+            lifecycle: SiteLifecycle(),
+          )..selectSite(site);
+          addTearDown(search.dispose);
+          search.openPanel();
+          await tester.pump();
+
+          if (unrelatedForum) {
+            search.forget('https://unrelated.example');
+          } else {
+            search.clear();
+          }
+          search.openPanel();
+          await tester.pump();
+
+          expect(search.recentSearches, ['remembered']);
+          expect(api.recentSites, [site]);
+        },
+      );
+    }
+
     testWidgets('loads, reuses, and clears authenticated searches', (
       tester,
     ) async {
@@ -485,6 +541,173 @@ void main() {
     });
   });
 
+  group('account ownership', () {
+    for (final duringLoading in [false, true]) {
+      testWidgets(
+        'an account change while ${duringLoading ? 'announcing loading' : 'debouncing'} cancels the query',
+        (tester) async {
+          final api = _SearchApi();
+          final lifecycle = SiteLifecycle();
+          final credentials = _RecordingCredentials();
+          final search = ShellSearchController(
+            api: api,
+            credentials: credentials,
+            lifecycle: lifecycle,
+          )..selectSite(site);
+          addTearDown(search.dispose);
+          if (duringLoading) {
+            search.addListener(() {
+              if (search.phase == SearchSessionPhase.loading) {
+                lifecycle.invalidate(site);
+              }
+            });
+          }
+          search.setQuery('private query');
+          if (!duringLoading) lifecycle.invalidate(site);
+          await tester.pump(const Duration(milliseconds: 400));
+
+          expect(api.terms, isEmpty);
+          expect(credentials.apiKeySites, isEmpty);
+        },
+      );
+    }
+
+    for (final dispose in [false, true]) {
+      testWidgets(
+        'recent history cannot load after ${dispose ? 'disposal' : 'rotation'} during client ID lookup',
+        (tester) async {
+          final api = _SearchApi();
+          final lifecycle = SiteLifecycle();
+          final clientId = Completer<String>();
+          final credentials = _GatedClientIdCredentials()
+            ..keys[site] = 'secret'
+            ..pendingClientId = clientId;
+          final search = ShellSearchController(
+            api: api,
+            credentials: credentials,
+            lifecycle: lifecycle,
+          )..selectSite(site);
+          if (!dispose) addTearDown(search.dispose);
+          search.openPanel();
+          await tester.pump();
+
+          if (dispose) {
+            search.dispose();
+          } else {
+            lifecycle.invalidate(site);
+          }
+          clientId.complete('old-client');
+          await tester.pump();
+
+          expect(api.recentSites, isEmpty);
+          expect(search.recentSearches, isEmpty);
+        },
+      );
+
+      testWidgets(
+        'history reset cannot write after ${dispose ? 'disposal' : 'rotation'} during client ID lookup',
+        (tester) async {
+          final api = _SearchApi()..recent = const ['private query'];
+          final lifecycle = SiteLifecycle();
+          final credentials = _GatedClientIdCredentials()
+            ..keys[site] = 'secret';
+          final search = ShellSearchController(
+            api: api,
+            credentials: credentials,
+            lifecycle: lifecycle,
+          )..selectSite(site);
+          if (!dispose) addTearDown(search.dispose);
+          search.openPanel();
+          await tester.pump();
+          expect(search.recentSearches, ['private query']);
+          final clientId = Completer<String>();
+          credentials.pendingClientId = clientId;
+          final resetting = search.resetRecentSearches();
+          await tester.pump();
+
+          if (dispose) {
+            search.dispose();
+          } else {
+            lifecycle.invalidate(site);
+          }
+          clientId.complete('old-client');
+          await resetting;
+
+          expect(api.recentResetCount, 0);
+        },
+      );
+
+      testWidgets(
+        'search clicks cannot write after ${dispose ? 'disposal' : 'rotation'} during client ID lookup',
+        (tester) async {
+          final api = _SearchApi();
+          final lifecycle = SiteLifecycle();
+          final credentials = _GatedClientIdCredentials()
+            ..keys[site] = 'secret';
+          final search = ShellSearchController(
+            api: api,
+            credentials: credentials,
+            lifecycle: lifecycle,
+          )..selectSite(site);
+          if (!dispose) addTearDown(search.dispose);
+          search.setQuery('query');
+          await tester.pump(const Duration(milliseconds: 400));
+          api.complete(
+            'query',
+            const SearchResults(
+              sections: [
+                SearchResultSection(
+                  kind: SearchResultKind.tag,
+                  results: [_facetTag],
+                ),
+              ],
+              searchLogId: 77,
+            ),
+          );
+          await tester.pump();
+          final clientId = Completer<String>();
+          credentials.pendingClientId = clientId;
+          search.recordSelection(_facetTag);
+          await tester.pump();
+
+          if (dispose) {
+            search.dispose();
+          } else {
+            lifecycle.invalidate(site);
+          }
+          clientId.complete('old-client');
+          await tester.pump();
+
+          expect(api.searchClicks, isEmpty);
+        },
+      );
+    }
+
+    testWidgets('reset keeps the account captured before notifying listeners', (
+      tester,
+    ) async {
+      final api = _SearchApi()..recent = const ['private query'];
+      final lifecycle = SiteLifecycle();
+      final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
+      final search = ShellSearchController(
+        api: api,
+        credentials: credentials,
+        lifecycle: lifecycle,
+      )..selectSite(site);
+      addTearDown(search.dispose);
+      search.openPanel();
+      await tester.pump();
+      expect(search.recentSearches, ['private query']);
+      search.addListener(() {
+        if (search.recentSearches.isEmpty) lifecycle.invalidate(site);
+      });
+
+      await search.resetRecentSearches();
+
+      expect(api.recentResetCount, 0);
+    });
+  });
+
   group('search failure handling', () {
     test('reports failures while preserving an empty fallback state', () async {
       final diagnostics = await _installDiagnostics('search-failure');
@@ -598,6 +821,13 @@ final class _RecordingCredentials extends FakeApiCredentialReader {
     clientIdReads++;
     return super.clientId();
   }
+}
+
+final class _GatedClientIdCredentials extends FakeApiCredentialReader {
+  Completer<String>? pendingClientId;
+
+  @override
+  Future<String> clientId() => pendingClientId?.future ?? super.clientId();
 }
 
 class _SearchApi extends FakeDiscourseApi {

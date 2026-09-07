@@ -69,6 +69,7 @@ typedef _SearchRequest = ({
   SearchMode mode,
   int? topicId,
   _SuggestionMatch? suggestion,
+  SiteLease lease,
   int revision,
 });
 
@@ -257,9 +258,7 @@ class ShellSearchController extends ChangeNotifier {
       _logSearchQueries = logSearchQueries;
       _taggingEnabled = taggingEnabled;
       _usePgHeadlinesForExcerpt = usePgHeadlinesForExcerpt;
-      _recentSearches = const [];
-      _recentSearchesLoadedFor = null;
-      _recentSearchesRevision++;
+      _forgetRecentSearches();
       clear(notify: true);
       return;
     }
@@ -274,9 +273,7 @@ class ShellSearchController extends ChangeNotifier {
     _taggingEnabled = taggingEnabled;
     _usePgHeadlinesForExcerpt = usePgHeadlinesForExcerpt;
     if (recentSearchRuleChanged) {
-      _recentSearches = const [];
-      _recentSearchesLoadedFor = null;
-      _recentSearchesRevision++;
+      _forgetRecentSearches();
     }
     if (searchRulesChanged && _query.trim().isNotEmpty) {
       _schedule(_query, immediate: _mode == SearchMode.topics);
@@ -294,6 +291,7 @@ class ShellSearchController extends ChangeNotifier {
   }
 
   void setQuery(String value) {
+    if (_disposed) return;
     final parsed = value.replaceAll(_zeroWidthCharacters, '');
     if (_query == parsed) return;
     _query = parsed;
@@ -305,6 +303,7 @@ class ShellSearchController extends ChangeNotifier {
   }
 
   void _schedule(String value, {bool immediate = false}) {
+    if (_disposed) return;
     _debounce?.cancel();
     _queued = null;
     _revision++;
@@ -351,6 +350,7 @@ class ShellSearchController extends ChangeNotifier {
       mode: _mode,
       topicId: _topicId,
       suggestion: suggestion,
+      lease: lifecycle.capture(siteUrl),
       revision: _revision,
     );
     _debounce = Timer(immediate ? Duration.zero : debounceDuration, () {
@@ -434,12 +434,12 @@ class ShellSearchController extends ChangeNotifier {
   }
 
   Future<void> _search(_SearchRequest request) async {
-    final lease = lifecycle.capture(request.siteUrl);
+    if (!_isCurrent(request)) return;
     try {
       final apiKey = await credentials.apiKeyFor(request.siteUrl);
-      if (!lease.isCurrent || !_isCurrent(request)) return;
+      if (!_isCurrent(request)) return;
       final clientId = await credentials.clientId();
-      if (!lease.isCurrent || !_isCurrent(request)) return;
+      if (!_isCurrent(request)) return;
 
       if (request.suggestion case final match?) {
         final suggestions = await _searchSuggestions(
@@ -448,7 +448,7 @@ class ShellSearchController extends ChangeNotifier {
           apiKey: apiKey,
           clientId: clientId,
         );
-        if (!lease.isCurrent || !_isCurrent(request)) return;
+        if (!_isCurrent(request)) return;
         _suggestions = List.unmodifiable(suggestions);
         _phase = SearchSessionPhase.suggestions;
         _notify();
@@ -463,7 +463,7 @@ class ShellSearchController extends ChangeNotifier {
         apiKey: apiKey,
         clientId: clientId,
       );
-      if (!lease.isCurrent || !_isCurrent(request)) return;
+      if (!_isCurrent(request)) return;
 
       _hits = results.hits;
       _sections = List.unmodifiable(
@@ -489,7 +489,7 @@ class ShellSearchController extends ChangeNotifier {
       }
       _notify();
     } catch (error, stackTrace) {
-      if (!lease.isCurrent || !_isCurrent(request)) return;
+      if (!_isCurrent(request)) return;
       _report(error, stackTrace);
       _hits = const [];
       _sections = const [];
@@ -671,6 +671,7 @@ class ShellSearchController extends ChangeNotifier {
 
   bool _isCurrent(_SearchRequest request) =>
       !_disposed &&
+      request.lease.isCurrent &&
       request.revision == _revision &&
       request.siteUrl == _siteUrl &&
       request.term == _query &&
@@ -706,6 +707,19 @@ class ShellSearchController extends ChangeNotifier {
     _resetResultState();
     _notify();
     if (_panelOpen) unawaited(_loadRecentSearches());
+  }
+
+  void forget(String siteUrl) {
+    if (_siteUrl != siteUrl) return;
+    _forgetRecentSearches();
+    clear();
+  }
+
+  void _forgetRecentSearches() {
+    _recentSearches = const [];
+    _recentSearchesLoadedFor = null;
+    _recentSearchesRevision++;
+    _recentSearchesRequest = null;
   }
 
   void clear({bool notify = true}) {
@@ -850,7 +864,9 @@ class ShellSearchController extends ChangeNotifier {
   Future<void> _loadRecentSearches() async {
     final siteUrl = _siteUrl;
     final pending = _recentSearchesRequest;
-    if (siteUrl == null ||
+    if (_disposed ||
+        !_panelOpen ||
+        siteUrl == null ||
         !_logSearchQueries ||
         (pending?.siteUrl == siteUrl &&
             pending?.revision == _recentSearchesRevision) ||
@@ -873,6 +889,7 @@ class ShellSearchController extends ChangeNotifier {
         return;
       }
       final clientId = await credentials.clientId();
+      if (!lease.isCurrent || !ownsRequest()) return;
       final recent = await api.recentSearches(
         siteUrl: siteUrl,
         apiKey: apiKey,
@@ -899,27 +916,30 @@ class ShellSearchController extends ChangeNotifier {
 
   Future<void> resetRecentSearches() async {
     final siteUrl = _siteUrl;
-    if (siteUrl == null || _recentSearches.isEmpty) return;
+    if (_disposed || siteUrl == null || _recentSearches.isEmpty) return;
     final previous = _recentSearches;
     final revision = ++_recentSearchesRevision;
+    final lease = lifecycle.capture(siteUrl);
+    bool ownsRequest() =>
+        !_disposed &&
+        lease.isCurrent &&
+        siteUrl == _siteUrl &&
+        revision == _recentSearchesRevision;
     _recentSearches = const [];
     _notify();
-    final lease = lifecycle.capture(siteUrl);
+    if (!ownsRequest()) return;
     try {
       final apiKey = await credentials.apiKeyFor(siteUrl);
-      if (apiKey == null || !lease.isCurrent) return;
+      if (apiKey == null || !ownsRequest()) return;
       final clientId = await credentials.clientId();
+      if (!ownsRequest()) return;
       await api.resetRecentSearches(
         siteUrl: siteUrl,
         apiKey: apiKey,
         clientId: clientId,
       );
     } catch (error, stackTrace) {
-      if (!lease.isCurrent ||
-          siteUrl != _siteUrl ||
-          revision != _recentSearchesRevision) {
-        return;
-      }
+      if (!ownsRequest()) return;
       _recentSearches = previous;
       _report(error, stackTrace, operation: 'search.clearRecent');
       _notify();
@@ -936,7 +956,7 @@ class ShellSearchController extends ChangeNotifier {
   void recordSelection(SearchResult result) {
     final siteUrl = _siteUrl;
     final searchLogId = _searchLogId;
-    if (siteUrl == null || searchLogId == null) return;
+    if (_disposed || siteUrl == null || searchLogId == null) return;
     unawaited(_recordSelection(siteUrl, searchLogId, result));
   }
 
@@ -948,8 +968,9 @@ class ShellSearchController extends ChangeNotifier {
     final lease = lifecycle.capture(siteUrl);
     try {
       final apiKey = await credentials.apiKeyFor(siteUrl);
-      if (apiKey == null || !lease.isCurrent) return;
+      if (_disposed || apiKey == null || !lease.isCurrent) return;
       final clientId = await credentials.clientId();
+      if (_disposed || !lease.isCurrent) return;
       await api.logSearchClick(
         siteUrl: siteUrl,
         apiKey: apiKey,
@@ -959,7 +980,7 @@ class ShellSearchController extends ChangeNotifier {
         clientId: clientId,
       );
     } catch (error, stackTrace) {
-      if (lease.isCurrent) {
+      if (!_disposed && lease.isCurrent) {
         _report(
           error,
           stackTrace,
@@ -1030,8 +1051,8 @@ class ShellSearchController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _debounce?.cancel();
-    _queued = null;
+    clear(notify: false);
+    _forgetRecentSearches();
     _focusField = null;
     _focusRegistration = null;
     _activeField = null;
