@@ -1903,13 +1903,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     if (stream.getVideoTracks().firstOrNull case final screenVideo?) {
       screenVideo.onEnded = () {
         if (!identical(_screenStream, stream) || _closing || disposed) return;
-        unawaited(
-          _serialize(() async {
-            if (identical(_screenStream, stream)) {
-              await _setScreenShareEnabled(false);
-            }
-          }),
-        );
+        unawaited(_serialize(() => _endScreenShare(stream)));
       };
     }
     try {
@@ -1923,6 +1917,52 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       Error.throwWithStackTrace(error, stackTrace);
     }
     changed();
+  }
+
+  Future<void> _endScreenShare(rtc.MediaStream stream) async {
+    if (!identical(_screenStream, stream)) return;
+    // An ended capture cannot be restored by rolling senders back. Relinquish
+    // ownership even when a peer cannot switch to the camera or detach.
+    _screenStream = null;
+    try {
+      await _detachEndedScreenSourceBestEffort(_MeshSource.video, _cameraTrack);
+      await _detachEndedScreenSourceBestEffort(_MeshSource.screenAudio, null);
+    } finally {
+      await _disposeStreamBestEffort(stream);
+      changed();
+    }
+  }
+
+  Future<void> _detachEndedScreenSourceBestEffort(
+    _MeshSource source,
+    rtc.MediaStreamTrack? track,
+  ) async {
+    for (final entry in _sendSlots.entries.toList()) {
+      if (!identical(_sendSlots[entry.key], entry.value)) continue;
+      final sender = entry.value.sender(source);
+      for (final replacement in [track, if (track != null) null]) {
+        try {
+          if (!identical(sender.track, replacement)) {
+            await sender.replaceTrack(replacement);
+          }
+          break;
+        } catch (error) {
+          _recordDiagnostic(
+            diagnostics,
+            'mesh.screen_share.sender_cleanup.failed',
+            component: 'webrtc',
+            correlationId: correlationId,
+            severity: DiagnosticSeverity.warning,
+            data: {
+              'peerAlias': _peerDiagnosticAlias(entry.key),
+              'source': source.name,
+              'replacement': replacement == null ? 'none' : 'camera',
+              'errorType': error.runtimeType.toString(),
+            },
+          );
+        }
+      }
+    }
   }
 
   Future<void> _setSourceTrackBestEffort(
