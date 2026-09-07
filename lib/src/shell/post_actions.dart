@@ -251,6 +251,7 @@ class _PostActionsState extends State<PostActions> {
         ? config.anonymousFlagReportEmail
         : null;
     final postUrl = _postShareUrl(controller);
+    final canonicalUrl = _postCanonicalUrl(controller);
     final topicTitle = controller.currentTopic?.title;
 
     return (
@@ -280,11 +281,15 @@ class _PostActionsState extends State<PostActions> {
                 topicTitle: topicTitle!,
                 url: url,
                 postNumber: post.postNumber,
-                onReplyAsNewTopic: topic?.canReplyAsNewTopic == true
-                    ? () => controller.openReplyAsNewTopic(
-                        topicContinuationMarkdown(
-                          title: topic!.title,
-                          url: _postCanonicalUrl(controller)!,
+                onReplyAsNewTopic:
+                    topic?.canReplyAsNewTopic == true && canonicalUrl != null
+                    ? captureShareReplyAsNewTopic(
+                        context: context,
+                        siteUrl: widget.siteUrl,
+                        topicId: topic!.id,
+                        continuation: topicContinuationMarkdown(
+                          title: topic.title,
+                          url: canonicalUrl,
                         ),
                       )
                     : null,

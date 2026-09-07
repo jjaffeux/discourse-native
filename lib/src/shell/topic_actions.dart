@@ -125,8 +125,11 @@ class TopicShareButton extends StatelessWidget {
           username: instance.user?.username,
         ),
         onReplyAsNewTopic: topic.canReplyAsNewTopic
-            ? () => controller.openReplyAsNewTopic(
-                topicContinuationMarkdown(
+            ? captureShareReplyAsNewTopic(
+                context: context,
+                siteUrl: siteUrl,
+                topicId: topic.id,
+                continuation: topicContinuationMarkdown(
                   title: topic.title,
                   url: topicShareUrl(
                     siteUrl: siteUrl,
