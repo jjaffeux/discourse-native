@@ -99,11 +99,12 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
     final initial = _customEndsAt?.isAfter(now) == true
         ? _customEndsAt!
         : now.add(const Duration(days: 1));
+    final lastDate = DateTime(now.year + 5);
     final date = await showDatePicker(
       context: context,
-      initialDate: initial,
+      initialDate: initial.isAfter(lastDate) ? lastDate : initial,
       firstDate: now,
-      lastDate: DateTime(now.year + 5),
+      lastDate: lastDate,
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(
@@ -244,39 +245,45 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                 ],
               ),
               const SizedBox(height: 10),
-              DropdownButtonFormField<_StatusExpiry>(
-                initialValue: _expiry,
+              InputDecorator(
                 decoration: const InputDecoration(
                   labelText: 'Clear after',
                   border: OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(
-                    value: _StatusExpiry.never,
-                    child: Text('Never'),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<_StatusExpiry>(
+                    value: _expiry,
+                    isDense: true,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(
+                        value: _StatusExpiry.never,
+                        child: Text('Never'),
+                      ),
+                      DropdownMenuItem(
+                        value: _StatusExpiry.oneHour,
+                        child: Text('1 hour'),
+                      ),
+                      DropdownMenuItem(
+                        value: _StatusExpiry.twoHours,
+                        child: Text('2 hours'),
+                      ),
+                      DropdownMenuItem(
+                        value: _StatusExpiry.tomorrow,
+                        child: Text('Tomorrow'),
+                      ),
+                      DropdownMenuItem(
+                        value: _StatusExpiry.custom,
+                        child: Text('Custom date and time'),
+                      ),
+                    ],
+                    onChanged: _busy
+                        ? null
+                        : (value) {
+                            if (value != null) unawaited(_chooseExpiry(value));
+                          },
                   ),
-                  DropdownMenuItem(
-                    value: _StatusExpiry.oneHour,
-                    child: Text('1 hour'),
-                  ),
-                  DropdownMenuItem(
-                    value: _StatusExpiry.twoHours,
-                    child: Text('2 hours'),
-                  ),
-                  DropdownMenuItem(
-                    value: _StatusExpiry.tomorrow,
-                    child: Text('Tomorrow'),
-                  ),
-                  DropdownMenuItem(
-                    value: _StatusExpiry.custom,
-                    child: Text('Custom date and time'),
-                  ),
-                ],
-                onChanged: _busy
-                    ? null
-                    : (value) {
-                        if (value != null) unawaited(_chooseExpiry(value));
-                      },
+                ),
               ),
               if (_expiry == _StatusExpiry.custom && _customEndsAt != null) ...[
                 const SizedBox(height: 8),
