@@ -2393,6 +2393,12 @@ and native controls. A failed document or media element releases that session
 and prevents pending native setup from loading it again. This keeps Apple
 builds on Swift Package Manager and avoids shipping a second Linux media framework.
 
+Playback progress updates only the timeline; play/pause and buffering each
+observe their own state. Inline and full-screen players keep their platform
+presentation and other actions stable across those notifications. A change to
+the player, aspect ratio, or rotation refreshes the presentation, and inherited
+theme changes still reach the player and actions.
+
 A protected same-origin upload is resolved before playback. User API headers
 are sent only to the forum while redirects are walked explicitly; the player
 normally receives the final signed CDN URL with no credentials. Unsafe URLs,

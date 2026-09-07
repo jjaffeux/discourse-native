@@ -74,6 +74,7 @@ void main() {
     );
     expect(session.state.phase, InlineVideoPlaybackPhase.ready);
     expect(session.state.isBuffering, isTrue);
+    final playerBuilder = session.state.playerBuilder;
 
     controller.delegate!.onPageFinished!('https://cdn.example/');
     await tester.pump();
@@ -83,9 +84,11 @@ void main() {
 
     expect(session.state.isBuffering, isFalse);
     expect(session.state.isPlaying, isTrue);
+    expect(session.state.playerBuilder, same(playerBuilder));
     expect(controller.scripts, ["document.querySelector('video')?.play();"]);
     await session.pause();
     expect(session.state.isPlaying, isFalse);
+    expect(session.state.playerBuilder, same(playerBuilder));
   });
 }
 

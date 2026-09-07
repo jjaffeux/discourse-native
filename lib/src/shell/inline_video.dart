@@ -513,7 +513,6 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
     if (session.state.isPlaying) {
       _InlineVideoPlaybackCoordinator.activate(session, session.pause);
     }
-    setState(() {});
   }
 
   void _retry() => _replaceSession();
@@ -568,66 +567,58 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
 
   @override
   Widget build(BuildContext context) {
-    final session = _session;
-    final state = session?.state;
-    if (state?.phase == InlineVideoPlaybackPhase.failed) {
-      return _ActiveVideoFrame(
-        data: widget.data,
-        actions: widget.actionsBuilder?.call(context),
-        child: _VideoFailure(data: widget.data, onRetry: _retry),
-      );
-    }
-    final playerBuilder = state?.playerBuilder;
-    if (session == null || playerBuilder == null) {
-      return _ActiveVideoFrame(
-        data: widget.data,
-        actions: widget.actionsBuilder?.call(context),
-        child: const ColoredBox(
-          color: Colors.black,
-          child: Center(child: CircularProgressIndicator(color: Colors.white)),
-        ),
-      );
-    }
-
+    final session = _session!;
     return _ActiveVideoFrame(
       data: widget.data,
       actions: widget.actionsBuilder?.call(context),
-      child: Semantics(
-        label: 'Video player: ${widget.data.title}',
-        child: ColoredBox(
-          color: Colors.black,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Center(
-                child: AspectRatio(
-                  aspectRatio: state!.aspectRatio,
-                  child: _fullscreenOpen
-                      ? const SizedBox.shrink()
-                      : playerBuilder(),
-                ),
+      child: _PlaybackStateBuilder(
+        session: session,
+        select: _selectPresentation,
+        builder: (context, presentation) {
+          if (presentation.phase == InlineVideoPlaybackPhase.failed) {
+            return _VideoFailure(data: widget.data, onRetry: _retry);
+          }
+          final playerBuilder = presentation.playerBuilder;
+          if (playerBuilder == null) {
+            return const ColoredBox(
+              color: Colors.black,
+              child: Center(
+                child: CircularProgressIndicator(color: Colors.white),
               ),
-              if (state.showAppControls)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: _PlaybackControls(
-                    state: state,
-                    onTogglePlayback: () => unawaited(_togglePlayback()),
-                    onSeek: session.seekTo,
-                    onEnterFullscreen: state.supportsFullscreen
-                        ? () => unawaited(_openFullscreen())
-                        : null,
+            );
+          }
+          return Semantics(
+            label: 'Video player: ${widget.data.title}',
+            child: ColoredBox(
+              color: Colors.black,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Center(
+                    child: AspectRatio(
+                      aspectRatio: presentation.aspectRatio,
+                      child: _fullscreenOpen
+                          ? const SizedBox.shrink()
+                          : playerBuilder(),
+                    ),
                   ),
-                ),
-              if (state.isBuffering)
-                const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-            ],
-          ),
-        ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _PlaybackControls(
+                      session: session,
+                      onTogglePlayback: () => unawaited(_togglePlayback()),
+                      onSeek: session.seekTo,
+                      onEnterFullscreen: () => unawaited(_openFullscreen()),
+                    ),
+                  ),
+                  _PlaybackBuffering(session: session),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -644,6 +635,87 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
     }
     super.dispose();
   }
+}
+
+typedef _PlaybackPresentation = ({
+  InlineVideoPlaybackPhase phase,
+  double aspectRatio,
+  Widget Function()? playerBuilder,
+});
+
+_PlaybackPresentation _selectPresentation(InlineVideoPlaybackState state) => (
+  phase: state.phase,
+  aspectRatio: state.aspectRatio,
+  playerBuilder: state.playerBuilder,
+);
+
+/// Selects playback values without caching widgets that depend on inherited
+/// context. Parent and environment changes still rebuild normally.
+class _PlaybackStateBuilder<T> extends StatefulWidget {
+  const _PlaybackStateBuilder({
+    required this.session,
+    required this.select,
+    required this.builder,
+  });
+
+  final InlineVideoPlaybackSession session;
+  final T Function(InlineVideoPlaybackState state) select;
+  final Widget Function(BuildContext context, T value) builder;
+
+  @override
+  State<_PlaybackStateBuilder<T>> createState() =>
+      _PlaybackStateBuilderState<T>();
+}
+
+class _PlaybackStateBuilderState<T> extends State<_PlaybackStateBuilder<T>> {
+  late T _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.select(widget.session.state);
+    widget.session.addListener(_select);
+  }
+
+  @override
+  void didUpdateWidget(_PlaybackStateBuilder<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.session, widget.session)) {
+      oldWidget.session.removeListener(_select);
+      widget.session.addListener(_select);
+    }
+    _value = widget.select(widget.session.state);
+  }
+
+  void _select() {
+    final next = widget.select(widget.session.state);
+    if (next == _value) return;
+    setState(() => _value = next);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _value);
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_select);
+    super.dispose();
+  }
+}
+
+class _PlaybackBuffering extends StatelessWidget {
+  const _PlaybackBuffering({required this.session});
+
+  final InlineVideoPlaybackSession session;
+
+  @override
+  Widget build(BuildContext context) => _PlaybackStateBuilder(
+    session: session,
+    select: (state) => state.isBuffering,
+    builder: (context, isBuffering) => isBuffering
+        ? const Center(child: CircularProgressIndicator(color: Colors.white))
+        : const SizedBox.shrink(),
+  );
 }
 
 class _InlineVideoFullscreen extends StatelessWidget {
@@ -671,11 +743,11 @@ class _InlineVideoFullscreen extends StatelessWidget {
         key: const ValueKey('inline-video-fullscreen-view'),
         backgroundColor: Colors.black,
         body: SafeArea(
-          child: AnimatedBuilder(
-            animation: session,
-            builder: (context, _) {
-              final state = session.state;
-              final playerBuilder = state.playerBuilder;
+          child: _PlaybackStateBuilder(
+            session: session,
+            select: _selectPresentation,
+            builder: (context, presentation) {
+              final playerBuilder = presentation.playerBuilder;
               if (playerBuilder == null) return const SizedBox.shrink();
               return Semantics(
                 label: 'Full-screen video player: ${data.title}',
@@ -684,7 +756,7 @@ class _InlineVideoFullscreen extends StatelessWidget {
                   children: [
                     Center(
                       child: AspectRatio(
-                        aspectRatio: state.aspectRatio,
+                        aspectRatio: presentation.aspectRatio,
                         child: playerBuilder(),
                       ),
                     ),
@@ -695,16 +767,13 @@ class _InlineVideoFullscreen extends StatelessWidget {
                       right: 0,
                       bottom: 0,
                       child: _PlaybackControls(
-                        state: state,
+                        session: session,
                         onTogglePlayback: onTogglePlayback,
                         onSeek: session.seekTo,
                         onExitFullscreen: Navigator.of(context).pop,
                       ),
                     ),
-                    if (state.isBuffering)
-                      const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      ),
+                    _PlaybackBuffering(session: session),
                   ],
                 ),
               );
@@ -718,48 +787,104 @@ class _InlineVideoFullscreen extends StatelessWidget {
 
 class _PlaybackControls extends StatelessWidget {
   const _PlaybackControls({
-    required this.state,
+    required this.session,
     required this.onTogglePlayback,
     required this.onSeek,
     this.onEnterFullscreen,
     this.onExitFullscreen,
   }) : assert(onEnterFullscreen == null || onExitFullscreen == null);
 
-  final InlineVideoPlaybackState state;
+  final InlineVideoPlaybackSession session;
   final VoidCallback onTogglePlayback;
   final ValueChanged<Duration> onSeek;
   final VoidCallback? onEnterFullscreen;
   final VoidCallback? onExitFullscreen;
 
   @override
-  Widget build(BuildContext context) {
-    final durationMilliseconds = state.duration.inMilliseconds;
-    final positionMilliseconds = state.position.inMilliseconds.clamp(
-      0,
-      math.max(durationMilliseconds, 0),
-    );
-    final bufferedMilliseconds = state.buffered.inMilliseconds.clamp(
-      positionMilliseconds,
-      math.max(durationMilliseconds, positionMilliseconds),
-    );
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.transparent, Color(0xDD000000)],
-        ),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: state.isPlaying ? 'Pause' : 'Play',
-            color: Colors.white,
-            onPressed: onTogglePlayback,
-            icon: Icon(
-              state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-            ),
+  Widget build(BuildContext context) => _PlaybackStateBuilder(
+    session: session,
+    select: (state) => (
+      showControls: state.showAppControls,
+      supportsFullscreen: state.supportsFullscreen,
+    ),
+    builder: (context, controls) {
+      if (!controls.showControls) return const SizedBox.shrink();
+      return DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.transparent, Color(0xDD000000)],
           ),
+        ),
+        child: Row(
+          children: [
+            _PlaybackStateBuilder(
+              session: session,
+              select: (state) => state.isPlaying,
+              builder: (context, isPlaying) => IconButton(
+                tooltip: isPlaying ? 'Pause' : 'Play',
+                color: Colors.white,
+                onPressed: onTogglePlayback,
+                icon: Icon(
+                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                ),
+              ),
+            ),
+            Expanded(
+              child: _PlaybackTimeline(session: session, onSeek: onSeek),
+            ),
+            if (onExitFullscreen case final exit?)
+              IconButton(
+                key: const ValueKey('inline-video-fullscreen-close'),
+                tooltip: 'Exit full screen',
+                color: Colors.white,
+                onPressed: exit,
+                icon: const Icon(Icons.fullscreen_exit_rounded),
+              )
+            else if (onEnterFullscreen != null && controls.supportsFullscreen)
+              IconButton(
+                key: const ValueKey('inline-video-fullscreen'),
+                tooltip: 'Enter full screen',
+                color: Colors.white,
+                onPressed: onEnterFullscreen,
+                icon: const DIcon(DIcons.expand, size: 18, color: Colors.white),
+              )
+            else
+              const SizedBox(width: 12),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class _PlaybackTimeline extends StatelessWidget {
+  const _PlaybackTimeline({required this.session, required this.onSeek});
+
+  final InlineVideoPlaybackSession session;
+  final ValueChanged<Duration> onSeek;
+
+  @override
+  Widget build(BuildContext context) => _PlaybackStateBuilder(
+    session: session,
+    select: (state) => (
+      position: state.position,
+      duration: state.duration,
+      buffered: state.buffered,
+    ),
+    builder: (context, timeline) {
+      final durationMilliseconds = timeline.duration.inMilliseconds;
+      final positionMilliseconds = timeline.position.inMilliseconds.clamp(
+        0,
+        math.max(durationMilliseconds, 0),
+      );
+      final bufferedMilliseconds = timeline.buffered.inMilliseconds.clamp(
+        positionMilliseconds,
+        math.max(durationMilliseconds, positionMilliseconds),
+      );
+      return Row(
+        children: [
           Expanded(
             child: SliderTheme(
               data: SliderTheme.of(context).copyWith(
@@ -785,33 +910,15 @@ class _PlaybackControls extends StatelessWidget {
             ),
           ),
           Text(
-            '${_duration(state.position)} / ${_duration(state.duration)}',
+            '${_duration(timeline.position)} / ${_duration(timeline.duration)}',
             style: Theme.of(
               context,
             ).textTheme.labelSmall?.copyWith(color: Colors.white),
           ),
-          if (onEnterFullscreen case final enter?)
-            IconButton(
-              key: const ValueKey('inline-video-fullscreen'),
-              tooltip: 'Enter full screen',
-              color: Colors.white,
-              onPressed: enter,
-              icon: const DIcon(DIcons.expand, size: 18, color: Colors.white),
-            )
-          else if (onExitFullscreen case final exit?)
-            IconButton(
-              key: const ValueKey('inline-video-fullscreen-close'),
-              tooltip: 'Exit full screen',
-              color: Colors.white,
-              onPressed: exit,
-              icon: const Icon(Icons.fullscreen_exit_rounded),
-            )
-          else
-            const SizedBox(width: 12),
         ],
-      ),
-    );
-  }
+      );
+    },
+  );
 }
 
 final class _InlineVideoPlaybackCoordinator {

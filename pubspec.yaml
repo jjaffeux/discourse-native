@@ -133,6 +133,9 @@ dev_dependencies:
   # Exercise native WebView ownership through the real platform boundary.
   webview_platform_interface: 1.3.10
 
+  # Exercise native playback notifications and platform-view rebuilds.
+  video_player_platform_interface: 6.9.0
+
   # Gate native calendar export continuations without opening platform UI.
   file_selector_platform_interface: 2.7.0
   share_plus_platform_interface: 6.1.0

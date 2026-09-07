@@ -13,6 +13,8 @@ import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html_parser;
 
+import 'support/fakes.dart' show FakeApiCredentialReader;
+
 void main() {
   group('InlineVideoData', () {
     test('reads the current lazy Discourse placeholder', () {
@@ -584,6 +586,148 @@ void main() {
     expect(sessions.last.disposeCount, 1);
   });
 
+  for (final changed in ['site', 'credentials', 'lifecycle', 'factory']) {
+    testWidgets(
+      '$changed replacement moves presentation and controls to the new session',
+      (tester) async {
+        final sessions = <_FakePlaybackSession>[];
+        final data = _videoData('demo.mp4', 'Demo');
+        final credentials = FakeApiCredentialReader();
+        final replacementCredentials = FakeApiCredentialReader();
+        final lifecycle = SiteLifecycle();
+        final replacementLifecycle = SiteLifecycle();
+        InlineVideoPlaybackSession create(InlineVideoPlaybackRequest request) {
+          final session = _FakePlaybackSession(request)..completeReady();
+          sessions.add(session);
+          return session;
+        }
+
+        final InlineVideoPlaybackSessionFactory factory = create;
+        InlineVideoPlaybackSession replacementFactory(
+          InlineVideoPlaybackRequest request,
+        ) => create(request);
+        Widget app({required bool replaced}) => MaterialApp(
+          home: Scaffold(
+            body: InlineVideoPlaybackSurface(
+              data: data,
+              siteUrl: replaced && changed == 'site'
+                  ? 'https://other.example.com'
+                  : 'https://meta.discourse.org',
+              credentials: replaced && changed == 'credentials'
+                  ? replacementCredentials
+                  : credentials,
+              lifecycle: replaced && changed == 'lifecycle'
+                  ? replacementLifecycle
+                  : lifecycle,
+              sessionFactory: replaced && changed == 'factory'
+                  ? replacementFactory
+                  : factory,
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(app(replaced: false));
+        await tester.pumpWidget(app(replaced: true));
+        expect(sessions, hasLength(2));
+        expect(sessions.first.disposeCount, 1);
+        sessions.first.fail();
+        await sessions.first.pause();
+        sessions.last.update(position: const Duration(seconds: 11));
+        await tester.pump();
+        expect(find.text("Couldn't play this video."), findsNothing);
+        expect(find.text('0:11 / 0:20'), findsOneWidget);
+        await tester.tap(find.byTooltip('Pause'));
+        await tester.pump();
+        expect(sessions.last.pauseCount, 1);
+        expect(find.byTooltip('Play'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        expect(sessions.last.disposeCount, 1);
+      },
+    );
+  }
+
+  testWidgets(
+    'control capabilities and a replacement player appear without a new session',
+    (tester) async {
+      final sessions = <_FakePlaybackSession>[];
+      await tester.pumpWidget(
+        _sessionApp(_videoData('demo.mp4', 'Demo'), sessions),
+      );
+      final session = sessions.single..completeReady();
+      await tester.pump();
+      session.update(showAppControls: false);
+      await tester.pump();
+      expect(find.byType(Slider), findsNothing);
+      expect(find.byTooltip('Pause'), findsNothing);
+      session.update(showAppControls: true, supportsFullscreen: false);
+      await tester.pump();
+      expect(find.byType(Slider), findsOneWidget);
+      expect(find.byTooltip('Enter full screen'), findsNothing);
+      session.update(
+        supportsFullscreen: true,
+        playerBuilder: () => const ColoredBox(
+          key: ValueKey('replacement-player'),
+          color: Colors.blue,
+        ),
+      );
+      await tester.pump();
+      expect(find.byTooltip('Enter full screen'), findsOneWidget);
+      expect(find.byKey(const ValueKey('fake-player')), findsNothing);
+      expect(find.byKey(const ValueKey('replacement-player')), findsOneWidget);
+      expect(session.startCount, 1);
+    },
+  );
+
+  testWidgets(
+    'parent and inherited changes refresh playback chrome without restarting the session',
+    (tester) async {
+      final dark = ValueNotifier(false);
+      addTearDown(dark.dispose);
+      late _FakePlaybackSession session;
+      final data = _videoData('demo.mp4', 'Demo');
+      InlineVideoPlaybackSession factory(InlineVideoPlaybackRequest request) =>
+          session = _FakePlaybackSession(request)..completeReady();
+      Widget app(String label) => MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<bool>(
+            valueListenable: dark,
+            builder: (context, isDark, child) => Theme(
+              data: isDark ? AppTheme.dark : AppTheme.light,
+              child: child!,
+            ),
+            child: InlineVideoPlaybackSurface(
+              data: data,
+              siteUrl: null,
+              credentials: null,
+              lifecycle: null,
+              sessionFactory: factory,
+              actionsBuilder: (context) =>
+                  Text('$label ${Theme.of(context).brightness.name}'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(app('actions'));
+      expect(find.text('actions light'), findsOneWidget);
+      session.update(
+        playerBuilder: () => Builder(
+          builder: (context) =>
+              Text('player ${Theme.of(context).brightness.name}'),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('player light'), findsOneWidget);
+      dark.value = true;
+      await tester.pump();
+      expect(find.text('actions dark'), findsOneWidget);
+      expect(find.text('player dark'), findsOneWidget);
+      await tester.pumpWidget(app('updated'));
+      expect(find.text('updated dark'), findsOneWidget);
+      expect(session.startCount, 1);
+      expect(session.disposeCount, 0);
+    },
+  );
+
   testWidgets('disposal ignores late initialization and releases once', (
     tester,
   ) async {
@@ -871,6 +1015,27 @@ final class _FakePlaybackSession implements InlineVideoPlaybackSession {
       phase: InlineVideoPlaybackPhase.failed,
       aspectRatio: request.aspectRatio,
       error: StateError('failed'),
+    );
+    _notifyListeners();
+  }
+
+  void update({
+    Duration? position,
+    bool? showAppControls,
+    bool? supportsFullscreen,
+    Widget Function()? playerBuilder,
+  }) {
+    _state = InlineVideoPlaybackState(
+      phase: _state.phase,
+      aspectRatio: _state.aspectRatio,
+      playerBuilder: playerBuilder ?? _state.playerBuilder,
+      isPlaying: _state.isPlaying,
+      isBuffering: _state.isBuffering,
+      position: position ?? _state.position,
+      duration: _state.duration,
+      buffered: _state.buffered,
+      showAppControls: showAppControls ?? _state.showAppControls,
+      supportsFullscreen: supportsFullscreen ?? _state.supportsFullscreen,
     );
     _notifyListeners();
   }

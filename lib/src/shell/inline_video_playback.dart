@@ -55,6 +55,9 @@ final class InlineVideoPlaybackState {
 
   final InlineVideoPlaybackPhase phase;
   final double aspectRatio;
+
+  /// Stable while the platform presentation is unchanged, including across
+  /// position and buffering updates. A new builder invalidates the player view.
   final Widget Function()? playerBuilder;
   final bool isPlaying;
   final bool isBuffering;
@@ -242,7 +245,7 @@ final class _NativeInlineVideoPlaybackSession
       InlineVideoPlaybackState(
         phase: InlineVideoPlaybackPhase.ready,
         aspectRatio: ratio,
-        playerBuilder: () => VideoPlayer(controller),
+        playerBuilder: _controllerLease!.playerBuilder,
         isPlaying: value.isPlaying,
         isBuffering: value.isBuffering,
         position: value.position,
@@ -308,6 +311,19 @@ final class _NativeControllerLease {
   final VideoPlayerController controller;
   final VoidCallback listener;
   bool _released = false;
+  int? _rotationCorrection;
+  Widget Function()? _playerBuilder;
+
+  Widget Function() get playerBuilder {
+    final rotation = controller.value.rotationCorrection;
+    if (_playerBuilder == null || _rotationCorrection != rotation) {
+      _rotationCorrection = rotation;
+      // VideoPlayer only listens for player-ID changes; rotation is read in
+      // build, so it must invalidate the otherwise stable presentation.
+      _playerBuilder = () => VideoPlayer(controller);
+    }
+    return _playerBuilder!;
+  }
 
   void release() {
     if (_released) return;
@@ -336,6 +352,7 @@ final class _WebViewInlineVideoPlaybackSession
 
   _VideoSourceResolution? _sourceResolution;
   WebViewController? _controller;
+  Widget Function()? _playerBuilder;
   bool _loadingDocument = true;
   bool _released = false;
 
@@ -361,6 +378,10 @@ final class _WebViewInlineVideoPlaybackSession
       mediaWebViewCreationParams(),
     );
     _controller = controller;
+    _playerBuilder = () => WebViewWidget(
+      controller: controller,
+      gestureRecognizers: mediaPlayerGestureRecognizers,
+    );
     await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
     if (!_isCurrent(controller)) return;
     await controller.addJavaScriptChannel(
@@ -423,10 +444,7 @@ final class _WebViewInlineVideoPlaybackSession
       InlineVideoPlaybackState(
         phase: InlineVideoPlaybackPhase.ready,
         aspectRatio: request.aspectRatio,
-        playerBuilder: () => WebViewWidget(
-          controller: controller,
-          gestureRecognizers: mediaPlayerGestureRecognizers,
-        ),
+        playerBuilder: _playerBuilder,
         isPlaying: isPlaying,
         isBuffering: _loadingDocument,
       ),
@@ -476,6 +494,7 @@ final class _WebViewInlineVideoPlaybackSession
     _sourceResolution = null;
     final controller = _controller;
     _controller = null;
+    _playerBuilder = null;
     if (controller != null) unawaited(_pauseIgnoringErrors(controller));
   }
 }
