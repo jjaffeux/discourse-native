@@ -12,6 +12,67 @@ import 'package:discourse_native/src/shell/user_directory_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final dispose in [false, true]) {
+    test(
+      'a ${dispose ? 'disposed' : 'forgotten'} directory does not start metadata after credential lookup',
+      () async {
+        final transport = _ControllerTransport();
+        final controller = UserDirectoryController(
+          api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+          credentials: const _Credentials(),
+          lifecycle: SiteLifecycle(),
+        );
+        const instance = DiscourseInstance(
+          url: 'https://example.com',
+          title: 'Example',
+        );
+
+        final loading = controller.load(instance);
+        if (dispose) {
+          controller.dispose();
+        } else {
+          addTearDown(controller.dispose);
+          controller.forget(instance.url);
+        }
+        await loading;
+
+        expect(transport.requests, isEmpty);
+        expect(controller.stateFor(instance.url).columns, isEmpty);
+      },
+    );
+  }
+
+  test('an immediate account replacement owns its metadata request', () async {
+    final transport = _ControllerTransport();
+    final lifecycle = SiteLifecycle();
+    final controller = UserDirectoryController(
+      api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+      credentials: const _Credentials(),
+      lifecycle: lifecycle,
+    );
+    addTearDown(controller.dispose);
+    const instance = DiscourseInstance(
+      url: 'https://example.com',
+      title: 'Example',
+    );
+
+    final signedOut = controller.load(instance);
+    lifecycle.invalidate(instance.url);
+    controller.forget(instance.url);
+    final signedIn = controller.load(
+      instance.copyWith(
+        user: const DiscourseUser(username: 'admin', staff: true),
+      ),
+    );
+    await Future.wait([signedOut, signedIn]);
+
+    final state = controller.stateFor(instance.url);
+    expect(state.loaded, isTrue);
+    expect(state.canManageColumns, isTrue);
+    expect(transport.requests, isNot(contains('/directory-columns.json')));
+    expect(transport.requests.first, '/edit-directory-columns.json');
+  });
+
   test('loads, paginates, changes query, and forgets per-site state', () async {
     final transport = _ControllerTransport();
     final controller = UserDirectoryController(

@@ -241,7 +241,7 @@ final class UserDirectoryController extends FrameSafeNotifier {
 
     try {
       final auth = await _credentialsFor(instance, key, token, lease);
-      if (auth == null) return;
+      if (auth == null || !_isCurrent(key, token, lease)) return;
       final metadata = await _ensureMetadata(instance, auth, lease);
       if (!_isCurrent(key, token, lease)) return;
       final page = await api.directory(
