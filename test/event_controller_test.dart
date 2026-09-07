@@ -312,6 +312,81 @@ void main() {
   });
 
   test(
+    'forgotten handles and a pending old read cannot change a replacement entry',
+    () async {
+      final seed = PostEvent.decode(current)!;
+      final old = ports.controller.acquire(eventSite, seed);
+      addTearDown(old.dispose);
+      await old.refresh();
+      final entered = Completer<void>();
+      final pending = Completer<Map<String, dynamic>>();
+      ports.transport.responders[read] = (_) {
+        entered.complete();
+        return pending.future;
+      };
+      final oldRead = old.refresh();
+      await entered.future;
+      ports.requests.forget(eventSite);
+      ports.requests.apiKeys[eventSite] = 'replacement-key';
+      ports.controller.forget(eventSite);
+
+      current = eventJson(
+        overrides: {'name': 'Replacement account', 'watching_invitee': null},
+      );
+      ports.transport.responders[read] = (_) => {'event': current};
+      final next = ports.controller.acquire(
+        eventSite,
+        PostEvent.decode(current)!,
+      );
+      final peer = ports.controller.acquire(eventSite, seed);
+      addTearDown(next.dispose);
+      addTearDown(peer.dispose);
+      await next.refresh();
+      expect(next.event, same(peer.event));
+      final reads = ports.transport.reads.length;
+
+      old.updateSource(
+        PostEvent.decode(eventJson(overrides: {'name': 'Obsolete source'}))!,
+      );
+      await old.refresh();
+      await old.respond('going');
+      expect(await old.invite(['sam']), isFalse);
+      await expectLater(
+        ports.controller.participants(old),
+        throwsA(isA<WriteException>()),
+      );
+      expect(ports.transport.reads, hasLength(reads));
+      expect(ports.transport.writes, isEmpty);
+
+      pending.complete({
+        'event': eventJson(
+          overrides: {
+            'name': 'Previous account',
+            'watching_invitee': watching(),
+          },
+        ),
+      });
+      await oldRead;
+      expect(old.event, isNull);
+      expect(old.authoritative, isFalse);
+      expect(next.event!.title, 'Replacement account');
+      expect(next.event!.watching, isNull);
+      expect(next.authoritative, isTrue);
+
+      old.dispose();
+      old.dispose();
+      next.dispose();
+      expect(ports.channels.subscriberCount('/discourse-post-event/700'), 1);
+      current = eventJson(overrides: {'name': 'Still subscribed'});
+      ports.channels.deliver('/discourse-post-event/700', {'id': 42});
+      await peer.refresh();
+      expect(peer.event!.title, 'Still subscribed');
+      peer.dispose();
+      expect(ports.channels.channels, isEmpty);
+    },
+  );
+
+  test(
     'disposing an old account card cannot evict a new account record with the same ID',
     () async {
       final old = ports.controller.acquire(
