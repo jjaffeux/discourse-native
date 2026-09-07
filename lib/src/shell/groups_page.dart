@@ -84,7 +84,11 @@ class _GroupsPageState extends State<GroupsPage> {
   @override
   void didUpdateWidget(GroupsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_searchFocus.hasFocus && widget.data.query != _searchController.text) {
+    final siteChanged = oldWidget.siteUrl != widget.siteUrl;
+    if (siteChanged) _searchDebounce?.cancel();
+    if (siteChanged ||
+        (!_searchFocus.hasFocus &&
+            widget.data.query != _searchController.text)) {
       _searchController.value = TextEditingValue(
         text: widget.data.query,
         selection: TextSelection.collapsed(offset: widget.data.query.length),
@@ -291,48 +295,51 @@ class _DirectoryControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final types = <String>{...data.typeFilters};
     if (data.type case final selected?) types.add(selected);
-    final search = TextField(
-      key: const ValueKey('groups-search'),
-      controller: searchController,
-      focusNode: searchFocus,
-      autofocus: true,
-      onChanged: onSearchChanged,
-      onSubmitted: onSearchSubmitted,
-      textInputAction: TextInputAction.search,
-      style: Theme.of(context).textTheme.labelLarge,
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: 'Search groups',
-        prefixIcon: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          child: DIcon(DIcons.magnifyingGlass, size: 18),
-        ),
-        prefixIconConstraints: const BoxConstraints(
-          minWidth: 42,
-          minHeight: 37,
-        ),
-        suffixIcon: searchController.text.isEmpty
-            ? null
-            : IconButton(
-                tooltip: 'Clear search',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 42),
-                iconSize: 16,
-                style: IconButton.styleFrom(
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    final search = ValueListenableBuilder<TextEditingValue>(
+      valueListenable: searchController,
+      builder: (context, value, _) => TextField(
+        key: const ValueKey('groups-search'),
+        controller: searchController,
+        focusNode: searchFocus,
+        autofocus: true,
+        onChanged: onSearchChanged,
+        onSubmitted: onSearchSubmitted,
+        textInputAction: TextInputAction.search,
+        style: Theme.of(context).textTheme.labelLarge,
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'Search groups',
+          prefixIcon: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            child: DIcon(DIcons.magnifyingGlass, size: 18),
+          ),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 42,
+            minHeight: 37,
+          ),
+          suffixIcon: value.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Clear search',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 42),
+                  iconSize: 16,
+                  style: IconButton.styleFrom(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () {
+                    searchController.clear();
+                    onSearchSubmitted('');
+                  },
+                  icon: const DIcon(DIcons.xmark, size: 16),
                 ),
-                onPressed: () {
-                  searchController.clear();
-                  onSearchSubmitted('');
-                },
-                icon: const DIcon(DIcons.xmark, size: 16),
-              ),
-        suffixIconConstraints: const BoxConstraints(
-          minWidth: 42,
-          minHeight: 37,
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: 42,
+            minHeight: 37,
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 9),
+          border: const OutlineInputBorder(),
         ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 9),
-        border: const OutlineInputBorder(),
       ),
     );
     final typeFilter = _GroupTypeFilter(
