@@ -42,7 +42,7 @@ final class SiteImageRepository {
   final bool _ownsClient;
 
   final Map<String, _SiteImageSession> _sessions = {};
-  final Map<String, Future<_SiteImageSession?>> _opening = {};
+  final Map<String, _SiteImageOpening> _opening = {};
   bool _disposed = false;
 
   Future<SiteImageBytes?> load({
@@ -84,48 +84,49 @@ final class SiteImageRepository {
     _sessions.remove(siteUrl)?.cache.close();
 
     final pending = _opening[siteUrl];
-    if (pending != null) return pending;
+    if (pending != null && pending.lease.isCurrent) return pending.result;
 
-    final lease = lifecycle.capture(siteUrl);
-    late final Future<_SiteImageSession?> opening;
-    opening = _open(siteUrl, lease)
-        .then((session) {
-          if (!_disposed &&
-              session != null &&
-              session.lease.isCurrent &&
-              identical(_opening[siteUrl], opening)) {
-            _sessions[siteUrl] = session;
-            return session;
-          }
-          session?.cache.close();
-          return null;
-        })
-        .whenComplete(() {
-          if (identical(_opening[siteUrl], opening)) {
-            final _ = _opening.remove(siteUrl);
-          }
-        });
+    final opening = _SiteImageOpening(lifecycle.capture(siteUrl));
     _opening[siteUrl] = opening;
-    return opening;
+    return opening.result = _open(siteUrl, opening);
   }
 
-  Future<_SiteImageSession?> _open(String siteUrl, SiteLease lease) async {
-    final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (!lease.isCurrent || _disposed) return null;
-    final clientId = apiKey == null ? null : await credentials.clientId();
-    if (!lease.isCurrent || _disposed) return null;
+  bool _isCurrentOpening(String siteUrl, _SiteImageOpening opening) =>
+      !_disposed &&
+      opening.lease.isCurrent &&
+      identical(_opening[siteUrl], opening);
 
-    final origin = Uri.tryParse(siteUrl)?.origin;
-    if (origin == null || origin.isEmpty) return null;
-    return _SiteImageSession(
-      lease: lease,
-      cache: _AuthenticatedSiteImageCache(
-        client: _client,
-        authenticatedOrigin: origin,
-        apiKey: apiKey,
-        clientId: clientId,
-      ),
-    );
+  Future<_SiteImageSession?> _open(
+    String siteUrl,
+    _SiteImageOpening opening,
+  ) async {
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_isCurrentOpening(siteUrl, opening)) return null;
+      final clientId = apiKey == null ? null : await credentials.clientId();
+      if (!_isCurrentOpening(siteUrl, opening)) return null;
+
+      final origin = Uri.tryParse(siteUrl)?.origin;
+      if (origin == null || origin.isEmpty) return null;
+      final session = _SiteImageSession(
+        lease: opening.lease,
+        cache: _AuthenticatedSiteImageCache(
+          client: _client,
+          authenticatedOrigin: origin,
+          apiKey: apiKey,
+          clientId: clientId,
+        ),
+      );
+      _sessions[siteUrl] = session;
+      return session;
+    } catch (_) {
+      if (_isCurrentOpening(siteUrl, opening)) rethrow;
+      return null;
+    } finally {
+      if (identical(_opening[siteUrl], opening)) {
+        final _ = _opening.remove(siteUrl);
+      }
+    }
   }
 
   void forget(String siteUrl) {
@@ -143,6 +144,13 @@ final class SiteImageRepository {
     _sessions.clear();
     if (_ownsClient) _client.close();
   }
+}
+
+final class _SiteImageOpening {
+  _SiteImageOpening(this.lease);
+
+  final SiteLease lease;
+  late final Future<_SiteImageSession?> result;
 }
 
 final class _SiteImageSession {
