@@ -215,6 +215,7 @@ class VoiceRoomContent extends StatefulWidget {
     this.autoStatusAvailable = false,
     this.inviteLink,
     this.controllerResolver,
+    this.ringingClock = DateTime.now,
   });
 
   final VoiceController controller;
@@ -229,6 +230,7 @@ class VoiceRoomContent extends StatefulWidget {
   final bool autoStatusAvailable;
   final String? inviteLink;
   final VoiceController Function()? controllerResolver;
+  final DateTime Function() ringingClock;
 
   @override
   State<VoiceRoomContent> createState() => _VoiceRoomContentState();
@@ -309,11 +311,11 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
           _RecordingBadge(recording: recording),
         Expanded(
           child: VoiceRingingClock(
-            active: room.ephemeral && room.ringing.isNotEmpty,
-            builder: (context, now) => LayoutBuilder(
+            room: room,
+            clock: widget.ringingClock,
+            builder: (context, ringing) => LayoutBuilder(
               builder: (context, constraints) {
                 final participants = room.participants;
-                final ringing = room.activeRingingAt(now);
                 if (participants.isEmpty && ringing.isEmpty) {
                   return _EmptyRoom(room: room);
                 }

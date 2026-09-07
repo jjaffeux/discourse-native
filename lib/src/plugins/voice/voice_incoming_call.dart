@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../theme/d_button.dart';
 import 'voice_controller.dart';
 import 'voice_icons.dart';
+import 'voice_models.dart';
 import 'voice_shell_service.dart';
 
 /// The answer surface for a direct call: drawn over the whole shell (a ring
@@ -131,27 +132,28 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
   );
 }
 
-/// Re-evaluates a call room's "Calling…" tiles on a coarse clock: ring
-/// windows expire by wall time, which nothing else observes.
+/// Keeps a call room's "Calling…" tiles until their deadlines, waking only
+/// while a visible ring still needs to expire.
 class VoiceRingingClock extends StatefulWidget {
   const VoiceRingingClock({
     super.key,
-    required this.active,
+    required this.room,
     required this.builder,
-    this.interval = const Duration(seconds: 5),
+    this.clock = DateTime.now,
   });
 
-  final bool active;
-  final Widget Function(BuildContext context, DateTime now) builder;
-  final Duration interval;
+  final VoiceRoom room;
+  final Widget Function(BuildContext context, List<VoiceRingingEntry> ringing)
+  builder;
+  final DateTime Function() clock;
 
   @override
   State<VoiceRingingClock> createState() => _VoiceRingingClockState();
 }
 
 class _VoiceRingingClockState extends State<VoiceRingingClock> {
-  Timer? _ticker;
-  DateTime _now = DateTime.now();
+  Timer? _expiryTimer;
+  List<VoiceRingingEntry> _ringing = const [];
 
   @override
   void initState() {
@@ -162,25 +164,34 @@ class _VoiceRingingClockState extends State<VoiceRingingClock> {
   @override
   void didUpdateWidget(VoiceRingingClock oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.active != widget.active) _sync();
+    _sync();
   }
 
   void _sync() {
-    _ticker?.cancel();
-    _ticker = null;
-    if (!widget.active) return;
-    _ticker = Timer.periodic(widget.interval, (_) {
-      if (mounted) setState(() => _now = DateTime.now());
-    });
+    _expiryTimer?.cancel();
+    _expiryTimer = null;
+    final now = widget.clock();
+    _ringing = widget.room.activeRingingAt(now);
+    DateTime? nextExpiry;
+    for (final entry in _ringing) {
+      final expiry = entry.expiresAt;
+      if (nextExpiry == null || expiry.isBefore(nextExpiry)) {
+        nextExpiry = expiry;
+      }
+    }
+    if (nextExpiry != null) {
+      _expiryTimer = Timer(nextExpiry.difference(now), () {
+        if (mounted) setState(_sync);
+      });
+    }
   }
 
   @override
   void dispose() {
-    _ticker?.cancel();
+    _expiryTimer?.cancel();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) =>
-      widget.builder(context, widget.active ? _now : DateTime.now());
+  Widget build(BuildContext context) => widget.builder(context, _ringing);
 }
