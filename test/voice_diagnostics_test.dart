@@ -10,6 +10,68 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final snapshot in [false, true]) {
+    test(
+      'failed diagnostic output releases storage with snapshot $snapshot',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'voice-output-failure-',
+        );
+        addTearDown(() => directory.delete(recursive: true));
+        final file = File('${directory.path}/voice.jsonl');
+        final now = DateTime.utc(2026, 9, 7);
+        final persistence = FileVoiceDiagnosticsPersistence(
+          file,
+          compactionFaultInjector: (_, _) {},
+        );
+        await persistence.append([
+          _record(1, now, event: 'before.failure'),
+        ], nowUtc: now);
+        final uncaught = <Object>[];
+        final overrides = _FailingOutputOverrides(
+          snapshot ? '.voice-report-snapshot.tmp' : '.group.0.tmp',
+        );
+
+        await runZonedGuarded(() async {
+          await IOOverrides.runWithIOOverrides(() async {
+            await expectLater(
+              snapshot
+                  ? persistence.writeJsonReportTo(
+                      StringBuffer(),
+                      generatedAtUtc: now,
+                      reportFormatVersion: 1,
+                      state: const {},
+                    )
+                  : persistence.compact(nowUtc: now),
+              throwsA(same(_outputFailure)),
+            );
+          }, overrides);
+        }, (error, _) => uncaught.add(error));
+
+        expect(overrides.failedWrites, 1);
+        expect(uncaught, isEmpty);
+        expect(await _reportSnapshotFiles(file), isEmpty);
+        expect(
+          await directory
+              .list()
+              .where((entry) => entry.path.endsWith('.tmp'))
+              .toList(),
+          isEmpty,
+        );
+        await persistence.append([
+          _record(2, now, event: 'after.failure'),
+        ], nowUtc: now);
+        final report = await persistence.buildJsonReport(
+          generatedAtUtc: now,
+          reportFormatVersion: 1,
+          state: const {},
+        );
+        expect(_reportEventNames(report), ['before.failure', 'after.failure']);
+        await persistence.close();
+      },
+    );
+  }
+
   group('diagnostic capture', () {
     test(
       'defaults to off, forwards structured logs, and gates raw records',
@@ -1764,6 +1826,56 @@ void main() {
       },
     );
   });
+}
+
+const _outputFailure = FileSystemException('disk full');
+
+final class _FailingOutputOverrides extends IOOverrides {
+  _FailingOutputOverrides(this.suffix);
+
+  final String suffix;
+  int failedWrites = 0;
+
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    if (!path.endsWith(suffix)) return file;
+    return _FailingOutputFile(file, () => failedWrites++);
+  }
+}
+
+final class _FailingOutputFile extends Fake implements File {
+  _FailingOutputFile(this.file, this.onOpen);
+
+  final File file;
+  final void Function() onOpen;
+
+  @override
+  String get path => file.path;
+
+  @override
+  Directory get parent => file.parent;
+
+  @override
+  Future<bool> exists() => file.exists();
+
+  @override
+  Future<File> create({bool recursive = false, bool exclusive = false}) async {
+    await file.create(recursive: recursive, exclusive: exclusive);
+    return this;
+  }
+
+  @override
+  Future<FileSystemEntity> delete({bool recursive = false}) =>
+      file.delete(recursive: recursive);
+
+  @override
+  IOSink openWrite({FileMode mode = FileMode.write, Encoding encoding = utf8}) {
+    onOpen();
+    final sink = file.openWrite(mode: mode, encoding: encoding);
+    sink.addError(_outputFailure);
+    return sink;
+  }
 }
 
 VoiceDiagnosticRecord _record(
