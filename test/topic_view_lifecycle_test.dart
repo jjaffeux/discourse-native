@@ -1347,99 +1347,123 @@ void main() {
     });
 
     group('prepend viewport correction', () {
-      testWidgets(
-        'loads earlier posts near the top without moving the viewport',
-        (tester) async {
-          final site = instance('meta.example');
-          final posts = {
-            for (var number = 1; number <= 100; number++)
-              number: Post(
-                id: number,
-                postNumber: number,
-                username: 'sam',
-                cooked: List.filled(
-                  number <= 60 ? number % 5 + 1 : 8,
-                  '<p>Long post $number</p>',
-                ).join(),
-              ),
-          };
-          final postGate = Completer<void>();
-          final api = FakeDiscourseApi(
-            feeds: const {'/latest.json': []},
-            postsById: posts,
-            postGate: postGate,
-          );
-          final controller = _controller(site, api);
-          addTearDown(controller.dispose);
-          await controller.load();
-          controller.store
-            ..put(
-              site.url,
-              TopicDetail(
-                id: 1,
+      for (final firstLoaded in [21, 61]) {
+        testWidgets(
+          'loads posts before $firstLoaded without losing the viewport or measured heights',
+          (tester) async {
+            final site = instance('meta.example');
+            final posts = {
+              for (var number = 1; number <= 100; number++)
+                number: Post(
+                  id: number,
+                  postNumber: number,
+                  username: 'sam',
+                  cooked: List.filled(
+                    number == 80
+                        ? 12
+                        : number <= 60
+                        ? number % 5 + 1
+                        : 8,
+                    '<p>Long post $number</p>',
+                  ).join(),
+                ),
+            };
+            final postGate = Completer<void>();
+            final api = FakeDiscourseApi(
+              feeds: const {'/latest.json': []},
+              postsById: posts,
+              postGate: postGate,
+            );
+            final controller = _controller(site, api);
+            addTearDown(controller.dispose);
+            await controller.load();
+            controller.store
+              ..put(
+                site.url,
+                TopicDetail(
+                  id: 1,
+                  title: 'One',
+                  stream: [for (var id = 1; id <= 100; id++) id],
+                  postsCount: 100,
+                ),
+              )
+              ..putAll(site.url, [
+                for (var id = firstLoaded; id <= 100; id++) posts[id]!,
+              ]);
+            controller.pushContent(
+              ContentRoute.topic(
+                topicId: 1,
+                slug: 'one',
                 title: 'One',
-                stream: [for (var id = 1; id <= 100; id++) id],
-                postsCount: 100,
+                postNumber: 80,
               ),
-            )
-            ..putAll(site.url, [for (var id = 61; id <= 100; id++) posts[id]!]);
-          controller.pushContent(
-            ContentRoute.topic(
-              topicId: 1,
-              slug: 'one',
-              title: 'One',
-              postNumber: 80,
-            ),
-          );
+            );
 
-          await tester.pumpWidget(_topicView(controller));
-          await tester.pumpAndSettle();
+            await tester.pumpWidget(_topicView(controller));
+            await tester.pumpAndSettle();
 
-          final list = tester.widget<SuperListView>(find.byType(SuperListView));
-          final scroll = list.controller!;
-          expect(scroll.position.extentBefore, greaterThan(900));
-          expect(api.postFetches, isEmpty);
-          expect(find.text('Load earlier posts'), findsNothing);
+            final list = tester.widget<SuperListView>(
+              find.byType(SuperListView),
+            );
+            final scroll = list.controller!;
+            final measuredPost = list.listController!.extentForIndex(
+              (80 - firstLoaded + 1) * 2,
+            );
+            expect(measuredPost.$2, isFalse);
+            expect(scroll.position.extentBefore, greaterThan(900));
+            expect(api.postFetches, isEmpty);
+            expect(find.text('Load earlier posts'), findsNothing);
 
-          scroll.jumpTo(800);
-          await tester.pump();
-          await tester.pump();
+            scroll.jumpTo(800);
+            await tester.pump();
+            await tester.pump();
 
-          expect(api.postFetches, [
-            [for (var id = 41; id <= 60; id++) id],
-          ]);
+            expect(api.postFetches, [
+              [for (var id = firstLoaded - 20; id < firstLoaded; id++) id],
+            ]);
 
-          scroll.jumpTo(700);
-          await tester.pump();
-          expect(api.postFetches, hasLength(1));
+            scroll.jumpTo(700);
+            await tester.pump();
+            expect(api.postFetches, hasLength(1));
 
-          final viewport = tester.getRect(find.byType(SuperListView));
-          Finder? anchor;
-          for (var id = 61; id <= 100; id++) {
-            final candidate = find.byKey(ValueKey(id));
-            if (candidate.evaluate().isEmpty) continue;
-            final rect = tester.getRect(candidate);
-            if (rect.top >= viewport.top && rect.top < viewport.bottom) {
-              anchor = candidate;
-              break;
+            final viewport = tester.getRect(find.byType(SuperListView));
+            Finder? anchor;
+            for (var id = firstLoaded; id <= 100; id++) {
+              final candidate = find.byKey(ValueKey(id));
+              if (candidate.evaluate().isEmpty) continue;
+              final rect = tester.getRect(candidate);
+              if (rect.top >= viewport.top && rect.top < viewport.bottom) {
+                anchor = candidate;
+                break;
+              }
             }
-          }
-          expect(anchor, isNotNull);
-          final anchoredPost = anchor!;
-          final topBeforePrepend = tester.getTopLeft(anchoredPost).dy;
+            expect(anchor, isNotNull);
+            final anchoredPost = anchor!;
+            final topBeforePrepend = tester.getTopLeft(anchoredPost).dy;
+            expect(find.byKey(const ValueKey(80)), findsNothing);
 
-          postGate.complete();
-          await tester.pumpAndSettle();
+            postGate.complete();
+            await tester.pumpAndSettle();
 
-          expect(controller.currentPostIds, [
-            for (var id = 41; id <= 100; id++) id,
-          ]);
-          expect(
-            tester.getTopLeft(anchoredPost).dy,
-            closeTo(topBeforePrepend, 1),
-          );
-        },
-      );
+            expect(controller.currentPostIds, [
+              for (var id = firstLoaded - 20; id <= 100; id++) id,
+            ]);
+            expect(
+              tester.getTopLeft(anchoredPost).dy,
+              closeTo(topBeforePrepend, 1),
+            );
+            // Post 80 remains offscreen. Its measured height must move with its
+            // ID, including when the last earlier page removes the loading row.
+            final leading = firstLoaded > 21 ? 1 : 0;
+            expect(
+              list.listController!.extentForIndex(
+                (80 - (firstLoaded - 20) + leading) * 2,
+              ),
+              measuredPost,
+            );
+          },
+        );
+      }
 
       testWidgets(
         'preserves touch scrolling through the second tall-post correction',

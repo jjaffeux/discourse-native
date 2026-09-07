@@ -1356,6 +1356,58 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     });
   }
 
+  bool _shiftRetainedExtents(TopicViewportWindowChange change) {
+    final list = _list;
+    if (list == null || !list.isAttached || list.isLocked) return false;
+    final previous = change.previousPostIds;
+    final current = change.currentPostIds;
+    if (previous.isEmpty) return false;
+    final inserted = current.indexOf(previous.first);
+    if (inserted < 0 || current.length != previous.length + inserted) {
+      return false;
+    }
+    for (var index = 0; index < previous.length; index++) {
+      if (previous[index] != current[index + inserted]) return false;
+    }
+    final previousLeading = change.previousHasHeader ? 1 : 0;
+    if (list.numberOfItems < (previous.length + previousLeading) * 2 - 1) {
+      return false;
+    }
+
+    // The sliver keeps heights by child index, while its keyed elements move
+    // with post IDs. Move the cached heights too, before updating the delegate;
+    // invalidating them alone leaves old heights assigned to different posts.
+    // Separated lists have two children per inserted post or loading header.
+    if (change.previousHasHeader && !change.hasHeader) {
+      list
+        ..removeItem(0)
+        ..removeItem(0);
+    } else if (!change.previousHasHeader && change.hasHeader) {
+      list
+        ..addItem(0)
+        ..addItem(1);
+    }
+    final leading = change.hasHeader ? 2 : 0;
+    for (var child = 0; child < inserted * 2; child++) {
+      list.addItem(leading + child);
+    }
+    if (inserted > 0) {
+      // The old first post may gain or lose a day/time-gap divider now that
+      // its predecessor is loaded. Other retained posts keep their neighbors.
+      list.invalidateExtent(leading + inserted * 2);
+      if (change.hasHeader) list.invalidateExtent(1);
+    }
+    if (_isScrollCaptureRecording) {
+      _recordTopicScrollEvent('sliver.extents.shifted', {
+        'retainedPostCount': previous.length,
+        'prependedPostCount': inserted,
+        'previousHasHeader': change.previousHasHeader,
+        'hasHeader': change.hasHeader,
+      });
+    }
+    return true;
+  }
+
   void _scheduleRetainedPostGeometryRefresh() {
     if (_retainedGeometryRefreshScheduled) return;
     _retainedGeometryRefreshScheduled = true;
@@ -1534,7 +1586,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       case TopicViewportExtentAction.none:
         return;
       case TopicViewportExtentAction.invalidate:
-        _invalidateRetainedExtents();
+        if (!_shiftRetainedExtents(change)) _invalidateRetainedExtents();
         return;
       case TopicViewportExtentAction.replace:
         _extentGeneration++;
