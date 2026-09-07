@@ -23,8 +23,11 @@ void main() {
         'ws://localhost:7880',
         'http://dev.localhost:7880',
         'ws://LOCALHOST.:7880',
+        'http://DEV.LOCALHOST.:7880',
+        'ws://127.0.0.0:7880',
         'ws://127.0.0.1:7880',
         'http://127.255.255.254:7880',
+        'http://127.255.255.255:7880',
         'ws://[::1]:7880',
       ]) {
         expect(
@@ -42,6 +45,12 @@ void main() {
         'ws://localhost.example.com',
         'http://127.0.0.999',
         'ws://127.0.0',
+        'ws://0127.0.0.1',
+        'http://00127.0.0.1',
+        'ws://0x7f.0.0.1',
+        'http://+127.0.0.1',
+        'ws://127.0.0.01',
+        'http://127.0.0.1.',
       ]) {
         expect(
           () => requireSafeLiveKitEndpoint(value),

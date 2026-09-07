@@ -17,8 +17,11 @@ void main() {
         'http://localhost:4200',
         'http://dev.localhost:4200',
         'http://LOCALHOST.:4200',
+        'http://DEV.LOCALHOST.:4200',
+        'http://127.0.0.0:4200',
         'http://127.0.0.1:4200',
         'http://127.255.255.254:4200',
+        'http://127.255.255.255:4200',
         'http://[::1]:4200',
       ]) {
         final url = Uri.parse(value);
@@ -32,6 +35,12 @@ void main() {
         'http://192.168.1.2',
         'http://127.0.0.999',
         'http://127.0.0',
+        'http://0127.0.0.1',
+        'http://00127.0.0.1',
+        'http://0x7f.0.0.1',
+        'http://+127.0.0.1',
+        'http://127.0.0.01',
+        'http://127.0.0.1.',
       ]) {
         expect(
           () => requireSafeHttpUrl(Uri.parse(value)),
@@ -139,6 +148,61 @@ void main() {
   });
 
   group('SafeHttpClient', () {
+    for (final host in [
+      '0127.0.0.1',
+      '00127.0.0.1',
+      '0x7f.0.0.1',
+      '+127.0.0.1',
+      '127.00.0.1',
+      '127.0.0.01',
+      '127.0x0.0.1',
+      '127.0.0.+1',
+      '127.0.0.1.',
+      '127.1',
+      '2130706433',
+    ]) {
+      test('rejects noncanonical HTTP host $host before delegation', () async {
+        final delegated = <Uri>[];
+        final client = SafeHttpClient.owned(
+          _Client((request) async {
+            delegated.add(request.url);
+            return _response(request);
+          }),
+        );
+        addTearDown(client.close);
+
+        await expectLater(
+          () => client.send(http.Request('GET', Uri.parse('http://$host/'))),
+          throwsA(isA<UnsafeHttpTransportException>()),
+        );
+
+        expect(delegated, isEmpty);
+      });
+    }
+
+    test('delegates canonical HTTP loopback requests', () async {
+      final delegated = <Uri>[];
+      final client = SafeHttpClient.owned(
+        _Client((request) async {
+          delegated.add(request.url);
+          return _response(request);
+        }),
+      );
+      addTearDown(client.close);
+      final urls = [
+        Uri.parse('http://127.0.0.0:4200/'),
+        Uri.parse('http://127.255.255.255:4200/'),
+        Uri.parse('http://DEV.LOCALHOST.:4200/'),
+        Uri.parse('http://[::1]:4200/'),
+      ];
+
+      for (final url in urls) {
+        await client.get(url);
+      }
+
+      expect(delegated, urls);
+    });
+
     test('refuses automatic redirects at the request boundary', () async {
       late bool followRedirects;
       final client = SafeHttpClient.owned(
