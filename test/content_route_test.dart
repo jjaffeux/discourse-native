@@ -4,6 +4,21 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('restored routes reject feed components that cannot be decoded', () {
+    final saved = ContentRoute.topicList(TopicListMode.topYearly).toJson();
+    for (final path in [
+      '/tag/%FF.json',
+      '/top.json?period=%C3',
+      '/latest.json?tags[]=%ED%A0%80',
+    ]) {
+      expect(
+        () => ContentRoute.fromJson({...saved, 'feed_path': path}),
+        throwsFormatException,
+        reason: path,
+      );
+    }
+  });
+
   group('ContentRoute category identity', () {
     test('reads top-level and nested category feed paths', () {
       expect(ContentRoute.list(ListLink.parse('/c/support/5')!).categoryId, 5);
