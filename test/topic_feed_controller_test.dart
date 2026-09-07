@@ -98,6 +98,171 @@ void main() {
     }
   });
 
+  group('bounded cache reuse', () {
+    final site = instance('one.example');
+
+    setUp(() {
+      controller.dispose();
+      store = Store(maxEntries: 2);
+      controller = TopicFeedController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+        store: store,
+      );
+    });
+
+    Future<void> loadFeed(String destination, List<int> ids) async {
+      final loading = controller.load(
+        instance: site,
+        destinationId: destination,
+        path: '/$destination.json',
+        incoming: null,
+      );
+      await pumpEventQueue();
+      api.requests.last.response.complete(_pages(ids));
+      await loading;
+    }
+
+    for (final ids in [
+      <int>[],
+      [1, 2],
+    ]) {
+      test('reuses a backed feed containing $ids', () async {
+        await loadFeed('latest', ids);
+        final cached = controller.feedFor(site.url, 'latest');
+        controller.saveScrollRow(site.url, 'latest', 1);
+
+        await controller.load(
+          instance: site,
+          destinationId: 'latest',
+          path: '/latest.json',
+          incoming: null,
+        );
+
+        expect(api.requests, hasLength(1));
+        expect(controller.feedFor(site.url, 'latest'), same(cached));
+        expect(controller.scrollRowFor(site.url, 'latest'), 1);
+        expect(store.length, ids.length);
+      });
+    }
+
+    for (final otherIds in [
+      <int>[3, 4],
+      [1, 3],
+    ]) {
+      test('refills evicted topics after loading $otherIds', () async {
+        await loadFeed('latest', [1, 2]);
+        await loadFeed('hot', otherIds);
+        expect(controller.feedFor(site.url, 'latest')?.topicIds, [1, 2]);
+        expect(store.containsRecord<Topic>(site.url, 2), isFalse);
+        expect(store.containsRecord<Topic>(site.url, 1), otherIds.contains(1));
+        expect(store.length, 2);
+        controller.saveScrollRow(site.url, 'latest', 1);
+
+        final refill = controller.load(
+          instance: site,
+          destinationId: 'latest',
+          path: '/latest.json',
+          incoming: null,
+        );
+        final duplicate = controller.load(
+          instance: site,
+          destinationId: 'latest',
+          path: '/latest.json',
+          incoming: null,
+        );
+        await pumpEventQueue();
+
+        expect(api.requests, hasLength(3));
+        expect(api.requests.last.path, '/latest.json');
+        expect(duplicate, same(refill));
+        expect(controller.feedFor(site.url, 'latest')?.loading, isTrue);
+
+        api.requests.last.response.complete(_pages([1, 2]));
+        await Future.wait([refill, duplicate]);
+
+        final recovered = controller.feedFor(site.url, 'latest')!;
+        expect(recovered.topicIds, [1, 2]);
+        expect(recovered.loaded, isTrue);
+        expect(recovered.loading, isFalse);
+        expect(recovered.error, isNull);
+        expect(store.read<Topic>(site.url, 1)?.title, 'Topic 1');
+        expect(store.read<Topic>(site.url, 2)?.title, 'Topic 2');
+        expect(controller.scrollRowFor(site.url, 'latest'), 0);
+        expect(store.length, 2);
+        expect(store.statisticsForTesting.observedEntries, 0);
+      });
+    }
+
+    test(
+      'retries a failed refill and restores incoming announcements',
+      () async {
+        await loadFeed('latest', [1, 2]);
+        await loadFeed('hot', [3, 4]);
+        final incoming = IncomingTopics()
+          ..notify({'message_type': 'new_topic', 'topic_id': 5});
+
+        Future<void> revisit() => controller.load(
+          instance: site,
+          destinationId: 'latest',
+          path: '/latest.json',
+          incoming: incoming,
+        );
+
+        final refill = revisit();
+        await pumpEventQueue();
+        expect(api.requests, hasLength(3));
+        expect(incoming.count('latest'), 0);
+        api.requests.last.response.completeError(
+          SiteLookupException(SiteLookupFailure.unreachable, site.url),
+        );
+        await refill;
+
+        final failed = controller.feedFor(site.url, 'latest')!;
+        expect(failed.loading, isFalse);
+        expect(failed.error, "Couldn't reach one.example.");
+        expect(failed.pageError, isFalse);
+        expect(incoming.count('latest'), 1);
+
+        final retry = revisit();
+        final duplicate = revisit();
+        expect(duplicate, same(retry));
+        await pumpEventQueue();
+        expect(api.requests, hasLength(4));
+        expect(controller.feedFor(site.url, 'latest')?.error, isNull);
+        api.requests.last.response.complete(_pages([5, 1]));
+        await Future.wait([retry, duplicate]);
+
+        expect(controller.feedFor(site.url, 'latest')?.topicIds, [5, 1]);
+        expect(controller.feedFor(site.url, 'latest')?.error, isNull);
+        expect(store.read<Topic>(site.url, 5)?.title, 'Topic 5');
+        expect(store.read<Topic>(site.url, 1)?.title, 'Topic 1');
+        expect(incoming.count('latest'), 0);
+        expect(store.length, 2);
+      },
+    );
+
+    test('checking a backed feed leaves eviction order unchanged', () async {
+      await loadFeed('latest', [1, 2]);
+      store.read<Topic>(site.url, 1);
+
+      await controller.load(
+        instance: site,
+        destinationId: 'latest',
+        path: '/latest.json',
+        incoming: null,
+      );
+      await loadFeed('hot', [3]);
+
+      expect(api.requests, hasLength(2));
+      expect(store.containsRecord<Topic>(site.url, 1), isTrue);
+      expect(store.containsRecord<Topic>(site.url, 2), isFalse);
+      expect(store.containsRecord<Topic>(site.url, 3), isTrue);
+      expect(store.length, 2);
+    });
+  });
+
   group('initial loading and refresh', () {
     test('coalesces one retry after an initial failure', () async {
       final site = instance('one.example');

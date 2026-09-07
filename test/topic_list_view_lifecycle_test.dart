@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
@@ -445,6 +447,79 @@ void main() {
       findsNothing,
     );
   });
+
+  for (final failRefill in [false, true]) {
+    testWidgets(
+      'returning to an evicted feed restores rows (retry: $failRefill)',
+      (tester) async {
+        final api = _ControlledPagingApi();
+        final store = Store(maxEntries: 2);
+        final controller = await _controlledShell(
+          api,
+          sites.first,
+          store: store,
+        );
+        addTearDown(controller.dispose);
+
+        api.requests.single.response.complete(TopicList(topics: _topics(1, 2)));
+        await tester.pumpWidget(_LiveTestList(controller: controller));
+        await tester.pumpAndSettle();
+        expect(find.text('Topic 1'), findsOneWidget);
+        expect(find.text('Topic 2'), findsOneWidget);
+
+        final popular = controller.selectTopicListMode(TopicListMode.popular);
+        await tester.pump();
+        expect(api.requests, hasLength(2));
+        expect(api.requests.last.path, '/hot.json');
+        expect(store.statisticsForTesting.observedEntries, 0);
+        api.requests.last.response.complete(TopicList(topics: _topics(3, 2)));
+        await tester.pumpAndSettle();
+        await popular;
+        expect(find.text('Topic 3'), findsOneWidget);
+        expect(find.text('Topic 4'), findsOneWidget);
+        expect(store.containsRecord<Topic>(sites.first.url, 1), isFalse);
+        expect(store.containsRecord<Topic>(sites.first.url, 2), isFalse);
+        expect(
+          controller.topicFeeds.feedFor(sites.first.url, 'latest')?.topicIds,
+          [1, 2],
+        );
+
+        final revisit = controller.selectTopicListMode(TopicListMode.latest);
+        await tester.pump();
+        expect(api.requests, hasLength(3));
+        expect(api.requests.last.path, '/latest.json');
+
+        if (failRefill) {
+          api.requests.last.response.completeError(
+            SiteLookupException(SiteLookupFailure.unreachable, sites.first.url),
+          );
+          await tester.pumpAndSettle();
+          await revisit;
+          expect(find.text("Couldn't reach one.example."), findsOneWidget);
+
+          final retry = find.byKey(const ValueKey('topic-feed-error-retry'));
+          await tester.tap(retry);
+          await tester.tap(retry);
+          await tester.pump();
+          expect(api.requests, hasLength(4));
+        }
+
+        api.requests.last.response.complete(TopicList(topics: _topics(1, 2)));
+        await tester.pumpAndSettle();
+        await revisit;
+        expect(find.text('Topic 1'), findsOneWidget);
+        expect(find.text('Topic 2'), findsOneWidget);
+        expect(find.text('Topic 3'), findsNothing);
+        expect(find.text('Topic 4'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('topic-feed-refresh-error')),
+          findsNothing,
+        );
+        expect(store.length, 2);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('the same destination has an independent position per site', (
     tester,
@@ -948,14 +1023,16 @@ final class _ControlledPagingApi extends FakeDiscourseApi {
 
 Future<ShellController> _controlledShell(
   _ControlledPagingApi api,
-  DiscourseInstance site,
-) async {
+  DiscourseInstance site, {
+  Store? store,
+}) async {
   final controller = ShellController(
     instanceStore: FakeInstanceStore([site]),
     api: api,
     authenticator: FakeAuthenticator(),
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
+    store: store,
   );
   await controller.load();
   await api.waitForRequests(1);
