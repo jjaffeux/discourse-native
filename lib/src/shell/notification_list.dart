@@ -10,6 +10,7 @@ import '../theme/d_icon.dart';
 import 'account_activity_loader.dart';
 import 'adaptive_dialog_action.dart';
 import 'external_link.dart';
+import 'open_link.dart';
 import 'shell_controller.dart';
 import 'site_emoji_text.dart';
 import 'user_menu_message.dart';
@@ -321,8 +322,12 @@ class _PluginNotificationsSectionState
     );
   }
 
-  Future<void> _openLink(String path) async {
+  Future<void> _openLink(String path, {bool newTab = false}) async {
     final url = widget.host.pluginAbsoluteUrl(path, siteUrl: widget.siteUrl);
+    if (newTab) {
+      await openLink(context, url, newTab: true);
+      return;
+    }
     if (await widget.host.openPluginNotificationUrl(url)) {
       if (mounted) widget.onOpened();
       return;
@@ -330,10 +335,14 @@ class _PluginNotificationsSectionState
     if (mounted && await openExternalLink(url) && mounted) widget.onOpened();
   }
 
-  Future<void> _open(DiscourseNotification notification, String? path) async {
+  Future<void> _open(
+    DiscourseNotification notification,
+    String? path, {
+    bool newTab = false,
+  }) async {
     widget.host.readPluginNotification(widget.siteUrl, notification);
     if (path == null) return;
-    await _openLink(path);
+    await _openLink(path, newTab: newTab);
   }
 
   @override
@@ -377,6 +386,8 @@ class _PluginNotificationsSectionState
                 notification: notification,
                 resolved: resolved,
                 onTap: () => _open(notification, resolved.path),
+                onMiddleClick: () =>
+                    _open(notification, resolved.path, newTab: true),
               );
             }),
           ],
@@ -406,13 +417,21 @@ class _NotificationSectionView extends StatefulWidget {
 }
 
 class _NotificationSectionViewState extends State<_NotificationSectionView> {
-  Future<void> _open(DiscourseNotification notification, String? path) async {
+  Future<void> _open(
+    DiscourseNotification notification,
+    String? path, {
+    bool newTab = false,
+  }) async {
     final controller = widget.controller;
     controller.readNotification(widget.siteUrl, notification);
 
     if (path == null) return;
 
     final url = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
+    if (newTab) {
+      await openLink(context, url, newTab: true);
+      return;
+    }
     if (await controller.openNotificationUrl(url)) {
       if (mounted) widget.onOpened();
       return;
@@ -489,6 +508,8 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
                 notification: notification,
                 resolved: resolved,
                 onTap: () => _open(notification, resolved.path),
+                onMiddleClick: () =>
+                    _open(notification, resolved.path, newTab: true),
               );
             }),
           ],
@@ -504,12 +525,14 @@ class NotificationRow extends StatelessWidget {
     required this.siteUrl,
     required this.notification,
     required this.onTap,
+    this.onMiddleClick,
     this.resolved,
   });
 
   final String siteUrl;
   final DiscourseNotification notification;
   final VoidCallback onTap;
+  final VoidCallback? onMiddleClick;
   final ResolvedNotification? resolved;
 
   @override
@@ -524,7 +547,7 @@ class NotificationRow extends StatelessWidget {
     };
     final accessibilityLabel = notification.isUnread ? '$line, unread' : line;
 
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       child: Semantics(
         key: ValueKey('notification-row-${notification.id}'),
@@ -577,6 +600,12 @@ class NotificationRow extends StatelessWidget {
           ),
         ),
       ),
+    );
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      excludeFromSemantics: true,
+      onTertiaryTapUp: onMiddleClick == null ? null : (_) => onMiddleClick!(),
+      child: row,
     );
   }
 }

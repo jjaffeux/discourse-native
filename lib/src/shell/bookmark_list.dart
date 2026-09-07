@@ -8,6 +8,7 @@ import '../theme/d_icons.dart';
 import 'account_activity_loader.dart';
 import 'external_link.dart';
 import 'notification_list.dart';
+import 'open_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu_message.dart';
@@ -50,11 +51,15 @@ class _BookmarkSectionView extends StatefulWidget {
 }
 
 class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
-  Future<void> _open(String? path) async {
+  Future<void> _open(String? path, {bool newTab = false}) async {
     if (path == null) return;
 
     final controller = widget.controller;
     final absolute = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
+    if (newTab) {
+      await openLink(context, absolute, newTab: true);
+      return;
+    }
     if (await controller.openPluginUrl(
       absolute,
       origin: PluginLinkOrigin.inApp,
@@ -74,10 +79,11 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
 
   Future<void> _openReminder(
     DiscourseNotification reminder,
-    String? path,
-  ) async {
+    String? path, {
+    bool newTab = false,
+  }) async {
     ShellScope.read(context).readNotification(widget.siteUrl, reminder);
-    await _open(path);
+    await _open(path, newTab: newTab);
   }
 
   @override
@@ -112,6 +118,8 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
                 resolved: resolved,
                 siteUrl: widget.siteUrl,
                 onTap: () => _openReminder(reminder, resolved.path),
+                onMiddleClick: () =>
+                    _openReminder(reminder, resolved.path, newTab: true),
               );
             }),
             for (final bookmark in feed.bookmarks)
