@@ -512,9 +512,12 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     // Compact already owns a PopScope for its sidebar/content hierarchy. It
     // gives diagnostics first refusal itself so one Back event cannot both
     // close the panel and navigate the underlying shell.
-    if (!open || layout.isCompact) return child;
+    if (layout.isCompact) return child;
+    // Keep the reader below the same wrapper when the panel opens or closes.
+    // Inserting a PopScope only while open recreates the whole shell, including
+    // the topic's scroll controllers and already-rendered posts.
     return PopScope(
-      canPop: false,
+      canPop: !open,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && diagnostics.isPanelOpen) diagnostics.closePanel();
       },
