@@ -11,9 +11,16 @@ const _confirmationPhrase = 'permanently delete';
 Future<void> showPostPermanentDelete({
   required BuildContext context,
   required ShellController controller,
+  required String siteUrl,
+  required int topicId,
   required Post post,
 }) async {
-  final refusal = await controller.checkPermanentPostDeletion(post);
+  final target = controller.capturePostPermanentDeleteTarget(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    post: post,
+  );
+  final refusal = await controller.checkPermanentPostDeletion(target);
   if (!context.mounted) return;
   if (refusal != null) {
     await showDialog<void>(
@@ -38,15 +45,18 @@ Future<void> showPostPermanentDelete({
     context: context,
     barrierDismissible: false,
     builder: (context) =>
-        _PermanentDeleteDialog(controller: controller, post: post),
+        _PermanentDeleteDialog(controller: controller, target: target),
   );
 }
 
 class _PermanentDeleteDialog extends StatefulWidget {
-  const _PermanentDeleteDialog({required this.controller, required this.post});
+  const _PermanentDeleteDialog({
+    required this.controller,
+    required this.target,
+  });
 
   final ShellController controller;
-  final Post post;
+  final PostPermanentDeleteTarget target;
 
   @override
   State<_PermanentDeleteDialog> createState() => _PermanentDeleteDialogState();
@@ -72,7 +82,7 @@ class _PermanentDeleteDialogState extends State<_PermanentDeleteDialog> {
       _saving = true;
       _error = null;
     });
-    final error = await widget.controller.permanentlyDeletePost(widget.post);
+    final error = await widget.controller.permanentlyDeletePost(widget.target);
     if (!mounted) return;
     if (error != null) {
       setState(() {
@@ -86,7 +96,7 @@ class _PermanentDeleteDialogState extends State<_PermanentDeleteDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final target = widget.post.postNumber == 1 ? 'topic' : 'post';
+    final target = widget.target.deletesTopic ? 'topic' : 'post';
     return AlertDialog(
       key: const ValueKey('post-permanent-delete-dialog'),
       title: Text('Permanently delete $target?'),

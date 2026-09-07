@@ -179,6 +179,24 @@ final class _PluginBookmarkWriteContext extends _BookmarkWriteContext {
 
 const _pluginBookmarkWriteContext = _PluginBookmarkWriteContext();
 
+final class PostPermanentDeleteTarget {
+  const PostPermanentDeleteTarget._({
+    required this.siteUrl,
+    required this.topicId,
+    required this.postId,
+    required this.postNumber,
+    required this._lease,
+  });
+
+  final String siteUrl;
+  final int topicId;
+  final int postId;
+  final int postNumber;
+  final SiteLease _lease;
+
+  bool get deletesTopic => postNumber == 1;
+}
+
 final class PostNoticeTarget {
   const PostNoticeTarget._({
     required this.siteUrl,
@@ -8169,117 +8187,176 @@ class ShellController extends FrameSafeNotifier
 
   bool canPermanentlyDeletePost(Post post) {
     final topic = currentTopic;
-    return post.isDeleted &&
-        topic != null &&
-        topic.stream.contains(post.id) &&
-        (post.postNumber == 1
-            ? topic.deletedAt != null && topic.canPermanentlyDelete
-            : post.canPermanentlyDelete);
+    return topic != null && _canPermanentlyDeletePost(topic, post);
   }
 
-  Future<String?> checkPermanentPostDeletion(Post post) async {
-    if (!canPermanentlyDeletePost(post)) {
+  bool _canPermanentlyDeletePost(TopicDetail topic, Post post) =>
+      post.isDeleted &&
+      topic.stream.contains(post.id) &&
+      (post.postNumber == 1
+          ? topic.deletedAt != null && topic.canPermanentlyDelete
+          : post.canPermanentlyDelete);
+
+  PostPermanentDeleteTarget capturePostPermanentDeleteTarget({
+    required String siteUrl,
+    required int topicId,
+    required Post post,
+  }) => PostPermanentDeleteTarget._(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    postId: post.id,
+    postNumber: post.postNumber,
+    lease: lifecycle.capture(siteUrl),
+  );
+
+  static const _obsoletePermanentPostDeletion =
+      'Your connection changed. Reopen the action and try again.';
+
+  String? _permanentPostDeletionRefusal(PostPermanentDeleteTarget target) {
+    if (isDisposed || !target._lease.isCurrent) {
+      return _obsoletePermanentPostDeletion;
+    }
+    final topic = store.read<TopicDetail>(target.siteUrl, target.topicId);
+    final post = store.read<Post>(target.siteUrl, target.postId);
+    if (_instanceAt(target.siteUrl)?.isConnected != true ||
+        topic == null ||
+        post == null ||
+        post.postNumber != target.postNumber ||
+        !_canPermanentlyDeletePost(topic, post)) {
       return 'This post cannot be permanently deleted.';
     }
-    final instance = currentInstance;
-    if (instance == null) return 'This post can no longer be changed.';
-    final lease = lifecycle.capture(instance.url);
-    final credential = await _credentialForWrite(instance.url);
-    if (!lease.isCurrent || isDisposed) {
-      return 'Your connection changed. Reopen the action and try again.';
-    }
-    if (credential.failure case final failure?) return failure.message;
+    return null;
+  }
+
+  Future<String?> checkPermanentPostDeletion(
+    PostPermanentDeleteTarget target,
+  ) async {
+    if (_permanentPostDeletionRefusal(target) case final error?) return error;
+    final lease = target._lease;
     try {
+      final credential = await _credentialForWrite(target.siteUrl);
+      if (_permanentPostDeletionRefusal(target) case final error?) return error;
+      if (credential.failure case final failure?) return failure.message;
       final clientId = await authenticator.clientId();
-      if (!lease.isCurrent || isDisposed) {
-        return 'Your connection changed. Reopen the action and try again.';
-      }
+      if (_permanentPostDeletionRefusal(target) case final error?) return error;
       final result = await api.postMutations.checkPermanentPostDeletion(
-        siteUrl: instance.url,
+        siteUrl: target.siteUrl,
         apiKey: credential.apiKey!,
-        postId: post.id,
+        postId: target.postId,
         clientId: clientId,
       );
-      if (!lease.isCurrent || isDisposed) {
-        return 'Your connection changed. Reopen the action and try again.';
-      }
+      if (_permanentPostDeletionRefusal(target) case final error?) return error;
       return result.allowed
           ? null
           : result.reason ?? 'This post cannot be permanently deleted yet.';
     } catch (error, stackTrace) {
-      if (lease.isCurrent && !isDisposed) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'post.permanentDeletionCheck',
-          severity: DiagnosticSeverity.warning,
-        );
+      if (!lease.isCurrent || isDisposed) {
+        return _obsoletePermanentPostDeletion;
       }
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'post.permanentDeletionCheck',
+        severity: DiagnosticSeverity.warning,
+      );
       return const WriteException(WriteFailure.unreachable).message;
     }
   }
 
-  Future<String?> permanentlyDeletePost(Post post) async {
-    final topic = currentTopic;
-    if (!canPermanentlyDeletePost(post) || topic == null) {
-      return 'This post cannot be permanently deleted.';
-    }
-    if (post.postNumber != 1) {
-      return _mutatePost(
-        post,
-        (siteUrl, apiKey) => api.postMutations.permanentlyDeletePost(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          topicId: topic.id,
-          postId: post.id,
-        ),
-      );
+  Future<String?> permanentlyDeletePost(
+    PostPermanentDeleteTarget target,
+  ) async {
+    if (_permanentPostDeletionRefusal(target) case final error?) return error;
+    final siteUrl = target.siteUrl;
+    final topicId = target.topicId;
+    final postId = target.postId;
+    final lease = target._lease;
+    final topicKey = _topicKey(siteUrl, topicId);
+    if (target.deletesTopic) {
+      if (!_topicDeletionWrites.add(topicKey)) {
+        return 'Another topic action is still finishing.';
+      }
+      _notify();
+    } else if (!_beginPostWrite(_postKey(siteUrl, postId))) {
+      return 'Another action on this post is still being saved.';
     }
 
-    final instance = currentInstance;
-    if (instance == null) return 'This topic can no longer be changed.';
-    final siteUrl = instance.url;
-    final key = _topicKey(siteUrl, topic.id);
-    if (!_topicDeletionWrites.add(key)) {
-      return 'Another topic action is still finishing.';
-    }
-    final lease = lifecycle.capture(siteUrl);
-    _notify();
     try {
+      // The write guard notifies listeners. Retain the opening account even
+      // if a listener replaces it before credentials are read.
+      if (_permanentPostDeletionRefusal(target) case final error?) return error;
       final credential = await _credentialForWrite(siteUrl);
-      if (!lease.isCurrent || isDisposed) return null;
+      if (_permanentPostDeletionRefusal(target) case final error?) return error;
       if (credential.failure case final failure?) return failure.message;
+      if (!target.deletesTopic) {
+        await api.postMutations.permanentlyDeletePost(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: topicId,
+          postId: postId,
+        );
+        if (!lease.isCurrent || isDisposed) {
+          return _obsoletePermanentPostDeletion;
+        }
+        await _refreshPost(siteUrl, topicId, postId, credential.apiKey, lease);
+        return lease.isCurrent && !isDisposed
+            ? null
+            : _obsoletePermanentPostDeletion;
+      }
+
       final clientId = await authenticator.clientId();
-      if (!lease.isCurrent || isDisposed) return null;
+      if (_permanentPostDeletionRefusal(target) case final error?) return error;
+      final topic = store.read<TopicDetail>(siteUrl, topicId)!;
       await api.topicMutations.permanentlyDeleteTopic(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
-        topicId: topic.id,
+        topicId: topicId,
         clientId: clientId,
       );
-      if (!lease.isCurrent || isDisposed) return null;
+      if (!lease.isCurrent || isDisposed) {
+        return _obsoletePermanentPostDeletion;
+      }
       lease.commit(() {
         for (final postId in topic.stream) {
           store.remove<Post>(siteUrl, postId);
         }
-        store.remove<TopicDetail>(siteUrl, topic.id);
-        store.remove<Topic>(siteUrl, topic.id);
+        store.remove<TopicDetail>(siteUrl, topicId);
+        store.remove<Topic>(siteUrl, topicId);
         _notify();
       });
-      if (currentContent?.topicId == topic.id) {
+      if (!lease.isCurrent || isDisposed) {
+        return _obsoletePermanentPostDeletion;
+      }
+      if (currentInstance?.url == siteUrl &&
+          currentContent?.topicId == topicId) {
         handleBack(canReturnToSidebar: false);
       }
       return null;
     } on WriteException catch (error) {
-      return error.message;
+      return lease.isCurrent && !isDisposed
+          ? error.message
+          : _obsoletePermanentPostDeletion;
     } catch (error, stackTrace) {
-      if (lease.isCurrent && !isDisposed) {
-        _reportOperationalError(error, stackTrace, 'topic.permanentlyDelete');
+      if (!lease.isCurrent || isDisposed) {
+        return _obsoletePermanentPostDeletion;
       }
+      _reportOperationalError(
+        error,
+        stackTrace,
+        target.deletesTopic
+            ? 'topic.permanentlyDelete'
+            : 'post.permanentlyDelete',
+      );
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
-      _topicDeletionWrites.remove(key);
-      if (!isDisposed) _notify();
+      lease.commit(() {
+        if (target.deletesTopic) {
+          _topicDeletionWrites.remove(topicKey);
+          _notify();
+        } else {
+          _endPostWrite(siteUrl, postId);
+        }
+      });
     }
   }
 
