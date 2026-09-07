@@ -5,14 +5,18 @@ import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/diagnostics_panel_width_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/app_settings_page.dart';
 import 'package:discourse_native/src/shell/diagnostics_panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
+import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
@@ -21,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 
@@ -796,6 +801,81 @@ void main() {
     expect(rebuilt, isNot(contains(sidebar)));
     expect(rebuilt, isNot(contains(content)));
   });
+
+  for (final width in [390.0, 1000.0, 2428.0]) {
+    testWidgets(
+      'diagnostics toggles preserve the topic reader at width $width',
+      (tester) async {
+        final diagnostics = await _controller();
+        final posts = [
+          for (var id = 1; id <= 10; id++)
+            Post(
+              id: id,
+              postNumber: id,
+              username: 'sam',
+              cooked: '<p>Post $id</p>',
+            ),
+        ];
+        await _pumpApp(
+          tester,
+          Size(width, 1049),
+          diagnostics,
+          store: FakeInstanceStore([instance('meta.discourse.org')]),
+          api: FakeDiscourseApi(
+            topics: {7: topicPayload(id: 7, title: 'Reader', posts: posts)},
+          ),
+        );
+        final shell = ShellScope.read(
+          tester.element(find.byType(InstanceRail)),
+        );
+        shell.pushContent(
+          ContentRoute.topic(topicId: 7, slug: 'reader', title: 'Reader'),
+        );
+        await shell.loadTopic(7, 'reader');
+        await tester.pumpAndSettle();
+        final reader = find.byType(TopicView);
+        final readerState = tester.state(reader);
+        final listFinder = find.descendant(
+          of: reader,
+          matching: find.byType(SuperListView),
+        );
+        final list = tester.widget<SuperListView>(listFinder);
+        diagnostics.topicScrollCapture.start();
+
+        try {
+          for (var toggle = 0; toggle < 3; toggle++) {
+            diagnostics.openPanel();
+            await tester.pumpAndSettle();
+            expect(tester.state(reader), same(readerState));
+            expect(
+              tester.widget<SuperListView>(listFinder).controller,
+              same(list.controller),
+            );
+            expect(
+              tester.widget<SuperListView>(listFinder).listController,
+              same(list.listController),
+            );
+            diagnostics.closePanel();
+            await tester.pumpAndSettle();
+            expect(tester.state(reader), same(readerState));
+            expect(
+              tester.widget<SuperListView>(listFinder).controller,
+              same(list.controller),
+            );
+          }
+        } finally {
+          diagnostics.topicScrollCapture.stop();
+          await tester.pumpWidget(const SizedBox.shrink());
+        }
+        final names = diagnostics.topicScrollCapture.events.map(
+          (event) => event.name,
+        );
+        expect(names, isNot(contains('topic.controllers.disposeScheduled')));
+        expect(names, isNot(contains('topic.controllers.sync')));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 bool _primaryFocusIsWithin(Finder finder) {
@@ -892,6 +972,7 @@ Future<void> _pumpApp(
   Size size,
   DiagnosticsController diagnostics, {
   InstanceStore? store,
+  FakeDiscourseApi? api,
   FakeAuthenticator? authenticator,
   bool settle = true,
 }) async {
@@ -903,7 +984,7 @@ Future<void> _pumpApp(
   await tester.pumpWidget(
     DiscourseApp(
       store: store ?? FakeInstanceStore(),
-      api: FakeDiscourseApi(),
+      api: api ?? FakeDiscourseApi(),
       authenticator: authenticator ?? FakeAuthenticator(),
       drafts: FakeDraftStore(),
       forumTabs: FakeForumTabStore(),
