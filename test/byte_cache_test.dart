@@ -860,6 +860,41 @@ void main() {
       },
     );
 
+    for (final expiry in [0x7fffffffffffffff, -0x7fffffffffffffff]) {
+      test('discards a disk entry with out-of-range expiry $expiry', () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'discourse-native-byte-cache-',
+        );
+        addTearDown(() => directory.delete(recursive: true));
+        final now = DateTime.utc(2026, 8, 11, 12);
+        final store = FileByteCacheStore(directory, clock: () => now);
+        await store.initialize();
+        const url = 'https://cdn.test/corrupt.png';
+        await store.write(
+          url,
+          Uint8List.fromList([1, 2, 3]),
+          expiresAt: now.add(const Duration(hours: 1)),
+        );
+        final entry = await directory
+            .list()
+            .where((entity) => entity.path.endsWith('.bin'))
+            .cast<File>()
+            .single;
+        final bytes = await entry.readAsBytes();
+        ByteData.sublistView(bytes, 4, 12).setInt64(0, expiry, Endian.big);
+        await entry.writeAsBytes(bytes);
+
+        expect(await store.read(url), isNull);
+        expect(await entry.exists(), isFalse);
+        await store.write(
+          url,
+          Uint8List.fromList([4, 5]),
+          expiresAt: now.add(const Duration(hours: 1)),
+        );
+        expect(await store.read(url), orderedEquals([4, 5]));
+      });
+    }
+
     test('reuses fresh immutable bytes across cache instances', () async {
       final directory = await Directory.systemTemp.createTemp(
         'discourse-native-byte-cache-',
