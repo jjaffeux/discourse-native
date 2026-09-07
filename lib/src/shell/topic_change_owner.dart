@@ -15,30 +15,34 @@ Future<void> showTopicChangeOwner({
   required int topicId,
   required List<Post> selectedPosts,
   bool usesTopicSelection = true,
-}) => showDialog<void>(
-  context: context,
-  barrierDismissible: false,
-  builder: (context) => _TopicChangeOwnerDialog(
-    controller: controller,
+}) {
+  final target = controller.captureTopicPostOwnerTarget(
     siteUrl: siteUrl,
     topicId: topicId,
-    selectedPosts: selectedPosts,
-    usesTopicSelection: usesTopicSelection,
-  ),
-);
+    postId: usesTopicSelection ? null : selectedPosts.single.id,
+  );
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => _TopicChangeOwnerDialog(
+      controller: controller,
+      target: target,
+      selectedPosts: selectedPosts,
+      usesTopicSelection: usesTopicSelection,
+    ),
+  );
+}
 
 class _TopicChangeOwnerDialog extends StatefulWidget {
   const _TopicChangeOwnerDialog({
     required this.controller,
-    required this.siteUrl,
-    required this.topicId,
+    required this.target,
     required this.selectedPosts,
     required this.usesTopicSelection,
   });
 
   final ShellController controller;
-  final String siteUrl;
-  final int topicId;
+  final TopicPostOwnerTarget target;
   final List<Post> selectedPosts;
   final bool usesTopicSelection;
 
@@ -81,10 +85,9 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
     });
     if (value.trim().isEmpty) return;
     _debounce = Timer(const Duration(milliseconds: 300), () async {
-      final users = await widget.controller.searchUsers(
-        siteUrl: widget.siteUrl,
-        topicId: widget.topicId,
-        term: value,
+      final users = await widget.controller.searchTopicPostOwnerUsers(
+        widget.target,
+        value,
       );
       if (!mounted || generation != _generation) return;
       final available = users
@@ -107,12 +110,11 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
     });
     final error = widget.usesTopicSelection
         ? await widget.controller.changeSelectedTopicPostOwner(
-            widget.siteUrl,
-            widget.topicId,
+            widget.target,
             selected.username,
           )
         : await widget.controller.changeTopicPostOwner(
-            widget.selectedPosts.single,
+            widget.target,
             selected.username,
           );
     if (!mounted) return;
