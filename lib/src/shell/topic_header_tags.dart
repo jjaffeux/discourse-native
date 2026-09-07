@@ -11,6 +11,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_picker.dart';
 import 'topic_tag_picker.dart';
+import 'topic_taxonomy_fields.dart';
 
 /// Keeps taxonomy on one line while leaving every tag accessible.
 class TopicHeaderTags extends StatelessWidget {
@@ -36,6 +37,16 @@ class TopicHeaderTags extends StatelessWidget {
     builder: (context, edit, saving) => LayoutBuilder(
       builder: (context, constraints) {
         final tags = topic.tags;
+        if (tags.isEmpty) {
+          return topic.canEditTags
+              ? TopicTagsValue(
+                  tags: tags,
+                  saving: saving,
+                  onEdit: edit,
+                  addKey: const ValueKey('topic-header-edit-tags'),
+                )
+              : const SizedBox.shrink();
+        }
         final theme = Theme.of(context);
         final style = theme.textTheme.labelSmall!.copyWith(
           fontSize: DiscourseTypography.fontDown2,
@@ -59,8 +70,7 @@ class TopicHeaderTags extends StatelessWidget {
         // The overflow editor keeps editing available in narrow readers.
         final showEdit =
             topic.canEditTags &&
-            (tags.isEmpty ||
-                constraints.maxWidth >= labelWidth(overflowLabel(0)) + 35);
+            constraints.maxWidth >= labelWidth(overflowLabel(0)) + 35;
         final budget = math.max(
           0.0,
           constraints.maxWidth - (showEdit ? 28 + gap : 0),

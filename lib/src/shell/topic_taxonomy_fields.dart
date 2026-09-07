@@ -582,9 +582,15 @@ class _EditableEmptyTopicTags extends StatelessWidget {
                     else
                       DIcon(DIcons.tag, size: 11, color: color),
                     const SizedBox(width: 4),
-                    Text(
-                      saving ? 'Saving…' : 'Add tag',
-                      style: theme.textTheme.labelSmall?.copyWith(color: color),
+                    Flexible(
+                      child: Text(
+                        saving ? 'Saving…' : 'Add tag',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: color,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),

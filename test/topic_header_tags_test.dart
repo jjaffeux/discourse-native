@@ -6,6 +6,57 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('empty tags show a labeled add action only when editable', (
+    tester,
+  ) async {
+    for (final canEditTags in [true, false]) {
+      for (final width in [72.0, 180.0]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: MediaQuery(
+              data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+              child: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: width,
+                    child: TopicHeaderTags(
+                      siteUrl: 'https://meta.example',
+                      onTagNavigate: (_, {newTab = false}) {},
+                      topic: TopicDetail(
+                        id: 1,
+                        title: 'No tags',
+                        stream: const [],
+                        canEditTags: canEditTags,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final add = find.byKey(const ValueKey('topic-header-edit-tags'));
+        expect(
+          find.text('Add tag'),
+          canEditTags ? findsOneWidget : findsNothing,
+        );
+        expect(add, canEditTags ? findsOneWidget : findsNothing);
+        if (canEditTags) {
+          expect(tester.getRect(add).right, lessThanOrEqualTo(width));
+          expect(tester.getSize(add).height, lessThan(50));
+        }
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'width $width, editable $canEditTags',
+        );
+      }
+    }
+  });
+
   for (final scale in [1.0, 2.0]) {
     testWidgets('fits long tag names at text scale $scale', (tester) async {
       final tags = [
