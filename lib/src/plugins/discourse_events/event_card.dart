@@ -347,21 +347,22 @@ class EventCard extends StatelessWidget {
                   for (final status in settings.buttons)
                     if (!event.flag('minimal') || status == 'interested')
                       if (status == 'going' && event.recurring)
-                        PopupMenuButton<bool>(
+                        PopupMenuButton<VoidCallback>(
                           tooltip: 'Choose recurring attendance',
                           enabled: !pending && event.canChoose(status),
-                          onSelected: (recurring) =>
-                              onRespond!(status, recurring),
+                          // Menu values retain the callback from opening,
+                          // even if the button's widget is replaced meanwhile.
+                          onSelected: (callback) => callback(),
                           itemBuilder: (_) => [
                             CheckedPopupMenuItem(
-                              value: false,
+                              value: () => onRespond!(status, false),
                               checked:
                                   selected == 'going' &&
                                   event.watching?.recurring == false,
                               child: const Text('This occurrence only'),
                             ),
                             CheckedPopupMenuItem(
-                              value: true,
+                              value: () => onRespond!(status, true),
                               checked:
                                   selected == 'going' &&
                                   event.watching?.recurring == true,
@@ -621,6 +622,8 @@ class _PostEventCardState extends State<PostEventCard> {
       }
       final available = handle.authoritative && !handle.pending;
       final accountRevision = widget.controller.accountRevision(widget.site);
+      bool currentAccount() =>
+          handle.controller.isAccountCurrent(handle.site, accountRevision);
       return EventCard(
         event: event,
         siteUrl: widget.site,
@@ -630,15 +633,20 @@ class _PostEventCardState extends State<PostEventCard> {
         pending: handle.pending,
         error: handle.error,
         onRespond: handle.authoritative
-            ? (status, recurring) =>
-                  unawaited(handle.respond(status, recurring: recurring))
+            ? (status, recurring) {
+                if (currentAccount()) {
+                  unawaited(handle.respond(status, recurring: recurring));
+                }
+              }
             : null,
         onWithdraw:
             available &&
                 event.public &&
                 event.canRespond &&
                 event.watching?.id != null
-            ? () => unawaited(handle.withdraw())
+            ? () {
+                if (currentAccount()) unawaited(handle.withdraw());
+              }
             : null,
         onParticipants: available && event.displayInvitees
             ? () => showEventParticipants(context, handle)

@@ -262,7 +262,8 @@ final class EventController extends FrameSafeNotifier
     String? type,
   }) async {
     final entry = handle._entry;
-    if (!_current(entry) ||
+    if (!handle.isCurrent ||
+        !_current(entry) ||
         entry.value?.displayInvitees != true ||
         !entry.authoritative) {
       throw const WriteException(WriteFailure.forbidden);
@@ -410,13 +411,23 @@ final class EventHandle {
   bool get isCurrent => !_released && controller._current(_entry);
   bool get authoritative => _entry.authoritative && isCurrent;
   String? get error => _entry.error;
-  void updateSource(PostEvent seed) => controller._sourceChanged(_entry, seed);
-  Future<void> refresh() => controller._refresh(_entry);
-  Future<void> respond(String status, {bool recurring = false}) =>
-      controller._write(_entry, status: status, recurring: recurring);
-  Future<void> withdraw() => controller._write(_entry);
-  Future<bool> invite(List<String> usernames) =>
-      controller._write(_entry, invites: usernames);
+  void updateSource(PostEvent seed) {
+    if (isCurrent) controller._sourceChanged(_entry, seed);
+  }
+
+  Future<void> refresh() =>
+      isCurrent ? controller._refresh(_entry) : Future.value();
+
+  // Releasing this reference denies new commands, but an admitted write still
+  // belongs to the shared entry and its account lease while peers retain it.
+  Future<void> respond(String status, {bool recurring = false}) => isCurrent
+      ? controller._write(_entry, status: status, recurring: recurring)
+      : Future.value();
+  Future<void> withdraw() =>
+      isCurrent ? controller._write(_entry) : Future.value();
+  Future<bool> invite(List<String> usernames) => isCurrent
+      ? controller._write(_entry, invites: usernames)
+      : Future.value(false);
   void dispose() {
     if (_released) return;
     _released = true;

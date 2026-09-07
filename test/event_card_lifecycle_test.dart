@@ -28,26 +28,224 @@ void main() {
   });
   tearDown(() => ports.close());
 
-  Future<void> pumpCard(WidgetTester tester, PostEvent seed) =>
-      tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: PostEventCard(
-                site: eventSite,
-                event: seed,
-                controller: ports.controller,
-                navigation: navigation,
-              ),
-            ),
+  Future<void> pumpCard(
+    WidgetTester tester,
+    PostEvent seed, {
+    String site = eventSite,
+    EventTestPorts? owner,
+  }) => tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: PostEventCard(
+            site: site,
+            event: seed,
+            controller: (owner ?? ports).controller,
+            navigation: navigation,
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   void forget() {
     ports.requests.forget(eventSite);
     ports.requests.apiKeys[eventSite] = 'replacement-key';
     ports.controller.forget(eventSite);
+  }
+
+  Finder attendanceMenu(bool withdraw) => find.byWidgetPredicate(
+    (widget) =>
+        widget is PopupMenuButton<Object?> &&
+        widget.tooltip ==
+            (withdraw ? 'Event actions' : 'Choose recurring attendance'),
+  );
+
+  Finder attendanceChoice(bool withdraw) => find.ancestor(
+    of: find.text(withdraw ? 'Remove my response' : 'Every occurrence'),
+    matching: find.byWidgetPredicate(
+      (widget) => widget is PopupMenuItem<Object?>,
+    ),
+  );
+
+  for (final replacement in [
+    'event',
+    'site',
+    'controller',
+    'account',
+    'reconnect',
+  ]) {
+    for (final withdraw in [false, true]) {
+      testWidgets(
+        '${withdraw ? 'withdrawal' : 'recurring RSVP'} menu opened before $replacement replacement cannot change either owner',
+        (tester) async {
+          current = eventJson(
+            overrides: {
+              'is_public': true,
+              'is_private': false,
+              'watching_invitee': watching(),
+            },
+          );
+          final seed = PostEvent.decode(current)!;
+          await pumpCard(tester, seed);
+          await tester.pumpAndSettle();
+          final cardState = tester.state(find.byType(PostEventCard));
+          final peer = ports.controller.acquire(eventSite, seed);
+          addTearDown(peer.dispose);
+          final menu = attendanceMenu(withdraw);
+          final menuState = tester.state(menu);
+          final choiceItem = attendanceChoice(withdraw);
+          await tester.tap(menu);
+          await tester.pumpAndSettle();
+          expect(choiceItem, findsOneWidget);
+
+          final nextPorts = replacement == 'controller'
+              ? EventTestPorts()
+              : ports;
+          if (nextPorts != ports) addTearDown(nextPorts.close);
+          final nextSite = replacement == 'site'
+              ? 'https://other.example'
+              : eventSite;
+          final nextId = replacement == 'event' ? 43 : 42;
+          final nextTopic = replacement == 'event' ? 701 : 700;
+          final nextJson = {
+            ...current,
+            'id': nextId,
+            'name': 'Replacement event',
+            'watching_invitee': {...watching(), 'id': 84},
+            'post': {
+              'id': nextId,
+              'topic': {'id': nextTopic, 'title': 'Replacement topic'},
+            },
+          };
+          nextPorts
+                  .transport
+                  .responders['GET /discourse-post-event/events/$nextId.json'] =
+              (_) => {'event': nextJson};
+          if (replacement == 'account') {
+            ports.requests.forget(eventSite);
+            ports.requests.apiKeys[eventSite] = 'replacement-key';
+            ports.controller.pluginCurrentUserRefreshed(eventSite);
+          } else if (replacement == 'reconnect') {
+            forget();
+          }
+          final nextSeed = PostEvent.decode(nextJson)!;
+          final nextPeer = nextPorts.controller.acquire(nextSite, nextSeed);
+          addTearDown(nextPeer.dispose);
+          await nextPeer.refresh();
+          await pumpCard(tester, nextSeed, site: nextSite, owner: nextPorts);
+          await tester.pumpAndSettle();
+          expect(tester.state(find.byType(PostEventCard)), same(cardState));
+          expect(tester.state(menu), same(menuState));
+          expect(find.text('Replacement event'), findsOneWidget);
+
+          await tester.tap(choiceItem);
+          await tester.pumpAndSettle();
+          expect(ports.transport.writes, isEmpty);
+          expect(nextPorts.transport.writes, isEmpty);
+          expect(nextPeer.authoritative, isTrue);
+
+          final method = withdraw ? 'DELETE' : 'PUT';
+          final path = '/discourse-post-event/events/$nextId/invitees/84.json';
+          nextPorts.transport.responses['$method $path'] = {};
+          await tester.tap(menu);
+          await tester.pumpAndSettle();
+          await tester.tap(choiceItem);
+          await tester.pumpAndSettle();
+          final request = nextPorts.transport.writes.single;
+          expect(
+            (request.method, request.siteUrl, request.path),
+            (method, nextSite, path),
+          );
+          expect(request.apiKey, nextPorts.requests.apiKeys[nextSite]);
+          expect(
+            request.body,
+            withdraw
+                ? <String, Object?>{}
+                : {
+                    'invitee': {'status': 'going', 'recurring': true},
+                  },
+          );
+          expect(nextPorts.posts.lanes, isEmpty);
+
+          await tester.pumpWidget(const SizedBox.shrink());
+          peer.dispose();
+          expect(
+            nextPorts.channels.subscriberCount(
+              '/discourse-post-event/$nextTopic',
+            ),
+            1,
+          );
+          nextPeer.dispose();
+          expect(ports.channels.channels, isEmpty);
+          expect(nextPorts.channels.channels, isEmpty);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  for (final withdraw in [false, true]) {
+    testWidgets(
+      '${withdraw ? 'withdrawal' : 'recurring RSVP'} remains valid through a live update and an ordinary card rebuild',
+      (tester) async {
+        current = eventJson(
+          overrides: {
+            'is_public': true,
+            'is_private': false,
+            'watching_invitee': watching(),
+          },
+        );
+        final seed = PostEvent.decode(current)!;
+        await pumpCard(tester, seed);
+        await tester.pumpAndSettle();
+        final peer = ports.controller.acquire(eventSite, seed);
+        addTearDown(peer.dispose);
+        await tester.tap(attendanceMenu(withdraw));
+        await tester.pumpAndSettle();
+
+        current = {...current, 'name': 'Live update'};
+        ports.channels.deliver(channel, {'id': 42});
+        await peer.refresh();
+        await pumpCard(tester, PostEvent.decode(current)!);
+        await tester.pumpAndSettle();
+        expect(find.text('Live update'), findsOneWidget);
+        final method = withdraw ? 'DELETE' : 'PUT';
+        const path = '/discourse-post-event/events/42/invitees/83.json';
+        ports.transport.responders['$method $path'] = (_) {
+          current = {
+            ...current,
+            'watching_invitee': withdraw ? null : watching(recurring: true),
+          };
+          return {};
+        };
+
+        await tester.tap(attendanceChoice(withdraw));
+        await tester.pumpAndSettle();
+
+        final request = ports.transport.writes.single;
+        expect(
+          (request.method, request.path, request.apiKey),
+          (method, path, 'key'),
+        );
+        expect(
+          request.body,
+          withdraw
+              ? <String, Object?>{}
+              : {
+                  'invitee': {'status': 'going', 'recurring': true},
+                },
+        );
+        expect(peer.event!.watching?.recurring, withdraw ? null : true);
+        expect(peer.error, isNull);
+        expect(ports.posts.lanes, isEmpty);
+        await tester.pumpWidget(const SizedBox.shrink());
+        expect(ports.channels.subscriberCount(channel), 1);
+        peer.dispose();
+        expect(ports.channels.channels, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets(

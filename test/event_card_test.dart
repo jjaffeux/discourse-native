@@ -77,15 +77,31 @@ void main() {
         PostEvent.decode(eventJson())!,
         respond: (status, recurring) => responses.add((status, recurring)),
       );
-      await tester.tap(find.byType(PopupMenuButton<bool>));
+      await tester.tap(find.byTooltip('Choose recurring attendance'));
       await tester.pumpAndSettle();
       await tester.tap(
-        find.widgetWithText(CheckedPopupMenuItem<bool>, 'Every occurrence'),
+        find.widgetWithText(
+          CheckedPopupMenuItem<VoidCallback>,
+          'Every occurrence',
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Choose recurring attendance'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(
+          CheckedPopupMenuItem<VoidCallback>,
+          'This occurrence only',
+        ),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Interested'));
       await tester.pumpAndSettle();
-      expect(responses, [('going', true), ('interested', false)]);
+      expect(responses, [
+        ('going', true),
+        ('going', false),
+        ('interested', false),
+      ]);
     },
   );
 
@@ -123,7 +139,9 @@ void main() {
       await pump(tester, event, respond: (status, _) => responses.add(status));
       expect(
         tester
-            .widget<PopupMenuButton<bool>>(find.byType(PopupMenuButton<bool>))
+            .widget<PopupMenuButton<VoidCallback>>(
+              find.byType(PopupMenuButton<VoidCallback>),
+            )
             .enabled,
         isFalse,
       );
