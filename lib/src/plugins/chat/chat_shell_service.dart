@@ -77,6 +77,7 @@ final class ChatShellService
   bool _drawerAvailable = false;
   bool _drawerActive = false;
   bool _drawerExpanded = true;
+  bool _drawerContentVisible = false;
   bool _fullPagePreservesAppRoute = false;
   String? _drawerSiteUrl;
   List<ContentRoute> _drawerContentStack = const [];
@@ -190,13 +191,23 @@ final class ChatShellService
   void toggleDrawerExpanded() {
     if (!drawerActive) return;
     _drawerExpanded = !_drawerExpanded;
+    _syncDrawerViewing();
     _notify();
   }
 
   void expandDrawer() {
     if (!drawerActive || _drawerExpanded) return;
     _drawerExpanded = true;
+    _syncDrawerViewing();
     _notify();
+  }
+
+  /// The retained route owns live viewing only while its body is visible,
+  /// including any parent surface that disables tickers.
+  void updateDrawerContentVisibility(bool visible) {
+    if (_disposed || _drawerContentVisible == visible) return;
+    _drawerContentVisible = visible;
+    _syncDrawerViewing();
   }
 
   void closeDrawer() {
@@ -1133,7 +1144,9 @@ final class ChatShellService
 
   void _syncDrawerViewing() {
     ChatStreamTarget? target;
-    final siteUrl = _drawerActive ? _drawerSiteUrl : null;
+    final siteUrl = drawerExpanded && _drawerContentVisible
+        ? _drawerSiteUrl
+        : null;
     final content = drawerCurrentContent;
     if (siteUrl != null && content != null) {
       if (ChatRoute.parse(content.id) case final route?) {

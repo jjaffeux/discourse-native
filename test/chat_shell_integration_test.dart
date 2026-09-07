@@ -1005,7 +1005,7 @@ void _registerChatShellTests() {
           tester.getSize(find.byKey(ChatDrawerOverlay.collapseButtonKey)).width,
           lessThanOrEqualTo(1),
         );
-        expect(tracker.pluginChannelCallbacks['/chat/9'], isNotEmpty);
+        expect(tracker.pluginChannelCallbacks['/chat/9'], isEmpty);
 
         await shell.disconnectCurrentInstance();
         await tester.pumpAndSettle();
@@ -1352,6 +1352,99 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
         expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
       });
+
+      for (final inThread in [false, true]) {
+        testWidgets(
+          'collapse pauses ${inThread ? 'thread' : 'channel'} read dwell and live viewing',
+          (tester) async {
+            final api = FakeDiscourseApi(
+              totals: withChat,
+              user: me,
+              feeds: const {'/latest.json': []},
+              chatChannelsBySite: {
+                site: ChatChannels(
+                  public: [channel(9, lastRead: 0, threadingEnabled: true)],
+                ),
+              },
+              chatThreadsByKey: const {
+                '9~3': ChatThread(
+                  id: 3,
+                  channelId: 9,
+                  status: 'open',
+                  replyCount: 1,
+                  title: 'Drawer thread',
+                  membership: ChatThreadMembership(
+                    threadId: 3,
+                    lastReadMessageId: 0,
+                  ),
+                ),
+              },
+              chatMessagesByKey: {
+                key(9): page([msg(41)]),
+                'thread-9-3': page([msg(41)]),
+              },
+            );
+            await pumpChat(
+              tester,
+              api: api,
+              preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+            );
+            final shell = ShellScope.read(
+              tester.element(find.byType(MainContent)),
+            );
+            final chatShell = shell.pluginSession.require(chatShellService);
+            await tester.tap(shortcut);
+            await tester.pumpAndSettle();
+            if (inThread) {
+              chatShell.openThread(siteUrl: site, channelId: 9, threadId: 3);
+            } else {
+              chatShell.openChannel(9);
+            }
+            await tester.pump();
+            await tester.pump();
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 200));
+            int? lastRead() => inThread
+                ? shell.chat.thread(site, 3)?.membership?.lastReadMessageId
+                : shell.chat.channel(site, 9)?.membership.lastReadMessageId;
+            expect(lastRead(), 0);
+            final tracker = FakeSiteTracker.built.singleWhere(
+              (tracker) => tracker.siteUrl == site,
+            );
+            final subscriptions = ['/chat/9', if (inThread) '/chat/9/thread/3'];
+            for (final subscription in subscriptions) {
+              expect(tracker.pluginChannelCallbacks[subscription], isNotEmpty);
+            }
+
+            await tester.tap(find.byKey(ChatDrawerOverlay.collapseButtonKey));
+            await tester.pump();
+            await tester.pump(const Duration(seconds: 2));
+            expect(lastRead(), 0);
+            expect(api.chatReadsMarked, isEmpty);
+            for (final subscription in subscriptions) {
+              expect(tracker.pluginChannelCallbacks[subscription], isEmpty);
+            }
+
+            await tester.tap(find.byKey(ChatDrawerOverlay.headerKey));
+            await tester.pump();
+            for (final subscription in subscriptions) {
+              expect(tracker.pluginChannelCallbacks[subscription], isNotEmpty);
+            }
+            await tester.pump(const Duration(milliseconds: 600));
+            expect(lastRead(), 41);
+            expect(
+              api.chatReadsMarked,
+              inThread ? isEmpty : [(channelId: 9, messageId: 41)],
+            );
+
+            await tester.tap(find.byKey(ChatDrawerOverlay.closeButtonKey));
+            await tester.pump();
+            for (final subscription in subscriptions) {
+              expect(tracker.pluginChannelCallbacks[subscription], isEmpty);
+            }
+          },
+        );
+      }
 
       testWidgets('collapse and close retain an in-progress message edit', (
         tester,
