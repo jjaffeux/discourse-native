@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_test.dart'
-    show RecordingPluginLiveChannels;
+    show PluginTestRequestHost, RecordingPluginLiveChannels;
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
@@ -368,10 +368,16 @@ final class FakeVoicePreferences implements VoicePreferences {
   }
 
   bool meshPrivacyAcknowledged = false;
+  Completer<void>? meshPrivacyReadStarted;
+  Completer<void>? meshPrivacyReadGate;
   bool? autoStatusEnabled;
 
   @override
-  Future<bool> readMeshPrivacyAcknowledged() async => meshPrivacyAcknowledged;
+  Future<bool> readMeshPrivacyAcknowledged() async {
+    meshPrivacyReadStarted?.complete();
+    await meshPrivacyReadGate?.future;
+    return meshPrivacyAcknowledged;
+  }
 
   @override
   Future<void> writeMeshPrivacyAcknowledged(bool acknowledged) async {
@@ -537,6 +543,7 @@ final class FakeVoiceSystemCall implements VoiceSystemCall {
   final List<({String callerName, String roomName, String handle})>
   reportedIncomingCalls = [];
   int incomingAnswers = 0;
+  Completer<void>? incomingAnswerGate;
   int incomingDeclines = 0;
   final List<VoiceIncomingCallEndReason> incomingEnds = [];
 
@@ -557,7 +564,10 @@ final class FakeVoiceSystemCall implements VoiceSystemCall {
   }
 
   @override
-  Future<void> answerIncomingCall() async => incomingAnswers++;
+  Future<void> answerIncomingCall() async {
+    incomingAnswers++;
+    await incomingAnswerGate?.future;
+  }
 
   @override
   Future<void> declineIncomingCall() async => incomingDeclines++;
@@ -4582,9 +4592,15 @@ void main() {
 
   group('direct calls', () {
     late ManualScheduler scheduler;
+    late _ControlledVoiceTransport callTransport;
+    late PluginTestRequestHost callRequests;
     final ringSentAt = DateTime.utc(2026, 8, 8, 16);
     var now = DateTime.utc(2026, 8, 8, 16, 0, 10);
     var meshPrivacyWarning = false;
+    Completer<bool?>? capabilityGate;
+    VoidCallback? onAnswer;
+    VoidCallback? onPrivacyFlag;
+    VoidCallback? onSiteName;
     final answeredRooms = <({String siteUrl, int roomId})>[];
 
     Map<String, dynamic> callRoom() => {
@@ -4621,11 +4637,19 @@ void main() {
       scheduler = ManualScheduler();
       now = DateTime.utc(2026, 8, 8, 16, 0, 10);
       meshPrivacyWarning = false;
+      capabilityGate = null;
+      onAnswer = null;
+      onPrivacyFlag = null;
+      onSiteName = null;
       answeredRooms.clear();
       controller.dispose();
       // Disposing the controller disposed the fakes it owned.
       systemCall = FakeVoiceSystemCall();
       mediaFactory = FakeVoiceMediaFactory();
+      callTransport = _ControlledVoiceTransport(responses: transport.responses);
+      transport = callTransport;
+      callRequests = PluginTestRequestHost(apiKeys: {firstSite: 'key'});
+      requests = callRequests;
       transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
       transport.responses['POST /voice/calls.json'] = {'room': callRoom()};
       transport.responses['POST /voice/rooms/9/join.json'] = {
@@ -4640,6 +4664,7 @@ void main() {
         requests: requests,
         trackerFor: (siteUrl) => siteUrl == firstSite ? firstTracker : null,
         userIdFor: (_) => 1,
+        capabilityEnabledFor: (_) => capabilityGate?.future ?? Future.value(),
         onCallSiteChanged: () {},
         mediaFactory: mediaFactory,
         systemCall: systemCall,
@@ -4648,10 +4673,18 @@ void main() {
         preferences: preferences,
         timerFactory: scheduler.createTimer,
         clock: () => now,
-        siteNameFor: (_) => 'One',
-        meshPrivacyWarningEnabledFor: (_) => meshPrivacyWarning,
-        onIncomingCallAnswered: (siteUrl, room) =>
-            answeredRooms.add((siteUrl: siteUrl, roomId: room.id)),
+        siteNameFor: (_) {
+          onSiteName?.call();
+          return 'One';
+        },
+        meshPrivacyWarningEnabledFor: (_) {
+          onPrivacyFlag?.call();
+          return meshPrivacyWarning;
+        },
+        onIncomingCallAnswered: (siteUrl, room) {
+          answeredRooms.add((siteUrl: siteUrl, roomId: room.id));
+          onAnswer?.call();
+        },
         heartbeatInterval: const Duration(days: 1),
         signalBatchDelay: Duration.zero,
       );
@@ -4770,6 +4803,274 @@ void main() {
       );
       expect(join.body['invited_by'], 'kim');
       expect(await controller.acceptIncomingCall(), isNull);
+    });
+
+    group('answer lifetime', () {
+      Future<void> offerCall() async {
+        systemCall.presentsIncomingCalls = true;
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        await pumpEventQueue();
+      }
+
+      Future<void> replaceAccount() async {
+        controller.forget(firstSite);
+        callRequests
+          ..forget(firstSite)
+          ..apiKeys[firstSite] = 'replacement-key';
+        await controller.ensureLoaded(firstSite);
+      }
+
+      for (final invalidation in ['forget', 'replace', 'dispose']) {
+        test('stops after CallKit answer when $invalidation occurs', () async {
+          await offerCall();
+          final gate = Completer<void>();
+          systemCall.incomingAnswerGate = gate;
+          final accepting = controller.acceptIncomingCall();
+          expect(systemCall.incomingAnswers, 1);
+          expect(await controller.acceptIncomingCall(), isNull);
+
+          switch (invalidation) {
+            case 'forget':
+              await replaceAccount();
+            case 'replace':
+              callRequests
+                ..forget(firstSite)
+                ..apiKeys[firstSite] = 'replacement-key';
+            case 'dispose':
+              controller.dispose();
+          }
+          gate.complete();
+          final accepted = await accepting;
+
+          expect(
+            callTransport.pluginGets,
+            isNot(contains('/voice/rooms/call-1a2b.json')),
+          );
+          expect(accepted, isNull);
+          expect(controller.room(firstSite, 9), isNull);
+          expect(mediaFactory.sessions, isEmpty);
+          expect(systemCall.failures, 0);
+          if (invalidation != 'dispose') {
+            await controller.join(
+              siteUrl: firstSite,
+              siteName: 'Replacement',
+              room: VoiceRoom.fromJson(callRoom()),
+            );
+            expect(
+              transport.writes
+                  .singleWhere((write) => write.path.endsWith('/join.json'))
+                  .body['invited_by'],
+              isNull,
+            );
+          }
+        });
+      }
+
+      test(
+        'keeps the original session while room capability is pending',
+        () async {
+          await offerCall();
+          final gate = Completer<bool?>();
+          capabilityGate = gate;
+          final accepting = controller.acceptIncomingCall(fromSystem: true);
+          await pumpEventQueue();
+          capabilityGate = null;
+          await replaceAccount();
+
+          gate.complete(true);
+          expect(await accepting, isNull);
+          expect(
+            callTransport.pluginGets,
+            isNot(contains('/voice/rooms/call-1a2b.json')),
+          );
+          expect(controller.room(firstSite, 9), isNull);
+        },
+      );
+
+      for (final failure in [false, true]) {
+        test(
+          'ignores a stale room ${failure ? 'failure' : 'response'} without failing a newer call',
+          () async {
+            await offerCall();
+            callTransport.heldPluginPaths.add('/voice/rooms/call-1a2b.json');
+            systemCall.send(VoiceSystemCallAction.answer);
+            await pumpEventQueue();
+            final pending = callTransport.pendingPluginGets.single;
+            await replaceAccount();
+            await controller.join(
+              siteUrl: firstSite,
+              siteName: 'Replacement',
+              room: controller.room(firstSite, 7)!,
+            );
+            final newerMedia = controller.call!.media;
+
+            if (failure) {
+              pending.response.completeError(
+                StateError('old room unavailable'),
+              );
+            } else {
+              pending.response.complete(callRoom());
+            }
+            await pumpEventQueue();
+
+            expect(systemCall.failures, 0);
+            expect(systemCall.ends, 0);
+            expect(answeredRooms, isEmpty);
+            expect(controller.call?.media, same(newerMedia));
+            expect(controller.room(firstSite, 9), isNull);
+          },
+        );
+      }
+
+      test('rechecks the session after room observers run', () async {
+        await offerCall();
+        controller.addListener(() {
+          if (controller.room(firstSite, 9) != null) {
+            controller.forget(firstSite);
+          }
+        });
+
+        expect(await controller.acceptIncomingCall(), isNull);
+        expect(controller.room(firstSite, 9), isNull);
+      });
+
+      for (final invalidation in [
+        'forget',
+        'dispose',
+        'new ring',
+        'join',
+        'end',
+      ]) {
+        test(
+          'stops the system answer after privacy read and $invalidation',
+          () async {
+            meshPrivacyWarning = true;
+            transport.responses['GET /voice/rooms/call-1a2b.json'] = {
+              ...callRoom(),
+              'expected_transport': 'mesh',
+            };
+            await offerCall();
+            final started = Completer<void>();
+            final gate = Completer<void>();
+            preferences
+              ..meshPrivacyReadStarted = started
+              ..meshPrivacyReadGate = gate;
+            final notices = <VoiceNotice>[];
+            controller.notices.listen(notices.add);
+            systemCall.send(VoiceSystemCallAction.answer);
+            await started.future;
+
+            switch (invalidation) {
+              case 'forget':
+                await replaceAccount();
+              case 'dispose':
+                controller.dispose();
+              case 'new ring':
+                firstTracker.deliver(
+                  '/voice/call-ring/1',
+                  ring(sentAt: 1786204815),
+                );
+                await pumpEventQueue();
+              case 'join':
+                await controller.join(
+                  siteUrl: firstSite,
+                  siteName: 'One',
+                  room: controller.room(firstSite, 7)!,
+                );
+              case 'end':
+                systemCall.send(VoiceSystemCallAction.end);
+                await pumpEventQueue();
+            }
+            gate.complete();
+            await pumpEventQueue();
+
+            expect(answeredRooms, isEmpty);
+            expect(notices, isEmpty);
+            expect(
+              transport.writes.where(
+                (write) => write.path == '/voice/rooms/9/join.json',
+              ),
+              isEmpty,
+            );
+            expect(systemCall.failures, 0);
+            expect(systemCall.ends, 0);
+            if (invalidation == 'join') expect(controller.call?.room.id, 7);
+            if (invalidation == 'new ring') {
+              expect(
+                controller.incomingCall?.sentAt,
+                DateTime.utc(2026, 8, 8, 16, 0, 15),
+              );
+            }
+          },
+        );
+      }
+
+      for (final callback in ['navigation', 'privacy flag', 'site name']) {
+        test('rechecks the lifetime after the $callback callback', () async {
+          await offerCall();
+          void invalidate() => controller.forget(firstSite);
+          switch (callback) {
+            case 'navigation':
+              onAnswer = invalidate;
+            case 'privacy flag':
+              onPrivacyFlag = invalidate;
+            case 'site name':
+              onSiteName = invalidate;
+          }
+
+          systemCall.send(VoiceSystemCallAction.answer);
+          await pumpEventQueue();
+
+          expect(mediaFactory.sessions, isEmpty);
+          expect(transport.writes, isEmpty);
+          expect(systemCall.failures, 0);
+        });
+      }
+
+      test(
+        'an unresolved current answer still fails the system call',
+        () async {
+          await offerCall();
+          callTransport.heldPluginPaths.add('/voice/rooms/call-1a2b.json');
+          systemCall.send(VoiceSystemCallAction.answer);
+          await pumpEventQueue();
+
+          callTransport.pendingPluginGets.single.response.completeError(
+            StateError('room unavailable'),
+          );
+          await pumpEventQueue();
+
+          expect(systemCall.failures, 1);
+          expect(answeredRooms, isEmpty);
+          expect(mediaFactory.sessions, isEmpty);
+        },
+      );
+
+      test(
+        'duplicate system answers do not fail or toggle the accepted call',
+        () async {
+          await offerCall();
+          callTransport.heldPluginPaths.add('/voice/rooms/call-1a2b.json');
+          systemCall.send(VoiceSystemCallAction.answer);
+          await pumpEventQueue();
+          systemCall.send(VoiceSystemCallAction.answer);
+          await pumpEventQueue();
+          expect(systemCall.failures, 0);
+          expect(callTransport.pendingPluginGets, hasLength(1));
+
+          callTransport.pendingPluginGets.single.response.complete(callRoom());
+          await pumpEventQueue();
+          systemCall.send(VoiceSystemCallAction.answer);
+          await pumpEventQueue();
+
+          expect(systemCall.failures, 0);
+          expect(systemCall.ends, 0);
+          expect(controller.call?.room.id, 9);
+          expect(mediaFactory.sessions, hasLength(1));
+          expect(answeredRooms, [(siteUrl: firstSite, roomId: 9)]);
+        },
+      );
     });
 
     test('calling someone holds and subscribes the call room', () async {

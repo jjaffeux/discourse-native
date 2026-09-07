@@ -19,6 +19,33 @@ import 'voice_signaling.dart';
 
 enum VoiceCallStatus { joining, connected, reconnecting, leaving, failed }
 
+/// A resolved incoming call, still owned by the account and answer that
+/// requested it. UI continuations must recheck [isCurrent] after awaiting or
+/// invoking navigation callbacks before joining.
+final class VoiceIncomingCallAcceptance {
+  VoiceIncomingCallAcceptance._(this.siteUrl, this.room, this._isCurrent);
+
+  final String siteUrl;
+  final VoiceRoom room;
+  final bool Function() _isCurrent;
+
+  bool get isCurrent => _isCurrent();
+}
+
+final class _VoiceIncomingAnswer {
+  _VoiceIncomingAnswer({
+    required this.siteUrl,
+    required this.call,
+    required this.presented,
+    required this.isCurrent,
+  });
+
+  final String siteUrl;
+  final VoiceIncomingCall call;
+  final bool presented;
+  final bool Function() isCurrent;
+}
+
 enum _VoiceLeaveReason {
   user,
   roomToggle,
@@ -297,6 +324,7 @@ final class VoiceController extends ChangeNotifier {
   final Map<String, PluginLiveChannelSubscription> _ringSubscriptions = {};
   final Set<String> _handledRings = {};
   ({String siteUrl, VoiceIncomingCall call})? _incomingCall;
+  _VoiceIncomingAnswer? _incomingAnswer;
   Timer? _incomingCallExpiry;
   bool _incomingCallSystemPresented = false;
   final Duration heartbeatInterval;
@@ -447,18 +475,48 @@ final class VoiceController extends ChangeNotifier {
   /// Takes the ringing call: the room is resolved (and held) so the caller
   /// can open and join it. Joining through the invite ref credits the
   /// caller, the same as joining from the notification link.
-  Future<({String siteUrl, VoiceRoom room})?> acceptIncomingCall({
+  Future<VoiceIncomingCallAcceptance?> acceptIncomingCall({
     bool fromSystem = false,
   }) async {
+    final answer = _takeIncomingCall();
+    if (answer == null) return null;
+    return _acceptIncomingCall(answer, fromSystem: fromSystem);
+  }
+
+  _VoiceIncomingAnswer? _takeIncomingCall() {
     final incoming = _incomingCall;
-    if (incoming == null) return null;
-    final presented = _incomingCallSystemPresented;
+    if (_disposed || incoming == null) return null;
+    final siteSession = _siteSession(incoming.siteUrl);
+    final lease = _requests.capture(incoming.siteUrl);
+    // A later join takes ownership even before it has created its media.
+    final joinTail = _joinTail;
+    late final _VoiceIncomingAnswer answer;
+    answer = _VoiceIncomingAnswer(
+      siteUrl: incoming.siteUrl,
+      call: incoming.call,
+      presented: _incomingCallSystemPresented,
+      isCurrent: () =>
+          identical(_incomingAnswer, answer) &&
+          identical(_joinTail, joinTail) &&
+          _isCurrentSiteSession(incoming.siteUrl, siteSession) &&
+          lease.isCurrent,
+    );
+    _incomingAnswer = answer;
     _clearIncomingCall();
+    return answer;
+  }
+
+  Future<VoiceIncomingCallAcceptance?> _acceptIncomingCall(
+    _VoiceIncomingAnswer answer, {
+    required bool fromSystem,
+  }) async {
+    if (!answer.isCurrent()) return null;
     _record(
       'call.ring.answered',
-      data: {'roomId': incoming.call.roomId, 'fromSystem': fromSystem},
+      data: {'roomId': answer.call.roomId, 'fromSystem': fromSystem},
     );
-    if (presented && !fromSystem) {
+    if (!answer.isCurrent()) return null;
+    if (answer.presented && !fromSystem) {
       // The system is still ringing; its call becomes the active one so the
       // join below does not place a second call.
       await _runHandled(
@@ -466,14 +524,23 @@ final class VoiceController extends ChangeNotifier {
         'voice.systemCall.answerIncoming',
       );
     }
-    rememberInviteRef(
-      siteUrl: incoming.siteUrl,
-      roomSlug: incoming.call.roomSlug,
-      username: incoming.call.caller.username.toLowerCase(),
+    if (!answer.isCurrent()) return null;
+    final room = await _resolveRoom(
+      answer.siteUrl,
+      answer.call.roomSlug,
+      ifCurrent: answer.isCurrent,
     );
-    final room = await resolveRoom(incoming.siteUrl, incoming.call.roomSlug);
-    if (room == null) return null;
-    return (siteUrl: incoming.siteUrl, room: room);
+    if (room == null || !answer.isCurrent()) return null;
+    rememberInviteRef(
+      siteUrl: answer.siteUrl,
+      roomSlug: answer.call.roomSlug,
+      username: answer.call.caller.username.toLowerCase(),
+    );
+    return VoiceIncomingCallAcceptance._(
+      answer.siteUrl,
+      room,
+      answer.isCurrent,
+    );
   }
 
   void declineIncomingCall({bool fromSystem = false}) {
@@ -560,20 +627,53 @@ final class VoiceController extends ChangeNotifier {
   /// join proceeds directly; a peer-to-peer privacy warning the site would
   /// have shown before a join is said afterwards instead.
   Future<void> _answerFromSystem() async {
-    final accepted = await acceptIncomingCall(fromSystem: true);
+    // CallKit can echo a local answer or deliver its action more than once.
+    // Once taken, that answer alone owns resolution and failure handling.
+    if (_disposed ||
+        (_incomingCall == null &&
+            (_incomingAnswer != null ||
+                _call != null ||
+                _pendingJoin != null))) {
+      return;
+    }
+    final answer = _takeIncomingCall();
+    final accepted = answer == null
+        ? null
+        : await _acceptIncomingCall(answer, fromSystem: true);
+    bool isCurrent() =>
+        answer?.isCurrent() ??
+        (!_disposed &&
+            _incomingCall == null &&
+            _incomingAnswer == null &&
+            _call == null &&
+            _pendingJoin == null);
+    if (!isCurrent()) return;
     if (accepted == null) {
       _record(
         'call.ring.system_answer.unresolved',
         severity: DiagnosticSeverity.warning,
       );
+      if (!isCurrent()) return;
       await _runHandled(systemCall.failed, 'voice.systemCall.failed');
       return;
     }
-    final (:siteUrl, :room) = accepted;
-    _onIncomingCallAnswered?.call(siteUrl, room);
-    if ((_meshPrivacyWarningEnabledFor?.call(siteUrl) ?? false) &&
+    final siteUrl = accepted.siteUrl;
+    final room = accepted.room;
+    final privacyWarningEnabled =
+        _meshPrivacyWarningEnabledFor?.call(siteUrl) ?? false;
+    if (!isCurrent()) return;
+    var warnAboutPrivacy = false;
+    if (privacyWarningEnabled &&
         room.expectedTransport == VoiceTransport.mesh &&
         !await meshPrivacyAcknowledged()) {
+      warnAboutPrivacy = true;
+    }
+    if (!isCurrent()) return;
+    final siteName = _siteNameFor?.call(siteUrl) ?? siteUrl;
+    if (!isCurrent()) return;
+    _onIncomingCallAnswered?.call(siteUrl, room);
+    if (!isCurrent()) return;
+    if (warnAboutPrivacy) {
       _notify(
         siteUrl,
         room.id,
@@ -581,11 +681,7 @@ final class VoiceController extends ChangeNotifier {
         'may be able to see your IP address.',
       );
     }
-    await join(
-      siteUrl: siteUrl,
-      siteName: _siteNameFor?.call(siteUrl) ?? siteUrl,
-      room: room,
-    );
+    await join(siteUrl: siteUrl, siteName: siteName, room: room);
   }
 
   /// A ring for this user. Rings replayed from a message-bus backlog after
@@ -614,6 +710,7 @@ final class VoiceController extends ChangeNotifier {
     }
     if (!_handledRings.add(call.key)) return;
     if (_handledRings.length > 50) _handledRings.remove(_handledRings.first);
+    _incomingAnswer = null;
     _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     _incomingCall = (siteUrl: siteUrl, call: call);
     _incomingCallExpiry = _timerFactory(remaining, () {
@@ -713,17 +810,23 @@ final class VoiceController extends ChangeNotifier {
         fallback: null,
       );
 
-  Future<VoiceRoom?> _resolveRoom(String siteUrl, String slug) async {
-    if (_unavailableSites.contains(siteUrl)) return null;
-    final capabilityEnabled = await _capabilityEnabledFor(siteUrl);
-    if (capabilityEnabled == false) return null;
-    final directory = _directories[siteUrl];
-    for (final room in directory?.rooms ?? const <VoiceRoom>[]) {
-      if (room.slug == slug) return room;
-    }
+  Future<VoiceRoom?> _resolveRoom(
+    String siteUrl,
+    String slug, {
+    bool Function()? ifCurrent,
+  }) async {
     final siteSession = _siteSession(siteUrl);
-    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
+    bool isCurrent() =>
+        _isCurrentSiteSession(siteUrl, siteSession) &&
+        (ifCurrent?.call() ?? true);
+    if (!isCurrent() || _unavailableSites.contains(siteUrl)) return null;
     try {
+      final capabilityEnabled = await _capabilityEnabledFor(siteUrl);
+      if (!isCurrent() || capabilityEnabled == false) return null;
+      final directory = _directories[siteUrl];
+      for (final room in directory?.rooms ?? const <VoiceRoom>[]) {
+        if (room.slug == slug) return room;
+      }
       final credentials = await _requestCredentials(
         siteUrl,
         ifCurrent: isCurrent,
@@ -738,8 +841,9 @@ final class VoiceController extends ChangeNotifier {
       if (!isCurrent()) return null;
       _rememberLinkedRoom(siteUrl, room);
       _syncSubscriptions(siteUrl);
+      if (!isCurrent()) return null;
       notifyListeners();
-      return room;
+      return isCurrent() ? room : null;
     } catch (error, stackTrace) {
       if (isCurrent()) _report(error, stackTrace, 'voice.room');
       return null;
@@ -2958,6 +3062,7 @@ final class VoiceController extends ChangeNotifier {
     required _VoiceLeaveReason reason,
     bool clearImmediately = false,
   }) {
+    _incomingAnswer = null;
     final active = _leaveOperation;
     final call = _call;
     if (call == null) return active ?? Future<void>.value();
