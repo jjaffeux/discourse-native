@@ -4,8 +4,12 @@ import 'dart:ui';
 
 import 'package:discourse_native/src/diagnostics/topic_scroll_capture.dart';
 import 'package:discourse_native/src/diagnostics/topic_scroll_cpu_profile.dart';
+import 'package:discourse_native/src/diagnostics/topic_scroll_raster_profile.dart';
+import 'package:discourse_native/src/diagnostics/topic_scroll_timeline_recording.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/topic_scroll_capture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -295,6 +299,92 @@ void main() {
     expect(calls.last.end, 70000);
   });
 
+  test('Stop finalizes rendering without waiting for Copy', () async {
+    var now = 100;
+    final recording = _RasterRecording();
+    final capture = TopicScrollCaptureController(
+      timelineClock: () => now,
+      currentFrameNumber: () => 42,
+      rasterRecordingStarter: ({required startUs}) async => recording,
+      cpuProfileCollector: _emptyCpuProfile,
+    );
+    addTearDown(capture.dispose);
+    capture.start(displayRefreshRate: 120);
+    capture.recordTopicEvent('viewport.work', const {});
+    PlatformDispatcher.instance.onReportTimings?.call([
+      _timing(vsyncStart: 100, frameNumber: 42, buildUs: 1000, rasterUs: 16000),
+    ]);
+    now = 40000;
+    capture.stop();
+    await Future<void>.delayed(Duration.zero);
+    expect(recording.calls, 1);
+    expect(recording.endUs, 40000);
+    expect(recording.frames, [(frameNumber: 42, startUs: 3100, endUs: 19100)]);
+    recording.result.complete({'status': 'available', 'source': 'live-stream'});
+    final report = jsonDecode(await capture.buildJsonReport()) as Map;
+    expect(
+      ((report['cpuProfile'] as Map)['rasterTimeline'] as Map)['source'],
+      'live-stream',
+    );
+    await capture.buildPerformanceReport();
+    expect(recording.calls, 1);
+  });
+
+  test(
+    'clearing before the stream connects preserves its Stop request',
+    () async {
+      var now = 100;
+      final started = Completer<TopicRasterRecording>();
+      final capture = TopicScrollCaptureController(
+        timelineClock: () => now,
+        rasterRecordingStarter: ({required startUs}) => started.future,
+        cpuProfileCollector: _emptyCpuProfile,
+      );
+      addTearDown(capture.dispose);
+      capture.start();
+      now = 200;
+      capture.clear();
+      final recording = _RasterRecording();
+      started.complete(recording);
+      await Future<void>.delayed(Duration.zero);
+      expect(recording.calls, 1);
+      expect(recording.endUs, 200);
+      recording.result.complete({'status': 'available'});
+      final report = jsonDecode(await capture.buildJsonReport()) as Map;
+      expect((report['cpuProfile'] as Map)['reason'], 'no-capture');
+    },
+  );
+
+  test('a pending rendering result stays with its original capture', () async {
+    var now = 100;
+    final first = _RasterRecording();
+    final second = _RasterRecording();
+    final capture = TopicScrollCaptureController(
+      timelineClock: () => now,
+      rasterRecordingStarter: ({required startUs}) async =>
+          startUs == 100 ? first : second,
+      cpuProfileCollector: _emptyCpuProfile,
+    );
+    addTearDown(capture.dispose);
+    capture.start();
+    now = 200;
+    capture.stop();
+    final original = capture.buildJsonReport();
+    capture.start();
+    now = 300;
+    capture.dispose();
+    first.result.complete({'status': 'available', 'retainedEventCount': 123});
+    second.result.complete({'status': 'available', 'retainedEventCount': 456});
+    final report = jsonDecode(await original) as Map;
+    expect(
+      ((report['cpuProfile'] as Map)['rasterTimeline']
+          as Map)['retainedEventCount'],
+      123,
+    );
+    expect(first.endUs, 200);
+    expect(second.endUs, 300);
+  });
+
   test('a pending CPU export stays attached to its original capture', () async {
     var now = 100;
     final pending = Completer<Map<String, Object?>>();
@@ -354,7 +444,7 @@ void main() {
   testWidgets(
     'reaching the event limit during layout notifies after the frame',
     (tester) async {
-      final capture = TopicScrollCaptureController(maximumEvents: 1);
+      final capture = topicScrollCaptureWithoutVm(maximumEvents: 1);
       addTearDown(capture.dispose);
       capture.start();
       await tester.pumpWidget(
@@ -400,3 +490,28 @@ FrameTiming _timing({
   rasterFinish: vsyncStart + 2000 + buildUs + rasterUs,
   rasterFinishWallTime: vsyncStart + 2000 + buildUs + rasterUs,
 );
+
+Future<Map<String, Object?>> _emptyCpuProfile({
+  required int startUs,
+  required int endUs,
+  required List<TopicCpuFrame> slowFrames,
+  required List<TopicRasterFrame> slowRasterFrames,
+}) async => {'status': 'available'};
+
+final class _RasterRecording implements TopicRasterRecording {
+  final result = Completer<Map<String, Object?>>();
+  int calls = 0;
+  int? endUs;
+  List<TopicRasterFrame>? frames;
+
+  @override
+  Future<Map<String, Object?>> finish({
+    required int endUs,
+    required List<TopicRasterFrame> frames,
+  }) {
+    calls++;
+    this.endUs = endUs;
+    this.frames = frames;
+    return result.future;
+  }
+}

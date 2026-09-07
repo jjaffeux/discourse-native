@@ -118,7 +118,10 @@ Future<Map<String, Object?>> _readRasterTimeline(
           timeExtentMicros: endUs - startUs,
         )
         .timeout(const Duration(seconds: 4));
-    return summarizeTopicRasterProfile(timeline, frames);
+    return {
+      ...summarizeTopicRasterProfile(timeline, frames),
+      'source': 'export-buffer',
+    };
   } on Object {
     return const {'status': 'unavailable', 'reason': 'timeline-unavailable'};
   }

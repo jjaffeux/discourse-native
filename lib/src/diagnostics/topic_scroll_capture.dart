@@ -9,7 +9,9 @@ import 'package:flutter/scheduler.dart';
 import '../data/app_release.dart';
 import '../foundation/frame_safe_notifier.dart';
 import 'topic_scroll_cpu_profile.dart';
+import 'topic_scroll_raster_profile.dart';
 import 'topic_scroll_report.dart';
+import 'topic_scroll_timeline_recording.dart';
 
 enum TopicScrollCaptureStopReason { manual, durationLimit, eventLimit }
 
@@ -87,14 +89,17 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
     int Function()? timelineClock,
     int? Function()? currentFrameNumber,
     TopicCpuProfileCollector? cpuProfileCollector,
+    TopicRasterRecordingStarter? rasterRecordingStarter,
   }) : assert(maximumEvents > 0),
        assert(maximumDuration > Duration.zero),
        _clock = clock ?? _utcNow,
        _timelineClock = timelineClock ?? (() => developer.Timeline.now),
        _currentFrameNumber = currentFrameNumber ?? _readCurrentFrameNumber,
-       _cpuProfileCollector = cpuProfileCollector ?? collectTopicCpuProfile;
+       _cpuProfileCollector = cpuProfileCollector ?? collectTopicCpuProfile,
+       _rasterRecordingStarter =
+           rasterRecordingStarter ?? startTopicRasterRecording;
 
-  static const int reportFormatVersion = 4;
+  static const int reportFormatVersion = 5;
   static const int defaultMaximumEvents = 12000;
   static const Duration defaultMaximumDuration = Duration(minutes: 2);
   static const Duration slowFrameThreshold = Duration(microseconds: 16667);
@@ -105,6 +110,7 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
   final int Function() _timelineClock;
   final int? Function() _currentFrameNumber;
   final TopicCpuProfileCollector _cpuProfileCollector;
+  final TopicRasterRecordingStarter _rasterRecordingStarter;
   final List<TopicScrollCaptureEvent> _events = [];
   final Stopwatch _elapsed = Stopwatch();
 
@@ -127,6 +133,8 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
   int _startedAtTimelineUs = 0;
   int _endedAtTimelineUs = 0;
   Future<Map<String, Object?>>? _cpuProfile;
+  Future<TopicRasterRecording>? _rasterRecording;
+  Future<Map<String, Object?>>? _rasterProfile;
   double _displayRefreshRate = 60;
   int _frameBudgetUs = slowFrameThreshold.inMicroseconds;
 
@@ -183,6 +191,8 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
     _startedAtTimelineUs = _timelineClock();
     _endedAtTimelineUs = 0;
     _cpuProfile = null;
+    _rasterProfile = null;
+    _rasterRecording = _startRasterRecording(_startedAtTimelineUs);
     _captureId += 1;
     _startedAtUtc = _clock().toUtc();
     _endedAtUtc = null;
@@ -209,6 +219,8 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
     _endedAtUtc = null;
     _stopReason = null;
     _cpuProfile = null;
+    _rasterRecording = null;
+    _rasterProfile = null;
     _sequence = 0;
     _topicEventCount = 0;
     _frameCount = 0;
@@ -317,13 +329,14 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
   }
 
   Future<Map<String, Object?>> _collectCpuProfile() async {
+    final rendering = _rasterProfile;
     final topicFrames = {
       for (final event in _events)
         if (event.category == 'topic' && event.frameNumber != null)
           event.frameNumber!,
     };
     final slowFrames = <TopicCpuFrame>[];
-    final slowRasterFrames = <TopicCpuFrame>[];
+    final slowRasterFrames = _slowRasterFrames();
     for (final event in _events) {
       if (event.category != 'frame' || event.name != 'frame.timing') continue;
       final data = event.data;
@@ -338,26 +351,72 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
           endUs: start + duration,
         ));
       }
-      final rasterDuration = data['rasterUs']! as int;
-      if (rasterDuration > _frameBudgetUs) {
-        final start = data['rasterStartUs']! as int;
-        slowRasterFrames.add((
-          frameNumber: frameNumber!,
-          startUs: start,
-          endUs: start + rasterDuration,
-        ));
-      }
     }
+    Map<String, Object?> profile;
     try {
-      return await _cpuProfileCollector(
+      profile = await _cpuProfileCollector(
         startUs: _startedAtTimelineUs,
         endUs: _endedAtTimelineUs,
         slowFrames: slowFrames,
         slowRasterFrames: slowRasterFrames,
       ).timeout(const Duration(seconds: 10));
     } on Object {
-      return const {'status': 'unavailable', 'reason': 'collection-failed'};
+      profile = const {'status': 'unavailable', 'reason': 'collection-failed'};
     }
+    if (rendering != null) {
+      final recorded = await rendering;
+      if (recorded['status'] == 'available') {
+        return {...profile, 'rasterTimeline': recorded};
+      }
+    }
+    return profile;
+  }
+
+  Future<TopicRasterRecording> _startRasterRecording(int startUs) async {
+    try {
+      return await _rasterRecordingStarter(startUs: startUs);
+    } on Object {
+      return const TopicRasterRecording.unavailable('timeline-start-failed');
+    }
+  }
+
+  Future<Map<String, Object?>> _finishRasterRecording(
+    Future<TopicRasterRecording> recording,
+    int endUs,
+    List<TopicRasterFrame> frames,
+  ) async {
+    try {
+      return await recording
+          .then((session) => session.finish(endUs: endUs, frames: frames))
+          .timeout(const Duration(seconds: 10));
+    } on Object {
+      return const {
+        'status': 'unavailable',
+        'reason': 'timeline-finish-failed',
+      };
+    }
+  }
+
+  List<TopicRasterFrame> _slowRasterFrames() {
+    final topicFrames = {
+      for (final event in _events)
+        if (event.category == 'topic' && event.frameNumber != null)
+          event.frameNumber!,
+    };
+    return [
+      for (final event in _events)
+        if (event.category == 'frame' &&
+            event.name == 'frame.timing' &&
+            topicFrames.contains(event.data['frameNumber']) &&
+            (event.data['rasterUs']! as int) > _frameBudgetUs)
+          (
+            frameNumber: event.data['frameNumber']! as int,
+            startUs: event.data['rasterStartUs']! as int,
+            endUs:
+                (event.data['rasterStartUs']! as int) +
+                (event.data['rasterUs']! as int),
+          ),
+    ];
   }
 
   void _append({
@@ -460,6 +519,14 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
     _endedAtTimelineUs = _timelineClock();
     _endedAtUtc = _clock().toUtc();
     _stopReason = reason;
+    final recording = _rasterRecording;
+    if (recording != null) {
+      _rasterProfile = _finishRasterRecording(
+        recording,
+        _endedAtTimelineUs,
+        _slowRasterFrames(),
+      );
+    }
     _durationTimer?.cancel();
     _durationTimer = null;
     _detachFrameTimings();

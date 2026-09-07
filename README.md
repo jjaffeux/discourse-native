@@ -57,12 +57,15 @@ UI and raster timing percentiles, viewport bookkeeping cost, the most expensive
 post layouts, and paging/anchor activity. Version 3 also reads the Dart VM's
 existing CPU samples on export, when available. It lists frequently sampled
 functions and call paths during slow topic frames, plus CPU and row-layout
-breakdowns for the worst frames. Version 4 also reads the existing engine
-timeline and matches rendering phases to the raster thread for up to twenty
-of the worst drawing frames. These nested phases can overlap and do not measure
-GPU execution directly. Copy soon after stopping because the VM's
-sample buffer overwrites old samples. A missing or disabled profiler does not
-prevent exporting the other measurements; `flutter run --profile -d macos`
+breakdowns for the worst frames. Version 5 retains engine timeline events in a
+background isolate while recording, so earlier rendering stalls survive the
+VM's rolling trace buffer. It matches rendering phases to the raster thread
+for up to twenty of the worst drawing frames and explains missing coverage.
+Only fixed engine labels and timing fields are retained, with a limit of
+100,000 engine events. The connection closes on Stop. These nested phases can
+overlap and do not measure GPU execution directly. Copy soon after stopping
+because the VM's CPU sample buffer overwrites old samples. A missing or disabled
+profiler does not prevent exporting the other measurements; `flutter run --profile -d macos`
 enables profiling for a representative desktop capture.
 
 Engine frame numbers associate topic work with the correct timing batch;
@@ -71,7 +74,8 @@ Post bodies, titles, site URLs, debugger connection details, and
 credentials are excluded; post IDs and HTML character counts identify expensive
 rows. Recording stays in memory, does not refresh the diagnostics UI per event,
 and stops after two minutes or 12,000 events. Export analysis runs in a separate
-isolate and does not change the VM's profiler settings. Use a profile or release
+isolate and does not change the VM's profiler settings or timeline streams.
+The live trace adds diagnostic work while recording; use a profile or release
 build to assess device performance; a debug
 build can reveal work patterns but adds substantial overhead.
 
