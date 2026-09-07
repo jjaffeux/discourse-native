@@ -60,6 +60,20 @@ void main() {
   });
 
   group('resolved palette persistence', () {
+    test('resolves and persists own mentions without an explicit color', () {
+      final source = palette(currentUserMentionBackground: null);
+      final json = source.toJson();
+      final decoded = ResolvedSitePalette.fromJson(json);
+
+      expect(source.currentUserMentionBackground, source.tertiaryLow);
+      expect(
+        json['currentUserMentionBackground'],
+        source.tertiaryLow.toARGB32(),
+      );
+      expect(decoded, source);
+      expect(decoded.hashCode, source.hashCode);
+    });
+
     test('derives fields absent from an older snapshot', () {
       final palette = ResolvedSitePalette.fromJson(const {
         'primary': 0xFF111111,
@@ -158,6 +172,7 @@ void main() {
 ResolvedSitePalette palette({
   Brightness brightness = Brightness.light,
   int offset = 0,
+  Color? currentUserMentionBackground = const Color(0xFF000025),
 }) {
   Color color(int value) => Color(0xFF000000 | (value + offset));
   return ResolvedSitePalette(
@@ -189,7 +204,7 @@ ResolvedSitePalette palette({
     highlightLow: color(25),
     dangerLow: color(26),
     mentionBackground: color(27),
-    currentUserMentionBackground: color(37),
+    currentUserMentionBackground: currentUserMentionBackground,
     codeBlockBackground: color(28),
     inlineCodeBackground: color(29),
     codeKeyword: color(30),
