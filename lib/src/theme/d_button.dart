@@ -315,6 +315,7 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.alignment = Alignment.center,
+    this.padding,
     this.borderRadius,
     this.interactiveBackgroundColor,
   }) : insetSurface = false,
@@ -337,6 +338,7 @@ class DButton extends StatelessWidget {
     this.borderRadius,
     this.interactiveBackgroundColor,
   }) : label = const SizedBox.shrink(),
+       padding = null,
        loadingLabel = null,
        // ignore: prefer_initializing_formals
        icon = icon,
@@ -360,6 +362,7 @@ class DButton extends StatelessWidget {
   final FocusNode? focusNode;
   final bool autofocus;
   final AlignmentGeometry alignment;
+  final EdgeInsetsGeometry? padding;
   final BorderRadiusGeometry? borderRadius;
   final Color? interactiveBackgroundColor;
   final bool _iconOnly;
@@ -433,15 +436,16 @@ class DButton extends StatelessWidget {
           ? WidgetStatePropertyAll(Size.square(iconOnlySurfaceDimension))
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
-        _iconOnly
-            ? EdgeInsets.zero
-            : EdgeInsets.symmetric(
-                // Core uses border-box sizing with 1px borders around its
-                // 0.5em/0.65em padding. Flutter paints borders inside the
-                // layout box, so include that space in the padding here.
-                horizontal: fontSize * 0.65 + _borderWidth,
-                vertical: fontSize * 0.5 + _borderWidth,
-              ),
+        padding ??
+            (_iconOnly
+                ? EdgeInsets.zero
+                : EdgeInsets.symmetric(
+                    // Core uses border-box sizing with 1px borders around its
+                    // 0.5em/0.65em padding. Flutter paints borders inside the
+                    // layout box, so include that space in the padding here.
+                    horizontal: fontSize * 0.65 + _borderWidth,
+                    vertical: fontSize * 0.5 + _borderWidth,
+                  )),
       ),
       textStyle: WidgetStatePropertyAll(
         TextStyle(

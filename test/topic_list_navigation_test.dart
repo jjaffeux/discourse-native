@@ -1031,7 +1031,7 @@ void main() {
       final create = tester.getRect(find.byKey(TopicCreateButton.buttonKey));
       expect(create.bottom, lessThanOrEqualTo(toolbar.top));
       expect(toolbar.top, greaterThan(0));
-      expect(create.height, 36);
+      expect(create.height, 28);
       final recent = tester.getRect(
         find.byKey(const ValueKey('topic-list-latest')),
       );
