@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/bookmark_reminder_store.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -196,6 +197,274 @@ void main() {
     expect(api.updatedBookmarks, isEmpty);
   });
 
+  testWidgets('custom picker clamps a past reminder to the account day', (
+    tester,
+  ) async {
+    final api = await _openEditor(
+      tester,
+      now: DateTime.utc(2026, 4, 15, 8),
+      reminder: DateTime.utc(2026, 4, 14, 10),
+    );
+
+    await _openCustomPicker(tester);
+    final picker = tester.widget<DatePickerDialog>(
+      find.byType(DatePickerDialog),
+    );
+    expect(picker.initialDate, DateTime(2026, 4, 15));
+    expect(picker.firstDate, DateTime(2026, 4, 15));
+    await _confirmPicker(tester);
+    expect(
+      tester
+          .widget<TimePickerDialog>(find.byType(TimePickerDialog))
+          .initialTime,
+      const TimeOfDay(hour: 12, minute: 0),
+    );
+    await _confirmPicker(tester);
+    expect(api.updatedBookmarks, isEmpty);
+    await _saveEditor(tester);
+
+    expect(
+      api.updatedBookmarks.single.reminderAt,
+      DateTime.utc(2026, 4, 15, 10),
+    );
+  });
+
+  for (final scenario in [
+    (
+      label: 'a future reminder on the previous account day',
+      timezone: 'America/Los_Angeles',
+      now: DateTime.utc(2026, 1, 2, 0, 30),
+      reminder: DateTime.utc(2026, 1, 2, 1, 30),
+      day: DateTime(2026, 1, 1),
+      hour: 17,
+    ),
+    (
+      label: 'a new reminder on the previous account day',
+      timezone: 'America/Los_Angeles',
+      now: DateTime.utc(2026, 1, 2, 0, 30),
+      reminder: null,
+      day: DateTime(2026, 1, 1),
+      hour: 17,
+    ),
+    (
+      label: 'a future reminder on the next account day',
+      timezone: 'Pacific/Kiritimati',
+      now: DateTime.utc(2026, 1, 1, 23, 30),
+      reminder: DateTime.utc(2026, 1, 2, 0, 30),
+      day: DateTime(2026, 1, 2),
+      hour: 14,
+    ),
+  ]) {
+    testWidgets('custom picker uses ${scenario.label}', (tester) async {
+      final environment = TimezoneEnvironment.instance;
+      final originalDeviceTimezone = environment.deviceTimezone;
+      environment.setDeviceTimezone('Etc/UTC');
+      addTearDown(() => environment.setDeviceTimezone(originalDeviceTimezone));
+      final api = await _openEditor(
+        tester,
+        now: scenario.now,
+        reminder: scenario.reminder,
+        timezone: scenario.timezone,
+      );
+
+      await _openCustomPicker(tester);
+      final picker = tester.widget<DatePickerDialog>(
+        find.byType(DatePickerDialog),
+      );
+      expect(picker.initialDate, scenario.day);
+      expect(picker.firstDate, scenario.day);
+      expect(picker.currentDate, scenario.day);
+      expect(
+        picker.lastDate,
+        DateTime(scenario.day.year + 10, scenario.day.month, scenario.day.day),
+      );
+      await _confirmPicker(tester);
+      expect(
+        tester
+            .widget<TimePickerDialog>(find.byType(TimePickerDialog))
+            .initialTime,
+        TimeOfDay(hour: scenario.hour, minute: 30),
+      );
+      await _confirmPicker(tester);
+      await _saveEditor(tester);
+
+      expect(
+        api.updatedBookmarks.single.reminderAt,
+        scenario.now.add(const Duration(hours: 1)),
+      );
+    });
+  }
+
+  testWidgets('custom picker clamps a reminder beyond its upper bound', (
+    tester,
+  ) async {
+    final api = await _openEditor(
+      tester,
+      now: DateTime.utc(2026, 4, 15, 12),
+      reminder: DateTime.utc(2046, 4, 15, 8),
+      timezone: 'Asia/Kolkata',
+    );
+
+    await _openCustomPicker(tester);
+    final picker = tester.widget<DatePickerDialog>(
+      find.byType(DatePickerDialog),
+    );
+    expect(picker.initialDate, DateTime(2036, 4, 15));
+    expect(picker.initialDate, picker.lastDate);
+    await _confirmPicker(tester);
+    expect(
+      tester
+          .widget<TimePickerDialog>(find.byType(TimePickerDialog))
+          .initialTime,
+      const TimeOfDay(hour: 13, minute: 30),
+    );
+    await _confirmPicker(tester);
+    await _saveEditor(tester);
+
+    expect(
+      api.updatedBookmarks.single.reminderAt,
+      DateTime.utc(2036, 4, 15, 8),
+    );
+  });
+
+  for (final scenario in [
+    (
+      label: 'past',
+      reminder: DateTime.utc(2026, 4, 14, 8),
+      error: 'Choose a reminder in the future.',
+    ),
+    (label: 'future', reminder: DateTime.utc(2026, 4, 17, 8), error: null),
+    (
+      label: 'beyond the upper bound',
+      reminder: DateTime.utc(2046, 4, 15, 8),
+      error: 'Choose a reminder no more than 10 years away.',
+    ),
+  ]) {
+    for (final stage in ['date', 'time']) {
+      testWidgets(
+        'cancel custom $stage picker preserves a ${scenario.label} reminder',
+        (tester) async {
+          const store = BookmarkReminderStore();
+          final lastCustom = DateTime.utc(2026, 4, 20, 10);
+          await store.write(_site, 'reader', lastCustom);
+          final api = await _openEditor(
+            tester,
+            now: DateTime.utc(2026, 4, 15, 12),
+            reminder: scenario.reminder,
+          );
+          final originalLabel = tester
+              .widget<Text>(find.textContaining('Reminder: '))
+              .data;
+
+          await _openCustomPicker(tester);
+          await _enterPickerDate(tester, DateTime(2026, 4, 18));
+          if (stage == 'time') {
+            await _confirmPicker(tester);
+            expect(find.byType(TimePickerDialog), findsOneWidget);
+          }
+          await tester.tap(find.text('Cancel').last);
+          await tester.pumpAndSettle();
+
+          expect(find.byType(DatePickerDialog), findsNothing);
+          expect(find.byType(TimePickerDialog), findsNothing);
+          expect(find.text(originalLabel!), findsOneWidget);
+          expect(await store.read(_site, 'reader'), lastCustom);
+          expect(api.updatedBookmarks, isEmpty);
+          await _saveEditor(tester);
+          if (scenario.error case final error?) {
+            expect(find.text(error), findsOneWidget);
+            expect(api.updatedBookmarks, isEmpty);
+          } else {
+            expect(api.updatedBookmarks.single.reminderAt, scenario.reminder);
+          }
+        },
+      );
+    }
+  }
+
+  for (final scenario in [
+    (
+      label: 'rejects a DST gap without changing the reminder',
+      now: DateTime.utc(2026, 3, 28),
+      reminder: DateTime.utc(2026, 3, 28, 1, 30),
+      date: DateTime(2026, 3, 29),
+      expected: null,
+    ),
+    (
+      label: 'converts a valid time across the spring DST change',
+      now: DateTime.utc(2026, 3, 28),
+      reminder: DateTime.utc(2026, 3, 28, 2, 30),
+      date: DateTime(2026, 3, 29),
+      expected: DateTime.utc(2026, 3, 29, 1, 30),
+    ),
+    (
+      label: 'resolves a DST overlap deterministically',
+      now: DateTime.utc(2026, 10, 24),
+      reminder: DateTime.utc(2026, 10, 24, 0, 30),
+      date: DateTime(2026, 10, 25),
+      expected: DateTime.utc(2026, 10, 25, 1, 30),
+    ),
+  ]) {
+    testWidgets('custom picker ${scenario.label}', (tester) async {
+      final api = await _openEditor(
+        tester,
+        now: scenario.now,
+        reminder: scenario.reminder,
+      );
+      await _openCustomPicker(tester);
+      await _enterPickerDate(tester, scenario.date);
+      await _confirmPicker(tester);
+      await _confirmPicker(tester);
+
+      if (scenario.expected == null) {
+        expect(
+          find.text(
+            'That local time does not exist because of daylight saving time.',
+          ),
+          findsOneWidget,
+        );
+      }
+      expect(
+        await const BookmarkReminderStore().read(_site, 'reader'),
+        scenario.expected,
+      );
+      expect(api.updatedBookmarks, isEmpty);
+      await _saveEditor(tester);
+      expect(
+        api.updatedBookmarks.single.reminderAt,
+        scenario.expected ?? scenario.reminder,
+      );
+    });
+  }
+
+  for (final scenario in [
+    (
+      reminder: DateTime.utc(2026, 4, 15, 12),
+      error: 'Choose a reminder in the future.',
+    ),
+    (
+      reminder: DateTime.utc(2036, 4, 15, 12, 1),
+      error: 'Choose a reminder no more than 10 years away.',
+    ),
+  ]) {
+    testWidgets('custom picker keeps instant validation: ${scenario.error}', (
+      tester,
+    ) async {
+      final api = await _openEditor(
+        tester,
+        now: DateTime.utc(2026, 4, 15, 12),
+        reminder: scenario.reminder,
+      );
+      await _openCustomPicker(tester);
+      await _confirmPicker(tester);
+      await _confirmPicker(tester);
+      await _saveEditor(tester);
+
+      expect(find.text(scenario.error), findsOneWidget);
+      expect(api.updatedBookmarks, isEmpty);
+    });
+  }
+
   testWidgets('grouped topic bookmarks are ordered by post number', (
     tester,
   ) async {
@@ -251,12 +520,14 @@ void main() {
 
 Future<(ShellController, FakeDiscourseApi)> _controller({
   TopicDetail? topic,
+  String timezone = 'Europe/Paris',
 }) async {
   final payload = topic == null
       ? _topic()
       : (detail: topic, posts: const [_post]);
+  final user = DiscourseUser(username: 'reader', timezone: timezone);
   final api = FakeDiscourseApi(
-    user: const DiscourseUser(username: 'reader', timezone: 'Europe/Paris'),
+    user: user,
     feeds: const {
       '/latest.json': [Topic(id: 7, title: 'Topic', slug: 'topic')],
     },
@@ -267,9 +538,7 @@ Future<(ShellController, FakeDiscourseApi)> _controller({
   final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
   final controller = ShellController(
     instanceStore: FakeInstanceStore([
-      instance('meta.example').copyWith(
-        user: const DiscourseUser(username: 'reader', timezone: 'Europe/Paris'),
-      ),
+      instance('meta.example').copyWith(user: user),
     ]),
     api: api,
     authenticator: authenticator,
@@ -350,4 +619,83 @@ Future<void> _scrollEditorToEnd(WidgetTester tester, String action) async {
   expect(position.maxScrollExtent, greaterThan(0));
   position.jumpTo(position.maxScrollExtent);
   await tester.pump();
+}
+
+Future<FakeDiscourseApi> _openEditor(
+  WidgetTester tester, {
+  required DateTime now,
+  DateTime? reminder,
+  String timezone = 'Europe/Paris',
+}) async {
+  final bookmark = Bookmark(
+    id: 81,
+    bookmarkableId: 12,
+    bookmarkableType: 'Post',
+    postNumber: 2,
+    reminderAt: reminder,
+  );
+  final (controller, api) = await _controller(
+    topic: _topic(bookmarks: [bookmark]).detail,
+    timezone: timezone,
+  );
+  addTearDown(controller.dispose);
+  await tester.pumpWidget(
+    _host(
+      controller,
+      TargetPlatform.macOS,
+      Builder(
+        builder: (context) => FilledButton(
+          onPressed: () => unawaited(
+            showBookmarkEditor(
+              context: context,
+              controller: controller.bookmarkTarget(BookmarkTargetType.post),
+              siteUrl: _site,
+              topicId: 7,
+              bookmark: bookmark,
+              now: () => now,
+            ),
+          ),
+          child: const Text('Open editor'),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('Open editor'));
+  await tester.pumpAndSettle();
+  return api;
+}
+
+Future<void> _openCustomPicker(WidgetTester tester) async {
+  await tester.ensureVisible(find.text('Custom date and time'));
+  await tester.tap(find.text('Custom date and time'));
+  await tester.pumpAndSettle();
+  expect(tester.takeException(), isNull);
+  expect(find.byType(DatePickerDialog), findsOneWidget);
+}
+
+Future<void> _confirmPicker(WidgetTester tester) async {
+  await tester.tap(find.text('OK'));
+  await tester.pumpAndSettle();
+  expect(tester.takeException(), isNull);
+}
+
+Future<void> _enterPickerDate(WidgetTester tester, DateTime date) async {
+  final localizations = MaterialLocalizations.of(
+    tester.element(find.byType(DatePickerDialog)),
+  );
+  await tester.tap(find.byTooltip(localizations.inputDateModeButtonLabel));
+  await tester.pumpAndSettle();
+  await tester.enterText(
+    find.descendant(
+      of: find.byType(DatePickerDialog),
+      matching: find.byType(TextFormField),
+    ),
+    localizations.formatCompactDate(date),
+  );
+}
+
+Future<void> _saveEditor(WidgetTester tester) async {
+  await _scrollEditorToEnd(tester, 'Save');
+  await tester.tap(find.text('Save'));
+  await tester.pumpAndSettle();
 }

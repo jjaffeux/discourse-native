@@ -351,12 +351,14 @@ Future<void> showBookmarkEditor({
   required int topicId,
   required Bookmark bookmark,
   String? cooked,
+  DateTime Function()? now,
 }) => _showBookmarkEditor(
   context: context,
   controller: _CoreBookmarkUiHost(controller, topicId),
   siteUrl: siteUrl,
   bookmark: bookmark,
   cooked: cooked,
+  now: now,
 );
 
 Future<void> _showBookmarkEditor({
@@ -365,6 +367,7 @@ Future<void> _showBookmarkEditor({
   required String siteUrl,
   required Bookmark bookmark,
   String? cooked,
+  DateTime Function()? now,
 }) => showShellSheet<void>(
   context: context,
   title: 'Edit bookmark',
@@ -374,6 +377,7 @@ Future<void> _showBookmarkEditor({
     siteUrl: siteUrl,
     bookmark: bookmark,
     cooked: cooked,
+    now: now ?? DateTime.now,
   ),
 );
 
@@ -593,12 +597,14 @@ class _BookmarkEditor extends StatefulWidget {
     required this.controller,
     required this.siteUrl,
     required this.bookmark,
+    required this.now,
     this.cooked,
   });
 
   final _BookmarkUiHost controller;
   final String siteUrl;
   final Bookmark bookmark;
+  final DateTime Function() now;
   final String? cooked;
 
   @override
@@ -649,7 +655,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
           );
     if (!mounted) return;
     setState(() {
-      _lastCustom = last?.isAfter(DateTime.now()) == true ? last : null;
+      _lastCustom = last?.isAfter(widget.now()) == true ? last : null;
       _postDate = postDate;
     });
   }
@@ -659,19 +665,28 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     final siteContext = widget.controller.siteContextFor(widget.siteUrl);
     final zoneName = environment.readerTimezone(siteContext.timezone);
     final location = environment.location(zoneName)!;
+    final now = widget.now();
+    final wallNow = tzDate(now, location);
     final wallInitial = tzDate(
-      _reminder ?? DateTime.now().add(const Duration(hours: 1)),
+      _reminder ?? now.add(const Duration(hours: 1)),
       location,
     );
+    // Picker dates represent account-local calendar days, not instants.
+    final firstDate = DateTime(wallNow.year, wallNow.month, wallNow.day);
+    final lastDate = DateTime(wallNow.year + 10, wallNow.month, wallNow.day);
+    var initialDate = DateTime(
+      wallInitial.year,
+      wallInitial.month,
+      wallInitial.day,
+    );
+    if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+    if (initialDate.isAfter(lastDate)) initialDate = lastDate;
     final date = await showDatePicker(
       context: context,
-      initialDate: DateTime(
-        wallInitial.year,
-        wallInitial.month,
-        wallInitial.day,
-      ),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 3653)),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      currentDate: firstDate,
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(
@@ -712,13 +727,13 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
       return;
     }
     setState(() {
-      _reminder = DateTime.now().add(_relativeUnit.duration(amount)).toUtc();
+      _reminder = widget.now().add(_relativeUnit.duration(amount)).toUtc();
       _error = null;
     });
   }
 
   Future<void> _save() async {
-    final now = DateTime.now().toUtc();
+    final now = widget.now().toUtc();
     final reminder = _reminder?.toUtc();
     if (reminder != null && !reminder.isAfter(now)) {
       setState(() => _error = 'Choose a reminder in the future.');
@@ -768,7 +783,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     final zoneName = environment.readerTimezone(siteContext.timezone);
     final location = environment.location(zoneName)!;
     final presets = BookmarkReminderCalculator.fullSuggestions(
-      now: DateTime.now(),
+      now: widget.now(),
       location: location,
       suggestWeekends: siteContext.suggestWeekendsInDatePickers,
     );
