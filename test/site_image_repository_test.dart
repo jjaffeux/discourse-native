@@ -175,35 +175,242 @@ void main() {
     expect(await pending, isNull);
   });
 
-  for (final abandon in ['forget', 'dispose']) {
-    test('$abandon rejects a delayed session opening', () async {
-      final credentials = _DelayedImageCredentials();
-      final client = MockClient((_) async => http.Response.bytes([2], 200));
-      final repository = SiteImageRepository(
-        credentials: credentials,
-        lifecycle: SiteLifecycle(),
-        client: client,
-      );
-      addTearDown(repository.dispose);
-      final pending = repository.load(siteUrl: siteUrl, url: secureUrl);
-      await credentials.started.future;
-      if (abandon == 'forget') {
-        repository.forget(siteUrl);
+  for (final stage in ['API key', 'client ID']) {
+    for (final abandon in [
+      'replacement',
+      'forget',
+      'invalidation',
+      'dispose',
+    ]) {
+      for (final outcome in ['success', 'error']) {
+        test(
+          '$abandon suppresses late $stage $outcome during opening',
+          () async {
+            final credentials = _HeldImageCredentials()
+              ..keys[siteUrl] = 'old-key';
+            final held = credentials.hold(stage);
+            final lifecycle = SiteLifecycle();
+            final requests = <http.Request>[];
+            final repository = SiteImageRepository(
+              credentials: credentials,
+              lifecycle: lifecycle,
+              client: MockClient((request) async {
+                requests.add(request);
+                return http.Response.bytes([2], 200);
+              }),
+            );
+            addTearDown(() {
+              repository.dispose();
+              held.release();
+            });
+            final stale = repository.load(siteUrl: siteUrl, url: secureUrl);
+            await held.started.future;
+
+            switch (abandon) {
+              case 'replacement' || 'invalidation':
+                lifecycle.invalidate(siteUrl);
+              case 'forget':
+                // The lease remains current; forget must retire the opening.
+                repository.forget(siteUrl);
+              case 'dispose':
+                repository.dispose();
+            }
+            final replaces = abandon == 'replacement' || abandon == 'forget';
+            SiteImageBytes? fresh;
+            if (replaces) {
+              credentials.keys[siteUrl] = 'new-key';
+              final pending = repository.load(siteUrl: siteUrl, url: secureUrl);
+              expect(credentials.keyReads, [siteUrl, siteUrl]);
+              fresh = await pending;
+              expect(fresh?.bytes, [2]);
+            }
+
+            if (outcome == 'error') {
+              held.result.completeError(StateError('retired credentials'));
+            } else {
+              held.result.complete('old-credential');
+            }
+            expect(await stale, isNull);
+
+            // A retired key lookup must not continue into the client ID reader.
+            expect(
+              credentials.clientIdReads,
+              (stage == 'client ID' ? 1 : 0) + (replaces ? 1 : 0),
+            );
+            expect(
+              repository.cached(siteUrl: siteUrl, url: secureUrl),
+              same(fresh),
+            );
+            if (replaces) {
+              expect(
+                await repository.load(siteUrl: siteUrl, url: secureUrl),
+                same(fresh),
+              );
+            }
+            expect(requests.map(_requestIdentity), [
+              if (replaces) ('GET', secureUrl, 'new-key', 'new-client'),
+            ]);
+          },
+        );
+      }
+    }
+
+    test(
+      'retired $stage openings cannot remove a third opening or another site',
+      () async {
+        const otherSite = 'https://other.example';
+        const otherUrl = '$otherSite/image.png';
+        final credentials = _HeldImageCredentials()
+          ..keys[siteUrl] = 'newest-key'
+          ..keys[otherSite] = 'other-key';
+        final held = <_HeldImageCredential>[];
+        final lifecycle = SiteLifecycle();
+        final requests = <http.Request>[];
+        final repository = SiteImageRepository(
+          credentials: credentials,
+          lifecycle: lifecycle,
+          client: MockClient((request) async {
+            requests.add(request);
+            return http.Response.bytes([
+              request.url.host == 'other.example' ? 3 : 2,
+            ], 200);
+          }),
+        );
+        addTearDown(() {
+          repository.dispose();
+          for (final lookup in held) {
+            lookup.release();
+          }
+        });
+
+        final retired = <Future<SiteImageBytes?>>[];
+        for (var index = 0; index < 2; index++) {
+          lifecycle.invalidate(siteUrl);
+          held.add(credentials.hold(stage));
+          retired.add(repository.load(siteUrl: siteUrl, url: secureUrl));
+          expect(credentials.keyReads, List.filled(index + 1, siteUrl));
+          await held.last.started.future;
+        }
+        final other = await repository.load(siteUrl: otherSite, url: otherUrl);
+        expect(other?.bytes, [3]);
+
+        lifecycle.invalidate(siteUrl);
+        held.add(credentials.hold(stage));
+        final newest = repository.load(siteUrl: siteUrl, url: secureUrl);
+        expect(credentials.keyReads, [siteUrl, siteUrl, otherSite, siteUrl]);
+        await held.last.started.future;
+
+        held[1].result.completeError(StateError('retired credentials'));
+        expect(await retired[1], isNull);
+        held[0].result.complete('old-credential');
+        expect(await retired[0], isNull);
+
+        final coalesced = repository.load(siteUrl: siteUrl, url: secureUrl);
+        expect(credentials.keyReads, [siteUrl, siteUrl, otherSite, siteUrl]);
+        held.last.result.complete(
+          stage == 'API key' ? 'newest-key' : 'newest-client',
+        );
+        final fresh = await newest;
+        expect(fresh?.bytes, [2]);
+        expect(await coalesced, same(fresh));
+        expect(
+          await repository.load(siteUrl: siteUrl, url: secureUrl),
+          same(fresh),
+        );
+        expect(
+          await repository.load(siteUrl: otherSite, url: otherUrl),
+          same(other),
+        );
+        expect(credentials.clientIdReads, stage == 'API key' ? 2 : 4);
+        expect(requests.map(_requestIdentity), [
+          ('GET', otherUrl, 'other-key', 'new-client'),
+          (
+            'GET',
+            secureUrl,
+            'newest-key',
+            stage == 'API key' ? 'new-client' : 'newest-client',
+          ),
+        ]);
+      },
+    );
+
+    test(
+      'a current $stage failure reaches the caller and allows retry',
+      () async {
+        final credentials = _HeldImageCredentials()..keys[siteUrl] = 'new-key';
+        final held = credentials.hold(stage);
+        final requests = <http.Request>[];
+        final repository = SiteImageRepository(
+          credentials: credentials,
+          lifecycle: SiteLifecycle(),
+          client: MockClient((request) async {
+            requests.add(request);
+            return http.Response.bytes([2], 200);
+          }),
+        );
+        addTearDown(() {
+          repository.dispose();
+          held.release();
+        });
+        final error = StateError('current credentials');
+        final failed = expectLater(
+          repository.load(siteUrl: siteUrl, url: secureUrl),
+          throwsA(same(error)),
+        );
+        await held.started.future;
+        held.result.completeError(error);
+        await failed;
+
         expect(
           (await repository.load(siteUrl: siteUrl, url: secureUrl))?.bytes,
           [2],
         );
-      } else {
-        repository.dispose();
-      }
-      credentials.firstKey.complete('old-key');
-      expect(await pending, isNull);
-      expect(
-        repository.cached(siteUrl: siteUrl, url: secureUrl)?.bytes,
-        abandon == 'forget' ? [2] : isNull,
-      );
-    });
+        expect(credentials.keyReads, [siteUrl, siteUrl]);
+        expect(requests.map(_requestIdentity), [
+          ('GET', secureUrl, 'new-key', 'new-client'),
+        ]);
+      },
+    );
   }
+
+  test('coalesces same-session credential reads and image downloads', () async {
+    final credentials = _HeldImageCredentials();
+    final key = credentials.hold('API key');
+    final clientId = credentials.hold('client ID');
+    final requests = <http.Request>[];
+    final repository = SiteImageRepository(
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response.bytes([2], 200);
+      }),
+    );
+    addTearDown(() {
+      repository.dispose();
+      key.release();
+      clientId.release();
+    });
+
+    final first = repository.load(siteUrl: siteUrl, url: secureUrl);
+    await key.started.future;
+    final second = repository.load(siteUrl: siteUrl, url: secureUrl);
+    expect(credentials.keyReads, [siteUrl]);
+    key.result.complete('account-key');
+    await clientId.started.future;
+    final third = repository.load(siteUrl: siteUrl, url: secureUrl);
+    expect(credentials.keyReads, [siteUrl]);
+    expect(credentials.clientIdReads, 1);
+    clientId.result.complete('account-client');
+
+    final image = await first;
+    expect(image?.bytes, [2]);
+    expect(await second, same(image));
+    expect(await third, same(image));
+    expect(requests.map(_requestIdentity), [
+      ('GET', secureUrl, 'account-key', 'account-client'),
+    ]);
+  });
 
   for (final abandon in ['forget', 'replacement', 'dispose']) {
     for (final lateResponse in ['abort', 'bytes', 'redirect']) {
@@ -348,16 +555,52 @@ final class _ControlledImageClient extends http.BaseClient {
   void close() => closed = true;
 }
 
-final class _DelayedImageCredentials extends FakeApiCredentialReader {
+final class _HeldImageCredential {
   final started = Completer<void>();
-  final firstKey = Completer<String?>();
+  final result = Completer<String>();
+
+  Future<String> read() {
+    started.complete();
+    return result.future;
+  }
+
+  void release() {
+    if (!result.isCompleted) result.complete('abandoned');
+  }
+}
+
+final class _HeldImageCredentials extends FakeApiCredentialReader {
+  _HeldImageCredentials() : super(clientIdValue: 'new-client');
+
+  final keyReads = <String>[];
+  var clientIdReads = 0;
+  final _keys = <_HeldImageCredential>[];
+  final _clientIds = <_HeldImageCredential>[];
+
+  _HeldImageCredential hold(String stage) {
+    final held = _HeldImageCredential();
+    (stage == 'API key' ? _keys : _clientIds).add(held);
+    return held;
+  }
 
   @override
   Future<String?> apiKeyFor(String siteUrl) {
-    if (!started.isCompleted) {
-      started.complete();
-      return firstKey.future;
-    }
-    return Future.value('new-key');
+    keyReads.add(siteUrl);
+    return _keys.isEmpty ? super.apiKeyFor(siteUrl) : _keys.removeAt(0).read();
+  }
+
+  @override
+  Future<String> clientId() {
+    clientIdReads++;
+    return _clientIds.isEmpty
+        ? super.clientId()
+        : _clientIds.removeAt(0).read();
   }
 }
+
+(String, String, String?, String?) _requestIdentity(http.Request request) => (
+  request.method,
+  request.url.toString(),
+  request.headers['User-Api-Key'],
+  request.headers['User-Api-Client-Id'],
+);
