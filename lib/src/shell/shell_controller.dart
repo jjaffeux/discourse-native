@@ -17,11 +17,13 @@ import '../data/groups_api.dart';
 import '../data/http_transport.dart';
 import '../data/instance_store.dart';
 import '../data/shell_api_ports.dart';
+import '../data/sidebar_section_store.dart';
 import '../data/site_image_repository.dart';
 import '../data/site_lifecycle.dart';
 import '../data/site_message_bus_bootstrap.dart';
 import '../data/site_tracker.dart';
 import '../data/store.dart';
+import '../data/topic_sidebar_store.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_directory_api.dart';
@@ -239,6 +241,8 @@ class ShellController extends FrameSafeNotifier
   final ForumTabStore forumTabs;
   final AggregatePreferencesStore aggregatePreferences;
   final AppSettingsController appSettings;
+  final sidebarSections = SidebarSectionStore();
+  final topicSidebar = TopicSidebarStore();
 
   final bool forumTabsEnabled;
 
@@ -747,13 +751,15 @@ class ShellController extends FrameSafeNotifier
       credentials: authenticator,
       lifecycle: lifecycle,
       store: store,
-      onFeedLoaded: (instance, apiKey, categories, categoryIds) {
+      prepareFeed: (instance, apiKey, categories, categoryIds) async {
+        final lease = lifecycle.capture(instance.url);
         if (categories.isNotEmpty) {
           _mergeCategories(instance.url, categories);
           _notify();
         }
+        if (isDisposed || !lease.isCurrent) return;
         unawaited(_ensureCategoriesFor(instance));
-        unawaited(_ensureCategoryIds(instance, apiKey, categoryIds));
+        await _ensureCategoryIds(instance, apiKey, categoryIds);
       },
       readPersonalizationVersion: _siteBookmarkVersion,
       prepareTopicForStore: _prepareTopicForStore,
@@ -1460,7 +1466,10 @@ class ShellController extends FrameSafeNotifier
         instance.user?.doNotDisturbUntil,
       );
     }
-    await aggregate.loadPreferences(stored);
+    await Future.wait([
+      aggregate.loadPreferences(stored),
+      for (final instance in stored) topicSidebar.ensure(siteUrl: instance.url),
+    ]);
     if (isDisposed) return;
     _durableInstanceOrder = [for (final instance in stored) instance.url];
     _instanceIndex = 0;
@@ -2345,6 +2354,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   final Set<String> _categorised = {};
+  final Map<String, Future<void>> _categoryRequests = {};
   final Map<String, List<TopicCategory>> _categoriesBySite = {};
   final Map<String, TopicTrackingState> _topicTrackingBySite = {};
   final Set<String> _topicTrackingSnapshotsLoaded = {};
@@ -2355,7 +2365,8 @@ class ShellController extends FrameSafeNotifier
   bool _topicTrackingNotifyPending = false;
   final Map<String, List<Object?>> _topicTrackingPendingEvents = {};
   final Map<String, CategoryFeed> _categoryFeeds = {};
-  final Set<(String, int)> _categoryIdsLoading = {};
+  final Map<(String, int), Future<List<TopicCategory>>> _categoryIdRequests =
+      {};
   final Map<String, _CategorySidebarCache> _categorySidebarCache = {};
   final Map<String, List<SidebarTag>> _siteTopTagsBySite = {};
   final Map<String, List<SidebarTag>> _anonymousDefaultTagsBySite = {};
@@ -2558,6 +2569,15 @@ class ShellController extends FrameSafeNotifier
 
   List<TopicCategory> topicComposerCategories(String siteUrl) =>
       _categoriesBySite[siteUrl] ?? const [];
+
+  bool sidebarNavigationLoadingFor(String siteUrl) {
+    final instance = _instanceAt(siteUrl);
+    if (instance == null || (instance.loginRequired && !instance.isConnected)) {
+      return false;
+    }
+    final feed = categoryFeedFor(siteUrl);
+    return !feed.loaded && feed.error == null;
+  }
 
   SidebarSection? categorySidebarSectionFor(String siteUrl) {
     if (!_categoriesBySite.containsKey(siteUrl)) return null;
@@ -5258,17 +5278,35 @@ class ShellController extends FrameSafeNotifier
         elapsed,
         'loading topic $topicId',
       );
+      if (isDisposed || !lease.isCurrent) return;
+      try {
+        await _awaitTopicLoadStage(
+          _ensureCategoryIds(instance, credential.value, [
+            ?fetched.detail.categoryId,
+            for (final source
+                in fetched.detail.recommendations?.sources ??
+                    const <TopicRecommendationSource>[])
+              for (final topic in source.topics) ?topic.categoryId,
+          ]),
+          elapsed,
+          'loading the category for topic $topicId',
+        );
+      } on TimeoutException catch (error, stackTrace) {
+        if (isDisposed || !lease.isCurrent) return;
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'topic.categories',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      if (isDisposed || !lease.isCurrent) return;
       lease.commit(() {
         final detail = _absorb(
           instance.url,
           fetched,
           bookmarkVersionAtDispatch: bookmarkVersion,
         );
-        if (detail.categoryId case final categoryId?) {
-          unawaited(
-            _ensureCategoryIds(instance, credential.value, [categoryId]),
-          );
-        }
         if (currentInstance?.url == instance.url) {
           _retitle(topicId, fetched.detail.title);
         }
@@ -11182,9 +11220,6 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(instance.url);
     String? clientId;
     try {
-      if (apiKey != null) clientId = await authenticator.clientId();
-      if (!lease.isCurrent) return;
-
       var pending = categoryIds.toSet();
       final visited = <int>{};
       while (pending.isNotEmpty) {
@@ -11204,33 +11239,62 @@ class ShellController extends FrameSafeNotifier
           continue;
         }
         final batch = <int>[];
+        final requested = <int>{};
+        final requests = <Future<List<TopicCategory>>>{};
         for (final id in pending) {
           if (batch.length == 100) break;
-          if (_categoryIdsLoading.add((instance.url, id))) batch.add(id);
-        }
-        if (batch.isEmpty) return;
-
-        List<TopicCategory> found;
-        try {
-          found = await api.categories.findCategories(
-            siteUrl: instance.url,
-            ids: batch,
-            apiKey: apiKey,
-            clientId: clientId,
-          );
-        } finally {
-          for (final id in batch) {
-            _categoryIdsLoading.remove((instance.url, id));
+          requested.add(id);
+          final active = _categoryIdRequests[(instance.url, id)];
+          if (active == null) {
+            batch.add(id);
+          } else {
+            requests.add(active);
           }
         }
-        if (!lease.isCurrent) return;
-
-        lease.commit(() {
-          _mergeCategories(instance.url, found);
-          _notify();
-        });
-        pending.removeAll(batch);
-        visited.addAll(batch);
+        if (batch.isNotEmpty) {
+          // Register ownership before yielding for credentials so another
+          // topic can join this lookup instead of publishing without labels.
+          final result = Completer<List<TopicCategory>>();
+          for (final id in batch) {
+            _categoryIdRequests[(instance.url, id)] = result.future;
+          }
+          requests.add(result.future);
+          unawaited(() async {
+            try {
+              if (apiKey != null) clientId ??= await authenticator.clientId();
+              if (isDisposed || !lease.isCurrent) {
+                result.complete(const []);
+                return;
+              }
+              final found = await api.categories.findCategories(
+                siteUrl: instance.url,
+                ids: batch,
+                apiKey: apiKey,
+                clientId: clientId,
+              );
+              if (!isDisposed) {
+                lease.commit(() {
+                  _mergeCategories(instance.url, found);
+                  _notify();
+                });
+              }
+              result.complete(found);
+            } catch (error, stackTrace) {
+              result.completeError(error, stackTrace);
+            } finally {
+              for (final id in batch) {
+                final key = (instance.url, id);
+                if (identical(_categoryIdRequests[key], result.future)) {
+                  final _ = _categoryIdRequests.remove(key);
+                }
+              }
+            }
+          }());
+        }
+        final found = (await Future.wait(requests)).expand((batch) => batch);
+        if (isDisposed || !lease.isCurrent) return;
+        pending.removeAll(requested);
+        visited.addAll(requested);
         pending.addAll([
           for (final category in found)
             if (category.parentCategoryId case final parentId?
@@ -11295,6 +11359,30 @@ class ShellController extends FrameSafeNotifier
     String? apiKey, {
     String? clientId,
     SiteLease? lease,
+  }) {
+    final active = _categoryRequests[instance.url];
+    if (active != null) return active;
+    late final Future<void> request;
+    request =
+        _loadCategories(
+          instance,
+          apiKey,
+          clientId: clientId,
+          lease: lease,
+        ).whenComplete(() {
+          if (identical(_categoryRequests[instance.url], request)) {
+            final _ = _categoryRequests.remove(instance.url);
+          }
+        });
+    _categoryRequests[instance.url] = request;
+    return request;
+  }
+
+  Future<void> _loadCategories(
+    DiscourseInstance instance,
+    String? apiKey, {
+    String? clientId,
+    SiteLease? lease,
   }) async {
     if (!_categorised.add(instance.url)) return;
     final session = lease ?? lifecycle.capture(instance.url);
@@ -11308,6 +11396,11 @@ class ShellController extends FrameSafeNotifier
         apiKey: apiKey,
         clientId: clientId,
       );
+      if (isDisposed || !session.isCurrent) return;
+      // Category and tag navigation depend on these ordering and visibility
+      // settings. Publish their first snapshot together.
+      await _presentation.ensureConfig(instance.url);
+      if (isDisposed || !session.isCurrent) return;
       session.commit(() {
         _mergeCategories(instance.url, result.categories);
 
@@ -11642,6 +11735,7 @@ class ShellController extends FrameSafeNotifier
     _topicReads.forget(siteUrl);
 
     _categorised.remove(siteUrl);
+    final _ = _categoryRequests.remove(siteUrl);
     _categoriesBySite.remove(siteUrl);
     _topicTrackingBySite.remove(siteUrl);
     _topicTrackingSnapshotsLoaded.remove(siteUrl);
@@ -11650,7 +11744,7 @@ class ShellController extends FrameSafeNotifier
     _topicTrackingRetries.remove(siteUrl);
     _topicTrackingPendingEvents.remove(siteUrl);
     _categoryFeeds.remove(siteUrl);
-    _categoryIdsLoading.removeWhere((entry) => entry.$1 == siteUrl);
+    _categoryIdRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _categoryPageRequests.remove(siteUrl);
     _categorySidebarCache.remove(siteUrl);
     _siteTopTagsBySite.remove(siteUrl);

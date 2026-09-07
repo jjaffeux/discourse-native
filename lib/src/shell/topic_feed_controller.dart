@@ -19,6 +19,14 @@ typedef TopicFeedLoaded =
       Iterable<int> categoryIds,
     );
 
+typedef TopicFeedPreparation =
+    Future<void> Function(
+      DiscourseInstance instance,
+      String? apiKey,
+      Iterable<TopicCategory> categories,
+      Iterable<int> categoryIds,
+    );
+
 typedef _FeedKey = (String siteUrl, String destinationId);
 typedef _FeedLoad = ({
   DiscourseInstance instance,
@@ -34,6 +42,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     required this.lifecycle,
     required this.store,
     this.onFeedLoaded,
+    this.prepareFeed,
     this.readPersonalizationVersion,
     this.prepareTopicForStore,
   });
@@ -45,6 +54,7 @@ final class TopicFeedController extends FrameSafeNotifier {
   final SiteLifecycle lifecycle;
   final Store store;
   final TopicFeedLoaded? onFeedLoaded;
+  final TopicFeedPreparation? prepareFeed;
   final int Function(String siteUrl)? readPersonalizationVersion;
   final Topic Function(String siteUrl, Topic incoming, int? versionAtDispatch)?
   prepareTopicForStore;
@@ -146,6 +156,13 @@ final class TopicFeedController extends FrameSafeNotifier {
         siteUrl: instance.url,
         path: path,
         apiKey: apiKey,
+      );
+      if (!requestIsCurrent()) return;
+      await prepareFeed?.call(
+        instance,
+        apiKey,
+        list.categories,
+        _categoryIds(list.topics),
       );
       _commit(lease, () {
         if (!identical(_revisions[key], revision)) return;
@@ -252,6 +269,13 @@ final class TopicFeedController extends FrameSafeNotifier {
         path: '$path?topic_ids=${ids.join(',')}',
         apiKey: apiKey,
       );
+      if (!requestIsCurrent()) return;
+      await prepareFeed?.call(
+        instance,
+        apiKey,
+        list.categories,
+        _categoryIds(list.topics),
+      );
 
       _commit(lease, () {
         if (!requestIsCurrent()) return;
@@ -334,6 +358,13 @@ final class TopicFeedController extends FrameSafeNotifier {
         siteUrl: instance.url,
         path: feed.nextPagePath!,
         apiKey: apiKey,
+      );
+      if (!requestIsCurrent()) return;
+      await prepareFeed?.call(
+        instance,
+        apiKey,
+        next.categories,
+        _categoryIds(next.topics),
       );
 
       _commit(lease, () {

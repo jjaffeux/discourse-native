@@ -7,10 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const store = TopicSidebarStore();
+  late TopicSidebarStore store;
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    store = TopicSidebarStore();
   });
 
   test('the sidebar is visible until a hidden choice is saved', () async {
@@ -46,6 +47,22 @@ void main() {
     await write;
     expect(await read, isTrue);
     expect(persistence.reads, 1);
+  });
+
+  test('a saved choice is available while its disk write is pending', () async {
+    final persistence = _GatedSidebarPersistence();
+    final store = TopicSidebarStore(persistence: persistence);
+    await store.ensure(siteUrl: 'https://meta.discourse.org');
+    final write = store.write(
+      siteUrl: 'https://meta.discourse.org',
+      collapsed: true,
+    );
+    await persistence.writeStarted.future;
+    expect(store.collapsedFor('https://meta.discourse.org'), isTrue);
+    expect(await store.ensure(siteUrl: 'https://meta.discourse.org'), isTrue);
+    expect(persistence.reads, 1);
+    persistence.finishWrite.complete();
+    await write;
   });
 }
 

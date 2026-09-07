@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'preference_snapshots.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
@@ -45,12 +46,22 @@ final class SharedPreferencesSidebarSectionPersistence
 }
 
 final class SidebarSectionStore {
-  const SidebarSectionStore({SidebarSectionPersistence? persistence})
+  SidebarSectionStore({SidebarSectionPersistence? persistence})
     : _persistence =
           persistence ?? const SharedPreferencesSidebarSectionPersistence();
 
   final SidebarSectionPersistence _persistence;
+  final _snapshots = PreferenceSnapshots<(String, String), bool>();
   static final SerialOperationQueue _operations = SerialOperationQueue();
+
+  bool? collapsedFor({required String siteUrl, required String sectionId}) =>
+      _snapshots.peek((siteUrl, sectionId));
+
+  Future<bool> ensure({required String siteUrl, required String sectionId}) =>
+      _snapshots.ensure((
+        siteUrl,
+        sectionId,
+      ), () => read(siteUrl: siteUrl, sectionId: sectionId));
 
   Future<bool> read({required String siteUrl, required String sectionId}) =>
       _operations.run(
@@ -80,6 +91,7 @@ final class SidebarSectionStore {
     required String sectionId,
     required bool collapsed,
   }) async {
+    _snapshots.remember((siteUrl, sectionId), collapsed);
     await _operations.run<void>(
       owner: _persistence,
       key: (siteUrl, sectionId),

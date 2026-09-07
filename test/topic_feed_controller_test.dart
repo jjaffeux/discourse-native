@@ -353,6 +353,93 @@ void main() {
   });
 
   group('request lifecycle', () {
+    test(
+      'retains existing rows while the next page is being prepared',
+      () async {
+        final site = instance('one.example');
+        final ready = Completer<void>();
+        final prepared = TopicFeedController(
+          api: api,
+          credentials: credentials,
+          lifecycle: SiteLifecycle(),
+          store: store,
+          prepareFeed: (_, _, _, ids) async {
+            if (ids.contains(9)) await ready.future;
+          },
+        );
+        addTearDown(prepared.dispose);
+        final initial = prepared.load(
+          instance: site,
+          destinationId: 'latest',
+          path: '/latest.json',
+          incoming: null,
+        );
+        await pumpEventQueue();
+        api.requests.single.response.complete(
+          _page(1, moreTopicsUrl: '/latest?page=1'),
+        );
+        await initial;
+        final next = prepared.loadMore(instance: site, destinationId: 'latest');
+        await pumpEventQueue();
+        api.requests.last.response.complete(
+          const TopicList(
+            topics: [
+              Topic(
+                id: 2,
+                title: 'Second topic',
+                slug: 'second-topic',
+                categoryId: 9,
+              ),
+            ],
+          ),
+        );
+        await pumpEventQueue();
+        expect(prepared.feedFor(site.url, 'latest')?.topicIds, [1]);
+        expect(prepared.feedFor(site.url, 'latest')?.loadingMore, isTrue);
+        expect(store.read<Topic>(site.url, 2), isNull);
+        ready.complete();
+        await next;
+        expect(prepared.feedFor(site.url, 'latest')?.topicIds, [1, 2]);
+        expect(prepared.feedFor(site.url, 'latest')?.loadingMore, isFalse);
+      },
+    );
+
+    test(
+      'rejects a feed whose site changed while metadata was prepared',
+      () async {
+        final site = instance('one.example');
+        final lifecycle = SiteLifecycle();
+        final started = Completer<void>();
+        final ready = Completer<void>();
+        final prepared = TopicFeedController(
+          api: api,
+          credentials: credentials,
+          lifecycle: lifecycle,
+          store: store,
+          prepareFeed: (_, _, _, _) {
+            started.complete();
+            return ready.future;
+          },
+        );
+        addTearDown(prepared.dispose);
+        final loading = prepared.load(
+          instance: site,
+          destinationId: 'latest',
+          path: '/latest.json',
+          incoming: null,
+        );
+        await pumpEventQueue();
+        api.requests.single.response.complete(_page(1));
+        await started.future;
+        lifecycle.invalidate(site.url);
+        prepared.forget(site.url);
+        ready.complete();
+        await loading;
+        expect(store.read<Topic>(site.url, 1), isNull);
+        expect(prepared.feedFor(site.url, 'latest'), isNull);
+      },
+    );
+
     test('replays one forced load after the active request', () async {
       final site = instance('one.example');
       final older = controller.load(
