@@ -2291,7 +2291,12 @@ Uploaded video is a separate, shared media path. Chat exposes an upload record
 outside cooked HTML, while topics use either core's lazy
 `video-placeholder-container` or its activated `video-onebox` markup;
 [`inline_video.dart`](lib/src/shell/inline_video.dart) normalizes all three into
-the same lazy poster and accessible Play/Open actions. Its app-owned
+the same lazy poster and accessible Play/Open/Download actions. Download is
+available before playback and in the full-screen player. Desktop downloads use
+the native save dialog; mobile downloads use the file share sheet. Videos stream
+to a private temporary file before saving or sharing, without the image cache's
+size limit. Downloads follow redirects explicitly and send user API credentials
+only to the forum origin. Its app-owned
 [`inline_video_playback.dart`](lib/src/shell/inline_video_playback.dart) session
 boundary exposes platform-neutral state and playback intents while keeping
 platform controller ownership behind adapters. iOS and macOS use Flutter's

@@ -8,6 +8,7 @@ import 'package:html/dom.dart' as dom;
 import '../data/api_credentials.dart';
 import '../data/http_transport.dart';
 import '../data/site_lifecycle.dart';
+import '../diagnostics/diagnostics_controller.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -16,6 +17,7 @@ import 'inline_video_playback.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
 import 'site_url.dart';
+import 'video_download.dart';
 
 export 'inline_video_playback.dart'
     show
@@ -144,6 +146,7 @@ class InlineVideo extends StatefulWidget {
     required this.siteUrl,
     this.playerBuilder,
     this.sessionFactory,
+    this.videoDownloader,
     this.maximumWidth,
     this.maximumHeight = 480,
     this.padding = const EdgeInsets.symmetric(vertical: 8),
@@ -154,6 +157,7 @@ class InlineVideo extends StatefulWidget {
   final String? siteUrl;
   final InlineVideoPlayerBuilder? playerBuilder;
   final InlineVideoPlaybackSessionFactory? sessionFactory;
+  final VideoDownloader? videoDownloader;
   final double? maximumWidth;
   final double? maximumHeight;
   final EdgeInsetsGeometry padding;
@@ -164,6 +168,114 @@ class InlineVideo extends StatefulWidget {
 
 class _InlineVideoState extends State<InlineVideo> {
   bool _loaded = false;
+  final _downloading = ValueNotifier(false);
+
+  Future<void> _download(BuildContext actionContext) async {
+    if (_downloading.value) return;
+    final data = widget.data;
+    final shell = ShellScope.maybeIdentityOf(context);
+    final messenger = ScaffoldMessenger.maybeOf(actionContext);
+    final renderObject = actionContext.findRenderObject();
+    final shareOrigin = renderObject is RenderBox && renderObject.hasSize
+        ? renderObject.localToGlobal(Offset.zero) & renderObject.size
+        : null;
+    _downloading.value = true;
+    try {
+      final outcome = await (widget.videoDownloader ?? NativeVideoDownloader())
+          .download(
+            url: data.source,
+            title: data.title,
+            siteUrl: widget.siteUrl,
+            credentials: shell?.authenticator,
+            lifecycle: shell?.lifecycle,
+            sharePositionOrigin: shareOrigin,
+          );
+      if (!mounted || messenger?.mounted != true) return;
+      if (outcome == VideoDownloadOutcome.saved) {
+        final filename = videoDownloadFilename(
+          title: data.title,
+          url: data.source,
+        );
+        messenger!
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text('Saved $filename.')));
+      }
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'video.download',
+        source: 'platform',
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+      );
+      if (mounted && messenger?.mounted == true) {
+        messenger!
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text("Couldn't download video. Try again."),
+            ),
+          );
+      }
+    } finally {
+      if (mounted) _downloading.value = false;
+    }
+  }
+
+  Widget _buildActions(BuildContext context) => ValueListenableBuilder<bool>(
+    valueListenable: _downloading,
+    builder: (context, downloading, _) => Positioned.fill(
+      top: 8,
+      left: 8,
+      right: 8,
+      bottom: 8,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final download = IconButton.filled(
+            key: const ValueKey('inline-video-download'),
+            tooltip: downloading ? 'Downloading video…' : 'Download video',
+            onPressed: downloading ? null : () => unawaited(_download(context)),
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xBB000000),
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: const Color(0xBB000000),
+            ),
+            icon: downloading
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const DIcon(DIcons.download, size: 18, color: Colors.white),
+          );
+          final open = _OpenVideoButton(data: widget.data);
+          if (constraints.maxWidth < 100) {
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [open, download],
+            );
+          }
+          return Align(
+            alignment: Alignment.topRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [download, const SizedBox(width: 4), open],
+            ),
+          );
+        },
+      ),
+    ),
+  );
+
+  @override
+  void dispose() {
+    _downloading.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(InlineVideo oldWidget) {
@@ -214,7 +326,13 @@ class _InlineVideoState extends State<InlineVideo> {
 
   Widget _buildPlayer(BuildContext context) {
     final custom = widget.playerBuilder;
-    if (custom != null) return custom(context, widget.data);
+    if (custom != null) {
+      return _ActiveVideoFrame(
+        data: widget.data,
+        actions: _buildActions(context),
+        child: custom(context, widget.data),
+      );
+    }
 
     final shell = ShellScope.maybeIdentityOf(context);
     return InlineVideoPlaybackSurface(
@@ -223,6 +341,7 @@ class _InlineVideoState extends State<InlineVideo> {
       credentials: shell?.authenticator,
       lifecycle: shell?.lifecycle,
       sessionFactory: widget.sessionFactory ?? createInlineVideoPlaybackSession,
+      actionsBuilder: _buildActions,
     );
   }
 
@@ -269,6 +388,7 @@ class _InlineVideoState extends State<InlineVideo> {
                     ),
                     Center(
                       child: Container(
+                        key: const ValueKey('inline-video-play'),
                         width: 58,
                         height: 58,
                         decoration: const BoxDecoration(
@@ -307,7 +427,7 @@ class _InlineVideoState extends State<InlineVideo> {
             ),
           ),
         ),
-        _OpenVideoButton(data: widget.data),
+        _buildActions(context),
       ],
     );
   }
@@ -321,6 +441,7 @@ class InlineVideoPlaybackSurface extends StatefulWidget {
     required this.credentials,
     required this.lifecycle,
     required this.sessionFactory,
+    this.actionsBuilder,
   });
 
   final InlineVideoData data;
@@ -328,6 +449,7 @@ class InlineVideoPlaybackSurface extends StatefulWidget {
   final ApiCredentialReader? credentials;
   final SiteLifecycle? lifecycle;
   final InlineVideoPlaybackSessionFactory sessionFactory;
+  final WidgetBuilder? actionsBuilder;
 
   @override
   State<InlineVideoPlaybackSurface> createState() =>
@@ -426,6 +548,7 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
             data: widget.data,
             session: session,
             onTogglePlayback: () => unawaited(_togglePlayback()),
+            actionsBuilder: widget.actionsBuilder,
           ),
         ),
       );
@@ -447,12 +570,17 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
     final session = _session;
     final state = session?.state;
     if (state?.phase == InlineVideoPlaybackPhase.failed) {
-      return _VideoFailure(data: widget.data, onRetry: _retry);
+      return _ActiveVideoFrame(
+        data: widget.data,
+        actions: widget.actionsBuilder?.call(context),
+        child: _VideoFailure(data: widget.data, onRetry: _retry),
+      );
     }
     final playerBuilder = state?.playerBuilder;
     if (session == null || playerBuilder == null) {
       return _ActiveVideoFrame(
         data: widget.data,
+        actions: widget.actionsBuilder?.call(context),
         child: const ColoredBox(
           color: Colors.black,
           child: Center(child: CircularProgressIndicator(color: Colors.white)),
@@ -462,6 +590,7 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
 
     return _ActiveVideoFrame(
       data: widget.data,
+      actions: widget.actionsBuilder?.call(context),
       child: Semantics(
         label: 'Video player: ${widget.data.title}',
         child: ColoredBox(
@@ -521,11 +650,13 @@ class _InlineVideoFullscreen extends StatelessWidget {
     required this.data,
     required this.session,
     required this.onTogglePlayback,
+    this.actionsBuilder,
   });
 
   final InlineVideoData data;
   final InlineVideoPlaybackSession session;
   final VoidCallback onTogglePlayback;
+  final WidgetBuilder? actionsBuilder;
 
   @override
   Widget build(BuildContext context) => CallbackShortcuts(
@@ -556,6 +687,8 @@ class _InlineVideoFullscreen extends StatelessWidget {
                         child: playerBuilder(),
                       ),
                     ),
+                    if (actionsBuilder case final buildActions?)
+                      buildActions(context),
                     Positioned(
                       left: 0,
                       right: 0,
@@ -710,17 +843,23 @@ final class _InlineVideoPlaybackCoordinator {
 }
 
 class _ActiveVideoFrame extends StatelessWidget {
-  const _ActiveVideoFrame({required this.data, required this.child});
+  const _ActiveVideoFrame({
+    required this.data,
+    required this.child,
+    this.actions,
+  });
 
   final InlineVideoData data;
   final Widget child;
+  final Widget? actions;
 
   @override
   Widget build(BuildContext context) => Stack(
     fit: StackFit.expand,
     children: [
       child,
-      _OpenVideoButton(data: data),
+      actions ??
+          Positioned(top: 8, right: 8, child: _OpenVideoButton(data: data)),
     ],
   );
 }
@@ -734,27 +873,23 @@ class _OpenVideoButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = 'Open video: ${data.title}';
     void open() => unawaited(openExternalLink(data.source.toString()));
-    return Positioned(
-      top: 8,
-      right: 8,
-      child: Semantics(
-        link: true,
-        label: label,
-        onTap: open,
-        child: ExcludeSemantics(
-          child: Tooltip(
-            message: 'Open video',
-            child: IconButton.filled(
-              onPressed: open,
-              style: IconButton.styleFrom(
-                backgroundColor: const Color(0xBB000000),
-                foregroundColor: Colors.white,
-              ),
-              icon: const DIcon(
-                DIcons.upRightFromSquare,
-                size: 18,
-                color: Colors.white,
-              ),
+    return Semantics(
+      link: true,
+      label: label,
+      onTap: open,
+      child: ExcludeSemantics(
+        child: Tooltip(
+          message: 'Open video',
+          child: IconButton.filled(
+            onPressed: open,
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xBB000000),
+              foregroundColor: Colors.white,
+            ),
+            icon: const DIcon(
+              DIcons.upRightFromSquare,
+              size: 18,
+              color: Colors.white,
             ),
           ),
         ),
