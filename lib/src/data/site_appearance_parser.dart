@@ -231,7 +231,6 @@ ResolvedSitePalette? parseSiteAppearanceStylesheet(String source) =>
 /// names, because themes commonly introduce an alias before assigning it to a
 /// core semantic variable.
 ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
-  final sourceList = sources.toList(growable: false);
   // The loader fetches the site's color definitions and selected parent theme,
   // not core's common stylesheet. Seed the core geometry tokens themes commonly
   // reference so an override such as `var(--space-2)` resolves as it does in
@@ -250,14 +249,41 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
         ),
       ],
   };
-  for (final source in sourceList) {
-    for (final rule in _globalRootRules(source)) {
+  // Avatar values can reference variables declared in later rules or sources.
+  // Retain only their values and cascade metadata while collecting variables,
+  // so each block is parsed once without keeping the theme's syntax trees.
+  final avatarDeclarations = <_AvatarRadiusDeclaration>[];
+  for (final source in sources) {
+    for (final rule in _topLevelRules(source)) {
+      if (_hasGlobalRoot(rule)) {
+        for (final node in rule.declarationGroup.declarations) {
+          if (node is! Declaration || !node.property.startsWith('--')) continue;
+          final value = _declarationValue(node);
+          if (value == null) continue;
+          (variables[node.property] ??= []).add(
+            _CascadedValue(value, important: node.important),
+          );
+        }
+      }
+
+      final specificity = rule.selectorGroup?.selectors
+          .map(_avatarSelectorSpecificity)
+          .whereType<int>()
+          .fold<int?>(null, (best, value) => math.max(best ?? value, value));
+      if (specificity == null) continue;
       for (final node in rule.declarationGroup.declarations) {
-        if (node is! Declaration || !node.property.startsWith('--')) continue;
+        if (node is! Declaration ||
+            node.property.toLowerCase() != 'border-radius') {
+          continue;
+        }
         final value = _declarationValue(node);
         if (value == null) continue;
-        (variables[node.property] ??= []).add(
-          _CascadedValue(value, important: node.important),
+        avatarDeclarations.add(
+          _AvatarRadiusDeclaration(
+            value: value,
+            important: node.important,
+            specificity: specificity,
+          ),
         );
       }
     }
@@ -313,7 +339,7 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
     'accentSubtle': accentSubtle.toARGB32(),
     'borderRadius': ?length('--d-border-radius'),
     'avatarBorderRadius': _resolveAvatarBorderRadius(
-      sourceList,
+      avatarDeclarations,
       resolver,
     ).toJson(),
   };
@@ -383,12 +409,6 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
 /// not understand cannot make it stop before a later `:root` palette override.
 /// Nested conditional roots remain excluded, matching the browser-independent
 /// contract of this parser.
-Iterable<RuleSet> _globalRootRules(String source) sync* {
-  for (final rule in _topLevelRules(source)) {
-    if (_hasGlobalRoot(rule)) yield rule;
-  }
-}
-
 Iterable<RuleSet> _topLevelRules(String source) sync* {
   for (final block in _topLevelBlocks(source)) {
     final StyleSheet sheet;
@@ -404,7 +424,7 @@ Iterable<RuleSet> _topLevelRules(String source) sync* {
 }
 
 AvatarBorderRadius _resolveAvatarBorderRadius(
-  Iterable<String> sources,
+  Iterable<_AvatarRadiusDeclaration> declarations,
   _VariableResolver resolver,
 ) {
   var winner = const _AvatarRadiusCandidate(
@@ -413,37 +433,19 @@ AvatarBorderRadius _resolveAvatarBorderRadius(
     specificity: 101,
     order: -1,
   );
-  var order = 0;
-  for (final source in sources) {
-    for (final rule in _topLevelRules(source)) {
-      final specificity = rule.selectorGroup?.selectors
-          .map(_avatarSelectorSpecificity)
-          .whereType<int>()
-          .fold<int?>(null, (best, value) => math.max(best ?? value, value));
-      if (specificity == null) continue;
-      for (final node in rule.declarationGroup.declarations) {
-        if (node is! Declaration ||
-            node.property.toLowerCase() != 'border-radius') {
-          continue;
-        }
-        final declarationOrder = order++;
-        final sourceValue = _declarationValue(node);
-        final resolvedValue = sourceValue == null
-            ? null
-            : resolver.resolveValue(sourceValue);
-        final radius = resolvedValue == null
-            ? null
-            : _parseAvatarBorderRadius(resolvedValue);
-        if (radius == null) continue;
-        final candidate = _AvatarRadiusCandidate(
-          radius: radius,
-          important: node.important,
-          specificity: specificity,
-          order: declarationOrder,
-        );
-        if (candidate.outranks(winner)) winner = candidate;
-      }
-    }
+  for (final (order, declaration) in declarations.indexed) {
+    final resolvedValue = resolver.resolveValue(declaration.value);
+    final radius = resolvedValue == null
+        ? null
+        : _parseAvatarBorderRadius(resolvedValue);
+    if (radius == null) continue;
+    final candidate = _AvatarRadiusCandidate(
+      radius: radius,
+      important: declaration.important,
+      specificity: declaration.specificity,
+      order: order,
+    );
+    if (candidate.outranks(winner)) winner = candidate;
   }
   return winner.radius;
 }
@@ -612,6 +614,18 @@ final class _CascadedValue {
 
   final String value;
   final bool important;
+}
+
+final class _AvatarRadiusDeclaration {
+  const _AvatarRadiusDeclaration({
+    required this.value,
+    required this.important,
+    required this.specificity,
+  });
+
+  final String value;
+  final bool important;
+  final int specificity;
 }
 
 final class _AvatarRadiusCandidate {

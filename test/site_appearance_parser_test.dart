@@ -280,6 +280,84 @@ void main() {
       );
     });
 
+    test('resolves avatar aliases against later root declarations', () {
+      final palette = parseSiteAppearanceStylesheets([
+        _stylesheet(),
+        'img.avatar { border-radius: var(--theme-radius); }',
+        ':root { --theme-radius: calc(var(--space-2) + 4px) !important; }',
+        ':root { --theme-radius: 0; }',
+      ]);
+
+      expect(palette?.avatarBorderRadius, const AvatarBorderRadius.pixels(12));
+    });
+
+    test('reads root variables and avatar radius from a shared rule', () {
+      final palette = parseSiteAppearanceStylesheets([
+        _stylesheet(),
+        ''':root, img.avatar {
+          --theme-radius: .75rem;
+          --d-border-radius: var(--theme-radius);
+          border-radius: var(--theme-radius);
+        }''',
+      ]);
+
+      expect(palette?.borderRadius, 12);
+      expect(palette?.avatarBorderRadius, const AvatarBorderRadius.pixels(12));
+    });
+
+    test('preserves avatar importance, specificity, and source order', () {
+      final sources = [
+        _stylesheet(),
+        'img.avatar { border-radius: 12px !important; }',
+        '.avatar { border-radius: 2px !important; }',
+        'img.avatar { border-radius: 3px; }',
+      ];
+
+      expect(
+        parseSiteAppearanceStylesheets(sources)?.avatarBorderRadius,
+        const AvatarBorderRadius.pixels(12),
+      );
+      expect(
+        parseSiteAppearanceStylesheets([
+          ...sources,
+          'img.avatar { border-radius: 8px !important; '
+              'border-radius: 25% !important; }',
+        ])?.avatarBorderRadius,
+        const AvatarBorderRadius.percent(25),
+      );
+    });
+
+    test('falls back past invalid avatar radius overrides', () {
+      final substitutions = List.filled(80, 'var(--empty)').join();
+      final palette = parseSiteAppearanceStylesheets([
+        _stylesheet({'--empty': '/**/', '--cycle': 'var(--cycle)'}),
+        'img.avatar { border-radius: .5rem; }',
+        '''img.avatar {
+          border-radius: -2px !important;
+          border-radius: 2px 4px !important;
+          border-radius: var(--cycle) !important;
+          border-radius: 12px$substitutions !important;
+        }''',
+      ]);
+
+      expect(palette?.avatarBorderRadius, const AvatarBorderRadius.pixels(8));
+    });
+
+    test('keeps global overrides after a large parent theme stylesheet', () {
+      final palette = parseSiteAppearanceStylesheets([
+        _stylesheet(),
+        _generatedTheme(1200),
+      ]);
+
+      expect(palette?.brightness, Brightness.light);
+      expect(palette?.primary, const Color(0xFF111111));
+      expect(palette?.secondary, const Color(0xFFFFFFFF));
+      expect(palette?.tertiary, const Color(0xFF123456));
+      expect(palette?.hover, const Color(0xFF654321));
+      expect(palette?.borderRadius, 10);
+      expect(palette?.avatarBorderRadius, const AvatarBorderRadius.pixels(10));
+    });
+
     test('honors important declarations across root rules', () {
       final palette = parseSiteAppearanceStylesheet('''${_stylesheet()}
         :root { --tertiary: #010203 !important; }
@@ -469,6 +547,91 @@ void main() {
       );
     });
   });
+
+  // Opt-in microbenchmark; CSS generation and output checks are not timed.
+  // flutter test test/site_appearance_parser_test.dart \
+  //   --dart-define=SITE_APPEARANCE_BENCHMARK=true \
+  //   --plain-name 'appearance parser benchmark' --reporter expanded
+  if (const bool.fromEnvironment('SITE_APPEARANCE_BENCHMARK')) {
+    test('appearance parser benchmark', () {
+      final fixture = _stylesheet();
+      final cases = <String, List<String>>{
+        'palette fixture': [fixture],
+        'theme 1000 rules': [fixture, _generatedTheme(1000)],
+        'theme 5000 rules': [fixture, _generatedTheme(5000)],
+      };
+      for (final entry in cases.entries) {
+        final sources = entry.value;
+        final expected = parseSiteAppearanceStylesheets(sources);
+        expect(expected, isNotNull);
+        for (var warmup = 0; warmup < 20; warmup++) {
+          expect(parseSiteAppearanceStylesheets(sources), expected);
+        }
+        final samples = <int>[];
+        for (var sample = 0; sample < 31; sample++) {
+          final elapsed = Stopwatch()..start();
+          final result = parseSiteAppearanceStylesheets(sources);
+          elapsed.stop();
+          samples.add(elapsed.elapsedMicroseconds);
+          expect(result, expected);
+        }
+        samples.sort();
+        final bytes = sources.fold<int>(
+          0,
+          (sum, source) => sum + source.length,
+        );
+        // ignore: avoid_print
+        print(
+          '${entry.key}: $bytes ASCII bytes, 20 warmups, 31 samples; '
+          'microseconds min=${samples.first}, median=${samples[15]}, '
+          'p90=${samples[27]}, max=${samples.last}',
+        );
+      }
+    });
+  }
+}
+
+String _generatedTheme(int ruleCount) {
+  final css = StringBuffer('''
+    img.avatar { border-radius: var(--theme-radius); }
+    :root { --tertiary: #123456 !important; }
+  ''');
+  for (var index = 0; index < ruleCount; index++) {
+    css.writeln('''
+      .theme-component-$index .content > a:hover {
+        color: var(--primary);
+        background: var(--secondary);
+        padding: calc(var(--space) * 2);
+        border-radius: 3px;
+        content: "braces { ; }"; /* unmatched } in a comment */
+      }
+    ''');
+    if (index % 100 == 0) {
+      css.writeln('''
+        @supports (color: lab(from red l 1 1% / calc(alpha + 0.1)))
+            and (color: light-dark(red, red)) {
+          :root { --primary: #badbad !important; }
+          img.avatar { border-radius: 0 !important; }
+        }
+        @media (min-width: 1px) {
+          :root { --secondary: #badbad !important; }
+          img.avatar { border-radius: 0 !important; }
+        }
+        :root.theme-preview { --tertiary: #badbad !important; }
+      ''');
+    }
+  }
+  css.writeln('''
+    :root {
+      --tertiary: #abcdef;
+      --d-hover: #654321;
+      --theme-radius: calc(var(--space-2) + 2px);
+      --d-border-radius: var(--theme-radius);
+    }
+    .avatar { border-radius: 0; }
+    .directory img.avatar { border-radius: 0 !important; }
+  ''');
+  return css.toString();
 }
 
 Map<String, Object?> _siteJson() => {
