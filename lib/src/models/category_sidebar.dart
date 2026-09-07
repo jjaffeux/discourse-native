@@ -193,5 +193,7 @@ String _decodedSlug(String slug, {required String fallback}) {
     return Uri.decodeComponent(value);
   } on FormatException {
     return value;
+  } on ArgumentError {
+    return value;
   }
 }

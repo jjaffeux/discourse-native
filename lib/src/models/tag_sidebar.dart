@@ -117,5 +117,7 @@ String _decodedPathSegment(String value) {
     return Uri.decodeComponent(value);
   } on FormatException {
     return value;
+  } on ArgumentError {
+    return value;
   }
 }
