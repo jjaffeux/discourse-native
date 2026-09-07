@@ -54,12 +54,22 @@ capture** retains the detailed trace when a deeper investigation needs it.
 
 The report includes the platform and build mode, the display's frame budget,
 UI and raster timing percentiles, viewport bookkeeping cost, the most expensive
-post layouts, and paging/anchor activity. Engine frame numbers associate topic
-work with the correct timing batch. Post bodies, titles, site URLs, and
+post layouts, and paging/anchor activity. Version 3 also reads the Dart VM's
+existing CPU samples on export, when available. It lists frequently sampled
+functions and call paths during slow topic frames, plus CPU and row-layout
+breakdowns for the worst frames. Copy soon after stopping because the VM's
+sample buffer overwrites old samples. A missing or disabled profiler does not
+prevent exporting the other measurements; `flutter run --profile -d macos`
+enables profiling for a representative desktop capture.
+
+Engine frame numbers associate topic work with the correct timing batch;
+monotonic timestamps match CPU samples to those frames' UI intervals.
+Post bodies, titles, site URLs, debugger connection details, and
 credentials are excluded; post IDs and HTML character counts identify expensive
 rows. Recording stays in memory, does not refresh the diagnostics UI per event,
 and stops after two minutes or 12,000 events. Export analysis runs in a separate
-isolate. Use a profile or release build to assess device performance; a debug
+isolate and does not change the VM's profiler settings. Use a profile or release
+build to assess device performance; a debug
 build can reveal work patterns but adds substantial overhead.
 
 ## Connecting a site

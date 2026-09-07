@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 
 import 'package:discourse_native/src/diagnostics/topic_scroll_capture.dart';
+import 'package:discourse_native/src/diagnostics/topic_scroll_cpu_profile.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -230,6 +232,101 @@ void main() {
     expect(report, contains('no samples'));
     expect(report, isNot(contains('NaN')));
   });
+
+  test('reads CPU samples only on export and only once per capture', () async {
+    var now = 100;
+    var frame = 42;
+    final calls = <({int start, int end, List<TopicCpuFrame> frames})>[];
+    final capture = TopicScrollCaptureController(
+      timelineClock: () => now,
+      currentFrameNumber: () => frame,
+      cpuProfileCollector:
+          ({required startUs, required endUs, required slowFrames}) async {
+            calls.add((start: startUs, end: endUs, frames: slowFrames));
+            return {'status': 'available'};
+          },
+    );
+    addTearDown(capture.dispose);
+    capture.start(displayRefreshRate: 120);
+    capture.recordTopicEvent('post.layout', const {'durationUs': 100});
+    frame = 43;
+    capture.recordTopicEvent('viewport.work', const {'durationUs': 100});
+    PlatformDispatcher.instance.onReportTimings?.call([
+      _timing(vsyncStart: 100, frameNumber: 42, buildUs: 20000),
+      _timing(vsyncStart: 25000, frameNumber: 43, buildUs: 1000),
+      _timing(vsyncStart: 30000, frameNumber: 44, buildUs: 20000),
+    ]);
+    await capture.buildPerformanceReport();
+    expect(calls, isEmpty);
+    now = 60000;
+    capture.stop();
+    expect(calls, isEmpty);
+    await Future.wait([
+      capture.buildJsonReport(),
+      capture.buildPerformanceReport(),
+    ]);
+    expect(calls, hasLength(1));
+    expect(calls.single.start, 100);
+    expect(calls.single.end, 60000);
+    expect(calls.single.frames, [
+      (frameNumber: 42, startUs: 1100, endUs: 21100),
+    ]);
+    capture.start();
+    now = 70000;
+    capture.stop();
+    await capture.buildJsonReport();
+    expect(calls, hasLength(2));
+    expect(calls.last.start, 60000);
+    expect(calls.last.end, 70000);
+  });
+
+  test('a pending CPU export stays attached to its original capture', () async {
+    var now = 100;
+    final pending = Completer<Map<String, Object?>>();
+    final capture = TopicScrollCaptureController(
+      timelineClock: () => now,
+      cpuProfileCollector:
+          ({required startUs, required endUs, required slowFrames}) =>
+              pending.future,
+    );
+    addTearDown(capture.dispose);
+    capture.start();
+    capture.recordTopicEvent('original-event', const {});
+    now = 200;
+    capture.stop();
+    final report = capture.buildJsonReport();
+    capture.start();
+    capture.recordTopicEvent('new-event', const {});
+    pending.complete({
+      'status': 'available',
+      'capture': {'sampleCount': 123},
+    });
+    final encoded = await report;
+    expect(encoded, contains('original-event'));
+    expect(encoded, isNot(contains('new-event')));
+    expect(encoded, contains('123'));
+  });
+
+  test(
+    'CPU collection failures never expose connection details or break export',
+    () async {
+      final capture = TopicScrollCaptureController(
+        cpuProfileCollector:
+            ({required startUs, required endUs, required slowFrames}) =>
+                throw StateError('ws://localhost:1234/PRIVATE-TOKEN/ws'),
+      );
+      addTearDown(capture.dispose);
+      capture.start();
+      capture.stop();
+      final report = await capture.buildJsonReport();
+      expect(report, contains('collection-failed'));
+      expect(report, isNot(contains('PRIVATE-TOKEN')));
+      expect(
+        await capture.buildPerformanceReport(),
+        contains('CPU profile unavailable'),
+      );
+    },
+  );
 
   testWidgets(
     'reaching the event limit during layout notifies after the frame',

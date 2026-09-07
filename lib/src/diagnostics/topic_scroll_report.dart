@@ -18,6 +18,11 @@ String encodeTopicScrollReport(
   final postLengths = <(int, int), int>{};
   final viewportDurations = <int>[];
   final layoutDurations = <int>[];
+  final cpuProfile = _map(report['cpuProfile']);
+  final cpuByFrame = {
+    for (final frame in _maps(cpuProfile['frames']))
+      frame['frameNumber']: frame,
+  };
   final contexts = <Map<String, Object?>>[];
   final frames = <Map<String, Object?>>[];
 
@@ -90,6 +95,17 @@ String encodeTopicScrollReport(
         {
           ...frame,
           'topicActivity': _activityCounts(byFrame[frame['frameNumber']] ?? []),
+          'measuredWorkUs': {
+            for (final name in ['post.layout', 'viewport.work'])
+              name: (byFrame[frame['frameNumber']] ?? [])
+                  .where((event) => event['name'] == name)
+                  .fold<int>(
+                    0,
+                    (sum, event) =>
+                        sum + _int(_map(event['data'])['durationUs']),
+                  ),
+          },
+          'cpu': ?cpuByFrame[frame['frameNumber']],
         },
     ],
   };
@@ -253,6 +269,7 @@ String _formatReport(Map<String, Object?> report) {
       );
     }
   }
+  _writeCpuProfile(output, _map(report['cpuProfile']));
   final worstFrames = _maps(analysis['worstFrames']);
   if (worstFrames.isNotEmpty) {
     output
@@ -264,6 +281,18 @@ String _formatReport(Map<String, Object?> report) {
         'UI ${_ms(frame['buildUs'])} ms, raster ${_ms(frame['rasterUs'])} ms; '
         '${_countsLine(_map(frame['topicActivity']), limit: 8)}',
       );
+      final work = _map(frame['measuredWorkUs']);
+      output.writeln(
+        '    Measured row layout ${_ms(work['post.layout'])} ms; '
+        'viewport ${_ms(work['viewport.work'])} ms',
+      );
+      final cpu = _map(frame['cpu']);
+      if (_int(cpu['sampleCount']) > 0) {
+        output.writeln(
+          '    CPU (${cpu['sampleCount']} samples): '
+          '${_cpuFunctionsLine(cpu, limit: 3)}',
+        );
+      }
     }
   }
   output
@@ -289,6 +318,73 @@ String _formatReport(Map<String, Object?> report) {
     );
   return output.toString();
 }
+
+void _writeCpuProfile(StringBuffer output, Map<String, Object?> profile) {
+  output.writeln();
+  if (profile['status'] != 'available') {
+    final reason = switch (profile['reason']) {
+      'release-build' => 'CPU sampling requires a debug or profile build.',
+      'profiler-disabled' =>
+        'Run Flutter with --enable-dart-profiling and capture again.',
+      'vm-service-unavailable' =>
+        'Start the app with flutter run in debug or profile mode.',
+      'capture-in-progress' => 'Stop the capture before exporting CPU samples.',
+      'no-capture' => 'No capture has been recorded.',
+      _ => 'The Dart VM service could not supply CPU samples.',
+    };
+    output.writeln('CPU profile unavailable: $reason');
+    return;
+  }
+  final capture = _map(profile['capture']);
+  final slow = _map(profile['slowTopicFrames']);
+  final hasSlowSamples = _int(slow['sampleCount']) > 0;
+  final selected = hasSlowSamples ? slow : capture;
+  output.writeln(
+    'CPU sampling: ${capture['sampleCount']} capture samples | '
+    '${slow['sampleCount']} in slow topic UI frames | '
+    'period ${_ms(profile['samplePeriodUs'])} ms',
+  );
+  if (_int(selected['sampleCount']) == 0) {
+    output.writeln(
+      'No CPU samples remain for this capture. Copy soon after stopping; '
+      'the VM overwrites old samples.',
+    );
+    return;
+  }
+  output.writeln(
+    hasSlowSamples
+        ? 'CPU functions in slow topic frames (exclusive samples):'
+        : 'CPU functions across the capture (no slow-frame samples):',
+  );
+  for (final function in _maps(selected['topFunctions'])) {
+    output.writeln('  ${_cpuEntry(function, _int(selected['sampleCount']))}');
+  }
+  final tags = _maps(selected['vmTags']);
+  if (tags.isNotEmpty) {
+    output.writeln(
+      'CPU runtime tags: '
+      '${tags.map((tag) => _cpuEntry(tag, _int(selected['sampleCount']))).join(', ')}',
+    );
+  }
+  output.writeln('Frequent sampled call paths (leaf ← callers):');
+  for (final stack in _maps(selected['topStacks']).take(3)) {
+    output.writeln('  ${_cpuEntry(stack, _int(selected['sampleCount']))}');
+  }
+  output.writeln(
+    'CPU samples are statistical and may be incomplete. They are not exact '
+    'durations; debug compilation, assertions, and GC can appear here.',
+  );
+}
+
+String _cpuFunctionsLine(Map<String, Object?> summary, {required int limit}) =>
+    _maps(summary['topFunctions'])
+        .take(limit)
+        .map((entry) => _cpuEntry(entry, _int(summary['sampleCount'])))
+        .join(', ');
+
+String _cpuEntry(Map<String, Object?> entry, int total) =>
+    '${entry['name']} ${entry['samples']}/$total '
+    '(${(100 * _int(entry['samples']) / total).toStringAsFixed(1)}%)';
 
 String _timingLine(Map<String, Object?> stats) => _int(stats['count']) == 0
     ? 'no samples'
