@@ -411,7 +411,13 @@ final class AggregateFeedController extends FrameSafeNotifier {
     final updated = state.updatedAt;
     final stale =
         updated == null || DateTime.now().difference(updated) >= freshness;
-    if (state.loaded && !stale) return Future.value();
+    if (state.loaded &&
+        !stale &&
+        state.topics.every(
+          (ref) => store.containsRecord<Topic>(ref.siteUrl, ref.topicId),
+        )) {
+      return Future.value();
+    }
     return refresh(instances);
   }
 
@@ -651,7 +657,13 @@ final class AggregateFeedController extends FrameSafeNotifier {
         siteUrl: best.instance.url,
         topicId: topic.id,
       );
-      if (!emitted.add(ref)) continue;
+      if (emitted.contains(ref)) continue;
+      // A buffered topic can outlive its unobserved Store record.
+      if (!store.containsRecord<Topic>(ref.siteUrl, ref.topicId)) {
+        store.put(ref.siteUrl, topic);
+        if (!_ownsSource(tab, best, revision)) continue;
+      }
+      emitted.add(ref);
       topics.add(ref);
       added++;
     }
