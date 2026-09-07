@@ -630,6 +630,7 @@ class ChatMessageStream extends StatefulWidget {
     this.onStartSelecting,
     this.onSelectionChanged,
     this.autofocus = true,
+    this.clock = DateTime.now,
   });
 
   final String siteUrl;
@@ -652,6 +653,9 @@ class ChatMessageStream extends StatefulWidget {
   final ValueChanged<int>? onStartSelecting;
   final void Function(int messageId, bool selected)? onSelectionChanged;
   final bool autofocus;
+
+  /// Time source for preserving read dwell across inactive surfaces.
+  final DateTime Function() clock;
 
   int get channelId => target.channelId;
 
@@ -1018,7 +1022,7 @@ class _StreamState extends State<ChatMessageStream>
     if (!_readerActive) return;
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
-    _readTimerStartedAt = DateTime.now();
+    _readTimerStartedAt = widget.clock();
     _readTimer = Timer(duration, _creditReaderNow);
   }
 
@@ -1026,7 +1030,7 @@ class _StreamState extends State<ChatMessageStream>
     final timer = _readTimer;
     final startedAt = _readTimerStartedAt;
     if (timer == null || startedAt == null) return;
-    final elapsed = DateTime.now().difference(startedAt);
+    final elapsed = widget.clock().difference(startedAt);
     final remaining = _readTimeRemaining - elapsed;
     _readTimeRemaining = remaining > Duration.zero ? remaining : Duration.zero;
     timer.cancel();

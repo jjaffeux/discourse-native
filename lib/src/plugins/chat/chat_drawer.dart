@@ -120,6 +120,7 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
   int _sizeGeneration = 0;
   bool _headerMenuOpen = false;
   bool _drawerWasVisible = false;
+  ChatShellService? _shell;
 
   @override
   void initState() {
@@ -131,6 +132,7 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_handleKeyboard);
+    _shell?.updateDrawerContentVisibility(false);
     super.dispose();
   }
 
@@ -248,6 +250,10 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
   @override
   Widget build(BuildContext context) {
     final shell = PluginUiScope.require(context, chatShellService);
+    if (!identical(_shell, shell)) {
+      _shell?.updateDrawerContentVisibility(false);
+      _shell = shell;
+    }
     return Positioned.fill(
       child: SizedBox.expand(
         key: _overlayBoundsKey,
@@ -263,8 +269,14 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
                 final available =
                     ShellLayout.forWidth(constraints.maxWidth) !=
                     ShellLayout.compact;
+                final contentVisible =
+                    available &&
+                    shell.drawerExpanded &&
+                    TickerMode.valuesOf(context).enabled;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) shell.updateDrawerAvailability(available);
+                  if (!mounted || !identical(_shell, shell)) return;
+                  shell.updateDrawerAvailability(available);
+                  shell.updateDrawerContentVisibility(contentVisible);
                 });
                 if (shell.drawerCurrentContent == null) {
                   return const SizedBox.shrink();
@@ -574,10 +586,16 @@ class _DrawerFrame extends StatelessWidget {
             child: Divider(height: 1, color: colors.outlineVariant),
           ),
           Expanded(
-            child: Offstage(offstage: !expanded, child: content),
+            child: TickerMode(
+              enabled: expanded,
+              child: Offstage(offstage: !expanded, child: content),
+            ),
           ),
           if (footer case final footer?)
-            Offstage(offstage: !expanded, child: footer),
+            TickerMode(
+              enabled: expanded,
+              child: Offstage(offstage: !expanded, child: footer),
+            ),
         ],
       ),
     );
