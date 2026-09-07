@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:ui' show SemanticsAction;
 
+import 'package:discourse_native/src/plugins/local_dates/local_date.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -189,4 +191,305 @@ void main() {
     expect(find.byType(LocalDateInline), findsOneWidget);
     expect(find.textContaining('2026'), findsOneWidget);
   });
+
+  group('countdown refresh', () {
+    const spec = LocalDateSpec(
+      date: '2026-01-11',
+      time: '12:00:00',
+      timezone: 'UTC',
+      countdown: true,
+      fallbackText: 'server countdown',
+    );
+
+    testWidgets('an already elapsed countdown stays idle', (tester) async {
+      final countdown = _CountdownHarness(tester, DateTime.utc(2026, 1, 12));
+      await countdown.run(() async {
+        await countdown.show(spec);
+
+        expect(find.textContaining('now'), findsOneWidget);
+        await countdown.expectIdle();
+      });
+    });
+
+    testWidgets('stops at the exact deadline after its final tick', (
+      tester,
+    ) async {
+      final countdown = _CountdownHarness(
+        tester,
+        DateTime.utc(2026, 1, 11, 11, 59, 59, 750),
+      );
+      await countdown.run(() async {
+        await countdown.show(spec);
+        expect(find.textContaining('a few seconds'), findsOneWidget);
+
+        await tester.pump(const Duration(milliseconds: 249));
+        expect(find.textContaining('a few seconds'), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 1));
+
+        expect(find.textContaining('now'), findsOneWidget);
+        await countdown.expectIdle();
+      });
+    });
+
+    testWidgets('a future countdown keeps ticking and cancels on disposal', (
+      tester,
+    ) async {
+      final countdown = _CountdownHarness(
+        tester,
+        DateTime.utc(2026, 1, 11, 11, 59, 15),
+      );
+      await countdown.run(() async {
+        await countdown.show(spec);
+        expect(find.textContaining('a minute'), findsOneWidget);
+        expect(countdown.activeTimers, hasLength(1));
+
+        await tester.pump(const Duration(seconds: 1));
+        expect(find.textContaining('a few seconds'), findsOneWidget);
+        expect(countdown.activeTimers, hasLength(1));
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await countdown.expectIdle();
+      });
+    });
+
+    testWidgets('an elapsed replacement cancels a future countdown', (
+      tester,
+    ) async {
+      final countdown = _CountdownHarness(
+        tester,
+        DateTime.utc(2026, 1, 11, 11, 59, 15),
+      );
+      await countdown.run(() async {
+        await countdown.show(spec);
+        expect(countdown.activeTimers, hasLength(1));
+
+        await countdown.show(
+          const LocalDateSpec(
+            date: '2026-01-10',
+            countdown: true,
+            fallbackText: '',
+          ),
+        );
+        expect(find.textContaining('now'), findsOneWidget);
+        await countdown.expectIdle();
+      });
+    });
+
+    testWidgets('a recurring countdown advances after its exact deadline', (
+      tester,
+    ) async {
+      final countdown = _CountdownHarness(
+        tester,
+        DateTime.utc(2026, 1, 11, 11, 59, 59, 750),
+      );
+      await countdown.run(() async {
+        await countdown.show(
+          const LocalDateSpec(
+            date: '2026-01-11',
+            time: '12:00:00',
+            timezone: 'UTC',
+            countdown: true,
+            recurring: '1.minutes',
+            fallbackText: '',
+          ),
+        );
+        expect(find.textContaining('a few seconds'), findsOneWidget);
+
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(find.textContaining('now'), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(find.textContaining('a minute'), findsOneWidget);
+
+        await tester.pump(const Duration(seconds: 16));
+        expect(find.textContaining('a few seconds'), findsOneWidget);
+        expect(countdown.activeTimers, hasLength(1));
+      });
+    });
+
+    for (final recurring in ['invalid', '0.seconds', '900000000000.days']) {
+      testWidgets('an unadvanceable recurrence stays idle: $recurring', (
+        tester,
+      ) async {
+        final countdown = _CountdownHarness(
+          tester,
+          DateTime.utc(2026, 1, 11, 11, 59, 59, 750),
+        );
+        await countdown.run(() async {
+          await countdown.show(
+            LocalDateSpec(
+              date: spec.date,
+              time: spec.time,
+              timezone: spec.timezone,
+              countdown: true,
+              recurring: recurring,
+              fallbackText: '',
+            ),
+          );
+
+          await tester.pump(const Duration(milliseconds: 250));
+          expect(find.textContaining('now'), findsOneWidget);
+          await countdown.expectIdle();
+        });
+      });
+    }
+
+    for (final invalid in [
+      const LocalDateSpec(
+        date: 'invalid',
+        countdown: true,
+        fallbackText: 'invalid date',
+      ),
+      const LocalDateSpec(
+        date: '2026-01-11',
+        timezone: 'Mars/Olympus',
+        countdown: true,
+        fallbackText: 'invalid timezone',
+      ),
+    ]) {
+      testWidgets(
+        'cancels for ${invalid.fallbackText} and resumes a replacement',
+        (tester) async {
+          final countdown = _CountdownHarness(
+            tester,
+            DateTime.utc(2026, 1, 11, 11, 59, 15),
+          );
+          await countdown.run(() async {
+            await countdown.show(spec);
+            final state = tester.state(find.byType(LocalDateInline));
+            expect(countdown.activeTimers, hasLength(1));
+
+            await countdown.show(invalid);
+            expect(tester.state(find.byType(LocalDateInline)), same(state));
+            expect(find.text(invalid.fallbackText), findsOneWidget);
+            await countdown.expectIdle();
+
+            await countdown.show(
+              const LocalDateSpec(
+                date: '2026-01-12',
+                time: '12:00:00',
+                timezone: 'UTC',
+                countdown: true,
+                fallbackText: '',
+              ),
+            );
+            expect(tester.state(find.byType(LocalDateInline)), same(state));
+            expect(countdown.activeTimers, hasLength(1));
+            expect(find.textContaining('a day'), findsOneWidget);
+
+            await tester.pump(const Duration(days: 1));
+            expect(find.textContaining('now'), findsOneWidget);
+            await countdown.expectIdle();
+          });
+        },
+      );
+    }
+
+    testWidgets(
+      'an elapsed countdown responds to locale, zone and spec changes',
+      (tester) async {
+        final countdown = _CountdownHarness(tester, DateTime.utc(2026, 1, 12));
+        await countdown.run(() async {
+          await countdown.show(spec);
+          final state = tester.state(find.byType(LocalDateInline));
+          await countdown.expectIdle();
+
+          await countdown.show(spec, locale: const Locale('fr'));
+          expect(find.textContaining('maintenant'), findsOneWidget);
+          await countdown.expectIdle();
+
+          LocalDateEnvironment.instance.setDeviceTimezone('Europe/Paris');
+          await tester.pump();
+          expect(find.bySemanticsLabel(RegExp('Paris:')), findsOneWidget);
+          await countdown.expectIdle();
+
+          await countdown.show(
+            const LocalDateSpec(
+              date: '2026-01-13',
+              time: '00:00:00',
+              timezone: 'UTC',
+              countdown: true,
+              fallbackText: '',
+            ),
+          );
+          expect(tester.state(find.byType(LocalDateInline)), same(state));
+          expect(find.textContaining('a day'), findsOneWidget);
+          expect(countdown.activeTimers, hasLength(1));
+        });
+      },
+    );
+  });
+}
+
+class _CountdownHarness {
+  _CountdownHarness(this.tester, this.start)
+    : clockStart = tester.binding.clock.now();
+
+  final WidgetTester tester;
+  final DateTime start;
+  final DateTime clockStart;
+  final List<Timer> _timers = [];
+  int _clockReads = 0;
+
+  Iterable<Timer> get activeTimers => _timers.where((timer) => timer.isActive);
+
+  DateTime now() {
+    _clockReads++;
+    return start.add(tester.binding.clock.now().difference(clockStart));
+  }
+
+  Future<void> run(Future<void> Function() body) => runZoned(
+    () async {
+      try {
+        await body();
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    },
+    zoneSpecification: ZoneSpecification(
+      createTimer: (self, parent, zone, duration, callback) {
+        final timer = parent.createTimer(zone, duration, callback);
+        _timers.add(timer);
+        return timer;
+      },
+    ),
+  );
+
+  Future<void> show(LocalDateSpec spec, {Locale locale = const Locale('en')}) =>
+      tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          themeAnimationDuration: Duration.zero,
+          locale: locale,
+          localizationsDelegates:
+              RelativeTimeLocalizations.localizationsDelegates,
+          supportedLocales: RelativeTimeLocalizations.supportedLocales,
+          home: Scaffold(
+            body: LocalDateInline(
+              spec: spec,
+              formatter: LocalDateFormatter(
+                environment: LocalDateEnvironment.instance,
+              ),
+              now: now,
+            ),
+          ),
+        ),
+      );
+
+  Future<void> expectIdle() async {
+    // Bounded pumps expose immediate and delayed refreshes without letting a
+    // zero-delay timer/rebuild loop hang pumpAndSettle or fakeAsync.
+    final reads = _clockReads;
+    expect(activeTimers, isEmpty);
+    for (final duration in [
+      Duration.zero,
+      const Duration(milliseconds: 1),
+      const Duration(seconds: 1),
+      const Duration(minutes: 1),
+    ]) {
+      await tester.pump(duration);
+      expect(activeTimers, isEmpty);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      expect(_clockReads, reads, reason: 'idle values must not rebuild');
+    }
+  }
 }

@@ -95,8 +95,14 @@ class _LocalDateInlineState extends State<LocalDateInline> {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _cancelRefresh();
     super.dispose();
+  }
+
+  void _cancelRefresh() {
+    _timer?.cancel();
+    _timer = null;
+    _scheduledFor = null;
   }
 
   @override
@@ -118,7 +124,10 @@ class _LocalDateInlineState extends State<LocalDateInline> {
           now: now,
           sameLocalDayAsFrom: _sameLocalDayAsFrom(locale, accountTimezone, now),
         );
-        if (resolved == null) return Text(widget.spec.fallbackText);
+        if (resolved == null) {
+          _cancelRefresh();
+          return Text(widget.spec.fallbackText);
+        }
         _scheduleRefresh(resolved, now);
         return _LocalDateButton(
           formatted: resolved.formatted,
@@ -192,10 +201,24 @@ class _LocalDateInlineState extends State<LocalDateInline> {
     final readerNow = tz.TZDateTime.from(now, readerLocation);
     final DateTime next;
     if (widget.spec.countdown) {
-      final second = DateTime.fromMillisecondsSinceEpoch(
-        (now.millisecondsSinceEpoch ~/ 1000 + 1) * 1000,
-      );
-      next = resolved.source.isBefore(second) ? resolved.source : second;
+      if (!resolved.source.isAfter(now)) {
+        // Recurrences advance only after their deadline. Wake just past it
+        // only when the formatter can resolve a later occurrence.
+        final afterDeadline = now.add(const Duration(milliseconds: 1));
+        final nextOccurrence = widget.spec.recurring == null
+            ? null
+            : widget.formatter.resolveInstant(widget.spec, now: afterDeadline);
+        if (nextOccurrence == null || !nextOccurrence.isAfter(now)) {
+          _cancelRefresh();
+          return;
+        }
+        next = afterDeadline;
+      } else {
+        final second = DateTime.fromMillisecondsSinceEpoch(
+          (now.millisecondsSinceEpoch ~/ 1000 + 1) * 1000,
+        );
+        next = resolved.source.isBefore(second) ? resolved.source : second;
+      }
     } else if (widget.spec.recurring != null) {
       next = now.add(const Duration(minutes: 1));
     } else {
@@ -207,7 +230,7 @@ class _LocalDateInlineState extends State<LocalDateInline> {
       );
     }
     if (_scheduledFor == next && _timer?.isActive == true) return;
-    _timer?.cancel();
+    _cancelRefresh();
     _scheduledFor = next;
     final delay = next.difference(now);
     _timer = Timer(delay.isNegative ? Duration.zero : delay, () {
