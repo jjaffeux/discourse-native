@@ -661,6 +661,101 @@ void main() {
   });
 
   group('persistent cache policy and lifecycle', () {
+    test(
+      'a decoder rejection outlives the image write already in progress',
+      () async {
+        final store = _GatedMutationByteCacheStore()..holdWrite = true;
+        addTearDown(store.release);
+        final cache = _TestByteCache(
+          store: store,
+          client: MockClient(
+            (_) async => http.Response.bytes(
+              [1, 2, 3],
+              200,
+              headers: {'cache-control': 'public, max-age=3600'},
+            ),
+          ),
+        );
+        addTearDown(cache.close);
+        const url = 'https://cdn.test/rejected.png';
+        final loading = cache.load(url);
+        await store.writeStarted.future;
+        expect(cache.discard(url, cache.cached(url)!), isTrue);
+        store.releaseWrite.complete();
+        await loading;
+        await store.removed.future;
+
+        expect(cache.cached(url), isNull);
+        expect(store.entries[url], isNull);
+        expect(store.operations, [
+          'read',
+          'write',
+          'written',
+          'remove',
+          'removed',
+        ]);
+      },
+    );
+
+    test(
+      'a replacement cache waits for a pending deletion of the same URL',
+      () async {
+        const url = 'https://cdn.test/replaced.png';
+        const otherUrl = 'https://cdn.test/unrelated.png';
+        final store = _GatedMutationByteCacheStore()
+          ..holdRemove = true
+          ..entries[url] = Uint8List.fromList([1]);
+        addTearDown(store.release);
+        final requests = <String>[];
+        final client = MockClient((request) async {
+          requests.add(request.url.toString());
+          return http.Response.bytes([2], 200);
+        });
+        final previous = _TestByteCache(store: store, client: client);
+        final replacement = _TestByteCache(store: store, client: client);
+        addTearDown(previous.close);
+        addTearDown(replacement.close);
+        final invalid = await previous.load(url);
+        expect(previous.discard(url, invalid!), isTrue);
+        await store.removeStarted.future;
+        final loading = replacement.load(url);
+        expect(await replacement.load(otherUrl), [2]);
+        store.releaseRemove.complete();
+
+        expect(await loading, [2]);
+        expect(requests, [otherUrl, url]);
+      },
+    );
+
+    test(
+      'a replacement cache reuses a write that is still being committed',
+      () async {
+        final store = _GatedMutationByteCacheStore()..holdWrite = true;
+        addTearDown(store.release);
+        var requests = 0;
+        final client = MockClient(
+          (_) async => http.Response.bytes(
+            [++requests],
+            200,
+            headers: {'cache-control': 'public, max-age=3600'},
+          ),
+        );
+        final previous = _TestByteCache(store: store, client: client);
+        final replacement = _TestByteCache(store: store, client: client);
+        addTearDown(previous.close);
+        addTearDown(replacement.close);
+        const url = 'https://cdn.test/pending.png';
+        final first = previous.load(url);
+        await store.writeStarted.future;
+        final second = replacement.load(url);
+        store.releaseWrite.complete();
+
+        expect(await first, [1]);
+        expect(await second, [1]);
+        expect(requests, 1);
+      },
+    );
+
     test('discards decoder-rejected bytes from memory and storage', () async {
       final store = _RecordingByteCacheStore();
       final cache = _TestByteCache(
@@ -1087,5 +1182,51 @@ final class _RecordingDiagnosticsSink implements DiagnosticsSink {
     String? correlationId,
   }) {
     errors.add(error);
+  }
+}
+
+final class _GatedMutationByteCacheStore implements ByteCacheStore {
+  final Map<String, Uint8List> entries = {};
+  final List<String> operations = [];
+  final writeStarted = Completer<void>();
+  final releaseWrite = Completer<void>();
+  final removeStarted = Completer<void>();
+  final releaseRemove = Completer<void>();
+  final removed = Completer<void>();
+  bool holdWrite = false;
+  bool holdRemove = false;
+
+  void release() {
+    if (!releaseWrite.isCompleted) releaseWrite.complete();
+    if (!releaseRemove.isCompleted) releaseRemove.complete();
+  }
+
+  @override
+  Future<Uint8List?> read(String url) async {
+    operations.add('read');
+    return entries[url];
+  }
+
+  @override
+  Future<void> write(
+    String url,
+    Uint8List bytes, {
+    required DateTime expiresAt,
+  }) async {
+    operations.add('write');
+    if (!writeStarted.isCompleted) writeStarted.complete();
+    if (holdWrite) await releaseWrite.future;
+    entries[url] = bytes;
+    operations.add('written');
+  }
+
+  @override
+  Future<void> remove(String url) async {
+    operations.add('remove');
+    if (!removeStarted.isCompleted) removeStarted.complete();
+    if (holdRemove) await releaseRemove.future;
+    entries.remove(url);
+    operations.add('removed');
+    if (!removed.isCompleted) removed.complete();
   }
 }

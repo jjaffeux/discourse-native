@@ -2470,6 +2470,9 @@ responses and rejected raster or SVG bytes leave the shared cache, including
 its disk copy, so corrupted media cannot survive relaunch. Decoder failures
 are reported once per shared image; a late failure cannot evict newer bytes
 already loaded for the same URL.
+Disk reads, writes and decoder removals share a queue per store and URL across
+avatar and emoji caches. A pending write finishes before rejection removes it,
+and a replacement cache observes those accepted operations before reading.
 
 Chat authors also retain the optional `UserFlairMixin` fields supplied by the
 server. `ChatUserAvatar` overlays the group icon, image, or background badge
