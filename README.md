@@ -602,6 +602,11 @@ directory, detail, member, activity, and permission reads work without an API
 key, while the server-authored capability fields on the group guard every
 authenticated mutation and management surface.
 
+Member search preserves a pending text draft through unrelated page refreshes;
+an externally changed filter cancels the old debounce. Member addition and
+invitation forms retain their input after a failed callback, clear progress,
+and expose a retry. A submission captures its input before announcing progress.
+
 Permissions read the bare JSON array at `/g/:name/permissions.json`. The JSON
 extension is required because native requests do not carry core's AJAX header.
 An empty array shows core's “There are no categories associated with this
