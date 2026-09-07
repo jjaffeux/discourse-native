@@ -155,6 +155,12 @@ succeeds with the ordinary per-install client id and without a push URL. The
 forum must include the relevant endpoint in `allowed_user_api_push_urls` before
 Discourse will forward notifications to it.
 
+Apple registration attempts share one fifteen-second deadline across waiting
+callers. A timeout releases those callers and permits a retry; an older
+permission reply cannot finish or start registration for that newer attempt.
+A late APNs token is retained for the next caller. The iOS and macOS runners
+use the same coordinator under `darwin/` so their retry behavior stays aligned.
+
 Opening an Apple notification whose payload contains `discourse_url` routes
 that URL inside the app. Cold-start taps wait until the connected forums have
 loaded; URLs are accepted only when they use a safe transport, belong to a

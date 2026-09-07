@@ -165,6 +165,9 @@ jobs:
           cd profiles/full
           flutter build ios --simulator --debug --no-codesign
 
+      - name: Test shared Apple coordinators
+        run: swift test --package-path darwin
+
       - name: Test iOS native coordinator
         run: |
           set -euo pipefail
