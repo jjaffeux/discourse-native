@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/models/composer_draft.dart';
+import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_user.dart';
@@ -84,6 +85,62 @@ void main() {
     },
   );
 
+  for (final credentialKind in ['API key', 'client ID']) {
+    test(
+      'upload cannot cross an account change during its $credentialKind read',
+      () async {
+        final fixture = await _fixture();
+        addTearDown(fixture.shell.dispose);
+        final composer = _openReply(fixture.shell);
+        await pumpEventQueue();
+        final gate = credentialKind == 'API key'
+            ? fixture.authenticator.gateNextApiKey()
+            : fixture.authenticator.gateNextClientId();
+        final abort = Completer<void>();
+        addTearDown(() {
+          if (!gate.release.isCompleted) gate.release.complete();
+          if (!abort.isCompleted) abort.complete();
+        });
+        final upload = composer.imageUploader!(
+          _uploadFile(),
+          onProgress: (_) {},
+          abortTrigger: abort.future,
+        );
+        final result = expectLater(
+          upload,
+          throwsA(isA<ComposerUploadException>()),
+        );
+        await gate.started.future;
+        fixture.shell.lifecycle.invalidate(_siteUrl);
+        gate.release.complete();
+        await result;
+
+        expect(fixture.api.composerUploads, isEmpty);
+      },
+    );
+  }
+
+  test('a retained upload callback stops after shell disposal', () async {
+    final fixture = await _fixture();
+    var disposed = false;
+    addTearDown(() {
+      if (!disposed) fixture.shell.dispose();
+    });
+    final composer = _openReply(fixture.shell);
+    await pumpEventQueue();
+    final upload = composer.imageUploader!;
+    fixture.shell.dispose();
+    disposed = true;
+    final abort = Completer<void>();
+    addTearDown(abort.complete);
+
+    await expectLater(
+      upload(_uploadFile(), onProgress: (_) {}, abortTrigger: abort.future),
+      throwsA(isA<ComposerUploadException>()),
+    );
+    expect(fixture.api.composerUploads, isEmpty);
+  });
+
   for (final kind in ['likers', 'user card']) {
     test('$kind loading cannot adopt an account from a listener', () async {
       final fixture = await _fixture();
@@ -110,6 +167,12 @@ void main() {
   }
 }
 
+ComposerUploadFile _uploadFile() => ComposerUploadFile(
+  name: 'photo.png',
+  length: () async => 1,
+  openRead: () => Stream.value([1]),
+);
+
 typedef _Fixture = ({
   ShellController shell,
   _RecordingComposerApi api,
@@ -123,6 +186,12 @@ Future<_Fixture> _fixture({
   final api = _RecordingComposerApi(
     feeds: const {'/latest.json': []},
     creatableFeedPaths: canCreateTopic ? const {'/latest.json'} : const {},
+    composerUploadResult: const ComposerUploadResult(
+      id: 1,
+      originalFilename: 'photo.png',
+      shortUrl: 'upload://photo.png',
+      url: 'https://meta.discourse.org/uploads/photo.png',
+    ),
   );
   final authenticator = _GatedAuthenticator()..keys[_siteUrl] = 'api-key';
   final shell = ShellController(
@@ -161,8 +230,21 @@ final class _Gate {
 
 final class _GatedAuthenticator extends FakeAuthenticator {
   _Gate? _apiKeyGate;
+  _Gate? _clientIdGate;
 
   _Gate gateNextApiKey() => _apiKeyGate = _Gate();
+  _Gate gateNextClientId() => _clientIdGate = _Gate();
+
+  @override
+  Future<String> clientId() async {
+    final gate = _clientIdGate;
+    _clientIdGate = null;
+    if (gate != null) {
+      gate.started.complete();
+      await gate.release.future;
+    }
+    return super.clientId();
+  }
 
   @override
   Future<String?> apiKeyFor(String siteUrl) async {
@@ -194,7 +276,11 @@ final class _GatedDraftStore extends FakeDraftStore {
 }
 
 final class _RecordingComposerApi extends FakeDiscourseApi {
-  _RecordingComposerApi({required super.feeds, super.creatableFeedPaths});
+  _RecordingComposerApi({
+    required super.feeds,
+    super.creatableFeedPaths,
+    super.composerUploadResult,
+  });
 
   final List<String> tagSearches = [];
   final List<String> draftReads = [];

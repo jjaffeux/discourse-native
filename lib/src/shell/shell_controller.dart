@@ -9803,14 +9803,28 @@ class ShellController extends FrameSafeNotifier
     required void Function(double progress) onProgress,
     required Future<void> abortTrigger,
   }) async {
-    final credential = await _credentialForWrite(target.siteUrl);
-    if (credential.failure case final failure?) {
+    if (isDisposed) {
+      throw const ComposerUploadException('Upload cancelled.');
+    }
+    final lease = lifecycle.capture(target.siteUrl);
+    final held = await _readSessionValue(
+      lease,
+      () => _credentialForWrite(target.siteUrl),
+    );
+    if (held == null) {
+      throw const ComposerUploadException('Upload cancelled.');
+    }
+    if (held.value.failure case final failure?) {
       throw ComposerUploadException(failure.message);
+    }
+    final identity = await _readSessionValue(lease, authenticator.clientId);
+    if (identity == null || !lease.isCurrent) {
+      throw const ComposerUploadException('Upload cancelled.');
     }
     return api.composerPersistence.uploadComposerImage(
       siteUrl: target.siteUrl,
-      apiKey: credential.apiKey!,
-      clientId: await authenticator.clientId(),
+      apiKey: held.value.apiKey!,
+      clientId: identity.value,
       file: file,
       onProgress: onProgress,
       abortTrigger: abortTrigger,
