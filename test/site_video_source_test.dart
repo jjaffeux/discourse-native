@@ -264,6 +264,128 @@ void main() {
     await expectLater(resolving, throwsA(anything));
     expect(elapsed.elapsed, lessThan(const Duration(seconds: 1)));
   });
+
+  test('closing releases a stalled credential deadline immediately', () async {
+    final scheduler = ManualScheduler();
+    final credentials = _DelayedCredentials();
+    final resolver = SiteVideoSourceResolver(
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+      client: MockClient((_) async => http.Response('', 200)),
+    );
+    addTearDown(resolver.close);
+    final resolving = runZoned(
+      () => resolver.resolve(
+        siteUrl: siteUrl,
+        url: Uri.parse('$siteUrl/secure-uploads/demo.mp4'),
+      ),
+      zoneSpecification: ZoneSpecification(
+        createTimer: (_, _, zone, duration, callback) =>
+            scheduler.createTimer(duration, zone.bindCallback(callback)),
+      ),
+    );
+    expect(scheduler.activeTimerCount, 1);
+    final stopped = expectLater(resolving, throwsStateError);
+
+    resolver.close();
+    await stopped;
+
+    expect(scheduler.activeTimerCount, 0);
+    credentials.apiKey.completeError(StateError('late credential failure'));
+    await pumpEventQueue();
+  });
+
+  test('closing does not retain and abort completed probe requests', () async {
+    final aborted = <Uri>[];
+    final resolver = SiteVideoSourceResolver(
+      credentials: const _Credentials(apiKey: 'secret'),
+      lifecycle: SiteLifecycle(),
+      client: MockClient.streaming((request, _) async {
+        unawaited(
+          (request as http.Abortable).abortTrigger!.then((_) {
+            aborted.add(request.url);
+          }),
+        );
+        return http.StreamedResponse(
+          const Stream.empty(),
+          request.url.host == 'meta.discourse.org' ? 302 : 200,
+          headers: {'location': 'https://cdn.example.com/demo.mp4'},
+        );
+      }),
+    );
+
+    await resolver.resolve(
+      siteUrl: siteUrl,
+      url: Uri.parse('$siteUrl/secure-uploads/demo.mp4'),
+    );
+    resolver.close();
+    await pumpEventQueue();
+
+    expect(aborted, isEmpty);
+  });
+
+  for (final timeout in [false, true]) {
+    test(
+      '${timeout ? 'a deadline' : 'closing'} interrupts a stalled probe-body cancellation',
+      () async {
+        final scheduler = ManualScheduler();
+        final cancelling = Completer<void>();
+        final releaseCancellation = Completer<void>();
+        final body = StreamController<List<int>>(
+          onCancel: () {
+            cancelling.complete();
+            return releaseCancellation.future;
+          },
+        );
+        final resolver = SiteVideoSourceResolver(
+          credentials: const _Credentials(apiKey: 'secret'),
+          lifecycle: SiteLifecycle(),
+          client: MockClient.streaming(
+            (request, _) async => http.StreamedResponse(body.stream, 200),
+          ),
+        );
+        addTearDown(resolver.close);
+        var stopped = false;
+        final resolving =
+            runZoned(
+              () => resolver.resolve(
+                siteUrl: siteUrl,
+                url: Uri.parse('$siteUrl/secure-uploads/demo.mp4'),
+              ),
+              zoneSpecification: ZoneSpecification(
+                createTimer: (_, _, zone, duration, callback) => scheduler
+                    .createTimer(duration, zone.bindCallback(callback)),
+              ),
+            ).then<void>(
+              (_) {
+                fail(
+                  'An interrupted resolver must not publish a video source.',
+                );
+              },
+              onError: (Object error) {
+                expect(error, timeout ? isA<TimeoutException>() : isStateError);
+                stopped = true;
+              },
+            );
+        await cancelling.future;
+
+        if (timeout) {
+          scheduler.advance(resolver.requestTimeout);
+        } else {
+          resolver.close();
+        }
+        await pumpEventQueue();
+        try {
+          expect(stopped, isTrue);
+          expect(scheduler.activeTimerCount, 0);
+        } finally {
+          releaseCancellation.complete();
+          await resolving;
+          await body.close();
+        }
+      },
+    );
+  }
 }
 
 final class _Credentials implements ApiCredentialReader {
