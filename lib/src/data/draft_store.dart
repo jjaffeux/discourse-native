@@ -274,7 +274,15 @@ class DraftStore {
       return (value: null, succeeded: false);
     }
     final prefs = preferences.value;
-    final legacy = prefs?.getString(key);
+    final String? legacy;
+    try {
+      legacy = prefs?.getString(key);
+    } catch (error, stackTrace) {
+      reportStorageFailure(error, stackTrace, 'draft.readLegacy');
+      // An unreadable legacy value is an unknown draft, not an empty one.
+      // Leave it untouched so a later read can retry.
+      return (value: null, succeeded: false);
+    }
     if (legacy == null) return (value: null, succeeded: true);
 
     try {

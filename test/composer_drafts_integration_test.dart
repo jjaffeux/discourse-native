@@ -28,6 +28,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 import 'support/finders.dart';
@@ -1297,7 +1298,7 @@ void _registerComposerAndDraftTests() {
     Future<void> openComposer(
       WidgetTester tester,
       FakeDiscourseApi api, {
-      FakeDraftStore? drafts,
+      DraftStore? drafts,
       FakeAuthenticator? authenticator,
     }) async {
       await pumpShell(
@@ -1432,6 +1433,53 @@ void _registerComposerAndDraftTests() {
       expect(find.byType(ComposerPanel), findsNothing);
       expect(api.userDraftsDeleted, isEmpty);
       expect(drafts.saved.values.single, contains('Temporarily unreadable'));
+    });
+
+    testWidgets('a malformed legacy draft gives a recoverable restore notice', (
+      tester,
+    ) async {
+      const storageKey =
+          'discourse_native.draft::https://meta.discourse.org::topic_7';
+      const malformed = <String>['unreadable legacy draft'];
+      SharedPreferences.setMockInitialValues({storageKey: malformed});
+      final prefs = await SharedPreferences.getInstance();
+      final persistence = _MemoryDraftPersistence();
+      final drafts = DraftStore(persistence: persistence);
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+      );
+
+      await openComposer(tester, api, drafts: drafts);
+      expect(tester.takeException(), isNull);
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      expect(shell.visibleComposer?.text.text, isEmpty);
+
+      await tester.tap(find.byTooltip('Save and close'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(
+        find.text("Couldn't check for an existing draft. Try again."),
+        findsOneWidget,
+      );
+      expect(prefs.get(storageKey), malformed);
+      expect(persistence.values, isEmpty);
+      expect(api.draftsSaved, isEmpty);
+      expect(api.userDraftsDeleted, isEmpty);
+
+      final recovered = const ComposerDraft(
+        reply: 'Recovered legacy draft',
+      ).encode();
+      await prefs.setString(storageKey, recovered);
+      await tester.tap(find.byTooltip('Save and close'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(persistence.values[storageKey], recovered);
+      expect(prefs.containsKey(storageKey), isFalse);
+      expect(api.userDraftsDeleted, isEmpty);
     });
 
     testWidgets('close does not delete an unseen draft after restore fails', (
@@ -2530,6 +2578,24 @@ void _registerComposerAndDraftTests() {
       expect(drafts.saved, isEmpty);
     });
   });
+}
+
+final class _MemoryDraftPersistence implements DraftPersistence {
+  final Map<String, String> values = {};
+
+  @override
+  Future<DraftPersistenceRead> read(String key) async =>
+      (value: values[key], allowPreferenceFallback: true);
+
+  @override
+  Future<void> write(String key, String value) async => values[key] = value;
+
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+
+  @override
+  Future<void> deletePrefix(String prefix) async =>
+      values.removeWhere((key, _) => key.startsWith(prefix));
 }
 
 final class _GatedDraftReadStore extends FakeDraftStore {
