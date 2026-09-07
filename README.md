@@ -811,8 +811,11 @@ period preserves the selected filters, and filtering beside a reader leaves
 that topic open. Selections apply immediately, without duplicate filter chips
 or a confirmation footer. The heading does not show a count of loaded rows.
 
-The topic header places category, subcategory, and tags beside the inline title
-editor. Clicking a category edits it when the server grants permission;
+The topic header puts the title first in both expanded and compact modes, between
+the collapse control and topic actions. Category, subcategory, and tags share the
+next line; activity and assignment appear below them when expanded. Clicking the
+title edits it inline, expanding the header when necessary. Clicking a category
+edits it when the server grants permission;
 separate arrows browse the parent or subcategory. Header tags open their tag
 routes, and a pencil opens the tag editor for adding or removing tags. Removing a
 subcategory moves the topic to its parent. Moving to Uncategorized is offered
@@ -827,9 +830,10 @@ find and open every tag through the overflow picker.
 Middle-clicking header tags, dropdown tag rows or their open buttons, and
 category browse arrows opens the destination in a background app tab.
 Topic actions open from the wrench icon in the reader header.
-When the reading lane leaves room for the close control, taxonomy shares that
-toolbar row while staying aligned with the title and posts. Narrow readers
-keep a tightly spaced second row for taxonomy, with every action accessible.
+The title and taxonomy align with the reading lane, with a minimum left inset
+to clear the collapse control in narrow readers. Compact mode keeps the same
+row order while reducing the title size and hiding activity. Header content
+transitions smoothly while the toolbar controls stay mounted and interactive.
 
 Plugin properties can supply a compact `TopicPropertySection.header` builder;
 other properties remain available through a labelled details popover. The

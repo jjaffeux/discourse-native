@@ -128,7 +128,7 @@ void main() {
   );
 
   testWidgets(
-    'stationary toolbar controls stay visible and clickable through both transitions',
+    'stationary toolbar controls stay visible through transitions with a wrapped title',
     (tester) async {
       final setup = await _setup(
         tester,
@@ -137,12 +137,20 @@ void main() {
           'can_assign': false,
           'assigned_to_user': {'username': 'sam', 'name': 'Sam'},
         },
+        firstTopicTitle:
+            'Customer Support Coverage Week - Seville 2026: coordinating schedules, travel, and team availability',
       );
       tester.view.physicalSize = const Size(1400, 800);
       final shell = setup.controller;
       shell.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
       await _scrollReaderToTop(tester);
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('topic-header-title-field')))
+            .height,
+        greaterThan(shellHeaderHeight),
+      );
       final controls = [
         for (final finder in [
           find.byKey(const ValueKey('topic-close-reader')),
@@ -596,7 +604,7 @@ void main() {
   }
 
   testWidgets(
-    'compact header stays in the centered reading column at desktop widths and zoom levels',
+    'both header modes keep title first in the centered reading column at desktop widths and zoom levels',
     (tester) async {
       final setup = await _setup(tester);
       final shell = setup.controller;
@@ -646,6 +654,11 @@ void main() {
         final expandedTitle = tester.getRect(
           find.byKey(const ValueKey('topic-header-title-field')),
         );
+        final expandedTaxonomy = tester.getRect(
+          find.byKey(const ValueKey('topic-header-taxonomy')),
+        );
+        expect(expandedTaxonomy.left, closeTo(expandedTitle.left, 1));
+        expect(expandedTaxonomy.top, greaterThan(expandedTitle.bottom));
         final close = find.byKey(const ValueKey('topic-close-reader'));
         final share = find.byType(TopicShareButton);
         final closeBefore = tester.getRect(close);
@@ -889,34 +902,42 @@ void main() {
             closeTo(tester.getCenter(overflow).dy, 1),
           );
           final title = find.byKey(
-            const ValueKey('topic-header-compact-title'),
+            ValueKey(
+              compact
+                  ? 'topic-header-compact-title'
+                  : 'topic-header-title-field',
+            ),
           );
-          if (compact) {
-            expect(
-              tester.getRect(category).top,
-              greaterThan(tester.getRect(close).bottom),
-            );
+          final parent = compact
+              ? find.byKey(
+                  const ValueKey('topic-header-compact-parent-category'),
+                )
+              : category;
+          expect(
+            tester.getRect(category).top,
+            greaterThan(tester.getRect(close).bottom),
+          );
+          expect(
+            tester.getRect(category).top,
+            greaterThan(tester.getRect(title).bottom),
+          );
+          expect(
+            tester.getRect(parent).left,
+            closeTo(tester.getRect(title).left, 1),
+          );
+          expect(
+            tester.getRect(title).right,
+            lessThan(tester.getRect(status).left),
+          );
+          if (!compact) {
             expect(
               tester
-                  .getRect(
-                    find.byKey(
-                      const ValueKey('topic-header-compact-parent-category'),
-                    ),
-                  )
-                  .left,
-              closeTo(tester.getRect(title).left, 1),
-            );
-            expect(
-              tester.getRect(title).right,
-              lessThan(tester.getRect(status).left),
-            );
-          } else {
-            expect(
-              tester.getRect(overflow).right,
-              lessThan(tester.getRect(status).left),
+                  .getRect(find.byKey(const ValueKey('topic-header-activity')))
+                  .top,
+              greaterThan(tester.getRect(category).bottom),
             );
           }
-          for (final control in [status, if (compact) title else category]) {
+          for (final control in [status, title]) {
             expect(
               tester.getCenter(control).dy,
               closeTo(tester.getCenter(close).dy, 1),
@@ -945,7 +966,7 @@ void main() {
           if (width == 1200) {
             wideTagCount = visibleTags;
             expect(wideTagCount, greaterThan(0));
-          } else if (width == (compact ? 390 : 780)) {
+          } else if (width == 390) {
             expect(visibleTags, lessThan(wideTagCount));
           }
           expect(
@@ -1231,67 +1252,70 @@ void main() {
     }
   });
 
-  testWidgets(
-    'compact reader aligns taxonomy, title, activity, and post text',
-    (tester) async {
-      final state = ValueNotifier('Available');
-      addTearDown(state.dispose);
-      final setup = await _setup(
-        tester,
-        registry: PluginRegistry([_HeaderDetailsPlugin(state)]),
-      );
-      setup.controller.openTopicFromList(setup.rows.first);
-      await tester.pumpAndSettle();
-      await _scrollReaderToTop(tester);
-      final parent = tester.getRect(find.byTooltip('Edit topic category'));
-      final child = tester.getRect(find.byTooltip('Edit topic subcategory'));
-      final tag = tester.getRect(
-        find.byKey(const ValueKey(('topic-header-tag', 'community'))),
-      );
-      final editTags = find.byKey(const ValueKey('topic-header-edit-tags'));
-      final editTagRect = tester.getRect(editTags);
-      expect(
-        tester
-            .widget<DIcon>(
-              find.descendant(of: editTags, matching: find.byType(DIcon)),
-            )
-            .icon,
-        DIcons.pencil,
-      );
-      expect(parent.right, lessThan(child.left));
-      expect(child.right, lessThan(tag.left));
-      expect(tag.right, lessThan(editTagRect.left));
-      expect(parent.center.dy, closeTo(tag.center.dy, 1));
-      expect(child.center.dy, closeTo(tag.center.dy, 1));
-      final title = tester.getRect(
-        find.byKey(const ValueKey('topic-header-title-field')),
-      );
-      final summary = tester.getRect(
-        find.byKey(const ValueKey('topic-header-activity')),
-      );
-      final properties = tester.getRect(find.text('Manage details'));
-      expect(summary.top, greaterThanOrEqualTo(title.bottom));
-      expect(properties.center.dy, closeTo(summary.center.dy, 1));
-      expect(properties.right, greaterThan(title.right - 32));
-      expect(
-        tester.getRect(find.byType(CookedHtml).first).left,
-        closeTo(title.left, 1),
-      );
-      final footer = find.byKey(const ValueKey('topic-bottom-bar'));
-      expect(
-        find.descendant(of: footer, matching: find.byType(TopicBookmarkButton)),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: footer,
-          matching: find.byType(TopicNotificationLevelButton),
-        ),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('wide reader aligns title, taxonomy, activity, and post text', (
+    tester,
+  ) async {
+    final state = ValueNotifier('Available');
+    addTearDown(state.dispose);
+    final setup = await _setup(
+      tester,
+      registry: PluginRegistry([_HeaderDetailsPlugin(state)]),
+    );
+    tester.view.physicalSize = const Size(2000, 800);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    await _scrollReaderToTop(tester);
+    final parent = tester.getRect(find.byTooltip('Edit topic category'));
+    final child = tester.getRect(find.byTooltip('Edit topic subcategory'));
+    final tag = tester.getRect(
+      find.byKey(const ValueKey(('topic-header-tag', 'community'))),
+    );
+    final editTags = find.byKey(const ValueKey('topic-header-edit-tags'));
+    final editTagRect = tester.getRect(editTags);
+    expect(
+      tester
+          .widget<DIcon>(
+            find.descendant(of: editTags, matching: find.byType(DIcon)),
+          )
+          .icon,
+      DIcons.pencil,
+    );
+    expect(parent.right, lessThan(child.left));
+    expect(child.right, lessThan(tag.left));
+    expect(tag.right, lessThan(editTagRect.left));
+    expect(parent.center.dy, closeTo(tag.center.dy, 1));
+    expect(child.center.dy, closeTo(tag.center.dy, 1));
+    final title = tester.getRect(
+      find.byKey(const ValueKey('topic-header-title-field')),
+    );
+    final summary = tester.getRect(
+      find.byKey(const ValueKey('topic-header-activity')),
+    );
+    final properties = tester.getRect(find.text('Manage details'));
+    expect(parent.left, closeTo(title.left, 1));
+    expect(parent.top, greaterThan(title.bottom));
+    expect(summary.left, closeTo(title.left, 1));
+    expect(summary.top, greaterThan(parent.bottom));
+    expect(properties.center.dy, closeTo(summary.center.dy, 1));
+    expect(properties.right, greaterThan(title.right - 32));
+    expect(
+      tester.getRect(find.byType(CookedHtml).first).left,
+      closeTo(title.left, 1),
+    );
+    final footer = find.byKey(const ValueKey('topic-bottom-bar'));
+    expect(
+      find.descendant(of: footer, matching: find.byType(TopicBookmarkButton)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: footer,
+        matching: find.byType(TopicNotificationLevelButton),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'header closed status updates from topic actions without moving the title',
@@ -1651,7 +1675,8 @@ void main() {
                     child: SizedBox(
                       width: width,
                       child: TopicInboxHeader(
-                        title: setup.controller.currentTopic!.title,
+                        title:
+                            'Customer Support Coverage Week - Seville 🇪🇸 2026',
                         siteUrl: setup.controller.currentInstance!.url,
                         canReturnToSidebar: true,
                         keepTopicListOpen: true,
@@ -1678,11 +1703,30 @@ void main() {
             closeTo(tester.getCenter(overflow).dy, 1),
           );
         }
+        final title = find.byKey(const ValueKey('topic-header-title-field'));
+        final titleRect = tester.getRect(title);
+        expect(tester.getRect(overflow).top, greaterThan(titleRect.bottom));
         expect(
-          tester.getCenter(find.byKey(const ValueKey('topic-close-reader'))).dy,
-          closeTo(tester.getCenter(overflow).dy, 1),
+          tester.getRect(find.byTooltip('Edit topic category')).left,
+          closeTo(titleRect.left, 1),
         );
         expect(tester.getRect(overflow).right, lessThan(width));
+        await tester.tap(title);
+        await tester.pumpAndSettle();
+        final frame = tester.getRect(
+          find.byKey(const ValueKey('topic-header-title-edit-frame')),
+        );
+        expect(
+          frame.top,
+          greaterThanOrEqualTo(
+            tester
+                .getRect(find.byKey(const ValueKey('topic-content-header')))
+                .top,
+          ),
+        );
+        expect(tester.getRect(overflow).top, greaterThan(frame.bottom));
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: 'reader width $width');
       }
     },
@@ -2274,6 +2318,7 @@ _setup(
   bool canCloseTopic = false,
   bool canEditTopic = true,
   Map<String, dynamic> topicPluginPayload = const {},
+  String? firstTopicTitle,
   int? listedCategoryId = 22,
   List<TopicCategory> categoryList = const [_parent, _child],
   List<TopicCategory> categoryFindResults = const [],
@@ -2289,7 +2334,9 @@ _setup(
     for (var id = 1; id <= 60; id++)
       Topic(
         id: id,
-        title: 'Topic $id',
+        title: id == 1 && firstTopicTitle != null
+            ? firstTopicTitle
+            : 'Topic $id',
         slug: 'topic-$id',
         categoryId: listedCategoryId,
         privateMessage: privateMessage,
