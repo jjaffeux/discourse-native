@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
+import 'package:discourse_native/src/plugins/voice/voice_livekit_endpoint.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_reconnect.dart';
@@ -1681,6 +1682,59 @@ void main() {
   });
 
   group('LiveKitVoiceMediaSession', () {
+    for (final scheme in ['ws', 'http']) {
+      for (final host in [
+        '0127.0.0.1',
+        '00127.0.0.1',
+        '0x7f.0.0.1',
+        '+127.0.0.1',
+        '127.00.0.1',
+        '127.0.0.01',
+        '127.0x0.0.1',
+        '127.0.0.+1',
+        '127.0.0.1.',
+        '127.1',
+        '2130706433',
+      ]) {
+        test('rejects $scheme://$host before connecting the room', () async {
+          final adapter = _FakeLiveKitRoomAdapter();
+          final media = _liveKitSession(
+            adapter,
+            endpoint: '$scheme://$host:7880',
+          );
+          addTearDown(media.dispose);
+
+          await expectLater(
+            media.connect(),
+            throwsA(isA<UnsafeLiveKitEndpointException>()),
+          );
+
+          expect(adapter.calls, ['listen']);
+          expect(adapter.endpoint, isNull);
+          expect(adapter.token, isNull);
+        });
+      }
+    }
+
+    for (final endpoint in [
+      'ws://127.0.0.0:7880',
+      'http://127.255.255.255:7880',
+      'ws://DEV.LOCALHOST.:7880',
+      'http://[::1]:7880',
+    ]) {
+      test('connects a room at loopback endpoint $endpoint', () async {
+        final adapter = _FakeLiveKitRoomAdapter();
+        final media = _liveKitSession(adapter, endpoint: endpoint);
+        addTearDown(media.dispose);
+
+        await media.connect();
+
+        expect(adapter.calls, ['listen', 'connect']);
+        expect(adapter.endpoint, Uri.parse(endpoint).toString());
+        expect(adapter.token, 'local-test-token');
+      });
+    }
+
     test(
       'coalesces repeated disposal and releases every owned resource',
       () async {
@@ -2096,39 +2150,38 @@ MeshVoiceMediaSession _meshSession({
   setTrackVolume: setTrackVolume,
 );
 
-LiveKitVoiceMediaSession _liveKitSession(VoiceLiveKitRoomAdapter adapter) =>
-    LiveKitVoiceMediaSession(
-      join: const VoiceJoinResponse(
-        transport: VoiceTransport.livekit,
-        ice: VoiceIceConfiguration(servers: [], relayOnly: false),
-        room: VoiceRoom(
-          id: 1,
-          name: 'Room',
-          slug: 'room',
-          isPublic: true,
-          ephemeral: false,
-          type: VoiceRoomType.open,
-          participants: [
-            VoiceParticipant(
-              id: 10,
-              username: 'local',
-              role: VoiceRole.participant,
-            ),
-          ],
+LiveKitVoiceMediaSession _liveKitSession(
+  VoiceLiveKitRoomAdapter adapter, {
+  String endpoint = 'wss://localhost:3000',
+}) => LiveKitVoiceMediaSession(
+  join: VoiceJoinResponse(
+    transport: VoiceTransport.livekit,
+    ice: const VoiceIceConfiguration(servers: [], relayOnly: false),
+    room: const VoiceRoom(
+      id: 1,
+      name: 'Room',
+      slug: 'room',
+      isPublic: true,
+      ephemeral: false,
+      type: VoiceRoomType.open,
+      participants: [
+        VoiceParticipant(
+          id: 10,
+          username: 'local',
+          role: VoiceRole.participant,
         ),
-        livekit: VoiceLiveKitCredentials(
-          url: 'wss://localhost:3000',
-          token: 'local-test-token',
-        ),
-      ),
-      localUserId: 10,
-      audioPublishingAllowed: false,
-      refreshCredentials: () async => const VoiceLiveKitCredentials(
-        url: 'wss://localhost:3000',
-        token: 'refreshed-local-test-token',
-      ),
-      roomAdapter: adapter,
-    );
+      ],
+    ),
+    livekit: VoiceLiveKitCredentials(url: endpoint, token: 'local-test-token'),
+  ),
+  localUserId: 10,
+  audioPublishingAllowed: false,
+  refreshCredentials: () async => const VoiceLiveKitCredentials(
+    url: 'wss://localhost:3000',
+    token: 'refreshed-local-test-token',
+  ),
+  roomAdapter: adapter,
+);
 
 VoiceJoinResponse _meshJoin({
   required int localUserId,
