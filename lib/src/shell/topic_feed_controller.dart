@@ -113,7 +113,12 @@ final class TopicFeedController extends FrameSafeNotifier {
     final existing = _feeds[key];
     if (existing != null &&
         !force &&
-        (existing.loading || (existing.loaded && existing.error == null))) {
+        (existing.loading ||
+            (existing.loaded &&
+                existing.error == null &&
+                existing.topicIds.every(
+                  (id) => store.containsRecord<Topic>(instance.url, id),
+                )))) {
       return Future.value();
     }
 
