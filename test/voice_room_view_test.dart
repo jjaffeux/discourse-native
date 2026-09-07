@@ -1563,52 +1563,306 @@ void _roomSurfaceTests() {
 
 void _directCallTests() {
   group('direct calls', () {
-    VoiceRoom callRoom({List<VoiceRingingEntry> ringing = const []}) =>
-        VoiceRoom(
-          id: 9,
-          name: '📞 kim + sam',
-          slug: 'call-1a2b',
-          isPublic: false,
-          ephemeral: true,
-          type: VoiceRoomType.open,
-          participants: const [
-            VoiceParticipant(id: 3, username: 'kim', role: VoiceRole.moderator),
-          ],
-          ringing: ringing,
-        );
+    const sam = VoiceParticipant(
+      id: 1,
+      username: 'sam',
+      role: VoiceRole.participant,
+    );
 
-    testWidgets('a call room shows who is still being rung', (tester) async {
-      final harness = _Harness();
-      addTearDown(harness.dispose);
+    VoiceRoom callRoom({
+      int id = 9,
+      List<VoiceRingingEntry> ringing = const [],
+    }) => VoiceRoom(
+      id: id,
+      name: '📞 kim + sam',
+      slug: 'call-1a2b',
+      isPublic: false,
+      ephemeral: true,
+      type: VoiceRoomType.open,
+      participants: const [
+        VoiceParticipant(id: 3, username: 'kim', role: VoiceRole.moderator),
+      ],
+      ringing: ringing,
+    );
+
+    void testRinging(
+      String description,
+      Future<void> Function(WidgetTester tester, _Harness harness) run,
+    ) {
+      testWidgets(description, (tester) async {
+        final harness = _Harness();
+        addTearDown(harness.dispose);
+        try {
+          await run(tester, harness);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+        }
+      });
+    }
+
+    Future<void> showRoom(
+      WidgetTester tester,
+      _Harness harness,
+      VoiceRoom room,
+    ) => tester.pumpWidget(
+      _app(
+        harness.controller,
+        room: room,
+        ringingClock: tester.binding.clock.now,
+      ),
+    );
+
+    testRinging('stops rebuilding the room grid after rings expire', (
+      tester,
+      harness,
+    ) async {
+      final now = tester.binding.clock.now();
       final room = callRoom(
         ringing: [
-          VoiceRingingEntry(
-            user: const VoiceParticipant(
-              id: 1,
-              username: 'sam',
-              role: VoiceRole.participant,
-            ),
-            notifiedAt: DateTime.now(),
-          ),
+          VoiceRingingEntry(user: sam, notifiedAt: now),
           VoiceRingingEntry(
             user: const VoiceParticipant(
               id: 4,
               username: 'old',
               role: VoiceRole.participant,
             ),
-            notifiedAt: DateTime.now().subtract(const Duration(minutes: 2)),
+            notifiedAt: now.subtract(const Duration(minutes: 2)),
           ),
         ],
       );
 
-      await tester.pumpWidget(_app(harness.controller, room: room));
+      await showRoom(tester, harness, room);
 
       expect(find.text('Calling sam…'), findsOneWidget);
       expect(find.text('Calling old…'), findsNothing);
       expect(find.text('kim'), findsOneWidget);
-      // The ring clock ticks on a periodic timer; unmount it before the
-      // binding checks for pending timers.
-      await tester.pumpWidget(const SizedBox());
+      final gridBuilds = _observeRoomGridBuilds();
+
+      await tester.pump(const Duration(seconds: 59));
+      expect(find.text('Calling sam…'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Calling sam…'), findsNothing);
+      expect(find.text('kim'), findsOneWidget);
+      expect(gridBuilds, isNotEmpty);
+
+      gridBuilds.clear();
+      await tester.pump(const Duration(seconds: 10));
+      expect(gridBuilds, isEmpty);
+    });
+
+    testRinging('filters stale ring data immediately after an idle period', (
+      tester,
+      harness,
+    ) async {
+      final startedAt = tester.binding.clock.now();
+      await showRoom(tester, harness, callRoom());
+      await tester.pump(const Duration(minutes: 2));
+
+      await showRoom(
+        tester,
+        harness,
+        callRoom(
+          ringing: [
+            VoiceRingingEntry(
+              user: sam,
+              notifiedAt: startedAt.add(const Duration(seconds: 1)),
+            ),
+          ],
+        ),
+      );
+
+      expect(find.text('Calling sam…'), findsNothing);
+      expect(find.text('kim'), findsOneWidget);
+      final gridBuilds = _observeRoomGridBuilds();
+      await tester.pump(const Duration(seconds: 10));
+      expect(gridBuilds, isEmpty);
+    });
+
+    testRinging('expires staggered rings at their own deadlines', (
+      tester,
+      harness,
+    ) async {
+      final now = tester.binding.clock.now();
+      await showRoom(
+        tester,
+        harness,
+        callRoom(
+          ringing: [
+            VoiceRingingEntry(
+              user: sam,
+              notifiedAt: now.subtract(const Duration(seconds: 59)),
+            ),
+            VoiceRingingEntry(
+              user: const VoiceParticipant(
+                id: 2,
+                username: 'lee',
+                role: VoiceRole.participant,
+              ),
+              notifiedAt: now.subtract(const Duration(seconds: 57)),
+            ),
+          ],
+        ),
+      );
+      final gridBuilds = _observeRoomGridBuilds();
+
+      await tester.pump(const Duration(milliseconds: 999));
+      expect(find.text('Calling sam…'), findsOneWidget);
+      expect(find.text('Calling lee…'), findsOneWidget);
+      expect(gridBuilds, isEmpty);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(find.text('Calling sam…'), findsNothing);
+      expect(find.text('Calling lee…'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('Calling lee…'), findsNothing);
+      expect(find.text('kim'), findsOneWidget);
+
+      gridBuilds.clear();
+      await tester.pump(const Duration(seconds: 10));
+      expect(gridBuilds, isEmpty);
+    });
+
+    for (final (seconds, timing) in [(50, 'before'), (70, 'after')]) {
+      testRinging('renews a ring received $timing the previous expiry', (
+        tester,
+        harness,
+      ) async {
+        final room = callRoom(
+          ringing: [
+            VoiceRingingEntry(
+              user: sam,
+              notifiedAt: tester.binding.clock.now(),
+            ),
+          ],
+        );
+        await showRoom(tester, harness, room);
+        await tester.pump(Duration(seconds: seconds));
+        expect(
+          find.text('Calling sam…'),
+          seconds < 60 ? findsOneWidget : findsNothing,
+        );
+
+        await showRoom(
+          tester,
+          harness,
+          room.withRinging(
+            VoiceRingingEntry(
+              user: sam,
+              notifiedAt: tester.binding.clock.now(),
+            ),
+          ),
+        );
+        expect(find.text('Calling sam…'), findsOneWidget);
+        final gridBuilds = _observeRoomGridBuilds();
+        await tester.pump(const Duration(seconds: 59));
+        expect(find.text('Calling sam…'), findsOneWidget);
+        expect(gridBuilds, isEmpty);
+        await tester.pump(const Duration(seconds: 1));
+        expect(find.text('Calling sam…'), findsNothing);
+      });
+    }
+
+    testRinging(
+      'pauses rings for present participants and resumes on leaving',
+      (tester, harness) async {
+        final room = callRoom(
+          ringing: [
+            VoiceRingingEntry(
+              user: sam,
+              notifiedAt: tester.binding.clock.now(),
+            ),
+          ],
+        );
+        await showRoom(tester, harness, room);
+        await tester.pump(const Duration(seconds: 10));
+        await showRoom(
+          tester,
+          harness,
+          room.copyWith(participants: [...room.participants, sam]),
+        );
+        expect(find.text('Calling sam…'), findsNothing);
+        expect(find.text('sam'), findsOneWidget);
+        expect(find.text('kim'), findsOneWidget);
+        final gridBuilds = _observeRoomGridBuilds();
+        await tester.pump(const Duration(seconds: 5));
+        expect(gridBuilds, isEmpty);
+
+        await showRoom(tester, harness, room);
+        expect(find.text('Calling sam…'), findsOneWidget);
+        expect(find.text('sam'), findsNothing);
+        await tester.pump(const Duration(seconds: 44));
+        expect(find.text('Calling sam…'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 1));
+        expect(find.text('Calling sam…'), findsNothing);
+      },
+    );
+
+    testRinging('uses the replacement room deadline and retires the old one', (
+      tester,
+      harness,
+    ) async {
+      await showRoom(
+        tester,
+        harness,
+        callRoom(
+          ringing: [
+            VoiceRingingEntry(
+              user: sam,
+              notifiedAt: tester.binding.clock.now(),
+            ),
+          ],
+        ),
+      );
+      await tester.pump(const Duration(seconds: 10));
+      await showRoom(
+        tester,
+        harness,
+        callRoom(
+          id: 10,
+          ringing: [
+            VoiceRingingEntry(
+              user: sam,
+              notifiedAt: tester.binding.clock.now().subtract(
+                const Duration(seconds: 59),
+              ),
+            ),
+          ],
+        ),
+      );
+      expect(find.text('Calling sam…'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Calling sam…'), findsNothing);
+
+      final gridBuilds = _observeRoomGridBuilds();
+      await tester.pump(const Duration(minutes: 1));
+      expect(gridBuilds, isEmpty);
+      expect(find.text('kim'), findsOneWidget);
+    });
+
+    testRinging('unmounts a ringing room without leaving a pending refresh', (
+      tester,
+      harness,
+    ) async {
+      await showRoom(
+        tester,
+        harness,
+        callRoom(
+          ringing: [
+            VoiceRingingEntry(
+              user: sam,
+              notifiedAt: tester.binding.clock.now(),
+            ),
+          ],
+        ),
+      );
+      expect(find.text('Calling sam…'), findsOneWidget);
+      final gridBuilds = _observeRoomGridBuilds();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 10));
+
+      expect(find.text('Calling sam…'), findsNothing);
+      expect(gridBuilds, isEmpty);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('an incoming call can be declined or answered', (tester) async {
@@ -2482,6 +2736,17 @@ int _columns(WidgetTester tester) =>
             as SliverGridDelegateWithFixedCrossAxisCount)
         .crossAxisCount;
 
+List<Element> _observeRoomGridBuilds() {
+  final builds = <Element>[];
+  final previousRebuildHook = debugOnRebuildDirtyWidget;
+  debugOnRebuildDirtyWidget = (element, builtOnce) {
+    previousRebuildHook?.call(element, builtOnce);
+    if (element.widget is GridView) builds.add(element);
+  };
+  addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildHook);
+  return builds;
+}
+
 Widget _app(
   VoiceController controller, {
   required VoiceRoom? room,
@@ -2491,6 +2756,7 @@ Widget _app(
   bool autoStatusAvailable = false,
   String? inviteLink,
   VoiceController Function()? controllerResolver,
+  DateTime Function() ringingClock = DateTime.now,
   bool showRoom = true,
 }) => MaterialApp(
   home: Scaffold(
@@ -2512,6 +2778,7 @@ Widget _app(
           autoStatusAvailable: autoStatusAvailable,
           inviteLink: inviteLink,
           controllerResolver: controllerResolver,
+          ringingClock: ringingClock,
         );
       },
     ),
