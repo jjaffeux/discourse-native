@@ -590,20 +590,64 @@ class LocalDateFormatter {
         amount > _maximumRecurrenceAmount(unit)) {
       return null;
     }
-    var repetitions = _estimatedRepetitions(start, now, amount, unit);
-    repetitions = math.max(1, repetitions);
-    var candidate = _addWall(start, amount * repetitions, unit);
-    while (candidate.isBefore(now)) {
-      repetitions += 1;
-      candidate = _addWall(start, amount * repetitions, unit);
+    final location = start.location;
+    final offsets = {
+      Duration.zero,
+      ...location.zones.map((zone) => zone.offset),
+    };
+    final wallStart = DateTime.utc(
+      start.year,
+      start.month,
+      start.day,
+      start.hour,
+      start.minute,
+      start.second,
+      start.millisecond,
+    );
+    // Every conversion subtracts one of the location's offsets. No earlier
+    // wall time can be eligible, even when a gap is normalized forwards.
+    var target = now.toUtc().add(offsets.reduce((a, b) => a < b ? a : b));
+    while (true) {
+      final repetitions = math.max(
+        1,
+        _estimatedRepetitions(wallStart, target, amount, unit),
+      );
+      var wall = _addWall(wallStart, amount * repetitions, unit);
+      // Rounding and calendar clamping leave the estimate at most one
+      // recurrence short. Compare wall fields, without DST corrections.
+      if (wall.isBefore(target)) {
+        wall = _addWall(wallStart, amount * (repetitions + 1), unit);
+      }
+      final candidate = tz.TZDateTime(
+        location,
+        wall.year,
+        wall.month,
+        wall.day,
+        wall.hour,
+        wall.minute,
+        wall.second,
+        wall.millisecond,
+      );
+      if (!candidate.isBefore(now)) return candidate;
+
+      // TZDateTime's gap/overlap mapping can move backwards. Within a segment
+      // with unchanged offsets it is wall - offset, so jump to the deadline
+      // under that mapping, or to the next possible mapping change first.
+      // Each retry reaches eligibility or crosses a lookup boundary; finer
+      // recurrence intervals do not increase the search work.
+      target = wall.add(now.difference(candidate));
+      for (final offset in offsets) {
+        // The constructor looks up wall and wall - offset. Including zero and
+        // every zone offset bounds all of those lookups, including gap repair.
+        final segment = location.lookupTimeZone(
+          wall.millisecondsSinceEpoch - offset.inMilliseconds,
+        );
+        final boundary = segment.end + offset.inMilliseconds;
+        if (boundary <= target.millisecondsSinceEpoch) {
+          target = DateTime.fromMillisecondsSinceEpoch(boundary, isUtc: true);
+        }
+      }
     }
-    while (repetitions > 1) {
-      final prior = _addWall(start, amount * (repetitions - 1), unit);
-      if (prior.isBefore(now)) break;
-      repetitions -= 1;
-      candidate = prior;
-    }
-    return candidate;
   }
 
   // Bound recurrence before int parsing and Duration arithmetic.
@@ -625,7 +669,7 @@ class LocalDateFormatter {
   };
 
   static int _estimatedRepetitions(
-    tz.TZDateTime start,
+    DateTime start,
     DateTime now,
     int amount,
     String unit,
@@ -659,7 +703,7 @@ class LocalDateFormatter {
     return now.difference(start).inMilliseconds ~/ milliseconds;
   }
 
-  static tz.TZDateTime _addWall(tz.TZDateTime start, int amount, String unit) {
+  static DateTime _addWall(DateTime start, int amount, String unit) {
     var year = start.year;
     var month = start.month;
     var day = start.day;
@@ -710,16 +754,7 @@ class LocalDateFormatter {
       second = naive.second;
       millisecond = naive.millisecond;
     }
-    return tz.TZDateTime(
-      start.location,
-      year,
-      month,
-      day,
-      hour,
-      minute,
-      second,
-      millisecond,
-    );
+    return DateTime.utc(year, month, day, hour, minute, second, millisecond);
   }
 
   static int _daysInMonth(int year, int month) =>
