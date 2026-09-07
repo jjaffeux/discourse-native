@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
@@ -67,6 +69,14 @@ final class TopicReadController {
 
     final lease = lifecycle.capture(siteUrl);
     _positions[key] = postNumber;
+    // Store listeners may advance this topic again, forget it, or replace its
+    // account. Accept this receipt before publishing the optimistic position.
+    _queued[key] = (
+      siteUrl: siteUrl,
+      topicId: topicId,
+      postNumber: postNumber,
+      lease: lease,
+    );
     store.update<Topic>(
       siteUrl,
       topicId,
@@ -81,20 +91,17 @@ final class TopicReadController {
       ),
     );
 
-    _queued[key] = (
-      siteUrl: siteUrl,
-      topicId: topicId,
-      postNumber: postNumber,
-      lease: lease,
-    );
+    if (_disposed || !lease.isCurrent) return Future.value();
     final running = _tasks[key];
     if (running != null) return running;
+    if (!_queued.containsKey(key)) return Future.value();
 
     final run = Object();
+    final completion = Completer<void>();
     _runs[key] = run;
-    final task = _drain(key, run);
-    _tasks[key] = task;
-    return task;
+    _tasks[key] = completion.future;
+    completion.complete(_drain(key, run));
+    return completion.future;
   }
 
   void forget(String siteUrl) {
