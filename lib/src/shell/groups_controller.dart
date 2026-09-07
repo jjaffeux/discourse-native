@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
@@ -354,6 +356,18 @@ final class _GroupRequest {
   final String? groupName;
 }
 
+final class _GroupMutation {
+  _GroupMutation({required bool removesRows})
+    : removal = removesRows ? Completer<void>() : null;
+
+  final Completer<void>? removal;
+
+  void finishRemoval() {
+    final pending = removal;
+    if (pending != null && !pending.isCompleted) pending.complete();
+  }
+}
+
 final class GroupsController extends FrameSafeNotifier {
   GroupsController({
     required this.api,
@@ -376,7 +390,7 @@ final class GroupsController extends FrameSafeNotifier {
   final Map<_GroupKey, GroupLogsState> _logs = {};
   final Map<String, GroupDirectoryQuery> _presentedDirectoryQueries = {};
   final Map<Object, _GroupRequest> _requests = {};
-  final Map<_GroupKey, Object> _mutations = {};
+  final Map<_GroupKey, _GroupMutation> _mutations = {};
 
   GroupDirectoryState directoryState(
     String siteUrl,
@@ -611,42 +625,52 @@ final class GroupsController extends FrameSafeNotifier {
     try {
       final auth = await _credentialsFor(instance, token);
       if (auth == null || !_current(token)) return;
-      final page = await api.members(
-        siteUrl: instance.url,
-        groupName: groupName,
-        apiKey: auth.apiKey,
-        clientId: auth.clientId,
-        offset: more ? held.nextOffset : 0,
-        order: order,
-        ascending: ascending,
-        filter: filter,
-      );
-      _commit(token, () {
-        // The commit must build on the list as it stands now, not the [held]
-        // snapshot: a removal that landed during the request already took
-        // its row out, and the page was assembled before that removal, so
-        // replaying either would put the member back.
+      var base = held;
+      while (_current(token)) {
+        final page = await api.members(
+          siteUrl: instance.url,
+          groupName: groupName,
+          apiKey: auth.apiKey,
+          clientId: auth.clientId,
+          offset: more ? base.nextOffset : 0,
+          order: order,
+          ascending: ascending,
+          filter: filter,
+        );
+        // The server can apply a deletion before its write response arrives.
+        // Settle its cache update before deciding whether this page is usable.
+        final removal = _mutations[_groupKey(instance.url, groupName)]?.removal;
+        if (removal != null) await removal.future;
         final current = _members[key];
-        if (current == null) return;
-        final removed = _removedDuringLoad(
-          held.members,
+        if (!_current(token) || current == null) return;
+        if (_removedDuringLoad(
+          base.members,
           current.members,
           (member) => member.id,
-        );
-        final rows = more ? [...current.members] : <GroupMember>[];
-        final seen = {for (final member in rows) member.id, ...removed};
-        for (final member in page.members) {
-          if (seen.add(member.id)) rows.add(member);
+        ).isNotEmpty) {
+          // The server may have sampled this page before or after the removal.
+          // Retry its corrected window: guessing a shift can skip a boundary
+          // row or resurrect a deleted row. Keep the visible prefix meanwhile.
+          base = current;
+          continue;
         }
-        _members[key] = GroupMembersState(
-          members: List.unmodifiable(rows),
-          total: _totalAfterRemovals(page.total, removed),
-          nextOffset: page.nextOffset,
-          hasMore:
-              page.hasMore && page.nextOffset > (more ? held.nextOffset : 0),
-          loaded: true,
-        );
-      });
+        _commit(token, () {
+          final rows = more ? [...current.members] : <GroupMember>[];
+          final seen = {for (final member in rows) member.id};
+          for (final member in page.members) {
+            if (seen.add(member.id)) rows.add(member);
+          }
+          _members[key] = GroupMembersState(
+            members: List.unmodifiable(rows),
+            total: page.total,
+            nextOffset: page.nextOffset,
+            hasMore:
+                page.hasMore && page.nextOffset > (more ? base.nextOffset : 0),
+            loaded: true,
+          );
+        });
+        return;
+      }
     } catch (error, stackTrace) {
       _fail(token, 'groups.members', error, stackTrace, () {
         final current = _members[key];
@@ -705,36 +729,47 @@ final class GroupsController extends FrameSafeNotifier {
     try {
       final auth = await _requiredCredentials(instance, token);
       if (auth == null || !_current(token)) return;
-      final page = await api.requesters(
-        siteUrl: instance.url,
-        apiKey: auth.apiKey!,
-        clientId: auth.clientId,
-        groupName: groupName,
-        offset: more ? held.nextOffset : 0,
-        filter: filter,
-      );
-      _commit(token, () {
+      var base = held;
+      while (_current(token)) {
+        final page = await api.requesters(
+          siteUrl: instance.url,
+          apiKey: auth.apiKey!,
+          clientId: auth.clientId,
+          groupName: groupName,
+          offset: more ? base.nextOffset : 0,
+          filter: filter,
+        );
+        final removal = _mutations[_groupKey(instance.url, groupName)]?.removal;
+        if (removal != null) await removal.future;
         final current = _requesters[key];
-        if (current == null) return;
-        final removed = _removedDuringLoad(
-          held.requesters,
+        if (!_current(token) || current == null) return;
+        if (_removedDuringLoad(
+          base.requesters,
           current.requesters,
           (requester) => requester.id,
-        );
-        final rows = more ? [...current.requesters] : <GroupRequester>[];
-        final seen = {for (final requester in rows) requester.id, ...removed};
-        for (final requester in page.requesters) {
-          if (seen.add(requester.id)) rows.add(requester);
+        ).isNotEmpty) {
+          // As with members, only a new read can disambiguate the page's offset
+          // and total after a removal. Multiple removals share this one retry.
+          base = current;
+          continue;
         }
-        _requesters[key] = GroupRequestersState(
-          requesters: List.unmodifiable(rows),
-          total: _totalAfterRemovals(page.total, removed),
-          nextOffset: page.nextOffset,
-          hasMore:
-              page.hasMore && page.nextOffset > (more ? held.nextOffset : 0),
-          loaded: true,
-        );
-      });
+        _commit(token, () {
+          final rows = more ? [...current.requesters] : <GroupRequester>[];
+          final seen = {for (final requester in rows) requester.id};
+          for (final requester in page.requesters) {
+            if (seen.add(requester.id)) rows.add(requester);
+          }
+          _requesters[key] = GroupRequestersState(
+            requesters: List.unmodifiable(rows),
+            total: page.total,
+            nextOffset: page.nextOffset,
+            hasMore:
+                page.hasMore && page.nextOffset > (more ? base.nextOffset : 0),
+            loaded: true,
+          );
+        });
+        return;
+      }
     } catch (error, stackTrace) {
       _fail(token, 'groups.requests', error, stackTrace, () {
         final current = _requesters[key];
@@ -992,22 +1027,20 @@ final class GroupsController extends FrameSafeNotifier {
     Group group,
     GroupRequester requester, {
     required bool accept,
-  }) async {
-    final result = await _mutate(
-      instance,
-      group,
-      accept ? 'groups.requests.accept' : 'groups.requests.deny',
-      (apiKey, clientId) => api.handleMembershipRequest(
-        siteUrl: instance.url,
-        apiKey: apiKey,
-        clientId: clientId,
-        groupId: group.id,
-        userId: requester.id,
-        accept: accept,
-      ),
-      refreshDetail: false,
-    );
-    if (result) {
+  }) => _mutate(
+    instance,
+    group,
+    accept ? 'groups.requests.accept' : 'groups.requests.deny',
+    (apiKey, clientId) => api.handleMembershipRequest(
+      siteUrl: instance.url,
+      apiKey: apiKey,
+      clientId: clientId,
+      groupId: group.id,
+      userId: requester.id,
+      accept: accept,
+    ),
+    refreshDetail: false,
+    removeCachedRows: () {
       final keys = _requesters.keys.where(
         (key) =>
             key.siteUrl == instance.url &&
@@ -1018,18 +1051,22 @@ final class GroupsController extends FrameSafeNotifier {
         final rows = held.requesters
             .where((item) => item.id != requester.id)
             .toList(growable: false);
+        final removed = held.requesters.length - rows.length;
+        if (removed == 0) continue;
         _requesters[key] = GroupRequestersState(
           requesters: rows,
-          total: held.total > 0 ? held.total - 1 : 0,
-          nextOffset: held.nextOffset,
+          total: _subtractRemovedRows(held.total, removed),
+          nextOffset: _subtractRemovedRows(held.nextOffset, removed),
           hasMore: held.hasMore,
-          loaded: true,
+          loading: held.loading,
+          loadingMore: held.loadingMore,
+          loaded: held.loaded,
+          error: held.error,
+          pageError: held.pageError,
         );
       }
-      notifySafely();
-    }
-    return result;
-  }
+    },
+  );
 
   Future<GroupMembershipMutationResult?> addMembers(
     DiscourseInstance instance,
@@ -1097,20 +1134,18 @@ final class GroupsController extends FrameSafeNotifier {
     DiscourseInstance instance,
     Group group,
     GroupMember member,
-  ) async {
-    final saved = await _mutate(
-      instance,
-      group,
-      'groups.members.remove',
-      (apiKey, clientId) => api.removeMembers(
-        siteUrl: instance.url,
-        apiKey: apiKey,
-        clientId: clientId,
-        groupId: group.id,
-        userIds: [member.id],
-      ),
-    );
-    if (saved) {
+  ) => _mutate(
+    instance,
+    group,
+    'groups.members.remove',
+    (apiKey, clientId) => api.removeMembers(
+      siteUrl: instance.url,
+      apiKey: apiKey,
+      clientId: clientId,
+      groupId: group.id,
+      userIds: [member.id],
+    ),
+    removeCachedRows: () {
       _members.updateAll((key, held) {
         if (key.siteUrl != instance.url ||
             key.groupName != _normalize(group.name)) {
@@ -1119,18 +1154,22 @@ final class GroupsController extends FrameSafeNotifier {
         final rows = held.members
             .where((item) => item.id != member.id)
             .toList(growable: false);
+        final removed = held.members.length - rows.length;
+        if (removed == 0) return held;
         return GroupMembersState(
           members: rows,
-          total: held.total > 0 ? held.total - 1 : 0,
-          nextOffset: held.nextOffset,
+          total: _subtractRemovedRows(held.total, removed),
+          nextOffset: _subtractRemovedRows(held.nextOffset, removed),
           hasMore: held.hasMore,
-          loaded: true,
+          loading: held.loading,
+          loadingMore: held.loadingMore,
+          loaded: held.loaded,
+          error: held.error,
+          pageError: held.pageError,
         );
       });
-      notifySafely();
-    }
-    return saved;
-  }
+    },
+  );
 
   Future<bool> setMemberOwner(
     DiscourseInstance instance,
@@ -1278,10 +1317,11 @@ final class GroupsController extends FrameSafeNotifier {
     String operation,
     Future<void> Function(String apiKey, String clientId) write, {
     bool refreshDetail = true,
+    VoidCallback? removeCachedRows,
   }) async {
     final key = _groupKey(instance.url, group.name);
     if (isDisposed || _mutations.containsKey(key)) return false;
-    final token = Object();
+    final token = _GroupMutation(removesRows: removeCachedRows != null);
     final lease = lifecycle.capture(instance.url);
     _mutations[key] = token;
     final held = detailState(instance.url, group.name);
@@ -1312,6 +1352,8 @@ final class GroupsController extends FrameSafeNotifier {
           !identical(_mutations[key], token)) {
         return false;
       }
+      removeCachedRows?.call();
+      token.finishRemoval();
       _details[key] = GroupDetailState(
         detail: held.detail,
         loaded: held.loaded,
@@ -1333,6 +1375,7 @@ final class GroupsController extends FrameSafeNotifier {
       }
       return false;
     } finally {
+      token.finishRemoval();
       if (!isDisposed && identical(_mutations[key], token)) {
         _mutations.remove(key);
         notifySafely();
@@ -1375,7 +1418,11 @@ final class GroupsController extends FrameSafeNotifier {
     _permissions.removeWhere((key, _) => key.siteUrl == siteUrl);
     _logs.removeWhere((key, _) => key.siteUrl == siteUrl);
     _presentedDirectoryQueries.remove(siteUrl);
-    _mutations.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _mutations.removeWhere((key, mutation) {
+      if (key.siteUrl != siteUrl) return false;
+      mutation.finishRemoval();
+      return true;
+    });
     _requests.removeWhere((_, request) => request.siteUrl == siteUrl);
     notifySafely();
   }
@@ -1420,8 +1467,7 @@ final class GroupsController extends FrameSafeNotifier {
   }
 
   /// Ids a mutation took out of [heldRows] while a page for the same list
-  /// was in flight. That page was assembled before the mutation, so both its
-  /// rows and its total still count them.
+  /// was in flight. Its rows, offset and total may predate the mutation.
   static Set<int> _removedDuringLoad<T>(
     List<T> heldRows,
     List<T> currentRows,
@@ -1435,8 +1481,8 @@ final class GroupsController extends FrameSafeNotifier {
     };
   }
 
-  static int _totalAfterRemovals(int total, Set<int> removed) =>
-      total > removed.length ? total - removed.length : 0;
+  static int _subtractRemovedRows(int value, int removed) =>
+      value > removed ? value - removed : 0;
 
   void _commit(_GroupRequest request, VoidCallback mutation) {
     if (!_current(request)) return;
@@ -1508,6 +1554,9 @@ final class GroupsController extends FrameSafeNotifier {
   @override
   void dispose() {
     _requests.clear();
+    for (final mutation in _mutations.values) {
+      mutation.finishRemoval();
+    }
     _mutations.clear();
     super.dispose();
   }

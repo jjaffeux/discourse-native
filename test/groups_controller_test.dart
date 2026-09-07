@@ -215,6 +215,242 @@ void main() {
     );
   }
 
+  for (final removal in _GroupListRemoval.values) {
+    group('${removal.name} offset pagination', () {
+      late _OffsetGroupTransport transport;
+      late GroupsController controller;
+
+      setUp(() {
+        transport = _OffsetGroupTransport();
+        controller = _controller(
+          transport,
+          credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+        );
+        addTearDown(controller.dispose);
+      });
+
+      Future<void> drain({String filter = ''}) async {
+        for (var page = 0; page < 5; page++) {
+          if (!removal.state(controller, filter: filter).hasMore) return;
+          await removal.load(controller, filter: filter, more: true);
+        }
+        fail('Pagination did not terminate.');
+      }
+
+      test(
+        'keeps every remaining row and only adjusts matching caches',
+        () async {
+          await removal.load(controller);
+          await removal.load(controller, filter: 'alpha');
+          await removal.load(controller, filter: 'bravo');
+          final unrelated = removal.state(controller, filter: 'alpha');
+
+          expect(await removal.remove(controller, 7), isTrue);
+
+          expect(removal.state(controller).ids, [91, 204]);
+          expect(removal.state(controller).total, 9);
+          expect(removal.state(controller).nextOffset, 2);
+          final unchanged = removal.state(controller, filter: 'alpha');
+          expect(unchanged.ids, unrelated.ids);
+          expect(unchanged.total, unrelated.total);
+          expect(unchanged.nextOffset, unrelated.nextOffset);
+          expect(unchanged.hasMore, unrelated.hasMore);
+          expect(removal.state(controller, filter: 'bravo').total, 4);
+          expect(removal.state(controller, filter: 'bravo').nextOffset, 2);
+          expect(transport.pages, hasLength(3));
+
+          await drain();
+          await drain(filter: 'alpha');
+          await drain(filter: 'bravo');
+
+          for (final filter in ['', 'alpha', 'bravo']) {
+            final state = removal.state(controller, filter: filter);
+            expect(state.ids, transport.ids(filter));
+            expect(state.total, transport.ids(filter).length);
+            expect(state.hasMore, isFalse);
+            final offsets = transport.pages
+                .where((page) => page.filter == filter)
+                .map((page) => page.offset);
+            expect(
+              offsets,
+              filter.isEmpty ? [0, 2, 5, 8] : [0, filter == 'alpha' ? 3 : 2],
+            );
+            expect(
+              state.nextOffset,
+              offsets.last + _OffsetGroupTransport.pageSize,
+            );
+          }
+          final count = transport.pages.length;
+          await removal.load(controller, more: true);
+          expect(transport.pages, hasLength(count));
+        },
+      );
+
+      for (final snapshotBeforeRemoval in [true, false]) {
+        test(
+          'retries an in-flight page sampled ${snapshotBeforeRemoval ? 'before' : 'after'} removal',
+          () async {
+            await removal.load(controller);
+            final pending = transport.holdPage(
+              snapshotBeforeRelease: snapshotBeforeRemoval,
+            );
+            final loading = removal.load(controller, more: true);
+            await pending.started.future;
+
+            expect(await removal.remove(controller, 7), isTrue);
+            expect(removal.state(controller).ids, [91, 204]);
+            expect(removal.state(controller).total, 9);
+            expect(removal.state(controller).nextOffset, 2);
+            expect(removal.state(controller).loadingMore, isTrue);
+
+            pending.release.complete();
+            await loading;
+            expect(removal.state(controller).ids, [91, 204, 36, 808, 12]);
+            expect(removal.state(controller).total, 9);
+            expect(removal.state(controller).nextOffset, 5);
+            expect(removal.state(controller).loadingMore, isFalse);
+            await drain();
+
+            expect(removal.state(controller).ids, transport.ids(''));
+            expect(removal.state(controller).total, 9);
+            expect(transport.pages.map((page) => page.offset), [0, 3, 2, 5, 8]);
+          },
+        );
+      }
+
+      test('coalesces multiple removals into one page retry', () async {
+        await removal.load(controller);
+        final pending = transport.holdPage();
+        final loading = removal.load(controller, more: true);
+        await pending.started.future;
+
+        expect(await removal.remove(controller, 7), isTrue);
+        expect(await removal.remove(controller, 91), isTrue);
+        expect(removal.state(controller).ids, [204]);
+        expect(removal.state(controller).nextOffset, 1);
+        pending.release.complete();
+        await loading;
+        await drain();
+
+        expect(removal.state(controller).ids, transport.ids(''));
+        expect(removal.state(controller).total, 8);
+        expect(transport.pages.map((page) => page.offset), [0, 3, 1, 4, 7]);
+      });
+
+      test(
+        'waits for a removal whose response arrives after the page',
+        () async {
+          await removal.load(controller);
+          final pending = transport.holdPage(snapshotBeforeRelease: false);
+          final loading = removal.load(controller, more: true);
+          await pending.started.future;
+          final writing = transport.holdWrite();
+          final removing = removal.remove(controller, 7);
+          await writing.started.future;
+
+          pending.release.complete();
+          await pumpEventQueue();
+          writing.release.complete();
+          expect(await removing, isTrue);
+          await loading;
+          await drain();
+
+          expect(removal.state(controller).ids, transport.ids(''));
+          expect(removal.state(controller).total, 9);
+          expect(transport.pages.map((page) => page.offset), [0, 3, 2, 5, 8]);
+        },
+      );
+
+      test(
+        'a failed removal releases the page without changing its window',
+        () async {
+          await removal.load(controller);
+          final pending = transport.holdPage();
+          final loading = removal.load(controller, more: true);
+          await pending.started.future;
+          final writing = transport.holdWrite();
+          transport.rejectWrites = true;
+          final removing = removal.remove(controller, 7);
+          await writing.started.future;
+
+          pending.release.complete();
+          await pumpEventQueue();
+          writing.release.complete();
+          expect(await removing, isFalse);
+          await loading;
+          await drain();
+
+          expect(removal.state(controller).ids, transport.ids(''));
+          expect(removal.state(controller).total, 10);
+          expect(transport.pages.map((page) => page.offset), [0, 3, 6, 9]);
+        },
+      );
+
+      test('forget releases a page waiting for a removal response', () async {
+        await removal.load(controller);
+        final pending = transport.holdPage();
+        final loading = removal.load(controller, more: true);
+        await pending.started.future;
+        final writing = transport.holdWrite();
+        final removing = removal.remove(controller, 7);
+        await writing.started.future;
+
+        pending.release.complete();
+        await pumpEventQueue();
+        controller.forget(_site);
+        await loading;
+        expect(removal.state(controller).ids, isEmpty);
+        expect(transport.pages, hasLength(2));
+        writing.release.complete();
+        expect(await removing, isFalse);
+      });
+
+      test('a refresh cannot resurrect a removed row', () async {
+        await removal.load(controller);
+        final pending = transport.holdPage();
+        final loading = removal.load(controller, refresh: true);
+        await pending.started.future;
+        expect(await removal.remove(controller, 7), isTrue);
+        final observed = <int>[];
+        controller.addListener(
+          () => observed.addAll(removal.state(controller).ids),
+        );
+
+        pending.release.complete();
+        await loading;
+        await drain();
+
+        expect(observed, isNot(contains(7)));
+        expect(removal.state(controller).ids, transport.ids(''));
+        expect(removal.state(controller).total, 9);
+        expect(transport.pages.map((page) => page.offset), [0, 0, 0, 3, 6]);
+      });
+
+      test('leaves an unrelated filtered page in flight alone', () async {
+        await removal.load(controller);
+        await removal.load(controller, filter: 'alpha');
+        final pending = transport.holdPage();
+        final loading = removal.load(controller, filter: 'alpha', more: true);
+        await pending.started.future;
+
+        expect(await removal.remove(controller, 7), isTrue);
+        final state = removal.state(controller, filter: 'alpha');
+        expect(state.total, 5);
+        expect(state.nextOffset, 3);
+        expect(state.loadingMore, isTrue);
+        pending.release.complete();
+        await loading;
+
+        expect(
+          removal.state(controller, filter: 'alpha').ids,
+          transport.ids('alpha'),
+        );
+        expect(removal.state(controller, filter: 'alpha').total, 5);
+        expect(transport.pages.map((page) => page.offset), [0, 0, 3]);
+      });
+    });
+  }
+
   test(
     'group logs stop after an empty page despite an incomplete marker',
     () async {
@@ -697,6 +933,12 @@ void main() {
         }),
         nextPage,
         _completed(<String, dynamic>{}),
+        _completed({
+          'members': [
+            {'id': 3, 'username': 'kim'},
+          ],
+          'meta': {'total': 2, 'limit': 2, 'offset': 1},
+        }),
       ]);
     final credentials = FakeApiCredentialReader(clientIdValue: 'native-client')
       ..keys[_site] = 'secret';
@@ -739,6 +981,7 @@ void main() {
     final state = controller.membersState(_site, group.name);
     expect(state.members.map((member) => member.id), [2, 3]);
     expect(state.total, 2);
+    expect(state.nextOffset, 3);
     expect(state.loadingMore, isFalse);
   });
 
@@ -1048,6 +1291,12 @@ void main() {
           'meta': {'total': 3, 'limit': 2, 'offset': 0},
         }),
         nextPage,
+        _completed({
+          'members': [
+            {'id': 3, 'username': 'kim'},
+          ],
+          'meta': {'total': 2, 'limit': 2, 'offset': 1},
+        }),
       ]);
     final credentials = FakeApiCredentialReader(clientIdValue: 'native-client')
       ..keys[_site] = 'secret';
@@ -1085,11 +1334,12 @@ void main() {
     final state = controller.requestersState(_site, group.name);
     expect(state.requesters.map((requester) => requester.id), [2, 3]);
     expect(state.total, 2);
+    expect(state.nextOffset, 3);
   });
 }
 
 GroupsController _controller(
-  _ControlledGroupTransport transport, {
+  PluginApiTransport transport, {
   SiteLifecycle? lifecycle,
   FakeApiCredentialReader? credentials,
 }) => GroupsController(
@@ -1097,6 +1347,192 @@ GroupsController _controller(
   credentials: credentials ?? FakeApiCredentialReader(),
   lifecycle: lifecycle ?? SiteLifecycle(),
 );
+
+typedef _GroupListSnapshot = ({
+  List<int> ids,
+  int total,
+  int nextOffset,
+  bool hasMore,
+  bool loadingMore,
+});
+
+enum _GroupListRemoval {
+  member,
+  accept,
+  deny;
+
+  Future<void> load(
+    GroupsController controller, {
+    String filter = '',
+    bool more = false,
+    bool refresh = false,
+  }) => this == member
+      ? controller.loadMembers(
+          _connectedInstance,
+          'support',
+          filter: filter,
+          more: more,
+          refresh: refresh,
+        )
+      : controller.loadRequesters(
+          _connectedInstance,
+          'support',
+          filter: filter,
+          more: more,
+          refresh: refresh,
+        );
+
+  Future<bool> remove(GroupsController controller, int id) => this == member
+      ? controller.removeMember(
+          _connectedInstance,
+          const Group(id: 7, name: 'support'),
+          GroupMember(id: id, username: 'user$id'),
+        )
+      : controller.handleRequest(
+          _connectedInstance,
+          const Group(id: 7, name: 'support'),
+          GroupRequester(id: id, username: 'user$id'),
+          accept: this == accept,
+        );
+
+  _GroupListSnapshot state(GroupsController controller, {String filter = ''}) {
+    if (this == member) {
+      final state = controller.membersState(_site, 'support', filter: filter);
+      return (
+        ids: state.members.map((member) => member.id).toList(),
+        total: state.total,
+        nextOffset: state.nextOffset,
+        hasMore: state.hasMore,
+        loadingMore: state.loadingMore,
+      );
+    }
+    final state = controller.requestersState(_site, 'support', filter: filter);
+    return (
+      ids: state.requesters.map((requester) => requester.id).toList(),
+      total: state.total,
+      nextOffset: state.nextOffset,
+      hasMore: state.hasMore,
+      loadingMore: state.loadingMore,
+    );
+  }
+}
+
+final class _PendingOffsetPage {
+  _PendingOffsetPage({required this.snapshotBeforeRelease});
+
+  final bool snapshotBeforeRelease;
+  final started = Completer<void>();
+  final release = Completer<void>();
+}
+
+final class _OffsetGroupTransport implements PluginApiTransport {
+  static const pageSize = 3;
+  final _rows = [
+    for (final (index, id) in [
+      91,
+      7,
+      204,
+      36,
+      808,
+      12,
+      65,
+      503,
+      22,
+      107,
+    ].indexed)
+      (id: id, username: '${index.isEven ? 'alpha' : 'bravo'}$id'),
+  ];
+  final List<({String filter, int offset})> pages = [];
+  bool rejectWrites = false;
+  _PendingOffsetPage? _pending;
+  ({Completer<void> started, Completer<void> release})? _pendingWrite;
+
+  List<int> ids(String filter) => [
+    for (final row in _rows)
+      if (row.username.contains(filter)) row.id,
+  ];
+
+  _PendingOffsetPage holdPage({bool snapshotBeforeRelease = true}) {
+    final pending = _PendingOffsetPage(
+      snapshotBeforeRelease: snapshotBeforeRelease,
+    );
+    _pending = pending;
+    addTearDown(() {
+      if (!pending.release.isCompleted) pending.release.complete();
+    });
+    return pending;
+  }
+
+  ({Completer<void> started, Completer<void> release}) holdWrite() {
+    final pending = (started: Completer<void>(), release: Completer<void>());
+    _pendingWrite = pending;
+    addTearDown(() {
+      if (!pending.release.isCompleted) pending.release.complete();
+    });
+    return pending;
+  }
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) async {
+    final uri = Uri.parse(path);
+    if (uri.path == '/groups/support.json') return const {};
+    expect(uri.path, '/groups/support/members.json');
+    final offset = int.parse(uri.queryParameters['offset']!);
+    final limit = int.parse(uri.queryParameters['limit']!);
+    final filter = uri.queryParameters['filter'] ?? '';
+    expect(limit, greaterThanOrEqualTo(pageSize));
+    pages.add((filter: filter, offset: offset));
+
+    Map<String, dynamic> snapshot() {
+      final matching = _rows
+          .where((row) => row.username.contains(filter))
+          .toList();
+      return {
+        'members': [
+          for (final row in matching.skip(offset).take(pageSize))
+            {'id': row.id, 'username': row.username},
+        ],
+        'meta': {'total': matching.length, 'limit': pageSize, 'offset': offset},
+      };
+    }
+
+    final pending = _pending;
+    if (pending == null) return snapshot();
+    _pending = null;
+    final before = pending.snapshotBeforeRelease ? snapshot() : null;
+    pending.started.complete();
+    await pending.release.future;
+    return before ?? snapshot();
+  }
+
+  @override
+  Future<Map<String, dynamic>> pluginWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  }) async {
+    final id = path.endsWith('/handle_membership_request.json')
+        ? body['user_id'] as int
+        : int.parse(body['user_ids'] as String);
+    if (!rejectWrites) _rows.removeWhere((row) => row.id == id);
+    final pending = _pendingWrite;
+    if (pending != null) {
+      _pendingWrite = null;
+      pending.started.complete();
+      await pending.release.future;
+    }
+    if (rejectWrites) throw StateError('Removal failed.');
+    return const {};
+  }
+}
 
 final class _ControlledGroupTransport
     implements PluginApiTransport, PluginJsonListTransport {
