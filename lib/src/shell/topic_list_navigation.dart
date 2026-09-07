@@ -13,6 +13,7 @@ import '../theme/d_icons.dart';
 import 'anchored_picker.dart';
 import 'content_reading_lane.dart';
 import 'list_navigation_tab.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
 import 'topic_list_layout.dart';
@@ -30,7 +31,36 @@ typedef _TopicListNavigationSnapshot = ({
   List<TopicCategory> categories,
   List<SidebarTag> tags,
   bool taggingEnabled,
+  _TopicListFilterOwner filterOwner,
 });
+
+typedef _TopicListFilterOwner = ({
+  ShellController controller,
+  ShellRootMode rootMode,
+  String? siteUrl,
+  String? accountIdentity,
+  Object? session,
+  String? tabId,
+  String? routeId,
+  String? feedPath,
+});
+
+_TopicListFilterOwner _filterOwner(ShellController controller) {
+  final siteUrl = controller.currentInstance?.url;
+  final route = controller.topicListContent ?? controller.currentContent;
+  return (
+    controller: controller,
+    rootMode: controller.rootMode,
+    siteUrl: siteUrl,
+    accountIdentity: controller.currentAccountIdentity,
+    session: siteUrl == null
+        ? null
+        : controller.lifecycle.capture(siteUrl).session,
+    tabId: controller.activeTabId,
+    routeId: route?.id,
+    feedPath: route?.feedPath,
+  );
+}
 
 class TopicListNavigation extends StatelessWidget {
   const TopicListNavigation({
@@ -64,6 +94,7 @@ class TopicListNavigation extends StatelessWidget {
         replyCount: counts.replies,
         siteUrl: siteUrl,
         route: route,
+        filterOwner: _filterOwner(controller),
         categories: showsFilters && siteUrl != null
             ? controller.filterCategoriesFor(siteUrl)
             : const <TopicCategory>[],
@@ -122,30 +153,59 @@ class _TopicListNavigationControls extends StatelessWidget {
     final controller = ShellScope.read(context);
     Future<void> selectMode(TopicListMode mode) =>
         controller.selectTopicListMode(mode, keepTopicOpen: keepTopicOpen);
-    Widget filters({bool showColumns = false}) => TopicListFilterBar(
-      inline: !stacked || showColumns,
-      wrap: stacked && !showColumns,
-      siteUrl: state.siteUrl!,
-      categories: state.categories,
-      knownTags: state.tags,
-      selectedCategoryId: state.route!.categoryId,
-      selectedTagName: state.route!.tagName,
-      selectedTagNames: stacked ? state.route!.tagNames : null,
-      onTagsSelected: stacked
-          ? (values) => controller.selectTopicListTags(
-              values,
+    Widget filters({bool showColumns = false}) => Builder(
+      // Replacing a feed retires its anchors while their menu routes can remain
+      // open. In particular, their awaited results must not read new callbacks.
+      key: ValueKey(state.filterOwner),
+      builder: (filterContext) {
+        final lease = controller.lifecycle.capture(state.siteUrl!);
+        bool ownsFeed() =>
+            filterContext.mounted &&
+            lease.isCurrent &&
+            _filterOwner(controller) == state.filterOwner;
+
+        return TopicListFilterBar(
+          inline: !stacked || showColumns,
+          wrap: stacked && !showColumns,
+          siteUrl: state.siteUrl!,
+          categories: state.categories,
+          knownTags: state.tags,
+          selectedCategoryId: state.route!.categoryId,
+          selectedTagName: state.route!.tagName,
+          selectedTagNames: stacked ? state.route!.tagNames : null,
+          onTagsSelected: stacked
+              ? (values) {
+                  if (!ownsFeed()) return;
+                  controller.selectTopicListTags(
+                    values,
+                    keepTopicOpen: keepTopicOpen,
+                  );
+                }
+              : null,
+          taggingEnabled: state.taggingEnabled,
+          searchTags: (term) async {
+            if (!ownsFeed()) return const [];
+            final tags = await controller.searchFilterTags(
+              siteUrl: state.siteUrl!,
+              term: term,
+            );
+            return ownsFeed() ? tags : const [];
+          },
+          // Check the live owner as well as the key: a result can arrive before
+          // Flutter has rebuilt the controls for a controller navigation.
+          onCategorySelected: (value) {
+            if (!ownsFeed()) return;
+            controller.selectTopicListCategory(
+              value,
               keepTopicOpen: keepTopicOpen,
-            )
-          : null,
-      taggingEnabled: state.taggingEnabled,
-      searchTags: (term) =>
-          controller.searchFilterTags(siteUrl: state.siteUrl!, term: term),
-      onCategorySelected: (value) => controller.selectTopicListCategory(
-        value,
-        keepTopicOpen: keepTopicOpen,
-      ),
-      onTagSelected: (value) =>
-          controller.selectTopicListTag(value, keepTopicOpen: keepTopicOpen),
+            );
+          },
+          onTagSelected: (value) {
+            if (!ownsFeed()) return;
+            controller.selectTopicListTag(value, keepTopicOpen: keepTopicOpen);
+          },
+        );
+      },
     );
     final mode = state.mode ?? TopicListMode.latest;
     final theme = Theme.of(context);
