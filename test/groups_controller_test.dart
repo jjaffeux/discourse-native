@@ -26,6 +26,71 @@ Completer<T> _completed<T>(T value) => Completer<T>()..complete(value);
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  final publicReads = <String, Future<void> Function(GroupsController)>{
+    'directory': (controller) =>
+        controller.loadDirectory(_instance, const GroupDirectoryQuery()),
+    'detail': (controller) => controller.loadDetail(_instance, 'support'),
+    'members': (controller) => controller.loadMembers(_instance, 'support'),
+    'activity': (controller) =>
+        controller.loadActivity(_instance, 'support', mentions: false),
+    'permissions': (controller) =>
+        controller.loadPermissions(_instance, 'support'),
+  };
+  for (final read in publicReads.entries) {
+    test(
+      '${read.key} does not send after its account is forgotten during credential lookup',
+      () async {
+        final transport = _ControlledGroupTransport()
+          ..objects.add(_completed(<String, dynamic>{}))
+          ..lists.add(_completed(<Map<String, dynamic>>[]));
+        final controller = _controller(transport);
+        addTearDown(controller.dispose);
+
+        final loading = read.value(controller);
+        controller.forget(_site);
+        await loading;
+
+        expect(transport.gets, isEmpty);
+        expect(transport.listGets, isEmpty);
+      },
+    );
+  }
+
+  test(
+    'a group write cannot report success into an account replaced by its completion observer',
+    () async {
+      final transport = _ControlledGroupTransport();
+      final lifecycle = SiteLifecycle();
+      final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+      final controller = _controller(
+        transport,
+        credentials: credentials,
+        lifecycle: lifecycle,
+      );
+      addTearDown(controller.dispose);
+      var replaced = false;
+      controller.addListener(() {
+        if (replaced ||
+            transport.writes.isEmpty ||
+            controller.detailState(_site, 'support').mutating) {
+          return;
+        }
+        replaced = true;
+        lifecycle.invalidate(_site);
+        controller.forget(_site);
+      });
+
+      final deleted = await controller.deleteGroup(
+        _connectedInstance,
+        const Group(id: 7, name: 'support'),
+      );
+
+      expect(transport.writes, hasLength(1));
+      expect(replaced, isTrue);
+      expect(deleted, isFalse);
+    },
+  );
+
   for (final kind in _SearchableGroupCache.values) {
     group('${kind.name} query retention', () {
       test(
