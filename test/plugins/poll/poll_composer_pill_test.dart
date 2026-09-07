@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  const largestInt = 9223372036854775807;
   const source =
       '[poll name=lunch]\n'
       '# Lunch choice\n'
@@ -33,6 +34,96 @@ void main() {
         pollComposerSummary(parsePollComposerBlocks(number).single),
         'Poll · Score · 6 options',
       );
+    });
+
+    test('bound number summaries before adding the inclusive endpoint', () {
+      final number = parsePollComposerBlocks(
+        '[poll type=number min=0 max=$largestInt step=1]\n'
+        '# Score\n'
+        '[/poll]',
+      ).single;
+
+      for (final (cap, expectedCount) in const [
+        (20, 21),
+        (1, 2),
+        (0, 1),
+        (-1, 1),
+        (-2, 1),
+        (-largestInt - 1, 1),
+        (largestInt - 1, largestInt),
+        (largestInt, largestInt),
+      ]) {
+        final noun = expectedCount == 1 ? 'option' : 'options';
+        expect(
+          pollComposerSummary(number, maximumOptions: cap),
+          'Poll · Score · $expectedCount $noun',
+          reason: 'maximumOptions=$cap',
+        );
+      }
+    });
+
+    test('retain exact counts for valid small and large number ranges', () {
+      for (final (minimum, maximum, step, expectedCount) in const [
+        (0, 0, 1, 1),
+        (0, 10, 3, 4),
+        (0, 10, 11, 1),
+        (0, largestInt, largestInt, 2),
+        (0, largestInt, 2, 4611686018427387904),
+        (1, largestInt, 1, largestInt),
+        (largestInt - 10, largestInt, 2, 6),
+        (largestInt, largestInt, 1, 1),
+      ]) {
+        final markup =
+            '[poll type=number min=$minimum max=$maximum step=$step]\n'
+            '[/poll]';
+        final noun = expectedCount == 1 ? 'option' : 'options';
+        expect(
+          pollComposerSummary(
+            parsePollComposerBlocks(markup).single,
+            maximumOptions: largestInt,
+          ),
+          'Poll · Untitled · $expectedCount $noun',
+          reason: markup,
+        );
+      }
+    });
+
+    test('keep the normal option cap overflow indicator', () {
+      for (final (maximum, expectedCount) in const [
+        (18, 19),
+        (19, 20),
+        (20, 21),
+        (100, 21),
+      ]) {
+        final number = parsePollComposerBlocks(
+          '[poll type=number min=0 max=$maximum step=1]\n[/poll]',
+        ).single;
+        expect(
+          pollComposerSummary(number),
+          'Poll · Untitled · $expectedCount options',
+        );
+      }
+    });
+
+    test('keep invalid number ranges at zero options', () {
+      for (final attributes in const [
+        'min=-1 max=$largestInt step=1',
+        'min=${-largestInt - 1} max=$largestInt step=1',
+        'min=$largestInt max=0 step=1',
+        'min=0 max=-1 step=1',
+        'min=0 max=$largestInt step=0',
+        'min=0 max=$largestInt step=-1',
+        'min=0 max=$largestInt step=${-largestInt - 1}',
+      ]) {
+        final number = parsePollComposerBlocks(
+          '[poll type=number $attributes]\n[/poll]',
+        ).single;
+        expect(
+          pollComposerSummary(number),
+          'Poll · Untitled · 0 options',
+          reason: attributes,
+        );
+      }
     });
 
     test('fail closed until the session permission is fresh', () {
@@ -71,6 +162,63 @@ void main() {
   });
 
   group('collapsed poll projection, layout, and caret', () {
+    testWidgets('project huge restored and typed number polls safely', (
+      tester,
+    ) async {
+      const markup =
+          '[poll type=number min=0 max=$largestInt step=1]\n'
+          '# Score\n'
+          '[/poll]';
+
+      for (final (cap, expectedCount) in const [
+        (20, 21),
+        (largestInt, largestInt),
+        (-2, 1),
+      ]) {
+        final settings = pollSettingsPersistenceCodec.decode({
+          'maximumOptions': cap,
+        })!;
+        final controller = MarkdownEditingController(
+          text: markup,
+          syntaxPolicies: [PollComposerSyntaxPolicy(settings: settings)],
+        );
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: Scaffold(
+              body: TextField(controller: controller, maxLines: null),
+            ),
+          ),
+        );
+
+        void expectProjection() {
+          final noun = expectedCount == 1 ? 'option' : 'options';
+          expect(tester.takeException(), isNull);
+          expect(
+            find.text('Poll · Score · $expectedCount $noun'),
+            findsOneWidget,
+          );
+          expect(controller.text, markup);
+          expect(
+            tester
+                .state<EditableTextState>(find.byType(EditableText))
+                .renderEditable
+                .plainText
+                .length,
+            markup.length,
+          );
+        }
+
+        expectProjection();
+        await tester.enterText(find.byType(TextField), '');
+        await tester.pump();
+        await tester.enterText(find.byType(TextField), markup);
+        await tester.pump();
+        expectProjection();
+      }
+    });
+
     testWidgets('preserve raw offsets and end with a visible line', (
       tester,
     ) async {

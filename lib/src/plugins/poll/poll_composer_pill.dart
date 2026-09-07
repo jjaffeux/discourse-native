@@ -38,8 +38,13 @@ int _generatedOptionCount({
   required int cap,
 }) {
   if (minimum < 0 || maximum < minimum || step < 1) return 0;
-  final count = ((maximum - minimum) ~/ step) + 1;
-  return count.clamp(0, cap + 1);
+  // Bound intervals before adding the inclusive endpoint, leaving room for
+  // the extra option without overflowing a native int. Treat negative stored
+  // caps as zero only for this summary.
+  const largestCount = 0x7fffffffffffffff;
+  final boundedCap = cap.clamp(0, largestCount - 1);
+  final intervals = (maximum - minimum) ~/ step;
+  return intervals.clamp(0, boundedCap) + 1;
 }
 
 /// Preserves every source code unit while collapsing a poll to one WidgetSpan.
