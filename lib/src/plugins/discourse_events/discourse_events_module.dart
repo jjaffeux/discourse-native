@@ -6,6 +6,7 @@ import 'event_composer.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
 import 'event_navigation.dart';
+import 'topic_calendar_plugin.dart';
 
 const discourseEventsModule = DiscourseEventsModule();
 
@@ -24,6 +25,7 @@ final class DiscourseEventsModule implements PluginModule {
   void register(PluginRegistrar registrar) {
     registrar.addCapability(const DiscourseEventsPlugin());
     registrar.addCapability(const EventTopicPlugin());
+    registrar.addCapability(const TopicCalendarPlugin());
     registrar.addSyntaxId(eventSyntaxKind.id);
     registrar.addRouteNamespace('events');
     registrar.addLiveChannelScope(
