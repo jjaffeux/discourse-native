@@ -57,12 +57,16 @@ final class _FakeAudioSession implements VoiceAudioSession {
 
   final String name;
   final _AudioState state;
+  Completer<void>? prepareStarted;
+  Completer<void>? prepareGate;
   Completer<void>? resetStarted;
   Completer<void>? resetGate;
 
   @override
   Future<void> prepare() async {
     state.calls.add('$name.prepare');
+    prepareStarted?.complete();
+    await prepareGate?.future;
     state
       ..owner = name
       ..mode = 'external';
@@ -90,6 +94,24 @@ final class _FakeAudioSession implements VoiceAudioSession {
       ..mode = 'automatic';
   }
 }
+
+Future<void> _sendNativeCommands(NativeVoiceSystemCall systemCall) async {
+  await Future.wait([
+    systemCall.start(roomName: 'Room', siteName: 'Forum'),
+    systemCall.connected(),
+    systemCall.failed(),
+    systemCall.setMuted(true),
+    systemCall.setMuted(false),
+    systemCall.end(),
+    systemCall.answerIncomingCall(),
+    systemCall.declineIncomingCall(),
+    systemCall.endIncomingCall(VoiceIncomingCallEndReason.unanswered),
+    systemCall.endIncomingCall(VoiceIncomingCallEndReason.answeredElsewhere),
+  ]);
+}
+
+Future<bool> _reportIncomingCall(NativeVoiceSystemCall systemCall) => systemCall
+    .reportIncomingCall(callerName: 'Kim', roomName: 'Call', handle: 'kim');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -283,5 +305,306 @@ void main() {
     expect(state.calls, ['old.prepare', 'new.prepare']);
     expect(state.owner, 'new');
     expect(state.mode, 'external');
+  });
+
+  group('native commands', () {
+    const channel = MethodChannel('org.discourse.native/voice_callkit');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    late List<MethodCall> commands;
+    Future<Object?> Function(MethodCall)? respond;
+
+    setUp(() {
+      commands = [];
+      respond = null;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        commands.add(call);
+        if (respond case final handler?) return handler(call);
+        return call.method == 'reportIncomingCall' ? true : null;
+      });
+    });
+
+    tearDown(() {
+      messenger.setMockMethodCallHandler(channel, null);
+    });
+
+    NativeVoiceSystemCall createSystemCall({
+      _FakeAudioSession? audio,
+      VoiceDiagnosticsRecorder diagnostics =
+          const NoopVoiceDiagnosticsRecorder(),
+    }) {
+      final systemCall = NativeVoiceSystemCall(
+        diagnostics: diagnostics,
+        audioSessionForTesting:
+            audio ?? _FakeAudioSession('current', _AudioState()),
+        invokeNativeCommandsForTesting: true,
+      );
+      addTearDown(systemCall.dispose);
+      return systemCall;
+    }
+
+    for (final retirement in ['disposal', 'replacement']) {
+      test(
+        'drops commands waiting for audio prepare after $retirement',
+        () async {
+          final state = _AudioState();
+          final prepareStarted = Completer<void>();
+          final prepareGate = Completer<void>();
+          final oldSystemCall = createSystemCall(
+            audio: _FakeAudioSession('old', state)
+              ..prepareStarted = prepareStarted
+              ..prepareGate = prepareGate,
+          );
+          final pendingCommands = _sendNativeCommands(oldSystemCall);
+          final report = _reportIncomingCall(oldSystemCall);
+          late Future<void> retired;
+          try {
+            await prepareStarted.future;
+            retired = retirement == 'disposal'
+                ? oldSystemCall.dispose()
+                : createSystemCall(
+                    audio: _FakeAudioSession('new', state),
+                  ).audioSessionReadyForTesting;
+            expect(commands, isEmpty);
+          } finally {
+            prepareGate.complete();
+          }
+
+          await retired;
+          await pendingCommands;
+          expect(commands, isEmpty);
+          expect(await report, isFalse);
+          expect(state.calls, [
+            'old.prepare',
+            if (retirement == 'disposal') 'old.reset' else 'new.prepare',
+          ]);
+
+          await _sendNativeCommands(oldSystemCall);
+          expect(await _reportIncomingCall(oldSystemCall), isFalse);
+          expect(commands, isEmpty);
+        },
+      );
+
+      test('ignores an audio prepare error after $retirement', () async {
+        final prepareStarted = Completer<void>();
+        final prepareGate = Completer<void>();
+        final diagnostics = _DiagnosticsRecorder();
+        final oldSystemCall = createSystemCall(
+          diagnostics: diagnostics,
+          audio: _FakeAudioSession('old', _AudioState())
+            ..prepareStarted = prepareStarted
+            ..prepareGate = prepareGate,
+        );
+        final commandCompletes = expectLater(oldSystemCall.end(), completes);
+        final report = _reportIncomingCall(oldSystemCall);
+        late Future<void> retired;
+        try {
+          await prepareStarted.future;
+          retired = retirement == 'disposal'
+              ? oldSystemCall.dispose()
+              : createSystemCall().audioSessionReadyForTesting;
+        } finally {
+          prepareGate.completeError(StateError('prepare failed'));
+        }
+
+        await retired;
+        await commandCompletes;
+        expect(await report, isFalse);
+        expect(commands, isEmpty);
+        expect(
+          diagnostics.records.where(
+            (record) => record.event == 'callkit.command.failed',
+          ),
+          isEmpty,
+        );
+      });
+
+      for (final outcome in ['success', 'error']) {
+        test('ignores native $outcome arriving after $retirement', () async {
+          final nativeStarted = Completer<void>();
+          final response = Completer<Object?>();
+          respond = (_) {
+            if (commands.length == 2) nativeStarted.complete();
+            return response.future;
+          };
+          final diagnostics = _DiagnosticsRecorder();
+          final oldSystemCall = createSystemCall(diagnostics: diagnostics);
+          final commandCompletes = expectLater(oldSystemCall.end(), completes);
+          final report = _reportIncomingCall(oldSystemCall);
+          try {
+            await nativeStarted.future;
+            if (retirement == 'disposal') {
+              await oldSystemCall.dispose();
+            } else {
+              await createSystemCall().audioSessionReadyForTesting;
+            }
+          } finally {
+            if (outcome == 'success') {
+              response.complete(true);
+            } else {
+              response.completeError(PlatformException(code: 'retired'));
+            }
+          }
+
+          await commandCompletes;
+          expect(await report, isFalse);
+          expect(commands, [
+            isMethodCall('end', arguments: null),
+            isMethodCall(
+              'reportIncomingCall',
+              arguments: {
+                'callerName': 'Kim',
+                'roomName': 'Call',
+                'handle': 'kim',
+              },
+            ),
+          ]);
+          expect(
+            diagnostics.records.where(
+              (record) => const {
+                'callkit.command.completed',
+                'callkit.command.failed',
+              }.contains(record.event),
+            ),
+            isEmpty,
+          );
+        });
+      }
+    }
+
+    test('sends current commands and reports after audio is ready', () async {
+      final prepareStarted = Completer<void>();
+      final prepareGate = Completer<void>();
+      final diagnostics = _DiagnosticsRecorder();
+      final systemCall = createSystemCall(
+        diagnostics: diagnostics,
+        audio: _FakeAudioSession('current', _AudioState())
+          ..prepareStarted = prepareStarted
+          ..prepareGate = prepareGate,
+      );
+      final pendingCommands = _sendNativeCommands(systemCall);
+      final report = _reportIncomingCall(systemCall);
+      try {
+        await prepareStarted.future;
+        expect(commands, isEmpty);
+      } finally {
+        prepareGate.complete();
+      }
+
+      await pendingCommands;
+      expect(await report, isTrue);
+      expect(commands, [
+        isMethodCall(
+          'start',
+          arguments: {'roomName': 'Room', 'siteName': 'Forum'},
+        ),
+        isMethodCall('connected', arguments: null),
+        isMethodCall('failed', arguments: null),
+        isMethodCall('setMuted', arguments: {'muted': true}),
+        isMethodCall('setMuted', arguments: {'muted': false}),
+        isMethodCall('end', arguments: null),
+        isMethodCall('answerIncomingCall', arguments: null),
+        isMethodCall('declineIncomingCall', arguments: null),
+        isMethodCall('endIncomingCall', arguments: {'reason': 'unanswered'}),
+        isMethodCall(
+          'endIncomingCall',
+          arguments: {'reason': 'answered_elsewhere'},
+        ),
+        isMethodCall(
+          'reportIncomingCall',
+          arguments: {'callerName': 'Kim', 'roomName': 'Call', 'handle': 'kim'},
+        ),
+      ]);
+      expect(
+        diagnostics.records
+            .where((record) => record.event == 'callkit.command.completed')
+            .map((record) => record.data),
+        [
+          for (final command in commands)
+            {
+              'method': command.method,
+              if (command.method == 'reportIncomingCall') 'presented': true,
+            },
+        ],
+      );
+    });
+
+    test('preserves current command errors from audio preparation', () async {
+      final prepareStarted = Completer<void>();
+      final prepareGate = Completer<void>();
+      final error = StateError('prepare failed');
+      final state = _AudioState();
+      final systemCall = createSystemCall(
+        audio: _FakeAudioSession('current', state)
+          ..prepareStarted = prepareStarted
+          ..prepareGate = prepareGate,
+      );
+      final commandFails = expectLater(systemCall.end(), throwsA(same(error)));
+      try {
+        await prepareStarted.future;
+      } finally {
+        prepareGate.completeError(error);
+      }
+
+      await commandFails;
+      expect(await _reportIncomingCall(systemCall), isFalse);
+      await systemCall.dispose();
+      expect(commands, isEmpty);
+      expect(state.calls, ['current.prepare']);
+    });
+
+    test('preserves current native command errors', () async {
+      respond = (_) async => throw PlatformException(code: 'command_failed');
+      final diagnostics = _DiagnosticsRecorder();
+      final systemCall = createSystemCall(diagnostics: diagnostics);
+
+      await expectLater(
+        systemCall.end(),
+        throwsA(
+          isA<PlatformException>().having(
+            (error) => error.code,
+            'code',
+            'command_failed',
+          ),
+        ),
+      );
+
+      expect(commands, [isMethodCall('end', arguments: null)]);
+      expect(
+        diagnostics.records
+            .singleWhere((record) => record.event == 'callkit.command.failed')
+            .data,
+        {'method': 'end', 'errorType': 'PlatformException'},
+      );
+    });
+
+    for (final outcome in [
+      (name: 'refused', response: false),
+      (name: 'null', response: null),
+      (name: 'a platform error', response: PlatformException(code: 'refused')),
+      (name: 'a missing plugin', response: MissingPluginException()),
+    ]) {
+      test(
+        'returns false when the current report receives ${outcome.name}',
+        () async {
+          respond = (_) async {
+            if (outcome.response case final Exception error) throw error;
+            return outcome.response;
+          };
+
+          expect(await _reportIncomingCall(createSystemCall()), isFalse);
+          expect(commands, [
+            isMethodCall(
+              'reportIncomingCall',
+              arguments: {
+                'callerName': 'Kim',
+                'roomName': 'Call',
+                'handle': 'kim',
+              },
+            ),
+          ]);
+        },
+      );
+    }
   });
 }
