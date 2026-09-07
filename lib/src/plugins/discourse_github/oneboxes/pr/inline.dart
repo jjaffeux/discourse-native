@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../../../foundation/uri_path.dart';
 import '../../../../theme/d_icon.dart';
 import '../../../../theme/discourse_typography.dart';
 import '../github.dart';
@@ -13,8 +14,8 @@ class GithubPullRequestInlineOnebox {
     final host = uri.host;
     if (host != 'github.com' && host != 'www.github.com') return false;
 
-    final segments = uri.pathSegments;
-    return segments.length >= 4 && segments[2] == 'pull';
+    final segments = tryUriPathSegments(uri);
+    return segments != null && segments.length >= 4 && segments[2] == 'pull';
   }
 
   static GithubPrStatus? status(dom.Element anchor) =>

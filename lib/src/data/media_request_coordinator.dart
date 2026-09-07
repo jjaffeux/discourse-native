@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'origin_cooldown.dart';
 import 'origin_request_gate.dart';
+import 'retry_after.dart';
 
 /// Aggregate and per-origin backpressure shared by native media caches.
 ///
@@ -88,7 +88,13 @@ final class MediaRequestCoordinator {
     Map<String, String> headers,
   ) {
     if (_gate.isClosed) return;
-    final delay = _retryAfter(headers) ?? defaultRateLimitCooldown;
+    final delay =
+        parseRetryAfter(
+          headers['retry-after'],
+          maximum: _maximumRetryAfter,
+          now: _clock(),
+        ) ??
+        defaultRateLimitCooldown;
     lease.extendCooldown(delay);
     if (relatedUrl != null && relatedUrl.origin != lease.origin) {
       _gate.extendCooldown(relatedUrl, delay);
@@ -96,26 +102,6 @@ final class MediaRequestCoordinator {
   }
 
   static const _maximumRetryAfter = Duration(hours: 1);
-
-  Duration? _retryAfter(Map<String, String> headers) {
-    final value = headers['retry-after']?.trim();
-    if (value == null || value.isEmpty) return null;
-
-    final seconds = int.tryParse(value);
-    if (seconds != null && seconds >= 0) {
-      return Duration(seconds: seconds.clamp(0, _maximumRetryAfter.inSeconds));
-    }
-
-    DateTime? date;
-    try {
-      date = HttpDate.parse(value);
-    } on HttpException {
-      return null;
-    }
-    final delay = date.difference(_clock().toUtc());
-    if (delay <= Duration.zero) return Duration.zero;
-    return delay > _maximumRetryAfter ? _maximumRetryAfter : delay;
-  }
 
   void close() {
     _gate.close();

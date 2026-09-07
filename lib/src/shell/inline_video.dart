@@ -9,6 +9,7 @@ import '../data/api_credentials.dart';
 import '../data/http_transport.dart';
 import '../data/site_lifecycle.dart';
 import '../diagnostics/diagnostics_controller.dart';
+import '../foundation/uri_path.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -973,8 +974,8 @@ double _safeAspectRatio(double? value) {
 }
 
 String _filename(Uri source) {
-  final segments = source.pathSegments.where((part) => part.isNotEmpty);
-  return segments.isEmpty ? 'Video' : segments.last;
+  final segments = tryUriPathSegments(source)?.where((part) => part.isNotEmpty);
+  return segments == null || segments.isEmpty ? 'Video' : segments.last;
 }
 
 String _duration(Duration duration) {

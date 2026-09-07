@@ -501,8 +501,16 @@ class ContentRoute {
       return false;
     }
     final uri = Uri.tryParse(value);
-    return uri != null &&
-        value.startsWith('/') &&
+    if (uri == null) return false;
+    try {
+      // The getters decode lazily. Reject unreadable saved components before
+      // restoring a route whose category, tag, or filter getters need them.
+      final _ = uri.pathSegments;
+      final _ = uri.queryParametersAll;
+    } on FormatException {
+      return false;
+    }
+    return value.startsWith('/') &&
         !value.startsWith('//') &&
         uri.path.isNotEmpty &&
         uri.path.endsWith('.json') &&

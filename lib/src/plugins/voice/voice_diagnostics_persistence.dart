@@ -557,6 +557,10 @@ final class FileVoiceDiagnosticsPersistence
     StackTrace? writeStackTrace;
     try {
       sink = snapshotFile.openWrite();
+      // Reading the source can yield while the output fails. Observe done
+      // immediately and include it in flushes, which otherwise can hang on
+      // a buffer whose consumer has already stopped with an error.
+      sink.done.ignore();
       final header = jsonEncode(
         _reportHeader(
           generatedAtUtc: generatedAtUtc,
@@ -576,11 +580,11 @@ final class FileVoiceDiagnosticsPersistence
         sink.writeln(decoded.line);
         unflushedBytes += decoded.bytes;
         if (unflushedBytes >= _voiceReportSnapshotFlushBytes) {
-          await sink.flush();
+          await Future.any<void>([sink.flush(), sink.done]);
           unflushedBytes = 0;
         }
       }
-      await sink.flush();
+      await Future.any<void>([sink.flush(), sink.done]);
     } on Object catch (error, stackTrace) {
       writeError = error;
       writeStackTrace = stackTrace;
@@ -1089,7 +1093,7 @@ final class FileVoiceDiagnosticsPersistence
     Future<void> closeCurrent() async {
       final open = sink;
       if (open == null) return;
-      await open.flush();
+      await Future.any<void>([open.flush(), open.done]);
       await open.close();
       sink = null;
       current = null;
@@ -1113,6 +1117,7 @@ final class FileVoiceDiagnosticsPersistence
         );
         await ensurePrivateFile(group.file);
         sink = group.file.openWrite();
+        sink!.done.ignore();
         groups.add(group);
         current = group;
       }
@@ -1157,6 +1162,10 @@ final class FileVoiceDiagnosticsPersistence
       current = null;
       try {
         await open?.close();
+      } on Object {
+        // A failed sink must not prevent deleting its partial group files.
+      }
+      try {
         await _deleteGroupTemps();
       } on Object {
         // The failure being rethrown is the one worth reporting; a leftover

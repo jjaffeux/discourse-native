@@ -66,7 +66,10 @@ final class VoiceReconnectCoordinator {
     if (_cancelled) return Future<void>.value();
     final active = _active;
     if (active != null) return active;
-    return _active = _runAndClear();
+    final completion = Completer<void>();
+    _active = completion.future;
+    completion.complete(_runAndClear());
+    return completion.future;
   }
 
   void cancel() {
@@ -94,6 +97,7 @@ final class VoiceReconnectCoordinator {
       final delay = _schedule[index];
       if (!await _wait(delay) || _cancelled) return;
       _notifyAttemptStarted(attemptNumber, delay);
+      if (_cancelled) return;
       try {
         await attempt();
       } catch (error, stackTrace) {
@@ -157,7 +161,7 @@ final class VoiceReconnectCoordinator {
   }
 
   void _setConnectionState(VoiceMediaConnectionState state) {
-    if (_connectionState == state) return;
+    if (_cancelled || _connectionState == state) return;
     _connectionState = state;
     onStateChanged(state);
   }

@@ -1,9 +1,10 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../foundation/uri_path.dart';
+import '../models/discourse_instance.dart';
 import '../models/user_card.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
@@ -63,18 +64,16 @@ class UserCardTarget extends StatelessWidget {
 }
 
 String? usernameFromProfileUrl(Uri url, {String? siteUrl}) {
-  final segments = url.pathSegments;
-  if (segments.length < 2 || segments[segments.length - 2] != 'u') return null;
-  final username = segments.last;
-  if (username.isEmpty) return null;
-
-  final base = siteUrl == null
-      ? const <String>[]
-      : (Uri.tryParse(siteUrl)?.pathSegments ?? const [])
-            .where((segment) => segment.isNotEmpty)
-            .toList();
-  final leading = segments.sublist(0, segments.length - 2);
-  return listEquals(leading, base) ? username : null;
+  final segments = siteUrl == null
+      ? tryUriPathSegments(url)
+      : DiscourseInstance.pathSegmentsWithin(siteUrl, url);
+  if (segments == null ||
+      segments.length != 2 ||
+      segments.first != 'u' ||
+      segments.last.isEmpty) {
+    return null;
+  }
+  return segments.last;
 }
 
 bool showUserCardForUrl(BuildContext context, String url, {String? siteUrl}) {

@@ -88,6 +88,34 @@ void main() {
     expect(await _stagedFilesFor(destination), isEmpty);
   });
 
+  test('a sink failure stays observed while generation is suspended', () async {
+    final destination = File('${directory.path}/existing.jsonl');
+    await destination.writeAsString('old report');
+    final exporter = NativeVoiceReportExporter(
+      platform: TargetPlatform.linux,
+      environment: _FakeExportEnvironment(
+        directory: directory,
+        savePath: destination.path,
+      ),
+    );
+    const failure = FileSystemException('disk full');
+    final uncaught = <Object>[];
+
+    await runZonedGuarded(() async {
+      await expectLater(
+        exporter.exportGenerated((output) async {
+          (output as IOSink).addError(failure);
+          await pumpEventQueue();
+        }),
+        throwsA(same(failure)),
+      );
+    }, (error, _) => uncaught.add(error));
+
+    expect(uncaught, isEmpty);
+    expect(await destination.readAsString(), 'old report');
+    expect(await _stagedFilesFor(destination), isEmpty);
+  });
+
   test('a shared report exists only for the share operation', () async {
     const origin = Rect.fromLTWH(12, 24, 36, 48);
     final environment = _FakeExportEnvironment(

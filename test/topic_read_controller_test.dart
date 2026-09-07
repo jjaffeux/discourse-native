@@ -204,6 +204,124 @@ void main() {
 
   group('receipt coalescing and write outcomes', () {
     test(
+      'a failed position can be retried when it is observed again',
+      () async {
+        const siteUrl = 'https://one.example';
+        credentials.keys[siteUrl] = 'key';
+        store.put(siteUrl, _topic(highest: 5));
+        addTearDown(() {
+          for (final request in api.requests) {
+            if (!request.response.isCompleted) request.response.complete();
+          }
+        });
+
+        final first = controller.mark(siteUrl, 1, 5, caughtUp: true);
+        await pumpEventQueue();
+        api.requests.single.response.completeError(StateError('offline'));
+        await first;
+        expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 5);
+        expect(
+          api.requests,
+          hasLength(1),
+          reason: 'failure alone must not retry',
+        );
+
+        await controller.mark(siteUrl, 1, 4, caughtUp: false);
+        expect(api.requests, hasLength(1));
+        final retry = controller.mark(siteUrl, 1, 5, caughtUp: true);
+        await pumpEventQueue();
+        expect(api.requests.map((request) => request.postNumber), [5, 5]);
+        api.requests.last.response.complete();
+        await retry;
+
+        await controller.mark(siteUrl, 1, 5, caughtUp: true);
+        expect(
+          api.requests,
+          hasLength(2),
+          reason: 'a successful retry is deduplicated',
+        );
+        expect(store.read<Topic>(siteUrl, 1)?.hasUnread, isFalse);
+      },
+    );
+
+    test('a newer queued read supersedes a failed receipt', () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'key';
+      store.put(siteUrl, _topic());
+      final first = controller.mark(siteUrl, 1, 1, caughtUp: false);
+      await pumpEventQueue();
+      final newer = controller.mark(siteUrl, 1, 5, caughtUp: false);
+      api.requests.first.response.completeError(StateError('offline'));
+      await pumpEventQueue();
+      await controller.mark(siteUrl, 1, 1, caughtUp: false);
+      api.requests.last.response.complete();
+      await Future.wait([first, newer]);
+
+      expect(api.requests.map((request) => request.postNumber), [1, 5]);
+      expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 5);
+    });
+
+    for (final forget in [false, true]) {
+      test(
+        'confirmed read state supersedes failed receipts after forget $forget',
+        () async {
+          const siteUrl = 'https://one.example';
+          credentials.keys[siteUrl] = 'key';
+          store.put(siteUrl, _topic());
+          final first = controller.mark(siteUrl, 1, 5, caughtUp: false);
+          await pumpEventQueue();
+          api.requests.single.response.completeError(StateError('offline'));
+          await first;
+
+          if (forget) {
+            lifecycle.invalidate(siteUrl);
+            controller.forget(siteUrl);
+            store.put(siteUrl, _topic(lastRead: 5));
+          } else {
+            store.put(siteUrl, _topic(lastRead: 8));
+          }
+          await controller.mark(siteUrl, 1, 5, caughtUp: false);
+
+          expect(api.requests, hasLength(1));
+        },
+      );
+    }
+
+    test(
+      'a store listener cannot replace a newer receipt with the older mark',
+      () async {
+        const siteUrl = 'https://one.example';
+        credentials.keys[siteUrl] = 'key';
+        store.put(siteUrl, _topic());
+        var advanced = false;
+        Future<void>? newer;
+        final ref = store.ref<Topic>(siteUrl, 1);
+        void advance() {
+          if (advanced) return;
+          advanced = true;
+          newer = controller.mark(siteUrl, 1, 3, caughtUp: false);
+        }
+
+        ref.addListener(advance);
+        addTearDown(() {
+          ref.removeListener(advance);
+          for (final request in api.requests) {
+            if (!request.response.isCompleted) request.response.complete();
+          }
+        });
+
+        final first = controller.mark(siteUrl, 1, 1, caughtUp: false);
+        await pumpEventQueue();
+        api.requests.single.response.complete();
+        await pumpEventQueue();
+
+        expect([for (final request in api.requests) request.postNumber], [3]);
+        await Future.wait([first, newer!]);
+        expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 3);
+      },
+    );
+
+    test(
       'sends only the newest position queued behind an active write',
       () async {
         const siteUrl = 'https://one.example';
@@ -276,6 +394,52 @@ void main() {
   });
 
   group('site and account invalidation', () {
+    test(
+      'a store listener can replace the account without losing its queued receipt',
+      () async {
+        const siteUrl = 'https://one.example';
+        credentials.keys[siteUrl] = 'old-key';
+        store.put(siteUrl, _topic());
+        var replaced = false;
+        final replacementReads = <Future<void>>[];
+        final ref = store.ref<Topic>(siteUrl, 1);
+        void replaceAccount() {
+          if (replaced) return;
+          replaced = true;
+          lifecycle.invalidate(siteUrl);
+          controller.forget(siteUrl);
+          credentials.keys[siteUrl] = 'new-key';
+          store.put(siteUrl, _topic());
+          replacementReads.add(controller.mark(siteUrl, 1, 2, caughtUp: false));
+          replacementReads.add(controller.mark(siteUrl, 1, 3, caughtUp: false));
+        }
+
+        ref.addListener(replaceAccount);
+        addTearDown(() {
+          ref.removeListener(replaceAccount);
+          for (final request in api.requests) {
+            if (!request.response.isCompleted) request.response.complete();
+          }
+        });
+
+        final retired = controller.mark(siteUrl, 1, 5, caughtUp: false);
+        await pumpEventQueue();
+        api.requests.single.response.complete();
+        await pumpEventQueue();
+
+        expect(
+          [
+            for (final request in api.requests)
+              (request.apiKey, request.postNumber),
+          ],
+          [('new-key', 2), ('new-key', 3)],
+        );
+        api.requests.last.response.complete();
+        await Future.wait([retired, ...replacementReads]);
+        expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 3);
+      },
+    );
+
     test('forget drops work awaiting a late credential response', () async {
       const siteUrl = 'https://one.example';
       final gatedCredentials = _GatedClientIdReader();

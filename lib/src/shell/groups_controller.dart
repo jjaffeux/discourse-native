@@ -464,7 +464,7 @@ final class GroupsController extends FrameSafeNotifier {
     if (!_current(token)) return;
     try {
       final auth = await _credentialsFor(instance, token);
-      if (auth == null) return;
+      if (auth == null || !_current(token)) return;
       final page = await api.directory(
         siteUrl: instance.url,
         apiKey: auth.apiKey,
@@ -539,7 +539,7 @@ final class GroupsController extends FrameSafeNotifier {
     notifySafely();
     try {
       final auth = await _credentialsFor(instance, token);
-      if (auth == null) return;
+      if (auth == null || !_current(token)) return;
       final detail = await api.detail(
         siteUrl: instance.url,
         groupName: groupName,
@@ -610,7 +610,7 @@ final class GroupsController extends FrameSafeNotifier {
     notifySafely();
     try {
       final auth = await _credentialsFor(instance, token);
-      if (auth == null) return;
+      if (auth == null || !_current(token)) return;
       final page = await api.members(
         siteUrl: instance.url,
         groupName: groupName,
@@ -704,7 +704,7 @@ final class GroupsController extends FrameSafeNotifier {
     notifySafely();
     try {
       final auth = await _requiredCredentials(instance, token);
-      if (auth == null) return;
+      if (auth == null || !_current(token)) return;
       final page = await api.requesters(
         siteUrl: instance.url,
         apiKey: auth.apiKey!,
@@ -785,7 +785,7 @@ final class GroupsController extends FrameSafeNotifier {
     notifySafely();
     try {
       final auth = await _credentialsFor(instance, token);
-      if (auth == null) return;
+      if (auth == null || !_current(token)) return;
       final before = more && held.posts.isNotEmpty
           ? held.posts.last.createdAt
           : null;
@@ -856,7 +856,7 @@ final class GroupsController extends FrameSafeNotifier {
     notifySafely();
     try {
       final auth = await _credentialsFor(instance, token);
-      if (auth == null) return;
+      if (auth == null || !_current(token)) return;
       final rows = await api.permissions(
         siteUrl: instance.url,
         apiKey: auth.apiKey,
@@ -908,7 +908,7 @@ final class GroupsController extends FrameSafeNotifier {
     notifySafely();
     try {
       final auth = await _requiredCredentials(instance, token);
-      if (auth == null) return;
+      if (auth == null || !_current(token)) return;
       final page = await api.logs(
         siteUrl: instance.url,
         apiKey: auth.apiKey!,
@@ -1291,6 +1291,7 @@ final class GroupsController extends FrameSafeNotifier {
       mutating: true,
     );
     notifySafely();
+    var saved = false;
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);
       if (apiKey == null ||
@@ -1319,9 +1320,8 @@ final class GroupsController extends FrameSafeNotifier {
         _requests.remove(key);
         await loadDetail(instance, group.name, refresh: true);
       }
-      return !isDisposed &&
-          lease.isCurrent &&
-          identical(_mutations[key], token);
+      saved =
+          !isDisposed && lease.isCurrent && identical(_mutations[key], token);
     } catch (error, stackTrace) {
       if (lease.isCurrent && identical(_mutations[key], token)) {
         _report(error, stackTrace, operation);
@@ -1338,6 +1338,9 @@ final class GroupsController extends FrameSafeNotifier {
         notifySafely();
       }
     }
+    // Completion observers can replace the account before callers update
+    // member caches or navigate away from a deleted group.
+    return saved && !isDisposed && lease.isCurrent;
   }
 
   void _touchQuery<K, V>(Map<K, V> states, K key) {

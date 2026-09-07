@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/plugin_api/emoji_preferences.dart';
 import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/shell/emoji_picker_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,77 @@ import 'package:flutter_test/flutter_test.dart';
 const _siteUrl = 'https://meta.discourse.org';
 
 void main() {
+  for (final selectedTone in [EmojiSkinTone.neutral, EmojiSkinTone.t5]) {
+    for (final fails in [false, true]) {
+      test(
+        'a late tone read preserves $selectedTone when it fails $fails',
+        () async {
+          final preferences = _GatedPreferences();
+          final controller = _controller(
+            store: preferences,
+            catalog: _catalog(const [
+              SiteEmoji(name: 'wave', url: 'wave.png', tonable: true),
+            ]),
+          );
+          addTearDown(controller.dispose);
+          final loading = controller.load();
+          await preferences.toneRequested.future;
+
+          controller.setTone(selectedTone);
+          if (fails) {
+            preferences.tone.completeError(StateError('unreadable'));
+          } else {
+            preferences.tone.complete(EmojiSkinTone.t2);
+          }
+          preferences.favorites.complete(const ['wave']);
+          await loading;
+
+          expect(controller.tone, selectedTone);
+          expect(preferences.writtenTones, [selectedTone]);
+          expect(controller.favorites.single.tone, selectedTone);
+        },
+      );
+    }
+  }
+
+  test('a late history read does not restore cleared favorites', () async {
+    final preferences = _GatedPreferences();
+    final controller = _controller(
+      store: preferences,
+      catalog: _catalog(const [SiteEmoji(name: 'wave', url: 'wave.png')]),
+    );
+    addTearDown(controller.dispose);
+    final loading = controller.load();
+    preferences.tone.complete(EmojiSkinTone.neutral);
+    await preferences.favoritesRequested.future;
+
+    await controller.clearHistory();
+    preferences.favorites.complete(const ['wave']);
+    await loading;
+
+    expect(controller.favorites, isEmpty);
+  });
+
+  test(
+    'disposing during a preference read leaves the controller unchanged',
+    () async {
+      final preferences = _GatedPreferences();
+      final controller = _controller(
+        store: preferences,
+        catalog: _catalog(const [SiteEmoji(name: 'wave', url: 'wave.png')]),
+      );
+      final loading = controller.load();
+      await preferences.toneRequested.future;
+      controller.dispose();
+
+      preferences.tone.complete(EmojiSkinTone.t5);
+      await loading;
+
+      expect(controller.tone, EmojiSkinTone.neutral);
+      expect(preferences.favoritesRequested.isCompleted, isFalse);
+    },
+  );
+
   test(
     'search shows name matches before lazy localized aliases arrive',
     () async {
@@ -221,7 +293,7 @@ void main() {
 
 EmojiPickerController _controller({
   required SiteEmojiCatalog catalog,
-  EmojiPickerStore? store,
+  EmojiPreferenceStore? store,
   Future<Map<String, List<String>>?> Function({bool refresh})? aliases,
 }) {
   return EmojiPickerController(
@@ -254,4 +326,49 @@ final class _MemoryPersistence implements EmojiPickerPersistence {
     values[siteUrl] = encoded;
     return true;
   }
+}
+
+final class _GatedPreferences implements EmojiPreferenceStore {
+  final tone = Completer<EmojiSkinTone>();
+  final toneRequested = Completer<void>();
+  final favorites = Completer<List<String>>();
+  final favoritesRequested = Completer<void>();
+  final List<EmojiSkinTone> writtenTones = [];
+
+  @override
+  Future<EmojiSkinTone> readSkinTone({required String siteUrl}) {
+    toneRequested.complete();
+    return tone.future;
+  }
+
+  @override
+  Future<List<String>> favoriteEmojiCodes({
+    required String siteUrl,
+    required EmojiUsageContext context,
+    required SiteEmojiCatalog catalog,
+  }) {
+    favoritesRequested.complete();
+    return favorites.future;
+  }
+
+  @override
+  Future<void> writeSkinTone({
+    required String siteUrl,
+    required EmojiSkinTone tone,
+  }) async {
+    writtenTones.add(tone);
+  }
+
+  @override
+  Future<void> clearHistory({
+    required String siteUrl,
+    required EmojiUsageContext context,
+  }) async {}
+
+  @override
+  Future<void> trackEmoji({
+    required String siteUrl,
+    required EmojiUsageContext context,
+    required String emoji,
+  }) async {}
 }

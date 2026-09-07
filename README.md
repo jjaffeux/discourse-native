@@ -851,6 +851,9 @@ titles are dimmed, while unread-post badges stay beside titles and remain
 separate from total reply counts. New topics have a dot; nested topics use
 their new-replies dot instead of a flat unread-post count. These states update
 in the retained list as read receipts and topic updates reach the shared store.
+A failed receipt keeps that optimistic styling but can be sent again when the
+reader observes the same position. Newer queued reads supersede failed ones;
+failure itself never starts a retry loop.
 Reply totals in lists and topic summaries use `posts_count - 1`, like the web
 client, rather than the API's directed-reply counter. Sparse records without
 a post count retain their supplied reply count.
@@ -973,6 +976,9 @@ topic identity, rejects paging callbacks from retired generations, preserves a
 prepend anchor, and pauses or credits read dwell with the app lifecycle. The
 same coordinator publishes floating-day and progress state, so those changes
 do not become shell-wide notifications.
+Read callbacks retain the account session that displayed the posts, including
+when dwell completion is queued during navigation or disposal. Leaving a topic
+can still credit that reader; replacing the account revokes the old callback.
 
 The floating topic-progress control follows core's stream-index semantics: its
 current and total values count visible stream entries, and its expandable
@@ -2372,6 +2378,8 @@ the native save dialog; mobile downloads use the file share sheet. Videos stream
 to a private temporary file before saving or sharing, without the image cache's
 size limit. Download and source-probe responses arriving after a timeout or
 closure have their bodies cancelled, including transports that race an abort.
+Downloads also cancel unread bodies when their account expires or the staging
+file cannot be opened, without waiting for the server to send another chunk.
 Downloads follow redirects explicitly and send user API credentials
 only to the forum origin. Its app-owned
 [`inline_video_playback.dart`](lib/src/shell/inline_video_playback.dart) session

@@ -150,6 +150,93 @@ void main() {
   });
 
   group('DiscourseRequestCoordinator', () {
+    test('queued requests wait until an HTTP-date cooldown expires', () async {
+      final scheduler = ManualScheduler();
+      final now = DateTime.utc(2026, 8, 24, 12);
+      final coordinator = DiscourseRequestCoordinator(
+        clock: () => now,
+        cooldownFactory: () => OriginCooldown(
+          clock: scheduler.now,
+          timerFactory: scheduler.createTimer,
+        ),
+      );
+      addTearDown(coordinator.close);
+      final origin = Uri.parse('https://forum.example');
+      await coordinator.run(
+        origin,
+        () async => http.Response(
+          '{}',
+          429,
+          headers: {
+            'retry-after': HttpDate.format(now.add(const Duration(minutes: 1))),
+          },
+        ),
+      );
+      var sent = false;
+      final queued = coordinator.run(origin.resolve('/queued'), () async {
+        sent = true;
+        return http.Response('{}', 200);
+      });
+
+      scheduler.advance(const Duration(seconds: 59));
+      expect(sent, isFalse);
+      scheduler.advance(const Duration(seconds: 1));
+      expect((await queued).statusCode, 200);
+      expect(sent, isTrue);
+      expect(scheduler.activeTimerCount, 0);
+    });
+
+    test('an elapsed HTTP date overrides a longer body delay', () {
+      final now = DateTime.utc(2026, 8, 24, 12);
+      final response = http.Response(
+        '{"extras":{"wait_seconds":42}}',
+        429,
+        headers: {
+          'retry-after': HttpDate.format(
+            now.subtract(const Duration(minutes: 1)),
+          ),
+        },
+      );
+
+      expect(
+        DiscourseRequestCoordinator.explicitRetryAfter(response, now: now),
+        Duration.zero,
+      );
+    });
+
+    for (final header in [
+      '',
+      '-1',
+      'not a date',
+      'Wed, 24 NotAMonth 2026 12:00:00 GMT',
+    ]) {
+      test('an unreadable Retry-After "$header" uses the body delay', () {
+        expect(
+          DiscourseRequestCoordinator.explicitRetryAfter(
+            http.Response(
+              '{"extras":{"wait_seconds":42}}',
+              429,
+              headers: {'retry-after': header},
+            ),
+          ),
+          const Duration(seconds: 42),
+        );
+      });
+    }
+
+    test('honors an HTTP-date Retry-After before the body delay', () {
+      final response = http.Response(
+        '{"extras":{"wait_seconds":5}}',
+        429,
+        headers: {'retry-after': HttpDate.format(DateTime.utc(9999))},
+      );
+
+      expect(
+        DiscourseRequestCoordinator.explicitRetryAfter(response),
+        const Duration(hours: 1),
+      );
+    });
+
     test('a shorter later 429 cannot reduce an origin cooldown', () async {
       final scheduler = ManualScheduler();
       final coordinator = DiscourseRequestCoordinator(

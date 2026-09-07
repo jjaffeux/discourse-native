@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/json.dart';
 import 'origin_cooldown.dart';
 import 'origin_request_gate.dart';
+import 'retry_after.dart';
 
 /// Identity of one safe GET for in-flight request sharing.
 ///
@@ -39,10 +40,12 @@ final class DiscourseRequestCoordinator {
     this.maxConcurrentPerOrigin = 4,
     this.maxQueuedPerOrigin = 64,
     this.defaultRateLimitCooldown = const Duration(seconds: 15),
+    DateTime Function()? clock,
     OriginCooldown Function()? cooldownFactory,
   }) : assert(maxConcurrentPerOrigin > 0),
        assert(maxQueuedPerOrigin > 0),
        assert(defaultRateLimitCooldown >= Duration.zero),
+       _clock = clock ?? DateTime.now,
        _gate = OriginRequestGate(
          maxConcurrentPerOrigin: maxConcurrentPerOrigin,
          maxQueuedPerOrigin: maxQueuedPerOrigin,
@@ -57,6 +60,7 @@ final class DiscourseRequestCoordinator {
   /// requests do not count toward this backlog limit.
   final int maxQueuedPerOrigin;
   final Duration defaultRateLimitCooldown;
+  final DateTime Function() _clock;
 
   final OriginRequestGate _gate;
   final Map<DiscourseGetRequestKey, Future<http.Response>> _gets = {};
@@ -95,7 +99,9 @@ final class DiscourseRequestCoordinator {
     _gate.run(url, (lease) async {
       final response = await send();
       if (response.statusCode == 429) {
-        final delay = explicitRetryAfter(response) ?? defaultRateLimitCooldown;
+        final delay =
+            explicitRetryAfter(response, now: _clock()) ??
+            defaultRateLimitCooldown;
         lease.extendCooldown(delay);
       }
       return response;
@@ -121,9 +127,12 @@ final class DiscourseRequestCoordinator {
 
   /// The explicit server delay, preserving the write error contract while the
   /// coordinator separately supplies a conservative default when it is absent.
-  static Duration? explicitRetryAfter(http.Response response) {
-    final header = int.tryParse(response.headers['retry-after'] ?? '');
-    final headerDuration = _safeRetryAfter(header);
+  static Duration? explicitRetryAfter(http.Response response, {DateTime? now}) {
+    final headerDuration = parseRetryAfter(
+      response.headers['retry-after'],
+      maximum: maximumRetryAfter,
+      now: now ?? DateTime.now(),
+    );
     if (headerDuration != null) return headerDuration;
 
     try {

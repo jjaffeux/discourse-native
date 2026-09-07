@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/plugins/voice/voice_signaling.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -154,6 +156,74 @@ void main() {
         expect(requests, 0);
       },
     );
+
+    test(
+      'closing before an extracted batch starts prevents its request',
+      () async {
+        var requests = 0;
+        final batcher = VoiceSignalBatcher(
+          flushEventThreshold: 1,
+          sendBatch: (_) async => requests++,
+        );
+        final sending = batcher.send(2, {'type': 'offer', 'sdp': 'offer'});
+
+        batcher.close();
+        await sending;
+        await batcher.flush();
+
+        expect(requests, 0);
+      },
+    );
+
+    test('closing releases queued batches behind an active request', () async {
+      final started = Completer<void>();
+      final response = Completer<void>();
+      final requests = <Map<String, Object?>>[];
+      final batcher = VoiceSignalBatcher(
+        flushEventThreshold: 1,
+        sendBatch: (payload) {
+          requests.add(payload);
+          if (requests.length == 1) {
+            started.complete();
+            return response.future;
+          }
+          return Future<void>.value();
+        },
+      );
+      addTearDown(() {
+        batcher.close();
+        if (!response.isCompleted) response.complete();
+      });
+      final active = batcher.send(2, {'type': 'offer', 'sdp': 'active'});
+      await started.future;
+      var queuedCompleted = false;
+      final queued = Future.wait([
+        batcher.send(2, {'type': 'offer', 'sdp': 'queued'}),
+        batcher.send(3, {'type': 'offer', 'sdp': 'also queued'}),
+      ]).then((_) => queuedCompleted = true);
+
+      batcher.close();
+      // Complete the cancelled senders' microtasks while the network request
+      // remains explicitly blocked by response.
+      await Future<void>.delayed(Duration.zero);
+      expect(queuedCompleted, isTrue);
+      response.complete();
+      await Future.wait([active, queued]);
+      await batcher.flush();
+
+      expect(requests, [
+        {
+          'messages': [
+            {
+              'recipient_id': 2,
+              'events': [
+                {'type': 'offer', 'sdp': 'active'},
+              ],
+            },
+          ],
+        },
+      ]);
+    });
   });
 }
 

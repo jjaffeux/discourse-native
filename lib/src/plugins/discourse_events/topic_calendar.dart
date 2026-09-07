@@ -8,6 +8,8 @@ import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../plugin_api/timezone_host.dart';
+import '../../theme/d_button.dart';
+import '../../theme/discourse_typography.dart';
 import 'topic_calendar_data.dart';
 import 'topic_calendar_event.dart';
 
@@ -298,12 +300,13 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                                     event.description != event.title)
                                   Text(event.description),
                                 if (event.postNumber case final number?)
-                                  TextButton(
+                                  DButton(
+                                    variant: DButtonVariant.transparentPrimary,
                                     onPressed: () {
                                       Navigator.pop(context);
                                       widget.onOpenReply(number);
                                     },
-                                    child: Text('View reply #$number'),
+                                    label: Text('View reply #$number'),
                                   ),
                               ],
                             ),
@@ -313,9 +316,10 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                   ),
           ),
           actions: [
-            TextButton(
+            DButton(
+              variant: DButtonVariant.transparentPrimary,
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              label: const Text('Close'),
             ),
           ],
         ),
@@ -393,7 +397,11 @@ final class _TopicCalendarState extends State<TopicCalendar> {
               child: Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  TextButton(onPressed: _goToday, child: const Text('Today')),
+                  DButton(
+                    variant: DButtonVariant.transparentPrimary,
+                    onPressed: _goToday,
+                    label: const Text('Today'),
+                  ),
                   PopupMenuButton<_CalendarView>(
                     tooltip: 'Calendar view',
                     initialValue: _view,
@@ -416,7 +424,8 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                       ),
                     ),
                   ),
-                  TextButton.icon(
+                  DButton(
+                    variant: DButtonVariant.transparentPrimary,
                     onPressed: _pickTimezone,
                     icon: const Icon(Icons.public, size: 16),
                     label: Text(_timezone.replaceAll('_', ' ')),
@@ -448,7 +457,8 @@ final class _TopicCalendarState extends State<TopicCalendar> {
             padding: const EdgeInsets.all(4),
             child: Align(
               alignment: AlignmentDirectional.centerStart,
-              child: TextButton.icon(
+              child: DButton(
+                variant: DButtonVariant.transparentPrimary,
                 onPressed: widget.onOpenWeb,
                 icon: const Icon(Icons.open_in_browser, size: 16),
                 label: const Text('Open web calendar'),
@@ -463,7 +473,8 @@ final class _TopicCalendarState extends State<TopicCalendar> {
   Widget _buildCalendar(BuildContext context, BoxConstraints constraints) {
     final rowHeight = math.max(
       28.0,
-      MediaQuery.textScalerOf(context).scale(14) + 10,
+      MediaQuery.textScalerOf(context).scale(DiscourseTypography.fontDown1) +
+          10,
     );
     final lanes = constraints.maxWidth < 450 ? 3 : 4;
     final first = DateTime.utc(_focus.year, _focus.month);
@@ -596,7 +607,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
           '${day.day}',
           semanticsLabel:
               '${DateFormat.yMMMMEEEEd(_locale).format(day)}, ${_eventsOn(day).length} entries',
-          style: const TextStyle(fontSize: 14),
+          style: const TextStyle(fontSize: DiscourseTypography.fontDown1),
         ),
       ),
     );
@@ -650,7 +661,10 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                 semanticsLabel: label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: foreground, fontSize: 13),
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: DiscourseTypography.fontDown1,
+                ),
               ),
             ),
           ),
@@ -705,9 +719,10 @@ final class _TimezonePickerState extends State<_TimezonePicker> {
         ),
       ),
       actions: [
-        TextButton(
+        DButton(
+          variant: DButtonVariant.transparentPrimary,
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          label: const Text('Cancel'),
         ),
       ],
     );

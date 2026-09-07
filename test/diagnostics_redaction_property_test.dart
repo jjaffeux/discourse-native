@@ -59,6 +59,8 @@ List<String> _uriShapes({required String key, required String host}) {
     // A malformed escape: `Uri.parse` normalizes `%ZZ`, so a name validated
     // after normalization would be a different name than the one sent.
     'https://$host/t/1?%ZZ=$_secret',
+    'https://$host/t/1?%FF=$_secret',
+    'https://$host:not-a-port/t/1?%C3=$_secret',
     // A percent-encoded `=` inside what looks like a bare query name.
     'https://$host/t/1?a%3D$_secret=b',
     // Unparseable authorities: no part of one can be trusted to be a host.

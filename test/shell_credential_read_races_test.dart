@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/topic_viewport_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -17,6 +18,60 @@ const _siteUrl = 'https://meta.discourse.org';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'a retired viewport cannot mark posts read for a replacement account',
+    () async {
+      final fixture = await _fixture();
+      addTearDown(fixture.shell.dispose);
+      final binding = _topicBinding(fixture.shell);
+      final pending = Future<void>.microtask(
+        () => binding.markRead(
+          siteUrl: _siteUrl,
+          topicId: 7,
+          postNumber: 3,
+          caughtUp: true,
+        ),
+      );
+
+      fixture.shell.lifecycle.invalidate(_siteUrl);
+      fixture.authenticator.keys[_siteUrl] = 'replacement-key';
+      await pending;
+
+      expect(binding.isCurrent(), isFalse);
+      expect(fixture.api.topicReadsRecorded, isEmpty);
+      expect(
+        fixture.shell.store.read<Topic>(_siteUrl, 7)?.lastReadPostNumber,
+        0,
+      );
+    },
+  );
+
+  test(
+    'a departing viewport still credits its account after navigation',
+    () async {
+      final fixture = await _fixture();
+      addTearDown(fixture.shell.dispose);
+      final binding = _topicBinding(fixture.shell);
+      fixture.shell.pushContent(
+        ContentRoute.topic(topicId: 8, slug: 'another', title: 'Another topic'),
+      );
+
+      await binding.markRead(
+        siteUrl: _siteUrl,
+        topicId: 7,
+        postNumber: 3,
+        caughtUp: true,
+      );
+
+      expect(binding.isCurrent(), isFalse);
+      expect(fixture.api.topicReadsRecorded, [(topicId: 7, postNumber: 3)]);
+      expect(
+        fixture.shell.store.read<Topic>(_siteUrl, 7)?.lastReadPostNumber,
+        3,
+      );
+    },
+  );
 
   test(
     'invalidating a pending composer tag credential sends no lookup',
@@ -178,6 +233,24 @@ typedef _Fixture = ({
   _RecordingComposerApi api,
   _GatedAuthenticator authenticator,
 });
+
+TopicViewportBinding _topicBinding(ShellController shell) {
+  shell.store.put(
+    _siteUrl,
+    const Topic(id: 7, title: 'Topic', slug: 'topic', lastReadPostNumber: 0),
+  );
+  shell.store.put(
+    _siteUrl,
+    const TopicDetail(id: 7, title: 'Topic', stream: []),
+  );
+  shell.pushContent(
+    ContentRoute.topic(topicId: 7, slug: 'topic', title: 'Topic'),
+  );
+  return TopicViewportBinding.fromShell(
+    shell,
+    TopicViewportSnapshot.from(shell),
+  );
+}
 
 Future<_Fixture> _fixture({
   FakeDraftStore? drafts,

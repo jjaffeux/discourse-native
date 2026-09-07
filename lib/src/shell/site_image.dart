@@ -63,7 +63,6 @@ class _SiteImageState extends State<SiteImage> {
   int _generation = 0;
   ImageStream? _stream;
   ImageStreamListener? _streamListener;
-  Size? _reportedNaturalSize;
 
   String get _url => resolveSiteUrl(widget.url, widget.siteUrl);
 
@@ -94,7 +93,6 @@ class _SiteImageState extends State<SiteImage> {
     _configured = true;
     final generation = ++_generation;
     _stopListening();
-    _reportedNaturalSize = null;
     _bytes = null;
     _error = null;
     _errorStack = null;
@@ -160,15 +158,28 @@ class _SiteImageState extends State<SiteImage> {
 
   void _listen(ImageProvider<Object> provider) {
     final stream = provider.resolve(createLocalImageConfiguration(context));
-    final listener = ImageStreamListener((info, _) {
-      final size = Size(
-        info.image.width.toDouble(),
-        info.image.height.toDouble(),
-      );
-      if (_reportedNaturalSize == size) return;
-      _reportedNaturalSize = size;
-      widget.onNaturalSize?.call(size);
-    });
+    final listener = ImageStreamListener(
+      (info, _) {
+        final size = Size(
+          info.image.width.toDouble(),
+          info.image.height.toDouble(),
+        );
+        // Every listener owns its ImageInfo handle. Measurement needs only
+        // the first frame; retaining it would pin native pixels and keep an
+        // animated decoder running after the rendered image stops listening.
+        info.dispose();
+        if (!mounted || !identical(_stream, stream)) return;
+        _stopListening();
+        widget.onNaturalSize?.call(size);
+      },
+      onError: (_, _) {
+        if (identical(_stream, stream)) _stopListening();
+        // The rendered image owns the fallback. A separate full-size probe
+        // must not turn a handled decode failure into an uncaught error.
+      },
+      // A decode may fail after navigation removes the measurement listener.
+      reportErrors: false,
+    );
     _stream = stream;
     _streamListener = listener;
     stream.addListener(listener);

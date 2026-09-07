@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../foundation/uri_path.dart';
 import '../plugin_api/notification_counters.dart';
 import '../plugin_api/plugin_data.dart';
 import '../theme/d_icons.dart';
@@ -189,12 +190,16 @@ class DiscourseInstance {
 
   static String? pathWithinUrl(String siteUrl, Uri link) {
     final segments = pathSegmentsWithin(siteUrl, link);
-    return segments == null ? null : '/${segments.join('/')}';
+    return segments == null ? null : Uri(pathSegments: ['', ...segments]).path;
   }
 
   static List<String>? pathSegmentsWithin(String siteUrl, Uri link) {
-    final base = basePathSegmentsOf(siteUrl);
-    final segments = link.pathSegments;
+    final baseUri = Uri.tryParse(siteUrl);
+    if (baseUri == null) return null;
+    final decodedBase = tryUriPathSegments(baseUri);
+    final segments = tryUriPathSegments(link);
+    if (decodedBase == null || segments == null) return null;
+    final base = decodedBase.where((part) => part.isNotEmpty).toList();
     if (segments.length < base.length) return null;
     for (var index = 0; index < base.length; index++) {
       if (segments[index] != base[index]) return null;

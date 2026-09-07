@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../foundation/uri_path.dart';
 import '../../models/discourse_instance.dart';
 import 'assigned_group.dart';
 
@@ -25,7 +26,7 @@ final class AssignedGroupLink {
     if (uri == null || uri.userInfo.isNotEmpty) return null;
 
     final within = siteUrl == null
-        ? uri.pathSegments
+        ? tryUriPathSegments(uri)
         : DiscourseInstance.pathSegmentsWithin(siteUrl, uri);
     if (within == null) return null;
     final segments = [...within];

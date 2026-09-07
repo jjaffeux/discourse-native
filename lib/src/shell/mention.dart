@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../foundation/uri_path.dart';
 import '../models/user_status.dart';
 import '../theme/app_theme.dart';
 import 'open_link.dart';
@@ -133,8 +134,9 @@ String? _mentionTarget(String? href, {required bool isGroupMention}) {
   if (!isGroupMention || href == null) return href;
   final uri = Uri.tryParse(href);
   if (uri == null) return href;
-  final segments = uri.pathSegments;
-  if (segments.length != 2 ||
+  final segments = tryUriPathSegments(uri);
+  if (segments == null ||
+      segments.length != 2 ||
       segments.first != 'groups' ||
       segments.last.isEmpty) {
     return href;

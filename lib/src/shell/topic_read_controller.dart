@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
@@ -32,6 +34,7 @@ final class TopicReadController {
   final TopicReadErrorReporter reportError;
 
   final Map<_TopicReadKey, int> _positions = {};
+  final Map<_TopicReadKey, int> _retryPositions = {};
   final Map<_TopicReadKey, _TopicReadReceipt> _queued = {};
   final Map<_TopicReadKey, Future<void>> _tasks = {};
   final Map<_TopicReadKey, Object> _runs = {};
@@ -50,7 +53,13 @@ final class TopicReadController {
     final held = store.read<Topic>(siteUrl, topicId);
     final local = _positions[key] ?? 0;
     final server = held?.lastReadPostNumber ?? 0;
-    if ((local > server ? local : server) >= postNumber) {
+    var retryPosition = _retryPositions[key];
+    if (retryPosition != null && server > retryPosition) {
+      _retryPositions.remove(key);
+      retryPosition = null;
+    }
+    final shouldRetry = retryPosition != null && postNumber >= retryPosition;
+    if ((local > server ? local : server) >= postNumber && !shouldRetry) {
       if (caughtUp) {
         store.update<Topic>(
           siteUrl,
@@ -67,6 +76,15 @@ final class TopicReadController {
 
     final lease = lifecycle.capture(siteUrl);
     _positions[key] = postNumber;
+    _retryPositions.remove(key);
+    // Store listeners may advance this topic again, forget it, or replace its
+    // account. Accept this receipt before publishing the optimistic position.
+    _queued[key] = (
+      siteUrl: siteUrl,
+      topicId: topicId,
+      postNumber: postNumber,
+      lease: lease,
+    );
     store.update<Topic>(
       siteUrl,
       topicId,
@@ -81,24 +99,22 @@ final class TopicReadController {
       ),
     );
 
-    _queued[key] = (
-      siteUrl: siteUrl,
-      topicId: topicId,
-      postNumber: postNumber,
-      lease: lease,
-    );
+    if (_disposed || !lease.isCurrent) return Future.value();
     final running = _tasks[key];
     if (running != null) return running;
+    if (!_queued.containsKey(key)) return Future.value();
 
     final run = Object();
+    final completion = Completer<void>();
     _runs[key] = run;
-    final task = _drain(key, run);
-    _tasks[key] = task;
-    return task;
+    _tasks[key] = completion.future;
+    completion.complete(_drain(key, run));
+    return completion.future;
   }
 
   void forget(String siteUrl) {
     _positions.removeWhere((key, _) => key.$1 == siteUrl);
+    _retryPositions.removeWhere((key, _) => key.$1 == siteUrl);
     _queued.removeWhere((key, _) => key.$1 == siteUrl);
     _tasks.removeWhere((key, _) => key.$1 == siteUrl);
     _runs.removeWhere((key, _) => key.$1 == siteUrl);
@@ -108,6 +124,7 @@ final class TopicReadController {
     if (_disposed) return;
     _disposed = true;
     _positions.clear();
+    _retryPositions.clear();
     _queued.clear();
     _tasks.clear();
     _runs.clear();
@@ -137,6 +154,13 @@ final class TopicReadController {
         );
       } catch (error, stackTrace) {
         if (_canSend(key, run, receipt.lease)) {
+          // Optimistic state still prevents duplicate writes. Remember a
+          // failed receipt separately so observing it again can retry, unless
+          // a newer queued position will already cover it. Failure alone does
+          // not schedule another network request.
+          if (!_queued.containsKey(key)) {
+            _retryPositions[key] = receipt.postNumber;
+          }
           reportError(error, stackTrace, 'topic.markRead');
         }
         // A newer queued position must still be attempted after this failure.

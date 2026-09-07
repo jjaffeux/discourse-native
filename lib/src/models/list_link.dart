@@ -1,4 +1,4 @@
-library;
+import '../foundation/uri_path.dart';
 
 enum ListKind { category, tag }
 
@@ -30,8 +30,9 @@ class ListLink {
 
     // A trailing slash leaves an empty last segment, which would otherwise
     // read as "not an id" and refuse a perfectly ordinary link.
-    final segments = [...uri.pathSegments]
-      ..removeWhere((segment) => segment.isEmpty);
+    final decoded = tryUriPathSegments(uri);
+    if (decoded == null) return null;
+    final segments = [...decoded]..removeWhere((segment) => segment.isEmpty);
     if (segments.length < 2) return null;
 
     final kind = switch (segments.first) {
@@ -43,7 +44,14 @@ class ListLink {
 
     // Rebuilt from the segments rather than taken from `uri.path`, so a
     // trailing slash or a query string cannot end up inside the filename.
-    final path = '/${segments.join('/')}.json';
+    // Re-encode each segment so decoded punctuation remains part of its name.
+    final path = Uri(
+      pathSegments: [
+        '',
+        ...segments.take(segments.length - 1),
+        '${segments.last}.json',
+      ],
+    ).path;
     final rest = segments.sublist(1);
 
     // Anything past the id is a filter — `/l/top`, `/none`, `/subcategories` —

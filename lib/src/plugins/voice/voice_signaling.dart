@@ -27,6 +27,7 @@ final class VoiceSignalBatcher {
   final int flushEventThreshold;
   LinkedHashMap<int, List<Map<String, Object?>>> _pending = LinkedHashMap();
   List<Completer<void>> _pendingWaiters = [];
+  final Set<Completer<void>> _queuedWaiters = {};
   Timer? _timer;
   Future<void> _sendTail = Future<void>.value();
   bool _closed = false;
@@ -82,8 +83,9 @@ final class VoiceSignalBatcher {
     _timer?.cancel();
     _timer = null;
     _pending.clear();
-    final waiters = _pendingWaiters;
+    final waiters = [..._pendingWaiters, ..._queuedWaiters];
     _pendingWaiters = [];
+    _queuedWaiters.clear();
     for (final waiter in waiters) {
       if (!waiter.isCompleted) waiter.complete();
     }
@@ -104,7 +106,12 @@ final class VoiceSignalBatcher {
           {'recipient_id': entry.key, 'events': entry.value},
       ],
     };
-    final operation = _sendTail.then((_) => sendBatch(payload));
+    _queuedWaiters.addAll(waiters);
+    final operation = _sendTail.then<void>((_) {
+      _queuedWaiters.removeAll(waiters);
+      if (_closed) return Future<void>.value();
+      return sendBatch(payload);
+    });
     _sendTail = operation.then<void>(
       (_) {},
       onError: (Object _, StackTrace _) {},

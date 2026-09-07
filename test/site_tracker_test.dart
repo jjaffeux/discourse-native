@@ -581,6 +581,97 @@ void main() {
         expect(bus.activeSubscriptionCount('/topic/12'), 0);
         expect(bus.activeSubscriptionCount('/topic/12/status'), 0);
       });
+
+      test(
+        'a tracking callback can dispose before incoming topics are published',
+        () async {
+          final bus = _FakeMessageBusSession();
+          var incomingCalls = 0;
+          final tracker = _tracker(
+            bus,
+            apiKey: 'secret',
+            onIncomingTopics: () => incomingCalls++,
+          );
+          addTearDown(tracker.dispose);
+          tracker.watchTopicTrackingState(42, (_) {
+            unawaited(tracker.dispose());
+          });
+
+          bus.deliver('/latest', {'topic_id': 7, 'message_type': 'new_topic'});
+          await tracker.dispose();
+
+          expect(incomingCalls, 0);
+          expect(tracker.incoming.count('latest'), 0);
+        },
+      );
+
+      test(
+        'topic cancellation can reenter disposal without closing twice',
+        () async {
+          final bus = _FakeMessageBusSession();
+          final tracker = _tracker(bus);
+          addTearDown(tracker.dispose);
+          Future<void>? nested;
+          bus.onSubscriptionCancel = () => nested = tracker.dispose();
+          tracker.watchTopic(12, ['/topic/12'], (_, _) {});
+
+          final closing = tracker.dispose();
+          await closing;
+
+          expect(nested, same(closing));
+          expect(bus.closeCalls, 1);
+        },
+      );
+
+      for (final synchronous in [false, true]) {
+        test(
+          'handles a ${synchronous ? 'synchronous' : 'future'} close failure while error cancellation is pending',
+          () async {
+            final failure = StateError('bus close failed');
+            final cancelFailure = StateError(
+              'error stream cancellation failed',
+            );
+            final uncaught = <Object>[];
+            final delivered = Completer<Object>();
+            late Completer<void> cancel;
+            late StreamController<Object> errors;
+            late _FakeMessageBusSession bus;
+            runZonedGuarded(() {
+              cancel = Completer<void>();
+              errors = StreamController<Object>(onCancel: () => cancel.future);
+              bus = _FakeMessageBusSession()
+                ..errorStream = errors.stream
+                ..onClose = () {
+                  if (synchronous) throw failure;
+                  return Future<void>.error(failure);
+                };
+              final tracker = _tracker(bus);
+              unawaited(
+                tracker.dispose().then<void>(
+                  (_) => delivered.complete(StateError('unexpected success')),
+                  onError: (Object error, StackTrace _) =>
+                      delivered.complete(error),
+                ),
+              );
+            }, (error, _) => uncaught.add(error));
+            addTearDown(() async {
+              if (!cancel.isCompleted) cancel.complete();
+              await errors.close();
+              await bus._errors.close();
+            });
+
+            // Let the close future fail before the separately controlled error
+            // subscription finishes cancelling.
+            await Future<void>.delayed(Duration.zero);
+            cancel.completeError(cancelFailure);
+            expect(await delivered.future, same(failure));
+            await Future<void>.delayed(Duration.zero);
+
+            expect(uncaught, isEmpty);
+            expect(bus.closeCalls, 1);
+          },
+        );
+      }
     });
   });
 }
@@ -618,11 +709,14 @@ final class _FakeMessageBusSession
   int stopCalls = 0;
   int pollNowCalls = 0;
   int closeCalls = 0;
+  Stream<Object>? errorStream;
+  Future<void> Function()? onClose;
+  void Function()? onSubscriptionCancel;
 
   Set<String> get channels => _subscriptions.keys.toSet();
 
   @override
-  Stream<Object> get errors => _errors.stream;
+  Stream<Object> get errors => errorStream ?? _errors.stream;
 
   void emitError(Object error) => _errors.add(error);
 
@@ -658,6 +752,7 @@ final class _FakeMessageBusSession
     final subscription = _FakeMessageBusSubscription(
       onMessage,
       throwsOnCancel: channel == failingCancellationChannel,
+      onCancel: onSubscriptionCancel,
     );
     (_subscriptions[channel] ??= []).add(subscription);
     lastIds[channel] = lastId;
@@ -685,22 +780,28 @@ final class _FakeMessageBusSession
   void pollNow() => pollNowCalls += 1;
 
   @override
-  Future<void> close() async {
+  Future<void> close() {
     closeCalls += 1;
-    await _errors.close();
+    return onClose?.call() ?? _errors.close();
   }
 }
 
 final class _FakeMessageBusSubscription implements SiteMessageBusSubscription {
-  _FakeMessageBusSubscription(this.callback, {this.throwsOnCancel = false});
+  _FakeMessageBusSubscription(
+    this.callback, {
+    this.throwsOnCancel = false,
+    this.onCancel,
+  });
 
   final void Function(Object?, int) callback;
   final bool throwsOnCancel;
+  final void Function()? onCancel;
   bool cancelled = false;
 
   @override
   void cancel() {
     cancelled = true;
+    onCancel?.call();
     if (throwsOnCancel) throw StateError('subscription cancellation failed');
   }
 }

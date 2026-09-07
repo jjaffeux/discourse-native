@@ -1704,6 +1704,77 @@ void main() {
       expect(coordinator.connectionState, VoiceMediaConnectionState.connected);
     });
 
+    test(
+      'a state listener shares the reconnection already being announced',
+      () async {
+        var attempts = 0;
+        Future<void>? nested;
+        late VoiceReconnectCoordinator coordinator;
+        coordinator = VoiceReconnectCoordinator(
+          attempt: () async => attempts++,
+          onStateChanged: (state) {
+            if (state == VoiceMediaConnectionState.reconnecting) {
+              nested = coordinator.reconnect();
+            }
+          },
+          schedule: const [Duration.zero],
+        );
+        addTearDown(coordinator.cancel);
+
+        final reconnect = coordinator.reconnect();
+        await Future.wait([reconnect, nested!]);
+
+        expect(nested, same(reconnect));
+        expect(attempts, 1);
+        expect(
+          coordinator.connectionState,
+          VoiceMediaConnectionState.connected,
+        );
+      },
+    );
+
+    test(
+      'cancellation from the attempt observer prevents media work',
+      () async {
+        var attempts = 0;
+        final states = <VoiceMediaConnectionState>[];
+        late VoiceReconnectCoordinator coordinator;
+        coordinator = VoiceReconnectCoordinator(
+          attempt: () async => attempts++,
+          onStateChanged: states.add,
+          onAttemptStarted: (_, _) => coordinator.cancel(),
+          schedule: const [Duration.zero],
+        );
+
+        await coordinator.reconnect();
+
+        expect(attempts, 0);
+        expect(states, [VoiceMediaConnectionState.reconnecting]);
+      },
+    );
+
+    test(
+      'cancellation from the exhaustion observer prevents a failed state',
+      () async {
+        final states = <VoiceMediaConnectionState>[];
+        late VoiceReconnectCoordinator coordinator;
+        coordinator = VoiceReconnectCoordinator(
+          attempt: () async => throw StateError('offline'),
+          onStateChanged: states.add,
+          onExhausted: (_) => coordinator.cancel(),
+          schedule: const [Duration.zero],
+        );
+
+        await coordinator.reconnect();
+
+        expect(states, [VoiceMediaConnectionState.reconnecting]);
+        expect(
+          coordinator.connectionState,
+          VoiceMediaConnectionState.reconnecting,
+        );
+      },
+    );
+
     test('exhaustion becomes failed without leaking attempt errors', () async {
       var attempts = 0;
       final states = <VoiceMediaConnectionState>[];

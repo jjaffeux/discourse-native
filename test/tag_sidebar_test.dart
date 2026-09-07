@@ -1,9 +1,32 @@
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/tag_sidebar.dart';
+import 'package:discourse_native/src/models/topic_tag.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final slug in ['100%', '%ZZ', '%C', '%FF']) {
+    test(
+      'unreadable escapes in a tag slug remain a literal path segment: $slug',
+      () {
+        final sidebar = buildTagDestination(
+          SidebarTag(id: 7, name: 'Tag', slug: slug),
+        )!;
+        final topic = buildTopicTagDestination(
+          TopicTag(id: 7, name: 'Tag', slug: slug),
+        )!;
+
+        for (final destination in [sidebar, topic]) {
+          expect(Uri.parse(destination.feedPath!).pathSegments, [
+            'tag',
+            slug,
+            '7.json',
+          ]);
+        }
+      },
+    );
+  }
+
   group('SidebarTag', () {
     test('parses wire fields and persists a round-trip snapshot', () {
       final tag = SidebarTag.fromJson(const {

@@ -178,8 +178,11 @@ final class VoiceIdleTracker {
     if (thresholds.afk > Duration.zero && elapsed >= thresholds.afk) {
       if (_state != VoiceIdleState.afk) {
         _state = VoiceIdleState.afk;
-        wasAutoMuted = true;
         onStateChanged(VoiceIdleState.afk, wasAutoMuted: false);
+        // Publishing the state can end this call or report fresh activity.
+        // Only the still-away session owns the pending microphone change.
+        if (!_running || _state != VoiceIdleState.afk) return;
+        wasAutoMuted = true;
         onAutoMute();
       }
       return;

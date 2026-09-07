@@ -7,6 +7,7 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/external_link.dart';
 import '../../shell/site_url.dart';
+import '../../theme/d_button.dart';
 import 'event_controller.dart';
 import 'event_navigation.dart';
 import 'topic_calendar.dart';
@@ -150,9 +151,10 @@ final class TopicCalendarFallback extends StatelessWidget {
         const Text('Topic calendar'),
         if (text.isNotEmpty) Text(text),
         if (onOpenWeb != null)
-          TextButton(
+          DButton(
+            variant: DButtonVariant.transparentPrimary,
             onPressed: onOpenWeb,
-            child: const Text('Open web calendar'),
+            label: const Text('Open web calendar'),
           )
         else
           const Text('Open the original topic to view this calendar.'),

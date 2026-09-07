@@ -53,7 +53,7 @@ final class SiteVideoSourceResolver {
   final http.Client _client;
 
   bool _closed = false;
-  final Completer<void> _closedSignal = Completer<void>();
+  final Set<void Function()> _closeCallbacks = {};
   final Set<Completer<void>> _abortTriggers = {};
 
   Future<SiteVideoSource> resolve({
@@ -87,7 +87,7 @@ final class SiteVideoSourceResolver {
       final response = await _sendHead(
         current,
         onForum ? forumHeaders : const {},
-        _remaining(elapsed),
+        elapsed,
       );
       _requireCurrent(lease);
 
@@ -109,7 +109,10 @@ final class SiteVideoSourceResolver {
   void close() {
     if (_closed) return;
     _closed = true;
-    _closedSignal.complete();
+    for (final cancel in _closeCallbacks.toList(growable: false)) {
+      cancel();
+    }
+    _closeCallbacks.clear();
     for (final trigger in _abortTriggers.toList(growable: false)) {
       if (!trigger.isCompleted) trigger.complete();
     }
@@ -120,7 +123,7 @@ final class SiteVideoSourceResolver {
   Future<http.StreamedResponse> _sendHead(
     Uri url,
     Map<String, String> headers,
-    Duration timeout,
+    Stopwatch elapsed,
   ) async {
     if (_closed) throw StateError('Video source resolver is closed.');
     final abort = Completer<void>();
@@ -130,26 +133,13 @@ final class SiteVideoSourceResolver {
       url,
       abortTrigger: abort.future,
     )..headers.addAll(headers);
-    final pending = _client.send(request);
+    final pending = Future<http.StreamedResponse>.sync(
+      () => _client.send(request),
+    );
     try {
       late final http.StreamedResponse response;
       try {
-        response = await Future.any<http.StreamedResponse>([
-          pending.timeout(
-            timeout,
-            onTimeout: () {
-              if (!abort.isCompleted) abort.complete();
-              throw TimeoutException(
-                'Timed out resolving video source',
-                timeout,
-              );
-            },
-          ),
-          _closedSignal.future.then<http.StreamedResponse>((_) {
-            if (!abort.isCompleted) abort.complete();
-            throw StateError('Video source resolver is closed.');
-          }),
-        ]);
+        response = await _guard(pending, elapsed);
       } on Object {
         // Closing or timing out can win just before the transport delivers
         // headers. The abandoned response still needs its body cancelled.
@@ -160,8 +150,11 @@ final class SiteVideoSourceResolver {
       }
       // Only status and redirect headers are needed. Do not wait for or buffer
       // a broken server's HEAD body, and release the connection promptly.
-      await response.stream.listen(null).cancel();
+      await _guard(response.stream.listen(null).cancel(), elapsed);
       return response;
+    } on Object {
+      if (!abort.isCompleted) abort.complete();
+      rethrow;
     } finally {
       _abortTriggers.remove(abort);
     }
@@ -179,12 +172,34 @@ final class SiteVideoSourceResolver {
     return remaining;
   }
 
-  Future<T> _guard<T>(Future<T> operation, Stopwatch elapsed) => Future.any<T>([
-    operation.timeout(_remaining(elapsed)),
-    _closedSignal.future.then<T>((_) {
-      throw StateError('Video source resolver is closed.');
-    }),
-  ]);
+  Future<T> _guard<T>(Future<T> operation, Stopwatch elapsed) async {
+    // Even an already-expired deadline must observe a failure from work the
+    // caller has started. Successful work detaches its shutdown callback so
+    // this long-lived resolver does not retain every completed probe.
+    operation.ignore();
+    final remaining = _remaining(elapsed);
+    final cancelled = Completer<T>();
+    void onClose() {
+      if (!cancelled.isCompleted) {
+        cancelled.completeError(StateError('Video source resolver is closed.'));
+      }
+    }
+
+    _closeCallbacks.add(onClose);
+    final timer = Timer(remaining, () {
+      if (!cancelled.isCompleted) {
+        cancelled.completeError(
+          TimeoutException('Timed out resolving video source', requestTimeout),
+        );
+      }
+    });
+    try {
+      return await Future.any<T>([operation, cancelled.future]);
+    } finally {
+      timer.cancel();
+      _closeCallbacks.remove(onClose);
+    }
+  }
 
   static bool _isSecureUpload(Uri url) =>
       url.pathSegments.contains('secure-uploads');

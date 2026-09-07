@@ -5,6 +5,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final slug in ['100%', '%ZZ', '%C', '%FF']) {
+    test(
+      'unreadable escapes in a category slug remain a literal path segment: $slug',
+      () {
+        final category = TopicCategory(
+          id: 7,
+          name: 'Literal slug',
+          color: '123456',
+          slug: slug,
+        );
+        final destination = buildCategoryDestination(
+          category,
+          categoriesById: {7: category},
+        );
+
+        expect(Uri.parse(destination.feedPath!).pathSegments, [
+          'c',
+          slug,
+          '7.json',
+        ]);
+      },
+    );
+  }
+
   test('a hostile deep category chain cannot exhaust the call stack', () {
     final categories = [
       for (var id = 1; id <= 10000; id++)

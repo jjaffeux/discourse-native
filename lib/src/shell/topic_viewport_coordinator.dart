@@ -163,11 +163,13 @@ final class TopicViewportBinding {
       topicId: snapshot.topicId!,
       navigationRevision: snapshot.navigationRevision,
     );
+    final lease = controller.lifecycle.capture(identity.siteUrl);
     return TopicViewportBinding(
       owner: controller,
       identity: identity,
       tabId: tabId,
       isCurrent: () =>
+          lease.isCurrent &&
           controller.activeTabId == tabId &&
           controller.currentInstance?.url == identity.siteUrl &&
           controller.currentTopic?.id == identity.topicId &&
@@ -182,12 +184,17 @@ final class TopicViewportBinding {
             required int topicId,
             required int postNumber,
             required bool caughtUp,
-          }) => controller.markTopicRead(
-            siteUrl,
-            topicId,
-            postNumber,
-            caughtUp: caughtUp,
-          ),
+          }) {
+            // Departing topics still credit their reader, but a queued dwell
+            // callback must never acquire a replacement account's credentials.
+            if (!lease.isCurrent) return Future<void>.value();
+            return controller.markTopicRead(
+              siteUrl,
+              topicId,
+              postNumber,
+              caughtUp: caughtUp,
+            );
+          },
       saveAnchor: (topicId, postNumber, viewportOffset) =>
           controller.saveTopicScrollPost(
             topicId,
@@ -437,7 +444,8 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     if (previous != null &&
         previous.identity == binding.identity &&
         previous.tabId == binding.tabId &&
-        identical(previous.owner, binding.owner)) {
+        identical(previous.owner, binding.owner) &&
+        previous.isCurrent()) {
       return false;
     }
 

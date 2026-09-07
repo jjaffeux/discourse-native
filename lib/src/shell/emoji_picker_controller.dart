@@ -60,6 +60,8 @@ final class EmojiPickerController extends ChangeNotifier {
   bool _disposed = false;
   int _catalogRequest = 0;
   int _aliasRequest = 0;
+  int _toneRevision = 0;
+  int _historyRevision = 0;
   Timer? _debounce;
 
   SiteEmojiCatalog? get catalog => _catalog;
@@ -93,6 +95,8 @@ final class EmojiPickerController extends ChangeNotifier {
   Future<void> load({bool refresh = false}) async {
     if (_disposed || _loading) return;
     final request = ++_catalogRequest;
+    final toneRevision = _toneRevision;
+    final historyRevision = _historyRevision;
     _loading = true;
     _error = null;
     if (refresh) {
@@ -115,23 +119,24 @@ final class EmojiPickerController extends ChangeNotifier {
       }
       _catalog = catalog;
 
+      var tone = EmojiSkinTone.neutral;
       try {
-        _tone = await store.readSkinTone(siteUrl: siteUrl);
-      } catch (_) {
-        _tone = EmojiSkinTone.neutral;
-      }
+        tone = await store.readSkinTone(siteUrl: siteUrl);
+      } catch (_) {}
       if (!_catalogIsCurrent(request)) return;
+      // Preference reads may finish after a choice made in this picker.
+      if (toneRevision == _toneRevision) _tone = tone;
 
+      var favoriteCodes = const <String>[];
       try {
-        _favoriteCodes = await store.favoriteEmojiCodes(
+        favoriteCodes = await store.favoriteEmojiCodes(
           siteUrl: siteUrl,
           context: context,
           catalog: catalog,
         );
-      } catch (_) {
-        _favoriteCodes = const [];
-      }
+      } catch (_) {}
       if (!_catalogIsCurrent(request)) return;
+      if (historyRevision == _historyRevision) _favoriteCodes = favoriteCodes;
 
       if (hasQuery) {
         _scheduleSearch(immediate: true);
@@ -222,12 +227,15 @@ final class EmojiPickerController extends ChangeNotifier {
   }
 
   void setTone(EmojiSkinTone value) {
-    if (_disposed || value == _tone) return;
+    if (_disposed) return;
+    // Selecting neutral while preferences load is still an explicit choice.
+    ++_toneRevision;
+    final changed = _tone != value;
     _tone = value;
-    _notify();
     unawaited(
       store.writeSkinTone(siteUrl: siteUrl, tone: value).catchError((_) {}),
     );
+    if (changed) _notify();
   }
 
   Future<void> clearHistory() async {
@@ -236,7 +244,10 @@ final class EmojiPickerController extends ChangeNotifier {
     _notify();
     try {
       await store.clearHistory(siteUrl: siteUrl, context: context);
-      if (!_disposed) _favoriteCodes = const [];
+      if (!_disposed) {
+        ++_historyRevision;
+        _favoriteCodes = const [];
+      }
     } catch (_) {
     } finally {
       if (!_disposed) {
