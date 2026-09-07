@@ -9,6 +9,7 @@ import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'platform.dart';
+import 'shell_scope.dart';
 import 'shell_sheet.dart';
 
 String topicShareUrl({
@@ -73,6 +74,38 @@ String topicContinuationMarkdown({required String title, required String url}) {
       .replaceAll('[', r'\[')
       .replaceAll(']', r'\]');
   return 'Continue the discussion from [$escaped]($url)';
+}
+
+Future<void> Function()? captureShareReplyAsNewTopic({
+  required BuildContext context,
+  required String siteUrl,
+  required int topicId,
+  required String continuation,
+}) {
+  final controller = ShellScope.read(context);
+  final tabId = controller.activeTabId;
+  final account = controller.currentAccountIdentity;
+  if (controller.currentInstance?.url != siteUrl ||
+      controller.currentContent?.topicId != topicId ||
+      tabId == null) {
+    return null;
+  }
+  final lease = controller.lifecycle.capture(siteUrl);
+
+  // Keep the sheet's delayed action tied to the source that opened it.
+  // The controller owns composer creation and restoration after this check.
+  return () async {
+    if (!context.mounted ||
+        !identical(ShellScope.maybeRead(context), controller) ||
+        !lease.isCurrent ||
+        controller.currentAccountIdentity != account ||
+        controller.currentInstance?.url != siteUrl ||
+        controller.activeTabId != tabId ||
+        controller.currentContent?.topicId != topicId) {
+      return;
+    }
+    await controller.openReplyAsNewTopic(continuation);
+  };
 }
 
 Future<void> showTopicShareSheet({
