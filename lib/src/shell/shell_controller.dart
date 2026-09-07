@@ -211,6 +211,18 @@ final class PostNoticeTarget {
   final SiteLease _lease;
 }
 
+final class TopicPostMoveTarget {
+  const TopicPostMoveTarget._({
+    required this.siteUrl,
+    required this.topicId,
+    required this._lease,
+  });
+
+  final String siteUrl;
+  final int topicId;
+  final SiteLease _lease;
+}
+
 final class TopicPostOwnerTarget {
   const TopicPostOwnerTarget._({
     required this.siteUrl,
@@ -7968,20 +7980,62 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  TopicPostMoveTarget captureTopicPostMoveTarget(String siteUrl, int topicId) =>
+      TopicPostMoveTarget._(
+        siteUrl: siteUrl,
+        topicId: topicId,
+        lease: lifecycle.capture(siteUrl),
+      );
+
+  static const _obsoleteTopicPostMove =
+      'Your connection changed. Reopen Move posts and try again.';
+
+  bool isTopicPostMoveTargetCurrent(TopicPostMoveTarget target) =>
+      !isDisposed && target._lease.isCurrent;
+
+  String? _topicPostMoveRefusal(
+    TopicPostMoveTarget target, {
+    List<int>? postIds,
+    bool newTopic = false,
+  }) {
+    if (!isTopicPostMoveTargetCurrent(target)) return _obsoleteTopicPostMove;
+    final topic = store.read<TopicDetail>(target.siteUrl, target.topicId);
+    final forbidden = const WriteException(WriteFailure.forbidden).message;
+    if (topic == null || !topic.canMovePosts) return forbidden;
+    if (postIds == null) return null;
+    if (postIds.isEmpty ||
+        postIds.any(
+          (id) =>
+              !topic.stream.contains(id) ||
+              store.read<Post>(target.siteUrl, id) == null,
+        )) {
+      return forbidden;
+    }
+    if (newTopic &&
+        (postIds.length == topic.stream.length ||
+            store.read<Post>(target.siteUrl, postIds.first)?.postType !=
+                Post.regularPostType)) {
+      return forbidden;
+    }
+    return null;
+  }
+
   Future<TopicMoveDestinationSearchResult> searchTopicMoveDestinations(
-    String siteUrl,
-    int topicId,
+    TopicPostMoveTarget target,
     String term,
   ) async {
-    final topic = store.read<TopicDetail>(siteUrl, topicId);
+    final siteUrl = target.siteUrl;
+    final topicId = target.topicId;
     final trimmed = term.trim();
-    if (topic == null || !topic.canMovePosts || trimmed.isEmpty) {
+    if (_topicPostMoveRefusal(target) case final error?) {
+      return (destinations: const <TopicMoveDestination>[], error: error);
+    }
+    if (trimmed.isEmpty) {
       return (destinations: const <TopicMoveDestination>[], error: null);
     }
-    final lease = lifecycle.capture(siteUrl);
     final credential = await _credentialForWrite(siteUrl);
-    if (!lease.isCurrent) {
-      return (destinations: const <TopicMoveDestination>[], error: null);
+    if (_topicPostMoveRefusal(target) case final error?) {
+      return (destinations: const <TopicMoveDestination>[], error: error);
     }
     if (credential.failure case final failure?) {
       return (
@@ -7998,8 +8052,8 @@ class ShellController extends FrameSafeNotifier
         restrictToArchetype: 'regular',
         apiKey: credential.apiKey,
       );
-      if (!lease.isCurrent) {
-        return (destinations: const <TopicMoveDestination>[], error: null);
+      if (_topicPostMoveRefusal(target) case final error?) {
+        return (destinations: const <TopicMoveDestination>[], error: error);
       }
       final seen = <int>{};
       return (
@@ -8015,10 +8069,10 @@ class ShellController extends FrameSafeNotifier
     } on WriteException catch (error) {
       return (
         destinations: const <TopicMoveDestination>[],
-        error: error.message,
+        error: _topicPostMoveRefusal(target) ?? error.message,
       );
     } catch (error, stackTrace) {
-      if (lease.isCurrent) {
+      if (isTopicPostMoveTargetCurrent(target)) {
         _reportOperationalError(
           error,
           stackTrace,
@@ -8028,24 +8082,29 @@ class ShellController extends FrameSafeNotifier
       }
       return (
         destinations: const <TopicMoveDestination>[],
-        error: const WriteException(WriteFailure.unreachable).message,
+        error:
+            _topicPostMoveRefusal(target) ??
+            const WriteException(WriteFailure.unreachable).message,
       );
     }
   }
 
   Future<TopicPostMoveResult> moveSelectedTopicPostsToExisting(
-    String siteUrl,
-    int topicId,
+    TopicPostMoveTarget target,
     int destinationTopicId, {
     bool chronologicalOrder = false,
   }) async {
-    final topic = store.read<TopicDetail>(siteUrl, topicId);
+    final siteUrl = target.siteUrl;
+    final topicId = target.topicId;
     final posts = selectedTopicPosts(siteUrl, topicId);
-    if (topic == null ||
-        !topic.canMovePosts ||
-        posts.isEmpty ||
-        destinationTopicId <= 0 ||
-        destinationTopicId == topicId) {
+    if (_topicPostMoveRefusal(
+          target,
+          postIds: [for (final post in posts) post.id],
+        )
+        case final error?) {
+      return (destinationUrl: null, error: error);
+    }
+    if (destinationTopicId <= 0 || destinationTopicId == topicId) {
       return (
         destinationUrl: null,
         error: const WriteException(WriteFailure.forbidden).message,
@@ -8056,6 +8115,9 @@ class ShellController extends FrameSafeNotifier
       apiKey,
       ids,
     ) async {
+      if (_topicPostMoveRefusal(target, postIds: ids) case final error?) {
+        throw WriteException(WriteFailure.forbidden, errors: [error]);
+      }
       destinationUrl = await api.postMutations.movePosts(
         siteUrl: siteUrl,
         apiKey: apiKey,
@@ -8065,6 +8127,9 @@ class ShellController extends FrameSafeNotifier
         chronologicalOrder: chronologicalOrder,
       );
     });
+    if (!isTopicPostMoveTargetCurrent(target)) {
+      return (destinationUrl: null, error: _obsoleteTopicPostMove);
+    }
     return (
       destinationUrl: error == null ? destinationUrl : null,
       error: error,
@@ -8072,21 +8137,23 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<TopicPostMoveResult> moveSelectedTopicPostsToNew(
-    String siteUrl,
-    int topicId, {
+    TopicPostMoveTarget target, {
     required String title,
     int? categoryId,
     List<int> tagIds = const [],
   }) async {
-    final topic = store.read<TopicDetail>(siteUrl, topicId);
+    final siteUrl = target.siteUrl;
+    final topicId = target.topicId;
     final posts = selectedTopicPosts(siteUrl, topicId);
-    final allSelected = topic != null && posts.length == topic.stream.length;
-    if (topic == null ||
-        !topic.canMovePosts ||
-        posts.isEmpty ||
-        allSelected ||
-        posts.first.postType != Post.regularPostType ||
-        title.trim().isEmpty) {
+    if (_topicPostMoveRefusal(
+          target,
+          postIds: [for (final post in posts) post.id],
+          newTopic: true,
+        )
+        case final error?) {
+      return (destinationUrl: null, error: error);
+    }
+    if (title.trim().isEmpty) {
       return (
         destinationUrl: null,
         error: const WriteException(WriteFailure.forbidden).message,
@@ -8097,6 +8164,10 @@ class ShellController extends FrameSafeNotifier
       apiKey,
       ids,
     ) async {
+      if (_topicPostMoveRefusal(target, postIds: ids, newTopic: true)
+          case final error?) {
+        throw WriteException(WriteFailure.forbidden, errors: [error]);
+      }
       destinationUrl = await api.postMutations.movePosts(
         siteUrl: siteUrl,
         apiKey: apiKey,
@@ -8107,6 +8178,9 @@ class ShellController extends FrameSafeNotifier
         tagIds: tagIds,
       );
     });
+    if (!isTopicPostMoveTargetCurrent(target)) {
+      return (destinationUrl: null, error: _obsoleteTopicPostMove);
+    }
     return (
       destinationUrl: error == null ? destinationUrl : null,
       error: error,
