@@ -15,19 +15,40 @@ Future<void> showDoNotDisturbDialog(
 }) {
   final shell = controller ?? ShellScope.read(context);
   final instance = shell.instanceFor(siteUrl);
-  if (instance?.user == null) return Future.value();
+  final user = instance?.user;
+  if (user == null) return Future.value();
+  final lease = shell.lifecycle.capture(siteUrl);
+  // User-menu routes may be dismissed as soon as this dialog is opened.
+  final navigatorContext = Navigator.of(context, rootNavigator: true).context;
+  final scope = ShellScope.maybeRead(navigatorContext);
+  bool ownsAccount() =>
+      navigatorContext.mounted &&
+      !shell.accountSessionDisposed &&
+      lease.isCurrent &&
+      identical(ShellScope.maybeRead(navigatorContext), scope);
   return showDialog<void>(
     context: context,
-    builder: (context) =>
-        _DoNotDisturbDialog(siteUrl: siteUrl, controller: shell),
+    builder: (context) => _DoNotDisturbDialog(
+      siteUrl: siteUrl,
+      username: user.username,
+      controller: shell,
+      ownsAccount: ownsAccount,
+    ),
   );
 }
 
 class _DoNotDisturbDialog extends StatefulWidget {
-  const _DoNotDisturbDialog({required this.siteUrl, required this.controller});
+  const _DoNotDisturbDialog({
+    required this.siteUrl,
+    required this.username,
+    required this.controller,
+    required this.ownsAccount,
+  });
 
   final String siteUrl;
+  final String username;
   final ShellController controller;
+  final bool Function() ownsAccount;
 
   @override
   State<_DoNotDisturbDialog> createState() => _DoNotDisturbDialogState();
@@ -35,9 +56,22 @@ class _DoNotDisturbDialog extends StatefulWidget {
 
 class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
   DoNotDisturbOption? _saving;
+  bool _openingSchedule = false;
   String? _error;
 
+  bool get _isCurrent =>
+      mounted &&
+      widget.ownsAccount() &&
+      ModalRoute.of(context)?.isActive == true;
+
+  bool get _canAct =>
+      _isCurrent &&
+      ModalRoute.of(context)?.isCurrent == true &&
+      _saving == null &&
+      !_openingSchedule;
+
   Future<void> _save(DoNotDisturbOption option) async {
+    if (!_canAct) return;
     setState(() {
       _saving = option;
       _error = null;
@@ -46,9 +80,11 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
       widget.siteUrl,
       option.duration,
     );
-    if (!mounted) return;
+    if (!mounted || !_isCurrent) return;
     if (error == null) {
-      Navigator.of(context).pop();
+      if (ModalRoute.of(context)?.isCurrent == true) {
+        Navigator.of(context).pop();
+      }
     } else {
       setState(() {
         _saving = null;
@@ -58,15 +94,16 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
   }
 
   Future<void> _openSchedule() async {
-    final user = widget.controller.instanceFor(widget.siteUrl)?.user;
-    if (user == null) return;
+    if (!_canAct) return;
+    _openingSchedule = true;
     final messenger = ScaffoldMessenger.of(context);
+    final ownsAccount = widget.ownsAccount;
     Navigator.of(context).pop();
-    final username = Uri.encodeComponent(user.username);
+    final username = Uri.encodeComponent(widget.username);
     final opened = await openExternalLink(
       '${widget.siteUrl}/u/$username/preferences/notifications',
     );
-    if (!opened) {
+    if (!opened && messenger.mounted && ownsAccount()) {
       messenger.showSnackBar(
         const SnackBar(
           content: Text('Could not open notification preferences.'),

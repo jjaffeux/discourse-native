@@ -6,6 +6,7 @@ import '../models/user_status.dart';
 import '../plugin_api/emoji_usage.dart';
 import '../theme/d_button.dart';
 import 'emoji_picker.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
 
@@ -19,14 +20,26 @@ Future<void> showUserStatusEditor(
   if (instance == null || user == null || !instance.config.userStatusEnabled) {
     return Future.value();
   }
+  final lease = controller.lifecycle.capture(siteUrl);
+  // The menu that opens this dialog can close immediately afterward.
+  final navigatorContext = Navigator.of(context, rootNavigator: true).context;
+  bool ownsAccount() =>
+      navigatorContext.mounted &&
+      !controller.accountSessionDisposed &&
+      lease.isCurrent &&
+      identical(ShellScope.maybeRead(navigatorContext), controller);
+  final initialStatus = controller.userStatusFor(siteUrl, user.id, user.status);
+  final initialPauseNotifications = controller.doNotDisturb
+      .stateFor(siteUrl)
+      .isActiveAt(DateTime.now());
   return showDialog<void>(
     context: context,
     builder: (context) => _UserStatusDialog(
       siteUrl: siteUrl,
-      initialStatus: controller.userStatusFor(siteUrl, user.id, user.status),
-      initialPauseNotifications: controller.doNotDisturb
-          .stateFor(siteUrl)
-          .isActiveAt(DateTime.now()),
+      controller: controller,
+      ownsAccount: ownsAccount,
+      initialStatus: initialStatus,
+      initialPauseNotifications: initialPauseNotifications,
     ),
   );
 }
@@ -36,11 +49,15 @@ enum _StatusExpiry { never, oneHour, twoHours, tomorrow, custom }
 class _UserStatusDialog extends StatefulWidget {
   const _UserStatusDialog({
     required this.siteUrl,
+    required this.controller,
+    required this.ownsAccount,
     required this.initialStatus,
     required this.initialPauseNotifications,
   });
 
   final String siteUrl;
+  final ShellController controller;
+  final bool Function() ownsAccount;
   final UserStatus? initialStatus;
   final bool initialPauseNotifications;
 
@@ -55,7 +72,19 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
   DateTime? _customEndsAt;
   late bool _pauseNotifications;
   bool _busy = false;
+  bool _picking = false;
   String? _error;
+
+  bool get _isCurrent =>
+      mounted &&
+      widget.ownsAccount() &&
+      ModalRoute.of(context)?.isActive == true;
+
+  bool get _canAct =>
+      _isCurrent &&
+      ModalRoute.of(context)?.isCurrent == true &&
+      !_busy &&
+      !_picking;
 
   @override
   void initState() {
@@ -71,22 +100,35 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
   }
 
   Future<void> _pickEmoji() async {
-    final shell = ShellScope.read(context);
-    final picked = await showEmojiPicker(
-      context: context,
-      siteUrl: widget.siteUrl,
-      pickerContext: CoreEmojiUsageContexts.userStatus,
-      store: shell.emojiPickerStore,
-      loadCatalog: ({bool refresh = false}) =>
-          shell.ensureEmojiCatalog(widget.siteUrl),
-      loadSearchAliases: ({bool refresh = false}) =>
-          shell.ensureEmojiSearchAliases(widget.siteUrl),
-      anchorContext: context,
-    );
-    if (mounted && picked != null) setState(() => _emoji = picked);
+    if (!_canAct) return;
+    _picking = true;
+    final shell = widget.controller;
+    try {
+      final picked = await showEmojiPicker(
+        context: context,
+        siteUrl: widget.siteUrl,
+        pickerContext: CoreEmojiUsageContexts.userStatus,
+        store: shell.emojiPickerStore,
+        loadCatalog: ({bool refresh = false}) async {
+          if (!_isCurrent) return null;
+          final catalog = await shell.ensureEmojiCatalog(widget.siteUrl);
+          return _isCurrent ? catalog : null;
+        },
+        loadSearchAliases: ({bool refresh = false}) async {
+          if (!_isCurrent) return null;
+          final aliases = await shell.ensureEmojiSearchAliases(widget.siteUrl);
+          return _isCurrent ? aliases : null;
+        },
+        anchorContext: context,
+      );
+      if (_isCurrent && picked != null) setState(() => _emoji = picked);
+    } finally {
+      if (_isCurrent) _picking = false;
+    }
   }
 
   Future<void> _chooseExpiry(_StatusExpiry value) async {
+    if (!_canAct) return;
     if (value != _StatusExpiry.custom) {
       setState(() {
         _expiry = value;
@@ -95,39 +137,44 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
       return;
     }
 
-    final now = DateTime.now();
-    final initial = _customEndsAt?.isAfter(now) == true
-        ? _customEndsAt!
-        : now.add(const Duration(days: 1));
-    final lastDate = DateTime(now.year + 5);
-    final date = await showDatePicker(
-      context: context,
-      initialDate: initial.isAfter(lastDate) ? lastDate : initial,
-      firstDate: now,
-      lastDate: lastDate,
-    );
-    if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-    );
-    if (time == null || !mounted) return;
-    final endsAt = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
-    if (!endsAt.isAfter(DateTime.now())) {
-      setState(() => _error = 'Choose a time in the future.');
-      return;
+    _picking = true;
+    try {
+      final now = DateTime.now();
+      final initial = _customEndsAt?.isAfter(now) == true
+          ? _customEndsAt!
+          : now.add(const Duration(days: 1));
+      final lastDate = DateTime(now.year + 5);
+      final date = await showDatePicker(
+        context: context,
+        initialDate: initial.isAfter(lastDate) ? lastDate : initial,
+        firstDate: now,
+        lastDate: lastDate,
+      );
+      if (date == null || !mounted || !_isCurrent) return;
+      final time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(initial),
+      );
+      if (time == null || !_isCurrent) return;
+      final endsAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+      if (!endsAt.isAfter(DateTime.now())) {
+        setState(() => _error = 'Choose a time in the future.');
+        return;
+      }
+      setState(() {
+        _expiry = value;
+        _customEndsAt = endsAt;
+        _error = null;
+      });
+    } finally {
+      if (_isCurrent) _picking = false;
     }
-    setState(() {
-      _expiry = value;
-      _customEndsAt = endsAt;
-      _error = null;
-    });
   }
 
   DateTime? _endsAt() {
@@ -148,6 +195,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
   }
 
   Future<void> _save() async {
+    if (!_canAct) return;
     final description = _description.text.trim();
     if (description.isEmpty) {
       setState(() => _error = 'Enter a status description.');
@@ -157,16 +205,18 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
       _busy = true;
       _error = null;
     });
-    final error = await ShellScope.read(context).setUserStatus(
+    final error = await widget.controller.setUserStatus(
       widget.siteUrl,
       description: description,
       emoji: _emoji,
       endsAt: _endsAt(),
       pauseNotifications: _pauseNotifications,
     );
-    if (!mounted) return;
+    if (!mounted || !_isCurrent) return;
     if (error == null) {
-      Navigator.of(context).pop();
+      if (ModalRoute.of(context)?.isCurrent == true) {
+        Navigator.of(context).pop();
+      }
     } else {
       setState(() {
         _busy = false;
@@ -176,16 +226,17 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
   }
 
   Future<void> _clear() async {
+    if (!_canAct) return;
     setState(() {
       _busy = true;
       _error = null;
     });
-    final error = await ShellScope.read(
-      context,
-    ).clearUserStatus(widget.siteUrl);
-    if (!mounted) return;
+    final error = await widget.controller.clearUserStatus(widget.siteUrl);
+    if (!mounted || !_isCurrent) return;
     if (error == null) {
-      Navigator.of(context).pop();
+      if (ModalRoute.of(context)?.isCurrent == true) {
+        Navigator.of(context).pop();
+      }
     } else {
       setState(() {
         _busy = false;
@@ -236,7 +287,9 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                         hintText: 'What are you up to?',
                         border: OutlineInputBorder(),
                       ),
-                      onChanged: (_) => setState(() => _error = null),
+                      onChanged: (_) {
+                        if (_canAct) setState(() => _error = null);
+                      },
                       onSubmitted: (_) {
                         if (!_busy) unawaited(_save());
                       },
@@ -297,10 +350,13 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                 value: _pauseNotifications,
                 onChanged: _busy
                     ? null
-                    : (value) => setState(() {
-                        _pauseNotifications = value ?? false;
-                        _error = null;
-                      }),
+                    : (value) {
+                        if (!_canAct) return;
+                        setState(() {
+                          _pauseNotifications = value ?? false;
+                          _error = null;
+                        });
+                      },
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
                 title: const Text('Pause notifications'),
