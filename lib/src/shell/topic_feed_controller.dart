@@ -121,11 +121,14 @@ final class TopicFeedController extends FrameSafeNotifier {
   }
 
   Future<void> _startLoad(_FeedKey key, _FeedLoad load) {
-    late final Future<void> request;
-    request = _performLoad(key, load).whenComplete(() {
-      _finishLoad(key, request);
-    });
+    final completion = Completer<void>();
+    final request = completion.future;
+    // Loading notifications can synchronously retry or forget this feed.
+    // Publish ownership before the worker exposes its loading state.
     _loadRequests[key] = request;
+    completion.complete(
+      _performLoad(key, load).whenComplete(() => _finishLoad(key, request)),
+    );
     return request;
   }
 
@@ -166,14 +169,20 @@ final class TopicFeedController extends FrameSafeNotifier {
       );
       _commit(lease, () {
         if (!identical(_revisions[key], revision)) return;
-        _putTopics(instance.url, list.topics, personalizationVersion);
+        if (!_putTopics(
+          instance.url,
+          list.topics,
+          personalizationVersion,
+          requestIsCurrent,
+        )) {
+          return;
+        }
         _feeds[key] = TopicFeed.of(list);
         _rows.remove(key);
         notifySafely();
-        // Publishing can synchronously dispose this owner through a listener.
-        // Do not let its post-load hook start category work for a replacement
-        // shell after that ownership boundary.
-        if (!isDisposed) {
+        // Publishing can synchronously replace the account or forget the feed.
+        // Its completion hook must retain the same owner as the response.
+        if (requestIsCurrent()) {
           onFeedLoaded?.call(
             instance,
             apiKey,
@@ -279,7 +288,14 @@ final class TopicFeedController extends FrameSafeNotifier {
 
       _commit(lease, () {
         if (!requestIsCurrent()) return;
-        _putTopics(instance.url, list.topics, personalizationVersion);
+        if (!_putTopics(
+          instance.url,
+          list.topics,
+          personalizationVersion,
+          requestIsCurrent,
+        )) {
+          return;
+        }
         final held = _feeds[key] ?? feed;
         final arrived = [for (final topic in list.topics) topic.id];
         final prepended = arrived.toSet();
@@ -293,7 +309,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         incoming.clear(destinationId, ids);
         _rows[key] = 0;
         notifySafely();
-        if (!isDisposed) {
+        if (requestIsCurrent()) {
           onFeedLoaded?.call(
             instance,
             apiKey,
@@ -369,7 +385,14 @@ final class TopicFeedController extends FrameSafeNotifier {
 
       _commit(lease, () {
         if (!requestIsCurrent()) return;
-        _putTopics(instance.url, next.topics, personalizationVersion);
+        if (!_putTopics(
+          instance.url,
+          next.topics,
+          personalizationVersion,
+          requestIsCurrent,
+        )) {
+          return;
+        }
         final held = _feeds[key];
         if (held == null) return;
         final seen = held.topicIds.toSet();
@@ -390,7 +413,7 @@ final class TopicFeedController extends FrameSafeNotifier {
               next.nextPagePath == feed.nextPagePath,
           clearError: true,
         );
-        if (!isDisposed) {
+        if (requestIsCurrent()) {
           onFeedLoaded?.call(
             instance,
             apiKey,
@@ -451,21 +474,23 @@ final class TopicFeedController extends FrameSafeNotifier {
     if (_feeds.length != before) notifySafely();
   }
 
-  void _putTopics(
+  bool _putTopics(
     String siteUrl,
     Iterable<Topic> topics,
     int? versionAtDispatch,
+    bool Function() requestIsCurrent,
   ) {
     final prepare = prepareTopicForStore;
-    store.putAll(
-      siteUrl,
-      prepare == null
-          ? topics
-          : [
-              for (final topic in topics)
-                prepare(siteUrl, topic, versionAtDispatch),
-            ],
-    );
+    for (final topic in topics) {
+      if (!requestIsCurrent()) return false;
+      final incoming =
+          prepare?.call(siteUrl, topic, versionAtDispatch) ?? topic;
+      if (!requestIsCurrent()) return false;
+      // Record refs notify independently of the feed. An observer may forget
+      // the site, in which case the remaining rows must not repopulate it.
+      store.put(siteUrl, incoming);
+    }
+    return requestIsCurrent();
   }
 
   Iterable<int> _categoryIds(Iterable<Topic> topics) => <int>{
