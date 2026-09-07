@@ -48,6 +48,7 @@ import 'shell_scope.dart';
 import 'site_image.dart';
 import 'topic_category_picker.dart';
 import 'topic_tag_picker.dart';
+import 'topic_title.dart';
 
 const double _composerPanelRadius = 22;
 const double _composerHeaderHeight = 44;
@@ -3160,9 +3161,10 @@ class _Header extends StatelessWidget {
               ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
+              child: TopicTitle(
                 label,
                 key: const ValueKey('composer-title'),
+                siteUrl: target.siteUrl,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelLarge?.copyWith(
