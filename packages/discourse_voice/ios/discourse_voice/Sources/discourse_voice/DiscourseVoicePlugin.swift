@@ -203,6 +203,7 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
         activeCall = nil
         muted = false
       }
+      completePendingEnd(call: uuid, result: nil)
       emitDiagnostic("callkit.incoming_end.reported", data: ["reason": reason])
       result(nil)
     case "failed":
@@ -392,6 +393,9 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
     if incomingCall == uuid {
       clearIncomingCall()
     }
+    // Reporting the call ended may supersede its pending provider action.
+    // Its Dart teardown future still needs a completion at this boundary.
+    completePendingEnd(call: uuid, result: nil)
   }
 
   func providerDidReset(_ provider: CXProvider) {
