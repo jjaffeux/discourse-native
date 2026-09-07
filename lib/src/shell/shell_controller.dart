@@ -11717,6 +11717,7 @@ class ShellController extends FrameSafeNotifier
       _removeComposer(composer);
     }
 
+    aggregate.forget(siteUrl);
     accountActivity.forget(siteUrl);
     draftList.forget(siteUrl);
     userSummary.forget(siteUrl);

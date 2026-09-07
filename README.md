@@ -2690,6 +2690,14 @@ another to reorder them; the active context stays selected and the new order
 is restored after launch. The app-wide Aggregate workspace uses the same tab
 ordering interaction.
 
+Aggregate refreshes and paging share their admitted futures. Each forum source
+retains its original account lease through credential reads, queued transport,
+and buffered topic delivery. Disconnecting or replacing an account removes its
+rows and paging credentials from every affected tab; other visible rows and
+saved tab filters remain, and reopening refreshes the invalidated feed. Server
+pagination cycles stop after the last distinct page rather than repeatedly
+fetching empty or duplicate-only results.
+
 Active tabs join the content with rounded top corners and curved feet. Inactive
 tabs use an inset, rounded tertiary-low hover surface; adjacent dividers
 disappear while hovered. Close icons appear on tab hover or when the close
