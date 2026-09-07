@@ -712,16 +712,19 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
         youtubeWebViewCreationParams(),
       );
       _controller = controller;
-      final documentBase =
-          widget.forumOrigin ?? Uri.parse('https://www.youtube.com');
       unawaited(
-        _configure(controller, documentBase, generation).catchError((
-          Object error,
-          StackTrace stack,
-        ) {
-          if (!mounted || generation != _generation) return;
+        _configure(
+          controller,
+          widget.data,
+          widget.forumOrigin,
+          generation,
+        ).catchError((Object error, StackTrace stack) {
+          if (!_isCurrent(controller, generation)) return;
           _report(error, stack);
-          setState(() => _error = error);
+          setState(() {
+            _controller = null;
+            _error = error;
+          });
         }),
       );
     } on Object catch (error, stack) {
@@ -731,23 +734,35 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
     }
   }
 
+  bool _isCurrent(WebViewController controller, int generation) =>
+      mounted &&
+      generation == _generation &&
+      identical(_controller, controller);
+
   Future<void> _configure(
     WebViewController controller,
-    Uri documentBase,
+    YoutubeVideoData data,
+    Uri? forumOrigin,
     int generation,
   ) async {
+    final documentBase = forumOrigin ?? Uri.parse('https://www.youtube.com');
     await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+    if (!_isCurrent(controller, generation)) return;
     await controller.setBackgroundColor(Colors.black);
+    if (!_isCurrent(controller, generation)) return;
     await controller.setNavigationDelegate(
       NavigationDelegate(
         onNavigationRequest: (request) {
+          if (!_isCurrent(controller, generation)) {
+            return NavigationDecision.prevent;
+          }
           if (!request.isMainFrame) return NavigationDecision.navigate;
           if (_loadingDocument &&
               (isYoutubeDocumentNavigation(request.url, documentBase) ||
                   isYoutubeInitialEmbedNavigation(
                     request.url,
-                    widget.data,
-                    forumOrigin: widget.forumOrigin,
+                    data,
+                    forumOrigin: forumOrigin,
                   ))) {
             return NavigationDecision.navigate;
           }
@@ -755,12 +770,13 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
           return NavigationDecision.prevent;
         },
         onPageFinished: (_) {
-          if (generation == _generation) _loadingDocument = false;
+          if (_isCurrent(controller, generation)) _loadingDocument = false;
         },
       ),
     );
+    if (!_isCurrent(controller, generation)) return;
     await controller.loadHtmlString(
-      buildYoutubeEmbedHtml(widget.data, forumOrigin: widget.forumOrigin),
+      buildYoutubeEmbedHtml(data, forumOrigin: forumOrigin),
       baseUrl: documentBase.toString(),
     );
   }

@@ -2341,6 +2341,9 @@ Playback uses YouTube's official iframe, never an extracted media stream. The
 wrapper supplies the source forum's origin as the referrer/client identity,
 allows iframe navigation, and prevents a link from replacing the app's
 top-level WebView — safe links are handed to the system browser instead.
+Native setup and navigation callbacks belong to the player that created them;
+closing the player or changing its source revokes further setup and prevents
+retired callbacks from opening browser windows or changing the new document.
 `webview_all` is confined to app-owned activated media surfaces, keeping
 Discourse markup parsing and the native posters independent of the platform
 package.
