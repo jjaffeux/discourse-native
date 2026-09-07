@@ -49,7 +49,7 @@ class ContentNavigationControls extends StatelessWidget {
                 shortcut: DShortcut(
                   contentBackShortcutForPlatform(defaultTargetPlatform),
                 ),
-                variant: DButtonVariant.flat,
+                variant: DButtonVariant.transparent,
                 size: DButtonSize.small,
                 onPressed: state.back
                     ? () => controller.handleBack(canReturnToSidebar: false)
@@ -63,7 +63,7 @@ class ContentNavigationControls extends StatelessWidget {
                 shortcut: DShortcut(
                   contentForwardShortcutForPlatform(defaultTargetPlatform),
                 ),
-                variant: DButtonVariant.flat,
+                variant: DButtonVariant.transparent,
                 size: DButtonSize.small,
                 onPressed: state.forward ? controller.handleForward : null,
               ),
@@ -74,7 +74,7 @@ class ContentNavigationControls extends StatelessWidget {
                 shortcut: DShortcut(
                   refreshTabShortcutForPlatform(defaultTargetPlatform),
                 ),
-                variant: DButtonVariant.flat,
+                variant: DButtonVariant.transparent,
                 size: DButtonSize.small,
                 loading: state.refreshing,
                 onPressed: state.refresh

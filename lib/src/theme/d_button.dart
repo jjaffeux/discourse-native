@@ -203,7 +203,17 @@ class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
       success: filled(background: success, foreground: colors.surface),
       flat: flat,
       flatClose: flat,
-      transparent: transparent(colors.onSurface),
+      transparent: DButtonVariantStyle(
+        enabled: state(
+          foreground: colors.onSurface,
+          icon: colors.onSurfaceVariant,
+          background: Colors.transparent,
+        ),
+        interactive: state(
+          foreground: colors.primary,
+          background: Colors.transparent,
+        ),
+      ),
       transparentPrimary: transparent(colors.primary),
       transparentDanger: transparent(colors.error),
       transparentSuccess: transparent(success),
