@@ -201,8 +201,9 @@ class Topic with Storable<Topic> {
       excerpt: jsonHtmlText(json['excerpt']),
       lastPosterUsername: jsonText(json['last_poster_username']),
       lastPosterAvatarUrl:
-          avatarsByUsername[jsonText(json['last_poster_username'])
-              ?.toLowerCase()],
+          avatarsByUsername[jsonText(
+            json['last_poster_username'],
+          )?.toLowerCase()],
       categoryId: json['category_id'] == null
           ? null
           : jsonInt(json['category_id']),
