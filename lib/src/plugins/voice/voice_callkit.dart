@@ -107,8 +107,13 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
     this.diagnostics = const NoopVoiceDiagnosticsRecorder(),
     @visibleForTesting bool installMethodCallHandlerForTesting = false,
     @visibleForTesting VoiceAudioSession? audioSessionForTesting,
+    @visibleForTesting bool invokeNativeCommandsForTesting = false,
   }) : _handlesMethodCalls =
-           Platform.isIOS || installMethodCallHandlerForTesting,
+           Platform.isIOS ||
+           installMethodCallHandlerForTesting ||
+           invokeNativeCommandsForTesting,
+       _invokesNativeCommands =
+           Platform.isIOS || invokeNativeCommandsForTesting,
        _managesAudioSession = Platform.isIOS || audioSessionForTesting != null,
        _audioSession =
            audioSessionForTesting ?? const _LiveKitVoiceAudioSession() {
@@ -136,6 +141,7 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
   final _actions = StreamController<VoiceSystemCallAction>.broadcast();
   final VoiceDiagnosticsRecorder diagnostics;
   final bool _handlesMethodCalls;
+  final bool _invokesNativeCommands;
   final bool _managesAudioSession;
   final VoiceAudioSession _audioSession;
   late final Future<void> _ready;
@@ -350,8 +356,15 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
   @visibleForTesting
   Future<void> get audioSessionReadyForTesting => _ready;
 
+  // Both boundaries are shared across instances, including while work is held
+  // on readiness or a native response.
+  bool get _ownsNativeCall =>
+      _disposeOperation == null &&
+      identical(_methodCallHandlerOwner, this) &&
+      (!_managesAudioSession || identical(_audioSessionOwner, this));
+
   Future<void> _invoke(String method, [Map<String, Object?>? arguments]) async {
-    if (!Platform.isIOS) {
+    if (!_invokesNativeCommands || !_ownsNativeCall) {
       _record('callkit.command.skipped', data: {'method': method});
       return;
     }
@@ -364,9 +377,12 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
     }
     try {
       await _awaitReady();
+      if (!_ownsNativeCall) return;
       await _channel.invokeMethod<void>(method, arguments);
+      if (!_ownsNativeCall) return;
       _record('callkit.command.completed', data: {'method': method});
     } catch (error, stackTrace) {
+      if (!_ownsNativeCall) return;
       _record(
         'callkit.command.failed',
         severity: DiagnosticSeverity.warning,
@@ -404,7 +420,7 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
     required String roomName,
     required String handle,
   }) async {
-    if (!Platform.isIOS) {
+    if (!_invokesNativeCommands || !_ownsNativeCall) {
       _record(
         'callkit.command.skipped',
         data: {'method': 'reportIncomingCall'},
@@ -414,16 +430,19 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
     _record('callkit.command.started', data: {'method': 'reportIncomingCall'});
     try {
       await _awaitReady();
+      if (!_ownsNativeCall) return false;
       final presented = await _channel.invokeMethod<bool>(
         'reportIncomingCall',
         {'callerName': callerName, 'roomName': roomName, 'handle': handle},
       );
+      if (!_ownsNativeCall) return false;
       _record(
         'callkit.command.completed',
         data: {'method': 'reportIncomingCall', 'presented': presented == true},
       );
       return presented == true;
     } catch (error, stackTrace) {
+      if (!_ownsNativeCall) return false;
       // Not presenting is a fallback, not a failure: the app rings itself.
       _record(
         'callkit.command.failed',
