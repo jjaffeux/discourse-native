@@ -4,6 +4,44 @@ import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'camera preference defaults off and belongs to a site and account',
+    () async {
+      final persistence = _MemoryPersistence();
+      final preferences = SharedPreferencesVoicePreferences(
+        persistence: persistence,
+      );
+      const site = 'https://meta.discourse.org';
+      expect(await preferences.readCameraEnabled(site, 1), isFalse);
+
+      await preferences.writeCameraEnabled(site, 1, true);
+      final replacement = SharedPreferencesVoicePreferences(
+        persistence: persistence,
+      );
+
+      expect(await replacement.readCameraEnabled(site, 1), isTrue);
+      expect(await replacement.readCameraEnabled(site, 2), isFalse);
+      expect(
+        await replacement.readCameraEnabled('https://other.example.com', 1),
+        isFalse,
+      );
+
+      await replacement.writeCameraEnabled(site, 1, false);
+      expect(await preferences.readCameraEnabled(site, 1), isFalse);
+    },
+  );
+
+  test('a rejected camera preference write reports failure', () async {
+    final preferences = SharedPreferencesVoicePreferences(
+      persistence: _ControlledPersistence(acceptBoolWrites: false),
+    );
+
+    await expectLater(
+      preferences.writeCameraEnabled('https://meta.discourse.org', 1, true),
+      throwsStateError,
+    );
+  });
+
   test('replacement device writes persist the latest request', () async {
     final persistence = _ControlledPersistence();
     addTearDown(() {

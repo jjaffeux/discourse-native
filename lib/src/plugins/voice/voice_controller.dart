@@ -53,6 +53,10 @@ final class _VoiceParticipantSession {
   String? id;
 }
 
+final class _VoiceCameraRestore {
+  bool again = false;
+}
+
 String _joinFailureMessage(Object error, VoiceRoom room) {
   if (error is WriteException) return error.message;
   if (error is VoiceMicrophoneException) {
@@ -233,6 +237,7 @@ final class VoiceController extends ChangeNotifier {
     VoiceDiagnosticsRecorder? diagnostics,
     VoicePreferences? preferences,
     VoiceIdleThresholdsLookup? idleThresholdsFor,
+    int Function(String siteUrl)? videoMaxPublishersFor,
     Duration Function()? idleClock,
     VoiceIdleTimerFactory? timerFactory,
     DateTime Function()? clock,
@@ -243,6 +248,8 @@ final class VoiceController extends ChangeNotifier {
     this.signalBatchDelay = const Duration(milliseconds: 200),
   }) : _requests = requests,
        _idleThresholdsFor = idleThresholdsFor ?? _defaultIdleThresholds,
+       _videoMaxPublishersFor =
+           videoMaxPublishersFor ?? _defaultVideoMaxPublishers,
        _timerFactory = timerFactory ?? Timer.new,
        _clock = clock ?? DateTime.now,
        _siteNameFor = siteNameFor,
@@ -268,12 +275,15 @@ final class VoiceController extends ChangeNotifier {
       timerFactory: _timerFactory,
     );
     _systemActions = this.systemCall.actions.listen(_onSystemAction);
-    unawaited(_restoreDevicePreferences());
+    _devicePreferencesLoaded = _restoreDevicePreferences();
     unawaited(_restoreAutoStatusPreference());
   }
 
   static VoiceIdleThresholds _defaultIdleThresholds(String _) =>
       voiceIdleThresholds(const VoiceClientConfig());
+
+  static int _defaultVideoMaxPublishers(String _) =>
+      const VoiceClientConfig().videoMaxPublishers;
 
   final VoiceApi api;
   final ChatConversationCapability chatConversations;
@@ -288,6 +298,7 @@ final class VoiceController extends ChangeNotifier {
   final VoiceDiagnosticsRecorder diagnostics;
   final VoicePreferences _preferences;
   final VoiceIdleThresholdsLookup _idleThresholdsFor;
+  final int Function(String siteUrl) _videoMaxPublishersFor;
   final VoiceIdleTimerFactory _timerFactory;
   final DateTime Function() _clock;
   final VoiceSiteNameLookup? _siteNameFor;
@@ -352,8 +363,19 @@ final class VoiceController extends ChangeNotifier {
   String? _cameraDeviceId;
   bool _pushToTalkEnabled = false;
   bool _autoStatusEnabled = true;
+  bool _foreground = true;
+  late final Future<void> _devicePreferencesLoaded;
+  final Map<(String, int), Future<bool>> _cameraPreferences = {};
+  final SerialOperationQueue _cameraOperations = SerialOperationQueue();
+  int _cameraRevision = 0;
+  (VoiceMediaSession, int)? _startingCamera;
+  final Expando<_VoiceCameraRestore> _cameraRestores =
+      Expando<_VoiceCameraRestore>();
 
   VoiceCallSnapshot? get call => _call;
+
+  /// Whether a camera capture for the current call can still be cancelled.
+  bool get cameraStarting => _startingCamera == (_call?.media, _cameraRevision);
   String? get activeSiteUrl => _call?.siteUrl;
   bool get hasCall => _call != null;
   bool get supportedPlatform =>
@@ -639,6 +661,7 @@ final class VoiceController extends ChangeNotifier {
     _roomVideoWatchers[key] = previous + 1;
     if (previous == 0 && _isCurrentWatchedRoom(siteUrl, roomId)) {
       unawaited(_requestStateSync());
+      _restorePreferredCamera();
     }
   }
 
@@ -649,6 +672,7 @@ final class VoiceController extends ChangeNotifier {
     if (previous <= 1) {
       _roomVideoWatchers.remove(key);
       if (previous == 1 && _isCurrentWatchedRoom(siteUrl, roomId)) {
+        _cameraRevision++;
         unawaited(_requestStateSync());
       }
     } else {
@@ -2056,6 +2080,7 @@ final class VoiceController extends ChangeNotifier {
         },
       );
       notifyListeners();
+      _restorePreferredCamera();
     } catch (error, stackTrace) {
       if (media case final activeMedia?) {
         await _disposeMedia(activeMedia, 'voice.media.disposeAfterJoin');
@@ -2277,6 +2302,12 @@ final class VoiceController extends ChangeNotifier {
   /// the app can least rely on its timers.
   void setForeground(bool foreground) {
     if (_disposed) return;
+    _foreground = foreground;
+    if (foreground) {
+      _restorePreferredCamera();
+    } else {
+      _cameraRevision++;
+    }
     if (foreground) _idleTracker.recordActivity();
     if (_call != null) unawaited(_requestHeartbeat());
   }
@@ -2408,19 +2439,190 @@ final class VoiceController extends ChangeNotifier {
 
   Future<void> setCameraEnabled(bool enabled, {String? deviceId}) {
     _userActed();
-    return _setCameraEnabled(enabled, deviceId: deviceId);
+    return _setCameraEnabled(enabled, deviceId: deviceId, remember: true);
   }
 
-  Future<void> _setCameraEnabled(bool enabled, {String? deviceId}) =>
-      _updateMediaState(
-        media: (call) => call.media.setCameraEnabled(
-          enabled,
-          deviceId: deviceId ?? _cameraDeviceId,
-        ),
-        update: (call) => call.copyWith(cameraEnabled: enabled),
-        rollback: (current, previous) =>
-            current.copyWith(cameraEnabled: previous.cameraEnabled),
-      );
+  Future<void> _setCameraEnabled(
+    bool enabled, {
+    String? deviceId,
+    bool remember = false,
+  }) async {
+    final call = _call;
+    if (_disposed || call == null || call.status == VoiceCallStatus.leaving) {
+      return;
+    }
+    final revision = ++_cameraRevision;
+    final userId = _userIdFor(call.siteUrl);
+    final siteSession = _siteSession(call.siteUrl);
+    bool isCurrent() =>
+        _isCurrentCall(call, siteSession) &&
+        (!enabled || revision == _cameraRevision) &&
+        _userIdFor(call.siteUrl) == userId;
+    // Turning off is deliberate even if capture or persistence is still pending.
+    final saving = !enabled && remember && userId != null
+        ? _rememberCamera(call.siteUrl, userId, false)
+        : Future<void>.value();
+    _startingCamera = enabled ? (call.media, revision) : null;
+    notifyListeners();
+    var applied = false;
+    await _cameraOperations
+        .run(
+          owner: this,
+          key: call.media,
+          operation: () async {
+            if (!isCurrent()) return;
+            try {
+              await call.media.setCameraEnabled(
+                enabled,
+                deviceId: deviceId ?? _cameraDeviceId,
+                shouldContinue: isCurrent,
+              );
+              if (!isCurrent()) {
+                if (enabled) await call.media.setCameraEnabled(false);
+                return;
+              }
+              applied = true;
+              _call = _call!.copyWith(cameraEnabled: enabled);
+              notifyListeners();
+            } catch (error, stackTrace) {
+              if (isCurrent()) {
+                _call = _call!.copyWith(
+                  error: 'The media setting was not applied.',
+                );
+                notifyListeners();
+              }
+              _report(error, stackTrace, 'voice.mediaState');
+            }
+          },
+        )
+        .whenComplete(() => _finishStartingCamera(call.media, revision));
+    // Stopping capture must never wait behind a slow preference or state write.
+    if (applied && isCurrent()) {
+      if (enabled && remember && userId != null) {
+        await _rememberCamera(call.siteUrl, userId, true);
+      }
+      if (isCurrent()) await _requestStateSync();
+    }
+    await saving;
+  }
+
+  void _finishStartingCamera(VoiceMediaSession media, int revision) {
+    if (_startingCamera != (media, revision)) return;
+    _startingCamera = null;
+    if (!_disposed && identical(_call?.media, media)) notifyListeners();
+  }
+
+  Future<void> _rememberCamera(String siteUrl, int userId, bool enabled) {
+    _cameraPreferences[(siteUrl, userId)] = Future.value(enabled);
+    return _persistPreference(
+      () => _preferences.writeCameraEnabled(siteUrl, userId, enabled),
+      'voice.preferences.cameraEnabled',
+    );
+  }
+
+  Future<bool> _readCameraPreference(String siteUrl, int userId) async {
+    try {
+      return await _preferences.readCameraEnabled(siteUrl, userId);
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, 'voice.preferences.cameraEnabled');
+      return false;
+    }
+  }
+
+  bool _canRestoreCamera(VoiceCallSnapshot call, int userId) {
+    final current = _call;
+    if (_disposed ||
+        !_foreground ||
+        current == null ||
+        !identical(current.media, call.media) ||
+        _userIdFor(call.siteUrl) != userId ||
+        current.status != VoiceCallStatus.connected ||
+        !_isWatching(current) ||
+        current.cameraEnabled ||
+        current.screenSharing ||
+        !current.room.videoAllowed ||
+        !current.room.videoEnabled ||
+        !_canPublishAudio(current.room, current.room.participants, userId)) {
+      return false;
+    }
+    final publishers = current.room.participants.where(
+      (participant) =>
+          participant.id != userId &&
+          (participant.videoOn || participant.screenSharing),
+    );
+    return publishers.length < _videoMaxPublishersFor(call.siteUrl);
+  }
+
+  void _restorePreferredCamera() {
+    if (_disposed) return;
+    final call = _call;
+    if (call == null) return;
+    final pending = _cameraRestores[call.media];
+    if (pending != null) {
+      pending.again = true;
+      return;
+    }
+    final userId = _userIdFor(call.siteUrl);
+    if (userId == null || !_canRestoreCamera(call, userId)) return;
+    final revision = _cameraRevision;
+    final siteSession = _siteSession(call.siteUrl);
+    bool isCurrent() =>
+        revision == _cameraRevision &&
+        _isCurrentCall(call, siteSession) &&
+        _canRestoreCamera(call, userId);
+    final preference = _cameraPreferences.putIfAbsent((
+      call.siteUrl,
+      userId,
+    ), () => _readCameraPreference(call.siteUrl, userId));
+    final restore = _VoiceCameraRestore();
+    _cameraRestores[call.media] = restore;
+    unawaited(
+      (() async {
+            if (!await preference) return;
+            await _devicePreferencesLoaded;
+            if (!isCurrent()) return;
+            await _cameraOperations
+                .run(
+                  owner: this,
+                  key: call.media,
+                  operation: () async {
+                    if (!isCurrent()) return;
+                    _startingCamera = (call.media, revision);
+                    notifyListeners();
+                    if (!isCurrent()) return;
+                    await call.media.setCameraEnabled(
+                      true,
+                      deviceId: _cameraDeviceId,
+                      shouldContinue: isCurrent,
+                    );
+                    if (!isCurrent()) {
+                      await call.media.setCameraEnabled(false);
+                      return;
+                    }
+                    _call = _call!.copyWith(cameraEnabled: true);
+                    notifyListeners();
+                  },
+                )
+                .whenComplete(
+                  () => _finishStartingCamera(call.media, revision),
+                );
+            if (_isCurrentCall(call, siteSession) &&
+                revision == _cameraRevision) {
+              await _requestStateSync();
+            }
+          })()
+          .catchError((Object error, StackTrace stackTrace) {
+            // An automatic attempt must leave the audio call usable without a modal.
+            _report(error, stackTrace, 'voice.camera.restore');
+          })
+          .whenComplete(() {
+            _cameraRestores[call.media] = null;
+            if (restore.again && identical(_call?.media, call.media)) {
+              _restorePreferredCamera();
+            }
+          }),
+    );
+  }
 
   Future<List<rtc.MediaDeviceInfo>> mediaDevices() =>
       _runPublicValueOperation<List<rtc.MediaDeviceInfo>>(
@@ -2511,6 +2713,7 @@ final class VoiceController extends ChangeNotifier {
 
   Future<void> _selectCamera(String deviceId) async {
     if (_disposed) return;
+    final revision = ++_cameraRevision;
     _cameraDeviceId = deviceId;
     final correlationId =
         _activeDiagnosticCorrelationId ??
@@ -2527,14 +2730,48 @@ final class VoiceController extends ChangeNotifier {
               _preferences.writeDevice(VoiceDevicePreference.camera, deviceId),
           'voice.preferences.camera',
         );
-        if (_disposed) return;
+        if (_disposed || revision != _cameraRevision) return;
         final call = _call;
-        if (call == null || !call.cameraEnabled) return;
+        if (call == null) return;
+        if (!call.cameraEnabled) {
+          _restorePreferredCamera();
+          return;
+        }
         final media = call.media;
-        await media.setCameraEnabled(false);
-        if (_disposed || !identical(_call?.media, media)) return;
-        await media.setCameraEnabled(true, deviceId: deviceId);
-        if (_disposed || !identical(_call?.media, media)) return;
+        final siteSession = _siteSession(call.siteUrl);
+        bool isCurrent() =>
+            revision == _cameraRevision && _isCurrentCall(call, siteSession);
+        await _cameraOperations
+            .run(
+              owner: this,
+              key: media,
+              operation: () async {
+                if (!isCurrent()) return;
+                await media.setCameraEnabled(false);
+                if (!_isCurrentCall(call, siteSession)) return;
+                _call = _call!.copyWith(cameraEnabled: false);
+                _startingCamera = (media, revision);
+                notifyListeners();
+                if (!isCurrent()) return;
+                await media.setCameraEnabled(
+                  true,
+                  deviceId: deviceId,
+                  shouldContinue: isCurrent,
+                );
+                if (!isCurrent()) {
+                  await media.setCameraEnabled(false);
+                  return;
+                }
+                _call = _call!.copyWith(cameraEnabled: true);
+                notifyListeners();
+              },
+            )
+            .whenComplete(() {
+              _finishStartingCamera(media, revision);
+              if (_isCurrentCall(call, siteSession)) {
+                unawaited(_requestStateSync());
+              }
+            });
       },
     );
     if (_disposed) return;
@@ -2619,7 +2856,7 @@ final class VoiceController extends ChangeNotifier {
       if (_disposed) return;
       _audioInputDeviceId = preferences.audioInputDeviceId;
       _audioOutputDeviceId = preferences.audioOutputDeviceId;
-      _cameraDeviceId = preferences.cameraDeviceId;
+      _cameraDeviceId ??= preferences.cameraDeviceId;
       _pushToTalkEnabled = preferences.pushToTalkEnabled;
       _record(
         'preferences.devices.restore_completed',
@@ -2791,12 +3028,16 @@ final class VoiceController extends ChangeNotifier {
     return _setScreenSharing(enabled);
   }
 
-  Future<void> _setScreenSharing(bool enabled) => _updateMediaState(
-    media: (call) => call.media.setScreenShareEnabled(enabled),
-    update: (call) => call.copyWith(screenSharing: enabled),
-    rollback: (current, previous) =>
-        current.copyWith(screenSharing: previous.screenSharing),
-  );
+  Future<void> _setScreenSharing(bool enabled) async {
+    _cameraRevision++;
+    await _updateMediaState(
+      media: (call) => call.media.setScreenShareEnabled(enabled),
+      update: (call) => call.copyWith(screenSharing: enabled),
+      rollback: (current, previous) =>
+          current.copyWith(screenSharing: previous.screenSharing),
+    );
+    if (!enabled) _restorePreferredCamera();
+  }
 
   Future<void> _updateMediaState({
     required Future<void> Function(VoiceCallSnapshot call) media,
@@ -2979,6 +3220,7 @@ final class VoiceController extends ChangeNotifier {
     final operation = completion.future;
     _leavingMedia = call.media;
     _leaveOperation = operation;
+    _cameraRevision++;
     _joinRevision = Object();
     _signalBatchers[call.media]?.close();
     _heartbeat?.cancel();
@@ -3969,8 +4211,12 @@ final class VoiceController extends ChangeNotifier {
       if (updated.status == VoiceCallStatus.connected &&
           call.status != VoiceCallStatus.connected) {
         _startHeartbeat();
+        _restorePreferredCamera();
       }
-      if (screenShareEnded) unawaited(_requestStateSync());
+      if (screenShareEnded) {
+        unawaited(_requestStateSync());
+        _restorePreferredCamera();
+      }
     }
     notifyListeners();
   }

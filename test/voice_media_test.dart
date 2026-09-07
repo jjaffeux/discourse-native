@@ -384,6 +384,43 @@ void main() {
       },
     );
 
+    test('discards a cancelled camera capture before publishing it', () async {
+      final camera = _FakeTrack('camera', 'video');
+      final stream = _FakeStream('camera-stream', [camera]);
+      final capturing = Completer<void>();
+      final captured = Completer<rtc.MediaStream>();
+      final peer = _FakePeerConnection();
+      final media = _meshSession(
+        peer: peer,
+        audioPublishingAllowed: false,
+        getUserMedia: (_) {
+          capturing.complete();
+          return captured.future;
+        },
+      );
+      addTearDown(media.dispose);
+      addTearDown(() {
+        if (!captured.isCompleted) captured.complete(stream);
+      });
+      await media.connect();
+      var wanted = true;
+      final enabling = media.setCameraEnabled(
+        true,
+        shouldContinue: () => wanted,
+      );
+      await capturing.future;
+
+      wanted = false;
+      captured.complete(stream);
+      await enabling;
+
+      expect(camera.stopped, isTrue);
+      expect(stream.disposed, isTrue);
+      expect(media.localVideoTrack, isNull);
+      expect(peer.createdTransceivers[1].sender.track, isNull);
+      expect(peer.addedTracks, isEmpty);
+    });
+
     test('a system-ended screen share restores the camera', () async {
       final camera = _FakeTrack('camera', 'video');
       final screenVideo = _FakeTrack('screen-video', 'video');
@@ -1319,6 +1356,132 @@ void main() {
     await media.dispose();
   });
 
+  group('LiveKit camera capture', () {
+    test(
+      'publishes the selected camera only while it is still wanted',
+      () async {
+        final participant = _FakeLiveKitParticipant();
+        final adapter = _FakeLiveKitRoomAdapter(
+          room: _FakeLiveKitRoom(participant),
+        );
+        final track = _FakeLiveKitVideoTrack();
+        lk.CameraCaptureOptions? options;
+        final media = _liveKitSession(
+          adapter,
+          createCameraTrack: (value) async {
+            options = value;
+            return track;
+          },
+        );
+        addTearDown(media.dispose);
+
+        await media.setCameraEnabled(
+          true,
+          deviceId: 'saved-camera',
+          shouldContinue: () => true,
+        );
+
+        expect(options?.deviceId, 'saved-camera');
+        expect(participant.published, [track]);
+        expect(participant.removed, isEmpty);
+        expect(track.stopped, isFalse);
+        expect(media.cameraEnabled, isTrue);
+      },
+    );
+
+    for (final cancellation in ['owner changed', 'disposed']) {
+      test(
+        'releases a pending capture after $cancellation without publishing',
+        () async {
+          final participant = _FakeLiveKitParticipant();
+          final adapter = _FakeLiveKitRoomAdapter(
+            room: _FakeLiveKitRoom(participant),
+          );
+          final track = _FakeLiveKitVideoTrack();
+          final capturing = Completer<void>();
+          final captured = Completer<lk.LocalVideoTrack>();
+          final media = _liveKitSession(
+            adapter,
+            createCameraTrack: (_) {
+              capturing.complete();
+              return captured.future;
+            },
+          );
+          addTearDown(media.dispose);
+          addTearDown(() {
+            if (!captured.isCompleted) captured.complete(track);
+          });
+          var wanted = true;
+          final enabling = media.setCameraEnabled(
+            true,
+            shouldContinue: () => wanted,
+          );
+          await capturing.future;
+
+          Future<void>? disposing;
+          if (cancellation == 'disposed') {
+            disposing = media.dispose();
+          } else {
+            wanted = false;
+          }
+          captured.complete(track);
+          await enabling;
+          await disposing;
+
+          expect(track.stopped, isTrue);
+          expect(participant.published, isEmpty);
+          expect(media.cameraEnabled, isFalse);
+        },
+      );
+    }
+
+    test(
+      'unpublishes and releases a camera cancelled during publication',
+      () async {
+        final participant = _FakeLiveKitParticipant();
+        final adapter = _FakeLiveKitRoomAdapter(
+          room: _FakeLiveKitRoom(participant),
+        );
+        final track = _FakeLiveKitVideoTrack();
+        final media = _liveKitSession(
+          adapter,
+          createCameraTrack: (_) async => track,
+        );
+        addTearDown(media.dispose);
+        var wanted = true;
+        participant.onPublish = () => wanted = false;
+
+        await media.setCameraEnabled(true, shouldContinue: () => wanted);
+
+        expect(participant.removed, ['camera-publication']);
+        expect(track.stopped, isTrue);
+        expect(media.cameraEnabled, isFalse);
+      },
+    );
+
+    test('releases an unpublished track when publication fails', () async {
+      final participant = _FakeLiveKitParticipant()
+        ..onPublish = () => throw StateError('publication failed');
+      final adapter = _FakeLiveKitRoomAdapter(
+        room: _FakeLiveKitRoom(participant),
+      );
+      final track = _FakeLiveKitVideoTrack();
+      final media = _liveKitSession(
+        adapter,
+        createCameraTrack: (_) async => track,
+      );
+      addTearDown(media.dispose);
+
+      await expectLater(
+        media.setCameraEnabled(true, shouldContinue: () => true),
+        throwsStateError,
+      );
+
+      expect(track.stopped, isTrue);
+      expect(media.cameraEnabled, isFalse);
+    });
+  });
+
   test('records typed LiveKit room and reconnect events', () {
     final diagnostics = _DiagnosticsRecorder()..captureEnabled = true;
     final meshJoin = _meshJoin(localUserId: 10, remoteUserId: 20);
@@ -1867,39 +2030,43 @@ MeshVoiceMediaSession _meshSession({
   setTrackVolume: setTrackVolume,
 );
 
-LiveKitVoiceMediaSession _liveKitSession(VoiceLiveKitRoomAdapter adapter) =>
-    LiveKitVoiceMediaSession(
-      join: const VoiceJoinResponse(
-        transport: VoiceTransport.livekit,
-        ice: VoiceIceConfiguration(servers: [], relayOnly: false),
-        room: VoiceRoom(
-          id: 1,
-          name: 'Room',
-          slug: 'room',
-          isPublic: true,
-          ephemeral: false,
-          type: VoiceRoomType.open,
-          participants: [
-            VoiceParticipant(
-              id: 10,
-              username: 'local',
-              role: VoiceRole.participant,
-            ),
-          ],
+LiveKitVoiceMediaSession _liveKitSession(
+  VoiceLiveKitRoomAdapter adapter, {
+  Future<lk.LocalVideoTrack> Function(lk.CameraCaptureOptions)?
+  createCameraTrack,
+}) => LiveKitVoiceMediaSession(
+  join: const VoiceJoinResponse(
+    transport: VoiceTransport.livekit,
+    ice: VoiceIceConfiguration(servers: [], relayOnly: false),
+    room: VoiceRoom(
+      id: 1,
+      name: 'Room',
+      slug: 'room',
+      isPublic: true,
+      ephemeral: false,
+      type: VoiceRoomType.open,
+      participants: [
+        VoiceParticipant(
+          id: 10,
+          username: 'local',
+          role: VoiceRole.participant,
         ),
-        livekit: VoiceLiveKitCredentials(
-          url: 'wss://localhost:3000',
-          token: 'local-test-token',
-        ),
-      ),
-      localUserId: 10,
-      audioPublishingAllowed: false,
-      refreshCredentials: () async => const VoiceLiveKitCredentials(
-        url: 'wss://localhost:3000',
-        token: 'refreshed-local-test-token',
-      ),
-      roomAdapter: adapter,
-    );
+      ],
+    ),
+    livekit: VoiceLiveKitCredentials(
+      url: 'wss://localhost:3000',
+      token: 'local-test-token',
+    ),
+  ),
+  localUserId: 10,
+  audioPublishingAllowed: false,
+  refreshCredentials: () async => const VoiceLiveKitCredentials(
+    url: 'wss://localhost:3000',
+    token: 'refreshed-local-test-token',
+  ),
+  roomAdapter: adapter,
+  createCameraTrack: createCameraTrack,
+);
 
 VoiceJoinResponse _meshJoin({
   required int localUserId,
@@ -2128,7 +2295,8 @@ final class _FakeLiveKitRoomAdapter implements VoiceLiveKitRoomAdapter {
     this.failingStage,
     this.connection,
     this.cancelConnectionOnDisconnect = false,
-  });
+    lk.Room? room,
+  }) : room = room ?? lk.Room();
 
   final String? failingStage;
   final Completer<void>? connection;
@@ -2136,7 +2304,7 @@ final class _FakeLiveKitRoomAdapter implements VoiceLiveKitRoomAdapter {
   final Completer<void> connectStarted = Completer<void>();
   final List<String> calls = [];
   @override
-  final lk.Room room = lk.Room();
+  final lk.Room room;
   String? endpoint;
   String? token;
 
@@ -2186,6 +2354,75 @@ final class _FakeLiveKitRoomAdapter implements VoiceLiveKitRoomAdapter {
     calls.add(stage);
     if (failingStage == stage) throw StateError('$stage failed');
   }
+}
+
+final class _FakeLiveKitRoom extends lk.Room {
+  _FakeLiveKitRoom(this.localParticipant);
+
+  @override
+  final lk.LocalParticipant localParticipant;
+}
+
+final class _FakeLiveKitVideoTrack implements lk.LocalVideoTrack {
+  bool stopped = false;
+
+  @override
+  Future<bool> stop() async {
+    stopped = true;
+    return true;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _FakeLiveKitPublication
+    implements lk.LocalTrackPublication<lk.LocalVideoTrack> {
+  _FakeLiveKitPublication(this.track);
+
+  @override
+  final lk.LocalVideoTrack track;
+
+  @override
+  String get sid => 'camera-publication';
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _FakeLiveKitParticipant implements lk.LocalParticipant {
+  final List<lk.LocalVideoTrack> published = [];
+  final List<String> removed = [];
+  void Function()? onPublish;
+  _FakeLiveKitPublication? publication;
+
+  @override
+  lk.LocalTrackPublication? getTrackPublicationBySource(
+    lk.TrackSource source,
+  ) => publication;
+
+  @override
+  Future<lk.LocalTrackPublication<lk.LocalVideoTrack>> publishVideoTrack(
+    lk.LocalVideoTrack track, {
+    lk.VideoPublishOptions? publishOptions,
+  }) async {
+    onPublish?.call();
+    published.add(track);
+    return publication = _FakeLiveKitPublication(track);
+  }
+
+  @override
+  Future<void> removePublishedTrack(
+    String trackSid, {
+    bool notify = true,
+  }) async {
+    removed.add(trackSid);
+    await publication?.track.stop();
+    publication = null;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _FakeTransceiver implements rtc.RTCRtpTransceiver {

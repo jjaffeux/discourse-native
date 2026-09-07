@@ -1906,6 +1906,15 @@ heartbeat is refused, and a participant alone in a room has no roster
 broadcast to prune them. A 403, 404, or 410 leaves locally and shows the
 server's reason on the room, as the web client's `onExpelled` does.
 
+**Camera auto-start is an explicit, per-account choice.** A successful camera-on
+action is remembered for that account on that site; turning it off clears the
+choice, even during a pending capture. A connected call restores the selected
+camera when its room is visible in the foreground, including after screen sharing
+ends, only if the room, speaking role, and publisher limit allow video. Hiding or
+leaving the room, changing accounts, or turning the camera off cancels a pending
+restoration; both transports release obsolete captures without publishing them.
+Automatic capture failure leaves the audio call usable.
+
 **Idleness is decided from silence, not from the background.** A phone in a
 pocket mid-call is the ordinary case, and the server's away status dims the
 participant for everyone. `VoiceIdleTracker` climbs idle → away with an

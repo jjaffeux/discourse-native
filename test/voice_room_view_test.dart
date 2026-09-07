@@ -472,6 +472,72 @@ void main() {
       }
     });
 
+    for (final automatic in [false, true]) {
+      testWidgets(
+        'camera off cancels a pending ${automatic ? 'automatic' : 'manual'} capture',
+        (tester) async {
+          final room = _room(
+            videoAllowed: true,
+            participants: const [
+              VoiceParticipant(
+                id: 1,
+                username: 'sam',
+                role: VoiceRole.participant,
+              ),
+            ],
+          );
+          final preferences = _Preferences()..cameraEnabled = automatic;
+          final harness = _Harness(joinRoom: room, preferences: preferences);
+          addTearDown(harness.dispose);
+          await _join(harness, room);
+          final media = harness.media.sessions.single;
+          final capture = Completer<void>();
+          media.cameraGate = capture;
+          addTearDown(() {
+            if (!capture.isCompleted) capture.complete();
+          });
+          await tester.pumpWidget(
+            MaterialApp(
+              home: VoiceRoomView(
+                roomId: room.id,
+                controller: harness.controller,
+                shell: _voiceShell(
+                  harness.controller,
+                  site: const PluginRouteSite(
+                    url: _siteUrl,
+                    title: 'Voice',
+                    isConnected: true,
+                  ),
+                ),
+              ),
+            ),
+          );
+          if (!automatic) {
+            await tester.tap(find.byTooltip('Camera on'));
+          }
+          await tester.pump();
+
+          expect(harness.controller.cameraStarting, isTrue);
+          expect(find.byTooltip('Camera off'), findsOneWidget);
+          await tester.tap(find.byTooltip('Camera off'));
+          await tester.pump();
+          expect(preferences.cameraEnabled, isFalse);
+
+          capture.complete();
+          await tester.pumpAndSettle();
+          expect(find.byTooltip('Camera on'), findsOneWidget);
+          expect(media.cameraChanges, [
+            (enabled: false, deviceId: null),
+            (enabled: false, deviceId: null),
+          ]);
+          expect(harness.controller.call?.cameraEnabled, isFalse);
+          expect(harness.controller.cameraStarting, isFalse);
+          await harness.controller.leave();
+          await tester.pump();
+        },
+      );
+    }
+
     testWidgets('shows and dismisses an actionable failed-join message', (
       tester,
     ) async {
@@ -2428,8 +2494,15 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
 
   @override
   Future<void> setAudioPublishingAllowed(bool allowed) async {}
+  Completer<void>? cameraGate;
   @override
-  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) async {
+  Future<void> setCameraEnabled(
+    bool enabled, {
+    String? deviceId,
+    bool Function()? shouldContinue,
+  }) async {
+    if (enabled) await cameraGate?.future;
+    if (enabled && shouldContinue?.call() == false) return;
     cameraChanges.add((enabled: enabled, deviceId: deviceId));
   }
 
@@ -2462,6 +2535,21 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
 
 final class _Preferences implements VoicePreferences {
   _Preferences({this.participantVolume});
+
+  bool cameraEnabled = false;
+
+  @override
+  Future<bool> readCameraEnabled(String siteUrl, int userId) async =>
+      cameraEnabled;
+
+  @override
+  Future<void> writeCameraEnabled(
+    String siteUrl,
+    int userId,
+    bool enabled,
+  ) async {
+    cameraEnabled = enabled;
+  }
 
   final double? participantVolume;
   final List<({VoiceDevicePreference preference, String value})> deviceWrites =
