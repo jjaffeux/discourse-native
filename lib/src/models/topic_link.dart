@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+
+import '../foundation/uri_path.dart';
 import 'discourse_instance.dart';
 
 @immutable
@@ -29,7 +31,7 @@ class TopicLink {
     if (uri == null || uri.userInfo.isNotEmpty) return null;
 
     final segments = siteUrl == null
-        ? uri.pathSegments
+        ? tryUriPathSegments(uri)
         : DiscourseInstance.pathSegmentsWithin(siteUrl, uri);
     if (segments == null || segments.length < 2 || segments.first != 't') {
       return null;

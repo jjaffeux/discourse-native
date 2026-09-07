@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../foundation/uri_path.dart';
+
 @immutable
 final class GroupRoute {
   const GroupRoute._({
@@ -194,7 +196,9 @@ final class GroupRoute {
     if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);
     if (uri == null || uri.userInfo.isNotEmpty) return null;
-    final segments = [...uri.pathSegments];
+    final decoded = tryUriPathSegments(uri);
+    if (decoded == null) return null;
+    final segments = [...decoded];
     while (segments.isNotEmpty && segments.last.isEmpty) {
       segments.removeLast();
     }

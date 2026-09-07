@@ -1,4 +1,4 @@
-library;
+import '../foundation/uri_path.dart';
 
 enum ListKind { category, tag }
 
@@ -30,8 +30,9 @@ class ListLink {
 
     // A trailing slash leaves an empty last segment, which would otherwise
     // read as "not an id" and refuse a perfectly ordinary link.
-    final segments = [...uri.pathSegments]
-      ..removeWhere((segment) => segment.isEmpty);
+    final decoded = tryUriPathSegments(uri);
+    if (decoded == null) return null;
+    final segments = [...decoded]..removeWhere((segment) => segment.isEmpty);
     if (segments.length < 2) return null;
 
     final kind = switch (segments.first) {

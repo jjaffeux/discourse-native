@@ -1,6 +1,7 @@
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
+import '../foundation/uri_path.dart';
 import 'json.dart';
 import 'notification.dart';
 
@@ -147,7 +148,7 @@ class Bookmark {
 
     final uri = Uri.tryParse(url);
     if (uri == null || !uri.hasAuthority) return url;
-    if (uri.pathSegments.firstOrNull != 't') return url;
+    if (tryUriPathSegments(uri)?.firstOrNull != 't') return url;
 
     final path = StringBuffer(uri.path);
     if (uri.hasQuery) path.write('?${uri.query}');

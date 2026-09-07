@@ -17,6 +17,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:webview_all/webview_all.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
+import '../foundation/uri_path.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -78,10 +79,18 @@ final class YoutubeVideoData {
   static YoutubeVideoData? tryParseUrl(String value) {
     final uri = Uri.tryParse(value);
     if (uri == null || !_isSafeYoutubeUri(uri)) return null;
+    final decoded = tryUriPathSegments(uri);
+    if (decoded == null) return null;
+    final Map<String, List<String>> query;
+    try {
+      query = uri.queryParametersAll;
+    } on FormatException {
+      return null;
+    }
 
     String? videoId;
-    String? listId = sanitizeYoutubeId(_firstQuery(uri, 'list'));
-    final segments = uri.pathSegments.where((part) => part.isNotEmpty).toList();
+    String? listId = sanitizeYoutubeId(_firstQuery(query, 'list'));
+    final segments = decoded.where((part) => part.isNotEmpty).toList();
 
     if (uri.host == 'youtu.be') {
       if (segments.isNotEmpty) videoId = sanitizeYoutubeId(segments.first);
@@ -94,16 +103,16 @@ final class YoutubeVideoData {
         const {'shorts', 'live'}.contains(segments.first)) {
       videoId = sanitizeYoutubeId(segments[1]);
     } else if (segments.length == 1 && segments.first == 'watch') {
-      videoId = sanitizeYoutubeId(_firstQuery(uri, 'v'));
+      videoId = sanitizeYoutubeId(_firstQuery(query, 'v'));
     }
 
     if (videoId == null && listId == null) return null;
 
     final start =
-        parseYoutubeTime(_firstQuery(uri, 'start')) ??
-        parseYoutubeTime(_firstQuery(uri, 't')) ??
+        parseYoutubeTime(_firstQuery(query, 'start')) ??
+        parseYoutubeTime(_firstQuery(query, 't')) ??
         _fragmentStart(uri.fragment);
-    final end = parseYoutubeTime(_firstQuery(uri, 'end'));
+    final end = parseYoutubeTime(_firstQuery(query, 'end'));
     final title = videoId == null ? 'YouTube playlist' : 'YouTube video';
 
     return YoutubeVideoData(
@@ -115,7 +124,7 @@ final class YoutubeVideoData {
           : 'https://img.youtube.com/vi/$videoId/maxresdefault.jpg',
       startSeconds: start,
       endSeconds: end,
-      loop: uri.queryParametersAll.containsKey('loop'),
+      loop: query.containsKey('loop'),
     );
   }
 
@@ -194,8 +203,8 @@ String? sanitizeYoutubeId(String? value) {
   return candidate;
 }
 
-String? _firstQuery(Uri uri, String key) =>
-    uri.queryParametersAll[key]?.firstOrNull;
+String? _firstQuery(Map<String, List<String>> query, String key) =>
+    query[key]?.firstOrNull;
 
 int? _fragmentStart(String fragment) {
   if (!fragment.startsWith('t=')) return null;
