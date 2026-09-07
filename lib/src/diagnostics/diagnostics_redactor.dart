@@ -166,6 +166,11 @@ abstract final class DiagnosticsRedactor {
       // retained.
       final decoded = Uri.decodeQueryComponent(rawName);
       return Uri.encodeQueryComponent(decoded.split('=').first);
+    } on FormatException {
+      // Well-formed percent escapes can still encode invalid UTF-8. The
+      // malformed-URI fallback uses this decoder too, so this failure must be
+      // contained here instead of escaping while reporting another error.
+      return 'invalid-query-name';
     } on ArgumentError {
       // Keeping malformed bytes would make it too easy to accidentally retain
       // part of a value while attempting recovery. The shape still records

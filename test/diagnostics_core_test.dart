@@ -33,6 +33,34 @@ void main() {
       );
     });
 
+    for (final encoded in [
+      '%FF',
+      '%C3',
+      '%ED%A0%80',
+      '%F4%90%80%80',
+      '%80',
+      '%C0%AF',
+    ]) {
+      test('invalid UTF-8 query names remain safe to report: $encoded', () {
+        final url = 'https://example.com/t/1?$encoded=SECRET#private';
+
+        expect(
+          DiagnosticsRedactor.uri(url),
+          'https://example.com/t/1?invalid-query-name',
+        );
+        expect(
+          DiagnosticsRedactor.scrub('Request failed: $url'),
+          'Request failed: https://example.com/t/1?invalid-query-name',
+        );
+        final malformed = DiagnosticsRedactor.uri(
+          'https://example.com:not-a-port/t/1?$encoded=SECRET#private',
+        );
+        expect(malformed, contains('invalid-query-name'));
+        expect(malformed, isNot(contains('SECRET')));
+        expect(malformed, isNot(contains('private')));
+      });
+    }
+
     test('drops a query value whose separator is percent-encoded', () {
       const secret = 'ENCODED_SEPARATOR_SECRET_SENTINEL';
       final safe = DiagnosticsRedactor.uri(
