@@ -488,6 +488,7 @@ void _registerReactionAndLikeTests() {
       WriteException? reactionFailure,
       Completer<void>? reactionGate,
       Completer<void>? siteConfigGate,
+      Future<void> Function()? beforeSettle,
     }) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
@@ -521,9 +522,19 @@ void _registerReactionAndLikeTests() {
         ],
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
+        beforeSettle: beforeSettle == null
+            ? null
+            : () async {
+                await tester.pump();
+                await tester.tap(find.text('A real topic'));
+                await tester.pump();
+                await beforeSettle();
+              },
       );
-      await tester.tap(find.text('A real topic'));
-      await tester.pumpAndSettle();
+      if (beforeSettle == null) {
+        await tester.tap(find.text('A real topic'));
+        await tester.pumpAndSettle();
+      }
       return api;
     }
 
@@ -662,17 +673,17 @@ void _registerReactionAndLikeTests() {
           post(reactions: [(id: 'clap', count: 2)], userCount: 2),
         ],
         siteConfigGate: gate,
+        beforeSettle: () async {
+          // The sidebar intentionally keeps animating while settings are held.
+          await tester.longPress(find.byType(PostReactionButton));
+          await tester.longPress(find.byType(PostReactionButton));
+          await tester.pump();
+          expect(find.byType(ReactionGrid), findsOneWidget);
+          expect(find.byType(EmojiPicker), findsNothing);
+          expect(find.byTooltip('More emojis'), findsNothing);
+          gate.complete();
+        },
       );
-
-      await tester.longPress(find.byType(PostReactionButton));
-      await tester.longPress(find.byType(PostReactionButton));
-      await tester.pump();
-      expect(find.byType(ReactionGrid), findsOneWidget);
-      expect(find.byType(EmojiPicker), findsNothing);
-      expect(find.byTooltip('More emojis'), findsNothing);
-
-      gate.complete();
-      await tester.pumpAndSettle();
 
       expect(find.byType(ReactionGrid), findsOneWidget);
       await tester.tap(find.byTooltip('More emojis'));
