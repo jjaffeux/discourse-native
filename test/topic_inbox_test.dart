@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -9,6 +10,7 @@ import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -519,6 +521,93 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'compact header stays in the centered reading column at desktop widths and zoom levels',
+    (tester) async {
+      final setup = await _setup(tester);
+      final shell = setup.controller;
+      shell.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      tester.view.physicalSize = const Size(2200, 800);
+
+      for (final (width, zoom) in [
+        (1200.0, AppTextScale.percent100),
+        (2000.0, AppTextScale.percent100),
+        (2000.0, AppTextScale.percent150),
+      ]) {
+        await shell.appSettings.setTextScale(zoom);
+        Future<void> pumpHeader(bool compact) async {
+          await tester.pumpWidget(
+            ShellScope(
+              controller: shell,
+              child: MaterialApp(
+                theme: AppTheme.dark,
+                home: ContentAlignmentScope(
+                  controller: shell.appSettings,
+                  child: Scaffold(
+                    body: Align(
+                      alignment: Alignment.topLeft,
+                      child: SizedBox(
+                        width: width,
+                        child: TopicInboxHeader(
+                          title: shell.currentTopic!.title,
+                          siteUrl: shell.currentInstance!.url,
+                          canReturnToSidebar: false,
+                          keepTopicListOpen: true,
+                          registry: PluginRegistry.empty,
+                          topic: shell.currentTopic,
+                          hasEarlierPosts: compact,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await pumpHeader(false);
+        final expandedTitle = tester.getRect(
+          find.byKey(const ValueKey('topic-header-title-field')),
+        );
+        final close = find.byKey(const ValueKey('topic-close-reader'));
+        final share = find.byType(TopicShareButton);
+        final closeBefore = tester.getRect(close);
+        final shareBefore = tester.getRect(share);
+
+        await pumpHeader(true);
+        final title = tester.getRect(
+          find.byKey(const ValueKey('topic-header-compact-title')),
+        );
+        final taxonomy = tester.getRect(
+          find.byKey(const ValueKey('topic-header-compact-taxonomy')),
+        );
+        expect(title.center.dx, closeTo(width / 2, 1));
+        expect(title.left, closeTo(expandedTitle.left, 1));
+        expect(title.right, closeTo(expandedTitle.right, 1));
+        expect(taxonomy.left, closeTo(title.left, 1));
+        expect(taxonomy.right, closeTo(title.right, 1));
+        expect(
+          tester.getRect(find.byTooltip('Edit topic category')).left,
+          closeTo(title.left, 1),
+        );
+        expect(
+          tester
+              .getRect(find.byKey(const ValueKey('topic-header-compact-tags')))
+              .right,
+          lessThanOrEqualTo(taxonomy.right),
+        );
+        expect(tester.getRect(close), closeBefore);
+        expect(tester.getRect(share), shareBefore);
+        expect(title.center.dy, closeTo(closeBefore.center.dy, 1));
+        expect(tester.takeException(), isNull, reason: '$width, $zoom');
+      }
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
   testWidgets('compact header fits narrow windows and enlarged text', (
     tester,

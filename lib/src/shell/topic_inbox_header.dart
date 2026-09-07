@@ -379,6 +379,17 @@ class _CompactTopicInboxHeader extends StatelessWidget {
       final leadingPadding = header.keepTopicListOpen
           ? topicInboxDividerInset
           : 16.0;
+      final lane = ContentReadingLane.geometryFor(
+        context,
+        availableWidth: constraints.maxWidth,
+        basePadding: const EdgeInsets.symmetric(horizontal: 12),
+      );
+      final toolbarStart =
+          leadingPadding + DButton.iconOnlyDimensionFor(DButtonSize.small);
+      final contentLeft = (lane.padding.left + 16).clamp(
+        toolbarStart + 8,
+        double.infinity,
+      );
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -392,32 +403,46 @@ class _CompactTopicInboxHeader extends StatelessWidget {
                   _TopicCloseButton(
                     canReturnToSidebar: header.canReturnToSidebar,
                   ),
-                  const SizedBox(width: 8),
                   Expanded(
-                    child: Tooltip(
-                      message: header.title,
-                      child: Semantics(
-                        button: onEditTitle != null,
-                        hint: onEditTitle != null ? 'Edit topic title' : null,
-                        child: InkWell(
-                          onTap: onEditTitle,
-                          mouseCursor: onEditTitle != null
-                              ? SystemMouseCursors.text
-                              : SystemMouseCursors.basic,
-                          borderRadius: BorderRadius.circular(4),
-                          child: TopicTitle(
-                            header.title,
-                            key: const ValueKey('topic-header-compact-title'),
-                            siteUrl: siteUrl,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: style,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: contentLeft - toolbarStart,
+                        right: 8,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          width: lane.width - 32,
+                          child: Tooltip(
+                            message: header.title,
+                            child: Semantics(
+                              button: onEditTitle != null,
+                              hint: onEditTitle != null
+                                  ? 'Edit topic title'
+                                  : null,
+                              child: InkWell(
+                                onTap: onEditTitle,
+                                mouseCursor: onEditTitle != null
+                                    ? SystemMouseCursors.text
+                                    : SystemMouseCursors.basic,
+                                borderRadius: BorderRadius.circular(4),
+                                child: TopicTitle(
+                                  header.title,
+                                  key: const ValueKey(
+                                    'topic-header-compact-title',
+                                  ),
+                                  siteUrl: siteUrl,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: style,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
                   _TopicHeaderActions(
                     header: header,
                     width: constraints.maxWidth,
@@ -432,14 +457,12 @@ class _CompactTopicInboxHeader extends StatelessWidget {
               topic.canEditTags)
             Padding(
               padding: EdgeInsets.only(
-                left:
-                    leadingPadding +
-                    DButton.iconOnlyDimensionFor(DButtonSize.small) +
-                    8,
-                right: 12,
+                left: contentLeft,
+                right: lane.padding.right + 16,
                 bottom: 8,
               ),
               child: Row(
+                key: const ValueKey('topic-header-compact-taxonomy'),
                 children: [
                   if (!topic.privateMessage)
                     _CompactTopicCategories(
