@@ -520,7 +520,7 @@ final class ComposerDraftCoordinator {
 
   Future<void> _stage(ComposerDraftSave save, ComposerDraftSession session) {
     final key = session._keyFor(save.target);
-    _claimGeneration(key, session._generation);
+    final generation = _claimGeneration(key, session);
     return _localStore.write(
       save.target.siteUrl,
       save.target.draftKey,
@@ -528,7 +528,7 @@ final class ComposerDraftCoordinator {
       ifCurrent: () =>
           save.isCurrent() &&
           session._lease.isCurrent &&
-          _latestGenerations[key] == session._generation,
+          _latestGenerations[key] == generation,
     );
   }
 
@@ -540,9 +540,8 @@ final class ComposerDraftCoordinator {
     final lease = session._lease;
     final data = save.draft.encode();
     final key = session._keyFor(target);
-    _claimGeneration(key, session._generation);
-    bool ownsLatestGeneration() =>
-        _latestGenerations[key] == session._generation;
+    final generation = _claimGeneration(key, session);
+    bool ownsLatestGeneration() => _latestGenerations[key] == generation;
 
     // Preserve the local-first durability guarantee even when an older
     // controller is still draining. Its later queued writes are generation
@@ -773,11 +772,19 @@ final class ComposerDraftCoordinator {
     return committedSequence;
   }
 
-  void _claimGeneration(_DraftSessionKey key, int generation) {
+  int _claimGeneration(_DraftSessionKey key, ComposerDraftSession session) {
+    // A retained tab can become the latest writer again after another tab
+    // used the same server draft key. Retired controllers keep their last
+    // generation so delayed saves cannot reclaim a newer local draft.
+    if (session._composer case final composer? when _isCurrent(composer)) {
+      session._generation = ++_generation;
+    }
+    final generation = session._generation;
     final current = _latestGenerations[key];
     if (current == null || generation > current) {
       _latestGenerations[key] = generation;
     }
+    return generation;
   }
 
   Future<void> _waitForRetiredSaves(
@@ -843,7 +850,7 @@ final class ComposerDraftSession {
 
   final ComposerDraftCoordinator _coordinator;
   final SiteLease _lease;
-  final int _generation;
+  int _generation;
   final Object _owner = Object();
   ComposerController? _composer;
 

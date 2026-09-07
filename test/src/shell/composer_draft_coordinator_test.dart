@@ -104,6 +104,36 @@ void main() {
 
     expect(harness.coordinator.sequenceFor(_replyTarget), 4);
   });
+
+  test(
+    'a retained older composer can save the shared draft key again',
+    () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final first = harness.open(_replyTarget);
+      final second = harness.open(_replyTarget);
+
+      Future<int?> save(ComposerDraftSession session, String text) =>
+          session.save(
+            ComposerDraftSave(
+              target: _replyTarget,
+              draft: ComposerDraft(reply: text),
+              sequence: 0,
+              localOnly: true,
+              isCurrent: () => true,
+            ),
+          );
+
+      await save(first.session, 'First tab');
+      await save(second.session, 'Second tab');
+      await save(first.session, 'First tab edited again');
+
+      expect(
+        ComposerDraft.decode(harness.localStore.saved.values.single)?.reply,
+        'First tab edited again',
+      );
+    },
+  );
 }
 
 final class _Harness {
@@ -120,7 +150,7 @@ final class _Harness {
       readCredential: (_) async => (apiKey: 'api-key', failure: null),
       readClientId: () async => 'client-id',
       isDisposed: () => disposed,
-      isCurrentComposer: (composer) => identical(activeComposer, composer),
+      isCurrentComposer: composers.contains,
       readCachedDraft: (_) => cachedDraft,
       readCachedSequence: (_) => cachedSequence,
       writeCachedDraft: (_, draft, sequence) {
@@ -137,6 +167,7 @@ final class _Harness {
         ));
       },
       onComposerClosed: (composer) {
+        composers.remove(composer);
         if (identical(activeComposer, composer)) activeComposer = null;
       },
       reportError: (error, stackTrace, operation) {
@@ -154,6 +185,7 @@ final class _Harness {
       [];
   final List<({Object error, String operation})> errors = [];
   ComposerController? activeComposer;
+  final Set<ComposerController> composers = {};
   ComposerDraft? cachedDraft;
   int cachedSequence;
   bool disposed = false;
@@ -168,14 +200,17 @@ final class _Harness {
       onStageDraft: session.stage,
     );
     activeComposer = composer;
+    composers.add(composer);
     coordinator.attach(session, composer);
     return (composer: composer, session: session);
   }
 
   void dispose() {
     disposed = true;
-    final composer = activeComposer;
-    if (composer != null && !composer.isDisposed) composer.dispose();
+    for (final composer in composers) {
+      if (!composer.isDisposed) composer.dispose();
+    }
+    composers.clear();
     activeComposer = null;
   }
 }
