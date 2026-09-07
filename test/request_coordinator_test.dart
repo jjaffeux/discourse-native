@@ -10,6 +10,43 @@ import 'package:http/http.dart' as http;
 import 'support/manual_scheduler.dart';
 
 void main() {
+  const cooldownCases = [
+    (
+      name: 'without a Date header',
+      headers: {'retry-after': 'Mon, 24 Aug 2026 12:00:30 GMT'},
+      clockSkew: Duration.zero,
+    ),
+    (
+      name: 'with the device clock 5 minutes ahead',
+      headers: {
+        'date': 'Mon, 24 Aug 2026 12:00:00 GMT',
+        'retry-after': 'Mon, 24 Aug 2026 12:00:30 GMT',
+      },
+      clockSkew: Duration(minutes: 5),
+    ),
+    (
+      name: 'with the device clock 5 minutes behind',
+      headers: {
+        'date': 'Mon, 24 Aug 2026 12:00:00 GMT',
+        'retry-after': 'Mon, 24 Aug 2026 12:00:30 GMT',
+      },
+      clockSkew: Duration(minutes: -5),
+    ),
+    (
+      name: 'with an invalid Date header',
+      headers: {
+        'date': 'not a date',
+        'retry-after': 'Mon, 24 Aug 2026 12:00:30 GMT',
+      },
+      clockSkew: Duration.zero,
+    ),
+    (
+      name: 'with numeric Retry-After and a skewed Date header',
+      headers: {'date': 'Mon, 24 Aug 2026 12:00:00 GMT', 'retry-after': '30'},
+      clockSkew: Duration(minutes: 5),
+    ),
+  ];
+
   group('MediaRequestCoordinator', () {
     test('a zero Retry-After preserves already queued work', () async {
       final scheduler = ManualScheduler();
@@ -86,41 +123,50 @@ void main() {
       afterCooldown.release();
     });
 
-    test('HTTP-date cooldowns propagate to a related origin', () async {
-      final scheduler = ManualScheduler();
-      final now = DateTime.utc(2026, 8, 24, 12);
-      final coordinator = MediaRequestCoordinator(
-        clock: () => now,
-        cooldownFactory: () => OriginCooldown(
-          clock: scheduler.now,
-          timerFactory: scheduler.createTimer,
-        ),
-      );
-      addTearDown(coordinator.close);
-      final cdn = Uri.parse('https://cdn.example/avatar.png');
-      final forum = Uri.parse('https://forum.example/users/1');
-      final active = await coordinator.acquire(cdn, relatedUrl: forum);
-
-      active.rateLimited({
-        'retry-after': HttpDate.format(now.add(const Duration(seconds: 30))),
-      });
-      active.release();
-
-      for (final url in [cdn, forum]) {
-        await expectLater(
-          coordinator.acquire(url),
-          throwsA(
-            isA<MediaOriginRateLimitedException>()
-                .having((error) => error.origin, 'origin', url.origin)
-                .having(
-                  (error) => error.retryAfter,
-                  'retryAfter',
-                  const Duration(seconds: 30),
-                ),
+    for (final scenario in cooldownCases) {
+      test('pauses media and related origins ${scenario.name}', () async {
+        final scheduler = ManualScheduler();
+        var now = DateTime.utc(2026, 8, 24, 12).add(scenario.clockSkew);
+        final coordinator = MediaRequestCoordinator(
+          clock: () => now,
+          cooldownFactory: () => OriginCooldown(
+            clock: scheduler.now,
+            timerFactory: scheduler.createTimer,
           ),
         );
-      }
-    });
+        addTearDown(coordinator.close);
+        final cdn = Uri.parse('https://cdn.example/avatar.png');
+        final forum = Uri.parse('https://forum.example/users/1');
+        final active = await coordinator.acquire(cdn, relatedUrl: forum);
+
+        active.rateLimited(scenario.headers);
+        active.release();
+
+        now = now.add(const Duration(days: 1));
+        for (final url in [cdn, forum]) {
+          await expectLater(
+            coordinator.acquire(url),
+            throwsA(
+              isA<MediaOriginRateLimitedException>()
+                  .having((error) => error.origin, 'origin', url.origin)
+                  .having(
+                    (error) => error.retryAfter,
+                    'retryAfter',
+                    const Duration(seconds: 30),
+                  ),
+            ),
+          );
+        }
+
+        now = now.subtract(const Duration(days: 2));
+        scheduler.advance(const Duration(seconds: 30));
+        for (final url in [cdn, forum]) {
+          final afterCooldown = await coordinator.acquire(url);
+          afterCooldown.release();
+        }
+        expect(scheduler.activeTimerCount, 0);
+      });
+    }
 
     test('close rejects queued work and makes an active lease inert', () async {
       final scheduler = ManualScheduler();
@@ -150,48 +196,51 @@ void main() {
   });
 
   group('DiscourseRequestCoordinator', () {
-    test('queued requests wait until an HTTP-date cooldown expires', () async {
-      final scheduler = ManualScheduler();
-      final now = DateTime.utc(2026, 8, 24, 12);
-      final coordinator = DiscourseRequestCoordinator(
-        clock: () => now,
-        cooldownFactory: () => OriginCooldown(
-          clock: scheduler.now,
-          timerFactory: scheduler.createTimer,
-        ),
-      );
-      addTearDown(coordinator.close);
-      final origin = Uri.parse('https://forum.example');
-      await coordinator.run(
-        origin,
-        () async => http.Response(
-          '{}',
-          429,
-          headers: {
-            'retry-after': HttpDate.format(now.add(const Duration(minutes: 1))),
-          },
-        ),
-      );
-      var sent = false;
-      final queued = coordinator.run(origin.resolve('/queued'), () async {
-        sent = true;
-        return http.Response('{}', 200);
+    for (final scenario in cooldownCases) {
+      test('holds queued requests ${scenario.name}', () async {
+        final scheduler = ManualScheduler();
+        var now = DateTime.utc(2026, 8, 24, 12).add(scenario.clockSkew);
+        final coordinator = DiscourseRequestCoordinator(
+          clock: () => now,
+          cooldownFactory: () => OriginCooldown(
+            clock: scheduler.now,
+            timerFactory: scheduler.createTimer,
+          ),
+        );
+        addTearDown(coordinator.close);
+        final origin = Uri.parse('https://forum.example');
+        await coordinator.run(
+          origin,
+          () async => http.Response(
+            '{"extras":{"wait_seconds":42}}',
+            429,
+            headers: scenario.headers,
+          ),
+        );
+        var sent = false;
+        final queued = coordinator.run(origin.resolve('/queued'), () async {
+          sent = true;
+          return http.Response('{}', 200);
+        });
+
+        now = now.add(const Duration(days: 1));
+        scheduler.advance(const Duration(seconds: 29));
+        expect(sent, isFalse);
+        now = now.subtract(const Duration(days: 2));
+        scheduler.advance(const Duration(seconds: 1));
+        expect(sent, isTrue);
+        expect((await queued).statusCode, 200);
+        expect(scheduler.activeTimerCount, 0);
       });
+    }
 
-      scheduler.advance(const Duration(seconds: 59));
-      expect(sent, isFalse);
-      scheduler.advance(const Duration(seconds: 1));
-      expect((await queued).statusCode, 200);
-      expect(sent, isTrue);
-      expect(scheduler.activeTimerCount, 0);
-    });
-
-    test('an elapsed HTTP date overrides a longer body delay', () {
+    test('an elapsed server HTTP date overrides a longer body delay', () {
       final now = DateTime.utc(2026, 8, 24, 12);
       final response = http.Response(
         '{"extras":{"wait_seconds":42}}',
         429,
         headers: {
+          'date': HttpDate.format(now),
           'retry-after': HttpDate.format(
             now.subtract(const Duration(minutes: 1)),
           ),
@@ -199,12 +248,16 @@ void main() {
       );
 
       expect(
-        DiscourseRequestCoordinator.explicitRetryAfter(response, now: now),
+        DiscourseRequestCoordinator.explicitRetryAfter(
+          response,
+          now: now.subtract(const Duration(minutes: 5)),
+        ),
         Duration.zero,
       );
     });
 
     for (final header in [
+      null,
       '',
       '-1',
       'not a date',
@@ -216,7 +269,10 @@ void main() {
             http.Response(
               '{"extras":{"wait_seconds":42}}',
               429,
-              headers: {'retry-after': header},
+              headers: {
+                'date': 'Mon, 24 Aug 2026 12:00:00 GMT',
+                'retry-after': ?header,
+              },
             ),
           ),
           const Duration(seconds: 42),
