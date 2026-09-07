@@ -2,6 +2,8 @@ import 'package:discourse_native/src/shell/cooked_dom.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
+import 'support/scaling_benchmark.dart';
+
 void main() {
   test('finds direct child elements without crossing a nested boundary', () {
     final root = html
@@ -56,23 +58,18 @@ void main() {
       return '<article>$cells</article>';
     }
 
-    int cost(int count) {
-      final root = html.parseFragment(rows(count)).children.single;
-      var best = -1;
-      for (var run = 0; run < 3; run += 1) {
-        final elapsed = Stopwatch()..start();
-        descendantWhere(root, (element) => element.localName == 'nothing');
-        elapsed.stop();
-        if (best < 0 || elapsed.elapsedMicroseconds < best) {
-          best = elapsed.elapsedMicroseconds;
-        }
-      }
-      return best;
-    }
+    final smallRoot = html.parseFragment(rows(400)).children.single;
+    final largeRoot = html.parseFragment(rows(3200)).children.single;
+    final (:small, :large) = measureScaling(
+      () => descendantWhere(smallRoot, (e) => e.localName == 'nothing') == null
+          ? 0
+          : 1,
+      () => descendantWhere(largeRoot, (e) => e.localName == 'nothing') == null
+          ? 0
+          : 1,
+    );
 
-    final small = cost(400);
-    final large = cost(3200);
-
+    // An 8x input takes ~8x for a linear scan and ~64x for a quadratic one.
     expect(
       large,
       lessThan(small * 25),
@@ -84,22 +81,12 @@ void main() {
     String siblings(int count) =>
         '<article>${List.generate(count, (index) => '<span>$index</span>').join()}</article>';
 
-    int cost(int count) {
-      final root = html.parseFragment(siblings(count)).children.single;
-      var best = -1;
-      for (var run = 0; run < 3; run += 1) {
-        final elapsed = Stopwatch()..start();
-        childrenWhere(root, (element) => element.localName == 'nothing');
-        elapsed.stop();
-        if (best < 0 || elapsed.elapsedMicroseconds < best) {
-          best = elapsed.elapsedMicroseconds;
-        }
-      }
-      return best;
-    }
-
-    final small = cost(400);
-    final large = cost(3200);
+    final smallRoot = html.parseFragment(siblings(400)).children.single;
+    final largeRoot = html.parseFragment(siblings(3200)).children.single;
+    final (:small, :large) = measureScaling(
+      () => childrenWhere(smallRoot, (e) => e.localName == 'nothing').length,
+      () => childrenWhere(largeRoot, (e) => e.localName == 'nothing').length,
+    );
 
     expect(
       large,
