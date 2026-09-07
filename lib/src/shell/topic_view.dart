@@ -1636,13 +1636,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       builder: (context, child) {
         final floatingDay = _floatingDay;
         if (floatingDay == null) return const SizedBox.shrink();
-        return Transform.translate(
-          offset: Offset(0, _floatingDayOffset),
-          child: StreamDaySeparator(
-            key: ValueKey(('topic-floating-day', floatingDay)),
-            day: floatingDay,
-            floating: true,
-            onTap: () => _jumpToDayStart(floatingDay),
+        // Stack clips layout overflow, but this translation only affects paint.
+        return ClipRect(
+          child: Transform.translate(
+            offset: Offset(0, _floatingDayOffset),
+            child: StreamDaySeparator(
+              key: ValueKey(('topic-floating-day', floatingDay)),
+              day: floatingDay,
+              floating: true,
+              onTap: () => _jumpToDayStart(floatingDay),
+            ),
           ),
         );
       },
