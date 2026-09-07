@@ -3473,48 +3473,48 @@ class _MoreTopics extends StatelessWidget {
             .ceilToDouble();
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        inbox ? 16 : 0,
-        topPadding,
-        inbox ? 16 : 0,
-        16,
-      ),
+      padding: EdgeInsets.only(top: topPadding, bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (available.length > 1 || inbox)
-            DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: theme.shell.divider)),
-              ),
-              child: SizedBox(
-                height: tabHeight,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(horizontal: inbox ? 0 : 16),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (
-                        var index = 0;
-                        index < available.length;
-                        index++
-                      ) ...[
-                        if (index > 0) const SizedBox(width: 17),
-                        IntrinsicWidth(
-                          child: ListNavigationTab(
-                            controlKey: ValueKey(
-                              'topic-recommendations-tab-${available[index].id.value}',
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: inbox ? 16 : 0),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: theme.shell.divider),
+                  ),
+                ),
+                child: SizedBox(
+                  height: tabHeight,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(horizontal: inbox ? 0 : 16),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (
+                          var index = 0;
+                          index < available.length;
+                          index++
+                        ) ...[
+                          if (index > 0) const SizedBox(width: 17),
+                          IntrinsicWidth(
+                            child: ListNavigationTab(
+                              controlKey: ValueKey(
+                                'topic-recommendations-tab-${available[index].id.value}',
+                              ),
+                              label: available[index].label,
+                              textStyle: tabTextStyle,
+                              underline: true,
+                              selected: selection.id == available[index].id,
+                              onTap: () => onSelected(available[index].id),
                             ),
-                            label: available[index].label,
-                            textStyle: tabTextStyle,
-                            underline: true,
-                            selected: selection.id == available[index].id,
-                            onTap: () => onSelected(available[index].id),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -3536,7 +3536,12 @@ class _MoreTopics extends StatelessWidget {
                 titleStyle: theme.textTheme.titleSmall,
               ),
             if (index < selection.topics.length - 1)
-              Divider(height: 1, color: theme.shell.divider),
+              Divider(
+                height: 1,
+                indent: inbox ? 16 : 0,
+                endIndent: inbox ? 16 : 0,
+                color: theme.shell.divider,
+              ),
           ],
         ],
       ),
