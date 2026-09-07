@@ -155,22 +155,180 @@ void main() {
       },
     );
 
-    test('disposal continues when a peer rejects close', () async {
-      final microphone = _FakeTrack('microphone', 'audio');
-      final stream = _FakeStream('microphone-stream', [microphone]);
-      final peer = _FakePeerConnection(failClose: true);
-      final media = _meshSession(
-        peer: peer,
-        audioPublishingAllowed: true,
-        getUserMedia: (_) async => stream,
-      );
+    group('peer teardown', () {
+      for (final (label, failClose, failDispose) in [
+        ('ordinary close', false, false),
+        ('close failure', true, false),
+        ('dispose failure', false, true),
+        ('both failures', true, true),
+      ]) {
+        test('roster removal releases the peer after $label', () async {
+          final peer = _FakePeerConnection(
+            failClose: failClose,
+            failDispose: failDispose,
+          );
+          final media = _meshSession(peer: peer, audioPublishingAllowed: false);
+          addTearDown(media.dispose);
+          await media.connect();
+          final video = _FakeTrack('remote-video', 'video');
+          peer.onTrack?.call(
+            rtc.RTCTrackEvent(streams: const [], track: video),
+          );
+          expect(media.videoTrackFor(20), same(video));
 
-      await media.connect();
-      await media.dispose();
-      await media.dispose();
+          final expectedError = failClose
+              ? peer.closeError
+              : failDispose
+              ? peer.disposeError
+              : null;
+          await expectLater(
+            media.syncParticipants([media.join.room.participants.first]),
+            expectedError == null ? completes : throwsA(same(expectedError)),
+          );
 
-      expect(microphone.stopped, isTrue);
-      expect(stream.disposed, isTrue);
+          expect(peer.teardownCalls, ['close', 'dispose']);
+          expect(video.stopped, isTrue);
+          expect(media.videoTrackFor(20), isNull);
+          await media.handleSignal(20, {
+            'type': 'offer',
+            'sdp': 'departed-offer',
+          });
+          expect(await peer.getRemoteDescription(), isNull);
+          expect(peer.createdAnswers, 0);
+          await media.dispose();
+          expect(peer.teardownCalls, ['close', 'dispose']);
+        });
+      }
+
+      test('session disposal releases every peer and local stream', () async {
+        final microphone = _FakeTrack('microphone', 'audio');
+        final stream = _FakeStream('microphone-stream', [microphone]);
+        final peers = [
+          _FakePeerConnection(failClose: true),
+          _FakePeerConnection(failDispose: true),
+          _FakePeerConnection(failClose: true, failDispose: true),
+          _FakePeerConnection(),
+        ];
+        final response = _meshJoin(localUserId: 10, remoteUserId: 20);
+        var creations = 0;
+        final media = MeshVoiceMediaSession(
+          join: VoiceJoinResponse(
+            transport: response.transport,
+            ice: response.ice,
+            room: response.room.copyWith(
+              participants: [
+                response.room.participants.first,
+                for (var id = 20; id < 24; id++)
+                  VoiceParticipant(
+                    id: id,
+                    username: 'remote-$id',
+                    role: VoiceRole.participant,
+                  ),
+              ],
+            ),
+          ),
+          localUserId: 10,
+          sendSignal: (_, _) async {},
+          audioPublishingAllowed: true,
+          createPeerConnection: (_) async => peers[creations++],
+          getUserMedia: (_) async => stream,
+        );
+        addTearDown(media.dispose);
+
+        await media.connect();
+        await media.dispose();
+        await media.dispose();
+
+        expect(creations, peers.length);
+        for (final peer in peers) {
+          expect(peer.teardownCalls, ['close', 'dispose']);
+        }
+        expect(microphone.stopped, isTrue);
+        expect(stream.disposed, isTrue);
+      });
+
+      for (final (label, registered) in [
+        ('transceiver setup', false),
+        ('offer signaling', true),
+      ]) {
+        test('preserves the $label failure when cleanup fails', () async {
+          final setupError = StateError('peer setup failed');
+          final failedPeer = _FakePeerConnection(
+            failClose: true,
+            failDispose: true,
+            onAddTransceiver: registered ? null : () async => throw setupError,
+          );
+          final replacement = _FakePeerConnection();
+          var creations = 0;
+          final media = MeshVoiceMediaSession(
+            join: _meshJoin(localUserId: 10, remoteUserId: 20),
+            localUserId: 10,
+            sendSignal: (_, _) async {
+              if (registered && creations == 1) throw setupError;
+            },
+            audioPublishingAllowed: false,
+            createPeerConnection: (_) async =>
+                creations++ == 0 ? failedPeer : replacement,
+          );
+          addTearDown(media.dispose);
+
+          await expectLater(media.connect(), throwsA(same(setupError)));
+          expect(failedPeer.teardownCalls, ['close', 'dispose']);
+
+          await media.syncParticipants(media.join.room.participants);
+          expect(creations, 2);
+          expect(await replacement.getLocalDescription(), isNotNull);
+          await media.dispose();
+          expect(failedPeer.teardownCalls, ['close', 'dispose']);
+          expect(replacement.teardownCalls, ['close', 'dispose']);
+        });
+      }
+
+      for (final (label, duringCreation) in [
+        ('created', true),
+        ('configured', false),
+      ]) {
+        test('disposes a peer $label after shutdown starts', () async {
+          final started = Completer<void>();
+          final release = Completer<void>();
+          Future<void> pause() async {
+            if (!started.isCompleted) started.complete();
+            await release.future;
+          }
+
+          final peer = _FakePeerConnection(
+            failClose: true,
+            failDispose: true,
+            onAddTransceiver: duringCreation ? null : pause,
+          );
+          final media = MeshVoiceMediaSession(
+            join: _meshJoin(localUserId: 10, remoteUserId: 20),
+            localUserId: 10,
+            sendSignal: (_, _) async => fail('A late peer must not signal'),
+            audioPublishingAllowed: false,
+            createPeerConnection: (_) async {
+              if (duringCreation) await pause();
+              return peer;
+            },
+          );
+          addTearDown(() async {
+            if (!release.isCompleted) release.complete();
+            await media.dispose();
+          });
+          final connecting = expectLater(
+            media.connect(),
+            duringCreation ? throwsA(same(peer.closeError)) : completes,
+          );
+          await started.future;
+          final disposing = media.dispose();
+          release.complete();
+          await connecting;
+          await disposing;
+
+          expect(peer.teardownCalls, ['close', 'dispose']);
+          expect(await peer.getLocalDescription(), isNull);
+        });
+      }
     });
 
     test(
@@ -2011,11 +2169,18 @@ final class _FakePeerConnection implements rtc.RTCPeerConnection {
   _FakePeerConnection({
     List<String>? events,
     this.failClose = false,
+    this.failDispose = false,
+    this.onAddTransceiver,
     this.exposeNullCachedSignalingState = false,
   }) : events = events ?? <String>[];
 
   final List<String> events;
   final bool failClose;
+  final bool failDispose;
+  final Future<void> Function()? onAddTransceiver;
+  final StateError closeError = StateError('close failed');
+  final StateError disposeError = StateError('dispose failed');
+  final List<String> teardownCalls = [];
   final bool exposeNullCachedSignalingState;
   final List<String> mediaPlan = [];
   final List<rtc.MediaStreamTrack> addedTracks = [];
@@ -2070,6 +2235,7 @@ final class _FakePeerConnection implements rtc.RTCPeerConnection {
     rtc.RTCRtpMediaType? kind,
     rtc.RTCRtpTransceiverInit? init,
   }) async {
+    await onAddTransceiver?.call();
     final mediaKind = switch (kind) {
       rtc.RTCRtpMediaType.RTCRtpMediaTypeVideo => 'video',
       _ => 'audio',
@@ -2183,12 +2349,16 @@ final class _FakePeerConnection implements rtc.RTCPeerConnection {
 
   @override
   Future<void> close() async {
+    teardownCalls.add('close');
     closed = true;
-    if (failClose) throw StateError('close failed');
+    if (failClose) throw closeError;
   }
 
   @override
-  Future<void> dispose() async {}
+  Future<void> dispose() async {
+    teardownCalls.add('dispose');
+    if (failDispose) throw disposeError;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
