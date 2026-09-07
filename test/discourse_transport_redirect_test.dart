@@ -179,11 +179,7 @@ void main() {
         final transport = DiscourseTransport.create(
           client: MockClient((_) async {
             calls++;
-            return http.Response(
-              '',
-              301,
-              headers: {'location': ?location},
-            );
+            return http.Response('', 301, headers: {'location': ?location});
           }),
         );
         addTearDown(transport.close);

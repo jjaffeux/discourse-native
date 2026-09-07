@@ -293,7 +293,13 @@ void _registerTopicReplyTests() {
         tester.getTopRight(replyOptions).dx,
         lessThan(tester.getTopLeft(composerTitle).dx),
       );
-      expect(tester.widget<Text>(composerTitle).data, 'Reply to A real topic');
+      expect(
+        find.descendant(
+          of: composerTitle,
+          matching: find.text('Reply to A real topic'),
+        ),
+        findsOneWidget,
+      );
 
       await tester.tap(replyOptions);
       await tester.pumpAndSettle();
