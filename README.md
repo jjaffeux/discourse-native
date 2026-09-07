@@ -2356,7 +2356,9 @@ the same lazy poster and accessible Play/Open/Download actions. Download is
 available before playback and in the full-screen player. Desktop downloads use
 the native save dialog; mobile downloads use the file share sheet. Videos stream
 to a private temporary file before saving or sharing, without the image cache's
-size limit. Downloads follow redirects explicitly and send user API credentials
+size limit. Download and source-probe responses arriving after a timeout or
+closure have their bodies cancelled, including transports that race an abort.
+Downloads follow redirects explicitly and send user API credentials
 only to the forum origin. Its app-owned
 [`inline_video_playback.dart`](lib/src/shell/inline_video_playback.dart) session
 boundary exposes platform-neutral state and playback intents while keeping

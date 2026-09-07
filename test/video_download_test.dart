@@ -11,6 +11,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/manual_scheduler.dart';
+
 void main() {
   const siteUrl = 'https://forum.example';
   final url = Uri.parse('$siteUrl/secure-uploads/demo.mp4');
@@ -224,6 +226,42 @@ void main() {
     );
     expect(requests, 6);
     expect(directory.listSync(), isEmpty);
+  });
+
+  test('cancels download headers that arrive after the deadline', () async {
+    environment.savePath = '${directory.path}/late.mp4';
+    final started = Completer<void>();
+    final headers = Completer<http.StreamedResponse>();
+    var cancelled = false;
+    final body = StreamController<List<int>>(onCancel: () => cancelled = true);
+    addTearDown(() async {
+      if (!cancelled) await body.stream.listen(null).cancel();
+      await body.close();
+    });
+    final scheduler = ManualScheduler();
+    final pending = runZoned(
+      () => download(
+        MockClient.streaming((request, _) {
+          started.complete();
+          return headers.future;
+        }),
+        timeout: const Duration(minutes: 1),
+      ),
+      zoneSpecification: ZoneSpecification(
+        createTimer: (_, _, zone, duration, callback) =>
+            scheduler.createTimer(duration, zone.bindCallback(callback)),
+      ),
+    );
+    await started.future;
+    final timedOut = expectLater(pending, throwsA(isA<TimeoutException>()));
+    scheduler.advance(const Duration(minutes: 1));
+    await timedOut;
+    expect(directory.listSync(), isEmpty);
+
+    headers.complete(http.StreamedResponse(body.stream, 200));
+    // Drain the late-response continuation queued by completing headers.
+    await Future<void>.delayed(Duration.zero);
+    expect(cancelled, isTrue);
   });
 
   test('a stalled body times out and removes its partial file', () async {

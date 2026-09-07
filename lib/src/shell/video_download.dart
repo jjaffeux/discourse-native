@@ -153,7 +153,18 @@ final class NativeVideoDownloader implements VideoDownloader {
           abortTrigger: abort.future,
         );
         if (current.origin == forumOrigin) request.headers.addAll(headers);
-        final response = await client.send(request).timeout(requestTimeout);
+        final pending = client.send(request);
+        late final http.StreamedResponse response;
+        try {
+          response = await pending.timeout(requestTimeout);
+        } on TimeoutException {
+          // A transport may complete despite the abort signal. Release any
+          // late body instead of leaving its connection without a consumer.
+          pending
+              .then<void>((late) => late.stream.listen(null).cancel())
+              .ignore();
+          rethrow;
+        }
         if (_redirectStatuses.contains(response.statusCode)) {
           await response.stream.listen(null).cancel();
           final location = response.headers['location'];
