@@ -211,7 +211,8 @@ class _UsersPageState extends State<UsersPage> {
   Timer? _searchDebounce;
   int _ownerGeneration = 0;
   Set<int>? _visibleColumnIds;
-  int? _hoveredId;
+  final ValueNotifier<int?> _hoveredId = ValueNotifier(null);
+  Map<int, double> _columnMaxima = const {};
   bool _syncingVerticalScroll = false;
   bool _loadMoreCheckScheduled = false;
   bool _loadMoreRequested = false;
@@ -226,6 +227,7 @@ class _UsersPageState extends State<UsersPage> {
     _searchController = TextEditingController(text: widget.data.query.search);
     _identityVertical.addListener(_identityScrolled);
     _metricsVertical.addListener(_metricsScrolled);
+    _deriveColumnMaxima();
     _restoreColumnWidths();
   }
 
@@ -239,7 +241,15 @@ class _UsersPageState extends State<UsersPage> {
       _ownerGeneration++;
       _searchDebounce?.cancel();
       _visibleColumnIds = null;
-      _hoveredId = null;
+    }
+    if (ownerChanged || oldWidget.data.query != widget.data.query) {
+      _hoveredId.value = null;
+    }
+    if (ownerChanged ||
+        oldWidget.data.query != widget.data.query ||
+        !listEquals(oldWidget.data.items, widget.data.items) ||
+        !listEquals(oldWidget.data.columns, widget.data.columns)) {
+      _deriveColumnMaxima();
     }
     if (oldWidget.siteUrl != widget.siteUrl ||
         !identical(oldWidget.columnWidthStore, widget.columnWidthStore)) {
@@ -288,7 +298,23 @@ class _UsersPageState extends State<UsersPage> {
     _horizontal.dispose();
     _identityVertical.dispose();
     _metricsVertical.dispose();
+    _hoveredId.dispose();
     super.dispose();
+  }
+
+  void _deriveColumnMaxima() {
+    // Rows and columns are immutable snapshots. Retain only this page's
+    // configured columns, including hidden ones so the picker needs no scan.
+    _columnMaxima = {
+      for (final column in widget.data.columns)
+        column.id: widget.data.items.fold<double>(
+          0,
+          (maximum, item) => math.max(
+            maximum,
+            item.numericValueFor(column)?.abs().toDouble() ?? 0,
+          ),
+        ),
+    };
   }
 
   void _restoreColumnWidths() {
@@ -706,11 +732,8 @@ class _UsersPageState extends State<UsersPage> {
           headerHeight: _headerHeight,
           metricWidth: _metricWidth,
           columnWidths: _columnWidths,
+          columnMaxima: _columnMaxima,
           hoveredId: _hoveredId,
-          onHover: (id) {
-            if (_hoveredId == id) return;
-            setState(() => _hoveredId = id);
-          },
           onSearchChanged: _search,
           onSearchSubmitted: _submitSearch,
           onClearSearch: () {
@@ -748,8 +771,8 @@ class _DirectorySurface extends StatelessWidget {
     required this.headerHeight,
     required this.metricWidth,
     required this.columnWidths,
+    required this.columnMaxima,
     required this.hoveredId,
-    required this.onHover,
     required this.onSearchChanged,
     required this.onSearchSubmitted,
     required this.onClearSearch,
@@ -777,8 +800,8 @@ class _DirectorySurface extends StatelessWidget {
   final double headerHeight;
   final double metricWidth;
   final Map<String, double> columnWidths;
-  final int? hoveredId;
-  final ValueChanged<int?> onHover;
+  final Map<int, double> columnMaxima;
+  final ValueNotifier<int?> hoveredId;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onSearchSubmitted;
   final VoidCallback onClearSearch;
@@ -826,8 +849,8 @@ class _DirectorySurface extends StatelessWidget {
             headerHeight: headerHeight,
             metricWidth: metricWidth,
             columnWidths: columnWidths,
+            columnMaxima: columnMaxima,
             hoveredId: hoveredId,
-            onHover: onHover,
             onSort: onSort,
             onColumnResizeStart: onColumnResizeStart,
             onColumnResize: onColumnResize,
@@ -1175,8 +1198,8 @@ class _TableBody extends StatelessWidget {
     required this.headerHeight,
     required this.metricWidth,
     required this.columnWidths,
+    required this.columnMaxima,
     required this.hoveredId,
-    required this.onHover,
     required this.onSort,
     required this.onColumnResizeStart,
     required this.onColumnResize,
@@ -1200,8 +1223,8 @@ class _TableBody extends StatelessWidget {
   final double headerHeight;
   final double metricWidth;
   final Map<String, double> columnWidths;
-  final int? hoveredId;
-  final ValueChanged<int?> onHover;
+  final Map<int, double> columnMaxima;
+  final ValueNotifier<int?> hoveredId;
   final ValueChanged<String> onSort;
   final VoidCallback onColumnResizeStart;
   final void Function(String key, double width) onColumnResize;
@@ -1236,18 +1259,6 @@ class _TableBody extends StatelessWidget {
         title: 'No matching people',
         detail: 'Try a different search, group, or time window.',
       );
-    }
-
-    final maxima = <int, double>{};
-    for (final column in columns) {
-      var maximum = 0.0;
-      for (final item in data.items) {
-        maximum = math.max(
-          maximum,
-          item.numericValueFor(column)?.abs().toDouble() ?? 0,
-        );
-      }
-      maxima[column.id] = maximum;
     }
 
     return LayoutBuilder(
@@ -1318,8 +1329,7 @@ class _TableBody extends StatelessWidget {
                               item: item,
                               siteUrl: siteUrl,
                               currentUser: currentUser,
-                              hovered: hoveredId == item.id,
-                              onHover: onHover,
+                              hoveredId: hoveredId,
                             );
                           },
                         ),
@@ -1470,54 +1480,56 @@ class _TableBody extends StatelessWidget {
                                           item.user.username,
                                           data.currentUsername,
                                         );
-                                        return MouseRegion(
-                                          onEnter: (_) => onHover(item.id),
-                                          onExit: (_) => onHover(null),
-                                          child: ColoredBox(
-                                            key: ValueKey(
-                                              'user-metrics-background-${item.user.username}',
-                                            ),
-                                            color: _rowColor(
-                                              palette,
-                                              currentUser: currentUser,
-                                              hovered: hoveredId == item.id,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                for (
-                                                  var columnIndex = 0;
-                                                  columnIndex < columns.length;
-                                                  columnIndex++
-                                                )
-                                                  SizedBox(
-                                                    width:
-                                                        resolvedMetricWidths[columnIndex],
-                                                    child: _MetricCell(
-                                                      palette: palette,
-                                                      item: item,
-                                                      column:
-                                                          columns[columnIndex],
-                                                      maximum:
-                                                          maxima[columns[columnIndex]
-                                                              .id] ??
-                                                          0,
-                                                    ),
+                                        return _RowHover(
+                                          id: item.id,
+                                          hoveredId: hoveredId,
+                                          builder: (context, hovered, child) =>
+                                              ColoredBox(
+                                                key: ValueKey(
+                                                  'user-metrics-background-${item.user.username}',
+                                                ),
+                                                color: _rowColor(
+                                                  palette,
+                                                  currentUser: currentUser,
+                                                  hovered: hovered,
+                                                ),
+                                                child: child,
+                                              ),
+                                          child: Row(
+                                            children: [
+                                              for (
+                                                var columnIndex = 0;
+                                                columnIndex < columns.length;
+                                                columnIndex++
+                                              )
+                                                SizedBox(
+                                                  width:
+                                                      resolvedMetricWidths[columnIndex],
+                                                  child: _MetricCell(
+                                                    palette: palette,
+                                                    item: item,
+                                                    column:
+                                                        columns[columnIndex],
+                                                    maximum:
+                                                        columnMaxima[columns[columnIndex]
+                                                            .id] ??
+                                                        0,
                                                   ),
-                                                if (hasFiller)
-                                                  Expanded(
-                                                    child: DecoratedBox(
-                                                      decoration: BoxDecoration(
-                                                        border: Border(
-                                                          bottom: BorderSide(
-                                                            color:
-                                                                palette.rowLine,
-                                                          ),
+                                                ),
+                                              if (hasFiller)
+                                                Expanded(
+                                                  child: DecoratedBox(
+                                                    decoration: BoxDecoration(
+                                                      border: Border(
+                                                        bottom: BorderSide(
+                                                          color:
+                                                              palette.rowLine,
                                                         ),
                                                       ),
                                                     ),
                                                   ),
-                                              ],
-                                            ),
+                                                ),
+                                            ],
                                           ),
                                         );
                                       },
@@ -1941,6 +1953,66 @@ class _HeaderButton extends StatelessWidget {
   }
 }
 
+class _RowHover extends StatefulWidget {
+  const _RowHover({
+    required this.id,
+    required this.hoveredId,
+    required this.builder,
+    required this.child,
+  });
+
+  final int id;
+  final ValueNotifier<int?> hoveredId;
+  final Widget Function(BuildContext context, bool hovered, Widget child)
+  builder;
+  final Widget child;
+
+  @override
+  State<_RowHover> createState() => _RowHoverState();
+}
+
+class _RowHoverState extends State<_RowHover> {
+  late bool _hovered;
+
+  @override
+  void initState() {
+    super.initState();
+    _hovered = widget.hoveredId.value == widget.id;
+    widget.hoveredId.addListener(_hoverChanged);
+  }
+
+  @override
+  void didUpdateWidget(_RowHover oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.hoveredId != widget.hoveredId) {
+      oldWidget.hoveredId.removeListener(_hoverChanged);
+      widget.hoveredId.addListener(_hoverChanged);
+    }
+    _hovered = widget.hoveredId.value == widget.id;
+  }
+
+  void _hoverChanged() {
+    final hovered = widget.hoveredId.value == widget.id;
+    if (_hovered == hovered) return;
+    setState(() => _hovered = hovered);
+  }
+
+  @override
+  void dispose() {
+    widget.hoveredId.removeListener(_hoverChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => widget.hoveredId.value = widget.id,
+    onExit: (_) {
+      if (widget.hoveredId.value == widget.id) widget.hoveredId.value = null;
+    },
+    child: widget.builder(context, _hovered, widget.child),
+  );
+}
+
 class _IdentityRow extends StatelessWidget {
   const _IdentityRow({
     super.key,
@@ -1948,22 +2020,20 @@ class _IdentityRow extends StatelessWidget {
     required this.item,
     required this.siteUrl,
     required this.currentUser,
-    required this.hovered,
-    required this.onHover,
+    required this.hoveredId,
   });
 
   final _MatrixPalette palette;
   final UserDirectoryItem item;
   final String siteUrl;
   final bool currentUser;
-  final bool hovered;
-  final ValueChanged<int?> onHover;
+  final ValueNotifier<int?> hoveredId;
 
   @override
-  Widget build(BuildContext context) => MouseRegion(
-    onEnter: (_) => onHover(item.id),
-    onExit: (_) => onHover(null),
-    child: Container(
+  Widget build(BuildContext context) => _RowHover(
+    id: item.id,
+    hoveredId: hoveredId,
+    builder: (context, hovered, child) => Container(
       key: ValueKey('user-identity-background-${item.user.username}'),
       decoration: BoxDecoration(
         color: _rowColor(palette, currentUser: currentUser, hovered: hovered),
@@ -1972,94 +2042,92 @@ class _IdentityRow extends StatelessWidget {
           bottom: BorderSide(color: palette.rowLine),
         ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 12, right: 8),
-              child: UserCardTarget(
-                username: item.user.username,
-                siteUrl: siteUrl.isEmpty ? null : siteUrl,
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      key: ValueKey('user-avatar-${item.user.username}'),
-                      borderRadius: Theme.of(
-                        context,
-                      ).avatars.borderRadiusFor(32),
-                      child: AvatarImage(
-                        url: item.user.avatarUrl,
-                        size: 32,
-                        fallback: _AvatarFallback(
-                          palette: palette,
-                          user: item.user,
-                        ),
+      child: child,
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 12, right: 8),
+            child: UserCardTarget(
+              username: item.user.username,
+              siteUrl: siteUrl.isEmpty ? null : siteUrl,
+              child: Row(
+                children: [
+                  ClipRRect(
+                    key: ValueKey('user-avatar-${item.user.username}'),
+                    borderRadius: Theme.of(context).avatars.borderRadiusFor(32),
+                    child: AvatarImage(
+                      url: item.user.avatarUrl,
+                      size: 32,
+                      fallback: _AvatarFallback(
+                        palette: palette,
+                        user: item.user,
                       ),
                     ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                item.user.username,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: palette.ink,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ),
+                            if (item.user.primaryGroupName
+                                case final group?) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: palette.green.withValues(alpha: .1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
                                 child: Text(
-                                  item.user.username,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodyMedium
+                                  group,
+                                  style: Theme.of(context).textTheme.labelSmall
                                       ?.copyWith(
-                                        color: palette.ink,
+                                        color: palette.green,
                                         fontWeight: FontWeight.w600,
                                       ),
                                 ),
                               ),
-                              if (item.user.primaryGroupName
-                                  case final group?) ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                    vertical: 1,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: palette.green.withValues(alpha: .1),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    group,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: palette.green,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
-                                ),
-                              ],
                             ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item.user.name ?? item.user.title ?? 'Member',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: palette.faint),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.user.name ?? item.user.title ?? 'Member',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: palette.faint),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     ),
   );
 }
