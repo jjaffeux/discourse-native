@@ -19,14 +19,17 @@ Future<void> joinVoiceRoom(
   required String siteName,
   required VoiceRoom room,
   required bool meshPrivacyWarningEnabled,
+  bool Function()? ifCurrent,
 }) async {
+  if (ifCurrent?.call() == false) return;
   final confirmed = await confirmVoiceMeshPrivacy(
     context,
     controller: controller,
     room: room,
     enabled: meshPrivacyWarningEnabled,
+    ifCurrent: ifCurrent,
   );
-  if (!confirmed) return;
+  if (!confirmed || !context.mounted || ifCurrent?.call() == false) return;
   await controller.join(siteUrl: siteUrl, siteName: siteName, room: room);
 }
 
@@ -40,17 +43,23 @@ Future<bool> confirmVoiceMeshPrivacy(
   required VoiceController controller,
   required VoiceRoom room,
   required bool enabled,
+  bool Function()? ifCurrent,
 }) async {
+  if (ifCurrent?.call() == false) return false;
   if (!enabled || room.expectedTransport != VoiceTransport.mesh) return true;
-  if (await controller.meshPrivacyAcknowledged()) return true;
-  if (!context.mounted || _meshPrivacyWarningOpen) return false;
+  final acknowledged = await controller.meshPrivacyAcknowledged();
+  if (!context.mounted || ifCurrent?.call() == false) return false;
+  if (acknowledged) return true;
+  if (_meshPrivacyWarningOpen) return false;
   _meshPrivacyWarningOpen = true;
   try {
     final result = await showDialog<VoiceMeshPrivacyDecision>(
       context: context,
       builder: (context) => const VoiceMeshPrivacyDialog(),
     );
-    if (result == null || !result.join) return false;
+    if (result == null || !result.join || ifCurrent?.call() == false) {
+      return false;
+    }
     if (result.dontShowAgain) await controller.acknowledgeMeshPrivacy();
     return true;
   } finally {

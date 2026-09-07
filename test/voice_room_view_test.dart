@@ -1725,6 +1725,94 @@ void _directCallTests() {
       harness.controller.declineIncomingCall();
       await tester.pump();
     });
+
+    for (final boundary in ['privacy read', 'privacy dialog', 'navigation']) {
+      testWidgets('answer stops after account removal during $boundary', (
+        tester,
+      ) async {
+        final tracker = RecordingPluginLiveChannels();
+        final room = callRoom();
+        final transport = RecordingPluginTransport(
+          responses: {
+            'GET /voice/rooms.json': const {'rooms': <Object?>[]},
+            'GET /voice/rooms/call-1a2b.json': {
+              ..._joinPayload(room)['room'] as Map<String, dynamic>,
+              'expected_transport': 'mesh',
+            },
+            'POST /voice/rooms/9/join.json': _joinPayload(room),
+            'POST /voice/rooms/9/state.json': const {},
+            'DELETE /voice/rooms/9/leave.json': const {},
+          },
+        );
+        final preferences = _Preferences();
+        final gate = Completer<void>();
+        if (boundary == 'privacy read') preferences.meshPrivacyReadGate = gate;
+        final harness = _Harness(
+          discourseApi: transport,
+          tracker: tracker,
+          preferences: preferences,
+        );
+        addTearDown(harness.dispose);
+        final host = _RouteHost(
+          const PluginRouteSite(
+            url: _siteUrl,
+            title: 'Voice',
+            isConnected: true,
+          ),
+        );
+        final shell = VoiceShellService(
+          controller: harness.controller,
+          host: host,
+          recordingEnabled: (_) => false,
+        );
+        late BuildContext answerContext;
+        await harness.controller.ensureLoaded(_siteUrl);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) {
+                answerContext = context;
+                return const Scaffold();
+              },
+            ),
+          ),
+        );
+        tracker.deliver('/voice/call-ring/1', {
+          'room_id': 9,
+          'room_slug': 'call-1a2b',
+          'room_name': '📞 kim + sam',
+          'caller_username': 'kim',
+          'sent_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          'ring_seconds': 60,
+        });
+        if (boundary == 'navigation') {
+          host.onPushContent = () => harness.controller.forget(_siteUrl);
+        }
+        final answering = shell.answerIncomingCall(answerContext);
+        await tester.pumpAndSettle();
+
+        expect(preferences.meshPrivacyReads, boundary == 'navigation' ? 0 : 1);
+        if (boundary == 'privacy dialog') {
+          expect(find.text('Before you join this room'), findsOneWidget);
+          harness.controller.forget(_siteUrl);
+          await tester.tap(find.text('Join room'));
+        } else if (boundary == 'privacy read') {
+          harness.controller.forget(_siteUrl);
+          gate.complete();
+        }
+        await tester.pumpAndSettle();
+
+        final staleWarning = tester.any(find.text('Before you join this room'));
+        if (staleWarning) {
+          await tester.tap(find.text('Cancel'));
+          await tester.pumpAndSettle();
+        }
+        await answering;
+        expect(staleWarning, isFalse);
+        expect(harness.controller.call, isNull);
+        expect(transport.writes, isEmpty);
+      });
+    }
   });
 }
 
@@ -2228,9 +2316,13 @@ final class _RouteHost implements PluginRouteNavigationHost {
 
   @override
   ContentRoute? currentContent;
+  VoidCallback? onPushContent;
 
   @override
-  void pushContent(ContentRoute route) => currentContent = route;
+  void pushContent(ContentRoute route) {
+    currentContent = route;
+    onPushContent?.call();
+  }
 
   @override
   void replaceCurrentContent(ContentRoute route) => currentContent = route;
@@ -2508,12 +2600,18 @@ final class _Preferences implements VoicePreferences {
   }
 
   bool meshPrivacyAcknowledged = false;
+  Completer<void>? meshPrivacyReadGate;
+  int meshPrivacyReads = 0;
   final List<bool> meshPrivacyWrites = [];
   bool? autoStatusEnabled;
   final List<bool> autoStatusWrites = [];
 
   @override
-  Future<bool> readMeshPrivacyAcknowledged() async => meshPrivacyAcknowledged;
+  Future<bool> readMeshPrivacyAcknowledged() async {
+    meshPrivacyReads++;
+    await meshPrivacyReadGate?.future;
+    return meshPrivacyAcknowledged;
+  }
 
   @override
   Future<void> writeMeshPrivacyAcknowledged(bool acknowledged) async {

@@ -79,18 +79,25 @@ final class VoiceShellService
   /// Answers the ringing call: opens its room page and joins it.
   Future<void> answerIncomingCall(BuildContext context) async {
     final accepted = await controller.acceptIncomingCall();
-    if (accepted == null || !context.mounted) return;
-    await _openAndJoin(context, siteUrl: accepted.siteUrl, room: accepted.room);
+    if (accepted == null || !context.mounted || !accepted.isCurrent) return;
+    await _openAndJoin(
+      context,
+      siteUrl: accepted.siteUrl,
+      room: accepted.room,
+      ifCurrent: () => accepted.isCurrent,
+    );
   }
 
   Future<void> _openAndJoin(
     BuildContext context, {
     required String siteUrl,
     required VoiceRoom room,
+    bool Function()? ifCurrent,
   }) async {
     final siteName =
         _host.sites.where((site) => site.url == siteUrl).firstOrNull?.title ??
         siteUrl;
+    if (ifCurrent?.call() == false) return;
     openRoom(
       siteUrl: siteUrl,
       route: ContentRoute(
@@ -98,14 +105,19 @@ final class VoiceShellService
         title: room.name,
         icon: DIcons.microphoneLines,
       ),
+      ifCurrent: ifCurrent,
     );
+    if (!context.mounted || ifCurrent?.call() == false) return;
+    final privacyWarningEnabled = meshPrivacyWarningEnabledFor(siteUrl);
+    if (ifCurrent?.call() == false) return;
     await joinVoiceRoom(
       context,
       controller: controller,
       siteUrl: siteUrl,
       siteName: siteName,
       room: room,
-      meshPrivacyWarningEnabled: meshPrivacyWarningEnabledFor(siteUrl),
+      meshPrivacyWarningEnabled: privacyWarningEnabled,
+      ifCurrent: ifCurrent,
     );
   }
 
@@ -113,11 +125,14 @@ final class VoiceShellService
     required String siteUrl,
     required ContentRoute route,
     bool replaceCurrent = false,
+    bool Function()? ifCurrent,
   }) {
     final index = _host.sites.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0) return;
     final sameInstance = _host.currentSite?.url == siteUrl;
+    if (ifCurrent?.call() == false) return;
     if (!sameInstance) _host.selectInstance(index);
+    if (ifCurrent?.call() == false) return;
     if (sameInstance && _host.currentContent?.id == route.id) {
       _host.replaceCurrentContent(route);
       return;
