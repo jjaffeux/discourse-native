@@ -3,8 +3,241 @@ import 'dart:async';
 import 'package:discourse_native/src/data/private_storage.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+// Fault injection at shared_preferences' platform boundary is test-only.
+// ignore: depend_on_referenced_packages
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 void main() {
+  group('client ID preferences', () {
+    const key = 'discourse_native.client_id';
+    const apiKeyEntry = 'api_key::https://meta.discourse.org';
+
+    for (final (type, malformed) in <(String, Object)>[
+      ('bool', true),
+      ('int', 42),
+      ('double', 1.5),
+      ('list', <String>['malformed-id']),
+    ]) {
+      test('repairs $type preferences with the legacy ID', () async {
+        SharedPreferences.setMockInitialValues({
+          key: malformed,
+          'unrelated': 'kept',
+        });
+        final preferences = await SharedPreferences.getInstance();
+        final storage = _FakeStorage({
+          'client_id': 'legacy-id',
+          apiKeyEntry: 'api-key',
+        });
+        final store = SecureStore(
+          storage: storage,
+          tokenGenerator: () => throw StateError('must not generate'),
+        );
+
+        expect(preferences.get(key), malformed);
+        expect(await store.readOrCreateClientId(), 'legacy-id');
+        expect(await store.readOrCreateClientId(), 'legacy-id');
+        await preferences.reload();
+
+        expect(preferences.getString(key), 'legacy-id');
+        expect(preferences.getString('unrelated'), 'kept');
+        expect(storage.values, {
+          'client_id': 'legacy-id',
+          apiKeyEntry: 'api-key',
+        });
+        expect(storage.events, ['read:client_id']);
+      });
+
+      test('repairs $type preferences with one generated ID', () async {
+        SharedPreferences.setMockInitialValues({key: malformed});
+        final preferences = await SharedPreferences.getInstance();
+        final storage = _FakeStorage({apiKeyEntry: 'api-key'});
+        var generations = 0;
+        String generate() => 'generated-${++generations}';
+        final store = SecureStore(storage: storage, tokenGenerator: generate);
+        final replacement = SecureStore(
+          storage: storage,
+          tokenGenerator: generate,
+        );
+
+        expect(preferences.get(key), malformed);
+        expect(
+          await Future.wait([
+            store.readOrCreateClientId(),
+            store.readOrCreateClientId(),
+            replacement.readOrCreateClientId(),
+          ]),
+          ['generated-1', 'generated-1', 'generated-1'],
+        );
+        await preferences.reload();
+
+        expect(preferences.getString(key), 'generated-1');
+        final reopened = SecureStore(
+          storage: storage,
+          tokenGenerator: () => throw StateError('must not regenerate'),
+        );
+        expect(await reopened.readOrCreateClientId(), 'generated-1');
+        expect(generations, 1);
+        expect(storage.values, {apiKeyEntry: 'api-key'});
+        expect(storage.events, ['read:client_id']);
+      });
+    }
+
+    test('reuses a valid preference before reading legacy storage', () async {
+      SharedPreferences.setMockInitialValues({key: 'persisted-id'});
+      final storage = _FakeStorage({'client_id': 'legacy-id'});
+      final store = SecureStore(
+        storage: storage,
+        tokenGenerator: () => throw StateError('must not generate'),
+      );
+
+      expect(await store.readOrCreateClientId(), 'persisted-id');
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.reload();
+      expect(preferences.getString(key), 'persisted-id');
+      expect(storage.values, {'client_id': 'legacy-id'});
+      expect(storage.events, isEmpty);
+    });
+
+    test('replaces an empty preference with the legacy ID', () async {
+      SharedPreferences.setMockInitialValues({key: ''});
+      final store = SecureStore(
+        storage: _FakeStorage({'client_id': 'legacy-id'}),
+        tokenGenerator: () => throw StateError('must not generate'),
+      );
+
+      expect(await store.readOrCreateClientId(), 'legacy-id');
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.reload();
+      expect(preferences.getString(key), 'legacy-id');
+    });
+
+    test('propagates preference read failures and retries', () async {
+      final error = StateError('preferences unavailable');
+      final preferences = _ControlledPreferences({'flutter.$key': 'persisted'})
+        ..readError = error;
+      SharedPreferencesStorePlatform.instance = preferences;
+      final storage = _FakeStorage({'client_id': 'legacy-id'});
+      var generations = 0;
+      final store = SecureStore(
+        storage: storage,
+        tokenGenerator: () => 'generated-${++generations}',
+      );
+
+      await expectLater(store.readOrCreateClientId(), throwsA(same(error)));
+      await expectLater(store.readOrCreateClientId(), throwsA(same(error)));
+
+      expect(storage.events, isEmpty);
+      expect(generations, 0);
+      expect(preferences.writes, 0);
+      preferences.readError = null;
+
+      expect(await store.readOrCreateClientId(), 'persisted');
+      expect(storage.events, isEmpty);
+      expect(generations, 0);
+      expect(preferences.writes, 0);
+    });
+
+    test(
+      'preserves a malformed preference when the legacy read fails',
+      () async {
+        SharedPreferences.setMockInitialValues({key: true});
+        final error = StateError('legacy storage unavailable');
+        final storage = _FakeStorage({'client_id': 'legacy-id'})
+          ..readErrors['client_id'] = error;
+        final store = SecureStore(
+          storage: storage,
+          tokenGenerator: () => throw StateError('must not generate'),
+        );
+
+        await expectLater(store.readOrCreateClientId(), throwsA(same(error)));
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.reload();
+        expect(preferences.get(key), true);
+        storage.readErrors.clear();
+
+        expect(await store.readOrCreateClientId(), 'legacy-id');
+        await preferences.reload();
+        expect(preferences.getString(key), 'legacy-id');
+      },
+    );
+
+    for (final throwsError in [false, true]) {
+      test('propagates repair write failures (throws: $throwsError)', () async {
+        final error = StateError('preferences unavailable');
+        final preferences = _ControlledPreferences({'flutter.$key': true})
+          ..writeError = throwsError ? error : null
+          ..acceptWrites = false;
+        SharedPreferencesStorePlatform.instance = preferences;
+        final store = SecureStore(
+          storage: _FakeStorage({'client_id': 'legacy-id'}),
+          tokenGenerator: () => throw StateError('must not generate'),
+        );
+
+        await expectLater(
+          store.readOrCreateClientId(),
+          throwsError ? throwsA(same(error)) : throwsStateError,
+        );
+        expect((await preferences.getAll())['flutter.$key'], true);
+
+        // Reload the platform value after SharedPreferences' optimistic write.
+        await (await SharedPreferences.getInstance()).reload();
+        preferences
+          ..writeError = null
+          ..acceptWrites = true;
+
+        expect(await store.readOrCreateClientId(), 'legacy-id');
+        expect((await preferences.getAll())['flutter.$key'], 'legacy-id');
+        expect(preferences.writes, 2);
+      });
+    }
+
+    test(
+      'waits for the repair write before returning or caching the ID',
+      () async {
+        final writeGate = Completer<void>();
+        final writeStarted = Completer<void>();
+        addTearDown(() {
+          if (!writeGate.isCompleted) writeGate.complete();
+        });
+        final preferences = _ControlledPreferences({'flutter.$key': true})
+          ..writeGate = writeGate
+          ..writeStarted = writeStarted;
+        SharedPreferencesStorePlatform.instance = preferences;
+        var generations = 0;
+        String generate() => 'generated-${++generations}';
+        final storage = _FakeStorage();
+        final store = SecureStore(storage: storage, tokenGenerator: generate);
+        final replacement = SecureStore(
+          storage: storage,
+          tokenGenerator: generate,
+        );
+        final returned = <String>[];
+
+        Future<void> read(SecureStore target) async {
+          returned.add(await target.readOrCreateClientId());
+        }
+
+        final first = read(store);
+        await writeStarted.future;
+        final repeated = read(store);
+        final replaced = read(replacement);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(returned, isEmpty);
+        expect((await preferences.getAll())['flutter.$key'], true);
+        expect(generations, 1);
+        writeGate.complete();
+        await Future.wait([first, repeated, replaced]);
+
+        expect(returned, ['generated-1', 'generated-1', 'generated-1']);
+        expect((await preferences.getAll())['flutter.$key'], 'generated-1');
+        expect(generations, 1);
+        expect(preferences.writes, 1);
+      },
+    );
+  });
+
   group('client ID', () {
     test('reuses the persisted ID without generating a replacement', () async {
       var generations = 0;
@@ -461,6 +694,35 @@ void main() {
       expect(storage.events, ['delete:api_key::https://meta.discourse.org']);
     });
   });
+}
+
+final class _ControlledPreferences extends InMemorySharedPreferencesStore {
+  _ControlledPreferences(super.data) : super.withData();
+
+  Object? readError;
+  Object? writeError;
+  bool acceptWrites = true;
+  Completer<void>? writeGate;
+  Completer<void>? writeStarted;
+  int writes = 0;
+
+  @override
+  Future<Map<String, Object>> getAll() async {
+    if (readError case final error?) throw error;
+    return super.getAll();
+  }
+
+  @override
+  Future<bool> setValue(String valueType, String key, Object value) async {
+    writes += 1;
+    if (writeStarted case final started? when !started.isCompleted) {
+      started.complete();
+    }
+    await writeGate?.future;
+    if (writeError case final error?) throw error;
+    if (!acceptWrites) return false;
+    return super.setValue(valueType, key, value);
+  }
 }
 
 final class _FakeStorage implements PrivateStorage {

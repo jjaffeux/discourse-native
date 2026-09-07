@@ -19,8 +19,10 @@ final class PreferencesClientIdPersistence implements ClientIdPersistence {
   static const _key = 'discourse_native.client_id';
 
   @override
-  Future<String?> read() async =>
-      (await SharedPreferences.getInstance()).getString(_key);
+  Future<String?> read() async {
+    final value = (await SharedPreferences.getInstance()).get(_key);
+    return value is String ? value : null;
+  }
 
   @override
   Future<void> write(String value) async {
