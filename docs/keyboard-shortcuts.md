@@ -12,6 +12,8 @@ keep the same meaning whether one pane or both panes are visible.
 | `Shift+R` | Reply to the topic. |
 | `C` | Create a topic. |
 | `U` | Go back through the active tab's content history. |
+| `Cmd+[` / `Cmd+]` (macOS), `Alt+Left` / `Alt+Right` (Windows/Linux) | Go back / forward through the active tab's content history, like the mouse side buttons. |
+| `Cmd+R` (macOS), `F5` (Windows/Linux) | Refresh the current tab, keeping its history and composer. |
 | `Cmd/Ctrl+Enter` | Submit the composer. |
 | `Escape` | Close the composer through its existing draft-preserving flow, or dismiss a dialog. |
 | `Cmd/Ctrl+F` | Search using the current forum, topic, or plugin context. |

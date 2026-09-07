@@ -9,6 +9,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
+import 'chat_plugin.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 
@@ -36,6 +37,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   bool _loadingMore = false;
   bool _hasMore = false;
   String? _error;
+  VoidCallback? _unregisterRefresher;
 
   @override
   void initState() {
@@ -49,11 +51,18 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     super.didChangeDependencies();
     if (_request != null) return;
     _chat = PluginUiScope.require(context, chatControllerService);
+    _unregisterRefresher = PluginUiScope.require(context, chatShellService)
+        .registerRouteRefresher(
+          widget.siteUrl,
+          ChatPlugin.browseRouteId,
+          () => _load(reset: true),
+        );
     unawaited(_load(reset: true));
   }
 
   @override
   void dispose() {
+    _unregisterRefresher?.call();
     _request = Object();
     _filterTimer?.cancel();
     _filterController.dispose();

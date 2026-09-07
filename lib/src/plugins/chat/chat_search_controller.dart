@@ -233,7 +233,7 @@ final class ChatSearchController {
     if (held.hasQuery) unawaited(_searchGlobal(siteUrl));
   }
 
-  void retryGlobal(String siteUrl) {
+  Future<void> retryGlobal(String siteUrl) async {
     final held = globalState(siteUrl);
     if (_disposed || !held.hasQuery || held.loadingMore) return;
     _cancelGlobal(siteUrl);
@@ -245,7 +245,7 @@ final class ChatSearchController {
         phase: ChatSearchPhase.loading,
       ),
     );
-    unawaited(_searchGlobal(siteUrl));
+    await _searchGlobal(siteUrl);
   }
 
   void loadMore(String siteUrl) {

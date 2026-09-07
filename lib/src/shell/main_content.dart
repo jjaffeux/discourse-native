@@ -62,6 +62,19 @@ class MainContent extends StatefulWidget {
 
 class _MainContentState extends State<MainContent> {
   final GroupPagesCoordinator _groupPages = GroupPagesCoordinator();
+  VoidCallback? _unregisterRefresher;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _unregisterRefresher?.call();
+    _unregisterRefresher = ShellScope.identityOf(context)
+        .registerContentRefresher(
+          () => _groupPages.page.isOwned
+              ? _groupPages.requestLoad(refresh: true)
+              : null,
+        );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +114,7 @@ class _MainContentState extends State<MainContent> {
 
   @override
   void dispose() {
+    _unregisterRefresher?.call();
     _groupPages.dispose();
     super.dispose();
   }

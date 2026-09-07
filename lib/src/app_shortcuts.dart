@@ -45,6 +45,25 @@ const topicReplyShortcut = SingleActivator(
   includeRepeats: false,
 );
 
+SingleActivator contentBackShortcutForPlatform(TargetPlatform platform) =>
+    platform == TargetPlatform.macOS
+    ? const SingleActivator(LogicalKeyboardKey.bracketLeft, meta: true)
+    : const SingleActivator(LogicalKeyboardKey.arrowLeft, alt: true);
+
+SingleActivator contentForwardShortcutForPlatform(TargetPlatform platform) =>
+    platform == TargetPlatform.macOS
+    ? const SingleActivator(LogicalKeyboardKey.bracketRight, meta: true)
+    : const SingleActivator(LogicalKeyboardKey.arrowRight, alt: true);
+
+SingleActivator refreshTabShortcutForPlatform(TargetPlatform platform) =>
+    platform == TargetPlatform.macOS
+    ? const SingleActivator(
+        LogicalKeyboardKey.keyR,
+        meta: true,
+        includeRepeats: false,
+      )
+    : const SingleActivator(LogicalKeyboardKey.f5, includeRepeats: false);
+
 enum ReadingCommand {
   nextTopic('Next topic in the list', [
     SingleActivator(LogicalKeyboardKey.keyJ, shift: true),

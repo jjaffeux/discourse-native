@@ -118,8 +118,27 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     if (Navigator.of(context).canPop()) return false;
 
     final keyboard = HardwareKeyboard.instance;
+    final controller = ShellScope.read(context);
+    if (refreshTabShortcutForPlatform(
+      defaultTargetPlatform,
+    ).accepts(event, keyboard)) {
+      if (!controller.canRefreshCurrentTab) return false;
+      unawaited(controller.refreshCurrentTab());
+      return true;
+    }
+    if (contentBackShortcutForPlatform(
+      defaultTargetPlatform,
+    ).accepts(event, keyboard)) {
+      return controller.rootMode == ShellRootMode.forum &&
+          controller.canPopContent &&
+          controller.handleBack(canReturnToSidebar: false);
+    }
+    if (contentForwardShortcutForPlatform(
+      defaultTargetPlatform,
+    ).accepts(event, keyboard)) {
+      return controller.handleForward();
+    }
     if (newTopicShortcut.accepts(event, keyboard)) {
-      final controller = ShellScope.read(context);
       if (controller.rootMode != ShellRootMode.forum ||
           !controller.canCreateTopicFromSidebar ||
           _formControlHasFocus) {
@@ -130,7 +149,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     }
 
     if (topicReplyShortcut.accepts(event, keyboard)) {
-      final controller = ShellScope.read(context);
       if (controller.rootMode != ShellRootMode.forum ||
           controller.currentContent?.isTopic != true ||
           !controller.canReplyHere ||
@@ -147,7 +165,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         : keyboard.isControlPressed;
     if (!modifierPressed) return false;
 
-    final controller = ShellScope.read(context);
     final secondaryModifierPressed = usesMetaModifier
         ? keyboard.isControlPressed
         : keyboard.isMetaPressed;

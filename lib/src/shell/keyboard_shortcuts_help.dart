@@ -33,6 +33,20 @@ Future<void> showKeyboardShortcuts(BuildContext context) async {
               ],
             ),
           const Divider(),
+          _ShortcutRow(
+            label: 'Back in current tab',
+            shortcuts: [contentBackShortcutForPlatform(defaultTargetPlatform)],
+          ),
+          _ShortcutRow(
+            label: 'Forward in current tab',
+            shortcuts: [
+              contentForwardShortcutForPlatform(defaultTargetPlatform),
+            ],
+          ),
+          _ShortcutRow(
+            label: 'Refresh current tab',
+            shortcuts: [refreshTabShortcutForPlatform(defaultTargetPlatform)],
+          ),
           const _ShortcutRow(label: 'New topic', shortcuts: [newTopicShortcut]),
           const _ShortcutRow(
             label: 'Reply to topic',

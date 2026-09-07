@@ -144,7 +144,11 @@ abstract interface class PluginRouteRetry implements PluginSessionCapability {
 abstract interface class PluginRouteHydrator
     implements PluginSessionCapability {
   bool handlesPluginRoute(String routeId);
-  FutureOr<void> hydratePluginRoute(String siteUrl, String routeId);
+  FutureOr<void> hydratePluginRoute(
+    String siteUrl,
+    String routeId, {
+    bool force = false,
+  });
 }
 
 abstract interface class PluginSiteActivator
