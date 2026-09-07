@@ -107,8 +107,15 @@ class UserApiKeyProtocol {
     String? pushUrl,
   }) {
     final site = requireSafeHttpUrl(Uri.parse(siteUrl));
+    // Discovery preserves the forum's subfolder. Keep its encoded path so an
+    // escaped slash remains part of its segment when appending the endpoint.
+    final path = site.path;
+    var end = path.length;
+    while (end > 0 && path.codeUnitAt(end - 1) == 0x2F) {
+      end--;
+    }
     return site.replace(
-      path: '/user-api-key/new',
+      path: '${path.substring(0, end)}/user-api-key/new',
       fragment: '',
       queryParameters: {
         'application_name': applicationName,
