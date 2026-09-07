@@ -2054,6 +2054,40 @@ void main() {
       expect(composer.text.text, isEmpty);
     });
 
+    testWidgets('discard preserves admitted uploads and their cancellation', (
+      tester,
+    ) async {
+      final calls = <_UploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: _recordingUploader(calls),
+      );
+      addTearDown(composer.dispose);
+      composer.text.text = 'body';
+      composer.addImages([_file('one.png'), _file('two.png')], 4);
+      final revision = composer.beginDiscard()!;
+
+      composer.addImages([_file('late.png')], 4);
+      expect(calls, hasLength(2));
+      var cancelled = false;
+      var retainedAborted = false;
+      unawaited(calls.first.abort.then((_) => cancelled = true));
+      unawaited(calls.last.abort.then((_) => retainedAborted = true));
+      composer.cancelUpload(composer.uploads.first.id);
+      calls.last.complete(_result('two'));
+      await tester.pump();
+
+      expect(cancelled, isTrue);
+      expect(retainedAborted, isFalse);
+      expect(composer.raw, 'body\n![two|640x480](upload://two)');
+      expect(composer.uploads, isEmpty);
+      expect(composer.discardRevisionIsCurrent(revision), isFalse);
+
+      composer.finishDiscard();
+      composer.addImages([_file('three.png')], 4);
+      expect(calls, hasLength(3));
+    });
+
     testWidgets('cancelling an earlier slot flushes a ready later upload', (
       tester,
     ) async {

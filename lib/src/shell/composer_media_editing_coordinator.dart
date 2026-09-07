@@ -382,7 +382,12 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     ComposerImagePicker pickImages,
   ) async {
     final gallery = _state.selectedGallery;
-    if (gallery == null || _state.pickingGalleryImages || isDisposed) return;
+    if (gallery == null ||
+        _state.pickingGalleryImages ||
+        isDisposed ||
+        !_composer.canUpload) {
+      return;
+    }
     final composer = _composer;
     final lifecycle = _lifecycleGeneration;
     final operation = ++_pickerGeneration;
@@ -396,7 +401,9 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     );
     try {
       final files = await pickImages();
-      if (!_isCurrent(composer, lifecycle) || operation != _pickerGeneration) {
+      if (!_isCurrent(composer, lifecycle) ||
+          operation != _pickerGeneration ||
+          !composer.canUpload) {
         return;
       }
       composer.addImagesToGallery(files, gallery);
@@ -410,7 +417,9 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
         handled: true,
         degraded: true,
       );
-      if (_isCurrent(composer, lifecycle) && operation == _pickerGeneration) {
+      if (_isCurrent(composer, lifecycle) &&
+          operation == _pickerGeneration &&
+          composer.canUpload) {
         composer.showNotice("Couldn't open the image picker.");
       }
     } finally {
@@ -458,7 +467,7 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     ComposerClipboardImageReader readClipboardImages,
   ) async {
     final composer = _composer;
-    if (isDisposed || composer.imageUploader == null || composer.loadingBody) {
+    if (isDisposed || !composer.canUpload) {
       return false;
     }
     final lifecycle = _lifecycleGeneration;
@@ -480,9 +489,9 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
         handled: true,
         degraded: true,
       );
-      return !_isCurrent(composer, lifecycle);
+      return !_isCurrent(composer, lifecycle) || !composer.canUpload;
     }
-    if (!_isCurrent(composer, lifecycle)) return true;
+    if (!_isCurrent(composer, lifecycle) || !composer.canUpload) return true;
     if (files.isEmpty) return false;
 
     composer.addImages(files, offset);
