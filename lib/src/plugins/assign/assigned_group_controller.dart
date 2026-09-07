@@ -35,6 +35,10 @@ final class AssignedGroupController extends FrameSafeNotifier {
        _topics = topics ?? Store(policy: _assignedTopicStorePolicy),
        _ownsTopicStore = topics == null;
 
+  // Match the directory's 16-query history, independently for members and
+  // topics, to retain recent searches/filters without keeping a whole session.
+  static const int _cachedQueriesPerSite = 16;
+
   final AssignedGroupApi api;
   final PluginRequestHost _requests;
   final Store _topics;
@@ -54,7 +58,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
     String groupName, {
     String search = '',
   }) =>
-      _memberStates[_memberKey(siteUrl, groupName, search)] ??
+      _touchQuery(_memberStates, _memberKey(siteUrl, groupName, search)) ??
       const AssignedGroupMembersState();
 
   TopicFeed topicFeedFor(
@@ -63,7 +67,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
     AssignedGroupFilter filter, {
     AssignedGroupTopicQuery query = const AssignedGroupTopicQuery(),
   }) =>
-      _topicFeeds[_topicKey(siteUrl, groupName, filter, query)] ??
+      _touchQuery(_topicFeeds, _topicKey(siteUrl, groupName, filter, query)) ??
       const TopicFeed();
 
   List<Topic> topicsFor(
@@ -78,6 +82,33 @@ final class AssignedGroupController extends FrameSafeNotifier {
     ]);
   }
 
+  void _trimMemberQueries(String siteUrl) {
+    final keys = _memberStates.keys
+        .where((key) => key.siteUrl == siteUrl)
+        .toList(growable: false);
+    if (keys.length <= _cachedQueriesPerSite) return;
+    for (final key in keys.take(keys.length - _cachedQueriesPerSite)) {
+      _memberStates.remove(key);
+      // Invalidate delayed responses and their finally blocks, including when
+      // a new request has since started for this same key.
+      _memberRequests.remove(key);
+    }
+  }
+
+  void _trimTopicQueries(String siteUrl) {
+    final keys = _topicFeeds.keys
+        .where((key) => key.siteUrl == siteUrl)
+        .toList(growable: false);
+    if (keys.length <= _cachedQueriesPerSite) return;
+    for (final key in keys.take(keys.length - _cachedQueriesPerSite)) {
+      _topicFeeds.remove(key);
+      // Revoke both first-page and pagination writes before they reach Store.
+      _topicRevisions.remove(key);
+      _topicLoads.remove(key);
+      _topicPageRequests.remove(key);
+    }
+  }
+
   Future<void> loadMembers({
     required String siteUrl,
     required String groupName,
@@ -86,7 +117,8 @@ final class AssignedGroupController extends FrameSafeNotifier {
   }) async {
     if (isDisposed) return;
     final key = _memberKey(siteUrl, groupName, search);
-    final held = _memberStates[key] ?? const AssignedGroupMembersState();
+    final held =
+        _touchQuery(_memberStates, key) ?? const AssignedGroupMembersState();
     if (!refresh &&
         (_memberRequests.containsKey(key) ||
             (held.loaded && held.error == null))) {
@@ -97,6 +129,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
     final lease = _requests.capture(siteUrl);
     _memberRequests[key] = request;
     _memberStates[key] = held.loadingFirst();
+    _trimMemberQueries(siteUrl);
     notifySafely();
     if (!_memberRequestCurrent(lease, key, request)) return;
 
@@ -143,7 +176,8 @@ final class AssignedGroupController extends FrameSafeNotifier {
   }) async {
     if (isDisposed) return;
     final key = _memberKey(siteUrl, groupName, search);
-    final held = _memberStates[key] ?? const AssignedGroupMembersState();
+    final held =
+        _touchQuery(_memberStates, key) ?? const AssignedGroupMembersState();
     if (_memberRequests.containsKey(key) ||
         held.loading ||
         held.loadingMore ||
@@ -213,7 +247,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
   }) async {
     if (isDisposed) return;
     final key = _topicKey(siteUrl, groupName, filter, query);
-    final held = _topicFeeds[key] ?? const TopicFeed();
+    final held = _touchQuery(_topicFeeds, key) ?? const TopicFeed();
     if (!refresh &&
         (_topicLoads.containsKey(key) || (held.loaded && held.error == null))) {
       return;
@@ -226,6 +260,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
     _topicLoads[key] = request;
     _topicPageRequests.remove(key);
     _topicFeeds[key] = held.refreshing();
+    _trimTopicQueries(siteUrl);
     notifySafely();
     if (!_topicLoadCurrent(lease, key, revision, request)) return;
 
@@ -278,7 +313,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
   }) async {
     if (isDisposed) return;
     final key = _topicKey(siteUrl, groupName, filter, query);
-    final held = _topicFeeds[key];
+    final held = _touchQuery(_topicFeeds, key);
     if (held == null ||
         held.loading ||
         held.loadingMore ||
@@ -368,6 +403,14 @@ final class AssignedGroupController extends FrameSafeNotifier {
     _topicPageRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
     if (_ownsTopicStore) _topics.forget(siteUrl);
     if (before != _memberStates.length + _topicFeeds.length) notifySafely();
+  }
+
+  // Reads and load attempts count as access; asynchronous completions do not
+  // change the insertion order or allocate entries for cache misses.
+  static V? _touchQuery<K, V extends Object>(Map<K, V> cache, K key) {
+    final held = cache.remove(key);
+    if (held != null) cache[key] = held;
+    return held;
   }
 
   static _MemberKey _memberKey(
