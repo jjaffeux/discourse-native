@@ -574,6 +574,499 @@ void main() {
       await media.dispose();
     });
 
+    test(
+      'a system-ended screen share is released when video switching fails',
+      () async {
+        final microphone = _FakeTrack('mic', 'audio');
+        final camera = _FakeTrack('camera', 'video');
+        final local = _FakeStream('local-stream', [microphone]);
+        final cameraStream = _FakeStream('camera-stream', [camera]);
+        final captures = [local, cameraStream];
+        final screenVideo = _FakeTrack('screen-video', 'video');
+        final screenAudio = _FakeTrack('screen-audio', 'audio');
+        final screen = _FakeStream('screen-stream', [screenVideo, screenAudio]);
+        final replacementVideo = _FakeTrack('replacement-video', 'video');
+        final replacement = _FakeStream('replacement-stream', [
+          replacementVideo,
+        ]);
+        var screenCaptures = 0;
+        final peer = _FakePeerConnection();
+        final diagnostics = _DiagnosticsRecorder();
+        final media = _meshSession(
+          peer: peer,
+          audioPublishingAllowed: true,
+          getUserMedia: (_) async => captures.removeAt(0),
+          getDisplayMedia: (_) async =>
+              screenCaptures++ == 0 ? screen : replacement,
+          diagnostics: diagnostics,
+          correlationId: 'ended-screen',
+        );
+        addTearDown(media.dispose);
+        await media.connect();
+        await media.setCameraEnabled(true);
+        await media.setScreenShareEnabled(true);
+        final videoSender = peer.createdTransceivers[0].sender;
+        videoSender.onReplaceTrack = (track) async {
+          if (identical(track, camera)) {
+            throw StateError('video switch failed: private native details');
+          }
+        };
+
+        final changes = <bool>[];
+        media.addListener(() => changes.add(media.screenSharing));
+
+        screenVideo.onEnded!.call();
+        await _pumpEventQueue();
+
+        expect(
+          (
+            media.screenSharing,
+            screen.disposeCalls,
+            screenVideo.stopCalls,
+            screenAudio.stopCalls,
+          ),
+          (false, 1, 1, 1),
+        );
+        expect(changes, [false]);
+        expect(media.localVideoTrack, same(camera));
+        expect(videoSender.track, isNull);
+        expect(peer.createdTransceivers[1].sender.track, isNull);
+        expect(peer.addedTrackSenders.single.track, same(microphone));
+        expect(
+          [
+            microphone.stopCalls,
+            camera.stopCalls,
+            local.disposeCalls,
+            cameraStream.disposeCalls,
+          ],
+          [0, 0, 0, 0],
+        );
+        final failure = diagnostics.records.singleWhere(
+          (record) => record.event == 'mesh.screen_share.sender_cleanup.failed',
+        );
+        expect(failure.component, 'webrtc');
+        expect(failure.correlationId, 'ended-screen');
+        expect(failure.severity, DiagnosticSeverity.warning);
+        expect(failure.data, {
+          'peerAlias': 'peer-1',
+          'source': 'video',
+          'replacement': 'camera',
+          'errorType': 'StateError',
+        });
+        expect(diagnostics.rawRecords, isEmpty);
+
+        await media.setScreenShareEnabled(true);
+        expect(screenCaptures, 2);
+        expect(media.localVideoTrack, same(replacementVideo));
+        expect(videoSender.track, same(replacementVideo));
+        await media.dispose();
+        await media.dispose();
+        expect(
+          [
+            screen.disposeCalls,
+            replacement.disposeCalls,
+            local.disposeCalls,
+            cameraStream.disposeCalls,
+          ],
+          [1, 1, 1, 1],
+        );
+        expect(
+          [
+            microphone.stopCalls,
+            camera.stopCalls,
+            screenVideo.stopCalls,
+            screenAudio.stopCalls,
+            replacementVideo.stopCalls,
+          ],
+          [1, 1, 1, 1, 1],
+        );
+      },
+    );
+
+    for (final source in ['video', 'screenAudio']) {
+      test(
+        'an ended share releases capture and restores healthy peers when $source fails',
+        () async {
+          final camera = _FakeTrack('camera', 'video');
+          final screenVideo = _FakeTrack('screen-video', 'video');
+          final screenAudio = _FakeTrack('screen-audio', 'audio');
+          final screen = _FakeStream('screen-stream', [
+            screenVideo,
+            screenAudio,
+          ]);
+          final peers = List.generate(3, (_) => _FakePeerConnection());
+          final response = _meshJoin(localUserId: 10, remoteUserId: 20);
+          var creations = 0;
+          final diagnostics = _DiagnosticsRecorder();
+          final media = MeshVoiceMediaSession(
+            join: VoiceJoinResponse(
+              transport: response.transport,
+              ice: response.ice,
+              room: response.room.copyWith(
+                participants: [
+                  response.room.participants.first,
+                  for (var id = 20; id < 23; id++)
+                    VoiceParticipant(
+                      id: id,
+                      username: 'remote-$id',
+                      role: VoiceRole.participant,
+                    ),
+                ],
+              ),
+            ),
+            localUserId: 10,
+            sendSignal: (_, _) async {},
+            audioPublishingAllowed: false,
+            diagnostics: diagnostics,
+            createPeerConnection: (_) async => peers[creations++],
+            getUserMedia: (_) async => _FakeStream('camera-stream', [camera]),
+            getDisplayMedia: (_) async => screen,
+          );
+          addTearDown(media.dispose);
+          await media.connect();
+          await media.setCameraEnabled(true);
+          await media.setScreenShareEnabled(true);
+          final failingSender =
+              peers[1].createdTransceivers[source == 'video' ? 1 : 2].sender;
+          failingSender.onReplaceTrack = (_) async =>
+              throw StateError('native sender failed');
+          for (final peer in peers) {
+            peer.events.clear();
+          }
+
+          screenVideo.onEnded!.call();
+          await _pumpEventQueue();
+
+          expect(media.screenSharing, isFalse);
+          expect(media.localVideoTrack, same(camera));
+          expect(
+            [screen.disposeCalls, screenVideo.stopCalls, screenAudio.stopCalls],
+            [1, 1, 1],
+          );
+          for (final peer in [peers.first, peers.last]) {
+            expect(peer.createdTransceivers[1].sender.track, same(camera));
+            expect(peer.createdTransceivers[2].sender.track, isNull);
+            expect(peer.events, [
+              'replace:video:camera',
+              'replace:screen-audio:none',
+            ]);
+          }
+          expect(peers[1].events, [
+            'replace:video:camera',
+            if (source == 'video') 'replace:video:none',
+            'replace:screen-audio:none',
+          ]);
+          expect(
+            peers[1]
+                .createdTransceivers[source == 'video' ? 2 : 1]
+                .sender
+                .track,
+            source == 'video' ? isNull : same(camera),
+          );
+          expect(
+            failingSender.track,
+            same(source == 'video' ? screenVideo : screenAudio),
+          );
+          final failures = diagnostics.records.where(
+            (record) =>
+                record.event == 'mesh.screen_share.sender_cleanup.failed',
+          );
+          expect(failures.map((record) => record.data), [
+            if (source == 'video')
+              {
+                'peerAlias': 'peer-2',
+                'source': source,
+                'replacement': 'camera',
+                'errorType': 'StateError',
+              },
+            {
+              'peerAlias': 'peer-2',
+              'source': source,
+              'replacement': 'none',
+              'errorType': 'StateError',
+            },
+          ]);
+          expect(camera.stopCalls, 0);
+          await media.dispose();
+          expect(
+            [screen.disposeCalls, screenVideo.stopCalls, screenAudio.stopCalls],
+            [1, 1, 1],
+          );
+        },
+      );
+    }
+
+    for (final source in ['video', 'screenAudio']) {
+      test(
+        'a user stop keeps the live capture when $source switching fails',
+        () async {
+          final camera = _FakeTrack('camera', 'video');
+          final screenVideo = _FakeTrack('screen-video', 'video');
+          final screenAudio = _FakeTrack('screen-audio', 'audio');
+          final screen = _FakeStream('screen-stream', [
+            screenVideo,
+            screenAudio,
+          ]);
+          final peer = _FakePeerConnection();
+          final media = _meshSession(
+            peer: peer,
+            audioPublishingAllowed: false,
+            getUserMedia: (_) async => _FakeStream('camera-stream', [camera]),
+            getDisplayMedia: (_) async => screen,
+          );
+          addTearDown(media.dispose);
+          await media.connect();
+          await media.setCameraEnabled(true);
+          await media.setScreenShareEnabled(true);
+          final sender =
+              peer.createdTransceivers[source == 'video' ? 1 : 2].sender;
+          sender.onReplaceTrack = (track) async {
+            if (track == null || identical(track, camera)) {
+              throw StateError('stop failed');
+            }
+          };
+
+          await expectLater(
+            media.setScreenShareEnabled(false),
+            throwsStateError,
+          );
+
+          expect(media.screenSharing, isTrue);
+          expect(media.localVideoTrack, same(screenVideo));
+          expect(peer.createdTransceivers[1].sender.track, same(screenVideo));
+          expect(peer.createdTransceivers[2].sender.track, same(screenAudio));
+          expect(
+            [
+              screen.disposeCalls,
+              screenVideo.stopCalls,
+              screenAudio.stopCalls,
+              camera.stopCalls,
+            ],
+            [0, 0, 0, 0],
+          );
+
+          sender.onReplaceTrack = null;
+          await media.setScreenShareEnabled(false);
+          expect(media.screenSharing, isFalse);
+          expect(peer.createdTransceivers[1].sender.track, same(camera));
+          expect(peer.createdTransceivers[2].sender.track, isNull);
+          expect(
+            [screen.disposeCalls, screenVideo.stopCalls, screenAudio.stopCalls],
+            [1, 1, 1],
+          );
+        },
+      );
+    }
+
+    for (final failSetup in [false, true]) {
+      test(
+        'an end during screen sender setup releases capture once (failure: $failSetup)',
+        () async {
+          final camera = _FakeTrack('camera', 'video');
+          final screenVideo = _FakeTrack('screen-video', 'video');
+          final screenAudio = _FakeTrack('screen-audio', 'audio');
+          final screen = _FakeStream('screen-stream', [
+            screenVideo,
+            screenAudio,
+          ]);
+          final peer = _FakePeerConnection();
+          final media = _meshSession(
+            peer: peer,
+            audioPublishingAllowed: false,
+            getUserMedia: (_) async => _FakeStream('camera-stream', [camera]),
+            getDisplayMedia: (_) async => screen,
+          );
+          addTearDown(media.dispose);
+          await media.connect();
+          await media.setCameraEnabled(true);
+          final replacing = Completer<void>();
+          final release = Completer<void>();
+          addTearDown(() {
+            if (!release.isCompleted) release.complete();
+          });
+          peer.createdTransceivers[1].sender.onReplaceTrack = (track) async {
+            if (!identical(track, screenVideo)) return;
+            replacing.complete();
+            await release.future;
+            if (failSetup) throw StateError('screen setup failed');
+          };
+          final starting = expectLater(
+            media.setScreenShareEnabled(true),
+            failSetup ? throwsStateError : completes,
+          );
+          await replacing.future;
+
+          screenVideo.onEnded!.call();
+          release.complete();
+          await starting;
+          await _pumpEventQueue();
+
+          expect(media.screenSharing, isFalse);
+          expect(media.localVideoTrack, same(camera));
+          expect(peer.createdTransceivers[1].sender.track, same(camera));
+          expect(peer.createdTransceivers[2].sender.track, isNull);
+          expect(
+            [
+              screen.disposeCalls,
+              screenVideo.stopCalls,
+              screenAudio.stopCalls,
+              camera.stopCalls,
+            ],
+            [1, 1, 1, 0],
+          );
+          await media.dispose();
+          expect(
+            [screen.disposeCalls, screenVideo.stopCalls, screenAudio.stopCalls],
+            [1, 1, 1],
+          );
+        },
+      );
+    }
+
+    test(
+      'a queued end from a replaced capture leaves the new share active',
+      () async {
+        final camera = _FakeTrack('camera', 'video');
+        final firstVideo = _FakeTrack('first-video', 'video');
+        final first = _FakeStream('first-stream', [firstVideo]);
+        final secondVideo = _FakeTrack('second-video', 'video');
+        final secondAudio = _FakeTrack('second-audio', 'audio');
+        final second = _FakeStream('second-stream', [secondVideo, secondAudio]);
+        final captures = [first, second];
+        final peer = _FakePeerConnection();
+        final media = _meshSession(
+          peer: peer,
+          audioPublishingAllowed: false,
+          getUserMedia: (_) async => _FakeStream('camera-stream', [camera]),
+          getDisplayMedia: (_) async => captures.removeAt(0),
+        );
+        addTearDown(media.dispose);
+        await media.connect();
+        await media.setCameraEnabled(true);
+        await media.setScreenShareEnabled(true);
+        final ended = firstVideo.onEnded!;
+        final replacing = Completer<void>();
+        final release = Completer<void>();
+        addTearDown(() {
+          if (!release.isCompleted) release.complete();
+        });
+        peer.createdTransceivers[1].sender.onReplaceTrack = (track) async {
+          if (identical(track, camera)) {
+            replacing.complete();
+            await release.future;
+          }
+        };
+        final stopping = media.setScreenShareEnabled(false);
+        await replacing.future;
+        final restarting = media.setScreenShareEnabled(true);
+
+        ended();
+        release.complete();
+        await stopping;
+        await restarting;
+        await _pumpEventQueue();
+        ended();
+        await _pumpEventQueue();
+
+        expect(media.screenSharing, isTrue);
+        expect(media.localVideoTrack, same(secondVideo));
+        expect(peer.createdTransceivers[1].sender.track, same(secondVideo));
+        expect(peer.createdTransceivers[2].sender.track, same(secondAudio));
+        expect(
+          [
+            first.disposeCalls,
+            firstVideo.stopCalls,
+            second.disposeCalls,
+            secondVideo.stopCalls,
+            secondAudio.stopCalls,
+            camera.stopCalls,
+          ],
+          [1, 1, 0, 0, 0, 0],
+        );
+        await media.dispose();
+        expect(
+          [
+            first.disposeCalls,
+            firstVideo.stopCalls,
+            second.disposeCalls,
+            secondVideo.stopCalls,
+            secondAudio.stopCalls,
+            camera.stopCalls,
+          ],
+          [1, 1, 1, 1, 1, 1],
+        );
+      },
+    );
+
+    for (final cleanupStarted in [false, true]) {
+      test(
+        'teardown owns an ended capture once while cleanup is ${cleanupStarted ? 'running' : 'queued'}',
+        () async {
+          final microphone = _FakeTrack('mic', 'audio');
+          final local = _FakeStream('local-stream', [microphone]);
+          final screenVideo = _FakeTrack('screen-video', 'video');
+          final screenAudio = _FakeTrack('screen-audio', 'audio');
+          final screen = _FakeStream('screen-stream', [
+            screenVideo,
+            screenAudio,
+          ]);
+          final peer = _FakePeerConnection();
+          final media = _meshSession(
+            peer: peer,
+            audioPublishingAllowed: true,
+            getUserMedia: (_) async => local,
+            getDisplayMedia: (_) async => screen,
+          );
+          addTearDown(media.dispose);
+          await media.connect();
+          await media.setScreenShareEnabled(true);
+          final replacing = Completer<void>();
+          final release = Completer<void>();
+          addTearDown(() {
+            if (!release.isCompleted) release.complete();
+          });
+          peer.createdTransceivers[0].sender.onReplaceTrack = (track) async {
+            replacing.complete();
+            await release.future;
+            throw StateError('sender closed during cleanup');
+          };
+
+          final ended = screenVideo.onEnded!;
+          ended();
+          ended();
+          if (cleanupStarted) await replacing.future;
+          final disposing = media.dispose();
+          expect(
+            [
+              screen.disposeCalls,
+              screenVideo.stopCalls,
+              screenAudio.stopCalls,
+              microphone.stopCalls,
+            ],
+            [0, 0, 0, 0],
+          );
+          release.complete();
+          await disposing;
+          ended();
+          await media.dispose();
+          await _pumpEventQueue();
+
+          expect(media.screenSharing, isFalse);
+          expect(peer.teardownCalls, ['close', 'dispose']);
+          expect(
+            [
+              screen.disposeCalls,
+              screenVideo.stopCalls,
+              screenAudio.stopCalls,
+              local.disposeCalls,
+              microphone.stopCalls,
+            ],
+            [1, 1, 1, 1, 1],
+          );
+        },
+      );
+    }
+
     test('retains a streamless remote video track until it ends', () async {
       final peer = _FakePeerConnection();
       final media = _meshSession(peer: peer, audioPublishingAllowed: false);
@@ -2521,6 +3014,7 @@ final class _FakeSender implements rtc.RTCRtpSender {
   rtc.MediaStreamTrack? _track;
   final List<String> events;
   final List<rtc.MediaStream> streams = [];
+  Future<void> Function(rtc.MediaStreamTrack? track)? onReplaceTrack;
 
   @override
   rtc.MediaStreamTrack? get track => _track;
@@ -2532,6 +3026,7 @@ final class _FakeSender implements rtc.RTCRtpSender {
   @override
   Future<void> replaceTrack(rtc.MediaStreamTrack? value) async {
     events.add('replace:$senderId:${value?.id ?? 'none'}');
+    await onReplaceTrack?.call(value);
     _track = value;
   }
 
@@ -2569,6 +3064,7 @@ final class _FakeTrack implements rtc.MediaStreamTrack {
   final String kind;
   final List<String> events;
   bool stopped = false;
+  int stopCalls = 0;
   bool _enabled = true;
 
   @override
@@ -2583,6 +3079,7 @@ final class _FakeTrack implements rtc.MediaStreamTrack {
   @override
   Future<void> stop() async {
     events.add('stop:$id');
+    stopCalls++;
     stopped = true;
   }
 
@@ -2597,6 +3094,7 @@ final class _FakeStream extends rtc.MediaStream {
 
   final List<rtc.MediaStreamTrack> _tracks;
   bool disposed = false;
+  int disposeCalls = 0;
 
   @override
   bool get active => !disposed;
@@ -2633,6 +3131,7 @@ final class _FakeStream extends rtc.MediaStream {
 
   @override
   Future<void> dispose() async {
+    disposeCalls++;
     disposed = true;
   }
 }
