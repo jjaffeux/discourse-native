@@ -316,7 +316,7 @@ final class AccountActivityController extends FrameSafeNotifier {
           instance,
           feeds: _notifications,
           requests: _notificationRequests,
-          fetch: (apiKey) =>
+          fetch: (apiKey, _) =>
               api.notifications(siteUrl: instance.url, apiKey: apiKey),
           reconnectMessage:
               'Reconnect to ${instance.host} to see notifications.',
@@ -334,7 +334,7 @@ final class AccountActivityController extends FrameSafeNotifier {
           instance,
           feeds: _replyNotifications,
           requests: _replyNotificationRequests,
-          fetch: (apiKey) => api.notifications(
+          fetch: (apiKey, _) => api.notifications(
             siteUrl: instance.url,
             apiKey: apiKey,
             filterByTypes: userMenuReplyNotificationTypes,
@@ -354,7 +354,7 @@ final class AccountActivityController extends FrameSafeNotifier {
           instance,
           feeds: _likeNotifications,
           requests: _likeNotificationRequests,
-          fetch: (apiKey) => api.notifications(
+          fetch: (apiKey, _) => api.notifications(
             siteUrl: instance.url,
             apiKey: apiKey,
             filterByTypes: userMenuLikeNotificationTypes,
@@ -376,9 +376,10 @@ final class AccountActivityController extends FrameSafeNotifier {
       instance,
       feeds: _otherNotifications,
       requests: _otherNotificationRequests,
-      fetch: (apiKey) async {
+      fetch: (apiKey, ownsRequest) async {
         final types = await resolveTypes(apiKey);
-        if (types.isEmpty) return const [];
+        // The catalog and notification requests share the original owner.
+        if (!ownsRequest() || types.isEmpty) return const [];
         return api.notifications(
           siteUrl: instance.url,
           apiKey: apiKey,
@@ -413,7 +414,7 @@ final class AccountActivityController extends FrameSafeNotifier {
         instance,
         feeds: state.feeds,
         requests: state.requests,
-        fetch: (apiKey) async => source.arrange(
+        fetch: (apiKey, _) async => source.arrange(
           await api.notifications(
             siteUrl: instance.url,
             apiKey: apiKey,
@@ -625,7 +626,11 @@ final class AccountActivityController extends FrameSafeNotifier {
     DiscourseInstance instance, {
     required Map<String, NotificationFeed> feeds,
     required Map<String, Object> requests,
-    required Future<List<DiscourseNotification>> Function(String apiKey) fetch,
+    required Future<List<DiscourseNotification>> Function(
+      String apiKey,
+      bool Function() ownsRequest,
+    )
+    fetch,
     required String reconnectMessage,
     required String failureMessage,
     required String operation,
@@ -637,6 +642,8 @@ final class AccountActivityController extends FrameSafeNotifier {
     final request = Object();
     requests[instance.url] = request;
     final held = feeds[instance.url];
+
+    bool ownsRequest() => _ownsRequest(lease, requests[instance.url], request);
 
     if (held == null || held.error != null) {
       feeds[instance.url] = const NotificationFeed.loading();
@@ -652,7 +659,7 @@ final class AccountActivityController extends FrameSafeNotifier {
 
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);
-      if (!_ownsRequest(lease, requests[instance.url], request)) {
+      if (!ownsRequest()) {
         return;
       }
       if (apiKey == null) {
@@ -663,7 +670,7 @@ final class AccountActivityController extends FrameSafeNotifier {
         });
         return;
       }
-      final notifications = await fetch(apiKey);
+      final notifications = await fetch(apiKey, ownsRequest);
       _commit(lease, () {
         if (!identical(requests[instance.url], request)) return;
         feeds[instance.url] = NotificationFeed.of(
