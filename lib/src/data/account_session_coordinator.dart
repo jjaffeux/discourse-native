@@ -439,25 +439,27 @@ final class AccountSessionCoordinator {
         clearConfig: true,
         clearAppearance: true,
       );
-      if (!await _persistProjectedSignedOut(
-        siteUrl,
-        signedOut,
-        operation,
-        lease,
-      )) {
-        return _isCurrent(siteUrl, operation, lease)
-            ? const AccountDisconnectionResult.failed()
-            : AccountDisconnectionResult.stale(lease);
-      }
-      if (!_isCurrent(siteUrl, operation, lease)) {
-        return AccountDisconnectionResult.stale(lease);
-      }
+      // Every later full snapshot must include this transition: a coalesced
+      // save can settle with another site's disconnect or an ordinary save.
+      // Keep the credential until persistence succeeds, and only let this
+      // operation restore the account if that boundary cannot be saved.
       if (host.applyAccountSessionInstance(
             signedOut,
             AccountSessionPhase.disconnecting,
           ) ==
           null) {
         return const AccountDisconnectionResult.missing();
+      }
+      if (!_isCurrent(siteUrl, operation, lease)) {
+        return AccountDisconnectionResult.stale(lease);
+      }
+      if (!await _persistSignedOut(siteUrl, operation, lease)) {
+        return await _restoreFailedDisconnect(
+          siteUrl,
+          operation,
+          lease,
+          initial,
+        );
       }
       if (!_isCurrent(siteUrl, operation, lease)) {
         return AccountDisconnectionResult.stale(lease);
@@ -570,20 +572,15 @@ final class AccountSessionCoordinator {
         : AccountDisconnectionResult.stale(restoredLease);
   }
 
-  Future<bool> _persistProjectedSignedOut(
+  Future<bool> _persistSignedOut(
     String siteUrl,
-    DiscourseInstance signedOut,
     Object operation,
     SiteLease lease,
   ) async {
     for (var attempt = 0; attempt < 2; attempt++) {
       if (!_isCurrent(siteUrl, operation, lease)) return false;
-      final snapshot = [
-        for (final instance in host.accountSessionInstances)
-          if (instance.url == siteUrl) signedOut else instance,
-      ];
       try {
-        await instances.save(snapshot);
+        await instances.save(List.of(host.accountSessionInstances));
         return true;
       } catch (error, stackTrace) {
         _reportError(
