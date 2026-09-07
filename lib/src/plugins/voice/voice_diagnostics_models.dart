@@ -300,7 +300,9 @@ abstract final class VoiceDiagnosticsRedactor {
     caseSensitive: false,
   );
   static final RegExp _sensitiveAssignment = RegExp(
-    r'''["']?\b(authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|x[-_ ]?api[-_ ]?key|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|auth[-_ ]?token|token|password|passwd|secret|credential|client[-_ ]?(?:id|secret)|participant[-_ ]?session[-_ ]?id|ice[-_ ]?(?:pwd|password|ufrag)|livekit[-_ ]?(?:token|jwt|key|secret|credential|password)|turn[-_ ]?(?:username|token|key|secret|credential|password))\b["']?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)''',
+    // Wire names such as user_api_key and push_token end in a sensitive word;
+    // a regex word boundary would miss that suffix after an underscore.
+    r'''["']?(?<![A-Za-z0-9])(authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|x[-_ ]?api[-_ ]?key|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|auth[-_ ]?token|token|password|passwd|secret|credential|client[-_ ]?(?:id|secret)|participant[-_ ]?session[-_ ]?id|ice[-_ ]?(?:pwd|password|ufrag)|livekit[-_ ]?(?:token|jwt|key|secret|credential|password)|turn[-_ ]?(?:username|token|key|secret|credential|password))\b["']?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)''',
     caseSensitive: false,
   );
   static final RegExp _authorization = RegExp(
@@ -574,7 +576,12 @@ abstract final class VoiceDiagnosticsRedactor {
 
   static String _safeQueryName(String value) {
     try {
-      return Uri.encodeQueryComponent(Uri.decodeQueryComponent(value));
+      final decoded = Uri.decodeQueryComponent(value);
+      // A separator encoded inside a bare query name must not preserve the
+      // credential which follows it.
+      return Uri.encodeQueryComponent(decoded.split('=').first);
+    } on FormatException {
+      return 'invalid-query-name';
     } on ArgumentError {
       return 'invalid-query-name';
     }
