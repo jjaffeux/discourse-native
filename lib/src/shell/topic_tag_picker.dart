@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/latest_wins_queued_lookup_controller.dart';
@@ -41,50 +42,100 @@ class TopicTagMenuAnchor extends StatefulWidget {
 
 class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
   final GlobalKey _anchorKey = GlobalKey();
-  bool _showing = false;
+  bool Function()? _ownsTarget;
   bool _saving = false;
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Account replacement can leave the URL and the widget unchanged.
+    ShellScope.maybeOf(context);
+    _retireStaleOperation();
+  }
+
+  @override
+  void didUpdateWidget(TopicTagMenuAnchor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _retireStaleOperation();
+  }
+
+  void _retireStaleOperation() {
+    if (_ownsTarget?.call() == false) {
+      _ownsTarget = null;
+      _saving = false;
+    }
+  }
+
   Future<void> _show() async {
-    if (_showing ||
+    _retireStaleOperation();
+    if (_ownsTarget != null ||
         _saving ||
         !widget.enabled ||
         _anchorKey.currentContext == null) {
       return;
     }
-    _showing = true;
+    final target = widget;
+    final tags = List<TopicTag>.unmodifiable(target.tags);
+    final shell = ShellScope.read(context);
+    final lease = shell.lifecycle.capture(target.siteUrl);
+    bool ownsTarget() =>
+        mounted &&
+        !shell.accountSessionDisposed &&
+        lease.isCurrent &&
+        identical(ShellScope.maybeRead(context), shell) &&
+        widget.enabled &&
+        widget.siteUrl == target.siteUrl &&
+        widget.topicId == target.topicId &&
+        widget.categoryId == target.categoryId &&
+        listEquals(widget.tags, tags);
+    _ownsTarget = ownsTarget;
+    bool isCurrent() => identical(_ownsTarget, ownsTarget) && ownsTarget();
+
     try {
-      final shell = ShellScope.read(context);
-      final capabilities = await shell.prepareTopicTagEditor(widget.siteUrl);
+      if (!isCurrent()) return;
+      final capabilities = await shell.prepareTopicTagEditor(target.siteUrl);
+      if (!mounted || !isCurrent()) return;
       final anchorContext = _anchorKey.currentContext;
-      if (!mounted || !widget.enabled || anchorContext == null) return;
+      if (anchorContext == null) return;
       if (!anchorContext.mounted) return;
       final selected = await showTopicTagPicker(
         context: context,
         anchorContext: anchorContext,
-        selectedTags: widget.tags,
+        selectedTags: tags,
         capabilities: capabilities,
-        onTagNavigate: widget.onTagNavigate,
-        search: (term) => shell.searchTopicTagsForEditor(
-          siteUrl: widget.siteUrl,
-          categoryId: widget.categoryId,
-          selectedTags: widget.tags,
-          term: term,
-        ),
+        onTagNavigate: target.onTagNavigate == null
+            ? null
+            : (tag, {newTab = false}) {
+                if (isCurrent()) target.onTagNavigate!(tag, newTab: newTab);
+              },
+        search: (term) async {
+          if (!isCurrent()) return const TopicTagSearch();
+          final results = await shell.searchTopicTagsForEditor(
+            siteUrl: target.siteUrl,
+            categoryId: target.categoryId,
+            selectedTags: tags,
+            term: term,
+          );
+          return isCurrent() ? results : const TopicTagSearch();
+        },
       );
-      if (!mounted || selected == null) return;
+      if (!isCurrent() || selected == null) return;
       setState(() => _saving = true);
       final error = await shell.updateTopicTagsFromSidebar(
-        siteUrl: widget.siteUrl,
-        topicId: widget.topicId,
+        siteUrl: target.siteUrl,
+        topicId: target.topicId,
         tags: selected,
       );
-      if (!mounted || error == null) return;
+      if (!mounted || !isCurrent() || error == null) return;
       ScaffoldMessenger.maybeOf(
         context,
       )?.showSnackBar(SnackBar(content: Text(error)));
     } finally {
-      _showing = false;
-      if (mounted && _saving) setState(() => _saving = false);
+      // A retired picker/save must not clear a replacement operation's state.
+      if (identical(_ownsTarget, ownsTarget)) {
+        _ownsTarget = null;
+        if (mounted && _saving) setState(() => _saving = false);
+      }
     }
   }
 

@@ -44,62 +44,111 @@ class TopicCategoryMenuAnchor extends StatefulWidget {
 
 class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
   final GlobalKey _anchorKey = GlobalKey();
-  bool _showing = false;
+  bool Function()? _ownsTarget;
   bool _saving = false;
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Account replacement can leave the URL and the widget unchanged.
+    ShellScope.maybeOf(context);
+    _retireStaleOperation();
+  }
+
+  @override
+  void didUpdateWidget(TopicCategoryMenuAnchor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _retireStaleOperation();
+  }
+
+  void _retireStaleOperation() {
+    if (_ownsTarget?.call() == false) {
+      _ownsTarget = null;
+      _saving = false;
+    }
+  }
+
   Future<void> _show() async {
-    if (_showing ||
+    _retireStaleOperation();
+    if (_ownsTarget != null ||
         _saving ||
         !widget.enabled ||
         _anchorKey.currentContext == null) {
       return;
     }
-    _showing = true;
+    final target = widget;
+    final shell = ShellScope.read(context);
+    final lease = shell.lifecycle.capture(target.siteUrl);
+    bool ownsTarget() =>
+        mounted &&
+        !shell.accountSessionDisposed &&
+        lease.isCurrent &&
+        identical(ShellScope.maybeRead(context), shell) &&
+        widget.enabled &&
+        widget.siteUrl == target.siteUrl &&
+        widget.topicId == target.topicId &&
+        widget.categoryId == target.categoryId &&
+        widget.rootOnly == target.rootOnly &&
+        widget.parentCategoryId == target.parentCategoryId &&
+        widget.selectedCategoryId == target.selectedCategoryId &&
+        widget.removeCategoryId == target.removeCategoryId &&
+        widget.removeLabel == target.removeLabel;
+    _ownsTarget = ownsTarget;
+    bool isCurrent() => identical(_ownsTarget, ownsTarget) && ownsTarget();
+
     try {
-      final shell = ShellScope.read(context);
+      if (!isCurrent()) return;
       final anchorContext = _anchorKey.currentContext;
-      if (!mounted || !widget.enabled || anchorContext == null) return;
+      if (anchorContext == null) return;
       if (!anchorContext.mounted) return;
 
       final selected = await showTopicCategoryPicker(
         context: context,
         anchorContext: anchorContext,
-        siteUrl: widget.siteUrl,
-        selectedCategoryId: widget.selectedCategoryId ?? widget.categoryId,
-        removeCategoryId: widget.removeCategoryId,
-        removeLabel: widget.removeLabel,
+        siteUrl: target.siteUrl,
+        selectedCategoryId: target.selectedCategoryId ?? target.categoryId,
+        removeCategoryId: target.removeCategoryId,
+        removeLabel: target.removeLabel,
         search: (term) async {
+          if (!isCurrent()) return const [];
           final results = await shell.searchTopicCategoriesForEditor(
-            siteUrl: widget.siteUrl,
+            siteUrl: target.siteUrl,
             term: term,
           );
+          if (!isCurrent()) return const [];
           return results
               .where(
-                (category) => widget.rootOnly
+                (category) => target.rootOnly
                     ? category.parentCategoryId == null
-                    : widget.parentCategoryId == null ||
-                          category.parentCategoryId == widget.parentCategoryId,
+                    : target.parentCategoryId == null ||
+                          category.parentCategoryId == target.parentCategoryId,
               )
               .toList();
         },
-        pathLabelFor: (category) =>
-            shell.topicCategoryPathLabel(category, siteUrl: widget.siteUrl),
+        pathLabelFor: (category) => isCurrent()
+            ? shell.topicCategoryPathLabel(category, siteUrl: target.siteUrl)
+            : category.name,
       );
-      if (!mounted || selected == null || selected == widget.categoryId) return;
+      if (!isCurrent() || selected == null || selected == target.categoryId) {
+        return;
+      }
 
       setState(() => _saving = true);
       final error = await shell.saveTopicCategory(
-        siteUrl: widget.siteUrl,
-        topicId: widget.topicId,
+        siteUrl: target.siteUrl,
+        topicId: target.topicId,
         categoryId: selected,
       );
-      if (!mounted || error == null) return;
+      if (!mounted || !isCurrent() || error == null) return;
       ScaffoldMessenger.maybeOf(
         context,
       )?.showSnackBar(SnackBar(content: Text(error)));
     } finally {
-      _showing = false;
-      if (mounted && _saving) setState(() => _saving = false);
+      // A retired picker/save must not clear a replacement operation's state.
+      if (identical(_ownsTarget, ownsTarget)) {
+        _ownsTarget = null;
+        if (mounted && _saving) setState(() => _saving = false);
+      }
     }
   }
 
