@@ -616,56 +616,181 @@ void main() {
     expect(state.loadingMore, isFalse);
   });
 
-  test('a directory page landing after a deletion is not kept', () async {
-    final nextPage = Completer<Map<String, dynamic>>();
-    final transport = _ControlledGroupTransport()
-      ..objects.addAll([
-        _completed({
-          'groups': [
-            {'id': 7, 'name': 'support'},
-            {'id': 8, 'name': 'other'},
-          ],
-          'total_rows_groups': 3,
-          'load_more_groups': '/groups?page=1',
-        }),
-        nextPage,
-      ]);
-    final credentials = FakeApiCredentialReader(clientIdValue: 'native-client')
-      ..keys[_site] = 'secret';
-    final controller = _controller(transport, credentials: credentials);
-    addTearDown(controller.dispose);
-    const query = GroupDirectoryQuery();
+  test(
+    'a deleted group directory can reload before its old page returns',
+    () async {
+      final pageStarted = Completer<void>();
+      final nextPage = Completer<Map<String, dynamic>>();
+      final transport = _ControlledGroupTransport()
+        ..onGet = (path) {
+          if (path == '/groups.json?page=1&asc=true') pageStarted.complete();
+        }
+        ..objects.addAll([
+          _completed({
+            'groups': [
+              {'id': 7, 'name': 'support'},
+              {'id': 8, 'name': 'other'},
+            ],
+            'total_rows_groups': 3,
+            'load_more_groups': '/groups?page=1',
+          }),
+          nextPage,
+          _completed({
+            'groups': [
+              {'id': 8, 'name': 'other'},
+              {'id': 9, 'name': 'third'},
+            ],
+            'total_rows_groups': 2,
+          }),
+        ]);
+      final credentials = FakeApiCredentialReader(
+        clientIdValue: 'native-client',
+      )..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      const query = GroupDirectoryQuery();
 
-    await controller.loadDirectory(_connectedInstance, query);
-    expect(controller.directoryState(_site, query).hasMore, isTrue);
-    final pageLoad = controller.loadDirectory(
-      _connectedInstance,
-      query,
-      more: true,
-    );
-    await pumpEventQueue();
-    expect(transport.gets, hasLength(2));
-    expect(
-      await controller.deleteGroup(
+      await controller.loadDirectory(_connectedInstance, query);
+      expect(controller.directoryState(_site, query).hasMore, isTrue);
+      final pageLoad = controller.loadDirectory(
+        _connectedInstance,
+        query,
+        more: true,
+      );
+      await pageStarted.future;
+      expect(transport.gets, hasLength(2));
+      expect(
+        await controller.deleteGroup(
+          _connectedInstance,
+          const Group(id: 7, name: 'support'),
+        ),
+        isTrue,
+      );
+
+      await controller.loadDirectory(_connectedInstance, query);
+      final reloaded = controller.directoryState(_site, query);
+      expect(reloaded.loaded, isTrue);
+      expect(reloaded.groups.map((group) => group.id), [8, 9]);
+      expect(reloaded.totalRows, 2);
+
+      nextPage.complete({
+        'groups': [
+          {'id': 9, 'name': 'third'},
+        ],
+        'total_rows_groups': 3,
+      });
+      await pageLoad;
+
+      final state = controller.directoryState(_site, query);
+      expect(state, same(reloaded));
+      expect(state.loadingMore, isFalse);
+    },
+  );
+
+  test(
+    'deleted group reads cannot restore its detail or permissions',
+    () async {
+      final readsStarted = Completer<void>();
+      var starts = 0;
+      final detail = Completer<Map<String, dynamic>>();
+      final otherDetail = Completer<Map<String, dynamic>>();
+      final permissions = Completer<List<Map<String, dynamic>>>();
+      final transport = _ControlledGroupTransport()
+        ..onGet = (_) {
+          if (++starts == 3) readsStarted.complete();
+        }
+        ..objects.addAll([detail, otherDetail])
+        ..lists.add(permissions);
+      final credentials = FakeApiCredentialReader(
+        clientIdValue: 'native-client',
+      )..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+
+      final detailLoad = controller.loadDetail(_connectedInstance, 'support');
+      final permissionLoad = controller.loadPermissions(
+        _connectedInstance,
+        'support',
+      );
+      final otherLoad = controller.loadDetail(_connectedInstance, 'other');
+      await readsStarted.future;
+      expect(transport.gets, hasLength(2));
+      expect(transport.listGets, hasLength(1));
+
+      expect(
+        await controller.deleteGroup(
+          _connectedInstance,
+          const Group(id: 7, name: 'Support'),
+        ),
+        isTrue,
+      );
+      detail.complete({
+        'group': {'id': 7, 'name': 'support'},
+      });
+      permissions.complete([]);
+      otherDetail.complete({
+        'group': {'id': 8, 'name': 'other'},
+      });
+      await Future.wait([detailLoad, permissionLoad, otherLoad]);
+
+      expect(controller.detailState(_site, 'support').loaded, isFalse);
+      expect(controller.permissionsState(_site, 'support').loaded, isFalse);
+      expect(controller.detailState(_site, 'other').detail?.group.id, 8);
+    },
+  );
+
+  test(
+    'an expired group mutation does not refresh the new account members',
+    () async {
+      final detailStarted = Completer<void>();
+      final detail = Completer<Map<String, dynamic>>();
+      final transport = _ControlledGroupTransport()
+        ..onGet = (path) {
+          if (path == '/groups/support.json') detailStarted.complete();
+        }
+        ..objects.addAll([
+          detail,
+          _completed({'members': <Object?>[]}),
+        ]);
+      final lifecycle = SiteLifecycle();
+      final credentials = FakeApiCredentialReader(
+        clientIdValue: 'native-client',
+      )..keys[_site] = 'old-secret';
+      final controller = _controller(
+        transport,
+        credentials: credentials,
+        lifecycle: lifecycle,
+      );
+      addTearDown(controller.dispose);
+
+      final mutation = controller.addMembers(
         _connectedInstance,
         const Group(id: 7, name: 'support'),
-      ),
-      isTrue,
-    );
+        usernames: ['lee'],
+      );
+      await detailStarted.future;
+      expect(transport.writes, hasLength(1));
+      expect(transport.gets.map((request) => request.path), [
+        '/groups/support.json',
+      ]);
+      lifecycle.invalidate(_site);
+      controller.forget(_site);
+      credentials.keys[_site] = 'new-secret';
+      detail.complete({
+        'group': {'id': 7, 'name': 'support'},
+      });
 
-    nextPage.complete({
-      'groups': [
-        {'id': 9, 'name': 'third'},
-      ],
-      'total_rows_groups': 3,
-    });
-    await pageLoad;
-
-    final state = controller.directoryState(_site, query);
-    expect(state.loaded, isFalse);
-    expect(state.groups, isEmpty);
-    expect(state.loadingMore, isFalse);
-  });
+      expect(await mutation, isNull);
+      expect(transport.gets, [
+        (
+          path: '/groups/support.json',
+          apiKey: 'old-secret',
+          clientId: 'native-client',
+        ),
+      ]);
+      expect(controller.membersState(_site, 'support').loaded, isFalse);
+    },
+  );
 
   test('a request handled while the next page loads stays handled', () async {
     final nextPage = Completer<Map<String, dynamic>>();
@@ -731,6 +856,7 @@ GroupsController _controller(
 
 final class _ControlledGroupTransport
     implements PluginApiTransport, PluginJsonListTransport {
+  void Function(String path)? onGet;
   final List<Completer<Map<String, dynamic>>> objects = [];
   final List<Completer<List<Map<String, dynamic>>>> lists = [];
   final List<({String path, String? apiKey, String? clientId})> gets = [];
@@ -748,6 +874,7 @@ final class _ControlledGroupTransport
     String? clientId,
   }) {
     gets.add((path: path, apiKey: apiKey, clientId: clientId));
+    onGet?.call(path);
     return objects.removeAt(0).future;
   }
 
@@ -759,6 +886,7 @@ final class _ControlledGroupTransport
     String? clientId,
   }) {
     listGets.add((path: path, apiKey: apiKey, clientId: clientId));
+    onGet?.call(path);
     return lists.removeAt(0).future;
   }
 
