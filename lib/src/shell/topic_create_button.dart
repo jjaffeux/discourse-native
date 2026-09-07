@@ -119,7 +119,7 @@ class _TopicCreateControl extends StatelessWidget {
         1.2;
     final insetIcons = compact && !showLabel;
     final dimension = compact && showLabel
-        ? math.max(36.0, labelHeight + 18)
+        ? math.max(28.0, labelHeight + 10)
         : DButton.iconOnlyDimensionFor(DButtonSize.small);
     final radius = Radius.circular(
       Theme.of(context).discourseButtons.borderRadius,
@@ -137,13 +137,16 @@ class _TopicCreateControl extends StatelessWidget {
                   ? const TextStyle(fontWeight: FontWeight.w500)
                   : null,
             ),
-            icon: DIcon(DIcons.farPenToSquare, size: compact ? 16 : 18),
+            icon: DIcon(DIcons.farPenToSquare, size: compact ? 14 : 18),
             tooltip: 'New topic',
             shortcut: const DShortcut(newTopicShortcut),
             semanticLabel: 'New topic',
             onPressed: onPressed,
             variant: DButtonVariant.primary,
             size: DButtonSize.small,
+            padding: compact
+                ? const EdgeInsets.symmetric(horizontal: 8, vertical: 5)
+                : null,
             borderRadius: mainRadius,
           )
         : DButton.iconOnly(
@@ -170,7 +173,7 @@ class _TopicCreateControl extends StatelessWidget {
 
     final draftsButton = DButton.iconOnly(
       key: TopicCreateButton.draftsButtonKey,
-      icon: const DIcon(DIcons.chevronDown, size: 16),
+      icon: DIcon(DIcons.chevronDown, size: compact && showLabel ? 12 : 16),
       tooltip: 'Open the latest drafts menu',
       semanticLabel: 'Open the latest drafts menu',
       onPressed: onDraftsPressed,
@@ -189,7 +192,11 @@ class _TopicCreateControl extends StatelessWidget {
         if (insetIcons)
           draftsButton
         else
-          SizedBox.square(dimension: dimension, child: draftsButton),
+          SizedBox(
+            height: dimension,
+            width: compact && showLabel ? 28 : dimension,
+            child: draftsButton,
+          ),
       ],
     );
   }
