@@ -5,6 +5,8 @@ import 'package:discourse_native/src/shell/composer_triggers.dart';
 import 'package:flutter/widgets.dart' show TextEditingValue, TextSelection;
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/manual_scheduler.dart';
+
 ComposerSuggestion user(String username) => ComposerSuggestion(
   kind: ComposerTriggerKind.mention,
   value: username,
@@ -31,6 +33,7 @@ TextEditingValue typed(String text) => TextEditingValue(
 void main() {
   late List<String> asked;
   late List<String> askedHashtags;
+  late List<String> askedEmojis;
   late ComposerAutocomplete popup;
   Completer<void>? gate;
   Completer<void>? hashtagGate;
@@ -40,6 +43,7 @@ void main() {
   ComposerAutocomplete open() {
     asked = [];
     askedHashtags = [];
+    askedEmojis = [];
     return popup = ComposerAutocomplete(
       search: (
         users: (term) async {
@@ -52,10 +56,13 @@ void main() {
           if (hashtagGate != null) await hashtagGate!.future;
           return places[term] ?? const [];
         },
-        emojis: (query) async => [
-          for (final name in const ['smile', 'smirk', 'sad'])
-            if (name.startsWith(query)) emoji(name),
-        ],
+        emojis: (query) async {
+          askedEmojis.add(query);
+          return [
+            for (final name in const ['smile', 'smirk', 'sad'])
+              if (name.startsWith(query)) emoji(name),
+          ];
+        },
       ),
     );
   }
@@ -75,6 +82,186 @@ void main() {
   });
 
   tearDown(() => popup.dispose());
+
+  group('synchronous listeners', () {
+    late ManualScheduler scheduler;
+
+    setUp(() => scheduler = ManualScheduler());
+
+    void onNextNotification(void Function() action) {
+      void listener() {
+        popup.removeListener(listener);
+        action();
+      }
+
+      popup.addListener(listener);
+    }
+
+    void trackTimers(void Function() action) {
+      runZoned(
+        action,
+        zoneSpecification: ZoneSpecification(
+          createTimer: (_, _, zone, duration, callback) =>
+              scheduler.createTimer(duration, zone.bindCallback(callback)),
+        ),
+      );
+    }
+
+    for (final refresh in [false, true]) {
+      final operation = refresh ? 'refresh' : 'update';
+
+      void publish() => trackTimers(
+        () => refresh ? popup.refresh() : popup.update(typed('a :smil')),
+      );
+
+      testWidgets('$operation leaves a replacement query debounced', (
+        tester,
+      ) async {
+        popup.update(typed('a :sm'));
+        await tester.pump(ComposerAutocomplete.debounce);
+        askedEmojis.clear();
+
+        onNextNotification(() => popup.update(typed('a :sa')));
+        publish();
+
+        expect(popup.trigger?.query, 'sa');
+        expect(askedEmojis, isEmpty);
+        final pendingTimers = scheduler.activeTimerCount;
+        scheduler.advance(
+          ComposerAutocomplete.debounce - const Duration(milliseconds: 1),
+        );
+        await tester.pump();
+        expect(askedEmojis, isEmpty);
+
+        scheduler.advance(const Duration(milliseconds: 1));
+        await tester.pump();
+
+        expect(askedEmojis, ['sa']);
+        expect(popup.suggestions.map((s) => s.value), ['sad']);
+        expect(pendingTimers, 1);
+        expect(scheduler.activeTimerCount, 0);
+      });
+
+      for (final dismiss in [false, true]) {
+        testWidgets(
+          '$operation stays cancelled when a listener ${dismiss ? 'dismisses' : 'closes'}',
+          (tester) async {
+            popup.update(typed('a :sm'));
+            await tester.pump(ComposerAutocomplete.debounce);
+            askedEmojis.clear();
+
+            onNextNotification(dismiss ? popup.dismiss : popup.close);
+            publish();
+
+            expect(popup.trigger, isNull);
+            final pendingTimers = scheduler.activeTimerCount;
+            scheduler.advance(ComposerAutocomplete.debounce);
+            await tester.pump();
+
+            expect(askedEmojis, isEmpty);
+            expect(popup.suggestions, isEmpty);
+            expect(popup.isOpen, isFalse);
+            expect(pendingTimers, 0);
+            expect(scheduler.activeTimerCount, 0);
+
+            trackTimers(() => popup.update(typed('a :smi')));
+            scheduler.advance(ComposerAutocomplete.debounce);
+            await tester.pump();
+
+            expect(askedEmojis, dismiss ? isEmpty : ['smi']);
+            expect(popup.isOpen, !dismiss);
+          },
+        );
+      }
+
+      testWidgets('$operation lets a listener refresh exactly once', (
+        tester,
+      ) async {
+        popup.update(typed('a :sm'));
+        await tester.pump(ComposerAutocomplete.debounce);
+        popup.moveSelection(1);
+        askedEmojis.clear();
+
+        onNextNotification(popup.refresh);
+        publish();
+
+        final query = refresh ? 'sm' : 'smil';
+        expect(askedEmojis, [query]);
+        expect(popup.selectedIndex, 0);
+        expect(popup.suggestions.map((s) => s.value), ['smile', 'smirk']);
+        final pendingTimers = scheduler.activeTimerCount;
+        await tester.pump();
+        scheduler.advance(ComposerAutocomplete.debounce);
+        await tester.pump();
+
+        expect(askedEmojis, [query]);
+        expect(popup.suggestions.map((s) => s.value), [
+          'smile',
+          if (refresh) 'smirk',
+        ]);
+        expect(pendingTimers, 0);
+        expect(scheduler.activeTimerCount, 0);
+      });
+
+      testWidgets('$operation schedules nothing after listener disposal', (
+        tester,
+      ) async {
+        popup.update(typed('a :sm'));
+        await tester.pump(ComposerAutocomplete.debounce);
+        askedEmojis.clear();
+        final suggestions = popup.suggestions;
+
+        onNextNotification(() {
+          // ChangeNotifier asserts after the controller has cancelled its
+          // requests. The interrupted call must not install another timer.
+          expect(
+            popup.dispose,
+            throwsA(
+              isA<AssertionError>().having(
+                (error) => error.message,
+                'message',
+                contains('called during the call to "notifyListeners()"'),
+              ),
+            ),
+          );
+        });
+        publish();
+
+        expect(scheduler.activeTimerCount, 0);
+        scheduler.advance(ComposerAutocomplete.debounce);
+        await tester.pump();
+
+        expect(askedEmojis, isEmpty);
+        expect(popup.suggestions, same(suggestions));
+      });
+    }
+
+    testWidgets('only the replacement query waits for a remote slot', (
+      tester,
+    ) async {
+      gate = Completer<void>();
+      people['sally'] = [user('sally')];
+      for (final query in ['s', 'sa']) {
+        popup.update(typed('hey @$query'));
+        await tester.pump(ComposerAutocomplete.debounce);
+      }
+
+      onNextNotification(() => popup.update(typed('hey @sally')));
+      trackTimers(() => popup.update(typed('hey @sam')));
+      final pendingTimers = scheduler.activeTimerCount;
+      scheduler.advance(ComposerAutocomplete.debounce);
+      await tester.pump();
+      expect(asked, ['s', 'sa']);
+
+      gate!.complete();
+      await tester.pump();
+
+      expect(asked, ['s', 'sa', 'sally']);
+      expect(popup.suggestions.map((s) => s.value), ['sally']);
+      expect(pendingTimers, 1);
+      expect(scheduler.activeTimerCount, 0);
+    });
+  });
 
   group('emoji', () {
     testWidgets('loads emoji through the same race-safe async path', (

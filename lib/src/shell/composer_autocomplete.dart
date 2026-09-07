@@ -132,7 +132,7 @@ class ComposerAutocomplete extends ChangeNotifier {
     _timer = null;
     _queuedRemoteSearch = null;
     _trigger = next;
-    _epoch++;
+    final epoch = ++_epoch;
     _selected = 0;
 
     // Rows from the same kind stay visible while the new answer is loading;
@@ -140,7 +140,8 @@ class ComposerAutocomplete extends ChangeNotifier {
     // be actively misleading, so those are cleared immediately.
     if (previousKind != next.kind) _suggestions = const [];
     notifyListeners();
-    final epoch = _epoch;
+    // A synchronous listener may have replaced or cancelled this request.
+    if (_disposed || epoch != _epoch) return;
     late final Timer timer;
     timer = Timer(debounce, () {
       if (identical(_timer, timer)) _timer = null;
@@ -213,10 +214,10 @@ class ComposerAutocomplete extends ChangeNotifier {
         _timer?.cancel();
         _timer = null;
         _queuedRemoteSearch = null;
-        _epoch++;
+        final epoch = ++_epoch;
         _selected = 0;
         notifyListeners();
-        _enqueueRemoteSearch((trigger: open, epoch: _epoch));
+        _enqueueRemoteSearch((trigger: open, epoch: epoch));
         return;
       // Both of these asked the site, and the site's answer does not go stale
       // because a *different* list arrived.
