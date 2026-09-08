@@ -232,7 +232,11 @@ final class ChatLiveSyncCoordinator {
   }
 
   /// Replaces the HTTP-owned channel snapshot while retaining later cursors.
-  void replace(String siteUrl, ChatChannels channels) {
+  void replace(
+    String siteUrl,
+    ChatChannels channels, {
+    Set<int> preservedActivityChannelIds = const {},
+  }) {
     if (_disposed || _host.isDisposed()) return;
     final site = _siteFor(siteUrl);
     site.cancelPersistent(this);
@@ -301,7 +305,14 @@ final class ChatLiveSyncCoordinator {
       channels.userHasThreadsBusLastId,
     );
     site.userHasThreadsCursorSet = true;
-    site.awaitingFirstMessage.clear();
+    // A channel created during refresh may still be waiting for the activity
+    // event paired with its creation payload. Its reconciled state does not yet
+    // include that unread message, unlike an authoritative HTTP snapshot.
+    site.awaitingFirstMessage.removeWhere(
+      (id) =>
+          !preservedActivityChannelIds.contains(id) ||
+          !site.newMessageCursors.containsKey(id),
+    );
     site.presence = channels.presence;
     _presenceRefs[siteUrl]?.value = channels.presence.userIds;
 
