@@ -114,13 +114,171 @@ void main() {
     });
 
     test('preserves preformatted whitespace inside code blocks', () {
+      // markdown-it recooks this as <pre><code> with the newline and two
+      // indentation spaces intact. Inline ticks would flatten the newline.
       expect(
         postQuoteContentsFromSelection(
           '<pre><code>code\n  indented more</code></pre>',
           'code\n  indented more',
         ),
-        '`code\n  indented more`',
+        '```\ncode\n  indented more\n```',
       );
+    });
+
+    test('round trips literal backticks and boundary spaces in inline code', () {
+      // These delimiters recook to <p><code>selected</code></p> in Discourse's
+      // markdown-it, with exactly the selected characters inside <code>.
+      const selections = {
+        'a`b': '``a`b``',
+        'a``b': '```a``b```',
+        '`left': '`` `left ``',
+        'right`': '`` right` ``',
+        '`edge`': '`` `edge` ``',
+        '``': '``` `` ```',
+        'a`b``c': '```a`b``c```',
+        ' padded ': '`  padded  `',
+        '  padded  ': '`   padded   `',
+        ' left': '` left`',
+        'right ': '`right `',
+        'a  b': '`a  b`',
+        'a\tb': '`a\tb`',
+        ' ` ': '``  `  ``',
+        '   ': '`     `',
+      };
+      for (final entry in selections.entries) {
+        expect(
+          postQuoteContentsFromSelection(
+            '<p><code>${entry.key}</code></p>',
+            entry.key,
+          ),
+          entry.value,
+          reason: entry.key,
+        );
+      }
+    });
+
+    test('chooses code delimiters from each partial selection', () {
+      final resolver = PostQuoteSelectionResolver(
+        '<p>Before <code>start a`b ``edge`` end</code> after.</p>',
+      );
+
+      expect(resolver.contentsFor('a`b'), '``a`b``');
+      expect(resolver.contentsFor('``edge``'), '``` ``edge`` ```');
+      expect(resolver.contentsFor(' a`b '), '``  a`b  ``');
+      expect(resolver.contentsFor('edge'), '`edge`');
+      expect(
+        postQuoteContentsFromSelection('<p><code>a   b</code></p>', ' '),
+        '`   `',
+      );
+      expect(resolver.contentsFor('a`b'), '``a`b``');
+      expect(resolver.resolve('a`b').supportsFastEdit, isFalse);
+    });
+
+    test('excludes code whitespace at selection edges from fast edit', () {
+      final leading = PostQuoteSelectionResolver(
+        '<p><code>prefix </code>word</p>',
+      ).resolve(' word');
+      expect(leading.markdown, '`   `word');
+      expect(leading.supportsFastEdit, isFalse);
+
+      final trailing = PostQuoteSelectionResolver(
+        '<p>word<code> suffix</code></p>',
+      ).resolve('word ');
+      expect(trailing.markdown, 'word`   `');
+      expect(trailing.supportsFastEdit, isFalse);
+    });
+
+    test('keeps code inline within selected prose and surrounding marks', () {
+      expect(
+        postQuoteContentsFromSelection(
+          '<p>Before <strong><code>a`b</code></strong> and '
+              '<a href="https://example.com"><code>`edge`</code></a> after.</p>',
+          'Before a`b and `edge` after.',
+        ),
+        'Before **``a`b``** and [`` `edge` ``](https://example.com) after.',
+      );
+      expect(
+        postQuoteContentsFromSelection(
+          '<p>Before <code>start a`b end</code> after.</p>',
+          'a`b end after.',
+        ),
+        '``a`b end`` after.',
+      );
+    });
+
+    test('keeps prose backticks from consuming reconstructed inline code', () {
+      expect(
+        postQuoteContentsFromSelection(
+          '<p>`before <code>a`b</code> after`</p>',
+          '`before a`b after`',
+        ),
+        r'\`before ``a`b`` after\`',
+      );
+      expect(
+        postQuoteContentsFromSelection('<p>`plain`</p>', '`plain`'),
+        '`plain`',
+      );
+    });
+
+    test(
+      'keeps adjacent code spans from joining their backtick delimiters',
+      () {
+        expect(
+          postQuoteContentsFromSelection(
+            '<p>Before <code>a`</code><code>`b</code> after.</p>',
+            'Before a``b after.',
+          ),
+          'Before ```a``b``` after.',
+        );
+        expect(
+          postQuoteContentsFromSelection(
+            '<p><strong><code>a`</code></strong>'
+                '<strong><code>`b</code></strong></p>',
+            'a``b',
+          ),
+          '**```a``b```**',
+        );
+      },
+    );
+
+    test('retains preformatted selection edges and embedded fences', () {
+      // A fenced block recooks with a final newline, including when the
+      // selection ends mid-line. Existing final newlines must not be doubled.
+      const selections = {
+        '  first\n\tsecond  ': '```\n  first\n\tsecond  \n```',
+        '\n  first\n\n': '```\n\n  first\n\n```',
+        'first\n```\n  last': '````\nfirst\n```\n  last\n````',
+        'first\n````\n~~~\nlast\n': '`````\nfirst\n````\n~~~\nlast\n`````',
+      };
+      for (final entry in selections.entries) {
+        expect(
+          postQuoteContentsFromSelection(
+            '<pre><code>${entry.key}</code></pre>',
+            entry.key,
+          ),
+          entry.value,
+          reason: entry.key,
+        );
+      }
+    });
+
+    test('keeps partial and mixed selections from a pre block fenced', () {
+      final resolver = PostQuoteSelectionResolver(
+        '<p>Before.</p><pre><code>first\n  second\nlast</code></pre>'
+        '<p>After <code>a`b</code>.</p>',
+      );
+
+      expect(resolver.contentsFor('  second'), '```\n  second\n```');
+      expect(resolver.contentsFor('second\nla'), '```\nsecond\nla\n```');
+      expect(
+        resolver.contentsFor('Before.first\n  second\nlastAfter a`b.'),
+        'Before.\n\n```\nfirst\n  second\nlast\n```\n\nAfter ``a`b``.',
+      );
+      expect(
+        resolver.contentsFor('second\nlastAfter a`b.'),
+        '```\nsecond\nlast\n```\n\nAfter ``a`b``.',
+      );
+      expect(resolver.resolve('second').supportsFastEdit, isFalse);
     });
 
     test('restores deeply nested formatting without recursion', () {
@@ -176,7 +334,9 @@ void main() {
       }
 
       rejects('<p>same then same</p>', 'same');
+      rejects('<p>same then same</p>', ' same ');
       rejects('<p>Same then same</p>', 'Same');
+      rejects('<p><code>a`b</code> then a`b</p>', 'a`b');
       rejects('<p>first</p><p>second</p>', 'firstsecond');
       rejects('<p><strong>bold</strong></p>', 'bold');
       rejects('<aside class="quote">quoted</aside>', 'quoted');
@@ -248,7 +408,7 @@ void main() {
         username: 'sam',
         cooked:
             '<p>First <strong>bold</strong> thought.</p>'
-            '<p>Second <em>formatted</em> line.</p>',
+            '<p>Second <em>formatted</em> <code>a`b</code> line.</p>',
       );
       String? clipboard;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -286,7 +446,7 @@ void main() {
       expect(
         clipboard,
         '[quote="sam, post:3, topic:7"]\n'
-        'First **bold** thought.\n\nSecond *formatted* line.\n'
+        'First **bold** thought.\n\nSecond *formatted* ``a`b`` line.\n'
         '[/quote]\n\n',
       );
     });

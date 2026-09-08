@@ -57,14 +57,14 @@ final class PostQuoteSelectionResolver {
   }) {
     final selected = plainText.trim();
     final source = _source;
-    if (selected.isEmpty || source == null) {
+    if (plainText.isEmpty || source == null) {
       return PostTextSelectionResolution(
         markdown: selected,
         supportsFastEdit: false,
       );
     }
 
-    var match = source.match(selected);
+    var match = source.match(selected.isEmpty ? plainText : selected);
     if (match == null) {
       final compact = selected.replaceAll(_selectionLineBreaks, '');
       match = source.match(compact);
@@ -76,7 +76,12 @@ final class PostQuoteSelectionResolver {
       );
     }
 
-    final markdown = source.markdown(match.start, match.end);
+    final range = source.includeCodeWhitespace(
+      match.start,
+      match.end,
+      plainText,
+    );
+    final markdown = source.markdown(range.start, range.end);
     return PostTextSelectionResolution(
       markdown: markdown,
       supportsFastEdit:
@@ -87,7 +92,7 @@ final class PostQuoteSelectionResolver {
           !markdown.contains('|') &&
           !markdown.contains(_selectionLineBreaks) &&
           !_problematicFastEditCharacters.hasMatch(markdown) &&
-          source.fastEditable(match.start, match.end),
+          source.fastEditable(range.start, range.end),
     );
   }
 }
@@ -99,18 +104,26 @@ typedef _MarkdownMark = ({String open, String close});
 
 final RegExp _collapsibleWhitespace = RegExp(r'[ \t\r\n\f]+');
 
+class _CookedCode {
+  _CookedCode({required this.block});
+
+  final bool block;
+}
+
 class _CookedSelectionCharacter {
   const _CookedSelectionCharacter(
     this.value,
-    this.marks, [
+    this.marks, {
     this.preformatted = false,
     this.fastEditable = true,
-  ]);
+    this.code,
+  });
 
   final String value;
   final List<_MarkdownMark> marks;
   final bool preformatted;
   final bool fastEditable;
+  final _CookedCode? code;
 }
 
 class _CookedSelectionSource {
@@ -135,37 +148,38 @@ class _CookedSelectionSource {
             dom.Node node,
             List<_MarkdownMark> marks,
             bool exiting,
-            bool pre,
             bool fastEditBlocked,
+            _CookedCode? code,
           })
         >[];
     void pushNodes(
       List<dom.Node> nodes,
       List<_MarkdownMark> marks,
-      bool pre,
       bool fastEditBlocked,
+      _CookedCode? code,
     ) {
       for (var index = nodes.length - 1; index >= 0; index--) {
         pending.add((
           node: nodes[index],
           marks: marks,
           exiting: false,
-          pre: pre,
           fastEditBlocked: fastEditBlocked,
+          code: code,
         ));
       }
     }
 
-    pushNodes(fragment.nodes, const [], false, false);
+    pushNodes(fragment.nodes, const [], false, null);
     while (pending.isNotEmpty) {
       final frame = pending.removeLast();
       final node = frame.node;
       if (node is dom.Text) {
         // Markdown cooks whitespace between and inside blocks — `<p>a</p>\n`
         // — that the renderer never draws as written. Collapse it the way CSS
-        // does so the index holds the character stream a selection reports;
-        // `pre` content keeps its indentation and line structure.
-        final value = frame.pre
+        // does so the index holds the character stream a selection reports.
+        // Code keeps its whitespace, as in the native code renderers.
+        final preformatted = frame.code != null;
+        final value = preformatted
             ? node.data
             : node.data.replaceAll(_collapsibleWhitespace, ' ');
         for (var index = 0; index < value.length; index++) {
@@ -173,8 +187,12 @@ class _CookedSelectionSource {
             _CookedSelectionCharacter(
               value[index],
               frame.marks,
-              frame.pre,
-              !frame.fastEditBlocked && frame.marks.isEmpty,
+              preformatted: preformatted,
+              fastEditable:
+                  !frame.fastEditBlocked &&
+                  frame.marks.isEmpty &&
+                  frame.code == null,
+              code: frame.code,
             ),
           );
         }
@@ -192,21 +210,25 @@ class _CookedSelectionSource {
       }
 
       if (block) addBreak(2);
-      final mark = _markdownMark(node);
+      final code =
+          frame.code ??
+          (node.localName == 'code' || node.localName == 'pre'
+              ? _CookedCode(block: node.localName == 'pre')
+              : null);
+      final mark = code == null ? _markdownMark(node) : null;
       final childMarks = mark == null
           ? frame.marks
           : List<_MarkdownMark>.unmodifiable([...frame.marks, mark]);
-      final pre = frame.pre || node.localName == 'pre';
       final fastEditBlocked =
           frame.fastEditBlocked || _fastEditBlockedElement(node);
       pending.add((
         node: node,
         marks: childMarks,
         exiting: true,
-        pre: pre,
         fastEditBlocked: fastEditBlocked,
+        code: code,
       ));
-      pushNodes(node.nodes, childMarks, pre, fastEditBlocked);
+      pushNodes(node.nodes, childMarks, fastEditBlocked, code);
     }
     return _CookedSelectionSource._trimmed(characters, breaks);
   }
@@ -267,8 +289,42 @@ class _CookedSelectionSource {
     return true;
   }
 
+  ({int start, int end}) includeCodeWhitespace(
+    int start,
+    int end,
+    String selection,
+  ) {
+    // Matching still uses the trimmed selection for ambiguity checks. Restore
+    // only selected boundary whitespace that belongs to cooked code.
+    final leading = selection.length - selection.trimLeft().length;
+    if (leading < selection.length) {
+      for (var index = leading - 1; index >= 0 && start > 0; index--) {
+        final character = characters[start - 1];
+        if (character.code == null || character.value != selection[index]) {
+          break;
+        }
+        start--;
+      }
+      for (
+        var index = selection.trimRight().length;
+        index < selection.length && end < characters.length;
+        index++
+      ) {
+        final character = characters[end];
+        if (character.code == null || character.value != selection[index]) {
+          break;
+        }
+        end++;
+      }
+    }
+    return (start: start, end: end);
+  }
+
   String markdown(int start, int end) {
     if (start < 0 || end <= start || end > characters.length) return '';
+    final hasCode = characters
+        .getRange(start, end)
+        .any((character) => character.code != null);
     final out = StringBuffer();
     List<_MarkdownMark> active = const [];
 
@@ -287,7 +343,11 @@ class _CookedSelectionSource {
         out.write(lines == 1 ? '\n' : '\n\n');
       }
 
-      final next = characters[offset].marks;
+      final character = characters[offset];
+      final code = character.code;
+      final next = code?.block == true
+          ? const <_MarkdownMark>[]
+          : character.marks;
       // Characters in one formatting run share an immutable mark list. Only
       // its boundaries need comparisons and closing/opening delimiters.
       if (!identical(active, next)) {
@@ -303,11 +363,67 @@ class _CookedSelectionSource {
         }
         active = next;
       }
-      out.write(characters[offset].value);
+      if (code == null) {
+        // A literal prose tick must not pair with a generated code delimiter.
+        if (hasCode && character.value == '`') out.write(r'\');
+        out.write(character.value);
+        continue;
+      }
+
+      // Adjacent inline code with the same surrounding marks is one run;
+      // emitting separate spans would join their closing/opening backticks.
+      var codeEnd = offset + 1;
+      while (codeEnd < end) {
+        final previous = characters[codeEnd - 1];
+        final following = characters[codeEnd];
+        if (!identical(following.code, previous.code) &&
+            (code.block ||
+                following.code == null ||
+                following.code!.block ||
+                !_sameMarkdownMarks(following.marks, previous.marks) ||
+                breaks.containsKey(codeEnd))) {
+          break;
+        }
+        codeEnd++;
+      }
+      out.write(
+        _codeMarkdown(plainText.substring(offset, codeEnd), block: code.block),
+      );
+      offset = codeEnd - 1;
     }
     closeTo(0);
     return out.toString().trim();
   }
+}
+
+bool _sameMarkdownMarks(List<_MarkdownMark> a, List<_MarkdownMark> b) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (var index = 0; index < a.length; index++) {
+    if (a[index] != b[index]) return false;
+  }
+  return true;
+}
+
+String _codeMarkdown(String text, {required bool block}) {
+  var delimiterLength = block ? 3 : 1;
+  for (final run in RegExp(r'`+').allMatches(text)) {
+    if (run.end - run.start >= delimiterLength) {
+      delimiterLength = run.end - run.start + 1;
+    }
+  }
+  final delimiter = List.filled(delimiterLength, '`').join();
+  if (block) {
+    final lineEnd = text.endsWith('\n') ? '' : '\n';
+    return '$delimiter\n$text$lineEnd$delimiter';
+  }
+  // markdown-it removes one boundary space on each side of an inline span.
+  // Padding also separates authored boundary ticks from the delimiters.
+  final pad =
+      text.startsWith('`') ||
+      text.endsWith('`') ||
+      (text.startsWith(' ') && text.endsWith(' '));
+  return pad ? '$delimiter $text $delimiter' : '$delimiter$text$delimiter';
 }
 
 bool _ignoredCookedElement(dom.Element element) =>
@@ -353,8 +469,6 @@ _MarkdownMark? _markdownMark(dom.Element element) {
     case 's':
     case 'strike':
       return (open: '~~', close: '~~');
-    case 'code':
-      return (open: '`', close: '`');
     case 'a':
       final href = element.attributes['href'];
       return href == null || href.isEmpty
