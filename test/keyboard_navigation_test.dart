@@ -71,11 +71,13 @@ void main() {
           final setup = await _setup(tester, size: size);
           final shell = setup.shell;
           expect(shell.currentContent?.isTopic, isFalse);
-          expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyJ), isFalse);
-          expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isFalse);
           expect(_selectedTopics(tester), isEmpty);
 
-          await _moveTopic(tester, next: true);
+          await _moveTopic(tester, next: true, shift: false);
+          expect(_selectedTopics(tester), [1]);
+          await _moveTopic(tester, next: true, shift: false);
+          expect(_selectedTopics(tester), [2]);
+          await _moveTopic(tester, next: false, shift: false);
           expect(_selectedTopics(tester), [1]);
           await _moveTopic(tester, next: true);
           expect(_selectedTopics(tester), [2]);
@@ -119,8 +121,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(shell.currentContent?.isTopic, isFalse);
           expect(_selectedTopics(tester), [2]);
-          expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyJ), isFalse);
-          await _moveTopic(tester, next: true);
+          await _moveTopic(tester, next: true, shift: false);
           expect(_selectedTopics(tester), [3]);
           await tester.sendKeyEvent(openKey);
           await tester.pumpAndSettle();
@@ -228,12 +229,50 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('keyboard-shortcuts-help')), findsNothing);
   });
+
+  testWidgets('list J/K shortcuts pause for search and dialogs', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    await _moveTopic(tester, next: true, shift: false);
+    await _moveTopic(tester, next: true, shift: false);
+
+    await tester.tap(find.byType(EditableText).first);
+    await tester.pump();
+    for (final key in [LogicalKeyboardKey.keyJ, LogicalKeyboardKey.keyK]) {
+      await tester.sendKeyEvent(key);
+      await tester.pump();
+      expect(_selectedTopics(tester), [2]);
+    }
+
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash, character: '?');
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('keyboard-shortcuts-help')),
+      findsOneWidget,
+    );
+    for (final key in [LogicalKeyboardKey.keyJ, LogicalKeyboardKey.keyK]) {
+      await tester.sendKeyEvent(key);
+      await tester.pump();
+      expect(_selectedTopics(tester), [2]);
+    }
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await _moveTopic(tester, next: false, shift: false);
+    expect(_selectedTopics(tester), [1]);
+    expect(setup.api.topicsOpened, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final afterRequest in ['finish', 'open topic', 'focus search']) {
     testWidgets('a pending page respects $afterRequest', (tester) async {
       final gate = Completer<void>();
       final setup = await _setup(tester, nextPageGate: gate);
       for (var i = 0; i < 31; i++) {
-        await _moveTopic(tester, next: true, settle: false);
+        await _moveTopic(tester, next: true, shift: false, settle: false);
       }
       expect(_selectedTopics(tester), [30]);
       expect(
@@ -383,17 +422,18 @@ Iterable<BorderSide> _topicBorders(WidgetTester tester, int topicId) sync* {
 Future<void> _moveTopic(
   WidgetTester tester, {
   required bool next,
+  bool shift = true,
   bool handled = true,
   bool settle = true,
 }) async {
-  await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+  if (shift) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
   expect(
     await tester.sendKeyEvent(
       next ? LogicalKeyboardKey.keyJ : LogicalKeyboardKey.keyK,
     ),
     handled,
   );
-  await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+  if (shift) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
   if (settle) {
     await tester.pumpAndSettle();
   } else {

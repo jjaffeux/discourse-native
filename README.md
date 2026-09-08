@@ -955,10 +955,11 @@ showing the saved or reminder state and opening the bookmark controls. Reply
 and Bookmark are excluded from the three-dot menu.
 
 Shift+J/K always move the visible topic-list highlight; O and Enter both open
-the highlighted topic. J/K select posts in the open reader, R replies to the
-selected post, and U goes back to the list. The list and post selections have
-separate outlines, so scanning topics leaves the reader unchanged. In narrow
-layouts, U returns to the hidden list before Shift+J/K can move its cursor.
+the highlighted topic. J/K select posts in the open reader, or highlight topics
+in the list when no topic is open. R replies to the selected post, and U goes
+back to the list. The list and post selections have separate outlines, so
+scanning topics leaves the reader unchanged. In narrow layouts, U returns to
+the hidden list before Shift+J/K can move its cursor.
 Editors, form controls, menus, and dialogs retain their local keys. Press ?
 for the shortcut reference, including topic replies and composer submission.
 See [keyboard navigation](docs/keyboard-shortcuts.md) for the full behavior.

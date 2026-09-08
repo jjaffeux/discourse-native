@@ -1,13 +1,14 @@
 # Keyboard navigation
 
-The topic list and reader have independent keyboard selections. Their keys
-keep the same meaning whether one pane or both panes are visible.
+The topic list and reader have independent keyboard selections. `J/K` move
+through posts when a topic is open and through the list when no topic is open.
+`Shift+J/K` always address the visible topic list.
 
 | Shortcut | Behavior |
 | --- | --- |
 | `Shift+J` / `Shift+K` | Highlight the next / previous topic in the visible list. Leave the open reader unchanged. |
 | `O` / `Enter` | Open the highlighted topic at its unread position. Both keys run the same command with the same focus rules. |
-| `J` / `K` | Select and reveal the next / previous post in the open topic. Do nothing without an open topic. |
+| `J` / `K` | Select and reveal the next / previous post in the open topic. When no topic is open, highlight the next / previous topic in the visible list. |
 | `R` | Reply to the selected post. |
 | `Shift+R` | Reply to the topic. |
 | `C` | Create a topic. |
@@ -71,10 +72,11 @@ Reviewed core checkout `2e9dc47bd88` on 2026-09-07. Core's definitions are in
 `frontend/discourse/app/components/modal/keyboard-shortcuts-help.gjs`, and
 adjacent-topic loading lives in `frontend/discourse/app/lib/topic-list-tracker.js`.
 
-Core uses `J/K` for the current topic list or post stream. Native deliberately
-fixes their target to posts and uses `Shift+J/K` for the topic list; core uses
-that shifted pair for sections. This resolves the ambiguity of showing both
-panes at once. Native retains the familiar open, back, reply, and help keys.
+Core uses `J/K` for the current topic list or post stream. Native uses `J/K`
+for posts while a topic is open and for the topic list otherwise. `Shift+J/K`
+always address the visible topic list; core uses that shifted pair for
+sections. This resolves the ambiguity of showing both panes at once. Native
+retains the familiar open, back, reply, and help keys.
 
 Further web bindings can be added separately: `g …` destination and adjacent
 topic sequences, quote/like/bookmark/edit, jump-to-post/unread, incoming-topic
