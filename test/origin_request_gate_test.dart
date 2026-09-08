@@ -104,6 +104,261 @@ void main() {
       },
     );
 
+    group('when the clock expires before timer delivery', () {
+      late ManualScheduler scheduler;
+      late Duration elapsed;
+      final origin = Uri.parse('https://forum.example');
+
+      OriginRequestGate createGate({
+        int? maxConcurrent,
+        int maxQueuedPerOrigin = 1,
+        OriginRequestCooldownPolicy cooldownPolicy =
+            OriginRequestCooldownPolicy.wait,
+      }) {
+        final gate = OriginRequestGate(
+          maxConcurrent: maxConcurrent,
+          maxConcurrentPerOrigin: 1,
+          maxQueuedPerOrigin: maxQueuedPerOrigin,
+          cooldownPolicy: cooldownPolicy,
+          cooldownFactory: () => OriginCooldown(
+            clock: () => elapsed,
+            timerFactory: scheduler.createTimer,
+          ),
+        );
+        addTearDown(gate.close);
+        gate.extendCooldown(origin, const Duration(seconds: 1));
+        return gate;
+      }
+
+      setUp(() {
+        scheduler = ManualScheduler();
+        elapsed = Duration.zero;
+      });
+
+      test('rejecting a full backlog preserves its expiry wake', () async {
+        final gate = createGate();
+        var started = false;
+        final queued = gate.run(origin, (_) async {
+          started = true;
+          return 7;
+        });
+        // Capture shutdown errors too, so a stalled queue fails without waiting
+        // for a real-time timeout or leaving an unhandled future at teardown.
+        final outcome = queued.then<Object>(
+          (value) => value,
+          onError: (Object error) => error,
+        );
+
+        elapsed = const Duration(seconds: 2);
+        await expectLater(
+          gate.acquire(origin),
+          throwsA(isA<OriginRequestGateOverloadException>()),
+        );
+        expect(started, isFalse);
+
+        scheduler.advance(const Duration(seconds: 1));
+        gate.close();
+        expect(started, isTrue);
+        expect(await outcome, 7);
+        expect(scheduler.activeTimerCount, 0);
+      });
+
+      test('a spare backlog slot drains accepted work in FIFO order', () async {
+        final gate = createGate(maxQueuedPerOrigin: 2);
+        final started = <int>[];
+        final response = Completer<void>();
+        final first = gate.run(origin, (_) {
+          started.add(1);
+          return response.future;
+        });
+
+        elapsed = const Duration(seconds: 2);
+        final second = gate.run(origin, (_) async => started.add(2));
+        expect(started, [1]);
+        scheduler.advance(const Duration(seconds: 1));
+        expect(started, [1]);
+
+        response.complete();
+        await first;
+        await second;
+        expect(started, [1, 2]);
+        expect(scheduler.activeTimerCount, 0);
+      });
+
+      test('expiry respects both caps and FIFO within priorities', () async {
+        final gate = createGate(maxConcurrent: 2, maxQueuedPerOrigin: 4);
+        final firstBlocker = await gate.acquire(Uri.https('first.example'));
+        final secondBlocker = await gate.acquire(Uri.https('second.example'));
+        final started = <String>[];
+        final responses = <String, Completer<void>>{};
+        final requests = <String, Future<void>>{};
+        for (final (name, priority) in [
+          ('normal 1', OriginRequestPriority.normal),
+          ('interactive 1', OriginRequestPriority.interactive),
+          ('normal 2', OriginRequestPriority.normal),
+          ('interactive 2', OriginRequestPriority.interactive),
+        ]) {
+          final response = Completer<void>();
+          responses[name] = response;
+          requests[name] = gate.run(origin, (_) {
+            started.add(name);
+            return response.future;
+          }, priority: priority);
+        }
+
+        elapsed = const Duration(seconds: 2);
+        await expectLater(
+          gate.acquire(origin, priority: OriginRequestPriority.interactive),
+          throwsA(isA<OriginRequestGateOverloadException>()),
+        );
+        scheduler.advance(const Duration(seconds: 1));
+        expect(started, isEmpty, reason: 'the aggregate cap still applies');
+
+        firstBlocker.release();
+        expect(started, ['interactive 1']);
+        secondBlocker.release();
+        expect(started, ['interactive 1'], reason: 'the origin cap applies');
+
+        const order = [
+          'interactive 1',
+          'interactive 2',
+          'normal 1',
+          'normal 2',
+        ];
+        for (var index = 0; index < order.length; index++) {
+          expect(started, order.take(index + 1));
+          responses[order[index]]!.complete();
+          await requests[order[index]]!;
+        }
+        expect(started, order);
+        expect(scheduler.activeTimerCount, 0);
+      });
+
+      test(
+        'close cancels the delayed wake and rejects accepted work',
+        () async {
+          final gate = createGate();
+          var started = false;
+          final queued = gate.run(origin, (_) async => started = true);
+          final rejection = expectLater(
+            queued,
+            throwsA(isA<OriginRequestGateClosedException>()),
+          );
+          elapsed = const Duration(seconds: 2);
+          await expectLater(
+            gate.acquire(origin),
+            throwsA(isA<OriginRequestGateOverloadException>()),
+          );
+
+          gate.close();
+          await rejection;
+          gate.extendCooldown(origin, const Duration(seconds: 5));
+          scheduler.advance(const Duration(seconds: 10));
+          expect(started, isFalse);
+          expect(scheduler.activeTimerCount, 0);
+          await expectLater(
+            gate.acquire(origin),
+            throwsA(isA<OriginRequestGateClosedException>()),
+          );
+        },
+      );
+
+      test(
+        'an extension replaces the delayed wake without shortening',
+        () async {
+          final gate = createGate();
+          var started = false;
+          final queued = gate.run(origin, (_) async => started = true);
+          elapsed = const Duration(seconds: 2);
+          await expectLater(
+            gate.acquire(origin),
+            throwsA(isA<OriginRequestGateOverloadException>()),
+          );
+
+          gate.extendCooldown(origin, const Duration(seconds: 3));
+          elapsed = const Duration(seconds: 3);
+          gate.extendCooldown(origin, const Duration(seconds: 1));
+          scheduler.advance(const Duration(seconds: 1));
+          expect(started, isFalse, reason: 'the old wake has been replaced');
+          expect(scheduler.activeTimerCount, 1);
+
+          // Deliver the replacement early relative to the monotonic clock.
+          scheduler.advance(const Duration(seconds: 2));
+          expect(started, isFalse);
+          expect(scheduler.activeTimerCount, 1);
+          elapsed = const Duration(seconds: 5);
+          scheduler.advance(const Duration(seconds: 2));
+          expect(started, isTrue);
+          await queued;
+          expect(scheduler.activeTimerCount, 0);
+        },
+      );
+
+      test(
+        'a synchronous callback can close while admitting new work',
+        () async {
+          final gate = createGate(maxQueuedPerOrigin: 2);
+          final first = gate.run(origin, (context) async {
+            gate.close();
+            context.extendCooldown(const Duration(seconds: 5));
+            return 7;
+          });
+
+          elapsed = const Duration(seconds: 2);
+          var secondStarted = false;
+          final second = gate.run(origin, (_) async => secondStarted = true);
+          await expectLater(
+            second,
+            throwsA(isA<OriginRequestGateClosedException>()),
+          );
+          expect(await first, 7);
+          scheduler.advance(const Duration(seconds: 10));
+          expect(secondStarted, isFalse);
+          expect(gate.isClosed, isTrue);
+          expect(scheduler.activeTimerCount, 0);
+        },
+      );
+
+      test('a synchronous callback can extend before the next grant', () async {
+        final gate = createGate(maxQueuedPerOrigin: 2);
+        final first = gate.run(origin, (context) async {
+          context.extendCooldown(const Duration(seconds: 3));
+        });
+
+        elapsed = const Duration(seconds: 2);
+        var secondStarted = false;
+        final second = gate.run(origin, (_) async => secondStarted = true);
+        await first;
+        scheduler.advance(const Duration(seconds: 1));
+        expect(secondStarted, isFalse);
+        expect(scheduler.activeTimerCount, 1);
+
+        elapsed = const Duration(seconds: 5);
+        scheduler.advance(const Duration(seconds: 2));
+        expect(secondStarted, isTrue);
+        await second;
+        expect(scheduler.activeTimerCount, 0);
+      });
+
+      test('reject policy admits work as soon as the clock expires', () async {
+        final gate = createGate(
+          cooldownPolicy: OriginRequestCooldownPolicy.reject,
+        );
+        await expectLater(
+          gate.acquire(origin),
+          throwsA(isA<OriginRequestGateCooldownException>()),
+        );
+
+        elapsed = const Duration(seconds: 2);
+        var started = false;
+        final request = gate.run(origin, (_) async => started = true);
+        expect(started, isTrue);
+        await request;
+        scheduler.advance(const Duration(seconds: 1));
+        expect(scheduler.activeTimerCount, 0);
+      });
+    });
+
     test(
       'reject policy drops waiters and rejects new work until expiry',
       () async {
