@@ -341,8 +341,8 @@ class ComposerPanel extends StatelessWidget {
                                               'Reply to @${target.replyToUsername}…',
                                             _ => 'Write a reply…',
                                           },
-                                          textStyle: theme.textTheme.bodyMedium,
-                                          hintStyle: theme.textTheme.bodyMedium
+                                          textStyle: theme.textTheme.bodyLarge,
+                                          hintStyle: theme.textTheme.bodyLarge
                                               ?.copyWith(
                                                 color: theme
                                                     .colorScheme
@@ -2374,6 +2374,21 @@ class _ComposerEditorState extends State<ComposerEditor> {
     );
   }
 
+  double _minimumLineHeight(BuildContext context) {
+    final style = widget.textStyle ?? Theme.of(context).textTheme.bodyLarge!;
+    // Empty paragraphs can include more strut leading than filled ones.
+    // Reserve the empty line so a one-line draft does not move the toolbar.
+    final painter = TextPainter(
+      text: TextSpan(style: style),
+      strutStyle: StrutStyle.fromTextStyle(style, forceStrutHeight: false),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final height = painter.height;
+    painter.dispose();
+    return height;
+  }
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) => OverlayPortal(
@@ -2420,7 +2435,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
                     : const SizedBox.shrink(),
               ),
             ),
-            if (widget.expands) Positioned.fill(child: _field()) else _field(),
+            if (widget.expands)
+              Positioned.fill(child: _field())
+            else
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: _minimumLineHeight(context),
+                ),
+                child: _field(),
+              ),
             ListenableBuilder(
               listenable: _media,
               builder: (context, _) => ValueListenableBuilder<int>(
@@ -2814,6 +2837,7 @@ class _ImageComposerMenu extends StatelessWidget {
                 SizedBox(
                   height: 44,
                   child: TextField(
+                    style: Theme.of(context).textTheme.bodyMedium,
                     controller: alt,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => onSaveAlt(),
@@ -3172,8 +3196,7 @@ class _Toolbar extends StatelessWidget {
                 : null,
             icon: Text(
               'Aa',
-              style: TextStyle(
-                fontSize: DiscourseTypography.base,
+              style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),

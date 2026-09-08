@@ -524,19 +524,17 @@ class _CardIdentity extends StatelessWidget {
                 card.displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontSize: compact
-                      ? DiscourseTypography.fontUp3
-                      : DiscourseTypography.fontUp5,
-                  height: DiscourseTypography.lineHeightMedium,
-                  fontWeight: FontWeight.w700,
-                ),
+                style:
+                    (compact
+                            ? theme.textTheme.headlineSmall
+                            : theme.textTheme.headlineMedium)
+                        ?.copyWith(fontWeight: FontWeight.w700),
               ),
               Text(
                 '@${card.username}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium,
+                style: theme.textTheme.bodyMedium,
               ),
               UserStatusMessage(
                 siteUrl: siteUrl,

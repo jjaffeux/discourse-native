@@ -416,6 +416,7 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
         ? Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
             child: TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               key: const ValueKey('assigned-member-search'),
               autofocus: true,
               decoration: const InputDecoration(
@@ -665,6 +666,7 @@ class _AssignedQueryControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final search = TextField(
+      style: Theme.of(context).textTheme.bodyMedium,
       key: const ValueKey('assigned-topic-search'),
       decoration: const InputDecoration(
         labelText: 'Search assignments',

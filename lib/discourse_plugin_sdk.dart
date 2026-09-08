@@ -54,6 +54,7 @@ export 'src/shell/content_reading_lane.dart'
         ContentReadingLaneBox,
         ContentReadingLaneBuilder,
         ContentReadingLaneGeometry;
+export 'src/shell/cooked_html.dart';
 export 'src/shell/diagnostics_text.dart';
 export 'src/shell/select.dart';
 export 'src/shell/site_url.dart';

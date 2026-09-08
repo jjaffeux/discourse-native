@@ -329,11 +329,11 @@ void main() {
       final titleTheme = Theme.of(tester.element(firstForumTitle));
       expect(
         tester.widget<Text>(firstForumTitle).style?.fontSize,
-        titleTheme.textTheme.bodySmall?.fontSize,
+        titleTheme.textTheme.bodyMedium?.fontSize,
       );
       expect(
         tester.widget<Text>(firstForumTitle).style?.fontSize,
-        lessThan(titleTheme.textTheme.bodyMedium!.fontSize!),
+        lessThan(titleTheme.textTheme.bodyLarge!.fontSize!),
       );
       expect(
         find.textContaining('Select forums, then edit one topic filter'),

@@ -12,21 +12,14 @@ void main() {
   );
 
   test('uses the exact cooked heading scale', () {
-    final expected = [
-      DiscourseTypography.fontUp3,
-      DiscourseTypography.fontUp2,
-      DiscourseTypography.fontUp1,
-      DiscourseTypography.base,
-      DiscourseTypography.fontDown1,
-      DiscourseTypography.fontDown2,
-    ];
+    final expected = [30.0, 24.0, 20.0, 18.0, 16.0, 14.0];
 
     for (var level = 1; level <= 6; level++) {
       final style = markdownStyle(Md.heading, '$level', base, theme);
       expect(style.fontSize, expected[level - 1], reason: 'heading $level');
       expect(
         style.height,
-        DiscourseTypography.lineHeightMedium,
+        DiscourseTypography.headingLineHeight(level),
         reason: 'heading $level',
       );
       expect(style.fontWeight, FontWeight.w700, reason: 'heading $level');

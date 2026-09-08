@@ -277,6 +277,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
+                      style: Theme.of(context).textTheme.bodyMedium,
                       controller: _description,
                       autofocus: true,
                       enabled: !_busy,

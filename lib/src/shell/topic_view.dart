@@ -3464,13 +3464,10 @@ class _MoreTopics extends StatelessWidget {
     if (available.isEmpty) return const SizedBox.shrink();
     final selection = _effectiveSelection(available);
     final theme = Theme.of(context);
-    final tabTextStyle = theme.textTheme.bodySmall?.copyWith(
-      fontSize: DiscourseTypography.fontDown1,
-      height: 1.2,
-    );
+    final tabTextStyle = theme.textTheme.labelLarge;
     final tabHeight =
-        (MediaQuery.textScalerOf(context).scale(DiscourseTypography.fontDown1) *
-                    1.2 +
+        (MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
+                    DiscourseTypography.lineHeightSmall +
                 16)
             .ceilToDouble();
 
@@ -4105,12 +4102,12 @@ class _PostTileState extends State<_PostTile> {
                 child: CookedHtml(
                   html: post.cooked,
                   textStyle: post.isWhisper
-                      ? theme.textTheme.bodyMedium?.copyWith(
+                      ? theme.textTheme.bodyLarge?.copyWith(
                           color: theme.discourse.whisper,
                           fontStyle: FontStyle.italic,
                           height: DiscourseTypography.lineHeightCooked,
                         )
-                      : theme.textTheme.bodyMedium?.copyWith(
+                      : theme.textTheme.bodyLarge?.copyWith(
                           height: DiscourseTypography.lineHeightCooked,
                         ),
                   siteUrl: widget.siteUrl,
@@ -4530,14 +4527,12 @@ class _TopicMapStat extends StatelessWidget {
             '$value',
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.primary,
-              height: 1.1,
             ),
           ),
           Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
-              height: 1.1,
             ),
           ),
         ],

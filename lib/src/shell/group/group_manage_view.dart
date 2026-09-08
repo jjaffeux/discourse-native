@@ -364,6 +364,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 14),
     child: TextFormField(
+      style: Theme.of(context).textTheme.bodyMedium,
       key: ValueKey('group-field-$key'),
       controller: controller.textController(key),
       minLines: obscure ? 1 : lines,
@@ -392,6 +393,7 @@ class _ProfileFields extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
           child: TextFormField(
+            style: Theme.of(context).textTheme.bodyMedium,
             key: ValueKey('group-field-$key'),
             controller: controllers[key],
             minLines: lines,
@@ -451,6 +453,7 @@ class _ListNotificationFields extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
           child: TextFormField(
+            style: Theme.of(context).textTheme.bodyMedium,
             key: ValueKey('group-field-$key'),
             controller: controllers[key],
             decoration: InputDecoration(labelText: _fieldLabel(key)),
@@ -472,7 +475,7 @@ class _FormHeading extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleLarge),
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 4),
         Text(description, style: Theme.of(context).textTheme.bodyMedium),
       ],
@@ -614,7 +617,7 @@ class _GroupLogs extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Logs', style: Theme.of(context).textTheme.titleLarge),
+              Text('Logs', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 4),
               Text(
                 'Membership and settings changes for this group.',

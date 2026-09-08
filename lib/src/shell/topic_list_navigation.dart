@@ -209,24 +209,14 @@ class _TopicListNavigationControls extends StatelessWidget {
     );
     final mode = state.mode ?? TopicListMode.latest;
     final theme = Theme.of(context);
-    final primaryTextStyle = theme.textTheme.bodySmall?.copyWith(
-      fontWeight: FontWeight.w400,
-      fontSize: stacked ? DiscourseTypography.fontDown1 : null,
-      height: stacked ? 1.2 : null,
-    );
-    final secondaryTextStyle = theme.textTheme.labelSmall?.copyWith(
-      fontWeight: FontWeight.w400,
-      fontSize: stacked ? DiscourseTypography.fontDown1 : null,
-      height: stacked ? 1.2 : null,
-    );
-    final primaryHeight = stacked
-        ? (MediaQuery.textScalerOf(
-                        context,
-                      ).scale(DiscourseTypography.fontDown1) *
-                      1.2 +
-                  16)
-              .ceilToDouble()
-        : 52.0;
+    final primaryTextStyle = theme.textTheme.labelLarge;
+    final secondaryTextStyle = theme.textTheme.labelLarge;
+    final scaledLineHeight =
+        MediaQuery.textScalerOf(context).scale(primaryTextStyle!.fontSize!) *
+        primaryTextStyle.height!;
+    final primaryHeight = math
+        .max(stacked ? 36.0 : 52.0, scaledLineHeight + 16)
+        .ceilToDouble();
 
     return Semantics(
       key: const ValueKey('topic-list-navigation'),
@@ -596,8 +586,8 @@ class _TopicListSubnavigationSurface extends StatelessWidget {
   final Widget child;
 
   static double segmentHeight(BuildContext context) =>
-      (MediaQuery.textScalerOf(context).scale(DiscourseTypography.fontDown1) *
-                  1.2 +
+      (MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
+                  DiscourseTypography.lineHeightSmall +
               12)
           .ceilToDouble();
 
@@ -653,10 +643,7 @@ class _TopicListTabStrip extends StatelessWidget {
     if (segmented) {
       final theme = Theme.of(context);
       final scaler = MediaQuery.textScalerOf(context);
-      final countStyle = theme.textTheme.labelSmall!.copyWith(
-        fontSize: DiscourseTypography.fontDown2,
-        height: 1.2,
-      );
+      final countStyle = theme.textTheme.labelSmall;
       // Keep full labels and tracking counts readable when text is enlarged.
       // The control scrolls only when three equal segments cannot fit.
       var segmentWidth = 0.0;

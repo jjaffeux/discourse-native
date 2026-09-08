@@ -477,6 +477,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                       const SizedBox(height: 4),
                     ],
                     TextField(
+                      style: Theme.of(context).textTheme.bodyMedium,
                       key: widget.inputKey,
                       controller: filter.text,
                       focusNode: _focus,
@@ -619,7 +620,7 @@ class _TopicFilterTokenChip extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
+                    style: theme.textTheme.labelMedium?.copyWith(
                       color: foreground,
                     ),
                   ),

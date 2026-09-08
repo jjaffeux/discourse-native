@@ -71,10 +71,8 @@ class MessageCreateButton extends StatelessWidget {
       return SizedBox(
         height: math.max(
           36,
-          MediaQuery.textScalerOf(
-                    context,
-                  ).scale(DiscourseTypography.fontDown1) *
-                  1.2 +
+          MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
+                  DiscourseTypography.lineHeightSmall +
               18,
         ),
         child: button,
@@ -115,6 +113,7 @@ class _MessageRecipientsDialogState extends State<_MessageRecipientsDialog> {
       child: Form(
         key: _form,
         child: TextFormField(
+          style: Theme.of(context).textTheme.bodyMedium,
           key: const ValueKey('new-message-recipients'),
           controller: _recipients,
           autofocus: true,

@@ -140,6 +140,7 @@ class _InviteEditorState extends State<InviteEditor> {
               ),
               const SizedBox(height: 12),
               TextFormField(
+                style: Theme.of(context).textTheme.bodyMedium,
                 controller: _email,
                 enabled: !_saving,
                 keyboardType: TextInputType.emailAddress,
@@ -161,6 +162,7 @@ class _InviteEditorState extends State<InviteEditor> {
               ),
               const SizedBox(height: 12),
               TextFormField(
+                style: Theme.of(context).textTheme.bodyMedium,
                 controller: _description,
                 enabled: !_saving,
                 maxLength: 100,
@@ -171,6 +173,7 @@ class _InviteEditorState extends State<InviteEditor> {
               if (!_hasEmail) ...[
                 const SizedBox(height: 12),
                 TextFormField(
+                  style: Theme.of(context).textTheme.bodyMedium,
                   controller: _uses,
                   enabled: !_saving,
                   keyboardType: TextInputType.number,
@@ -192,6 +195,7 @@ class _InviteEditorState extends State<InviteEditor> {
               ],
               const SizedBox(height: 12),
               TextFormField(
+                style: Theme.of(context).textTheme.bodyMedium,
                 controller: _days,
                 enabled: !_saving,
                 keyboardType: TextInputType.number,
@@ -221,6 +225,7 @@ class _InviteEditorState extends State<InviteEditor> {
                 ),
                 if (_sendEmail)
                   TextFormField(
+                    style: Theme.of(context).textTheme.bodyMedium,
                     controller: _message,
                     enabled: !_saving,
                     minLines: 2,

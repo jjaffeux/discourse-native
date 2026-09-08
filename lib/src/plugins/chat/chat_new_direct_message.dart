@@ -315,6 +315,7 @@ class _ChatNewDirectMessageDialogState
           children: [
             if (_composingGroup) ...[
               TextField(
+                style: Theme.of(context).textTheme.bodyMedium,
                 key: const ValueKey('chat-new-group-name'),
                 controller: _groupName,
                 enabled: !_opening,
@@ -328,6 +329,7 @@ class _ChatNewDirectMessageDialogState
               const SizedBox(height: 8),
             ],
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               key: const ValueKey('chat-new-direct-message-search'),
               controller: _search,
               autofocus: true,

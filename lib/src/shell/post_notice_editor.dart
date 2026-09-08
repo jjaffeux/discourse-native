@@ -92,6 +92,7 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
           const Text('This staff notice will be shown above the post.'),
           const SizedBox(height: 12),
           TextField(
+            style: Theme.of(context).textTheme.bodyMedium,
             key: const ValueKey('post-notice-text'),
             controller: _text,
             autofocus: true,

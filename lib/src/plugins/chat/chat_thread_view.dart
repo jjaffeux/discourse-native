@@ -523,7 +523,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
                 color: Theme.of(context).colorScheme.secondaryContainer,
                 child: Text(
                   notice,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSecondaryContainer,
                   ),
                 ),

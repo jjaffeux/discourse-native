@@ -50,7 +50,7 @@ class ComposerTagRemovalNotice extends StatelessWidget {
                     children: [
                       Text(
                         'Some tags were removed',
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),

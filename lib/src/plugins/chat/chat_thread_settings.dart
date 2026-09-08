@@ -87,6 +87,7 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextField(
+          style: Theme.of(context).textTheme.bodyMedium,
           key: const ValueKey('chat-thread-title-field'),
           controller: _title,
           autofocus: true,

@@ -102,6 +102,7 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               key: const ValueKey('chat-channel-title-input'),
               controller: _name,
               autofocus: true,
@@ -114,6 +115,7 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
             ),
             const SizedBox(height: 12),
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               key: const ValueKey('chat-channel-slug-input'),
               controller: _slug,
               enabled: !_saving,
@@ -127,6 +129,7 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
             ),
             const SizedBox(height: 12),
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               key: const ValueKey('chat-channel-description-input'),
               controller: _description,
               enabled: !_saving,

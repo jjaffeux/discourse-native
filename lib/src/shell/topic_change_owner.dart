@@ -146,6 +146,7 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
             ),
             const SizedBox(height: 14),
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               key: const ValueKey('topic-change-owner-search'),
               controller: _search,
               autofocus: true,

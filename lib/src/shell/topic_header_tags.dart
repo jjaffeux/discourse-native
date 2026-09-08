@@ -48,9 +48,7 @@ class TopicHeaderTags extends StatelessWidget {
               : const SizedBox.shrink();
         }
         final theme = Theme.of(context);
-        final style = theme.textTheme.labelSmall!.copyWith(
-          fontSize: DiscourseTypography.fontDown2,
-        );
+        final style = theme.textTheme.labelSmall;
         const gap = 7.0;
         double labelWidth(String label) {
           final painter = TextPainter(

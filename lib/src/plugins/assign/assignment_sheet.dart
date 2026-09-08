@@ -377,6 +377,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               key: const Key('assignment-note'),
               controller: _noteController,
               enabled: !_saving,
@@ -419,7 +420,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
                 child: Text(
                   error,
                   key: const Key('assignment-error'),
-                  style: theme.textTheme.bodySmall?.copyWith(
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.error,
                   ),
                 ),

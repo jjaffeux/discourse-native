@@ -251,7 +251,7 @@ class _Attachment extends StatelessWidget {
                         upload.originalFilename,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.primary,
                         ),
                       ),

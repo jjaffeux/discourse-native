@@ -265,7 +265,7 @@ class _TopicShareBodyState extends State<_TopicShareBody> {
                       child: SelectableText(
                         widget.url,
                         maxLines: 1,
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),

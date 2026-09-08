@@ -149,6 +149,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
           child: Column(
             children: [
               TextField(
+                style: Theme.of(context).textTheme.bodyMedium,
                 key: const ValueKey('chat-browse-filter'),
                 controller: _filterController,
                 decoration: const InputDecoration(
@@ -371,7 +372,7 @@ class _ChannelCard extends StatelessWidget {
                             channel.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium,
+                            style: Theme.of(context).textTheme.titleSmall,
                           ),
                         ),
                         if (status != null)

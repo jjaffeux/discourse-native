@@ -106,7 +106,7 @@ class ComposerBlockquoteMarker extends StatelessWidget {
       // paragraphs at the native editable's left edge.
       width: ComposerBlockquoteDecoration.gutter,
       height:
-          (baseStyle.fontSize ?? DiscourseTypography.fontDown1) *
+          (baseStyle.fontSize ?? DiscourseTypography.sm) *
           (baseStyle.height ?? DiscourseTypography.lineHeightMedium),
     ),
   );

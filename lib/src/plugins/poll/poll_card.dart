@@ -336,7 +336,7 @@ class _PollCardState extends State<PollCard> {
                     CookedHtml(
                       html: _poll.title!,
                       siteUrl: widget.siteUrl,
-                      textStyle: Theme.of(context).textTheme.bodyMedium,
+                      textStyle: Theme.of(context).textTheme.bodyLarge,
                     ),
                     const SizedBox(height: 8),
                   ],
@@ -610,7 +610,7 @@ class _PollOptionRow extends StatelessWidget {
                           CookedHtml(
                             html: option.html,
                             siteUrl: siteUrl,
-                            textStyle: Theme.of(context).textTheme.titleMedium,
+                            textStyle: Theme.of(context).textTheme.bodyLarge,
                           ),
                           if (votes != null && percentage != null) ...[
                             const SizedBox(height: 5),
@@ -618,13 +618,13 @@ class _PollOptionRow extends StatelessWidget {
                               children: [
                                 Text(
                                   votes == 1 ? '1 vote' : '$votes votes',
-                                  style: Theme.of(context).textTheme.titleMedium
+                                  style: Theme.of(context).textTheme.bodyLarge
                                       ?.copyWith(color: whisper),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   '$percentage%',
-                                  style: Theme.of(context).textTheme.titleMedium
+                                  style: Theme.of(context).textTheme.bodyLarge
                                       ?.copyWith(color: whisper),
                                 ),
                               ],
@@ -728,7 +728,7 @@ class _RankedChoiceBody extends StatelessWidget {
                       child: CookedHtml(
                         html: option.html,
                         siteUrl: siteUrl,
-                        textStyle: Theme.of(context).textTheme.titleMedium,
+                        textStyle: Theme.of(context).textTheme.bodyLarge,
                       ),
                     ),
                   ],
@@ -765,7 +765,7 @@ class _RankedCandidatesSummary extends StatelessWidget {
             CookedHtml(
               html: candidate.html,
               siteUrl: siteUrl,
-              textStyle: Theme.of(context).textTheme.titleMedium,
+              textStyle: Theme.of(context).textTheme.bodyLarge,
             ),
         ],
       ),
@@ -871,7 +871,7 @@ class PollFallbackCard extends StatelessWidget {
               CookedHtml(
                 html: title!,
                 siteUrl: siteUrl,
-                textStyle: Theme.of(context).textTheme.bodyMedium,
+                textStyle: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 8),
             ],
@@ -886,7 +886,7 @@ class PollFallbackCard extends StatelessWidget {
                       child: CookedHtml(
                         html: option,
                         siteUrl: siteUrl,
-                        textStyle: Theme.of(context).textTheme.titleMedium,
+                        textStyle: Theme.of(context).textTheme.bodyLarge,
                       ),
                     ),
                   ],

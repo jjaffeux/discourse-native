@@ -245,6 +245,7 @@ class _SearchControls extends StatelessWidget {
           children: [
             Expanded(
               child: TextField(
+                style: Theme.of(context).textTheme.bodyMedium,
                 key: const ValueKey('chat-search-field'),
                 controller: controller,
                 focusNode: focusNode,

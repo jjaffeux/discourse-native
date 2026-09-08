@@ -84,7 +84,7 @@ class MentionPill extends StatelessWidget {
           siteUrl: siteUrl!,
           userId: reference.userId,
           status: reference.status,
-          size: (baseStyle?.fontSize ?? DiscourseTypography.fontDown1) * .95,
+          size: (baseStyle?.fontSize ?? DiscourseTypography.sm) * .95,
           style: baseStyle,
           leadingGap: 4,
         ),

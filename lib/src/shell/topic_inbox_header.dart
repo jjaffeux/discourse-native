@@ -318,11 +318,9 @@ class _ExpandedTopicHeaderTitle extends StatelessWidget {
     final topic = header.topic;
     final siteUrl = header.siteUrl;
     final title = header.title;
-    final titleStyle = Theme.of(context).textTheme.titleLarge?.copyWith(
-      fontSize: DiscourseTypography.fontUp3,
-      height: 1.28,
-      fontWeight: FontWeight.w600,
-    );
+    final titleStyle = Theme.of(
+      context,
+    ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600);
     return Padding(
       // Leave room for the title's editing frame even when it wraps.
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -696,7 +694,6 @@ class _TopicActivitySummary extends StatelessWidget {
       final theme = Theme.of(context);
       final participants = topic.participants.take(3).toList();
       final style = theme.textTheme.labelSmall?.copyWith(
-        fontSize: DiscourseTypography.fontDown2,
         color: theme.colorScheme.onSurfaceVariant,
       );
       return Wrap(
@@ -767,7 +764,7 @@ class _TopicActivitySummary extends StatelessWidget {
                                     : participants[i].username.characters.first
                                           .toUpperCase(),
                                 style: style?.copyWith(
-                                  fontSize: DiscourseTypography.fontDown3,
+                                  fontSize: DiscourseTypography.xs,
                                 ),
                               ),
                             ),
@@ -1114,9 +1111,7 @@ class _CategoryChip extends StatelessWidget {
                           label,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontSize: DiscourseTypography.fontDown2,
-                          ),
+                          style: theme.textTheme.labelSmall,
                         ),
                       ),
                       if (!compact &&

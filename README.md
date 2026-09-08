@@ -534,15 +534,20 @@ to 100%. These shortcuts are global, including while a text field or modal has
 focus. The setting updates immediately and is stored as a stable enum name
 under `discourse_native.text_scale`.
 
-App-authored text sizes come exclusively from `DiscourseTypography`, the same
-modular scale used by Discourse web: three sizes below the 16-point base and six
-above it. The scale maps the complete Material `TextTheme`, cooked HTML
-headings, composer headings, controls, badges, tooltips, code, and other custom
-text. A source-level adoption test prevents new visible numeric `fontSize`
-literals from bypassing those tokens. At the root `MediaQuery`, the selected
-app percentage multiplies the platform `TextScaler` instead of replacing it,
-so the preference composes with OS accessibility text sizing. Layout smoke
-tests exercise both compact and wide Settings surfaces at the 200% endpoint.
+App-authored text sizes and leading come exclusively from `DiscourseTypography`,
+using Tailwind's established 12, 14, 16, 18, 20, 24, 30, and 36-point scale.
+Controls, sidebar destinations, dropdowns, navigation tabs, and table cells use
+14-point text; reading content and composers use 16-point; metadata uses
+12-point. Section, dialog, and page titles use 18, 20, and 24-point respectively.
+The complete Material and Cupertino themes, site palettes, cooked HTML, and
+composer headings share this system. See [Typography](docs/typography.md) for
+role selection, research sources, and zoom constraints.
+
+At the root `MediaQuery`, the selected app percentage multiplies the platform
+`TextScaler` instead of replacing it, so the preference composes with OS
+accessibility text sizing. Tabs and sidebar rows grow with scaled text, and
+dropdown rows size intrinsically. Tests cover all eight zoom levels, open
+menus, reading content, and compact and wide layouts at the 200% endpoint.
 
 ### Pausing notifications
 

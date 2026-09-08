@@ -80,10 +80,7 @@ class _AlertHeading extends StatelessWidget {
       AlertStatus.suppressed => (name: 'shushing_face', fallback: '🤫'),
       _ => null,
     };
-    final style = Theme.of(context).textTheme.titleMedium?.copyWith(
-      fontSize: DiscourseTypography.fontUp2,
-      fontWeight: FontWeight.w600,
-    );
+    final style = Theme.of(context).textTheme.titleLarge;
     return Row(
       children: [
         if (emoji != null) ...[
@@ -94,7 +91,7 @@ class _AlertHeading extends StatelessWidget {
                     url: emojiUrl!(emoji.name),
                     size: MediaQuery.textScalerOf(
                       context,
-                    ).scale(DiscourseTypography.fontUp2),
+                    ).scale(DiscourseTypography.xl),
                     alt: emoji.fallback,
                     style: style,
                   ),

@@ -48,8 +48,7 @@ Future<void> showAddInstanceSheet(BuildContext context) {
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(dialogContext).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: Theme.of(dialogContext).textTheme.titleLarge,
                     ),
                   ),
                   IconButton(
@@ -330,6 +329,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
         ),
         const SizedBox(height: 16),
         TextField(
+          style: Theme.of(context).textTheme.bodyMedium,
           controller: _field,
           autofocus: true,
           enabled: !_connecting,

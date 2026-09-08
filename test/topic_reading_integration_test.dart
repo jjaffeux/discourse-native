@@ -1468,7 +1468,7 @@ void _registerTopicReadingTests() {
       expect(tester.getSize(firstTagLink).height, closeTo(20, 0.01));
       expect(
         tester.widget<Text>(firstTag).style?.fontSize,
-        DiscourseTypography.fontDown2,
+        DiscourseTypography.xs,
       );
       expect(
         tester.getTopLeft(secondTagLink).dx -
@@ -1792,7 +1792,7 @@ void _registerTopicReadingTests() {
       expect(tester.getSize(overflow).height, tester.getSize(firstTag).height);
       expect(
         tester.widget<Text>(find.text('+12')).style?.fontSize,
-        DiscourseTypography.fontDown2,
+        DiscourseTypography.xs,
       );
       expect(tester.getCenter(secondTag).dy, tester.getCenter(firstTag).dy);
       expect(
@@ -4186,10 +4186,7 @@ void _registerTopicReadingTests() {
           ),
         );
         expect(compactTitle.style?.fontSize, DiscourseTypography.base);
-        expect(
-          compactTitle.style?.fontSize,
-          lessThan(DiscourseTypography.fontUp1),
-        );
+        expect(compactTitle.style?.fontSize, lessThan(DiscourseTypography.lg));
       },
     );
 

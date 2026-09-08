@@ -343,15 +343,9 @@ class _ForumSearchState extends State<ForumSearch> {
                                   searchLabel,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style:
-                                      (widget.dense
-                                              ? theme.textTheme.bodySmall
-                                              : theme.textTheme.bodyMedium)
-                                          ?.copyWith(
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant,
-                                          ),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             EditableText(
@@ -359,9 +353,7 @@ class _ForumSearchState extends State<ForumSearch> {
                               controller: _text,
                               focusNode: _focus,
                               style:
-                                  (widget.dense
-                                      ? theme.textTheme.bodySmall
-                                      : theme.textTheme.bodyMedium) ??
+                                  theme.textTheme.bodyMedium ??
                                   const TextStyle(),
                               cursorColor: theme.colorScheme.primary,
                               backgroundCursorColor: Colors.transparent,
@@ -1351,7 +1343,7 @@ class _SearchHitRow extends StatelessWidget {
                         siteUrl: siteUrl,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
+                        style: theme.textTheme.titleSmall?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w400,
                         ),
@@ -1382,7 +1374,7 @@ class _SearchHitRow extends StatelessWidget {
                     siteUrl: siteUrl,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
+                    style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.discourse.primaryHigh,
                     ),
                   ),

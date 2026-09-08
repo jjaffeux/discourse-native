@@ -636,7 +636,7 @@ class _RevisionMarkdownCell extends StatelessWidget {
           html: '<div style="white-space: pre-wrap">$html</div>',
           siteUrl: siteUrl,
           revisionDiff: true,
-          textStyle: theme.textTheme.bodySmall?.copyWith(
+          textStyle: theme.textTheme.bodyLarge?.copyWith(
             fontFamily: 'monospace',
           ),
         ),

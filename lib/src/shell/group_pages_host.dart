@@ -158,6 +158,7 @@ class _GroupDetailView extends StatelessWidget {
           builder: (context) => AlertDialog(
             title: Text('Request to join ${group.label}'),
             content: TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               controller: controller,
               minLines: 3,
               maxLines: 8,

@@ -284,76 +284,42 @@ void main() {
       expect(theme.discourse.primaryVeryHigh, source.primaryVeryHigh);
     });
 
-    test(
-      'uses the Discourse modular type scale instead of Material defaults',
-      () {
-        for (
-          var index = 1;
-          index < DiscourseTypography.fontSizes.length;
-          index++
-        ) {
-          expect(
-            DiscourseTypography.fontSizes[index],
-            greaterThan(DiscourseTypography.fontSizes[index - 1]),
-          );
-        }
+    test('maps semantic roles to the shared size and leading pairs', () {
+      expect(DiscourseTypography.fontSizes, [12, 14, 16, 18, 20, 24, 30, 36]);
+      expect(DiscourseTypography.headingSizes, [30, 24, 20, 18, 16, 14]);
+      expect(DiscourseTypography.headingSize(0), 30);
+      expect(DiscourseTypography.headingSize(7), 14);
 
-        expect(DiscourseTypography.headingSizes, [
-          DiscourseTypography.fontUp3,
-          DiscourseTypography.fontUp2,
-          DiscourseTypography.fontUp1,
-          DiscourseTypography.base,
-          DiscourseTypography.fontDown1,
-          DiscourseTypography.fontDown2,
-        ]);
-        expect(DiscourseTypography.headingSize(0), DiscourseTypography.fontUp3);
-        expect(
-          DiscourseTypography.headingSize(7),
-          DiscourseTypography.fontDown2,
-        );
-
-        final text = AppTheme.fromPalette(palette()).textTheme;
-
-        expect(text.displayLarge?.fontSize, DiscourseTypography.fontUp6);
-        expect(text.displayMedium?.fontSize, DiscourseTypography.fontUp5);
-        expect(text.displaySmall?.fontSize, DiscourseTypography.fontUp4);
-        expect(text.headlineSmall?.fontSize, DiscourseTypography.fontUp3);
-        expect(text.titleLarge?.fontSize, DiscourseTypography.fontUp2);
-        expect(text.titleMedium?.fontSize, DiscourseTypography.fontUp1);
-        expect(text.titleSmall?.fontSize, DiscourseTypography.base);
-        expect(text.bodyLarge?.fontSize, DiscourseTypography.base);
-        expect(text.bodyMedium?.fontSize, DiscourseTypography.base);
-        expect(text.bodySmall?.fontSize, DiscourseTypography.fontDown1);
-        expect(text.labelLarge?.fontSize, DiscourseTypography.base);
-        expect(text.labelMedium?.fontSize, DiscourseTypography.fontDown1);
-        expect(text.labelSmall?.fontSize, DiscourseTypography.fontDown2);
-
-        for (final style in [
-          text.displayLarge,
-          text.displayMedium,
-          text.displaySmall,
-          text.headlineLarge,
-          text.headlineMedium,
-          text.headlineSmall,
-          text.titleLarge,
-          text.titleMedium,
-          text.titleSmall,
-          text.bodyLarge,
-          text.bodyMedium,
-          text.bodySmall,
-          text.labelLarge,
-          text.labelMedium,
-          text.labelSmall,
+      for (final theme in [
+        AppTheme.light,
+        AppTheme.dark,
+        AppTheme.fromPalette(palette()),
+      ]) {
+        final text = theme.textTheme;
+        for (final (style, size, lineHeight, weight) in [
+          (text.displayLarge!, 36, 40, FontWeight.w600),
+          (text.displayMedium!, 30, 36, FontWeight.w600),
+          (text.displaySmall!, 24, 32, FontWeight.w600),
+          (text.headlineLarge!, 36, 40, FontWeight.w600),
+          (text.headlineMedium!, 30, 36, FontWeight.w600),
+          (text.headlineSmall!, 24, 32, FontWeight.w600),
+          (text.titleLarge!, 20, 28, FontWeight.w600),
+          (text.titleMedium!, 18, 28, FontWeight.w600),
+          (text.titleSmall!, 16, 24, FontWeight.w500),
+          (text.bodyLarge!, 16, 24, FontWeight.normal),
+          (text.bodyMedium!, 14, 20, FontWeight.normal),
+          (text.bodySmall!, 12, 16, FontWeight.normal),
+          (text.labelLarge!, 14, 20, FontWeight.w500),
+          (text.labelMedium!, 14, 20, FontWeight.normal),
+          (text.labelSmall!, 12, 16, FontWeight.w500),
         ]) {
-          expect(style?.fontWeight, FontWeight.normal);
-          expect(style?.letterSpacing, 0);
+          expect(style.fontSize, size);
+          expect(style.fontSize! * style.height!, closeTo(lineHeight, 0.001));
+          expect(style.fontWeight, weight);
+          expect(style.letterSpacing, 0);
         }
-
-        expect(text.titleMedium?.height, DiscourseTypography.lineHeightMedium);
-        expect(text.bodyMedium?.height, DiscourseTypography.lineHeightLarge);
-        expect(text.labelSmall?.height, DiscourseTypography.lineHeightMedium);
-      },
-    );
+      }
+    });
 
     test('keeps typography available across public import boundaries', () {
       expect(sdk.DiscourseTypography.base, leaf.DiscourseTypography.base);
@@ -382,12 +348,12 @@ void main() {
       expect(theme.dialogTheme.backgroundColor, source.secondary);
       expect(
         theme.dialogTheme.titleTextStyle?.fontSize,
-        DiscourseTypography.fontUp3,
+        DiscourseTypography.xl,
       );
-      expect(theme.dialogTheme.titleTextStyle?.fontWeight, FontWeight.w700);
+      expect(theme.dialogTheme.titleTextStyle?.fontWeight, FontWeight.w600);
       expect(
         theme.dialogTheme.contentTextStyle?.fontSize,
-        DiscourseTypography.base,
+        DiscourseTypography.sm,
       );
       expect(theme.dialogTheme.surfaceTintColor, Colors.transparent);
       expect(theme.dialogTheme.barrierColor, discourseModalBarrier);
@@ -568,7 +534,7 @@ void main() {
       expect(tooltip.padding, DTooltip.defaultPadding);
       expect(tooltip.margin, DTooltip.defaultMargin);
       expect(tooltip.verticalOffset, DTooltip.defaultVerticalOffset);
-      expect(tooltip.textStyle?.fontSize, theme.textTheme.bodySmall?.fontSize);
+      expect(tooltip.textStyle?.fontSize, theme.textTheme.bodyMedium?.fontSize);
       expect(tooltip.textStyle?.color, theme.colorScheme.onSurface);
       expect(decoration.color, theme.shell.floating);
       expect(decoration.border, Border.all(color: theme.shell.divider));

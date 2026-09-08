@@ -891,6 +891,7 @@ class _ChannelMembersState extends State<_ChannelMembers> {
                 key: const ValueKey('chat-channel-member-filter-lane-content'),
                 constraints: const BoxConstraints(maxWidth: 760),
                 child: TextField(
+                  style: Theme.of(context).textTheme.bodyMedium,
                   key: const ValueKey('chat-channel-member-filter'),
                   autofocus: true,
                   onChanged: _filterChanged,

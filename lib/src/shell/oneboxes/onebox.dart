@@ -286,7 +286,7 @@ class OneboxCard extends StatelessWidget {
         if (title != null)
           Text(
             title,
-            style: theme.textTheme.titleMedium?.copyWith(
+            style: theme.textTheme.titleSmall?.copyWith(
               color: theme.colorScheme.primary,
             ),
           ),

@@ -188,8 +188,8 @@ void main() {
       final line = tester.widget<Text>(find.text('def hello').first);
       expect(line.style?.fontFamily, monospaceFontFamily);
       expect(line.style?.fontFamilyFallback, monospaceFallback);
-      expect(line.style?.fontSize, DiscourseTypography.fontDown1);
-      expect(line.style?.height, 17 / 13);
+      expect(line.style?.fontSize, DiscourseTypography.sm);
+      expect(line.style?.height, DiscourseTypography.codeLineHeight);
       expect(line.style?.color, DiscourseColors.light.primaryVeryHigh);
       expect(
         line.style?.fontFeatures,

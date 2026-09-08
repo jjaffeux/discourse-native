@@ -595,6 +595,7 @@ class _ComposerLinkDialogState extends State<_ComposerLinkDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
+            style: Theme.of(context).textTheme.bodyMedium,
             key: const ValueKey('composer-link-url'),
             controller: _url,
             autofocus: true,
@@ -606,6 +607,7 @@ class _ComposerLinkDialogState extends State<_ComposerLinkDialog> {
           ),
           const SizedBox(height: 16),
           TextField(
+            style: Theme.of(context).textTheme.bodyMedium,
             key: const ValueKey('composer-link-anchor'),
             controller: _anchor,
             textInputAction: TextInputAction.done,

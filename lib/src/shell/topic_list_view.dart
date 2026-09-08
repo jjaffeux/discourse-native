@@ -629,7 +629,7 @@ class TopicListHeader extends StatelessWidget {
                 );
         }
         final theme = Theme.of(context);
-        final style = theme.textTheme.labelSmall?.copyWith(
+        final style = theme.textTheme.labelLarge?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
         );
         return Container(
@@ -941,9 +941,7 @@ class _IncomingBanner extends StatelessWidget {
                 ),
                 textStyle: WidgetStatePropertyAll(
                   theme.textTheme.labelLarge?.copyWith(
-                    fontSize: DiscourseTypography.fontDown1,
                     fontWeight: FontWeight.w600,
-                    height: 1.3,
                   ),
                 ),
                 overlayColor: const WidgetStatePropertyAll(Colors.transparent),

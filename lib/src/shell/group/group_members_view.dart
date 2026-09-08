@@ -660,7 +660,7 @@ class _MemberDate extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     value == null ? '—' : _dateText(context, value!),
-    style: Theme.of(context).textTheme.bodySmall,
+    style: Theme.of(context).textTheme.bodyMedium,
   );
 }
 
@@ -676,7 +676,7 @@ class _MemberRelativeDate extends StatelessWidget {
       message: _dateTimeText(context, value!),
       child: Text(
         relativeTime(value!),
-        style: Theme.of(context).textTheme.bodySmall,
+        style: Theme.of(context).textTheme.bodyMedium,
       ),
     );
   }
@@ -954,6 +954,7 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
         ),
         const SizedBox(height: 12),
         TextField(
+          style: Theme.of(context).textTheme.bodyMedium,
           key: const ValueKey('group-invite-email'),
           controller: controller.email,
           keyboardType: TextInputType.emailAddress,
@@ -962,6 +963,7 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
         if (controller.hasEmail) ...[
           const SizedBox(height: 10),
           TextField(
+            style: Theme.of(context).textTheme.bodyMedium,
             key: const ValueKey('group-invite-message'),
             controller: controller.message,
             minLines: 2,

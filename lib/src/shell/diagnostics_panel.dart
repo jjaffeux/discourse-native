@@ -236,6 +236,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                 ),
                 const SizedBox(height: 8),
                 TextField(
+                  style: Theme.of(context).textTheme.bodyMedium,
                   key: const ValueKey('diagnostics-search'),
                   controller: _search,
                   decoration: InputDecoration(
@@ -701,7 +702,7 @@ class _CaptureSummary extends StatelessWidget {
       'Budget: ${(state.frameBudgetMicroseconds / 1000).toStringAsFixed(2)} ms '
       'at ${state.displayRefreshRate.toStringAsFixed(0)} Hz',
       key: const ValueKey('topic-scroll-capture-summary'),
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
+      style: Theme.of(context).textTheme.bodyMedium,
     );
   }
 }
@@ -959,10 +960,7 @@ class _DetailField extends StatelessWidget {
             rendered,
             style:
                 (long ? theme.textTheme.bodySmall : theme.textTheme.bodyMedium)
-                    ?.copyWith(
-                      fontFamily: long ? 'monospace' : null,
-                      height: 1.35,
-                    ),
+                    ?.copyWith(fontFamily: long ? 'monospace' : null),
           ),
         ],
       ),

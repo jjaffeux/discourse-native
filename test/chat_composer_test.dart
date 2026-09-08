@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -26,6 +27,7 @@ import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_contract.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
+import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/composer_blockquote.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
@@ -954,6 +956,38 @@ void main() {
       expect(field.focusNode!.hasFocus, isFalse);
     });
 
+    testWidgets('one-line drafts keep their height at every zoom', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+      final bar = find.byKey(const ValueKey('chat-composer'));
+
+      for (final zoom in AppTextScale.values) {
+        await fixture.shell.appSettings.setTextScale(zoom);
+        await tester.pumpAndSettle();
+        final emptyHeight = tester.getSize(bar).height;
+
+        await tester.enterText(_composerField(), 'Draft');
+        await tester.pump();
+        expect(tester.getSize(bar).height, emptyHeight, reason: zoom.name);
+        expect(_field(tester).style!.fontSize, DiscourseTypography.base);
+        expect(
+          tester.getSize(_composerField()).height,
+          greaterThanOrEqualTo(24 * zoom.factor),
+        );
+
+        await tester.enterText(_composerField(), '');
+        await tester.pump();
+        expect(tester.getSize(bar).height, emptyHeight, reason: zoom.name);
+        expect(tester.takeException(), isNull, reason: zoom.name);
+      }
+    });
+
     testWidgets(
       'grows with the draft, scrolls at the core viewport limit, and collapses after sending',
       (tester) async {
@@ -966,7 +1000,7 @@ void main() {
 
         final bar = find.byKey(const ValueKey('chat-composer'));
         final initialHeight = tester.getSize(bar).height;
-        expect(initialHeight, 58);
+        expect(initialHeight, 61);
         expect(_field(tester).focusNode!.hasFocus, isTrue);
         expect(_field(tester).expands, isFalse);
         expect(_field(tester).minLines, 1);
@@ -1196,7 +1230,7 @@ void main() {
         final compactComposerHeight = tester
             .getSize(find.byKey(const ValueKey('chat-composer')))
             .height;
-        expect(compactComposerHeight, 58);
+        expect(compactComposerHeight, 61);
         await tester.enterText(_composerField(), 'unrelated draft');
         final pointer = await tester.createGesture(
           kind: PointerDeviceKind.mouse,
@@ -2348,6 +2382,8 @@ final class _TestView extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = MaterialApp(
       theme: AppTheme.light,
+      builder: (context, child) =>
+          AppTextScaleRegion(controller: shell.appSettings, child: child!),
       home: const Scaffold(body: ChatChannelView(channelId: 9)),
     );
     final ownedApp = PluginUiScope.own(chatPluginId, app);

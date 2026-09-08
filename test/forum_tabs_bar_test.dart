@@ -104,7 +104,7 @@ void main() {
         tester,
         items: const [first, second],
         selectedId: first.id,
-        width: 500,
+        width: 560,
       );
 
       const barKey = ValueKey('forum-tabs-bar');
@@ -117,7 +117,7 @@ void main() {
 
       expect(ForumTabsBar.height, 38);
       expect(tester.getSize(bar).height, 38);
-      expect(tester.getSize(bar).width, 500);
+      expect(tester.getSize(bar).width, 560);
       expect(
         tester.getSize(add),
         const Size.square(ForumTabsBar.minimumActionTarget),
@@ -701,7 +701,7 @@ void main() {
           matching: find.text(first.title),
         ),
       );
-      expect(rowTitle.style?.fontSize, DiscourseTypography.fontDown1);
+      expect(rowTitle.style?.fontSize, DiscourseTypography.sm);
       expect(find.textContaining('Scoped to'), findsNothing);
       expect(
         find.descendant(

@@ -5,7 +5,6 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
-import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 
 import '../../theme/d_button.dart';
@@ -535,7 +534,7 @@ class _EmptyRoom extends StatelessWidget {
           const SizedBox(height: 8),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
-            child: HtmlWidget(cooked),
+            child: CookedHtml(html: cooked),
           ),
         ] else if (room.description case final description?) ...[
           const SizedBox(height: 8),
@@ -1218,6 +1217,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                 children: [
                   Expanded(
                     child: TextField(
+                      style: Theme.of(context).textTheme.bodyMedium,
                       controller: _username,
                       autofocus: true,
                       decoration: const InputDecoration(
@@ -1668,6 +1668,7 @@ class _ParticipantFlagDialogState extends State<_ParticipantFlagDialog> {
   Widget build(BuildContext context) => AlertDialog(
     title: Text('Notify moderators about @${widget.username}'),
     content: TextField(
+      style: Theme.of(context).textTheme.bodyMedium,
       controller: _message,
       autofocus: true,
       minLines: 3,
@@ -1857,7 +1858,10 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
                           chat.messages[index - (chat.canLoadMorePast ? 1 : 0)];
                       return ListTile(
                         title: Text(message.author.displayName),
-                        subtitle: HtmlWidget(message.cooked),
+                        subtitle: CookedHtml(
+                          html: message.cooked,
+                          siteUrl: widget.siteUrl,
+                        ),
                       );
                     },
                   );
@@ -1868,6 +1872,7 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
               children: [
                 Expanded(
                   child: TextField(
+                    style: Theme.of(context).textTheme.bodyLarge,
                     controller: _composer,
                     minLines: 1,
                     maxLines: 4,
@@ -2055,6 +2060,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
             children: [
               Expanded(
                 child: TextField(
+                  style: Theme.of(context).textTheme.bodyMedium,
                   controller: _username,
                   decoration: const InputDecoration(labelText: 'Username'),
                 ),

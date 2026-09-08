@@ -29,7 +29,7 @@ TextStyle markdownStyle(
     scale *= _headingScale(level);
     style = style.copyWith(
       fontWeight: FontWeight.w700,
-      height: DiscourseTypography.lineHeightMedium,
+      height: DiscourseTypography.headingLineHeight(level),
     );
   }
 

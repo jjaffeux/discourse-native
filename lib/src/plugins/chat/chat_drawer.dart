@@ -1231,13 +1231,13 @@ class _DrawerChannelRow extends StatelessWidget {
                                       channel.title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: foreground,
-                                        fontSize: DiscourseTypography.fontDown1,
-                                        fontWeight: badge.isVisible
-                                            ? FontWeight.w600
-                                            : FontWeight.w500,
-                                      ),
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: foreground,
+                                            fontWeight: badge.isVisible
+                                                ? FontWeight.w600
+                                                : FontWeight.w500,
+                                          ),
                                     ),
                                   ),
                                   if (channel.readRestricted) ...[
@@ -1267,7 +1267,7 @@ class _DrawerChannelRow extends StatelessWidget {
                                 siteUrl: siteUrl,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall?.copyWith(
+                                style: theme.textTheme.bodyMedium?.copyWith(
                                   color: muted
                                       ? foreground
                                       : colors.onSurfaceVariant,
@@ -1572,10 +1572,8 @@ class ChatDrawerNavigation extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final textScale =
-              MediaQuery.textScalerOf(
-                context,
-              ).scale(DiscourseTypography.fontDown2) /
-              DiscourseTypography.fontDown2;
+              MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) /
+              DiscourseTypography.sm;
           final showIcons = constraints.maxWidth >= 340 && textScale <= 1.25;
           Widget tab(_NavigationItem item) {
             final selected = shell.drawerCurrentContent?.id == item.routeId;
@@ -1606,9 +1604,7 @@ class ChatDrawerNavigation extends StatelessWidget {
                             ? 'Threads'
                             : item.label,
                         maxLines: 1,
-                        style: const TextStyle(
-                          fontSize: DiscourseTypography.fontDown2,
-                        ),
+                        style: Theme.of(context).textTheme.labelLarge,
                       ),
                       if (item.badge.isVisible) ...[
                         const SizedBox(width: 4),

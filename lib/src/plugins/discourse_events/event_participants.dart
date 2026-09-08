@@ -106,6 +106,7 @@ class _ParticipantsState extends State<_Participants> {
       child: Column(
         children: [
           TextField(
+            style: Theme.of(context).textTheme.bodyMedium,
             controller: _search,
             decoration: InputDecoration(
               labelText: 'Search participants',
@@ -249,6 +250,7 @@ class _InvitationsState extends State<_Invitations> {
             'Send event notifications to these usernames. For private events, access is still determined by the allowed groups.',
           ),
           TextField(
+            style: Theme.of(context).textTheme.bodyMedium,
             controller: _names,
             autofocus: true,
             decoration: const InputDecoration(

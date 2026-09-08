@@ -1617,14 +1617,16 @@ class _RailTooltipCallout extends StatelessWidget {
                   color: iconBackground,
                   child: SizedBox.square(
                     dimension: 18,
-                    child: Center(
-                      child: Text(
-                        instance.monogram,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: iconForeground,
-                          fontSize: DiscourseTypography.fontDown3,
-                          fontWeight: FontWeight.w800,
-                          height: 1,
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          instance.monogram,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: iconForeground,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ),
@@ -1639,12 +1641,10 @@ class _RailTooltipCallout extends StatelessWidget {
               instance.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: const Color(0xFFF3F3F4),
-                fontSize: DiscourseTypography.base,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.15,
-                height: 1.25,
               ),
             ),
           ),
@@ -1833,12 +1833,16 @@ class _InstanceAvatar extends StatelessWidget {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Center(
-        child: Text(
-          instance.monogram,
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: foreground,
-            fontWeight: FontWeight.w600,
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            instance.monogram,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ),
@@ -1991,7 +1995,6 @@ class _CountBadge extends StatelessWidget {
         style: theme.textTheme.labelSmall?.copyWith(
           color: foreground,
           fontWeight: FontWeight.w700,
-          height: 1.2,
         ),
       ),
     );

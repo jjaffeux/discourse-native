@@ -77,8 +77,7 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(dialogContext).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: Theme.of(dialogContext).textTheme.titleLarge,
                     ),
                   ),
                   IconButton(
@@ -211,6 +210,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextField(
+            style: Theme.of(context).textTheme.bodyMedium,
             controller: _title,
             decoration: const InputDecoration(
               labelText: 'Title (optional)',
@@ -252,6 +252,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
           ),
           if (_automaticClose)
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               controller: _close,
               decoration: const InputDecoration(
                 labelText: 'Close date and time',
@@ -328,6 +329,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
             children: [
               Expanded(
                 child: TextField(
+                  style: Theme.of(context).textTheme.bodyMedium,
                   controller: _options[index],
                   decoration: InputDecoration(labelText: 'Option ${index + 1}'),
                 ),
@@ -396,6 +398,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
 
   Widget _integerField(TextEditingController controller, String label) =>
       TextField(
+        style: Theme.of(context).textTheme.bodyMedium,
         controller: controller,
         decoration: InputDecoration(labelText: label),
         keyboardType: TextInputType.number,

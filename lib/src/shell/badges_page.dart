@@ -92,9 +92,8 @@ class BadgesPage extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(
           '${_number(catalog.total)} ${catalog.total == 1 ? 'badge' : 'badges'}${catalog.hasPersonalState ? ' · ${_number(catalog.earned)} earned' : ''}',
-          style: TextStyle(
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: Theme.of(context).shell.marker,
-            fontSize: DiscourseTypography.base,
           ),
         ),
       ),
@@ -112,10 +111,9 @@ class BadgesPage extends StatelessWidget {
             header: true,
             child: Text(
               group.name,
-              style: const TextStyle(
-                fontSize: DiscourseTypography.fontUp1,
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ),
@@ -196,10 +194,8 @@ class BadgesPage extends StatelessWidget {
                         header: true,
                         child: Text(
                           badge.name,
-                          style: const TextStyle(
-                            fontSize: DiscourseTypography.fontUp3,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -252,10 +248,9 @@ class BadgesPage extends StatelessWidget {
                 route.username == null
                     ? 'Recently awarded'
                     : 'Awarded to ${route.username}',
-                style: const TextStyle(
-                  fontSize: DiscourseTypography.fontUp1,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
             const SizedBox(height: 8),
@@ -382,10 +377,8 @@ class BadgeCard extends StatelessWidget {
                             padding: const EdgeInsets.only(top: 5),
                             child: Text(
                               badge.name,
-                              style: const TextStyle(
-                                fontSize: DiscourseTypography.base,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w600),
                             ),
                           ),
                         ),
@@ -400,11 +393,8 @@ class BadgeCard extends StatelessWidget {
                       html: badge.description,
                       siteUrl: siteUrl,
                       compactParagraphs: true,
-                      textStyle: TextStyle(
-                        fontSize: DiscourseTypography.base,
-                        color: theme.discourse.primaryHigh,
-                        height: DiscourseTypography.lineHeightLarge,
-                      ),
+                      textStyle: Theme.of(context).textTheme.bodyLarge
+                          ?.copyWith(color: theme.discourse.primaryHigh),
                     ),
                   ],
                 ),
@@ -420,10 +410,8 @@ class BadgeCard extends StatelessWidget {
                         if (badge.grantCount > 0)
                           Text(
                             _awarded(badge.grantCount),
-                            style: TextStyle(
-                              color: theme.shell.marker,
-                              fontSize: DiscourseTypography.fontDown1,
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: theme.shell.marker),
                           ),
                         _BadgeTierLabel(tier: badge.tier),
                       ],
@@ -499,10 +487,9 @@ class _BadgeTierLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     tier.label,
-    style: TextStyle(
-      color: _tierColor(context, tier),
-      fontSize: DiscourseTypography.fontDown1,
-    ),
+    style: Theme.of(
+      context,
+    ).textTheme.bodyMedium?.copyWith(color: _tierColor(context, tier)),
   );
 }
 
@@ -574,9 +561,8 @@ class _BadgeRecipient extends StatelessWidget {
                   if (grant.grantedAt != null)
                     Text(
                       DateFormat.yMMMd().format(grant.grantedAt!.toLocal()),
-                      style: TextStyle(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).shell.marker,
-                        fontSize: DiscourseTypography.fontDown1,
                       ),
                     ),
                 ],

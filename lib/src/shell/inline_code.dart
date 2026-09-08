@@ -31,7 +31,7 @@ class InlineCode extends StatelessWidget {
     final theme = Theme.of(context);
     final surrounding =
         baseStyle ??
-        theme.textTheme.bodyMedium ??
+        theme.textTheme.bodyLarge ??
         const TextStyle(fontSize: DiscourseTypography.base);
 
     return Container(
@@ -50,7 +50,6 @@ class InlineCode extends StatelessWidget {
               color: isLink
                   ? theme.colorScheme.primary
                   : surrounding.color ?? theme.colorScheme.onSurface,
-              height: 1.2,
             ),
       ),
     );
