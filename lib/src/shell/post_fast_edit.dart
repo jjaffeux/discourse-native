@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../data/site_lifecycle.dart';
 import '../models/post.dart';
 import '../theme/d_button.dart';
 import 'shell_controller.dart';
@@ -15,24 +16,33 @@ Future<void> showPostFastEditor({
   required int topicId,
   required Post post,
   required String selectedMarkdown,
-}) => showShellSheet<void>(
-  context: context,
-  title: 'Edit',
-  dialogOnDesktop: true,
-  enableDrag: false,
-  desktopDialogConstraints: const BoxConstraints(maxWidth: 560, maxHeight: 520),
-  builder: (context) => _PostFastEditor(
-    controller: controller,
-    siteUrl: siteUrl,
-    topicId: topicId,
-    post: post,
-    selectedMarkdown: selectedMarkdown,
-  ),
-);
+}) {
+  // Keep the opening account across sheet rebuilds and failed-save retries.
+  final lease = controller.lifecycle.capture(siteUrl);
+  return showShellSheet<void>(
+    context: context,
+    title: 'Edit',
+    dialogOnDesktop: true,
+    enableDrag: false,
+    desktopDialogConstraints: const BoxConstraints(
+      maxWidth: 560,
+      maxHeight: 520,
+    ),
+    builder: (context) => _PostFastEditor(
+      controller: controller,
+      lease: lease,
+      siteUrl: siteUrl,
+      topicId: topicId,
+      post: post,
+      selectedMarkdown: selectedMarkdown,
+    ),
+  );
+}
 
 class _PostFastEditor extends StatefulWidget {
   const _PostFastEditor({
     required this.controller,
+    required this.lease,
     required this.siteUrl,
     required this.topicId,
     required this.post,
@@ -40,6 +50,7 @@ class _PostFastEditor extends StatefulWidget {
   });
 
   final ShellController controller;
+  final SiteLease lease;
   final String siteUrl;
   final int topicId;
   final Post post;
@@ -50,6 +61,9 @@ class _PostFastEditor extends StatefulWidget {
 }
 
 class _PostFastEditorState extends State<_PostFastEditor> {
+  static const _accountChangedError =
+      'The topic changed before the edit could be saved.';
+
   late final TextEditingController _text = TextEditingController(
     text: widget.selectedMarkdown,
   );
@@ -57,6 +71,8 @@ class _PostFastEditorState extends State<_PostFastEditor> {
   String? _error;
 
   bool get _canSave => !_saving && _text.text != widget.selectedMarkdown;
+  bool get _accountIsCurrent =>
+      !widget.controller.accountSessionDisposed && widget.lease.isCurrent;
 
   @override
   void dispose() {
@@ -65,12 +81,16 @@ class _PostFastEditorState extends State<_PostFastEditor> {
   }
 
   Future<void> _save() async {
-    if (!_canSave) return;
+    if (!mounted || !_canSave) return;
+    if (!_accountIsCurrent) {
+      setState(() => _error = _accountChangedError);
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
     });
-    final error = await widget.controller.saveFastEdit(
+    final saveError = await widget.controller.saveFastEdit(
       siteUrl: widget.siteUrl,
       topicId: widget.topicId,
       post: widget.post,
@@ -78,6 +98,7 @@ class _PostFastEditorState extends State<_PostFastEditor> {
       replacement: _text.text,
     );
     if (!mounted) return;
+    final error = _accountIsCurrent ? saveError : _accountChangedError;
     if (error != null) {
       setState(() {
         _saving = false;
