@@ -116,6 +116,53 @@ void main() {
     },
   );
 
+  testWidgets('Direction examples use the preview provider and retain edits', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await tester.enterText(
+      find.byKey(const ValueKey('styleguide-search')),
+      'useDirection',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('styleguide-component-direction')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Current direction: LTR'), findsOneWidget);
+    final field = find.widgetWithText(TextField, 'Display name');
+    await tester.ensureVisible(field);
+    await tester.enterText(field, 'Grace');
+    await tester.scrollUntilVisible(
+      find.text('Right to left'),
+      -200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey('styleguide-detail-direction')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.tap(find.text('Right to left'));
+    await tester.pump();
+    expect(find.text('Current direction: RTL'), findsOneWidget);
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(of: field, matching: find.byType(EditableText)),
+          )
+          .controller
+          .text,
+      'Grace',
+    );
+    await _choose(tester, 'Theme', 'Forest site');
+    expect(find.text('Current direction: RTL'), findsOneWidget);
+    await _choose(tester, 'Example', 'Nested overrides and fixed content');
+    expect(find.text('URL island: LTR'), findsOneWidget);
+    expect(find.text('Outer sibling: RTL'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final size in [const Size(320, 640), const Size(1200, 800)]) {
     testWidgets(
       'search and navigation fit ${size.width}px at 200% system text',

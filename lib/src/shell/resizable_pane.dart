@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart' show DDirection;
 import '../foundation/frame_safe_notifier.dart';
 import '../theme/app_theme.dart';
 
@@ -193,7 +194,7 @@ class _ResizablePaneState extends State<ResizablePane> {
     if (renderedWidth == null) return;
     final widthDelta = widget.edge.widthDeltaForDrag(
       details.delta.dx,
-      Directionality.of(context),
+      DDirection.of(context),
     );
     // Multiple pointer updates can arrive before a frame. Anchoring each one
     // to rendered geometry keeps undisplayed threshold movement from becoming
@@ -237,7 +238,7 @@ class _ResizablePaneState extends State<ResizablePane> {
     if (isPress) {
       final widthDelta = widget.edge.widthDeltaForDrag(
         horizontalDelta,
-        Directionality.of(context),
+        DDirection.of(context),
       );
       _resizeBy(widthDelta);
       _keyboardResizePending = true;

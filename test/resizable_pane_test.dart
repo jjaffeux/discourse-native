@@ -1,5 +1,6 @@
 import 'dart:ui' show SemanticsAction, SemanticsActionEvent;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/resizable_pane.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -106,6 +107,41 @@ void main() {
     expect(tester.getSize(find.byKey(const ValueKey('pane'))).width, 480);
     expect(controller.value, 480);
     semantics.dispose();
+  });
+
+  testWidgets('live direction changes retain resize focus and reverse growth', (
+    tester,
+  ) async {
+    final writes = <double>[];
+    final controller = _controller(writes: writes);
+    addTearDown(controller.dispose);
+    await _pumpPane(tester, controller: controller);
+    await _requestResizeFocus(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(controller.value, 256);
+
+    await _pumpPane(
+      tester,
+      controller: controller,
+      direction: TextDirection.rtl,
+    );
+    final pane = tester.getRect(find.byKey(const ValueKey('pane')));
+    final handle = tester.getRect(
+      find.byKey(const ValueKey('shared-resize-handle')),
+    );
+    expect(handle.left, pane.left);
+    expect(
+      tester
+          .widget<Focus>(find.byKey(const ValueKey('shared-resize-focus')))
+          .focusNode!
+          .hasPrimaryFocus,
+      isTrue,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(controller.value, 272);
+    expect(writes, [256, 272]);
   });
 
   testWidgets('semantics actions resize and persist the shared controller', (
@@ -315,7 +351,7 @@ Future<void> _pumpPane(
 }) => tester.pumpWidget(
   MaterialApp(
     theme: AppTheme.light,
-    home: Directionality(
+    home: DDirection(
       textDirection: direction,
       child: Align(
         alignment: AlignmentDirectional.topStart,

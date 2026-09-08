@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderBox, RenderEditable;
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart' show DDirection;
 import '../data/composer_geometry_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/composer_upload.dart';
@@ -2381,7 +2382,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final painter = TextPainter(
       text: TextSpan(style: style),
       strutStyle: StrutStyle.fromTextStyle(style, forceStrutHeight: false),
-      textDirection: Directionality.of(context),
+      textDirection: DDirection.of(context),
       textScaler: MediaQuery.textScalerOf(context),
     )..layout();
     final height = painter.height;
@@ -3296,7 +3297,7 @@ class _ComposerToolbarOverflowState extends State<_ComposerToolbarOverflow> {
   @override
   Widget build(BuildContext context) {
     _scheduleOverflowUpdate();
-    final textDirection = Directionality.of(context);
+    final textDirection = DDirection.of(context);
 
     return Stack(
       alignment: AlignmentDirectional.centerStart,

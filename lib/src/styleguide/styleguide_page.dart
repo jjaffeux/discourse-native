@@ -439,7 +439,7 @@ class _ExampleViewportState extends State<_ExampleViewport> {
             disableAnimations:
                 widget.reducedMotion || MediaQuery.disableAnimationsOf(context),
           ),
-          child: Directionality(
+          child: DDirection(
             textDirection: widget.rtl ? TextDirection.rtl : TextDirection.ltr,
             child: Navigator(
               onGenerateRoute: (_) => MaterialPageRoute<void>(

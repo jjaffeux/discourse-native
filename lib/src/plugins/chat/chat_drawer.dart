@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../discourse_ui.dart' show DDirection;
 import '../../models/content_route.dart';
 import '../../models/sidebar.dart';
 import '../../plugin_api/plugin_scope.dart';
@@ -502,7 +503,7 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
     if (composerBounds == null) return minimumBottomOffset;
 
     final overlayBounds = _globalOverlayBounds(constraints);
-    final left = Directionality.of(context) == TextDirection.ltr
+    final left = DDirection.of(context) == TextDirection.ltr
         ? overlayBounds.right - ChatDrawerOverlay.endMargin - drawerWidth
         : overlayBounds.left + ChatDrawerOverlay.endMargin;
     final candidate = Rect.fromLTWH(
@@ -541,7 +542,7 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
     required double titleBarOffset,
     required double bottomOffset,
   }) {
-    final direction = Directionality.of(context);
+    final direction = DDirection.of(context);
     final widthDelta = direction == TextDirection.ltr ? -delta.dx : delta.dx;
     final maximumWidth = math.max(
       ChatDrawerPreferencesStore.minimumWidth,
@@ -962,7 +963,7 @@ class _DrawerResizeHandle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final direction = Directionality.of(context);
+    final direction = DDirection.of(context);
     return Semantics(
       label: 'Resize Chat Drawer',
       child: MouseRegion(

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart' show DDirection;
 import '../data/user_directory_column_width_store.dart';
 import '../models/user_directory.dart';
 import '../theme/app_theme.dart';
@@ -1724,7 +1725,7 @@ class _ColumnResizeHandleState extends State<_ColumnResizeHandle> {
       width.clamp(widget.minimumWidth, widget.maximumWidth).toDouble();
 
   double _widthDelta(double horizontalDelta) =>
-      Directionality.of(context) == TextDirection.ltr
+      DDirection.of(context) == TextDirection.ltr
       ? horizontalDelta
       : -horizontalDelta;
 

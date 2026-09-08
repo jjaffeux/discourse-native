@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart' show DDirection;
 import '../models/badge_route.dart';
 import '../models/bookmark.dart';
 import '../models/category_feed.dart';
@@ -393,7 +394,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                                       child: Padding(
                                         padding: EdgeInsetsDirectional.only(
                                           start:
-                                              Directionality.of(context) ==
+                                              DDirection.of(context) ==
                                                   TextDirection.ltr
                                               ? lane.leftInset
                                               : lane.rightInset,

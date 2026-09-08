@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart' show DDirection;
 import '../models/post.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
@@ -53,7 +54,7 @@ class TopicHeaderTags extends StatelessWidget {
         double labelWidth(String label) {
           final painter = TextPainter(
             text: TextSpan(text: label, style: style),
-            textDirection: Directionality.of(context),
+            textDirection: DDirection.of(context),
             textScaler: MediaQuery.textScalerOf(context),
             maxLines: 1,
           )..layout();

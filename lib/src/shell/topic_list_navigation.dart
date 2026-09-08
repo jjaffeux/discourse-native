@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart' show DDirection;
 import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
@@ -659,7 +660,7 @@ class _TopicListTabStrip extends StatelessWidget {
                 TextSpan(text: ' ${item.count}', style: countStyle),
             ],
           ),
-          textDirection: Directionality.of(context),
+          textDirection: DDirection.of(context),
           textScaler: scaler,
           maxLines: 1,
         )..layout();
