@@ -139,6 +139,7 @@ ChatChannel channel(
 );
 
 ({ChatController chat, FakeDiscourseApi api, Store store}) build({
+  FakeDiscourseApi? api,
   Map<String, ChatChannels> channels = const {},
   Map<int, ChatChannel> channelDetails = const {},
   Map<String, ChatChannel> directMessageChannels = const {},
@@ -201,7 +202,7 @@ ChatChannel channel(
   int? maxRetainedCanonicalMessageIdsPerSite,
   DateTime Function()? clock,
 }) {
-  final api = FakeDiscourseApi(
+  api ??= FakeDiscourseApi(
     chatChannelsBySite: channels,
     chatChannelsById: channelDetails,
     directMessageChannelsByUsername: directMessageChannels,
@@ -2088,6 +2089,501 @@ void main() {
         // Public chat contributes mentions; direct messages contribute unread
         // messages, matching Chat::ChannelFetcher#unreads_total.
         expect(deltas, [-4]);
+      },
+    );
+
+    for (final bulk in [false, true]) {
+      test(
+        'channel refresh preserves a concurrent ${bulk ? 'bulk' : 'single'} read event',
+        () async {
+          final deltas = <int>[];
+          final old = ChatChannels(
+            direct: [
+              channel(
+                12,
+                kind: ChatChannelKind.directMessage,
+                lastRead: 1,
+                unread: 2,
+              ),
+              channel(13, kind: ChatChannelKind.directMessage, unread: 3),
+            ],
+            userTrackingBusLastId: 90,
+          );
+          final api = _GatedChannelRefreshApi(old);
+          final subject = build(
+            api: api,
+            currentUser: currentUser,
+            onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+          );
+          addTearDown(subject.chat.dispose);
+          final tracker = attachTracker(subject.chat);
+          await subject.chat.loadChannels(site);
+
+          final started = api.holdRefresh();
+          final refresh = subject.chat.loadChannels(site, force: true);
+          await started;
+          final state = <String, dynamic>{
+            'last_read_message_id': 3,
+            'unread_count': 0,
+            'mention_count': 0,
+            'watched_threads_unread_count': 0,
+          };
+          tracker.deliverPluginMessage(
+            bulk
+                ? '/chat/bulk-user-tracking-state/7'
+                : '/chat/user-tracking-state/7',
+            bulk ? {'12': state} : {'channel_id': 12, ...state},
+            messageId: 91,
+          );
+          expect(subject.chat.channel(site, 12)?.tracking.unreadCount, 0);
+          api.releaseRefresh(
+            ChatChannels(
+              direct: [
+                channel(
+                  12,
+                  kind: ChatChannelKind.directMessage,
+                  title: 'Fresh title',
+                  starred: true,
+                  lastRead: 1,
+                  unread: 2,
+                ),
+                channel(13, kind: ChatChannelKind.directMessage, unread: 1),
+              ],
+              userTrackingBusLastId: 90,
+            ),
+          );
+          await refresh;
+
+          final refreshed = subject.chat.channel(site, 12)!;
+          expect(refreshed.membership.lastReadMessageId, 3);
+          expect(refreshed.tracking.unreadCount, 0);
+          expect(refreshed.title, 'Fresh title');
+          expect(refreshed.membership.starred, isTrue);
+          expect(subject.chat.channel(site, 13)?.tracking.unreadCount, 1);
+          expect(deltas, [-2, -2]);
+          expect(
+            tracker.pluginChannelLastIds['/chat/user-tracking-state/7'],
+            91,
+          );
+          expect(
+            tracker.pluginChannelLastIds['/chat/bulk-user-tracking-state/7'],
+            91,
+          );
+
+          // A later refresh without an intervening mutation stays authoritative.
+          api.snapshot = old;
+          await subject.chat.loadChannels(site, force: true);
+          expect(
+            subject.chat.channel(site, 12)?.membership.lastReadMessageId,
+            1,
+          );
+          expect(subject.chat.channel(site, 12)?.tracking.unreadCount, 2);
+          expect(deltas, [-2, -2, 4]);
+        },
+      );
+    }
+
+    test(
+      'channel refresh preserves concurrent new messages and mentions',
+      () async {
+        final old = ChatChannels(
+          direct: [
+            channel(
+              12,
+              kind: ChatChannelKind.directMessage,
+              lastRead: 1,
+              lastMessageId: 1,
+            ),
+          ],
+          newMessageBusLastIds: const {12: 90},
+          newMentionMessageBusLastIds: const {12: 80},
+        );
+        final deltas = <int>[];
+        final api = _GatedChannelRefreshApi(old);
+        final subject = build(
+          api: api,
+          currentUser: currentUser,
+          onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        final started = api.holdRefresh();
+        final refresh = subject.chat.loadChannels(site, force: true);
+        await started;
+        final event = newMessageEvent(
+          channelId: 12,
+          messageId: 2,
+          authorId: 2,
+          createdAt: '2026-09-08T12:00:00.000Z',
+        );
+        tracker.deliverPluginMessage(
+          '/chat/12/new-messages',
+          event,
+          messageId: 91,
+        );
+        tracker.deliverPluginMessage('/chat/12/new-mentions', {
+          'channel_id': 12,
+          'message_id': 2,
+        }, messageId: 81);
+        final live = subject.chat.channel(site, 12)!;
+        expect(live.tracking.unreadCount, 1);
+        expect(live.tracking.mentionCount, 1);
+        api.releaseRefresh(old);
+        await refresh;
+        expect(subject.chat.channel(site, 12), live);
+        expect(deltas, [1]);
+        expect(tracker.pluginChannelLastIds['/chat/12/new-messages'], 91);
+        expect(tracker.pluginChannelLastIds['/chat/12/new-mentions'], 81);
+        tracker.deliverPluginMessage(
+          '/chat/12/new-messages',
+          event,
+          messageId: 91,
+        );
+        expect(subject.chat.channel(site, 12)?.tracking.unreadCount, 1);
+      },
+    );
+
+    test('channel refresh preserves a local read and view time', () async {
+      final old = ChatChannels(
+        public: [channel(9, lastRead: 1, unread: 2, mentions: 1)],
+      );
+      final api = _GatedChannelRefreshApi(
+        old,
+        messages: {
+          key(9): page([message(1), message(2), message(3)]),
+        },
+      );
+      final deltas = <int>[];
+      final subject = build(
+        api: api,
+        currentUser: currentUser,
+        onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+      await subject.chat.openChannel(site, 9);
+      final started = api.holdRefresh();
+      final refresh = subject.chat.loadChannels(site, force: true);
+      await started;
+      await subject.chat.markRead(site, 9, 3);
+      final live = subject.chat.channel(site, 9)!;
+      expect(live.tracking.unreadCount, 0);
+      expect(live.membership.lastViewedAt, isNotNull);
+      api.releaseRefresh(old);
+      await refresh;
+      expect(subject.chat.channel(site, 9), live);
+      expect(deltas, [-1]);
+    });
+
+    test(
+      'channel refresh preserves star and mute writes without hiding fresh metadata',
+      () async {
+        final old = ChatChannels(public: [channel(9)]);
+        final api = _GatedChannelRefreshApi(old);
+        final subject = build(api: api, currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        final started = api.holdRefresh();
+        final refresh = subject.chat.loadChannels(site, force: true);
+        await started;
+        expect(await subject.chat.updateChannelStarred(site, 9, true), isNull);
+        expect(
+          await subject.chat.updateChannelNotifications(site, 9, muted: true),
+          isNull,
+        );
+        api.releaseRefresh(
+          ChatChannels(public: [channel(9, title: 'Fresh title', unread: 4)]),
+        );
+        await refresh;
+        final refreshed = subject.chat.channel(site, 9)!;
+        expect(refreshed.membership.starred, isTrue);
+        expect(refreshed.membership.muted, isTrue);
+        expect(refreshed.title, 'Fresh title');
+        expect(refreshed.tracking.unreadCount, 4);
+        expect(tracker.pluginChannelCallbacks['/chat/9/new-messages'], isEmpty);
+      },
+    );
+
+    test(
+      'channel refresh cannot resurrect kicked or unfollowed channels',
+      () async {
+        final old = ChatChannels(
+          public: [channel(9), channel(10)],
+          direct: [channel(12, kind: ChatChannelKind.directMessage)],
+        );
+        final api = _GatedChannelRefreshApi(old);
+        final subject = build(api: api, currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        final started = api.holdRefresh();
+        final refresh = subject.chat.loadChannels(site, force: true);
+        await started;
+        tracker.deliverPluginMessage('/chat/9/kick', {
+          'channel_id': 9,
+        }, messageId: 91);
+        expect(
+          await subject.chat.updateChannelFollowing(
+            site,
+            subject.chat.channel(site, 12)!,
+            false,
+          ),
+          isNull,
+        );
+        api.releaseRefresh(old);
+        await refresh;
+        expect(subject.chat.channel(site, 9), isNull);
+        expect(subject.chat.publicChannels(site).map((c) => c.id), [10]);
+        expect(subject.chat.directChannels(site), isEmpty);
+        expect(subject.chat.channel(site, 12)?.membership.following, isFalse);
+        expect(tracker.pluginChannelCallbacks['/chat/9/kick'], isEmpty);
+        expect(tracker.pluginChannelCallbacks['/chat/9/new-messages'], isEmpty);
+        expect(
+          tracker.pluginChannelCallbacks['/chat/12/new-messages'],
+          isEmpty,
+        );
+      },
+    );
+
+    test(
+      'channel refresh preserves fields changed back to their starting value',
+      () async {
+        final old = ChatChannels(
+          direct: [
+            channel(
+              12,
+              kind: ChatChannelKind.directMessage,
+              lastRead: 1,
+              unread: 2,
+            ),
+          ],
+          userTrackingBusLastId: 90,
+        );
+        final api = _GatedChannelRefreshApi(old);
+        final deltas = <int>[];
+        final subject = build(
+          api: api,
+          currentUser: currentUser,
+          onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        final started = api.holdRefresh();
+        final refresh = subject.chat.loadChannels(site, force: true);
+        await started;
+        await subject.chat.updateChannelStarred(site, 12, true);
+        await subject.chat.updateChannelStarred(site, 12, false);
+        for (final (cursor, unread) in [(91, 0), (92, 2)]) {
+          tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+            'channel_id': 12,
+            'last_read_message_id': 1,
+            'unread_count': unread,
+          }, messageId: cursor);
+        }
+        api.releaseRefresh(
+          ChatChannels(
+            direct: [
+              channel(
+                12,
+                kind: ChatChannelKind.directMessage,
+                starred: true,
+                lastRead: 1,
+              ),
+            ],
+            userTrackingBusLastId: 91,
+          ),
+        );
+        await refresh;
+        expect(subject.chat.channel(site, 12)?.membership.starred, isFalse);
+        expect(subject.chat.channel(site, 12)?.tracking.unreadCount, 2);
+        expect(deltas, [-2, 2]);
+        expect(tracker.pluginChannelLastIds['/chat/user-tracking-state/7'], 92);
+      },
+    );
+
+    test(
+      'channel refresh keeps a newly joined channel and its first message',
+      () async {
+        final old = ChatChannels(
+          public: [channel(9)],
+          newChannelBusLastId: 80,
+          userHasThreadsBusLastId: 90,
+        );
+        final api = _GatedChannelRefreshApi(old);
+        final subject = build(api: api, currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        final started = api.holdRefresh();
+        final refresh = subject.chat.loadChannels(site, force: true);
+        await started;
+        tracker.deliverPluginMessage(
+          '/chat/new-channel',
+          newDirectChannelEvent(
+            channelId: 12,
+            messageId: 3,
+            newMessagesLastId: 70,
+          ),
+          messageId: 81,
+        );
+        tracker.deliverPluginMessage('/chat/user-has-threads/7', {
+          'has_threads': true,
+        }, messageId: 91);
+        api.releaseRefresh(old);
+        await refresh;
+        expect(subject.chat.directChannels(site).map((c) => c.id), [12]);
+        expect(subject.chat.hasThreads(site), isTrue);
+        expect(tracker.pluginChannelLastIds['/chat/new-channel'], 81);
+        expect(tracker.pluginChannelLastIds['/chat/user-has-threads/7'], 91);
+        expect(tracker.pluginChannelLastIds['/chat/12/new-messages'], 70);
+        tracker.deliverPluginMessage(
+          '/chat/12/new-messages',
+          newMessageEvent(
+            channelId: 12,
+            messageId: 3,
+            authorId: 2,
+            createdAt: '2026-08-08T13:00:00.000Z',
+          ),
+          messageId: 71,
+        );
+        expect(subject.chat.channel(site, 12)?.tracking.unreadCount, 1);
+      },
+    );
+
+    test(
+      'channel refresh preserves live metadata fields and fresh untouched fields',
+      () async {
+        final old = ChatChannels(
+          public: [channel(9, unread: 2, mentions: 1)],
+          channelEditsBusLastId: 70,
+          channelStatusBusLastId: 80,
+          channelMetadataBusLastId: 90,
+        );
+        final api = _GatedChannelRefreshApi(old);
+        final subject = build(api: api, currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        final started = api.holdRefresh();
+        final refresh = subject.chat.loadChannels(site, force: true);
+        await started;
+        tracker.deliverPluginMessage('/chat/channel-edits', {
+          'chat_channel_id': 9,
+          'name': 'Renamed live',
+          'slug': 'renamed',
+          'description': 'Live description',
+        }, messageId: 71);
+        tracker.deliverPluginMessage('/chat/channel-status', {
+          'chat_channel_id': 9,
+          'status': 'archived',
+        }, messageId: 81);
+        tracker.deliverPluginMessage('/chat/channel-metadata', {
+          'chat_channel_id': 9,
+          'memberships_count': 5,
+        }, messageId: 91);
+        api.releaseRefresh(
+          ChatChannels(
+            public: [channel(9, unread: 2, mentions: 1, canModerate: true)],
+            channelEditsBusLastId: 70,
+            channelStatusBusLastId: 80,
+            channelMetadataBusLastId: 90,
+          ),
+        );
+        await refresh;
+        final refreshed = subject.chat.channel(site, 9)!;
+        expect(refreshed.title, 'Renamed live');
+        expect(refreshed.status, ChatChannelStatus.archived);
+        expect(refreshed.membershipsCount, 5);
+        expect(refreshed.tracking, ChatTracking.none);
+        expect(refreshed.canModerate, isTrue);
+        expect(tracker.pluginChannelLastIds['/chat/channel-edits'], 71);
+        expect(tracker.pluginChannelLastIds['/chat/channel-status'], 81);
+        expect(tracker.pluginChannelLastIds['/chat/channel-metadata'], 91);
+      },
+    );
+
+    test('channel refresh retires reconciliation with its account', () async {
+      final old = ChatChannels(
+        public: [channel(9, lastRead: 1, unread: 2)],
+        userTrackingBusLastId: 90,
+      );
+      final api = _GatedChannelRefreshApi(old);
+      final lifecycle = SiteLifecycle();
+      final subject = build(
+        api: api,
+        currentUser: currentUser,
+        lifecycle: lifecycle,
+      );
+      addTearDown(subject.chat.dispose);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      final started = api.holdRefresh();
+      final refresh = subject.chat.loadChannels(site, force: true);
+      await started;
+      tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+        'channel_id': 9,
+        'last_read_message_id': 3,
+        'unread_count': 0,
+      }, messageId: 91);
+      lifecycle.invalidate(site);
+      subject.chat.forget(site);
+      subject.store.forget(site);
+      final oldResponse = api.detachRefresh();
+
+      final replacement = attachTracker(subject.chat);
+      api.snapshot = ChatChannels(
+        public: [channel(9, title: 'New account', lastRead: 4, unread: 5)],
+        userTrackingBusLastId: 110,
+      );
+      await subject.chat.loadChannels(site);
+      final nextStarted = api.holdRefresh();
+      final nextRefresh = subject.chat.loadChannels(site, force: true);
+      await nextStarted;
+      replacement.deliverPluginMessage('/chat/user-tracking-state/7', {
+        'channel_id': 9,
+        'last_read_message_id': 5,
+        'unread_count': 0,
+      }, messageId: 111);
+      oldResponse.complete(old);
+      await refresh;
+      api.releaseRefresh(api.snapshot);
+      await nextRefresh;
+      expect(subject.chat.channel(site, 9)?.title, 'New account');
+      expect(subject.chat.channel(site, 9)?.membership.lastReadMessageId, 5);
+      expect(subject.chat.channel(site, 9)?.tracking.unreadCount, 0);
+      expect(
+        replacement.pluginChannelLastIds['/chat/user-tracking-state/7'],
+        111,
+      );
+      expect(
+        tracker.pluginChannelCallbacks['/chat/user-tracking-state/7'],
+        isEmpty,
+      );
+    });
+
+    test(
+      'channel refresh treats concurrent detail hydration as a snapshot',
+      () async {
+        final api = _GatedChannelRefreshApi(
+          const ChatChannels(),
+          details: {9: channel(9)},
+        );
+        final subject = build(api: api, currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+        final started = api.holdRefresh();
+        final refresh = subject.chat.loadChannels(site, force: true);
+        await started;
+        await subject.chat.ensureChannel(site, 9);
+        api.releaseRefresh(
+          ChatChannels(public: [channel(9, lastRead: 1, unread: 2)]),
+        );
+        await refresh;
+        expect(subject.chat.channel(site, 9)?.tracking.unreadCount, 2);
+        expect(subject.chat.channel(site, 9)?.membership.lastReadMessageId, 1);
       },
     );
 
@@ -6731,6 +7227,47 @@ void main() {
       expect(subject.chat.stream(site, 9).lastReadOnOpen, 3);
     });
   });
+}
+
+final class _GatedChannelRefreshApi extends FakeDiscourseApi {
+  _GatedChannelRefreshApi(
+    this.snapshot, {
+    Map<String, ChatMessagePage> messages = const {},
+    Map<int, ChatChannel> details = const {},
+  }) : super(chatMessagesByKey: messages, chatChannelsById: details);
+
+  ChatChannels snapshot;
+  Completer<void>? _started;
+  Completer<ChatChannels>? _response;
+
+  Future<void> holdRefresh() {
+    _started = Completer<void>();
+    _response = Completer<ChatChannels>();
+    return _started!.future;
+  }
+
+  void releaseRefresh(ChatChannels response) {
+    detachRefresh().complete(response);
+  }
+
+  Completer<ChatChannels> detachRefresh() {
+    final response = _response!;
+    _response = null;
+    return response;
+  }
+
+  @override
+  Future<ChatChannels> chatChannels({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) {
+    chatChannelsRequested.add(siteUrl);
+    final response = _response;
+    if (response == null) return Future.value(snapshot);
+    _started!.complete();
+    return response.future;
+  }
 }
 
 final class _GatedChatReadApi extends FakeDiscourseApi {
