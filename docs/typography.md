@@ -59,3 +59,111 @@ fontSize already includes zoom.
 light/dark themes, overlay inheritance, and nonlinear platform scaling.
 `sidebar_width_test.dart` covers narrow and wide sidebar reflow at 200%.
 The source adoption test guards the single owner of numeric font sizes.
+
+## Native component API
+
+Import `package:discourse_native/discourse_ui.dart`. `DText` and `DText.rich`
+render native `Text` / `Text.rich`; `DProse`, `DBlockquote` and `DTextList`
+compose ordinary Flutter widgets. They add no typography scale, text scaler,
+networking, focus manager, or selection owner.
+
+| DTextVariant | Existing role | Presentation |
+| --- | --- | --- |
+| h1 | headlineLarge | Level 1 heading; caller may center it |
+| h2 | headlineMedium | Level 2 heading with a token-colored bottom rule |
+| h3 | headlineSmall | Level 3 heading |
+| h4 | titleLarge | Level 4 heading |
+| paragraph (default) | bodyLarge | Reading text |
+| lead | titleLarge | Normal weight, muted foreground |
+| large | titleMedium | Emphasized text |
+| small | labelLarge | Compact label, with the app's readable leading |
+| muted | bodyMedium | Secondary interface prose |
+| inlineCode | bodyMedium | Bundled JetBrains Mono, semibold, muted background |
+
+`style` merges after the chosen role. Use it for color/emphasis and keep numeric
+sizes/leading in the host theme. `headingLevel` can override semantic hierarchy
+without changing visual size: a compact dialog title can use h4 with level 1,
+or a section can use large with level 2. Zero opts out of heading semantics.
+`semanticsLabel`, `textAlign`, `softWrap`, `maxLines` and `overflow` have native
+Text behavior. Text normally wraps without a line limit and inherits direction.
+
+```dart
+SelectionArea(
+  child: DProse(children: [
+    const DText('Community handbook', variant: DTextVariant.h1),
+    const DText('Everyone has something to contribute.',
+      variant: DTextVariant.lead),
+    const DBlockquote(child: Text('“Make room for new perspectives.”')),
+    DText.rich(TextSpan(children: [
+      const TextSpan(text: 'Open '),
+      TextSpan(text: 'community.settings',
+        style: DText.styleOf(context, DTextVariant.inlineCode)),
+      const TextSpan(text: ' to get started.'),
+    ])),
+    const DTextList(children: [
+      Text('Welcome someone new.'),
+      Text('Share a useful resource.'),
+    ]),
+  ]),
+)
+```
+
+The host supplies bounded width and scrolling. `DProse` supplies reading style,
+full-width blocks and `DSpacing.xl` between children, without outer margins.
+Its `spacing` can be changed for nested content. `DBlockquote` supplies a leading
+rule, directional inset and inherited italic reading text; explicit child styles
+can identify an attribution. `DTextList` supplies directional bullets or ordered
+markers (`ordered: true`, `start: 9`), native list/item semantics and wrapping
+children. Children may include nested lists or native controls. Empty flows and
+lists have zero height. Ordered markers are announced; decorative bullets are
+not. Markers are excluded from copied text.
+
+A document's existing `SelectionArea` (or the app's route-aware selection area)
+owns selection across blocks and spans. For rich inline actions, compose a
+focusable native control inside a `WidgetSpan`; a span gesture recognizer alone
+is not keyboard focusable. The caller owns recognizers, focus nodes and actions.
+Typography itself has no hover, pressed, disabled, loading, overlay or animation
+state. Composed controls retain their native focus, activation and lifecycle.
+
+## Frozen reference and adaptations
+
+The [Typography reference](https://ui.shadcn.com/docs/components/base/typography.md)
+captured on 2026-09-08 has SHA256
+`3ff202e83d6c90b2521ec471af07cab3c59314028c51ef8d040b3218ec9a9541`.
+Its scope remains h1–h4, p, blockquote, table, list, Inline code, Lead, Large,
+Small, Muted and RTL. The live HTML now redirects to Typeset; that newer system
+is outside this catalogue entry. The official
+[Typography demo source](https://github.com/shadcn-ui/ui/blob/main/apps/v4/registry/new-york-v4/examples/typography-demo.tsx)
+also shows the original composition.
+
+The app's paired size/leading and heading weights take precedence over CSS
+tracking, extra-bold display type and tight small-text leading. Fonts remain
+platform/theme-owned except the existing code family. Flutter uses natural line
+wrapping rather than CSS `text-balance`, and callers own scroll-to-heading
+behavior instead of CSS `scroll-margin`. DProse uses explicit spacing instead of
+CSS sibling selectors. Typography has no added animation, including for borders.
+
+Standalone inline code has a padded rounded background using DTokens. Within a
+paragraph, `DText.styleOf(context, DTextVariant.inlineCode)` supplies a rectangular
+span background so code can wrap, select and copy as text. Using a boxed
+WidgetSpan for the code itself would compromise those behaviors. Generic code
+uses the reference's muted surface; authored post code retains its distinct
+CodeColors and syntax-highlighting contract.
+
+The styleguide's table example uses Flutter `Table` with flexible columns,
+intrinsic row heights, TableBorder, alternating token backgrounds, column-header
+semantics and start/center/end cell alignment. Flutter owns table/row semantics;
+only column-header roles need annotation. Cells wrap to fit the preview instead
+of requiring a minimum-width horizontal scroller. This is a documented native
+composition, not a competing public table engine. The later Table entry owns
+its full reusable API. The complete-article and Arabic RTL examples reuse that
+same sample composition.
+
+The core/plugin adoption audit retains control-owned Text styles (button/menu
+labels, form fields, badges and metadata), authored HTML/Markdown/composer
+renderers, site emoji and inline-link spans, syntax code blocks and specialized
+alert/onebox tables. Their density, markup semantics, editing offsets, or domain
+interactions have different owners. Settings, shared sheets, add-site, group
+management, Chat channel information, Poll/Local Dates/GIF dialogs, Voice room
+chat and the event fallback now use the public API for appropriate headings
+and secondary prose. Their callbacks, permissions and state remain app-owned.

@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -117,7 +118,13 @@ class _SheetBody extends StatelessWidget {
                     icon: const DIcon(DIcons.arrowLeft),
                     tooltip: 'Back',
                   ),
-                Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
+                Expanded(
+                  child: DText(
+                    title,
+                    variant: DTextVariant.h4,
+                    headingLevel: 1,
+                  ),
+                ),
                 if (!nested)
                   IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),

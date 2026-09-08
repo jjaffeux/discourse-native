@@ -475,7 +475,7 @@ class _FormHeading extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
+        DText(title, variant: DTextVariant.large, headingLevel: 2),
         const SizedBox(height: 4),
         Text(description, style: Theme.of(context).textTheme.bodyMedium),
       ],
@@ -617,7 +617,7 @@ class _GroupLogs extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Logs', style: Theme.of(context).textTheme.titleMedium),
+              const DText('Logs', variant: DTextVariant.large, headingLevel: 2),
               const SizedBox(height: 4),
               Text(
                 'Membership and settings changes for this group.',

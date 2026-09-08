@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:intl/intl.dart';
@@ -10,7 +11,6 @@ import '../../shell/cooked_html.dart';
 import '../../shell/open_link.dart';
 import '../../shell/site_image.dart';
 import '../../shell/site_url.dart';
-import '../../theme/d_button.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
 import 'event_export.dart';
@@ -731,7 +731,7 @@ class EventCookedFallback extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          DText(title, variant: DTextVariant.large, headingLevel: 2),
           if (start != null) Text(start!),
           if (description.isNotEmpty) Text(description),
         ],

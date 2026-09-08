@@ -1,12 +1,12 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../plugin_api/core_plugin_host.dart';
 import '../../shell/image_decode.dart';
 import '../../shell/shell_sheet.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'gif.dart';
@@ -97,10 +97,11 @@ class _DialogHeader extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
     child: Row(
       children: [
-        Expanded(
-          child: Text(
+        const Expanded(
+          child: DText(
             'Search GIFs',
-            style: Theme.of(context).textTheme.titleLarge,
+            variant: DTextVariant.h4,
+            headingLevel: 1,
           ),
         ),
         IconButton(

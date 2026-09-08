@@ -163,6 +163,61 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'Typography preview controls retain rich action state and reset it',
+    (tester) async {
+      await _pump(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('styleguide-search')),
+        'Inline code',
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('styleguide-component-typography')),
+      );
+      await tester.pumpAndSettle();
+      await _choose(
+        tester,
+        'Example',
+        'Inline code, rich text and keyboard actions',
+      );
+      await tester.ensureVisible(find.text('Show details'));
+      await tester.tap(find.text('Show details'));
+      await tester.pump();
+      await tester.scrollUntilVisible(
+        find.text('Preview settings'),
+        -250,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const ValueKey('styleguide-detail-typography')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.drag(
+        find.byKey(const ValueKey('styleguide-detail-typography')),
+        const Offset(0, 400),
+      );
+      await tester.pumpAndSettle();
+      await _choose(tester, 'Theme', 'Plum site');
+      await _choose(tester, 'Viewport width', '360 px');
+      await _choose(tester, 'Text scale', '200%');
+      await tester.tap(find.text('Right to left'));
+      await tester.pump();
+      expect(find.text('Hide details'), findsOneWidget);
+      expect(
+        find.text('Welcome messages can include a friendly introduction.'),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(find.text('Reset example'));
+      await tester.tap(find.text('Reset example'));
+      await tester.pumpAndSettle();
+      expect(find.text('Show details'), findsOneWidget);
+      expect(find.text('Details are hidden.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final size in [const Size(320, 640), const Size(1200, 800)]) {
     testWidgets(
       'search and navigation fit ${size.width}px at 200% system text',
