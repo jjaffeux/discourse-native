@@ -2415,10 +2415,13 @@ are sent only to the forum while redirects are walked explicitly; the player
 normally receives the final signed CDN URL with no credentials. Unsafe URLs,
 redirect downgrades, unsupported codecs, and protected endpoints that cannot
 produce a headerless signed URL retain an external-open fallback. Neither
-player is constructed until Play is pressed, and active playback is paused when
-the app leaves the foreground. Starting another uploaded video pauses the
-previous one, and these players follow their list item's lifecycle rather than
-being kept alive after an offscreen item is released.
+player is constructed until Play is pressed. Playback pauses when the app leaves
+the foreground or a retained pane disables its inherited `TickerMode`, including
+initialization that finishes after hiding. Returning to the pane requires Play;
+the owning fullscreen route keeps playback active while its source is covered.
+Starting another uploaded video pauses the previous one, and hidden players
+cannot take that ownership. These players follow their list item's lifecycle
+rather than being kept alive after an offscreen item is released.
 
 The parsers never mutate the DOM they are handed; a body remainder is
 serialized back to a string. The document belongs to the caller's `HtmlWidget`.
