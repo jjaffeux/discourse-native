@@ -267,7 +267,9 @@ class ComposerPanel extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                              if (target.isTaxonomyEdit)
+                              if (target.isNewTopic ||
+                                  target.editsTopicMetadata ||
+                                  target.isTaxonomyEdit)
                                 _TopicTaxonomy(composer: composer),
                               if (!target.isTaxonomyEdit) ...[
                                 Expanded(
@@ -354,9 +356,6 @@ class ComposerPanel extends StatelessWidget {
                                 ),
                               ] else
                                 const Spacer(),
-                              if (target.isNewTopic ||
-                                  target.editsTopicMetadata)
-                                _TopicTaxonomy(composer: composer),
                             ],
                           ),
                         ),

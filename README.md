@@ -1221,7 +1221,8 @@ The centered grip and header support dragging; a focused grip also moves with
 arrow keys. Eligible replies have a labeled **Reply / Whisper** menu. Whisper
 mode changes the frame and submit button, and replies to existing whispers
 remain locked to that audience. Reply context expands to a cached excerpt.
-New topics put the title and body first, with category and tags below the body.
+New topics and first-post edits put category and tags directly below the title,
+before the body.
 The footer keeps attachment, emoji and formatting controls visible, groups
 plugin tools under **Insert**, and places **Proofread** beside the submit button.
 
