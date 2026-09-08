@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final labelExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   notes:
       'Import package:discourse_native/discourse_ui.dart. DLabel accepts child, '
       'style and enabled. Registry metrics: 14px, weight 500, line height 1, '

@@ -42,5 +42,37 @@ field sets, layout and validation composition, is handed off to the scheduled
 **Field** task. Label's local form example demonstrates ownership and behavior,
 without claiming completion of that component.
 
-Native screenshots and actual inspected surfaces are recorded in the Label row
-of [progress.json](progress.json) after the coordinator grants desktop inspection.
+## Native inspection
+
+Inspected on macOS on **2026-09-08**, after the coordinator granted the shared
+desktop slot. The isolated `Discourse Label.app` used bundle identifier
+`org.discourse.native.label-review` and URL scheme `discourse-label-review`.
+Its temporary target mounted the styleguide and actual production widgets with
+in-memory callbacks. No account data, network request, room join or microphone
+capture was involved. Temporary native project overrides were restored.
+
+Screenshots are local inspection artifacts under
+`build/label-inspection/screenshots/` in this worktree:
+
+| Evidence | Observed behavior |
+| --- | --- |
+| `light-disabled.png`, `dark-enabled.png` | Label clicks and Tab/Space toggle the native checkbox; visible focus belongs to the control. Disabled label clicks do nothing, with the reference opacity. Live theme changes retain state. |
+| `forest-rich-360-200.png` | At 360 pixels and 200% text, the icon and emphasized text wrap. The separate terms action changes its own content without toggling the checkbox. |
+| `plum-rtl-360-200.png` | Arabic and Hebrew labels wrap at 360 pixels and 200% text; both leading controls appear on the right and toggle from their label text. |
+| `plum-form-error-360-200.png`, `plum-form-saved-360-200.png` | Empty submission shows the native validation error. Clicking the email label focuses the field; literal text entry, checkbox activation and submission save locally. Reset clears the field, checkbox, result and error. |
+| `post-flag-busy.png`, `post-flag-retained-error.png` | Real PostFlagEditor in Dark: the legal label toggles its checkbox, saving disables it, the local error retains the explanation and selection, and retry succeeds. |
+| `voice-privacy-forest-200.png` | Real VoiceMeshPrivacyDialog in Forest at 200% text: the full dialog fits, the privacy label toggles its checkbox, and Cancel returns to the fixture. |
+| `voice-diagnostics-consent.png`, `voice-diagnostics-on.png`, `voice-diagnostics-off.png` | Real VoiceDiagnosticsView in Forest: the recording caption opens the existing consent dialog. Cancel leaves recording off; confirming updates the local state and caption to On; clicking the caption stops it. |
+
+The native accessibility snapshots exposed the named PostFlagEditor and Voice
+privacy checkboxes with checked state, plus the diagnostics switch named
+`Recording Off` / `Recording On` with its corresponding state. Snapshot excerpts
+are in `build/label-inspection/*-ax.txt`. The styleguide route exposed only its
+native search field through this macOS accessibility snapshot; preview semantics
+are covered by widget tests, and VoiceOver speech was not run. iOS and Linux
+were not inspected on devices.
+
+The isolated app was quit through its own native menu. A subsequent global CUA
+state confirmed its identifier was absent before the desktop slot was released.
+Exact automated checks and remaining component handoffs are recorded in the
+Label row of [progress.json](progress.json).
