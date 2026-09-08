@@ -781,7 +781,8 @@
       "mergeCommit": null,
       "clientThreadId": "client-new-thread:9ce651a0-9d90-4b15-a53d-3ce86e3821a4",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5995/discourse-native",
-      "baseCommit": "f23ee956e2197452d3aab40e98933543e5eeb5f2"
+      "baseCommit": "f23ee956e2197452d3aab40e98933543e5eeb5f2",
+      "nativeInspectionStatus": "queued"
     },
     {
       "id": "empty",
@@ -1551,7 +1552,8 @@
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
     "nativeInspectionTaskId": "01a08213-9960-79f1-8d90-9626f24a4b5a",
     "nativeInspectionQueue": [
-      "01a082d2-4434-73b1-8ab4-88c9b2ba9b66"
+      "01a082d2-4434-73b1-8ab4-88c9b2ba9b66",
+      "01a082d9-6c59-7443-8e64-f76105fd5e56"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready."
   },
