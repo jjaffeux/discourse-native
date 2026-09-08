@@ -134,6 +134,27 @@ void main() {
       expect(balanced.size.height, natural.size.height);
       expect(balanced.didExceedMaxLines, isFalse);
       expect(tester.takeException(), isNull);
+
+      // Large text with a word wider than the viewport must retain all of the
+      // available measure rather than introducing more breaks within words.
+      await _pump(
+        tester,
+        const DProse(
+          children: [
+            DText(words, variant: DTextVariant.h1),
+            DText.rich(TextSpan(text: words), variant: DTextVariant.h1),
+          ],
+        ),
+        width: 360,
+        scaler: const TextScaler.linear(2),
+      );
+      final large = tester
+          .renderObjectList<RenderParagraph>(find.byType(RichText))
+          .where((value) => value.text.toPlainText() == words)
+          .toList();
+      expect(large[0].size, large[1].size);
+      expect(large[0].didExceedMaxLines, isFalse);
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -227,7 +248,7 @@ void main() {
             value == TextDirection.ltr
                 ? words.left - quote.left
                 : quote.right - words.right,
-            DSpacing.xl,
+            DSpacing.xl + 2,
           );
           expect(
             _paragraph(tester, 'A wrapping quotation.').text.style!.fontStyle,

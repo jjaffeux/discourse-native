@@ -107,10 +107,21 @@ class DText extends StatelessWidget {
           painter.layout(maxWidth: constraints.maxWidth);
           final lineCount = painter.computeLineMetrics().length;
           if (lineCount < 2 || lineCount > 6) return child;
+          final originalText = painter.text;
           var lower = constraints.maxWidth / lineCount;
+          for (final word in RegExp(r'\S+').allMatches(data!)) {
+            painter.text = TextSpan(
+              text: word.group(0),
+              style: originalText!.style,
+            );
+            painter.layout();
+            if (painter.width >= constraints.maxWidth) return child;
+            if (painter.width > lower) lower = painter.width;
+          }
+          painter.text = originalText;
           var upper = constraints.maxWidth;
           // Preserve the natural line count while finding a compact measure,
-          // the same principle as CSS text-wrap: balance for short headings.
+          // without introducing breaks inside words that otherwise fit.
           while (upper - lower > 0.25) {
             final candidate = (lower + upper) / 2;
             painter.layout(maxWidth: candidate);
@@ -270,14 +281,12 @@ class DText extends StatelessWidget {
       result = _balanceHeading(context, resolvedStyle, result);
     }
     if (variant == DTextVariant.h2) {
-      result = DecoratedBox(
+      result = Container(
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: tokens.border)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: DSpacing.sm),
-          child: result,
-        ),
+        padding: const EdgeInsets.only(bottom: DSpacing.sm),
+        child: result,
       );
     } else if (variant == DTextVariant.inlineCode) {
       result = Align(
@@ -361,18 +370,16 @@ class DBlockquote extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
+  Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
       border: BorderDirectional(
         start: BorderSide(color: DTokens.of(context).border, width: 2),
       ),
     ),
-    child: Padding(
-      padding: const EdgeInsetsDirectional.only(start: DSpacing.xl),
-      child: DefaultTextStyle.merge(
-        style: DText.bodyStyleOf(context).copyWith(fontStyle: FontStyle.italic),
-        child: child,
-      ),
+    padding: const EdgeInsetsDirectional.only(start: DSpacing.xl),
+    child: DefaultTextStyle.merge(
+      style: DText.bodyStyleOf(context).copyWith(fontStyle: FontStyle.italic),
+      child: child,
     ),
   );
 }

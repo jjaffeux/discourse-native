@@ -145,7 +145,9 @@ The user's clarification that this is a copy of shadcn supersedes the earlier
 adaptation to generic Material typography roles. The table above now matches
 the frozen utilities. The same numeric size owner and native scaler remain in
 use. Plain h1 text balances up to six lines by finding a narrower measure that
-preserves the natural line count; rich headings retain native span layout.
+preserves the natural line count without introducing extra breaks within words.
+Native font shaping and soft breaks can differ from a browser; rich headings
+retain native span layout for selection/copy.
 Callers own scroll-to-heading behavior instead of CSS scroll margins. DProse
 translates the reference's sibling margins into explicit Flutter block gaps.
 
