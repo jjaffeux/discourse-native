@@ -16,7 +16,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 4 | kbd | planned | — | — | typography | — |
 | 5 | tooltip | planned | — | — | kbd | — |
 | 6 | button | planned | — | — | spinner, tooltip | — |
-| 7 | separator | in_progress | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | — |
+| 7 | separator | review_ready | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | — |
 | 8 | label | planned | — | — | typography | — |
 | 9 | badge | planned | — | — | spinner | — |
 | 10 | input | planned | — | — | label | — |
@@ -180,7 +180,7 @@ Status: in_progress. Task: 01a081e5-0bef-70a1-9ae3-7717028403e0. Branch: codex/u
 
 ### separator
 
-Status: in_progress. Task: 01a08213-a2e5-7692-a127-f09d2a03094b. Branch: codex/ui-separator.
+Status: review_ready. Task: 01a08213-a2e5-7692-a127-f09d2a03094b. Branch: codex/ui-separator.
 
 **acceptanceCriteria**
 
@@ -201,6 +201,9 @@ Status: in_progress. Task: 01a08213-a2e5-7692-a127-f09d2a03094b. Branch: codex/u
 - Hover, pressed, selected, disabled, loading, error, keyboard activation, controllers, overlays and animation are not Separator states. The sample menu/list actions retain native control focus/touch behavior; the host owns text scaling and reduced-motion preferences.
 - Five real examples cover configurable horizontal semantics/insets/emphasis, horizontally scrolling intrinsic-height navigation, responsive menu descriptions/actions, a mutable separated list with empty state, and Arabic RTL plus explicitly sized unbounded composition. Narrow menus retain every destination and switch separator orientation rather than hiding Help.
 - All 73 authored native Divider/VerticalDivider call sites were migrated. DSeparator delegates painting/intrinsic sizing to Flutter with explicit default thickness/space/insets/radius, excludes decorative semantics and ignores pointer input, so only the public component owns application dividing rules. Existing AppTheme DividerTheme mapping remains necessary for framework-internal controls.
+- Coordinator advance review requested the public DButton owner for ordinary example actions. Vertical navigation, responsive menu actions and list controls now use DButtonVariant.flat with label composition; all three vertical usage snippets match. A fresh DefaultTextStyle inside menu labels deliberately removes DButton's compact single-line default so descriptions wrap without silent truncation. No adoption-guard exception was added.
+- Native macOS inspection covered all five examples and real migrated widgets in temporary local fixtures. The day, picker and sheet adapters remain application-owned; their fixture registration and signing adjustments are outside the repository. Final example text uses singular 1 item and the list snippet matches the rendered subtitle layout.
+- Acceptance criteria are satisfied for the implemented API, migrations, automated checks and recorded macOS scenarios. Separator is implemented in the styleguide and review_ready for coordinator review; uninspected platform/screen-reader/authenticated flows remain explicitly limited below.
 
 **migrations**
 
@@ -228,11 +231,24 @@ Status: in_progress. Task: 01a08213-a2e5-7692-a127-f09d2a03094b. Branch: codex/u
 - git diff --check passed. Production native runners, dependency lockfiles, Flutter pin and frozen catalogue are unchanged.
 - dart format --output=none --set-exit-if-changed on all 61 touched Dart files passed (0 changes). Only the assigned Separator progress row differs from the dispatch base.
 - flutter test --no-pub test/message_inbox_page_test.dart test/sidebar_width_test.dart test/event_sidebar_boundary_test.dart --test-randomize-ordering-seed=random: all 19 passed, seed 3080551253. These additional final-audit checks cover the migrated inbox-title and sidebar container rules, constrained inbox navigation and sidebar layout/lifecycle.
+- After the DButton review fix: flutter test --no-pub test/styleguide/separator_examples_test.dart --test-randomize-ordering-seed=random passed all 10 examples tests, seed 2524191817. The responsive menu interaction test now runs at 320/760px with 200% text and asserts RenderParagraph.didExceedMaxLines is false for all three descriptions; list tests assert DButton disabled/enabled behavior after clear/add.
+- CUA selected /var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/discourse-native-separator.3ka532q1/build/macos/Build/Products/Debug/DiscourseSeparatorStyleguide.app with cua.getApp and used the window Raise action after the coordinator granted the native slot. All interactions used this distinct product/bundle and lib/styleguide_main.dart. No production runner changed.
+- Native macOS: searched the catalogue and inspected horizontal Separator in Light and Dark. Toggled Meaningful boundary, Asymmetric insets and Emphasize boundary; visually confirmed line thickness/insets and retained switch state after a live Dark/RTL change. Decorative versus meaningful semantics were tested through Flutter semantics, not claimed from VoiceOver speech.
+- Native macOS: inspected Dark vertical navigation, visible DButton keyboard focus, and successive Tab/Return activation of Docs and Source across the rules. Inspected the wide responsive menu, selected Help, then switched to Forest site, 360px preview, 200% text and reduced motion; descriptions stayed readable, separators changed to horizontal and inner scrolling revealed retained Selected: Help.
+- Native macOS: inspected Arabic RTL and asymmetric horizontal insets in Forest/Plum at 360px and 200%, including the fixed-length vertical rule beside wrapping text and the explicit horizontal length in an unbounded row. Inspected the Plum list, selected Item 2, scrolled through Item 12 while preserving selection, cleared to an empty list with no rules, and added a first item with no trailing rule.
+- Native migrated fixtures: instantiated actual StreamDaySeparator, AnchoredPickerContent and showShellSheet with local callbacks in temporary separator_native_fixtures.dart. At Plum/360px/200%, clicking the date then the rule produced exactly one date activation. Picker selection, typing Alpha to filter, the selection marker and header/footer rules worked. Switching the mounted picker to Light retained its query and Alpha selection. Real sheet header/footer rules rendered in Plum and Light; footer close and Escape dismissal returned to the retained picker. The sheet uses its existing root Navigator and inherited root text scale; it is not claimed as a 200% dialog check.
+- Native inspection completed and the shared desktop slot was explicitly released to coordinator before final documentation/checks. No approval block or native component failure occurred. No further CUA or focus actions were performed after release.
+- Final flutter test --no-pub test/styleguide/separator_examples_test.dart --test-randomize-ordering-seed=random passed all 10 after the native-observed singular-item text correction, seed 1551245093. flutter analyze --no-pub passed with no issues (4.4s). dart format of the two changed example/test files reported 0 changes. The unchanged 588-test component/migration result was not repeated.
+- Final refreshed isolated flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed with the DButton examples, implemented status and final usage/count text. This build occurred after releasing the desktop slot, with no app focus or CUA action.
+- Coordinator accepted the completed native inspection, reviewed the component, migrations, DButton cleanup and wrapping regression, and reported no remaining implementation issue before final commits. The corrected DButton adoption guard on combined main is owned by coordinator review; no local guard exception or unmerged component code was introduced.
 
 **limitations**
 
-- Native inspection pending coordinator slot; no macOS runtime behavior is claimed yet.
-- Linux device inspection is unavailable on this macOS host. Flutter devices also detected a wireless iPhone running iOS 26.6; it was not launched or controlled. iOS device behavior, VoiceOver speech and authenticated app screens remain uninspected; focused widget tests are not device verification.
+- Native device inspection was macOS 26.6.2 on darwin-arm64. Linux device inspection is unavailable on this host. Flutter devices detected a wireless iPhone running iOS 26.6, but it was not launched or controlled; iOS device behavior is unverified.
+- VoiceOver speech was not run. Static boundary labels/actions/direction are covered by widget semantics tests. CUA exposed limited AX content outside native popup/dialog surfaces, so pointer locations came from observed screenshots where necessary.
+- Authenticated core/plugin screens were not inspected in a signed-in session. Native migration evidence uses the actual date/picker/sheet widgets with local temporary fixtures, while the broader app/plugin migrations are covered by the 567 focused regression tests already listed.
+- Live theme changes in an already-open native MenuAnchor are verified by widget tests. Native palette settings normally dismiss menus on outside interaction, so manual overlay evidence covers rendering after selecting the palette, plus dismissal and preserved local state.
+- The native inspection preceded final styleguide implemented metadata and a singular-item/usage-text correction. Those non-behavioral text changes were verified by the final focused example test run and refreshed isolated build without reacquiring desktop focus.
 
 ### Final audit
 

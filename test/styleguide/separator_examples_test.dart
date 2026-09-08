@@ -5,6 +5,7 @@ import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -43,7 +44,7 @@ void main() {
     tester,
   ) async {
     await _pump(tester, separatorExamples.examples[1]);
-    await tester.tap(find.text('Blog'));
+    await tester.tap(find.widgetWithText(DButton, 'Blog'));
     await tester.pump();
     expect(find.text('Destination: Blog'), findsOneWidget);
     Focus.of(tester.element(find.text('Blog'))).requestFocus();
@@ -64,7 +65,12 @@ void main() {
     'responsive menu preserves every destination and local selection',
     (tester) async {
       for (final width in [320.0, 760.0]) {
-        await _pump(tester, separatorExamples.examples[2], width: width);
+        await _pump(
+          tester,
+          separatorExamples.examples[2],
+          width: width,
+          textScale: 2,
+        );
         expect(
           tester
               .widgetList<DSeparator>(find.byType(DSeparator))
@@ -72,9 +78,22 @@ void main() {
           everyElement(width < 520 ? Axis.horizontal : Axis.vertical),
         );
         for (final title in ['Settings', 'Account', 'Help']) {
-          await tester.tap(find.text(title));
+          await tester.tap(find.widgetWithText(DButton, title));
           await tester.pump();
           expect(find.text('Selected: $title'), findsOneWidget);
+        }
+        for (final description in [
+          'Manage preferences',
+          'Profile and security',
+          'Support and docs',
+        ]) {
+          expect(
+            tester
+                .renderObject<RenderParagraph>(find.text(description))
+                .didExceedMaxLines,
+            isFalse,
+            reason: '$description at $width and 200% text must remain readable',
+          );
         }
       }
     },
@@ -95,15 +114,19 @@ void main() {
     await tester.pump();
     expect(find.text('Selected: Item 12'), findsOneWidget);
     expect(find.byIcon(Icons.check), findsOneWidget);
-    await tester.tap(find.text('Clear list'));
+    final clear = find.widgetWithText(DButton, 'Clear list');
+    await tester.tap(clear);
     await tester.pump();
     expect(find.text('No items. Add one to start again.'), findsOneWidget);
     expect(find.byType(DSeparator), findsNothing);
-    await tester.tap(find.text('Add item'));
+    expect(tester.widget<DButton>(clear).onPressed, isNull);
+    await tester.tap(find.widgetWithText(DButton, 'Add item'));
     await tester.pump();
     expect(find.text('Item 1'), findsOneWidget);
+    expect(find.text('1 item'), findsOneWidget);
     expect(find.byType(DSeparator), findsNothing);
-    await tester.tap(find.text('Add item'));
+    expect(tester.widget<DButton>(clear).onPressed, isNotNull);
+    await tester.tap(find.widgetWithText(DButton, 'Add item'));
     await tester.pump();
     expect(find.byType(DSeparator), findsOneWidget);
     expect(tester.takeException(), isNull);

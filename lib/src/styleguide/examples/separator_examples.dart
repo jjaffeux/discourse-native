@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final separatorExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   notes:
       'Import package:discourse_native/discourse_ui.dart; no extra dependency. '
       'DSeparator defaults to a horizontal, decorative one-pixel line using '
@@ -57,11 +57,23 @@ const DSeparator(
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextButton(onPressed: openBlog, child: const Text('Blog')),
+        DButton(
+          variant: DButtonVariant.flat,
+          onPressed: openBlog,
+          label: const Text('Blog'),
+        ),
         const DSeparator(orientation: Axis.vertical, space: DSpacing.lg),
-        TextButton(onPressed: openDocs, child: const Text('Docs')),
+        DButton(
+          variant: DButtonVariant.flat,
+          onPressed: openDocs,
+          label: const Text('Docs'),
+        ),
         const DSeparator(orientation: Axis.vertical, space: DSpacing.lg),
-        TextButton(onPressed: openSource, child: const Text('Source')),
+        DButton(
+          variant: DButtonVariant.flat,
+          onPressed: openSource,
+          label: const Text('Source'),
+        ),
       ],
     ),
   ),
@@ -75,7 +87,9 @@ const DSeparator(
           'descriptions; narrow menus stack with horizontal separators. All '
           'destinations remain available at large text sizes, including Help.',
       states: const ['Menu', 'Responsive', 'Wrapping text', 'Selection'],
-      code: '''// The menu owns its actions and responsive layout.
+      code: '''// Actions use DButton(variant: DButtonVariant.flat, label: ...).
+// A fresh DefaultTextStyle in each label allows descriptions to wrap.
+// The menu owns its actions and responsive layout.
 LayoutBuilder(builder: (context, constraints) {
   if (constraints.maxWidth < 520) {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -111,7 +125,7 @@ LayoutBuilder(builder: (context, constraints) {
   separatorBuilder: (_, _) => const DSeparator(),
   itemBuilder: (context, index) => ListTile(
     title: Text(items[index].label),
-    trailing: Text(items[index].value),
+    subtitle: Text(items[index].value),
     onTap: () => select(items[index]),
   ),
 )''',
@@ -234,9 +248,10 @@ class _VerticalPreviewState extends State<_VerticalPreview> {
                     orientation: Axis.vertical,
                     space: DSpacing.lg,
                   ),
-                TextButton(
+                DButton(
+                  variant: DButtonVariant.flat,
                   onPressed: () => setState(() => _selected = label),
-                  child: Text(label),
+                  label: Text(label),
                 ),
               ],
             ],
@@ -280,21 +295,26 @@ class _MenuPreviewState extends State<_MenuPreview> {
                 ),
               );
             }
-            final action = TextButton(
+            final action = DButton(
+              variant: DButtonVariant.flat,
               onPressed: () => setState(() => _selected = title),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: DSpacing.xs),
-                  Text(
-                    description,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: DTokens.of(context).mutedForeground,
+              // DButton's single-line default must not truncate descriptions.
+              label: DefaultTextStyle(
+                style: Theme.of(context).textTheme.labelLarge!,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: DSpacing.xs),
+                    Text(
+                      description,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: DTokens.of(context).mutedForeground,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
             children.add(wide ? Expanded(child: action) : action);
@@ -337,22 +357,28 @@ class _ListPreviewState extends State<_ListPreview> {
         spacing: DSpacing.sm,
         runSpacing: DSpacing.sm,
         children: [
-          TextButton(
+          DButton(
+            variant: DButtonVariant.flat,
             onPressed: () => setState(() => _count++),
-            child: const Text('Add item'),
+            label: const Text('Add item'),
           ),
-          TextButton(
+          DButton(
+            variant: DButtonVariant.flat,
             onPressed: _count == 0
                 ? null
                 : () => setState(() {
                     _count = 0;
                     _selected = null;
                   }),
-            child: const Text('Clear list'),
+            label: const Text('Clear list'),
           ),
         ],
       ),
-      Text(_selected == null ? '$_count items' : 'Selected: Item $_selected'),
+      Text(
+        _selected == null
+            ? '$_count ${_count == 1 ? 'item' : 'items'}'
+            : 'Selected: Item $_selected',
+      ),
       const SizedBox(height: DSpacing.sm),
       SizedBox(
         height: 240,
