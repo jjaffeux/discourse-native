@@ -215,6 +215,15 @@ class TopicStatusButton extends StatelessWidget {
 
   Future<void> _changeDeletion(BuildContext context, bool deleted) async {
     final controller = ShellScope.read(context);
+    if (controller.accountSessionDisposed) return;
+    final lease = controller.lifecycle.capture(siteUrl);
+    final route = controller.currentContent;
+    final tabId = controller.activeTabId;
+    final staff = controller.instanceFor(siteUrl)?.user?.staff == true;
+    final canNavigateBack =
+        controller.forumActive &&
+        controller.currentInstance?.url == siteUrl &&
+        route?.topicId == topic.id;
     if (deleted) {
       final confirmed = await showDialog<bool>(
         context: context,
@@ -240,15 +249,28 @@ class TopicStatusButton extends StatelessWidget {
       );
       if (confirmed != true || !context.mounted) return;
     }
+    if (!lease.isCurrent || controller.accountSessionDisposed) return;
     final error = await controller.setTopicDeleted(siteUrl, topic.id, deleted);
-    if (!context.mounted) return;
+    // The controller also returns null for retired work, so check the opening
+    // session before interpreting its result.
+    if (!context.mounted ||
+        !lease.isCurrent ||
+        controller.accountSessionDisposed) {
+      return;
+    }
     if (error != null) {
       ScaffoldMessenger.maybeOf(
         context,
       )?.showSnackBar(SnackBar(content: Text(error)));
       return;
     }
-    if (deleted && controller.currentInstance?.user?.staff != true) {
+    if (deleted &&
+        !staff &&
+        canNavigateBack &&
+        controller.forumActive &&
+        controller.currentInstance?.url == siteUrl &&
+        controller.activeTabId == tabId &&
+        identical(controller.currentContent, route)) {
       controller.handleBack(canReturnToSidebar: false);
     }
   }
