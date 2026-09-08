@@ -45,7 +45,9 @@ final RegExp _linkifyCandidatePattern = RegExp(
   unicode: true,
 );
 final RegExp _linkifyHostBoundaryPattern = RegExp(r'[:/?#]');
-final RegExp _linkReferencePrefixPattern = RegExp(r'^\s*\[[^\]\n]+\]:\s*$');
+final RegExp _linkReferencePrefixPattern = RegExp(
+  r'[^\S\n]*\[[^\]\n]+\]:[^\S\n]*',
+);
 
 List<ComposerLinkBlock> parseComposerLinks(
   String source, {
@@ -123,6 +125,7 @@ List<ComposerLinkBlock> parseComposerLinks(
         .map(_normalizedTld)
         .where((value) => value.isNotEmpty)
         .toSet();
+    final context = _LinkifyContext(source);
     var markdownRangeIndex = 0;
     for (final match in _linkifyCandidatePattern.allMatches(source)) {
       final start = match.start;
@@ -137,8 +140,7 @@ List<ComposerLinkBlock> parseComposerLinks(
       if (end <= start ||
           code.overlaps(start, end) ||
           overlapsMarkdown ||
-          _insideAngleBrackets(source, start) ||
-          _isLinkReferenceDestination(source, start) ||
+          context.isInHtmlOrReference(start) ||
           !_hasLinkifyBoundary(source, start)) {
         continue;
       }
@@ -174,16 +176,18 @@ int _trimLinkifyEnd(String source, int start, int end) {
     end -= 1;
   }
   for (final pair in const [(0x28, 0x29), (0x5B, 0x5D), (0x7B, 0x7D)]) {
-    while (end > start && source.codeUnitAt(end - 1) == pair.$2) {
-      var opens = 0;
-      var closes = 0;
-      for (var index = start; index < end; index += 1) {
-        final unit = source.codeUnitAt(index);
-        if (unit == pair.$1) opens += 1;
-        if (unit == pair.$2) closes += 1;
-      }
-      if (closes <= opens) break;
+    if (end <= start || source.codeUnitAt(end - 1) != pair.$2) continue;
+    var balance = 0;
+    for (var index = start; index < end; index += 1) {
+      final unit = source.codeUnitAt(index);
+      if (unit == pair.$1) balance -= 1;
+      if (unit == pair.$2) balance += 1;
+    }
+    while (balance > 0 &&
+        end > start &&
+        source.codeUnitAt(end - 1) == pair.$2) {
       end -= 1;
+      balance -= 1;
     }
   }
   return end;
@@ -221,16 +225,38 @@ bool _isAsciiLetterOrNumber(int unit) =>
     (unit >= 0x41 && unit <= 0x5A) ||
     (unit >= 0x61 && unit <= 0x7A);
 
-bool _insideAngleBrackets(String source, int start) {
-  final open = source.lastIndexOf('<', start);
-  final close = source.lastIndexOf('>', start);
-  return open > close;
-}
+final class _LinkifyContext {
+  _LinkifyContext(this.source);
 
-bool _isLinkReferenceDestination(String source, int start) {
-  final lineStart = start == 0 ? 0 : source.lastIndexOf('\n', start - 1) + 1;
-  final prefix = source.substring(lineStart, start);
-  return _linkReferencePrefixPattern.hasMatch(prefix);
+  final String source;
+  var _offset = 0;
+  var _insideAngles = false;
+  var _lineStart = 0;
+  var _referenceLineStart = -1;
+  var _referenceDestination = -1;
+
+  bool isInHtmlOrReference(int start) {
+    // Candidates arrive in source order and never start with an angle or LF.
+    // Include text from skipped candidates when advancing to the next one.
+    while (_offset < start) {
+      final unit = source.codeUnitAt(_offset);
+      if (unit == 0x3C) _insideAngles = true;
+      if (unit == 0x3E) _insideAngles = false;
+      if (unit == 0x0A) _lineStart = _offset + 1;
+      _offset += 1;
+    }
+    if (_insideAngles) return true;
+
+    if (_referenceLineStart != _lineStart) {
+      _referenceLineStart = _lineStart;
+      // Match at most once per line without copying its growing prefix. LF is
+      // excluded from whitespace so the match cannot scan subsequent lines.
+      _referenceDestination =
+          _linkReferencePrefixPattern.matchAsPrefix(source, _lineStart)?.end ??
+          -1;
+    }
+    return start == _referenceDestination;
+  }
 }
 
 bool _isEscaped(String source, int offset) {
