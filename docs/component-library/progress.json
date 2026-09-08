@@ -462,7 +462,8 @@
       "mergeCommit": null,
       "clientThreadId": "client-new-thread:0c87dee9-6ef3-431f-8194-4202d98ca399",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8c25/discourse-native",
-      "baseCommit": "5fd6658b9fded22bf4b19323257c8ad822dc89eb"
+      "baseCommit": "5fd6658b9fded22bf4b19323257c8ad822dc89eb",
+      "nativeInspectionStatus": "in_progress"
     },
     {
       "id": "aspect-ratio",
@@ -1277,6 +1278,6 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": null
+    "nativeInspectionTaskId": "01a08213-b4ca-77e1-a2aa-8a490808243e"
   }
 }
