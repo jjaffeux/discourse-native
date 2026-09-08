@@ -787,6 +787,114 @@ void main() {
       expect(subject.chat.channel(site, 9)?.threadingEnabled, isFalse);
     });
 
+    for (final enabled in [false, true]) {
+      test(
+        'missing credentials restore threading from $enabled and allow retry',
+        () async {
+          const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
+          final credentials = _ControllableCredentials();
+          final subject = build(
+            channels: {
+              site: ChatChannels(
+                public: [channel(9, threadingEnabled: enabled)],
+              ),
+            },
+            channelUpdateResponse: channel(9, threadingEnabled: !enabled),
+            credentialReader: credentials,
+            currentUser: staff,
+          );
+          addTearDown(subject.chat.dispose);
+          await subject.chat.loadChannels(site);
+          credentials.keys.remove(site);
+          final credentialsStarted = credentials.blockApiKey();
+
+          final writing = subject.chat.updateChannelThreading(
+            site,
+            9,
+            !enabled,
+          );
+          await credentialsStarted;
+          expect(subject.chat.channel(site, 9)?.threadingEnabled, !enabled);
+          expect(subject.chat.channelSettingsWriteInFlight(site, 9), isTrue);
+
+          final latest = channel(
+            9,
+            title: 'Updated channel',
+            slug: 'updated-channel',
+            description: 'Updated while credentials were pending.',
+            starred: true,
+            muted: true,
+            canModerate: true,
+            membershipsCount: 8,
+            lastRead: 40,
+            unread: 3,
+            mentions: 1,
+            lastMessageId: 43,
+            threadingEnabled: enabled,
+          );
+          subject.store.put(site, latest.withThreadingEnabled(!enabled));
+          credentials.releaseApiKey();
+
+          expect(await writing, 'Reconnect this site to edit the channel.');
+          expect(subject.chat.channel(site, 9)?.threadingEnabled, enabled);
+          expect(subject.chat.channel(site, 9), latest);
+          expect(subject.api.chatChannelMetadataUpdates, isEmpty);
+          expect(subject.api.chatChannelThreadingUpdates, isEmpty);
+          expect(subject.chat.channelSettingsWriteInFlight(site, 9), isFalse);
+
+          credentials.keys[site] = 'restored-key';
+          expect(
+            await subject.chat.updateChannelThreading(site, 9, !enabled),
+            isNull,
+          );
+          expect(subject.api.chatChannelMetadataUpdates, hasLength(1));
+          expect(subject.api.chatChannelThreadingUpdates, [
+            (channelId: 9, enabled: !enabled),
+          ]);
+          expect(subject.chat.channel(site, 9)?.threadingEnabled, !enabled);
+          expect(subject.chat.channelSettingsWriteInFlight(site, 9), isFalse);
+        },
+      );
+    }
+
+    test(
+      'missing credentials for a retired account do not roll back threading',
+      () async {
+        const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
+        final credentials = _ControllableCredentials();
+        final lifecycle = SiteLifecycle();
+        final subject = build(
+          channels: {
+            site: ChatChannels(public: [channel(9)]),
+          },
+          credentialReader: credentials,
+          lifecycle: lifecycle,
+          currentUser: staff,
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+        credentials.keys.remove(site);
+        final credentialsStarted = credentials.blockApiKey();
+
+        final writing = subject.chat.updateChannelThreading(site, 9, true);
+        await credentialsStarted;
+        lifecycle.invalidate(site);
+        final replacement = channel(
+          9,
+          title: 'Replacement account channel',
+          threadingEnabled: true,
+        );
+        subject.store.put(site, replacement);
+        credentials.releaseApiKey();
+
+        expect(await writing, isNull);
+        expect(subject.chat.channel(site, 9), replacement);
+        expect(subject.api.chatChannelMetadataUpdates, isEmpty);
+        expect(subject.api.chatChannelThreadingUpdates, isEmpty);
+        expect(subject.chat.channelSettingsWriteInFlight(site, 9), isFalse);
+      },
+    );
+
     test('threading cannot be toggled while a channel is closed', () async {
       const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
       final subject = build(
