@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:photo_view/photo_view.dart';
 
+import '../../discourse_ui.dart';
+
 import '../foundation/diagnostic_errors.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
@@ -231,7 +233,7 @@ class LightboxThumbnail extends StatelessWidget {
     // Reserve the slot from the size the markup declared, so the post does not
     // reflow as images land.
     if (ratio != null) {
-      tile = AspectRatio(aspectRatio: ratio, child: tile);
+      tile = DAspectRatio(ratio: ratio, child: tile);
     }
 
     return Padding(

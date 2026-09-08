@@ -447,6 +447,76 @@ void main() {
     }
   });
 
+  testWidgets(
+    'preview ratio respects both caps and the unbounded-width fallback',
+    (tester) async {
+      for (final (ratio, unbounded, expected) in [
+        (16 / 9, false, const Size(320, 180)),
+        (9 / 16, false, const Size(101.25, 180)),
+        (16 / 9, true, const Size(720, 405)),
+      ]) {
+        final video = InlineVideo(
+          data: InlineVideoData.fromUpload(
+            url: '/uploads/demo.mp4',
+            title: 'Geometry',
+            siteUrl: 'https://example.com',
+            aspectRatio: ratio,
+          )!,
+          siteUrl: 'https://example.com',
+          maximumWidth: unbounded ? null : 420,
+          maximumHeight: unbounded ? null : 180,
+          padding: EdgeInsets.zero,
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: unbounded
+                  ? UnconstrainedBox(child: video)
+                  : Align(
+                      alignment: Alignment.topLeft,
+                      child: SizedBox(width: 500, child: video),
+                    ),
+            ),
+          ),
+        );
+        expect(
+          tester.getSize(find.bySemanticsLabel('Play video: Geometry')),
+          expected,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
+  testWidgets(
+    'playback ratio updates resize the same player without disposing its session',
+    (tester) async {
+      final sessions = <_FakePlaybackSession>[];
+      await tester.pumpWidget(
+        _sessionApp(_videoData('ratio.mp4', 'Ratio'), sessions),
+      );
+      final session = sessions.single;
+      session.completeReady();
+      await tester.pump();
+      final original = tester.element(
+        find.byKey(const ValueKey('fake-player')),
+      );
+      session.update(aspectRatio: 3 / 4);
+      await tester.pump();
+      expect(
+        tester.element(find.byKey(const ValueKey('fake-player'))),
+        same(original),
+      );
+      final size = tester.getSize(find.byKey(const ValueKey('fake-player')));
+      expect(size.width / size.height, 3 / 4);
+      expect(session.startCount, 1);
+      expect(session.disposeCount, 0);
+      await tester.pumpWidget(const SizedBox());
+      expect(session.disposeCount, 1);
+    },
+  );
+
   testWidgets('a playback failure still offers the download button', (
     tester,
   ) async {
@@ -1020,6 +1090,7 @@ final class _FakePlaybackSession implements InlineVideoPlaybackSession {
   }
 
   void update({
+    double? aspectRatio,
     Duration? position,
     bool? showAppControls,
     bool? supportsFullscreen,
@@ -1027,7 +1098,7 @@ final class _FakePlaybackSession implements InlineVideoPlaybackSession {
   }) {
     _state = InlineVideoPlaybackState(
       phase: _state.phase,
-      aspectRatio: _state.aspectRatio,
+      aspectRatio: aspectRatio ?? _state.aspectRatio,
       playerBuilder: playerBuilder ?? _state.playerBuilder,
       isPlaying: _state.isPlaying,
       isBuffering: _state.isBuffering,

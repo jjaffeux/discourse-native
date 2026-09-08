@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../../discourse_ui.dart';
+
 import '../../foundation/diagnostic_errors.dart';
 import '../../theme/app_theme.dart';
 import '../cooked_dom.dart';
@@ -365,8 +367,8 @@ class _Thumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     // Reserve the slot from the ratio the markup declared so the text does not
     // reflow when the image lands.
-    final image = AspectRatio(
-      aspectRatio: thumbnail.aspectRatio ?? 1,
+    final image = DAspectRatio(
+      ratio: thumbnail.aspectRatio ?? 1,
       child: SiteImage(
         url: thumbnail.src,
         siteUrl: siteUrl,

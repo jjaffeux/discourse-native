@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../foundation/tokens.dart';
+import 'd_aspect_ratio.dart';
 
 /// A decorative placeholder for content whose size is known while loading.
 ///
 /// Omitted dimensions fill bounded constraints and collapse on unbounded axes.
-/// Use [Expanded], [FractionallySizedBox] or [AspectRatio] for relative sizing.
+/// Use [Expanded], [FractionallySizedBox] or [DAspectRatio] for relative sizing.
 /// Dimensions are logical pixels; the host continues to own text scaling.
 ///
 /// Pulses independently, or shares the nearest [DSkeletonRegion]'s animation.

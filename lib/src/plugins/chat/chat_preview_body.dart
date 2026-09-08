@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../discourse_ui.dart';
+
 import '../../foundation/diagnostic_errors.dart';
 import '../../shell/code_block.dart';
 import '../../shell/image_decode.dart';
@@ -155,8 +157,8 @@ class _OptimisticGif extends StatelessWidget {
         constraints: BoxConstraints(maxWidth: width, maxHeight: _maxHeight),
         child: ColoredBox(
           color: theme.shell.floating,
-          child: AspectRatio(
-            aspectRatio: ratio,
+          child: DAspectRatio(
+            ratio: ratio,
             child: SiteImage(
               key: const ValueKey('chat-preview-gif'),
               url: node.url.toString(),

@@ -3,6 +3,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../discourse_ui.dart';
+
 import '../../foundation/diagnostic_errors.dart';
 import '../../shell/image_decode.dart';
 import '../../shell/inline_video.dart';
@@ -129,7 +131,7 @@ class _Image extends StatelessWidget {
     );
 
     if (ratio != null) {
-      picture = AspectRatio(aspectRatio: ratio, child: picture);
+      picture = DAspectRatio(ratio: ratio, child: picture);
     }
 
     return Semantics(

@@ -5,12 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:html/dom.dart' as dom;
 
+import '../../discourse_ui.dart';
+
 import '../data/api_credentials.dart';
 import '../data/http_transport.dart';
 import '../data/site_lifecycle.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/uri_path.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -301,25 +302,28 @@ class _InlineVideoState extends State<InlineVideo> {
           final availableWidth = constraints.maxWidth.isFinite
               ? constraints.maxWidth
               : 720.0;
-          var width = math.min(
+          final width = math.min(
             availableWidth,
             widget.maximumWidth ?? availableWidth,
           );
-          var height = width / widget.data.aspectRatio;
-          height = math.min(height, widget.maximumHeight ?? height);
-          width = math.min(width, height * widget.data.aspectRatio);
-          final surface = SizedBox(
-            width: width,
-            height: height,
-            child: _loaded
-                ? _buildPlayer(context)
-                : _buildPoster(context, Size(width, height)),
-          );
           return Align(
             alignment: Alignment.centerLeft,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: surface,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: width,
+                maxHeight: widget.maximumHeight ?? double.infinity,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: DAspectRatio(
+                  ratio: widget.data.aspectRatio,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => _loaded
+                        ? _buildPlayer(context)
+                        : _buildPoster(context, constraints.biggest),
+                  ),
+                ),
+              ),
             ),
           );
         },
@@ -669,8 +673,8 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
                 fit: StackFit.expand,
                 children: [
                   Center(
-                    child: AspectRatio(
-                      aspectRatio: presentation.aspectRatio,
+                    child: DAspectRatio(
+                      ratio: presentation.aspectRatio,
                       child: _fullscreenOpen
                           ? const SizedBox.shrink()
                           : playerBuilder(),
@@ -842,8 +846,8 @@ class _InlineVideoFullscreenState extends State<_InlineVideoFullscreen> {
                   fit: StackFit.expand,
                   children: [
                     Center(
-                      child: AspectRatio(
-                        aspectRatio: presentation.aspectRatio,
+                      child: DAspectRatio(
+                        ratio: presentation.aspectRatio,
                         child: playerBuilder(),
                       ),
                     ),
