@@ -806,7 +806,7 @@
         "No VoiceOver audit; some native accessibility snapshots were sparse. Widget tests verify semantic grouping and keyboard/focus behavior. Preferences, Categories, Aggregate, Voice diagnostics and cooked/request fallback migrations have focused test coverage but were not individually inspected natively.",
         "Adjacent Button/Input/Badge/Toggle Group visuals remain pending their owners, as documented in the examples. Native inspected build displayed baseline status before the final metadata-only promotion to implemented."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "4c0dcc6b4fea696768722afae8837d80fbd43b40",
       "mergeCommit": null
     },
     {
