@@ -11,6 +11,8 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -1004,6 +1006,88 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+
+    for (final (name, target, whisper, label, icon) in [
+      ('reply', _replyTarget, false, 'Reply', DIcons.reply),
+      ('whisper', _replyTarget, true, 'Whisper', DIcons.reply),
+      (
+        'edit',
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 7,
+          slug: 'a-topic',
+          topicTitle: 'A topic',
+          editingPostId: 8,
+          editingPostNumber: 2,
+        ),
+        false,
+        'Save',
+        DIcons.reply,
+      ),
+      (
+        'new topic',
+        _newTopicTarget,
+        false,
+        'Create topic',
+        DIcons.farPenToSquare,
+      ),
+    ]) {
+      testWidgets('narrow $name footer submits from its labeled icon', (
+        tester,
+      ) async {
+        final composer = ComposerController(target)..setWhisper(whisper);
+        final shell = await _InteractionTrackingShellController.create();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpFloatingPanel(
+          tester,
+          shell,
+          composer,
+          size: const Size(340, 650),
+          textScaler: const TextScaler.linear(1.5),
+        );
+
+        final submit = find.byKey(const ValueKey('composer-submit'));
+        expect(
+          find.descendant(of: submit, matching: find.text(label)),
+          findsNothing,
+        );
+        expect(
+          tester
+              .widget<DIcon>(
+                find.descendant(of: submit, matching: find.byType(DIcon)),
+              )
+              .icon,
+          icon,
+        );
+        expect(find.byTooltip(label), findsOneWidget);
+        expect(tester.widget<FilledButton>(submit).onPressed, isNull);
+        final semantics = tester.ensureSemantics();
+        try {
+          expect(tester.getSemantics(submit).label, label);
+        } finally {
+          semantics.dispose();
+        }
+        expect(
+          tester.getCenter(submit).dy,
+          closeTo(
+            tester
+                .getCenter(find.byKey(const ValueKey('composer-formatting')))
+                .dy,
+            1,
+          ),
+        );
+
+        composer.title.text = 'A title';
+        composer.text.text = 'A message ready to submit.';
+        await tester.pump();
+        expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
+        await tester.tap(submit);
+        await tester.pump();
+        expect(shell.submitCalls, 1);
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('does not show toolbar chevrons when all tools fit', (
       tester,

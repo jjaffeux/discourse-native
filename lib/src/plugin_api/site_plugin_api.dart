@@ -25,6 +25,7 @@ import 'plugin_icon_catalog.dart';
 
 export 'background_retention.dart';
 export 'composer_component.dart';
+export 'composer_footer_layout.dart';
 export 'composer_syntax.dart';
 export 'emoji_usage.dart';
 export 'hashtag_kind.dart';
@@ -432,6 +433,8 @@ abstract interface class ComposerHeaderPlugin {
 }
 
 /// Adds compact controls beside the composer's submit button.
+/// Controls can read `ComposerFooterLayout.isCompactOf(context)` when building
+/// to hide optional labels at the same width as the submit button.
 abstract interface class ComposerFooterPlugin {
   List<Widget> composerFooter(BuildContext context, ComposerEditorHost editor);
 }

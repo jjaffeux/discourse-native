@@ -61,6 +61,7 @@ class _ProofreadToggle extends StatelessWidget {
       final theme = Theme.of(context);
       final enabled = controller.isEnabled(composer);
       final interactive = composer.isEditing && !composer.loadingBody;
+      final compact = ComposerFooterLayout.isCompactOf(context);
       return Tooltip(
         message: 'Proofread automatically before posting',
         child: Semantics(
@@ -81,13 +82,15 @@ class _ProofreadToggle extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Proofread',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  if (!compact) ...[
+                    Text(
+                      'Proofread',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
+                    const SizedBox(width: 4),
+                  ],
                   ExcludeSemantics(
                     child: IgnorePointer(
                       child: SizedBox(
