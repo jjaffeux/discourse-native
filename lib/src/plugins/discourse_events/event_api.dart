@@ -5,8 +5,9 @@ import '../../plugin_api/core_plugin_host.dart' show PluginRequestCredentials;
 import 'event_data.dart';
 
 final class EventApi {
-  const EventApi(this.transport);
+  const EventApi(this.transport, {this.clock = DateTime.now});
   final PluginApiTransport transport;
+  final DateTime Function() clock;
 
   String _path(int id) {
     if (id <= 0) throw ArgumentError.value(id, 'eventId');
@@ -31,7 +32,8 @@ final class EventApi {
     return event;
   }
 
-  /// [upcoming] uses the server's current time unless [after] is provided.
+  /// Upcoming bounds use ISO timestamps, as Discourse's web calendar does.
+  /// Older event controllers cannot expand occurrences with `after=now`.
   Future<List<PostEvent>> list(
     String site,
     PluginRequestCredentials credentials, {
@@ -41,6 +43,7 @@ final class EventApi {
     DateTime? after,
     DateTime? before,
   }) async {
+    final startsAfter = after ?? (upcoming ? clock() : null);
     final path = Uri(
       path: '/discourse-post-event/events.json',
       queryParameters: {
@@ -51,7 +54,7 @@ final class EventApi {
         'attending_user': ?attendingUser,
         if (attendingUser != null) 'include_interested': 'true',
         'search': ?search,
-        'after': ?after?.toUtc().toIso8601String() ?? (upcoming ? 'now' : null),
+        'after': ?startsAfter?.toUtc().toIso8601String(),
         'before': ?before?.toUtc().toIso8601String(),
       },
     ).toString();

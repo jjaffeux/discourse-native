@@ -8,6 +8,7 @@ import 'package:discourse_native/src/plugins/discourse_events/event_controller.d
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 
 const eventSite = 'https://forum.example';
+DateTime eventTestNow() => DateTime.utc(2026, 9, 8, 8);
 Map<String, dynamic> eventJson({Map<String, Object?> overrides = const {}}) => {
   'id': 42,
   'name': 'Engineering Managers Call',
@@ -71,7 +72,7 @@ final class EventTestPorts {
       changes: environment,
     );
     controller = EventController(
-      api: EventApi(this.transport),
+      api: EventApi(this.transport, clock: eventTestNow),
       requests: requests,
       posts: posts,
       siteState: PluginSiteStateHost(

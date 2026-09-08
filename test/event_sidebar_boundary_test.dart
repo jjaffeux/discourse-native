@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
@@ -8,16 +10,16 @@ import 'package:discourse_native/src/plugins/discourse_events/event_directory.da
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/event_fixtures.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
 const _manifest = PluginManifest([discourseEventsModule]);
-const _upcomingPath =
-    '/discourse-post-event/events.json?include_details=true&include_ongoing=true&order=asc&limit=200&search&after=now';
-const _minePath =
-    '/discourse-post-event/events.json?include_details=true&include_ongoing=true&order=asc&limit=200&attending_user=lee&include_interested=true&search&after=now';
+const _eventsPath = '/discourse-post-event/events.json';
 
 SiteConfig _config([Map<String, dynamic> overrides = const {}]) =>
     installedPlugins.models.siteConfig({
@@ -32,19 +34,47 @@ void main() {
     ('desktop account', desktop, const DiscourseUser(id: 2, username: 'lee')),
     ('anonymous phone', phone, null),
   ]) {
-    testWidgets('$label opens native events from the main sidebar', (
+    testWidgets('$label loads events from a server requiring ISO date bounds', (
       tester,
     ) async {
       final site = instance(
         'forum.example',
       ).copyWith(user: user, config: _config());
-      final api = FakeDiscourseApi(
+      final requests = <http.Request>[];
+      final eventApi = DiscourseApi(
+        client: MockClient((request) async {
+          requests.add(request);
+          // Older EventsController versions call String#to_datetime while
+          // expanding nonempty results, even though Finder accepts "now".
+          if (DateTime.tryParse(request.url.queryParameters['after'] ?? '') ==
+              null) {
+            return http.Response('{"errors":["invalid date"]}', 500);
+          }
+          return http.Response(
+            jsonEncode({
+              'events': [
+                eventJson(
+                  overrides: {
+                    'occurrences': [
+                      {
+                        'starts_at': '2026-09-08T23:00:00+02:00',
+                        'ends_at': '2026-09-09T00:00:00+02:00',
+                      },
+                    ],
+                  },
+                ),
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+      addTearDown(eventApi.close);
+      final api = _EventListApi(
+        events: eventApi,
         user: user,
         siteConfigs: {site.url: site.config},
-        pluginResponses: const {
-          'GET $_upcomingPath': {'events': <Object?>[]},
-          'GET $_minePath': {'events': <Object?>[]},
-        },
       );
       await pumpShell(
         tester,
@@ -70,8 +100,11 @@ void main() {
       expect(controller.currentContent?.id, 'events-upcoming');
       expect(controller.destinationId, 'events-upcoming');
       expect(find.byType(EventDirectory), findsOneWidget);
-      expect(find.text('No upcoming events.'), findsOneWidget);
-      expect(api.pluginReadPaths, [_upcomingPath]);
+      expect(find.text('Engineering Managers Call'), findsOneWidget);
+      expect(requests.map((request) => (request.method, request.url.path)), [
+        ('GET', _eventsPath),
+      ]);
+      expect(requests.single.url.queryParameters, _query());
 
       if (user != null) {
         await tester.tap(contentText('My events'));
@@ -79,7 +112,12 @@ void main() {
 
         expect(controller.currentContent?.id, 'events-mine');
         expect(controller.destinationId, 'events-upcoming');
-        expect(api.pluginReadPaths, [_upcomingPath, _minePath]);
+        expect(find.text('Engineering Managers Call'), findsOneWidget);
+        expect(requests.map((request) => (request.method, request.url.path)), [
+          ('GET', _eventsPath),
+          ('GET', _eventsPath),
+        ]);
+        expect(requests.last.url.queryParameters, _query(mine: true));
       } else {
         expect(find.byType(InstanceSidebar), findsNothing);
         controller.handleBack(canReturnToSidebar: true);
@@ -152,4 +190,40 @@ void main() {
     );
     expect(sidebarDestination('Upcoming events'), findsOneWidget);
   });
+}
+
+Map<String, Object> _query({bool mine = false}) => {
+  'include_details': 'true',
+  'include_ongoing': 'true',
+  'order': 'asc',
+  'limit': '200',
+  if (mine) 'attending_user': 'lee',
+  if (mine) 'include_interested': 'true',
+  'search': '',
+  'after': isA<String>().having(DateTime.tryParse, 'ISO timestamp', isNotNull),
+};
+
+final class _EventListApi extends FakeDiscourseApi {
+  _EventListApi({required this.events, super.user, super.siteConfigs});
+  final DiscourseApi events;
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) => Uri.parse(path).path == _eventsPath
+      ? events.pluginGetJson(
+          siteUrl: siteUrl,
+          path: path,
+          apiKey: apiKey,
+          clientId: clientId,
+        )
+      : super.pluginGetJson(
+          siteUrl: siteUrl,
+          path: path,
+          apiKey: apiKey,
+          clientId: clientId,
+        );
 }
