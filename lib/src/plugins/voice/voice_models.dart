@@ -690,8 +690,15 @@ class VoiceRoomDraft {
   };
 }
 
+// DateTime supports 100,000,000 days on either side of the epoch. Bound
+// seconds before multiplication, which can overflow even for finite values.
+const _maximumVoiceDateSeconds = 100000000 * Duration.secondsPerDay;
+
 DateTime? _voiceDate(Object? value) => switch (value) {
-  final num seconds when seconds.isFinite =>
+  final num seconds
+      when seconds.isFinite &&
+          seconds >= -_maximumVoiceDateSeconds &&
+          seconds <= _maximumVoiceDateSeconds =>
     DateTime.fromMillisecondsSinceEpoch((seconds * 1000).round(), isUtc: true),
   _ => jsonDate(value),
 };

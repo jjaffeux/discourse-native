@@ -13,6 +13,24 @@ List<Map<String, dynamic>> fixtureList(String name) =>
             as List<dynamic>)
         .cast<Map<String, dynamic>>();
 
+const _invalidTimestampSeconds = <num>[
+  8640000000001,
+  -8640000000001,
+  8640000000000.001,
+  -8640000000000.001,
+  9223372036854775807,
+  -9223372036854775808,
+  1e20,
+  -1e20,
+  1e308,
+  -1e308,
+  double.maxFinite,
+  -double.maxFinite,
+  double.nan,
+  double.infinity,
+  double.negativeInfinity,
+];
+
 const _callRoomJson = <String, Object?>{
   'id': 9,
   'name': '📞 sam + kim',
@@ -195,6 +213,31 @@ void main() {
   group('call room ringing', () {
     VoiceRoom callRoom({bool ephemeral = true}) =>
         VoiceRoom.fromJson({..._callRoomJson, 'ephemeral': ephemeral});
+
+    test('keeps valid rings when another timestamp is invalid', () {
+      final payload = {
+        ..._callRoomJson,
+        'ephemeral': true,
+        'ringing': const [
+          {
+            'user': {'id': 4, 'username': 'invalid'},
+            'notified_at': 9223372036854775807,
+          },
+          {
+            'user': {'id': 3, 'username': 'kim'},
+            'notified_at': 1786204800,
+          },
+        ],
+      };
+      final room = VoiceRoom.fromJson(payload);
+
+      expect(room.id, 9);
+      expect(room.participants.single.username, 'sam');
+      expect(
+        room.ringing.map((entry) => (entry.user.username, entry.notifiedAt)),
+        [('kim', DateTime.utc(2026, 8, 8, 16))],
+      );
+    });
 
     test('keeps rung users that are absent and still within the window', () {
       final room = callRoom();
@@ -521,33 +564,188 @@ void main() {
     });
   });
 
-  group('participant timestamp parsing', () {
-    test('bounds and safely ignores malformed hand-raise dates', () {
-      Map<String, dynamic> participant(Object? handRaisedAt) => {
-        'id': 1,
-        'username': 'sam',
-        'role': 'participant',
-        'hand_raised_at': handRaisedAt,
-      };
+  group('timestamp parsing', () {
+    VoiceParticipant participant(Object? handRaisedAt) =>
+        VoiceParticipant.fromJson({
+          'id': 1,
+          'username': 'sam',
+          'role': 'participant',
+          'hand_raised_at': handRaisedAt,
+        });
 
-      expect(
-        VoiceParticipant.fromJson(
-          participant('2026-08-12T12:34:56Z'),
-        ).handRaisedAt,
-        DateTime.utc(2026, 8, 12, 12, 34, 56),
-      );
-      expect(
-        VoiceParticipant.fromJson(participant('2' * 200000)).handRaisedAt,
-        isNull,
-      );
-      expect(
-        VoiceParticipant.fromJson(participant(double.nan)).handRaisedAt,
-        isNull,
-      );
-      expect(
-        VoiceParticipant.fromJson(participant(double.infinity)).handRaisedAt,
-        isNull,
-      );
+    test('preserves UTC seconds and rounds fractional milliseconds', () {
+      for (final (seconds, milliseconds) in <(num, int)>[
+        (0, 0),
+        (-1, -1000),
+        (1786204800, 1786204800000),
+        (1786204800.25, 1786204800250),
+        (-1786204800.25, -1786204800250),
+        (0.0004, 0),
+        (-0.0004, 0),
+        (0.0005, 1),
+        (-0.0005, -1),
+        (1.2344, 1234),
+        (-1.2344, -1234),
+        (1.2345, 1235),
+        (-1.2345, -1235),
+        (1.9996, 2000),
+        (-1.9996, -2000),
+        (8639999999999.999, 8639999999999999),
+        (-8639999999999.999, -8639999999999999),
+      ]) {
+        expect(
+          participant(seconds).handRaisedAt,
+          DateTime.fromMillisecondsSinceEpoch(milliseconds, isUtc: true),
+          reason: '$seconds seconds',
+        );
+      }
+    });
+
+    test('accepts both date limits as integer and double seconds', () {
+      for (final seconds in <num>[8640000000000, 8640000000000.0]) {
+        expect(
+          participant(seconds).handRaisedAt,
+          DateTime.utc(275760, 9, 13),
+          reason: '$seconds seconds',
+        );
+      }
+      for (final seconds in <num>[-8640000000000, -8640000000000.0]) {
+        expect(
+          participant(seconds).handRaisedAt,
+          DateTime.utc(-271821, 4, 20),
+          reason: '$seconds seconds',
+        );
+      }
+    });
+
+    test('preserves ISO dates, offsets, and date limits', () {
+      for (final (timestamp, expected) in [
+        ('2026-08-12T12:34:56Z', DateTime.utc(2026, 8, 12, 12, 34, 56)),
+        (
+          '2026-08-12T14:34:56.123456+02:00',
+          DateTime.utc(2026, 8, 12, 12, 34, 56, 123, 456),
+        ),
+        ('+275760-09-13T00:00:00Z', DateTime.utc(275760, 9, 13)),
+        ('-271821-04-20T00:00:00Z', DateTime.utc(-271821, 4, 20)),
+      ]) {
+        expect(
+          participant(timestamp).handRaisedAt,
+          expected,
+          reason: timestamp,
+        );
+      }
+    });
+
+    test('bounds and safely ignores malformed hand-raise dates', () {
+      for (final timestamp in <Object?>[
+        null,
+        true,
+        <String, Object?>{},
+        'invalid',
+        '+275760-09-13T00:00:00.001Z',
+        '-271821-04-19T23:59:59.999Z',
+      ]) {
+        expect(
+          participant(timestamp).handRaisedAt,
+          isNull,
+          reason: '$timestamp',
+        );
+      }
+      expect(participant('2' * 200000).handRaisedAt, isNull);
+    });
+
+    for (final seconds in _invalidTimestampSeconds) {
+      test('clears an invalid participant timestamp of $seconds', () {
+        final user = participant(seconds);
+
+        expect((user.id, user.username), (1, 'sam'));
+        expect(user.handRaisedAt, isNull);
+      });
+    }
+
+    test('drops rings and incoming calls with invalid required timestamps', () {
+      for (final seconds in _invalidTimestampSeconds) {
+        final ring = <String, dynamic>{
+          'user': {'id': 3, 'username': 'kim'},
+          'notified_at': seconds,
+        };
+
+        expect(VoiceRingingEntry.fromJson(ring), isNull, reason: '$seconds');
+        expect(
+          VoiceIncomingCall.fromJson({
+            'room_id': 9,
+            'room_slug': 'call-1a2b',
+            'caller_username': 'kim',
+            'sent_at': seconds,
+          }),
+          isNull,
+          reason: '$seconds',
+        );
+        expect(
+          VoiceRoomEvent.fromJson({'type': 'ringing', ...ring}),
+          isNull,
+          reason: '$seconds',
+        );
+      }
+    });
+
+    test('keeps invite suggestions with invalid optional timestamps', () {
+      for (final seconds in _invalidTimestampSeconds) {
+        final suggestion = VoiceInviteSuggestion.fromJson({
+          'id': 3,
+          'username': 'kim',
+          'total_seconds': 90,
+          'last_together_at': seconds,
+        })!;
+
+        expect(
+          (
+            suggestion.user.username,
+            suggestion.totalSeconds,
+            suggestion.lastTogetherAt,
+          ),
+          ('kim', 90, null),
+          reason: '$seconds',
+        );
+      }
+    });
+
+    test('keeps hand-raise events with invalid optional timestamps', () {
+      for (final seconds in _invalidTimestampSeconds) {
+        final event =
+            VoiceRoomEvent.fromJson({
+                  'type': 'hand_raise',
+                  'user_id': 3,
+                  'raised': true,
+                  'raised_at': seconds,
+                  'reason': 'raised',
+                })
+                as VoiceHandRaiseEvent;
+
+        expect(
+          (event.userId, event.raised, event.reason, event.raisedAt),
+          (3, true, 'raised', null),
+          reason: '$seconds',
+        );
+      }
+    });
+
+    test('keeps recording events with invalid optional timestamps', () {
+      for (final seconds in _invalidTimestampSeconds) {
+        final event =
+            VoiceRoomEvent.fromJson({
+                  'type': 'recording',
+                  'recording': {'started_by_id': 3, 'started_at': seconds},
+                })
+                as VoiceRecordingEvent;
+        final recording = event.recording!;
+
+        expect(
+          (recording.active, recording.startedById, recording.startedAt),
+          (true, 3, null),
+          reason: '$seconds',
+        );
+      }
     });
   });
 
