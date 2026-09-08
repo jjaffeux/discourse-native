@@ -160,7 +160,7 @@
         "Native mouse selection and composed keyboard actions were inspected. Copy/Select All shortcuts were verified in widget tests for macOS/Linux, not conclusively through CUA on this AZERTY machine; the native Cocoa Edit menu is not the Flutter SelectionArea context menu.",
         "Table is fully accounted for as the frozen typography composition; general Table component behavior belongs to its later catalogue task. No implementation issue remains known after the focused checks."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "0cbe706eeb4dd373068a56cae5d84fa420c6c6bc",
       "mergeCommit": null
     },
     {
