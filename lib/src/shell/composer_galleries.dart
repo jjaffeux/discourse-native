@@ -27,22 +27,36 @@ class ComposerImageGalleryInputFormatter extends TextInputFormatter {
     if (galleries.isEmpty) return newValue;
 
     var replacementStart = 0;
-    final sharedLength = math.min(oldValue.text.length, newValue.text.length);
-    while (replacementStart < sharedLength &&
-        oldValue.text.codeUnitAt(replacementStart) ==
-            newValue.text.codeUnitAt(replacementStart)) {
-      replacementStart++;
-    }
     var sharedSuffixLength = 0;
-    while (sharedSuffixLength < oldValue.text.length - replacementStart &&
-        sharedSuffixLength < newValue.text.length - replacementStart &&
-        oldValue.text.codeUnitAt(
-              oldValue.text.length - sharedSuffixLength - 1,
-            ) ==
-            newValue.text.codeUnitAt(
-              newValue.text.length - sharedSuffixLength - 1,
-            )) {
-      sharedSuffixLength++;
+    final selection = oldValue.selection;
+    if (selection.isValid &&
+        !selection.isCollapsed &&
+        selection.end <= oldValue.text.length &&
+        newValue.text.length >=
+            oldValue.text.length - selection.end + selection.start &&
+        newValue.text.startsWith(oldValue.text.substring(0, selection.start)) &&
+        newValue.text.endsWith(oldValue.text.substring(selection.end))) {
+      // A selected replacement may reuse the gallery's delimiters. Trust its
+      // full range only when the text outside that selection still matches.
+      replacementStart = selection.start;
+      sharedSuffixLength = oldValue.text.length - selection.end;
+    } else {
+      final sharedLength = math.min(oldValue.text.length, newValue.text.length);
+      while (replacementStart < sharedLength &&
+          oldValue.text.codeUnitAt(replacementStart) ==
+              newValue.text.codeUnitAt(replacementStart)) {
+        replacementStart++;
+      }
+      while (sharedSuffixLength < oldValue.text.length - replacementStart &&
+          sharedSuffixLength < newValue.text.length - replacementStart &&
+          oldValue.text.codeUnitAt(
+                oldValue.text.length - sharedSuffixLength - 1,
+              ) ==
+              newValue.text.codeUnitAt(
+                newValue.text.length - sharedSuffixLength - 1,
+              )) {
+        sharedSuffixLength++;
+      }
     }
     final replacementEnd = oldValue.text.length - sharedSuffixLength;
 

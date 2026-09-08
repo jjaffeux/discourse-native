@@ -1336,6 +1336,79 @@ void main() {
     });
   });
 
+  group('gallery native replacements', () {
+    const block = '[grid]\n![one](upload://one)\n[/grid]';
+    const newGallery = '[grid]\n![new](upload://new)\n[/grid]';
+    const quote = '[quote="sam"]\nUnchanged quote.\n[/quote]';
+
+    for (final (name, before, after, replacement) in [
+      ('bracket', '', '', '['),
+      ('gallery', '', '', newGallery),
+      ('gallery beside a quote', '$quote\n\n', '\n\nAfter', newGallery),
+    ]) {
+      for (final reversed in [false, true]) {
+        testWidgets('replaces a selected $name with reversed=$reversed', (
+          tester,
+        ) async {
+          final composer = ComposerController(
+            _target,
+            resolveUploadUrls: (_) async => const {},
+          );
+          final shell = ShellController(
+            instanceStore: FakeInstanceStore(),
+            api: FakeDiscourseApi(),
+            authenticator: FakeAuthenticator(),
+            drafts: FakeDraftStore(),
+            trackers: FakeSiteTracker.reset(),
+          );
+          await shell.load();
+          addTearDown(composer.dispose);
+          addTearDown(shell.dispose);
+          composer.text.text = '$before$block$after';
+
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.dark,
+              home: ShellScope(
+                controller: shell,
+                child: Scaffold(body: ComposerPanel(composer: composer)),
+              ),
+            ),
+          );
+          await tester.showKeyboard(find.byType(TextField));
+          final selection = TextSelection(
+            baseOffset: before.length + (reversed ? block.length : 0),
+            extentOffset: before.length + (reversed ? 0 : block.length),
+          );
+          composer.text.selection = selection;
+          await tester.pump();
+          expect(composer.text.selection, selection);
+
+          final newValue = TextEditingValue(
+            text: '$before$replacement$after',
+            selection: TextSelection.collapsed(
+              offset: before.length + replacement.length,
+            ),
+          );
+          tester.testTextInput.updateEditingValue(newValue);
+          await tester.pump();
+
+          expect(composer.text.value, newValue);
+          if (replacement == newGallery) {
+            final gallery = composer.text.galleryBlocks.single;
+            expect(gallery.start, before.length);
+            expect(gallery.end, before.length + replacement.length);
+            expect(gallery.images.single.url, 'upload://new');
+            expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);
+          } else {
+            expect(composer.text.galleryBlocks, isEmpty);
+            expect(find.byType(ComposerImageGalleryPreview), findsNothing);
+          }
+        });
+      }
+    }
+  });
+
   group('gallery reordering', () {
     testWidgets('requests the dragged image and destination index', (
       tester,
