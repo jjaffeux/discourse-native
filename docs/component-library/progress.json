@@ -763,9 +763,9 @@
     },
     {
       "id": "card",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a082d9-6c59-7443-8e64-f76105fd5e56",
+      "branch": "codex/ui-card",
       "dependencies": [
         "typography"
       ],
@@ -776,7 +776,10 @@
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "clientThreadId": "client-new-thread:9ce651a0-9d90-4b15-a53d-3ce86e3821a4",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5995/discourse-native",
+      "baseCommit": "f23ee956e2197452d3aab40e98933543e5eeb5f2"
     },
     {
       "id": "empty",
