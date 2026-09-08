@@ -5123,7 +5123,7 @@ class ShellController extends FrameSafeNotifier
         list,
         title: title,
         color: category == null ? null : Color(category.colorValue),
-      );
+      ).resolveCategoryLink(filterCategoriesFor(instance.url));
     } else if (badge != null) {
       route = ContentRoute.badges(badge, title: title);
     } else if (group != null) {
@@ -5469,7 +5469,7 @@ class ShellController extends FrameSafeNotifier
       link,
       title: title,
       color: category == null ? null : Color(category.colorValue),
-    );
+    ).resolveCategoryLink(filterCategoriesFor(_instances[index].url));
 
     if (currentContent?.id == route.id) {
       if (rootChanged) _notify();
@@ -5707,6 +5707,14 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     int topicId,
     ContentRoute Function(ContentRoute route) rewrite,
+  ) => _rewriteContentRoutes(
+    siteUrl,
+    (route) => route.topicId == topicId ? rewrite(route) : route,
+  );
+
+  void _rewriteContentRoutes(
+    String siteUrl,
+    ContentRoute Function(ContentRoute route) rewrite,
   ) {
     final workspace = _forumWorkspaces[siteUrl];
     if (workspace == null) return;
@@ -5717,10 +5725,6 @@ class ShellController extends FrameSafeNotifier
       List<ContentRoute> rewriteRoutes(List<ContentRoute> source) {
         final routes = <ContentRoute>[];
         for (final route in source) {
-          if (route.topicId != topicId) {
-            routes.add(route);
-            continue;
-          }
           final updated = rewrite(route);
           routes.add(updated);
           tabChanged = tabChanged || !identical(updated, route);
@@ -12265,6 +12269,10 @@ class ShellController extends FrameSafeNotifier
     };
     _categoriesBySite[siteUrl] = List.unmodifiable(byId.values);
     _categorySidebarCache.remove(siteUrl);
+    _rewriteContentRoutes(
+      siteUrl,
+      (route) => route.resolveCategoryLink(byId.values),
+    );
   }
 
   final Map<String, Object> _categoryPageRequests = {};
@@ -12697,6 +12705,10 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _hydrateActiveTab(DiscourseInstance instance) {
+    _rewriteContentRoutes(
+      instance.url,
+      (route) => route.resolveCategoryLink(filterCategoriesFor(instance.url)),
+    );
     final tab = activeTab;
     if (tab == null || currentInstance?.url != instance.url) return;
 
@@ -13000,7 +13012,7 @@ class ShellController extends FrameSafeNotifier
       category: categoryFor(source?.categoryId),
       tagName: source?.tagName,
       tags: source?.tagNames ?? const [],
-    );
+    ).withTopicListQueryFrom(source);
     _replaceTopicListContent(route, keepTopicOpen: keepTopicOpen);
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
@@ -13068,7 +13080,7 @@ class ShellController extends FrameSafeNotifier
       tagName: normalizedTag,
       tags: tags,
       mode: currentTopicListMode ?? TopicListMode.latest,
-    );
+    ).withTopicListQueryFrom(topicListContent);
     if (route.id == topicListContent?.id &&
         route.feedPath == topicListContent?.feedPath) {
       return;
