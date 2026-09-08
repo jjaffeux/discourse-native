@@ -186,7 +186,7 @@
         "Forced-semantics diagnostic crash reproduces with pre-migration native consumers. The new DSpinner is not necessary to trigger it, but its framework/fixture root cause is unresolved. Reports and exact reproduction are retained in docs/component-library/spinner-native.md and ignored local artifacts; no forced-semantics instrumentation is committed.",
         "On relaunch for the three final example corrections, the native Theme menu stopped responding after typed search. Verified Spinner Fidelity PID 13780 was at 97.6% CPU, with no crash report; a one-second passive sample showed repeated FlutterKeyboardManager/FlutterChannelKeyResponder/FlutterEmbedderKeyResponder message processing. Cause remains unassigned. Sample SHA-256 7fc2c30a768983cea7dd552c4f042f98fae0b80c8c4d6fcd0e2a0020ef8887fd. The app quit normally through its native menu and the slot was released; final correction inspection awaits a follow-up grant."
       ],
-      "implementationCommit": "07ee175c9303ebaa86d0a325aba45ce74dbd8322",
+      "implementationCommit": "ec571d4d64ce8173ea46ee11f06abee0a27e8b33",
       "mergeCommit": null
     },
     {
