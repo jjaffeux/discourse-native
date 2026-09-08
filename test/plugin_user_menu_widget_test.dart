@@ -20,6 +20,8 @@ const _alphaTabKey = ValueKey('user-menu-tab-alpha/activity');
 const _betaTabKey = ValueKey('user-menu-tab-beta/activity');
 const _alphaBodyKey = ValueKey('alpha-user-menu-body');
 const _betaBodyKey = ValueKey('beta-user-menu-body');
+const _railUpCueKey = ValueKey('user-menu-rail-scroll-up');
+const _railDownCueKey = ValueKey('user-menu-rail-scroll-down');
 
 void main() {
   testWidgets('plugin-absent user menu renders no contributed sections', (
@@ -31,6 +33,63 @@ void main() {
     expect(find.byKey(_betaTabKey), findsNothing);
     expect(find.byKey(_alphaBodyKey), findsNothing);
     expect(find.byKey(_betaBodyKey), findsNothing);
+    expect(find.byKey(_railUpCueKey), findsNothing);
+    expect(find.byKey(_railDownCueKey), findsNothing);
+  });
+
+  testWidgets('rail scroll cues follow hidden items and window resizing', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpUserMenu(tester, const PluginManifest([]));
+    await tester.pumpAndSettle();
+
+    final upCue = find.byKey(_railUpCueKey);
+    final downCue = find.byKey(_railDownCueKey);
+    final profile = find.byKey(const ValueKey('user-menu-tab-profile'));
+    final railScroll = find
+        .ancestor(
+          of: find.byKey(const ValueKey('user-menu-tab-all')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+
+    expect(upCue, findsNothing);
+    expect(downCue, findsNothing);
+
+    await tester.binding.setSurfaceSize(const Size(800, 300));
+    await tester.pumpAndSettle();
+    expect(upCue, findsNothing);
+    expect(downCue, findsOneWidget);
+    final profileRect = tester.getRect(profile);
+    expect(tester.getRect(downCue).bottom, lessThan(profileRect.top));
+
+    await tester.dragFrom(tester.getCenter(downCue), const Offset(0, -70));
+    await tester.pumpAndSettle();
+    expect(upCue, findsOneWidget);
+    expect(downCue, findsOneWidget);
+    expect(tester.getRect(profile), profileRect);
+
+    await tester.drag(railScroll, const Offset(0, -600));
+    await tester.pumpAndSettle();
+    expect(upCue, findsOneWidget);
+    expect(downCue, findsNothing);
+    expect(
+      find.byKey(const ValueKey('user-menu-tab-other')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(tester.getRect(profile), profileRect);
+
+    await tester.dragFrom(tester.getCenter(upCue), const Offset(0, 600));
+    await tester.pumpAndSettle();
+    expect(upCue, findsNothing);
+    expect(downCue, findsOneWidget);
+
+    await tester.binding.setSurfaceSize(const Size(800, 600));
+    await tester.pumpAndSettle();
+    expect(upCue, findsNothing);
+    expect(downCue, findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('profile stays pinned while the rail and notifications scroll', (
@@ -59,6 +118,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byKey(_railUpCueKey), findsNothing);
+    expect(find.byKey(_railDownCueKey), findsOneWidget);
     final profile = find.byKey(const ValueKey('user-menu-tab-profile'));
     expect(profile.hitTestable(), findsOneWidget);
     final profileRect = tester.getRect(profile);
@@ -84,6 +145,14 @@ void main() {
       );
       expect(profile.hitTestable(), findsOneWidget);
       expect(tester.getRect(profile), profileRect);
+      expect(
+        find.byKey(_railUpCueKey),
+        scrollable == railScroll ? findsOneWidget : findsNothing,
+      );
+      expect(
+        find.byKey(_railDownCueKey),
+        scrollable == railScroll ? findsNothing : findsOneWidget,
+      );
     }
 
     final lastPlugin = find.byKey(

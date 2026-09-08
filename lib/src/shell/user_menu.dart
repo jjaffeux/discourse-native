@@ -400,7 +400,7 @@ Future<void> _openPluginUserMenuLink(
   await openExternalLink(url);
 }
 
-class _TabRail extends StatelessWidget {
+class _TabRail extends StatefulWidget {
   const _TabRail({
     required this.sections,
     required this.selectedId,
@@ -412,30 +412,94 @@ class _TabRail extends StatelessWidget {
   final ValueChanged<String> onSelect;
 
   @override
+  State<_TabRail> createState() => _TabRailState();
+}
+
+class _TabRailState extends State<_TabRail> {
+  bool _canScrollUp = false;
+  bool _canScrollDown = false;
+
+  void _updateScrollCues(ScrollMetrics metrics) {
+    final canScrollUp = metrics.extentBefore > 1;
+    final canScrollDown = metrics.extentAfter > 1;
+    if (canScrollUp == _canScrollUp && canScrollDown == _canScrollDown) {
+      return;
+    }
+    setState(() {
+      _canScrollUp = canScrollUp;
+      _canScrollDown = canScrollDown;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final profile = sections.firstWhere((section) => section.isProfile);
+    final profile = widget.sections.firstWhere((section) => section.isProfile);
+    final railColor = Color.alphaBlend(
+      theme.colorScheme.onSurface.withValues(alpha: 0.04),
+      theme.shell.floating,
+    );
 
     return Material(
-      color: Color.alphaBlend(
-        theme.colorScheme.onSurface.withValues(alpha: 0.04),
-        theme.shell.floating,
-      ),
+      color: railColor,
       child: Column(
         children: [
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                children: [
-                  for (final section in sections)
-                    if (!section.isProfile)
-                      _TabButton(
-                        section: section,
-                        selected: section.id == selectedId,
-                        onTap: () => onSelect(section.id),
+            child: NotificationListener<ScrollMetricsNotification>(
+              onNotification: (notification) {
+                if (notification.depth == 0) {
+                  _updateScrollCues(notification.metrics);
+                }
+                return false;
+              },
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification.depth == 0) {
+                    _updateScrollCues(notification.metrics);
+                  }
+                  return false;
+                },
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Column(
+                        children: [
+                          for (final section in widget.sections)
+                            if (!section.isProfile)
+                              _TabButton(
+                                section: section,
+                                selected: section.id == widget.selectedId,
+                                onTap: () => widget.onSelect(section.id),
+                              ),
+                        ],
                       ),
-                ],
+                    ),
+                    if (_canScrollUp)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: _RailScrollCue(
+                          key: const ValueKey('user-menu-rail-scroll-up'),
+                          atTop: true,
+                          background: railColor,
+                        ),
+                      ),
+                    if (_canScrollDown)
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: _RailScrollCue(
+                          key: const ValueKey('user-menu-rail-scroll-down'),
+                          atTop: false,
+                          background: railColor,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -444,14 +508,52 @@ class _TabRail extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: _TabButton(
               section: profile,
-              selected: profile.id == selectedId,
-              onTap: () => onSelect(profile.id),
+              selected: profile.id == widget.selectedId,
+              onTap: () => widget.onSelect(profile.id),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _RailScrollCue extends StatelessWidget {
+  const _RailScrollCue({
+    super.key,
+    required this.atTop,
+    required this.background,
+  });
+
+  final bool atTop;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: ExcludeSemantics(
+      child: Container(
+        height: 34,
+        alignment: atTop ? Alignment.topCenter : Alignment.bottomCenter,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: atTop ? Alignment.bottomCenter : Alignment.topCenter,
+            end: atTop ? Alignment.topCenter : Alignment.bottomCenter,
+            colors: [background.withValues(alpha: 0), background],
+            stops: const [0, 0.65],
+          ),
+        ),
+        child: RotatedBox(
+          quarterTurns: atTop ? 2 : 0,
+          child: DIcon(
+            DIcons.chevronDown,
+            size: 14,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _TabButton extends StatelessWidget {
