@@ -23,6 +23,69 @@ const _result = GifResult(
 );
 
 void main() {
+  testWidgets('only a reopened picker can search with a replacement account', (
+    tester,
+  ) async {
+    final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'old-key';
+    final lifecycle = SiteLifecycle();
+    final requests = FakePluginRequestHost(
+      credentials: credentials,
+      lifecycle: lifecycle,
+    );
+    final api = _AccountGifsApi();
+    GifResult? selected;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () async {
+                selected = await showGifPicker(
+                  context: context,
+                  siteUrl: _siteUrl,
+                  api: api,
+                  requests: requests,
+                  settings: const GifsSettings(enabled: true),
+                );
+              },
+              child: const Text('Open GIF picker'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open GIF picker'));
+    await tester.pumpAndSettle();
+    final search = find.byKey(const ValueKey('gif-picker-search'));
+    await tester.enterText(search, 'private query');
+    await tester.pump(const Duration(milliseconds: 699));
+    lifecycle.invalidate(_siteUrl);
+    credentials.keys[_siteUrl] = 'new-key';
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(api.requests, [(query: null, apiKey: 'old-key')]);
+
+    await tester.tap(find.byKey(const ValueKey('gif-picker-close')));
+    await tester.pumpAndSettle();
+    expect(selected, isNull);
+    await tester.tap(find.text('Open GIF picker'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('gif-category-0')), findsOneWidget);
+    await tester.enterText(search, 'cats');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump();
+    expect(api.requests, [
+      (query: null, apiKey: 'old-key'),
+      (query: null, apiKey: 'new-key'),
+      (query: 'cats', apiKey: 'new-key'),
+    ]);
+    await tester.tap(find.byKey(const ValueKey('gif-result-0')));
+    await tester.pumpAndSettle();
+    expect(selected, _result);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('mobile picker fits above the keyboard and caps the query', (
     tester,
   ) async {
@@ -322,6 +385,39 @@ final class _PaginationFailureApi extends FakeDiscourseApi {
       return GifSearchPage(results: const [_result], nextPosition: 'next');
     }
     throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+  }
+}
+
+final class _AccountGifsApi implements GifsApi {
+  final List<({String? query, String apiKey})> requests = [];
+
+  @override
+  Future<List<GifCategory>> gifCategories({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    requests.add((query: null, apiKey: apiKey));
+    return const [
+      GifCategory(
+        title: 'Cats',
+        imageUrl: 'https://media.klipy.example/cats.webp',
+        searchTerm: 'cats',
+      ),
+    ];
+  }
+
+  @override
+  Future<GifSearchPage> searchGifs({
+    required String siteUrl,
+    required String apiKey,
+    required String query,
+    required String fileDetail,
+    String position = '0',
+    String? clientId,
+  }) async {
+    requests.add((query: query, apiKey: apiKey));
+    return GifSearchPage(results: const [_result]);
   }
 }
 
