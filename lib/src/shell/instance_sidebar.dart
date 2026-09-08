@@ -23,6 +23,7 @@ import 'open_link.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
+import 'site_url.dart';
 import 'user_menu_button.dart';
 
 @immutable
@@ -450,6 +451,17 @@ class _SidebarPanelBody extends StatelessWidget {
                                           _newTopicDestinationId) {
                                         unawaited(
                                           controller.openNewTopicFromSidebar(),
+                                        );
+                                        return;
+                                      }
+                                      if (destination.id == 'admin') {
+                                        unawaited(
+                                          openExternalLink(
+                                            resolveSitePath(
+                                              sidebar.siteUrl!,
+                                              'admin',
+                                            ),
+                                          ),
                                         );
                                         return;
                                       }

@@ -233,7 +233,11 @@ class DiscourseInstance {
   }
 
   List<SidebarSection> get sections {
-    final base = isConnected ? _connectedSections : _anonymousSections;
+    final base = user?.staff == true
+        ? _staffSections
+        : isConnected
+        ? _connectedSections
+        : _anonymousSections;
     final hidden = <String>{
       if (!config.groupDirectoryEnabled && user?.staff != true) 'groups',
       if (!config.userDirectoryEnabled) 'users',
@@ -287,7 +291,12 @@ class DiscourseInstance {
     ),
   ];
 
-  static const List<SidebarSection> _connectedSections = [
+  static final List<SidebarSection> _connectedSections = _withoutDestinations(
+    _staffSections,
+    {'admin'},
+  );
+
+  static const List<SidebarSection> _staffSections = [
     SidebarSection(
       id: 'community',
       title: 'Community',
@@ -310,6 +319,7 @@ class DiscourseInstance {
       ],
       moreDestinations: [
         SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
+        SidebarDestination(id: 'admin', label: 'Admin', icon: DIcons.wrench),
       ],
     ),
   ];
