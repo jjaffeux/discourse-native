@@ -83,6 +83,102 @@ void main() {
       }
     });
 
+    group('inline code', () {
+      final literalCases = <String, String>{
+        'a`b': '``a`b``',
+        'a``b`c': '```a``b`c```',
+        r'a\`b': r'``a\`b``',
+        '`hello': '`` `hello ``',
+        'hello`': '`` hello` ``',
+        '`hello``': '``` `hello`` ```',
+        '`': '`` ` ``',
+        '``': '``` `` ```',
+        ' hello': '` hello`',
+        'hello ': '`hello `',
+        ' hello ': '`  hello  `',
+        '  hello  ': '`   hello   `',
+        ' ': '`   `',
+        '  ': '`    `',
+        '   ': '`     `',
+      };
+
+      for (final entry in literalCases.entries) {
+        test('preserves literal ${jsonEncode(entry.key)} through toggles', () {
+          final original = selected('say [${entry.key}] there');
+
+          final once = toggleMarkdownMark(original, '`');
+
+          expect(once.text, 'say ${entry.value} there');
+          expect(once.selection.textInside(once.text), entry.key);
+          expect(toggleMarkdownMark(once, '`'), original);
+        });
+      }
+
+      test('unwraps complete existing spans with any delimiter length', () {
+        expectToggle('say [`hello`] there', '`', 'say [hello] there');
+        expectToggle('say [``a`b``] there', '`', 'say [a`b] there');
+        expectToggle('say [```a``b`c```] there', '`', 'say [a``b`c] there');
+        expectToggle('say [`a``b`] there', '`', 'say [a``b] there');
+      });
+
+      test('removes only the boundary spaces stripped by Discourse', () {
+        expectToggle('say [`` `hello` ``] there', '`', 'say [`hello`] there');
+        expectToggle('say [`  hello  `] there', '`', 'say [ hello ] there');
+        expectToggle('say [` `] there', '`', 'say [ ] there');
+        expectToggle('say [`  `] there', '`', 'say [  ] there');
+        expectToggle('say [`   `] there', '`', 'say [ ] there');
+      });
+
+      test('unwraps surrounding spans before considering selected ticks', () {
+        expectToggle('say ``[a`b]`` there', '`', 'say [a`b] there');
+        expectToggle('say ```[a``b`c]``` there', '`', 'say [a``b`c] there');
+        expectToggle('say `` [`hello`] `` there', '`', 'say [`hello`] there');
+        expectToggle('say ` [ hello ] ` there', '`', 'say [ hello ] there');
+        expectToggle('say `[  hello  ]` there', '`', 'say [ hello ] there');
+        expectToggle('say ` [hello]` there', '`', 'say  [hello] there');
+      });
+
+      test('does not unwrap unmatched ticks or separate code spans', () {
+        expectToggle(
+          'say [``hello`] there',
+          '`',
+          'say ``` [``hello`] ``` there',
+        );
+        expectToggle('say [`a`b`] there', '`', 'say `` [`a`b`] `` there');
+        expectToggle(
+          'say [`a` and `b`] there',
+          '`',
+          'say `` [`a` and `b`] `` there',
+        );
+      });
+
+      test('keeps reversed UTF-16 selection offsets and clears composing', () {
+        const original = TextEditingValue(
+          text: 'say 🙂`b now',
+          selection: TextSelection(
+            baseOffset: 8,
+            extentOffset: 4,
+            affinity: TextAffinity.upstream,
+            isDirectional: true,
+          ),
+          composing: TextRange(start: 4, end: 8),
+        );
+
+        final once = toggleMarkdownMark(original, '`');
+
+        expect(once.text, 'say ``🙂`b`` now');
+        expect(
+          once.selection,
+          original.selection.copyWith(baseOffset: 10, extentOffset: 6),
+        );
+        expect(once.composing, TextRange.empty);
+        expect(
+          toggleMarkdownMark(once, '`'),
+          original.copyWith(composing: TextRange.empty),
+        );
+      });
+    });
+
     // The example above is one selection over one document. The toolbar is
     // pointed at whatever is on screen, which includes documents made mostly
     // of asterisks — a code block being written, a row of separators, a paste.
