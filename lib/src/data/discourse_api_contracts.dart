@@ -275,7 +275,7 @@ abstract interface class ShellSiteApi {
 
   Future<List<SidebarSection>> customSidebarSections({
     required String siteUrl,
-    required String apiKey,
+    String? apiKey,
     String? clientId,
   });
 

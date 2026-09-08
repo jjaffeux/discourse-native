@@ -221,6 +221,16 @@ Refreshed on launch for every connected site, after connecting, and when
 switching to a site. A failure is swallowed: counters are decoration and a site
 being down must not break the shell.
 
+### Sidebar More links
+
+The Community **More** menu includes each forum's configured secondary links,
+preserving their order, names, and supported icons. Connected accounts load
+`/sidebar_sections.json`; signed-out readers use `anonymous_sidebar_sections`
+from `/site.json`. Native destinations stay available without duplicate rows,
+and site settings and account permissions control the built-in links. Topic,
+group, and supported list links open in the app; other destinations open in the
+browser. The menu refreshes when the account changes.
+
 ### Sidebar tags
 
 The Tags section follows Discourse's own navigation choices. A connected

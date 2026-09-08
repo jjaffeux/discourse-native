@@ -245,6 +245,104 @@ class DiscourseInstance {
     return hidden.isEmpty ? base : _withoutDestinations(base, hidden);
   }
 
+  List<SidebarSection> sectionsWithCustomSections(
+    List<SidebarSection> customSections,
+  ) {
+    final base = sections;
+    final community = base.first;
+    final configuredMore = customSections
+        .where((section) => section.id == 'community')
+        .expand((section) => section.moreDestinations)
+        .toList();
+    return List.unmodifiable([
+      if (configuredMore.isEmpty)
+        community
+      else
+        SidebarSection(
+          id: community.id,
+          title: community.title,
+          showHeader: community.showHeader,
+          collapsible: community.collapsible,
+          destinations: community.destinations,
+          moreDestinations: _communityMoreDestinations(
+            community,
+            configuredMore,
+          ),
+        ),
+      ...base.skip(1),
+      for (final section in customSections)
+        if (section.id != 'community') section,
+    ]);
+  }
+
+  List<SidebarDestination> _communityMoreDestinations(
+    SidebarSection community,
+    List<SidebarDestination> configured,
+  ) {
+    const nativePaths = {
+      '/latest': 'latest',
+      '/my/messages': 'messages',
+      '/my/activity': 'drafts',
+      '/u': 'users',
+      '/filter': 'filter',
+      '/g': 'groups',
+      '/admin': 'admin',
+    };
+    final nativeMore = {
+      for (final destination in community.moreDestinations) destination.id,
+    };
+    final seen = <String>{};
+    final destinations = <SidebarDestination>[];
+    for (final destination in configured) {
+      final value = destination.url;
+      if (nativePaths[value] case final nativeId?) {
+        // A native primary row already exposes this link, and a missing native
+        // row can be hidden by the account's permissions or site settings.
+        if (!nativeMore.contains(nativeId) || !seen.add(nativeId)) continue;
+        destinations.add(
+          SidebarDestination(
+            id: nativeId,
+            label: destination.label,
+            icon: destination.icon,
+          ),
+        );
+      } else {
+        final visible = switch (value) {
+          '/badges' => config.badgesEnabled,
+          '/review' => user?.canReview == true,
+          '/new-invite' => user?.canInviteToForum == true,
+          _ => true,
+        };
+        if (visible) {
+          destinations.add(
+            SidebarDestination(
+              id: destination.id,
+              label: destination.label,
+              icon: destination.icon,
+              // Core's built-in links use routes, which include the forum's
+              // subfolder. Custom URLs retain the server's exact value.
+              url:
+                  const {
+                    '/about',
+                    '/faq',
+                    '/badges',
+                    '/review',
+                    '/new-invite',
+                  }.contains(value)
+                  ? '$url$value'
+                  : value,
+            ),
+          );
+        }
+      }
+    }
+    return List.unmodifiable([
+      ...destinations,
+      for (final destination in community.moreDestinations)
+        if (!seen.contains(destination.id)) destination,
+    ]);
+  }
+
   static List<SidebarSection> _withoutDestinations(
     List<SidebarSection> sections,
     Set<String> hidden,

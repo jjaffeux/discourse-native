@@ -292,7 +292,7 @@ void main() {
 
   group('custom sidebar sections', () {
     test(
-      'reads custom links and excludes Discourse built-in sections',
+      'reads Community More links and custom sections in server order',
       () async {
         final api = DiscourseApi(
           client: MockClient((request) async {
@@ -311,8 +311,30 @@ void main() {
                         'name': 'Topics',
                         'value': '/latest',
                         'icon': 'layer-group',
+                        'segment': 'primary',
                       },
+                      {
+                        'id': 11,
+                        'name': 'About this forum',
+                        'value': '/about',
+                        'icon': 'circle-info',
+                        'segment': 'secondary',
+                      },
+                      {
+                        'id': 12,
+                        'name': 'Documentation',
+                        'value': 'https://example.com/docs',
+                        'icon': 'unknown-icon',
+                        'segment': 'secondary',
+                      },
+                      {'segment': 'secondary', 'name': 'Missing URL'},
                     ],
+                  },
+                  {
+                    'id': 3,
+                    'title': 'Categories',
+                    'section_type': 'categories',
+                    'links': <Object?>[],
                   },
                   {
                     'id': 2,
@@ -346,15 +368,77 @@ void main() {
           apiKey: 'secret',
         );
 
-        expect(sections, hasLength(1));
-        expect(sections.single.title, 'Projects');
+        expect(sections.map((section) => section.id), [
+          'community',
+          'custom-2',
+        ]);
+        final community = sections.first;
+        expect(community.showHeader, isFalse);
+        expect(community.collapsible, isFalse);
+        expect(community.destinations, isEmpty);
         expect(
-          sections.single.destinations.map((destination) => destination.label),
-          ['Roadmap', 'Design files'],
+          community.moreDestinations.map(
+            (destination) =>
+                (destination.label, destination.url, destination.icon),
+          ),
+          [
+            ('About this forum', '/about', DIcons.circleInfo),
+            ('Documentation', 'https://example.com/docs', DIcons.link),
+          ],
         );
-        expect(sections.single.destinations.first.icon, DIcons.fire);
-        expect(sections.single.destinations.last.icon, DIcons.link);
-        expect(sections.single.destinations.first.url, '/c/roadmap/4');
+        final custom = sections.last;
+        expect(custom.title, 'Projects');
+        expect(custom.destinations.map((destination) => destination.label), [
+          'Roadmap',
+          'Design files',
+        ]);
+        expect(custom.destinations.first.icon, DIcons.fire);
+        expect(custom.destinations.last.icon, DIcons.link);
+        expect(custom.destinations.first.url, '/c/roadmap/4');
+      },
+    );
+
+    test(
+      'reads public More links from site JSON without credentials',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            expect(request.url.path, '/forum/site.json');
+            expect(request.headers, isNot(contains('User-Api-Key')));
+            return http.Response(
+              jsonEncode({
+                'anonymous_sidebar_sections': [
+                  {
+                    'id': 1,
+                    'title': 'Community',
+                    'section_type': 'community',
+                    'links': [
+                      {
+                        'id': 11,
+                        'name': 'Guidelines',
+                        'value': '/faq',
+                        'icon': 'circle-question',
+                        'segment': 'secondary',
+                      },
+                    ],
+                  },
+                ],
+              }),
+              200,
+            );
+          }),
+        );
+
+        final sections = await api.customSidebarSections(
+          siteUrl: 'https://forum.example/forum',
+        );
+
+        expect(sections.single.moreDestinations.single.label, 'Guidelines');
+        expect(sections.single.moreDestinations.single.url, '/faq');
+        expect(
+          sections.single.moreDestinations.single.icon,
+          DIcons.circleQuestion,
+        );
       },
     );
 

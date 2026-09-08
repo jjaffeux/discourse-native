@@ -105,11 +105,12 @@ final class DiscourseAccountApi {
 
   Future<List<SidebarSection>> customSidebarSections({
     required String siteUrl,
-    required String apiKey,
+    String? apiKey,
     String? clientId,
   }) async {
+    final authenticated = apiKey != null;
     final body = await _getObject(
-      Uri.parse('$siteUrl/sidebar_sections.json'),
+      Uri.parse('$siteUrl/${authenticated ? 'sidebar_sections' : 'site'}.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
@@ -118,7 +119,11 @@ final class DiscourseAccountApi {
     try {
       final sections = <SidebarSection>[];
       var index = 0;
-      for (final json in jsonObjects(body['sidebar_sections'])) {
+      final values =
+          body[authenticated
+              ? 'sidebar_sections'
+              : 'anonymous_sidebar_sections'];
+      for (final json in jsonObjects(values)) {
         final section = SidebarSection.customFromJson(
           json,
           index: index,

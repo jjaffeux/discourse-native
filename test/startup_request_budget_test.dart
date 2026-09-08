@@ -339,7 +339,7 @@ final class _StartupApi extends FakeDiscourseApi {
   @override
   Future<List<SidebarSection>> customSidebarSections({
     required String siteUrl,
-    required String apiKey,
+    String? apiKey,
     String? clientId,
   }) async {
     sidebarSites.add(siteUrl);
