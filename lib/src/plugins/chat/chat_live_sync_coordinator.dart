@@ -32,6 +32,8 @@ final class ChatLiveSyncHost {
     required this.threadFor,
     required this.hasThreads,
     required this.putChannel,
+    required this.didReceiveChannelEdit,
+    required this.didReceiveChannelStatus,
     required this.putMessage,
     required this.putLiveMessage,
     required this.putThread,
@@ -76,6 +78,9 @@ final class ChatLiveSyncHost {
   final ChatThread? Function(String siteUrl, int threadId) threadFor;
   final bool Function(String siteUrl) hasThreads;
   final void Function(String siteUrl, ChatChannel channel) putChannel;
+  // Settings writes must observe even events that repeat the held values.
+  final void Function(String siteUrl, int channelId) didReceiveChannelEdit;
+  final void Function(String siteUrl, int channelId) didReceiveChannelStatus;
   final void Function(String siteUrl, ChatMessage message) putMessage;
   final void Function(
     String siteUrl,
@@ -1147,6 +1152,7 @@ final class ChatLiveSyncCoordinator {
         ? null
         : _host.channelFor(siteUrl, channelId);
     if (held == null || title == null || slug == null) return;
+    _host.didReceiveChannelEdit(siteUrl, held.id);
     _host.putChannel(
       siteUrl,
       held.withRemoteMetadata(
@@ -1171,6 +1177,7 @@ final class ChatLiveSyncCoordinator {
     }
     final held = _host.channelFor(siteUrl, channelId);
     if (held == null) return;
+    _host.didReceiveChannelStatus(siteUrl, channelId);
     _host.putChannel(
       siteUrl,
       held.withRemoteStatus(ChatChannelStatus.read(rawStatus)),

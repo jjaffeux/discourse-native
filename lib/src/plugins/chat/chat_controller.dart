@@ -420,6 +420,14 @@ class ChatController extends FrameSafeNotifier {
         threadFor: thread,
         hasThreads: hasThreads,
         putChannel: _putChannel,
+        didReceiveChannelEdit: (siteUrl, channelId) {
+          final write = _channelSettingsWrites[_streamKey(siteUrl, channelId)];
+          write?.receivedMetadata = true;
+        },
+        didReceiveChannelStatus: (siteUrl, channelId) {
+          final write = _channelSettingsWrites[_streamKey(siteUrl, channelId)];
+          write?.receivedStatus = true;
+        },
         putMessage: (siteUrl, message) => _store.put(siteUrl, message),
         putLiveMessage: (siteUrl, message, preservePersonalizedState) =>
             _putLiveMessage(
@@ -651,7 +659,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, Object> _channelStarWrites = {};
   final Map<String, Object> _channelNotificationWrites = {};
   final Map<String, Object> _channelFollowWrites = {};
-  final Map<String, Object> _channelSettingsWrites = {};
+  final Map<String, _ChannelSettingsWrite> _channelSettingsWrites = {};
   final Map<({String siteUrl, int messageId}), Object> _messageEditWrites = {};
   final Map<({String siteUrl, int messageId}), Object> _messageDeletionWrites =
       {};
@@ -1138,7 +1146,7 @@ class ChatController extends FrameSafeNotifier {
     if (_channelSettingsWrites.containsKey(key)) {
       return 'Another channel change is still finishing.';
     }
-    final token = Object();
+    final token = _ChannelSettingsWrite();
     final lease = _requests.capture(siteUrl);
     _channelSettingsWrites[key] = token;
     bool isCurrent() =>
@@ -1174,6 +1182,8 @@ class ChatController extends FrameSafeNotifier {
       }
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return null;
+      // Events received before credentials resolved precede this write.
+      token.receivedMetadata = false;
       final fresh = await api.updateChatChannel(
         siteUrl: siteUrl,
         apiKey: apiKey,
@@ -1187,8 +1197,30 @@ class ChatController extends FrameSafeNotifier {
       if (!isCurrent()) return null;
       lease.commit(() {
         final current = channel(siteUrl, channelId);
-        if (current != null) {
-          _putChannel(siteUrl, current.withServerSettings(fresh));
+        if (current != null && fresh.id == current.id) {
+          // PUT returns a full serializer, but only submitted settings belong
+          // to this write. Preserve conflicting live edits; our own event echo
+          // still accepts normalization such as unicode_title from the response.
+          bool acceptsText(String? submitted, String? currentValue) =>
+              submitted != null &&
+              (!token.receivedMetadata || submitted == currentValue);
+
+          var next = current.withRemoteMetadata(
+            title: acceptsText(nextName, current.title)
+                ? fresh.title
+                : current.title,
+            slug: acceptsText(nextSlug, current.slug)
+                ? fresh.slug
+                : current.slug,
+            description: acceptsText(description, current.description)
+                ? fresh.description
+                : current.description,
+          );
+          // /chat/channel-edits does not carry threading_enabled.
+          if (threadingEnabled != null) {
+            next = next.withThreadingEnabled(fresh.threadingEnabled);
+          }
+          _putChannel(siteUrl, next);
         }
         notifySafely();
       });
@@ -1252,7 +1284,7 @@ class ChatController extends FrameSafeNotifier {
     if (_channelSettingsWrites.containsKey(key)) {
       return 'Another channel change is still finishing.';
     }
-    final token = Object();
+    final token = _ChannelSettingsWrite();
     final lease = _requests.capture(siteUrl);
     _channelSettingsWrites[key] = token;
     bool isCurrent() =>
@@ -1268,6 +1300,7 @@ class ChatController extends FrameSafeNotifier {
       if (apiKey == null) return 'Reconnect this site to change the channel.';
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return null;
+      token.receivedStatus = false;
       final fresh = await api.updateChatChannelStatus(
         siteUrl: siteUrl,
         apiKey: apiKey,
@@ -1278,8 +1311,10 @@ class ChatController extends FrameSafeNotifier {
       if (!isCurrent()) return null;
       lease.commit(() {
         final current = channel(siteUrl, channelId);
-        if (current != null) {
-          _putChannel(siteUrl, current.withServerSettings(fresh));
+        if (current != null &&
+            fresh.id == current.id &&
+            !token.receivedStatus) {
+          _putChannel(siteUrl, current.withRemoteStatus(fresh.status));
         }
         notifySafely();
       });
@@ -6068,6 +6103,13 @@ class ChatController extends FrameSafeNotifier {
     _streamRefs.clear();
     super.dispose();
   }
+}
+
+/// Lives only for the existing per-channel settings lock. Separate flags keep
+/// status and text events from claiming fields that their payloads omit.
+final class _ChannelSettingsWrite {
+  bool receivedMetadata = false;
+  bool receivedStatus = false;
 }
 
 final class _QueuedThreadNotification {
