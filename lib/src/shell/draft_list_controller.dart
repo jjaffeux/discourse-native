@@ -13,12 +13,19 @@ import '../models/user_draft.dart';
 
 typedef _DraftDeletionKey = ({String siteUrl, String draftKey});
 typedef _PendingDraftRefresh = ({DiscourseInstance instance, SiteLease lease});
+typedef ListedDraftDeleter =
+    Future<void> Function(
+      String siteUrl,
+      UserDraft draft,
+      bool Function() isCurrent,
+    );
 
 final class DraftListController extends FrameSafeNotifier {
   DraftListController({
     required this.api,
     required this.credentials,
     required this.lifecycle,
+    this.deleteDraft,
   });
 
   static const int pageSize = 30;
@@ -26,6 +33,7 @@ final class DraftListController extends FrameSafeNotifier {
   final DraftsApi api;
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
+  final ListedDraftDeleter? deleteDraft;
 
   final Map<String, DraftFeed> _feeds = {};
   final Map<String, Object> _requests = {};
@@ -166,15 +174,23 @@ final class DraftListController extends FrameSafeNotifier {
     if (!_isCurrentDeletion(lease, identity, request)) return false;
 
     try {
-      final apiKey = await credentials.apiKeyFor(instance.url);
-      if (!_isCurrentDeletion(lease, identity, request)) return false;
-      if (apiKey == null) return false;
-      await api.deleteUserDraft(
-        siteUrl: instance.url,
-        apiKey: apiKey,
-        draftKey: draft.key,
-        sequence: draft.sequence,
-      );
+      if (deleteDraft case final delete?) {
+        await delete(
+          instance.url,
+          draft,
+          () => _isCurrentDeletion(lease, identity, request),
+        );
+      } else {
+        final apiKey = await credentials.apiKeyFor(instance.url);
+        if (!_isCurrentDeletion(lease, identity, request)) return false;
+        if (apiKey == null) return false;
+        await api.deleteUserDraft(
+          siteUrl: instance.url,
+          apiKey: apiKey,
+          draftKey: draft.key,
+          sequence: draft.sequence,
+        );
+      }
       if (!_isCurrentDeletion(lease, identity, request)) return false;
       recordDeleted(instance.url, draft.key, knownToExist: true);
       return true;
