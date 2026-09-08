@@ -311,7 +311,9 @@ class _InlineVideoState extends State<InlineVideo> {
           final surface = SizedBox(
             width: width,
             height: height,
-            child: _loaded ? _buildPlayer(context) : _buildPoster(context),
+            child: _loaded
+                ? _buildPlayer(context)
+                : _buildPoster(context, Size(width, height)),
           );
           return Align(
             alignment: Alignment.centerLeft,
@@ -346,7 +348,7 @@ class _InlineVideoState extends State<InlineVideo> {
     );
   }
 
-  Widget _buildPoster(BuildContext context) {
+  Widget _buildPoster(BuildContext context, Size size) {
     final theme = Theme.of(context);
     final playLabel = 'Play video: ${widget.data.title}';
 
@@ -370,6 +372,7 @@ class _InlineVideoState extends State<InlineVideo> {
                         url: poster,
                         siteUrl: widget.siteUrl,
                         fit: BoxFit.cover,
+                        coverDecodeSize: size,
                         excludeFromSemantics: true,
                         errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),

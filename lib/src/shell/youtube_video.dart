@@ -455,6 +455,7 @@ class _YoutubeVideoState extends State<YoutubeVideo>
               : _YoutubePoster(
                   data: widget.data,
                   siteUrl: widget.siteUrl,
+                  size: nextSize,
                   onPlay: _load,
                 );
 
@@ -553,11 +554,13 @@ class _YoutubePoster extends StatelessWidget {
   const _YoutubePoster({
     required this.data,
     required this.siteUrl,
+    required this.size,
     required this.onPlay,
   });
 
   final YoutubeVideoData data;
   final String? siteUrl;
+  final Size size;
   final VoidCallback onPlay;
 
   @override
@@ -588,6 +591,7 @@ class _YoutubePoster extends StatelessWidget {
                         url: thumbnail,
                         siteUrl: siteUrl,
                         fit: BoxFit.cover,
+                        coverDecodeSize: size,
                         excludeFromSemantics: true,
                         errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),

@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
@@ -55,4 +57,88 @@ ResizeImage memoryImageForLayout(
     height: imagePhysicalPixels(context, logicalSize.height),
     policy: ResizeImagePolicy.fit,
   );
+}
+
+ImageProvider<Object> imageForCover(
+  BuildContext context,
+  ImageProvider<Object> provider, {
+  required Size logicalSize,
+}) => _CoverImage(
+  provider,
+  imagePhysicalPixels(context, logicalSize.width),
+  imagePhysicalPixels(context, logicalSize.height),
+);
+
+@immutable
+final class _CoverImage extends ImageProvider<_CoverImageKey> {
+  const _CoverImage(this.provider, this.width, this.height);
+
+  final ImageProvider<Object> provider;
+  final int width;
+  final int height;
+
+  @override
+  Future<_CoverImageKey> obtainKey(ImageConfiguration configuration) => provider
+      .obtainKey(configuration)
+      .then((key) => _CoverImageKey(key, width, height));
+
+  @override
+  ImageStreamCompleter loadImage(
+    _CoverImageKey key,
+    ImageDecoderCallback decode,
+  ) {
+    final completer = provider.loadImage(key.providerKey, (
+      buffer, {
+      getTargetSize,
+    }) {
+      assert(getTargetSize == null);
+      return decode(
+        buffer,
+        getTargetSize: (intrinsicWidth, intrinsicHeight) {
+          // Cover needs the larger scale, including pixels outside the crop.
+          // One target dimension preserves the poster's own aspect ratio;
+          // clamping it avoids decoding an upscale of a small source.
+          return key.width * intrinsicHeight >= key.height * intrinsicWidth
+              ? ui.TargetImageSize(width: math.min(key.width, intrinsicWidth))
+              : ui.TargetImageSize(
+                  height: math.min(key.height, intrinsicHeight),
+                );
+        },
+      );
+    });
+    completer.addEphemeralErrorListener((_, _) {
+      // A synchronous failure can precede ImageCache registering this key.
+      scheduleMicrotask(() => PaintingBinding.instance.imageCache.evict(key));
+    });
+    return completer;
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is _CoverImage &&
+      provider == other.provider &&
+      width == other.width &&
+      height == other.height;
+
+  @override
+  int get hashCode => Object.hash(provider, width, height);
+}
+
+@immutable
+final class _CoverImageKey {
+  const _CoverImageKey(this.providerKey, this.width, this.height);
+
+  final Object providerKey;
+  final int width;
+  final int height;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _CoverImageKey &&
+      providerKey == other.providerKey &&
+      width == other.width &&
+      height == other.height;
+
+  @override
+  int get hashCode => Object.hash(providerKey, width, height);
 }

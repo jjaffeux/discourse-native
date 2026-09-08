@@ -25,6 +25,7 @@ class SiteImage extends StatefulWidget {
     this.height,
     this.cacheWidth,
     this.cacheHeight,
+    this.coverDecodeSize,
     this.semanticLabel,
     this.excludeFromSemantics = false,
     this.onNaturalSize,
@@ -32,7 +33,10 @@ class SiteImage extends StatefulWidget {
     this.errorBuilder,
     this.gifPlaybackControls = false,
     this.knownAnimated = false,
-  });
+  }) : assert(
+         coverDecodeSize == null ||
+             (fit == BoxFit.cover && cacheWidth == null && cacheHeight == null),
+       );
 
   final String url;
   final String? siteUrl;
@@ -42,6 +46,9 @@ class SiteImage extends StatefulWidget {
   final double? height;
   final int? cacheWidth;
   final int? cacheHeight;
+
+  /// The logical viewport to cover, retaining the source's aspect ratio.
+  final Size? coverDecodeSize;
   final String? semanticLabel;
   final bool excludeFromSemantics;
   final ValueChanged<Size>? onNaturalSize;
@@ -288,13 +295,21 @@ class _SiteImageState extends State<SiteImage> {
             const SizedBox.shrink(),
       );
     }
-    return Image.network(
-      _url,
+    ImageProvider<Object> provider = NetworkImage(_url);
+    if (widget.coverDecodeSize case final size?) {
+      provider = imageForCover(context, provider, logicalSize: size);
+    } else {
+      provider = ResizeImage.resizeIfNeeded(
+        widget.cacheWidth,
+        widget.cacheHeight,
+        provider,
+      );
+    }
+    return Image(
+      image: provider,
       fit: widget.fit,
       width: widget.width,
       height: widget.height,
-      cacheWidth: widget.cacheWidth,
-      cacheHeight: widget.cacheHeight,
       excludeFromSemantics: true,
       frameBuilder: (context, child, frame, _) =>
           frame == null ? widget.loadingBuilder?.call(context) ?? child : child,
@@ -317,7 +332,9 @@ class _SiteImageState extends State<SiteImage> {
 
   Widget _raster(SiteImageBytes image) {
     ImageProvider<Object> provider = MemoryImage(image.bytes);
-    if (widget.cacheWidth != null || widget.cacheHeight != null) {
+    if (widget.coverDecodeSize case final size?) {
+      provider = imageForCover(context, provider, logicalSize: size);
+    } else if (widget.cacheWidth != null || widget.cacheHeight != null) {
       provider = ResizeImage(
         provider,
         width: widget.cacheWidth,
