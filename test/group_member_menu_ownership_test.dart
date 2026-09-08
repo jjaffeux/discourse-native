@@ -226,6 +226,9 @@ _Action _expectedAction(
 );
 
 final class _Port extends ChangeNotifier implements GroupPagesPort {
+  @override
+  final Object controllerIdentity = Object();
+
   final GroupPagesOwner owner = (
     siteUrl: 'https://meta.example',
     accountIdentity: 'user:manager',
