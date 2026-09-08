@@ -239,7 +239,7 @@
         "Native inspection pending coordinator slot; no macOS runtime behavior is claimed yet.",
         "Linux device inspection is unavailable on this macOS host. Flutter devices also detected a wireless iPhone running iOS 26.6; it was not launched or controlled. iOS device behavior, VoiceOver speech and authenticated app screens remain uninspected; focused widget tests are not device verification."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "c8a3e9aa770323b1b4c0696a4d35782021bfa526",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2538/discourse-native"
     },
