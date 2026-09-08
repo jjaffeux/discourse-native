@@ -5076,13 +5076,16 @@ void main() {
     test('calling someone holds and subscribes the call room', () async {
       await controller.ensureLoaded(firstSite);
 
-      final room = await controller.callUser(firstSite, 'kim');
+      final outgoing = (await controller.callUser(firstSite, 'kim'))!;
+      final room = outgoing.room;
 
       final request = transport.writes.singleWhere(
         (write) => write.path == '/voice/calls.json',
       );
       expect(request.method, 'POST');
       expect(request.body, {'username': 'kim'});
+      expect(outgoing.siteUrl, firstSite);
+      expect(outgoing.isCurrent, isTrue);
       expect(room.ephemeral, isTrue);
       expect(controller.room(firstSite, 9)?.slug, 'call-1a2b');
       expect(firstTracker.subscriberCount('/voice/rooms/9'), 1);
