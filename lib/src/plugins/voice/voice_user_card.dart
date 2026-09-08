@@ -55,23 +55,24 @@ class _VoiceUserCardCallButtonState extends State<VoiceUserCardCallButton> {
   Future<void> _call() async {
     if (_calling) return;
     setState(() => _calling = true);
+    final messenger = ScaffoldMessenger.maybeOf(context);
     try {
       final shell = PluginUiScope.require(context, voiceShellService);
+      // The navigator owns the join UI after the dismissed card is disposed.
+      final callContext = Navigator.of(context).context;
       widget.close();
       await shell.callUser(
-        context,
+        callContext,
         siteUrl: widget.siteUrl,
         username: widget.user.username,
       );
     } catch (error) {
-      if (!mounted) return;
+      if (messenger == null || !messenger.mounted) return;
       final message = switch (error) {
         final WriteException error => error.message,
         _ => "Couldn't start the call.",
       };
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(message)));
+      messenger.showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _calling = false);
     }
