@@ -424,7 +424,7 @@
         "Checkbox/Switch/TextFormField and baseline DButton visuals in Label examples are temporary until their catalogue tasks implement the reference controls. This task completes Label only and does not exempt those components or FieldDemo from shadcn fidelity."
       ],
       "implementationCommit": "eb92a162b104927cfad692a5f55a834acbccab2b",
-      "mergeCommit": null,
+      "mergeCommit": "9bbc2806020646451fd1c283d347283fe4e45f67",
       "clientThreadId": "client-new-thread:aa7ba342-617f-4551-a3ef-9565a8335114",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e53a/discourse-native",
       "baseCommit": "31bbde65b59b47c34a03791c696fa24f2d59ad5e",

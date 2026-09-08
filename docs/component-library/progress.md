@@ -17,7 +17,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 5 | tooltip | in_progress | 01a0829c-ba0d-7282-a010-7e26f190dd4f | codex/ui-tooltip | kbd | — |
 | 6 | button | planned | — | — | spinner, tooltip | — |
 | 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
-| 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | — |
+| 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
 | 9 | badge | planned | — | — | spinner | — |
 | 10 | input | planned | — | — | label | — |
 | 11 | textarea | planned | — | — | label | — |
