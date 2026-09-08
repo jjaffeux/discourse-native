@@ -224,6 +224,7 @@ final class _Fixture {
         threadFor: (_, threadId) => threadId == 22 ? _thread : null,
         hasThreads: (_) => hasThreads,
         putChannel: (_, _) {},
+        didReceiveTrackingState: (_, _) {},
         didReceiveChannelEdit: (_, _) {},
         didReceiveChannelStatus: (_, _) {},
         putMessage: (_, _) {},
