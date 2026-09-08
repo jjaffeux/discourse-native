@@ -531,7 +531,7 @@
       "clientThreadId": "client-new-thread:0c87dee9-6ef3-431f-8194-4202d98ca399",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8c25/discourse-native",
       "baseCommit": "5fd6658b9fded22bf4b19323257c8ad822dc89eb",
-      "nativeInspectionStatus": "follow_up_queued",
+      "nativeInspectionStatus": "in_progress",
       "nativeInspectionFollowUp": "Styleguide inspected; representative real core/Chat loading fixtures and final shared-button examples remain for a follow-up slot."
     },
     {
@@ -1347,9 +1347,8 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
+    "nativeInspectionTaskId": "01a08213-b4ca-77e1-a2aa-8a490808243e",
     "nativeInspectionQueue": [
-      "01a08213-b4ca-77e1-a2aa-8a490808243e",
       "01a08213-9960-79f1-8d90-9626f24a4b5a",
       "01a0825a-9fe1-7700-878c-f448801c0851"
     ],
@@ -1383,6 +1382,6 @@
     ],
     "implementationCommit": "9fa7b99575d64610f63974b0a9f8061d9c3b2eff",
     "mergeCommit": null,
-    "nativeInspectionStatus": "in_progress"
+    "nativeInspectionStatus": "completed"
   }
 }
