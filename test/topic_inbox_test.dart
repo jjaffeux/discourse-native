@@ -50,6 +50,39 @@ const _child = TopicCategory(
 const _tag = TopicTag(id: 1, name: 'community');
 
 void main() {
+  for (final (username, initial) in [
+    ('sam', 'S'),
+    ('𐐨ser', '𐐀'),
+    ('मित्र', 'मि'),
+    ('', '?'),
+  ]) {
+    testWidgets(
+      'header participant avatar uses "$initial" for username "$username"',
+      (tester) async {
+        final setup = await _setup(
+          tester,
+          participants: [
+            TopicParticipant(username: username, name: 'Topic participant'),
+          ],
+        );
+        setup.controller.openTopicFromList(setup.rows.first);
+        await tester.pumpAndSettle();
+        await _scrollReaderToTop(tester);
+
+        expect(tester.takeException(), isNull);
+        final avatar = find.descendant(
+          of: find.byKey(const ValueKey('topic-header-activity')),
+          matching: find.byTooltip('Topic participant'),
+        );
+        expect(avatar, findsOneWidget);
+        expect(
+          find.descendant(of: avatar, matching: find.text(initial)),
+          findsOneWidget,
+        );
+      },
+    );
+  }
+
   testWidgets(
     'reader collapses smoothly and restores the full header at the top',
     (tester) async {
@@ -2333,6 +2366,9 @@ _setup(
   WidgetTester tester, {
   PluginRegistry registry = PluginRegistry.empty,
   bool recommendations = false,
+  List<TopicParticipant> participants = const [
+    TopicParticipant(username: 'sam', name: 'Sam'),
+  ],
   List<TopicTag> tags = const [_tag],
   bool canEditTags = true,
   bool privateMessage = false,
@@ -2436,9 +2472,7 @@ _setup(
             stream: posts[row.id]!.map((post) => post.id).toList(),
             postsCount: 4,
             replyCount: 3,
-            participants: const [
-              TopicParticipant(username: 'sam', name: 'Sam'),
-            ],
+            participants: participants,
             recommendations: recommendations
                 ? TopicRecommendations(
                     sources: [
