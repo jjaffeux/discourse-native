@@ -324,9 +324,9 @@
     },
     {
       "id": "label",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a0825a-9fe1-7700-878c-f448801c0851",
+      "branch": "codex/ui-label",
       "dependencies": [
         "typography"
       ],
@@ -337,7 +337,11 @@
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "clientThreadId": "client-new-thread:aa7ba342-617f-4551-a3ef-9565a8335114",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e53a/discourse-native",
+      "baseCommit": "31bbde65b59b47c34a03791c696fa24f2d59ad5e",
+      "nativeInspectionStatus": "not_requested"
     },
     {
       "id": "badge",

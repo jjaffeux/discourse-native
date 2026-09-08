@@ -17,7 +17,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 5 | tooltip | planned | — | — | kbd | — |
 | 6 | button | planned | — | — | spinner, tooltip | — |
 | 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
-| 8 | label | planned | — | — | typography | — |
+| 8 | label | in_progress | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | — |
 | 9 | badge | planned | — | — | spinner | — |
 | 10 | input | planned | — | — | label | — |
 | 11 | textarea | planned | — | — | label | — |
@@ -321,6 +321,10 @@ Status: merged. Task: 01a08213-a2e5-7692-a127-f09d2a03094b. Branch: codex/ui-sep
 - Authenticated core/plugin screens were not inspected in a signed-in session. Native migration evidence uses the actual date/picker/sheet widgets with local temporary fixtures, while the broader app/plugin migrations are covered by the 567 focused regression tests already listed.
 - Live theme changes in an already-open native MenuAnchor are verified by widget tests. Native palette settings normally dismiss menus on outside interaction, so manual overlay evidence covers rendering after selecting the palette, plus dismissal and preserved local state.
 - The native inspection preceded final styleguide implemented metadata and a singular-item/usage-text correction. Those non-behavioral text changes were verified by the final focused example test run and refreshed isolated build without reacquiring desktop focus.
+
+### label
+
+Status: in_progress. Task: 01a0825a-9fe1-7700-878c-f448801c0851. Branch: codex/ui-label.
 
 ### skeleton
 
