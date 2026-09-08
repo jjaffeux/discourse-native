@@ -645,9 +645,9 @@
     },
     {
       "id": "aspect-ratio",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a082a9-b9d4-79f0-8a0d-cc48e700cc67",
+      "branch": "codex/ui-aspect-ratio",
       "dependencies": [],
       "acceptanceCriteria": [],
       "decisions": [],
@@ -656,7 +656,10 @@
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "clientThreadId": "client-new-thread:0790670d-ad70-42ed-9a6d-c0b168c98890",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6b29/discourse-native",
+      "baseCommit": "ff76174c1d87d31775e960467e208c1d3fcf0401"
     },
     {
       "id": "avatar",

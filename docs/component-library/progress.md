@@ -29,7 +29,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 17 | slider | planned | — | — | label | — |
 | 18 | progress | planned | — | — | label | — |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
-| 20 | aspect-ratio | planned | — | — | — | — |
+| 20 | aspect-ratio | in_progress | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | — |
 | 21 | avatar | planned | — | — | — | — |
 | 22 | card | planned | — | — | typography | — |
 | 23 | empty | planned | — | — | typography | — |
@@ -499,6 +499,10 @@ Status: merged. Task: 01a08213-b4ca-77e1-a2aa-8a490808243e. Branch: codex/ui-ske
 - Final native form editing and saving passed. Empty-name validation, palette-retained form draft state and the source-corrected table scroll below 256px passed automated interaction tests but were not completed in the final native session. The earlier window-loss incident and unsuccessful native Select All/unsupported key names are recorded precisely in verification; no application crash is inferred.
 - Authenticated live accounts were not opened. Actual migrated TopicListView, ChatChannelView, ChatMessageStream and InstanceSidebar were inspected natively with gated local fake data, including loading completion. Remaining migrated screens and broader loading/error/pagination/session behavior were covered by the focused core/Chat regression suites.
 - Shared overlaps for coordinator reconciliation: discourse_ui.dart, component_examples.dart, tokens.dart, own progress row and app/test imports in topic_view.dart, topic_list_view.dart, draft_list.dart, instance_sidebar.dart, user_activity.dart, user_summary.dart and Chat. No other component branch was imported or merged.
+
+### aspect-ratio
+
+Status: in_progress. Task: 01a082a9-b9d4-79f0-8a0d-cc48e700cc67. Branch: codex/ui-aspect-ratio.
 
 ### Final audit
 
