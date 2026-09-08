@@ -286,6 +286,7 @@ Status: in_progress. Task: 01a0821b-27cc-7013-affb-99cae203b2a8. Branch: codex/u
 - flutter test --no-pub test/forum_tabs_integration_test.dart test/content_navigation_controls_test.dart test/draft_list_test.dart test/keyboard_navigation_test.dart test/styleguide/styleguide_page_test.dart: 91 passed. Rail number-shortcut test rerun after removing obsolete wrappers passed.
 - flutter test --no-pub test/forum_search_clear_accessibility_test.dart test/poll_composer_panel_test.dart test/ui/d_kbd_test.dart: 43 passed, including new search-hint rendering/scaling and unchanged clear-focus/input state, typed Local Dates menu hints, site permissions and shortcut dispatch.
 - Isolated macOS debug styleguide and temporary local-data search/help harness both built successfully with flutter build macos --debug --no-pub, product Discourse Kbd Review, bundle org.discourse.kbd.review4bea, at /private/tmp/discourse-kbd-native-4bea. Runner/signing and fake-data harness changes stay outside the worktree. Native CUA inspection awaits the coordinator desktop slot.
+- Before any native launch, verified the isolated app Info.plist and ad hoc signature both identify org.discourse.kbd.review4bea after correcting Xcode Debug overrides in the temporary copy. The primary application was not launched or modified.
 
 **limitations**
 
