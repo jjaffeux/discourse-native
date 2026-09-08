@@ -3,7 +3,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_webrtc'
-  s.version          = '1.6.0'
+  s.version          = '1.6.2'
   s.summary          = 'Flutter WebRTC plugin for iOS.'
   s.description      = <<-DESC
 A new flutter plugin project.
@@ -18,7 +18,7 @@ A new flutter plugin project.
     'flutter_webrtc_privacy' => ['flutter_webrtc/Sources/flutter_webrtc/PrivacyInfo.xcprivacy']
   }
   s.dependency 'Flutter'
-  s.dependency 'WebRTC-SDK', '144.7559.09'
+  s.dependency 'WebRTC-SDK', '150.7871.01'
   s.ios.deployment_target = '13.0'
   s.static_framework = true
   s.pod_target_xcconfig = {
