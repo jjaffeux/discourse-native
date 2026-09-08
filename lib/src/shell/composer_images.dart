@@ -41,10 +41,13 @@ class ComposerImageBlock {
 
 // Let `\\.` own backslashes. Matching them in both branches causes explosive
 // backtracking and misreads CommonMark's escaped `\]`.
-final RegExp _imagePattern = RegExp(
-  r'!\[((?:\\.|[^\\\]\n])*)\]\(((?:upload://|https?://)[^)\s]+)(?:\s+"[^"]*")?\)',
+final RegExp _imageAltPattern = RegExp(r'!\[((?:\\.|[^\\\]\n])*)');
+final RegExp _imageSchemePattern = RegExp(
+  r'\]\((?:upload://|https?://)',
   caseSensitive: false,
 );
+final RegExp _imageUrlEndPattern = RegExp(r'[)\s]');
+final RegExp _imageTitlePattern = RegExp(r'\s+"[^"]*"\)');
 
 // The ", N%" scale is only syntax after "|WxH", mirroring Discourse's own
 // image-scale pattern; without dimensions the suffix is the author's alt text.
@@ -59,38 +62,39 @@ List<ComposerImageBlock> parseComposerImages(
   if (source.isEmpty) return const [];
   final code = codeRanges ?? CodeRanges.of(scanMarkdown(source));
   final images = <ComposerImageBlock>[];
-  // Scan one opener at a time and skip lines without `]`; otherwise every `![`
-  // walks the same line suffix and makes malformed input quadratic.
   var offset = 0;
-  var barrenTo = -1;
-  var lineEnd = -1;
+  var urlEnd = -1;
+  var end = -1;
   while (offset < source.length) {
     final start = source.indexOf('![', offset);
     if (start < 0) break;
-    if (start < barrenTo) {
-      offset = start + 1;
-      continue;
-    }
-    if (start >= lineEnd) {
-      final next = source.indexOf('\n', start + 1);
-      lineEnd = next < 0 ? source.length : next;
-    }
-    final bracket = source.indexOf(']', start + 2);
-    if (bracket < 0) break;
-    if (bracket > lineEnd) {
-      barrenTo = lineEnd;
-      offset = start + 1;
-      continue;
-    }
 
-    final match = _imagePattern.matchAsPrefix(source, start);
-    if (match == null) {
-      offset = start + 1;
-      continue;
+    // Openers inside this alt share its stopping point, including an unfinished
+    // escape or a closer with an invalid destination. None can succeed if this
+    // one fails, so do not retry the same suffix for each nested `![`.
+    final alt = _imageAltPattern.matchAsPrefix(source, start)!;
+    final bracket = alt.end;
+    offset = bracket + 1;
+    final scheme = _imageSchemePattern.matchAsPrefix(source, bracket);
+    if (scheme == null) continue;
+
+    // A failed URL/title can itself contain image openers. Retain the boundary
+    // and title result while their URLs share the same non-whitespace run.
+    if (scheme.end > urlEnd) {
+      final boundary = source.indexOf(_imageUrlEndPattern, scheme.end);
+      urlEnd = boundary < 0 ? source.length : boundary;
+      end = -1;
+      if (urlEnd < source.length) {
+        end = source.codeUnitAt(urlEnd) == 0x29
+            ? urlEnd + 1
+            : _imageTitlePattern.matchAsPrefix(source, urlEnd)?.end ?? -1;
+      }
     }
-    offset = match.end;
-    if (code.overlaps(match.start, match.end)) continue;
-    final label = _labelPattern.firstMatch(match.group(1)!);
+    if (scheme.end == urlEnd || end < 0) continue;
+
+    offset = end;
+    if (code.overlaps(start, end)) continue;
+    final label = _labelPattern.firstMatch(alt.group(1)!);
     if (label == null) continue;
     final width = int.tryParse(label.group(2) ?? '');
     final height = int.tryParse(label.group(3) ?? '');
@@ -99,11 +103,11 @@ List<ComposerImageBlock> parseComposerImages(
     final scale = int.tryParse(label.group(4) ?? '');
     images.add(
       ComposerImageBlock(
-        start: match.start,
-        end: match.end,
-        source: match.group(0)!,
+        start: start,
+        end: end,
+        source: source.substring(start, end),
         alt: unescapeImageAlt(label.group(1)!),
-        url: match.group(2)!,
+        url: source.substring(bracket + 2, urlEnd),
         width: hasValidDimensions ? width : null,
         height: hasValidDimensions ? height : null,
         scale: scale != null && scale >= 1 && scale <= 100 ? scale : null,
