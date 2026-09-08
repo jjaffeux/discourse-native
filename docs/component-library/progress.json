@@ -374,7 +374,7 @@
         "The macOS styleguide route exposed only its native search field through the CUA accessibility snapshot. Preview semantics are verified by widget tests; production dialog/view snapshots exposed the named control states. VoiceOver speech was not run.",
         "Checkbox/Switch/TextFormField and baseline DButton visuals in Label examples are temporary until their catalogue tasks implement the reference controls. This task completes Label only and does not exempt those components or FieldDemo from shadcn fidelity."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "eb92a162b104927cfad692a5f55a834acbccab2b",
       "mergeCommit": null
     },
     {
