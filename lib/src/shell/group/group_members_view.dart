@@ -215,6 +215,13 @@ class _MembersSectionState extends State<_MembersSection> {
                 }
                 final member = page.members[memberIndex];
                 final actions = _MemberActions(
+                  key: ValueKey((
+                    widget.siteUrl,
+                    widget.group.id,
+                    widget.group.name,
+                    member.id,
+                    member.username,
+                  )),
                   member: member,
                   group: widget.group,
                   currentUserStaff: widget.currentUserStaff,
@@ -686,6 +693,7 @@ String _dateTimeText(BuildContext context, DateTime value) {
 
 class _MemberActions extends StatelessWidget {
   const _MemberActions({
+    super.key,
     required this.member,
     required this.group,
     required this.currentUserStaff,
@@ -750,7 +758,7 @@ class _MemberActions extends StatelessWidget {
           ],
         ),
       );
-      if (confirmed != true) return;
+      if (confirmed != true || !context.mounted) return;
     }
     final saved = await onAction?.call(member, action) ?? false;
     if (context.mounted && !saved) {
