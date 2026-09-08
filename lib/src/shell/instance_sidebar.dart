@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart';
 import '../data/sidebar_section_store.dart';
 import '../models/content_route.dart';
 import '../models/group_route.dart';
@@ -9,16 +10,13 @@ import '../models/sidebar.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_tooltip.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';
 import 'external_link.dart';
 import 'forum_search.dart';
 import 'instance_actions.dart';
-import 'loading_skeleton.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';
@@ -907,7 +905,8 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
   const _SidebarLoadingSkeleton();
 
   @override
-  Widget build(BuildContext context) => LoadingSkeleton(
+  Widget build(BuildContext context) => DSkeletonRegion(
+    expand: true,
     key: const ValueKey('sidebar-loading-skeleton'),
     semanticsLabel: 'Loading navigation',
     child: Padding(
@@ -916,7 +915,7 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var section = 0; section < 2; section++) ...[
-            const LoadingSkeletonBlock(width: 70, height: 8),
+            const DSkeleton(width: 70, height: 8),
             const SizedBox(height: 10),
             for (var row = 0; row < 4; row++)
               SizedBox(
@@ -924,12 +923,9 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
                     _SidebarSpacing.rowHeight(context) + _SidebarSpacing.rowGap,
                 child: Row(
                   children: [
-                    const LoadingSkeletonBlock(width: 14, height: 14),
+                    const DSkeleton(width: 14, height: 14),
                     const SizedBox(width: 10),
-                    LoadingSkeletonBlock(
-                      width: row.isEven ? 110 : 85,
-                      height: 9,
-                    ),
+                    DSkeleton(width: row.isEven ? 110 : 85, height: 9),
                   ],
                 ),
               ),

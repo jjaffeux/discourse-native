@@ -1,0 +1,229 @@
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/styleguide/component_examples.dart';
+import 'package:discourse_native/src/styleguide/examples/skeleton_examples.dart';
+import 'package:discourse_native/src/styleguide/styleguide_example.dart';
+import 'package:discourse_native/src/styleguide/styleguide_page.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets('registered Skeleton examples are reachable through search', (
+    tester,
+  ) async {
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(
+      tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+    );
+    expect(componentExamples['skeleton'], same(skeletonExamples));
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: const ComponentStyleguidePage()),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('styleguide-search')),
+      'skeleton',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('styleguide-component-skeleton')),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('styleguide-preview')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey('styleguide-detail-skeleton')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeleton), findsNWidgets(3));
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final example in skeletonExamples.examples) {
+    for (final (width, scale, direction, theme) in [
+      (320.0, 2.0, TextDirection.rtl, StyleguideTheme.plum),
+      (1024.0, 1.0, TextDirection.ltr, StyleguideTheme.forest),
+    ]) {
+      testWidgets(
+        '${example.title} fits $width px at ${scale}x in ${theme.name}',
+        (tester) async {
+          await tester.binding.setSurfaceSize(Size(width, 900));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          await _pump(
+            tester,
+            example,
+            scale: scale,
+            direction: direction,
+            theme: theme.resolve(AppTheme.light),
+          );
+          expect(find.byType(DSkeleton), findsWidgets);
+          expect(tester.takeException(), isNull);
+          if (example != skeletonExamples.examples.first) {
+            await tester.tap(find.widgetWithText(ChoiceChip, 'Ready'));
+            await tester.pumpAndSettle();
+            expect(find.byType(DSkeleton), findsNothing);
+            expect(tester.takeException(), isNull);
+            await tester.tap(find.widgetWithText(ChoiceChip, 'Error'));
+            await tester.pumpAndSettle();
+            expect(find.text('Could not load this sample.'), findsOneWidget);
+            await tester.ensureVisible(find.text('Retry'));
+            await tester.tap(find.text('Retry'));
+            await tester.pumpAndSettle();
+            expect(find.byType(DSkeleton), findsWidgets);
+            expect(tester.takeException(), isNull);
+          }
+        },
+      );
+    }
+  }
+
+  testWidgets('geometry controls alter shapes and respond to keyboard', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      skeletonExamples.examples.first,
+      theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+    );
+    final width = find.byType(Slider).first;
+    await tester.tap(width);
+    await tester.pumpAndSettle();
+    final sliderFocus = tester
+        .widget<FocusableActionDetector>(
+          find.descendant(
+            of: width,
+            matching: find.byType(FocusableActionDetector),
+          ),
+        )
+        .focusNode!;
+    for (var step = 0; step < 10 && !sliderFocus.hasPrimaryFocus; step++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+    }
+    expect(sliderFocus.hasPrimaryFocus, isTrue);
+    final before = tester.widget<Slider>(width).value;
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(width).value, greaterThan(before));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Circle'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widgetList<DSkeleton>(find.byType(DSkeleton)).first.shape,
+      BoxShape.circle,
+    );
+    await tester.tap(find.widgetWithText(FilterChip, 'Pulse'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widgetList<DSkeleton>(find.byType(DSkeleton)).first.animate,
+      isFalse,
+    );
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Pill'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widgetList<DSkeleton>(find.byType(DSkeleton)).first.borderRadius,
+      BorderRadius.circular(999),
+    );
+  });
+
+  testWidgets('ready form validates, saves and retains edits across themes', (
+    tester,
+  ) async {
+    final theme = ValueNotifier(AppTheme.light);
+    addTearDown(theme.dispose);
+    await _pump(tester, skeletonExamples.examples[4], liveTheme: theme);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Ready'));
+    await tester.pumpAndSettle();
+    final name = find.byType(TextFormField).first;
+    await tester.enterText(name, '');
+    await tester.tap(find.widgetWithText(DButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a name'), findsOneWidget);
+    await tester.enterText(name, 'Grace');
+    theme.value = StyleguideTheme.plum.resolve(AppTheme.light);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<EditableText>(find.byType(EditableText).first)
+          .controller
+          .text,
+      'Grace',
+    );
+    await tester.tap(find.widgetWithText(DButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Saved: Grace'), findsOneWidget);
+    expect(find.text('Enter a name'), findsNothing);
+  });
+
+  testWidgets('ready card action and table scrolling remain interactive', (
+    tester,
+  ) async {
+    await _pump(tester, skeletonExamples.examples[2]);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Ready'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Follow'));
+    await tester.tap(find.text('Follow'));
+    await tester.pumpAndSettle();
+    expect(find.text('Following'), findsOneWidget);
+    await _pump(tester, skeletonExamples.examples[5]);
+    final scroll = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.right,
+    );
+    final state = tester.state<ScrollableState>(scroll);
+    expect(state.position.maxScrollExtent, greaterThan(0));
+    await tester.drag(scroll, const Offset(-140, 0));
+    await tester.pumpAndSettle();
+    expect(state.position.pixels, greaterThan(0));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Ready'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ken'), findsOneWidget);
+    expect(state.position.pixels, greaterThan(0));
+  });
+}
+
+Future<void> _pump(
+  WidgetTester tester,
+  StyleguideExample example, {
+  double scale = 1,
+  TextDirection direction = TextDirection.ltr,
+  ThemeData? theme,
+  ValueNotifier<ThemeData>? liveTheme,
+}) async {
+  final hostTheme = liveTheme ?? ValueNotifier(theme ?? AppTheme.light);
+  if (liveTheme == null) addTearDown(hostTheme.dispose);
+  await tester.pumpWidget(
+    ValueListenableBuilder(
+      key: ValueKey(example.title),
+      valueListenable: hostTheme,
+      builder: (context, data, _) => MaterialApp(
+        theme: data,
+        themeAnimationDuration: Duration.zero,
+        home: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(scale),
+              disableAnimations: true,
+            ),
+            child: DDirection(
+              textDirection: direction,
+              child: Scaffold(
+                body: SingleChildScrollView(
+                  padding: const EdgeInsets.all(DSpacing.lg),
+                  child: Builder(builder: example.builder),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}

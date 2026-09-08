@@ -28,7 +28,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 16 | toggle-group | planned | — | — | toggle | — |
 | 17 | slider | planned | — | — | label | — |
 | 18 | progress | planned | — | — | label | — |
-| 19 | skeleton | planned | — | — | — | — |
+| 19 | skeleton | in_progress | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | — |
 | 20 | aspect-ratio | planned | — | — | — | — |
 | 21 | avatar | planned | — | — | — | — |
 | 22 | card | planned | — | — | typography | — |
@@ -177,6 +177,71 @@ Status: merged. Task: 01a0818b-e20a-77d0-bb99-77691899dad7. Branch: codex/ui-dir
 ### typography
 
 Status: in_progress. Task: 01a081e5-0bef-70a1-9ae3-7717028403e0. Branch: codex/ui-typography.
+
+### skeleton
+
+Status: in_progress. Task: 01a08213-b4ca-77e1-a2aa-8a490808243e. Branch: codex/ui-skeleton.
+
+**acceptanceCriteria**
+
+- Provide public DSkeleton rectangular/circular geometry with configurable dimensions and directional radius; compose fractional widths and aspect ratios with native layout widgets.
+- Support standalone pulsing and synchronized DSkeletonRegion composition, explicit static placeholders, live reduced-motion and TickerMode changes, safe disposal and live light/dark/site token updates.
+- Expose one caller-supplied loading label per region; exclude placeholder descendants from semantics, pointer interaction and keyboard focus. Preserve caller-owned loading/error/ready state and scroll geometry.
+- Demonstrate interactive geometry, avatar, card, text, form, table and RTL compositions at narrow widths and 200% text, with accurate public API usage and local loading/ready/error controls.
+- Audit core and all bundled plugins; migrate the existing LoadingSkeleton/LoadingSkeletonBlock owner and every caller while preserving labels, pulse timing, loading conditions and reading-lane geometry. Keep Spinner migrations separate.
+- Format and analyze touched code, run focused component/styleguide/migrated-screen regression tests, and inspect an isolated macOS styleguide after coordinator slot approval; report actual device and accessibility evidence.
+
+**decisions**
+
+- Frozen Skeleton Markdown hash matches cab955b03db8fe7a9f4e5bc71be4f72054782d29476b19fb2029f569a880df16; documented props are empty. Web className geometry maps to Flutter dimensions, BorderRadiusGeometry, FractionallySizedBox and AspectRatio; RTL language controls are demo state, not Skeleton props.
+- Move and extend the existing shell loading_skeleton.dart rendering owner. Preserve its native 675 ms pulse leg and 0.62–1 opacity; add a shared DMotion token, standalone usage, motion control and keyboard-focus exclusion.
+- DSkeletonRegion is presentational loading composition, not a request/state owner. Explicit expand:true preserves existing bounded application loading panels; default intrinsic region sizing supports inline library compositions.
+- Use available Flutter primitives for card/form/table demos without implementing the separately planned catalogue components.
+- DSkeletonRegion adds keyboard-focus exclusion to the preserved pointer/semantics exclusions. DSkeleton.animate=false opts a shape out; region animate=false, reduced motion and TickerMode disable the shared pulse.
+- Public API, frozen scope mapping, native adaptations and the complete adoption audit are documented in docs/component-library/skeleton.md.
+- Default rectangle radius follows the live site token. Native inspection found the old surfaceContainerHighest was white on white in AppTheme.light; added DTokens.skeleton by blending existing foreground/muted tokens and verified contrast on content/floating/muted surfaces at the dimmest pulse. No hardcoded palette swatches or second theme owner.
+
+**migrations**
+
+- Removed shell/loading_skeleton.dart; migrated all ten regions and their shapes to DSkeletonRegion/DSkeleton through discourse_ui.dart.
+- Migrated topic_list_view (topics/messages/filters), topic_view (initial/recommendations/earlier/later), draft_list, user_activity, user_summary and instance_sidebar; explicit expand:true retains bounded viewport geometry and existing caller-owned labels/loading guards.
+- Migrated bundled Chat initial-channel and bidirectional pagination skeletons. Preserved minimum message heights, request ownership and loaded/error behavior; made placeholder gutter/alignment directional.
+- Migrated skeleton assertions in topic and Chat lifecycle tests and moved/extended the old owner tests under test/ui/d_skeleton_test.dart; added interactive styleguide tests and all seven registered examples.
+
+**retainedAlternatives**
+
+- Audited all 12 bundled modules plus packages/discourse_voice/lib and profiles/full/lib. Only Chat had additional shape skeleton owners; Assign, AI, Events, GitHub, Lazy Videos, GIFs, Local Dates, Poll, Prometheus Alert Receiver, Reactions and Voice had none.
+- Indeterminate busy indicators remain in the concurrent Spinner scope; no Spinner migration is claimed.
+- Avatar/emoji identity and inline-size fallbacks, SiteImage authenticated loading/error builders, Chat dominant-color image surfaces and unavailable-image error placeholders retain their media behavior and existing owners.
+- Unsupported-route placeholders and composer/inline PlaceholderAlignment atoms are navigation or text-layout representations, not content loading skeletons.
+
+**verification**
+
+- Frozen Markdown SHA256 verified with shasum -a 256; official Skeleton reference inspected on 2026-09-08.
+- Flutter 3.47.2 / Dart 3.13.2; flutter pub get --enforce-lockfile passed without lockfile changes.
+- flutter analyze --no-pub passed with no diagnostics.
+- flutter test test/topic_list_view_lifecycle_test.dart test/topic_view_lifecycle_test.dart test/chat_channel_view_lifecycle_test.dart test/draft_list_test.dart test/user_summary_test.dart test/coherent_initial_render_test.dart test/connection_session_integration_test.dart --no-pub --test-randomize-ordering-seed=random: 206 passed, seed 3315690589.
+- flutter test test/ui/d_skeleton_test.dart test/styleguide test/activity_section_lifecycle_test.dart --no-pub --test-randomize-ordering-seed=random: 81 passed, seed 1795106859.
+- Component checks cover standalone/synchronized pulse, static opt-out, live motion/TickerMode changes, disposal, accessible label replacement, pointer and Tab exclusion, intrinsic/expanded/unbounded dimensions, fractional/aspect-ratio geometry, circle/directional/default radius and live light/dark/site/fallback themes.
+- Styleguide checks cover search/registration, all seven examples at 320px/200%/RTL/Plum and 1024px/100%/LTR/Forest, loading/ready/error/retry transitions, keyboard slider adjustment, form validation/saving/theme retention, card actions and horizontal table scrolling. Existing styleguide access/Direction/tokens tests passed.
+- Built isolated temporary macOS styleguide with flutter build macos --debug -t lib/styleguide_main.dart --no-pub at /private/tmp/discourse-native-skeleton.alyOd3/build/macos/Build/Products/Debug/Skeleton Styleguide.app; distinct product/bundle identity and all signing adjustments are outside the repository.
+- Source audit found no remaining old LoadingSkeleton/LoadingSkeletonBlock imports or usages. git diff --check passed.
+- After the native palette fix: flutter test test/ui/d_skeleton_test.dart test/styleguide/component_tokens_test.dart test/styleguide/skeleton_examples_test.dart --no-pub --test-randomize-ordering-seed=random: 35 passed, seed 465275359. Regression asserts at least 1.1 contrast against content/floating/muted surfaces at 0.62 pulse opacity in default light/dark and a site palette; this is a decorative visibility check, not a text contrast requirement.
+- Formatted all 16 touched Dart files with dart format; final dart format --output=none --set-exit-if-changed and git diff --check passed.
+- macOS 26.6.2 arm64 CUA: selected exact isolated app path and raised it under the coordinator-granted slot. Visually inspected all seven example groups. Geometry: circle/diameter pointer changes, Tab focus with visible halo, arrow keys changed diameter 56 to 64, pulse pause/static companion.
+- Native Light: caught the old white-on-white fill, rebuilt the derived token fix and confirmed visible avatar/lines. Exercised Loading → Ready → Error → Retry. Native Forest: 360px preview, 200% text, RTL and reduced motion together; inspected avatar/card/text/form placeholders and ready form rendering.
+- Native Plum: inspected pulsing table rows; dragged the horizontal scrollbar to reveal later columns and verified Ready retained the position. Inspected explicit RTL avatar placement and mirrored asymmetric corners. Reported completion to release the inspection slot.
+- flutter devices reported macOS, Chrome and a wireless iPhone; native interaction was performed only on macOS.
+- Coordinator review: migrated Use site radius, Retry, Follow and form Save example actions to public DButton.flat. flutter test test/styleguide/skeleton_examples_test.dart --no-pub --test-randomize-ordering-seed=random passed 18 tests, seed 3352427373; final analysis and isolated native build passed. This cleanup followed the recorded styleguide native inspection.
+
+**limitations**
+
+- No iOS or Linux runtime/device inspection. A wireless iPhone was discovered, but no iOS CUA session or device deployment was performed; no Linux device was available.
+- VoiceOver speech was not inspected. CUA exposed native menu/text-input elements rather than the full Flutter semantic tree; single loading labels, hidden descendant semantics, live-region opt-out and focus/pointer exclusion were verified in widget tests.
+- CUA accessibility errors interrupted the native form edit/save attempt; only ready form rendering is claimed natively. Local edit/save/validation, palette-retained draft state and keyboard slider changes passed automated interactive tests.
+- Authenticated migrated app screens were not opened during isolated native inspection. Their loading/error/pagination behavior, reading geometry and session/lifecycle effects were checked in the focused core/Chat regression suites.
+- Shared overlaps for coordinator reconciliation: discourse_ui.dart, component_examples.dart, tokens.dart, own progress row and app/test imports in topic_view.dart, topic_list_view.dart, draft_list.dart, instance_sidebar.dart, user_activity.dart, user_summary.dart and Chat. No other component branch was imported or merged.
+- Pending coordinator-requested native fixture inspection of real migrated core and Chat widgets with local gated fake data. Temporary fixture is being built outside the repository; final review_ready status follows that inspection.
 
 ### Final audit
 

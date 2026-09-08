@@ -5,11 +5,11 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../../../../discourse_ui.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_dialog_action.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/list_boundary_shortcuts.dart';
-import '../../shell/loading_skeleton.dart';
 import '../../shell/stream_day_separator.dart';
 import '../../shell/time_gap.dart';
 import '../../theme/app_theme.dart';
@@ -2094,7 +2094,8 @@ class _ChatPaginationSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LoadingSkeleton(
+    return DSkeletonRegion(
+      expand: true,
       semanticsLabel: semanticsLabel,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
@@ -2119,7 +2120,8 @@ class _ChatLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LoadingSkeleton(
+    return DSkeletonRegion(
+      expand: true,
       semanticsLabel: 'Loading chat channel',
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -2191,8 +2193,8 @@ class _ChatSkeletonMessage extends StatelessWidget {
               SizedBox(
                 width: gutterWidth,
                 child: const Align(
-                  alignment: Alignment.topLeft,
-                  child: LoadingSkeletonBlock.circle(diameter: 28),
+                  alignment: AlignmentDirectional.topStart,
+                  child: DSkeleton.circle(diameter: 28),
                 ),
               ),
               Expanded(
@@ -2235,15 +2237,15 @@ class _ChatSkeletonHeader extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: FractionallySizedBox(
               widthFactor: nameWidth,
-              child: const LoadingSkeletonBlock(height: 10),
+              child: const DSkeleton(height: 10),
             ),
           ),
           const Align(
-            alignment: Alignment.centerRight,
-            child: LoadingSkeletonBlock(width: 36, height: 7),
+            alignment: AlignmentDirectional.centerEnd,
+            child: DSkeleton(width: 36, height: 7),
           ),
         ],
       ),
@@ -2266,7 +2268,7 @@ class _ChatSkeletonChainedMessage extends StatelessWidget {
               ? constraints.maxWidth
               : ChatMessageTile.gutter;
           return Padding(
-            padding: EdgeInsets.only(left: gutterWidth),
+            padding: EdgeInsetsDirectional.only(start: gutterWidth),
             child: _ChatSkeletonLine(width: lineWidth),
           );
         },
@@ -2290,10 +2292,10 @@ class _ChatSkeletonLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Align(
-      alignment: Alignment.centerLeft,
+      alignment: AlignmentDirectional.centerStart,
       child: FractionallySizedBox(
         widthFactor: width,
-        child: const LoadingSkeletonBlock(height: 9),
+        child: const DSkeleton(height: 9),
       ),
     );
   }

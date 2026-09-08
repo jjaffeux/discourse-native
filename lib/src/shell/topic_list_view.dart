@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../../discourse_ui.dart';
 import '../app_shortcuts.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
@@ -10,7 +11,6 @@ import '../models/topic_feed.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
@@ -21,7 +21,6 @@ import 'forum_icon.dart';
 import 'inline_action.dart';
 import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';
-import 'loading_skeleton.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
@@ -702,7 +701,8 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final divider = Theme.of(context).shell.divider;
 
-    return LoadingSkeleton(
+    return DSkeletonRegion(
+      expand: true,
       semanticsLabel: _semanticsLabel,
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -816,11 +816,11 @@ class _TopicListSkeletonRow extends StatelessWidget {
                   width: _TopicLedgerLayout.activityWidthOf(context),
                   child: const Row(
                     children: [
-                      LoadingSkeletonBlock(width: 22, height: 8),
+                      DSkeleton(width: 22, height: 8),
                       SizedBox(width: 8),
-                      LoadingSkeletonBlock(width: 26, height: 8),
+                      DSkeleton(width: 26, height: 8),
                       Spacer(),
-                      LoadingSkeletonBlock(width: 24, height: 8),
+                      DSkeleton(width: 24, height: 8),
                     ],
                   ),
                 ),
@@ -849,7 +849,7 @@ class _SkeletonLine extends StatelessWidget {
     alignment: AlignmentDirectional.centerStart,
     child: FractionallySizedBox(
       widthFactor: widthFactor,
-      child: LoadingSkeletonBlock(height: height),
+      child: DSkeleton(height: height),
     ),
   );
 }
@@ -867,9 +867,9 @@ class _TopicListSkeletonPosters extends StatelessWidget {
       child: Stack(
         children: [
           for (var index = 0; index < count; index++)
-            Positioned(
-              left: index * 16,
-              child: const LoadingSkeletonBlock.circle(diameter: 24),
+            PositionedDirectional(
+              start: index * 16,
+              child: const DSkeleton.circle(diameter: 24),
             ),
         ],
       ),

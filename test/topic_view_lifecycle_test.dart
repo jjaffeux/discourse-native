@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
@@ -12,14 +13,12 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_lazy_videos_plugin.dart';
-import 'package:discourse_native/src/shell/loading_skeleton.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -1714,10 +1713,7 @@ void main() {
         );
         expect(skeleton, findsOneWidget);
         expect(
-          find.descendant(
-            of: skeleton,
-            matching: find.byType(LoadingSkeletonBlock),
-          ),
+          find.descendant(of: skeleton, matching: find.byType(DSkeleton)),
           findsNWidgets(4),
         );
         expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -1781,10 +1777,7 @@ void main() {
         );
         expect(skeleton, findsOneWidget);
         expect(
-          find.descendant(
-            of: skeleton,
-            matching: find.byType(LoadingSkeletonBlock),
-          ),
+          find.descendant(of: skeleton, matching: find.byType(DSkeleton)),
           findsNWidgets(4),
         );
         expect(find.byType(CircularProgressIndicator), findsNothing);

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show Tristate;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -19,7 +20,6 @@ import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/shell/group_flair.dart';
-import 'package:discourse_native/src/shell/loading_skeleton.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
@@ -525,17 +525,11 @@ void main() {
         expect(older, findsOneWidget);
         expect(newer, findsOneWidget);
         expect(
-          find.descendant(
-            of: older,
-            matching: find.byType(LoadingSkeletonBlock),
-          ),
+          find.descendant(of: older, matching: find.byType(DSkeleton)),
           findsNWidgets(5),
         );
         expect(
-          find.descendant(
-            of: newer,
-            matching: find.byType(LoadingSkeletonBlock),
-          ),
+          find.descendant(of: newer, matching: find.byType(DSkeleton)),
           findsNWidgets(5),
         );
         expect(find.bySemanticsLabel('Loading older messages'), findsOneWidget);
