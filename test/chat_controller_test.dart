@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/data/site_tracker.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
@@ -21,6 +24,8 @@ import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -2383,6 +2388,215 @@ void main() {
       expect(subject.chat.channel(site, 9), live);
       expect(deltas, [-1]);
     });
+
+    for (final bulk in [false, true]) {
+      test(
+        'channel refresh preserves an equal ${bulk ? 'bulk' : 'single'} read acknowledgement after an earlier local read',
+        () async {
+          final threadActivity = DateTime.utc(2026, 8, 8, 11);
+          final lastMessageAt = DateTime.utc(2026, 8, 8, 12);
+          final old = ChatChannels(
+            public: [
+              channel(
+                9,
+                lastRead: 1,
+                unread: 2,
+                mentions: 1,
+                watchedThreads: 2,
+                threadingEnabled: true,
+                unreadThreadOverview: {31: threadActivity},
+                lastMessageId: 3,
+                lastMessageAt: lastMessageAt,
+              ),
+            ],
+            direct: [
+              channel(12, kind: ChatChannelKind.directMessage, unread: 3),
+            ],
+            userTrackingBusLastId: 90,
+          );
+          final readGate = Completer<void>();
+          final api = _GatedChannelRefreshApi(
+            old,
+            readGate: readGate,
+            messages: {
+              key(9): page([message(1), message(2), message(3)]),
+            },
+          );
+          final deltas = <int>[];
+          final subject = build(
+            api: api,
+            currentUser: currentUser,
+            onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+          );
+          addTearDown(subject.chat.dispose);
+          final tracker = _TrackingEvents(subject.chat);
+          addTearDown(tracker.dispose);
+          await subject.chat.loadChannels(site);
+          await subject.chat.openChannel(site, 9);
+
+          final marking = subject.chat.markReadFor(
+            site,
+            const ChatChannelTarget(9),
+            3,
+          );
+          await api.readStarted.future;
+          final projected = subject.chat.channel(site, 9)!;
+          expect(projected.membership.lastReadMessageId, 3);
+          expect(projected.tracking.unreadCount, 0);
+          expect(api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
+
+          // The GET begins after the optimistic projection but before its POST
+          // completes, so equality with the held record is not proof of freshness.
+          final started = api.holdRefresh();
+          final refresh = subject.chat.loadChannels(site, force: true);
+          await started;
+          readGate.complete();
+          await marking;
+
+          var recordChanges = 0;
+          var canonicalChanges = 0;
+          subject.store.ref<ChatChannel>(site, 9).addListener(() {
+            recordChanges++;
+          });
+          subject.chat.addListener(() => canonicalChanges++);
+          final trackingChannel = bulk
+              ? '/chat/bulk-user-tracking-state/7'
+              : '/chat/user-tracking-state/7';
+          final state = <String, dynamic>{
+            'last_read_message_id': 3,
+            'unread_count': 0,
+            'mention_count': 0,
+            'watched_threads_unread_count': 2,
+            'unread_thread_overview': {'31': threadActivity.toIso8601String()},
+          };
+          await tracker.deliver(
+            trackingChannel,
+            bulk ? {'9': state} : {'channel_id': 9, ...state},
+            messageId: 91,
+          );
+          expect(subject.chat.channel(site, 9), same(projected));
+          expect(recordChanges, 0);
+          expect(canonicalChanges, bulk ? 1 : 0);
+          expect(deltas, [-1]);
+
+          api.releaseRefresh(
+            ChatChannels(
+              public: [
+                channel(
+                  9,
+                  title: 'Fresh title',
+                  starred: true,
+                  lastRead: 1,
+                  unread: 2,
+                  mentions: 1,
+                  watchedThreads: 1,
+                  threadingEnabled: true,
+                  unreadThreadOverview: {30: threadActivity},
+                  lastMessageId: 2,
+                ),
+              ],
+              direct: [
+                channel(12, kind: ChatChannelKind.directMessage, unread: 1),
+              ],
+              userTrackingBusLastId: 90,
+            ),
+          );
+          await refresh;
+
+          final refreshed = subject.chat.channel(site, 9)!;
+          expect(refreshed.membership.lastReadMessageId, 3);
+          expect(refreshed.tracking, projected.tracking);
+          expect(refreshed.unreadThreadOverview, {31: threadActivity});
+          expect(refreshed.lastMessageId, 3);
+          expect(refreshed.lastMessageAt, lastMessageAt);
+          expect(refreshed.title, 'Fresh title');
+          expect(refreshed.membership.starred, isTrue);
+          expect(subject.chat.channel(site, 12)?.tracking.unreadCount, 1);
+          expect(deltas, [-1, -2]);
+          // A duplicate cursor cannot repair an activity state lost by the GET.
+          await tracker.deliver(
+            trackingChannel,
+            bulk ? {'9': state} : {'channel_id': 9, ...state},
+            messageId: 91,
+          );
+          expect(tracker.lastIds['/chat/user-tracking-state/7'], '91');
+          expect(tracker.lastIds['/chat/bulk-user-tracking-state/7'], '91');
+          expect(subject.chat.channel(site, 9), same(refreshed));
+          expect(deltas, [-1, -2]);
+
+          await subject.chat.loadChannels(site, force: true);
+          expect(
+            subject.chat.channel(site, 9)?.membership.lastReadMessageId,
+            1,
+          );
+          expect(subject.chat.channel(site, 9)?.tracking.unreadCount, 2);
+        },
+      );
+
+      test(
+        'channel refresh ignores duplicate and older ${bulk ? 'bulk' : 'single'} tracking acknowledgements',
+        () async {
+          final initial = channel(9, lastRead: 3);
+          final api = _GatedChannelRefreshApi(
+            ChatChannels(public: [initial], userTrackingBusLastId: 90),
+          );
+          final deltas = <int>[];
+          final subject = build(
+            api: api,
+            currentUser: currentUser,
+            onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+          );
+          addTearDown(subject.chat.dispose);
+          final tracker = _TrackingEvents(subject.chat);
+          addTearDown(tracker.dispose);
+          await subject.chat.loadChannels(site);
+          final trackingChannel = bulk
+              ? '/chat/bulk-user-tracking-state/7'
+              : '/chat/user-tracking-state/7';
+          Future<void> deliver(int lastRead, int cursor) {
+            final state = <String, dynamic>{
+              'last_read_message_id': lastRead,
+              'unread_count': 0,
+              'mention_count': 0,
+              'watched_threads_unread_count': 0,
+            };
+            return tracker.deliver(
+              trackingChannel,
+              bulk ? {'9': state} : {'channel_id': 9, ...state},
+              messageId: cursor,
+            );
+          }
+
+          await deliver(3, 91);
+          final started = api.holdRefresh();
+          final refresh = subject.chat.loadChannels(site, force: true);
+          await started;
+          await deliver(3, 91);
+          await deliver(2, 92);
+          expect(subject.chat.channel(site, 9), same(initial));
+          expect(deltas, isEmpty);
+
+          // Neither a replay nor a rejected older read owns this GET's activity.
+          final fresh = channel(
+            9,
+            lastRead: 4,
+            unread: 2,
+            mentions: 1,
+            watchedThreads: 1,
+            unreadThreadOverview: {31: DateTime.utc(2026, 8, 8, 11)},
+          );
+          api.releaseRefresh(
+            ChatChannels(public: [fresh], userTrackingBusLastId: 90),
+          );
+          await refresh;
+          expect(subject.chat.channel(site, 9), fresh);
+          expect(deltas, [1]);
+          await deliver(2, 92);
+          expect(subject.chat.channel(site, 9), same(fresh));
+          expect(tracker.lastIds[trackingChannel], '92');
+        },
+      );
+    }
 
     test(
       'channel refresh preserves star and mute writes without hiding fresh metadata',
@@ -7337,14 +7551,82 @@ void main() {
   });
 }
 
+// Use the real tracker and MessageBus cursor filtering. A final marker in each
+// mock HTTP response lets tests await delivery even when tracking is rejected.
+final class _TrackingEvents {
+  _TrackingEvents(ChatController chat) {
+    _tracker = SiteTracker(
+      siteUrl: site,
+      userId: currentUser.id,
+      apiKey: 'key',
+      onIncomingTopics: () {},
+      onNotifications: (_) {},
+      onReviewableCounts: (_) {},
+      shouldLongPoll: () => false,
+      httpClient: MockClient((request) async {
+        lastIds = request.bodyFields;
+        final messages = _messages;
+        _messages = const [];
+        return http.Response(jsonEncode(messages), 200);
+      }),
+    )..stop();
+    _tracker.watchPluginChannelWithPosition('/chat/test-sync', (_, _) {
+      _tracker.stop();
+      _delivered!.complete();
+    }, lastId: 0);
+    chat.attachTracker(
+      site,
+      _tracker.pluginLiveChannels(const [
+        PluginLiveChannelScope.prefix('/chat'),
+        PluginLiveChannelScope.prefix('/presence/chat'),
+      ]),
+    );
+  }
+
+  late final SiteTracker _tracker;
+  Map<String, String> lastIds = {};
+  List<Map<String, Object?>> _messages = const [];
+  Completer<void>? _delivered;
+  int _marker = 0;
+
+  Future<void> deliver(
+    String channel,
+    Object? data, {
+    required int messageId,
+  }) async {
+    _delivered = Completer<void>();
+    _messages = [
+      {
+        'channel': channel,
+        'message_id': messageId,
+        'global_id': messageId,
+        'data': data,
+      },
+      {
+        'channel': '/chat/test-sync',
+        'message_id': ++_marker,
+        'global_id': _marker,
+        'data': null,
+      },
+    ];
+    _tracker.start();
+    await _delivered!.future;
+  }
+
+  Future<void> dispose() => _tracker.dispose();
+}
+
 final class _GatedChannelRefreshApi extends FakeDiscourseApi {
   _GatedChannelRefreshApi(
     this.snapshot, {
     Map<String, ChatMessagePage> messages = const {},
     Map<int, ChatChannel> details = const {},
+    this.readGate,
   }) : super(chatMessagesByKey: messages, chatChannelsById: details);
 
   ChatChannels snapshot;
+  final Completer<void>? readGate;
+  final readStarted = Completer<void>();
   Completer<void>? _started;
   Completer<ChatChannels>? _response;
 
@@ -7375,6 +7657,25 @@ final class _GatedChannelRefreshApi extends FakeDiscourseApi {
     if (response == null) return Future.value(snapshot);
     _started!.complete();
     return response.future;
+  }
+
+  @override
+  Future<void> markChatChannelRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    await super.markChatChannelRead(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      channelId: channelId,
+      messageId: messageId,
+      clientId: clientId,
+    );
+    if (!readStarted.isCompleted) readStarted.complete();
+    await readGate?.future;
   }
 }
 

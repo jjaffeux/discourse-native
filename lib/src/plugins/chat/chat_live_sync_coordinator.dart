@@ -32,6 +32,7 @@ final class ChatLiveSyncHost {
     required this.threadFor,
     required this.hasThreads,
     required this.putChannel,
+    required this.didReceiveTrackingState,
     required this.didReceiveChannelEdit,
     required this.didReceiveChannelStatus,
     required this.putMessage,
@@ -78,6 +79,9 @@ final class ChatLiveSyncHost {
   final ChatThread? Function(String siteUrl, int threadId) threadFor;
   final bool Function(String siteUrl) hasThreads;
   final void Function(String siteUrl, ChatChannel channel) putChannel;
+  // Accepted tracking also acknowledges an equal, previously optimistic state.
+  final void Function(String siteUrl, ChatChannel channel)
+  didReceiveTrackingState;
   // Settings writes must observe even events that repeat the held values.
   final void Function(String siteUrl, int channelId) didReceiveChannelEdit;
   final void Function(String siteUrl, int channelId) didReceiveChannelStatus;
@@ -1300,6 +1304,7 @@ final class ChatLiveSyncCoordinator {
           : null,
       unreadThreadOverview: threadOverview,
     );
+    _host.didReceiveTrackingState(siteUrl, updated);
     var changed = updated != held;
     if (changed) {
       _host.putChannel(siteUrl, updated);

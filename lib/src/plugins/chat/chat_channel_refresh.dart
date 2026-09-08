@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart' show listEquals, mapEquals;
 
 import 'chat_channel.dart';
 
-/// Records only mutations during one channel-list HTTP request. Keeping dirty
-/// fields, rather than comparing only the final record with its starting value,
-/// also preserves changes that return to their original value before completion.
+/// Records mutations and accepted tracking during one channel-list HTTP request.
+/// Keeping dirty fields, rather than comparing only the final record with its
+/// starting value, also preserves changes that return to their original value.
 final class ChatChannelRefresh {
   ChatChannelRefresh({
     required Iterable<int> publicIds,
@@ -27,6 +27,12 @@ final class ChatChannelRefresh {
     final changes = _changes[after.id] ?? _ChannelChanges();
     changes.record(before, after);
     if (changes.hasChanges) _changes[after.id] = changes;
+  }
+
+  // A live acknowledgement can repeat an optimistic projection from before the
+  // GET. It still owns activity, without claiming unrelated metadata fields.
+  void recordTrackingState(ChatChannel channel) {
+    _changes.putIfAbsent(channel.id, _ChannelChanges.new)._activity = channel;
   }
 
   void removeChannel(int channelId) {

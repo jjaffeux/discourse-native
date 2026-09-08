@@ -420,6 +420,8 @@ class ChatController extends FrameSafeNotifier {
         threadFor: thread,
         hasThreads: hasThreads,
         putChannel: _putChannel,
+        didReceiveTrackingState: (siteUrl, channel) =>
+            _channelRefreshes[siteUrl]?.recordTrackingState(channel),
         didReceiveChannelEdit: (siteUrl, channelId) {
           final write = _channelSettingsWrites[_streamKey(siteUrl, channelId)];
           write?.receivedMetadata = true;
