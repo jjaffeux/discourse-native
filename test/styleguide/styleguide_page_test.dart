@@ -109,8 +109,10 @@ void main() {
       expect(MediaQuery.disableAnimationsOf(tester.element(preview)), isTrue);
       expect(tester.takeException(), isNull);
 
-      await tester.ensureVisible(find.text('Reset example'));
-      await tester.tap(find.text('Reset example'));
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('styleguide-reset')),
+      );
+      await tester.tap(find.byKey(const ValueKey('styleguide-reset')));
       await tester.pumpAndSettle();
       expect(find.text('Actions: 0'), findsOneWidget);
     },
@@ -133,6 +135,7 @@ void main() {
     final field = find.widgetWithText(TextField, 'Display name');
     await tester.ensureVisible(field);
     await tester.enterText(field, 'Grace');
+    await _settings(tester);
     await tester.scrollUntilVisible(
       find.text('Right to left'),
       -200,
@@ -210,8 +213,10 @@ void main() {
         find.text('Welcome messages can include a friendly introduction.'),
         findsOneWidget,
       );
-      await tester.ensureVisible(find.text('Reset example'));
-      await tester.tap(find.text('Reset example'));
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('styleguide-reset')),
+      );
+      await tester.tap(find.byKey(const ValueKey('styleguide-reset')));
       await tester.pumpAndSettle();
       expect(find.text('Show details'), findsOneWidget);
       expect(find.text('Details are hidden.'), findsOneWidget);
@@ -249,6 +254,73 @@ void main() {
   }
 
   testWidgets(
+    'documentation theme and code disclosure preserve the app preview',
+    (tester) async {
+      await _pump(tester);
+      final preview = find.byKey(const ValueKey('styleguide-preview'));
+      final hostTokens = DTokens.of(tester.element(preview));
+      expect(find.byKey(const ValueKey('styleguide-Text scale')), findsNothing);
+      expect(
+        find.textContaining('Preview controls affect examples only'),
+        findsNothing,
+      );
+      await tester.tap(find.widgetWithText(DButton, 'primary'));
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('styleguide-documentation-theme')),
+      );
+      await tester.pump();
+      expect(
+        Theme.of(
+          tester.element(find.byKey(const ValueKey('component-styleguide'))),
+        ).brightness,
+        Brightness.dark,
+      );
+      expect(
+        DTokens.of(tester.element(preview)).background,
+        hostTokens.background,
+      );
+      expect(Theme.of(tester.element(preview)).brightness, Brightness.light);
+      final toggle = find.byKey(const ValueKey('styleguide-code-toggle'));
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pump();
+      expect(
+        find.textContaining(
+          "import 'package:discourse_native/discourse_ui.dart';",
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Actions: 1'), findsOneWidget);
+      await tester.tap(toggle);
+      await tester.pump();
+      expect(
+        find.textContaining(
+          "import 'package:discourse_native/discourse_ui.dart';",
+        ),
+        findsNothing,
+      );
+      expect(find.text('Actions: 1'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'resizing across the navigation breakpoint keeps the active sample',
+    (tester) async {
+      await _pump(tester);
+      await tester.tap(find.widgetWithText(DButton, 'primary'));
+      await tester.pump();
+      tester.view.physicalSize = const Size(390, 800);
+      await tester.pumpAndSettle();
+      expect(find.text('Actions: 1'), findsOneWidget);
+      tester.view.physicalSize = const Size(1400, 900);
+      await tester.pumpAndSettle();
+      expect(find.text('Actions: 1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'Escape invokes the styleguide close action from keyboard focus',
     (tester) async {
       var closed = false;
@@ -284,7 +356,17 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
+Future<void> _settings(WidgetTester tester) async {
+  if (find.byKey(const ValueKey('styleguide-Text scale')).evaluate().isEmpty) {
+    final settings = find.byKey(const ValueKey('styleguide-settings'));
+    await tester.ensureVisible(settings);
+    await tester.tap(settings);
+    await tester.pump();
+  }
+}
+
 Future<void> _choose(WidgetTester tester, String label, String value) async {
+  if (label == 'Text scale') await _settings(tester);
   final choice = find.byKey(ValueKey('styleguide-$label'));
   await tester.ensureVisible(choice);
   await tester.tap(choice);

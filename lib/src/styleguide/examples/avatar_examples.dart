@@ -14,6 +14,8 @@ final avatarExampleImage = MemoryImage(
 );
 
 final avatarExamples = ComponentExamples(
+  description:
+      'An image, fallback, and badge for representing a person or group.',
   status: ComponentStatus.implemented,
   notes:
       'Installation: import package:discourse_native/discourse_ui.dart. '

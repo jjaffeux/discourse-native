@@ -6,6 +6,8 @@ import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
 
 final typographyExamples = ComponentExamples(
+  description:
+      'Type styles for headings, paragraphs, lists, and inline content.',
   status: ComponentStatus.implemented,
   notes:
       'Frozen 2026-09-08 Typography scope: h1–h4, p, blockquote, table, list, '

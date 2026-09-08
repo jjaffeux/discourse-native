@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final cardExamples = ComponentExamples(
+  description:
+      'A container for related content, with a header and optional footer.',
   status: ComponentStatus.implemented,
   notes:
       'The seven passive Card parts use base-nova metrics. Install by importing '

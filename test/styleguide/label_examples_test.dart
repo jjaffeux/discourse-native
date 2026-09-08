@@ -239,8 +239,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Terms accepted'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text('Reset example'));
-      await tester.tap(find.text('Reset example'));
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('styleguide-reset')),
+      );
+      await tester.tap(find.byKey(const ValueKey('styleguide-reset')));
       await tester.pumpAndSettle();
       expect(find.text('Terms not accepted'), findsOneWidget);
     },
@@ -281,6 +283,12 @@ Future<void> _pump(
 }
 
 Future<void> _choose(WidgetTester tester, String label, String option) async {
+  if (label == 'Text scale') {
+    final settings = find.byKey(const ValueKey('styleguide-settings'));
+    await tester.ensureVisible(settings);
+    await tester.tap(settings);
+    await tester.pump();
+  }
   final dropdown = find.byKey(ValueKey('styleguide-$label'));
   await tester.scrollUntilVisible(
     dropdown,

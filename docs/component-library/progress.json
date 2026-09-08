@@ -1749,6 +1749,18 @@
       "buildSourceCommit": "ea58497479e75efce7a86ebe95c784cd3c974846",
       "completedComponentCount": 11,
       "catalogueComponentCount": 64
+    },
+    "styleguideFidelityFollowUp": {
+      "requestedAt": "2026-09-09",
+      "instruction": "Follow the shadcn documentation design much more closely. Implement the Sidebar library component before adopting it in the redesigned styleguide.",
+      "status": "in_progress",
+      "coordinatorBranch": "codex/styleguide-shadcn-layout",
+      "sidebarTaskId": "01a08352-7665-7f90-a637-75478a83ea53",
+      "sidebarBranch": "codex/ui-sidebar",
+      "authorizedComponents": [
+        "sidebar"
+      ],
+      "remainingQueue": "paused_for_user_review"
     }
   },
   "visualFidelity": {

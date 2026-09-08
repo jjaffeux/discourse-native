@@ -4,6 +4,7 @@ import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
 
 final foundationExamples = ComponentExamples(
+  description: 'Colors, typography, and spacing for the component library.',
   status: ComponentStatus.implemented,
   notes:
       'Colors follow the host palette. Text uses the app typography. '
@@ -32,6 +33,7 @@ Container(
 );
 
 final baselineButtonExamples = ComponentExamples(
+  description: 'Actions and links, with variants for emphasis and intent.',
   status: ComponentStatus.baseline,
   notes:
       'Existing app control, exposed through discourse_ui.dart. '
@@ -54,6 +56,7 @@ final baselineButtonExamples = ComponentExamples(
 );
 
 final baselineSelectExamples = ComponentExamples(
+  description: 'Choose a value from a list of options.',
   status: ComponentStatus.baseline,
   notes:
       'Existing native dropdown adapter. The Select task will add '

@@ -5,6 +5,7 @@ import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
 
 final spinnerExamples = ComponentExamples(
+  description: 'A compact indicator for work in progress.',
   status: ComponentStatus.implemented,
   notes:
       'Import package:discourse_native/discourse_ui.dart; no extra dependency. '

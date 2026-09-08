@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../styleguide_example.dart';
 
 final kbdExamples = ComponentExamples(
+  description: 'Display the keys used in a keyboard shortcut.',
   status: ComponentStatus.implemented,
   notes:
       'DKbd displays a hint; existing controls and Shortcuts own actions. '

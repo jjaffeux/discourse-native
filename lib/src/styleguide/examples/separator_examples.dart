@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final separatorExamples = ComponentExamples(
+  description: 'A visual or semantic boundary between sections of content.',
   status: ComponentStatus.implemented,
   notes:
       'Import package:discourse_native/discourse_ui.dart; no extra dependency. '
