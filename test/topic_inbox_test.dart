@@ -1707,6 +1707,84 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('private category chips fit across narrow header widths', (
+    tester,
+  ) async {
+    final setup = await _setup(
+      tester,
+      categoryList: [
+        for (final category in [_parent, _child])
+          TopicCategory(
+            id: category.id,
+            name: category.name,
+            color: category.color,
+            parentCategoryId: category.parentCategoryId,
+            styleType: 'icon',
+            icon: 'folder',
+            readRestricted: true,
+          ),
+      ],
+    );
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+
+    for (final width in [320.0, 390.0, 400.0, 420.0, 440.0, 520.0, 900.0]) {
+      for (final textScale in [1.0, 2.0]) {
+        await tester.pumpWidget(
+          ShellScope(
+            controller: setup.controller,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: MediaQuery(
+                data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+                child: Scaffold(
+                  body: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: width,
+                      child: TopicInboxHeader(
+                        title: setup.controller.currentTopic!.title,
+                        siteUrl: setup.controller.currentInstance!.url,
+                        canReturnToSidebar: true,
+                        keepTopicListOpen: true,
+                        registry: PluginRegistry.empty,
+                        topic: setup.controller.currentTopic,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'reader width $width at text scale $textScale',
+        );
+        for (final tooltip in [
+          'Edit topic category',
+          'Edit topic subcategory',
+        ]) {
+          final category = find.byTooltip(tooltip);
+          expect(category.hitTestable(), findsOneWidget);
+          final lock = find.descendant(
+            of: category,
+            matching: find.byWidgetPredicate(
+              (widget) => widget is DIcon && widget.icon == DIcons.lock,
+            ),
+          );
+          expect(lock, findsOneWidget);
+          final categoryRect = tester.getRect(category);
+          final lockRect = tester.getRect(lock);
+          expect(lockRect.left, greaterThanOrEqualTo(categoryRect.left));
+          expect(lockRect.right, lessThanOrEqualTo(categoryRect.right));
+        }
+      }
+    }
+  });
+
   testWidgets(
     'narrow headers keep categories and tag overflow accessible with large text',
     (tester) async {
