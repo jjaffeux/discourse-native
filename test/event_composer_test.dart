@@ -155,6 +155,48 @@ void main() {
     },
   );
 
+  testWidgets('an open event editor cannot apply or remove during submission', (
+    tester,
+  ) async {
+    final editor = _Editor(original, policyFor(createsTopic: true));
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: SizedBox())),
+    );
+    final context = tester.element(find.byType(SizedBox));
+    final editing = openEventComposer(
+      context,
+      editor,
+      editor.policy,
+      block: parseEventBlocks(original).single,
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Name',
+      ),
+      'Late title',
+    );
+    editor.editing = false;
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(editor.value.text, original);
+    expect(find.textContaining('The post changed'), findsOneWidget);
+    Navigator.of(tester.element(find.byType(EventComposerSheet))).pop();
+    await tester.pumpAndSettle();
+    await editing;
+    editor.policy.parse(original).single.remove(context, editor);
+    expect(editor.value.text, original);
+    await openEventComposer(
+      context,
+      editor,
+      editor.policy,
+      block: parseEventBlocks(original).single,
+    );
+    await tester.pump();
+    expect(find.byType(EventComposerSheet), findsNothing);
+  });
+
   testWidgets('sheet preserves unpublished source when applied unchanged', (
     tester,
   ) async {
@@ -215,6 +257,7 @@ void main() {
 class _Editor implements ComposerEditorHost {
   _Editor(String text, this.policy) : value = TextEditingValue(text: text);
   final EventSyntaxPolicy policy;
+  bool editing = true;
   @override
   TextEditingValue value;
   @override
@@ -234,7 +277,7 @@ class _Editor implements ComposerEditorHost {
   @override
   bool get isReply => !isNewTopic && !isEdit;
   @override
-  bool get isEditing => isEdit;
+  bool get isEditing => editing;
   @override
   PluginData get siteSettings => policy.state.siteSettings;
   @override

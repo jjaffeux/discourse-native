@@ -92,7 +92,7 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
 
   void _onPopupChanged() {
     if (!mounted) return;
-    if (_popup.isOpen) {
+    if (_popup.isOpen && widget.composer.isEditing) {
       _anchor.value = _anchorRect();
       _portal.show();
     } else {
@@ -109,7 +109,9 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
-    if (!_popup.isOpen) return KeyEventResult.ignored;
+    if (!_popup.isOpen || !widget.composer.isEditing) {
+      return KeyEventResult.ignored;
+    }
 
     switch (event.logicalKey) {
       case LogicalKeyboardKey.arrowDown:
@@ -143,6 +145,7 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
   }
 
   void _activate(ComposerSuggestion choice) {
+    if (!widget.composer.isEditing) return;
     if (choice.action == null) {
       widget.composer.acceptSuggestion(choice);
       return;

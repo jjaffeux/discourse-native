@@ -271,6 +271,39 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('a picker opened before submission cannot edit or record usage', (
+    tester,
+  ) async {
+    final shell = await _openComposer();
+    addTearDown(shell.dispose);
+    final composer = shell.visibleComposer!;
+    composer.text.value = const TextEditingValue(
+      text: 'Before',
+      selection: TextSelection.collapsed(offset: 6),
+    );
+    await _pumpComposer(tester, shell);
+    await tester.tap(find.byKey(const ValueKey('composer-emoji-picker')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    composer.beginSubmit();
+    final before = composer.value;
+    await tester.tap(find.byTooltip(':wave:'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(composer.value, before);
+    expect(
+      shell.emojiPickerStore.favoriteEmojiCodesFor(
+        siteUrl: _site,
+        context: CoreEmojiUsageContexts.topic,
+        catalog: _catalog,
+      ),
+      isEmpty,
+    );
+    await composer.flushDraft();
+  });
+
   testWidgets('an edit still loading its body disables emoji insertion', (
     tester,
   ) async {

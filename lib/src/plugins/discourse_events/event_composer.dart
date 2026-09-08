@@ -105,7 +105,7 @@ final class EventProjection implements ComposerSyntaxProjection {
       openEventComposer(context, editor, policy, block: block);
   @override
   void remove(BuildContext context, ComposerEditorHost editor) {
-    if (!policy.canAuthor || !editor.isCurrent) return;
+    if (!policy.canAuthor || !editor.isCurrent || !editor.isEditing) return;
     final expected = editor.value.text;
     if (end > expected.length || expected.substring(start, end) != source) {
       return;
@@ -126,7 +126,7 @@ Future<void> openEventComposer(
   EventSyntaxPolicy policy, {
   EventBlock? block,
 }) async {
-  if (!editor.isCurrent || !policy.canAuthor || editor.loadingBody) return;
+  if (!editor.isCurrent || !editor.isEditing || !policy.canAuthor) return;
   final expected = editor.value;
   final blocks = parseEventBlocks(expected.text);
   if (block == null && (blocks.isNotEmpty || hasEventMarkup(expected.text))) {
@@ -152,6 +152,7 @@ Future<void> openEventComposer(
       controller: controller,
       isCurrent: () =>
           editor.isCurrent &&
+          editor.isEditing &&
           policy.canAuthor &&
           editor.value.text == expected.text,
     ),
@@ -159,6 +160,7 @@ Future<void> openEventComposer(
   if (result == null ||
       !context.mounted ||
       !editor.isCurrent ||
+      !editor.isEditing ||
       !policy.canAuthor) {
     return;
   }
