@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show Tristate;
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -540,7 +541,7 @@ void main() {
         );
         expect(find.bySemanticsLabel('Loading older messages'), findsOneWidget);
         expect(find.bySemanticsLabel('Loading newer messages'), findsOneWidget);
-        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byType(DSpinner), findsNothing);
       } finally {
         semantics.dispose();
       }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/data/invites_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -117,7 +118,7 @@ void main() {
         ),
       ),
     );
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(DSpinner), findsOneWidget);
     expect(find.text('No pending invites.'), findsNothing);
     gate.completeError(StateError('offline'));
     await loading;

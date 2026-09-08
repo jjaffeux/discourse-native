@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
@@ -1720,7 +1721,7 @@ void main() {
           ),
           findsNWidgets(4),
         );
-        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byType(DSpinner), findsNothing);
 
         postGate.complete();
         await tester.pumpAndSettle();
@@ -1787,7 +1788,7 @@ void main() {
           ),
           findsNWidgets(4),
         );
-        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byType(DSpinner), findsNothing);
 
         postGate.complete();
         await tester.pumpAndSettle();

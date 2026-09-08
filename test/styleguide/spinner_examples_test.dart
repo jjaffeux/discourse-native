@@ -37,7 +37,7 @@ void main() {
     );
     expect(sample.size, 32);
     expect(sample.animating, isFalse);
-    expect(sample.child, isA<Icon>());
+    expect(sample.child, isNotNull);
     expect(sample.color, AppTheme.light.colorScheme.primary);
     await _pump(tester, 0, dark: true);
     final changed = tester.widget<DSpinner>(
@@ -48,7 +48,7 @@ void main() {
       StyleguideTheme.plum.resolve(AppTheme.light).colorScheme.primary,
     );
     expect(changed.size, 32);
-    expect(changed.child, isA<Icon>());
+    expect(changed.child, isNotNull);
   });
 
   testWidgets('button example handles disabled busy, failure and completion', (
@@ -108,12 +108,15 @@ void main() {
     'input validation preserves edits through theme changes, rejection and retry',
     (tester) async {
       await _pump(tester, 3, narrow: true);
+      await tester.ensureVisible(find.text('Accept sample'));
+      await tester.tap(find.text('Accept sample'));
+      await tester.pump();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Subject'),
+        find.byKey(const ValueKey('spinner-subject')),
         'A sample subject',
       );
       await tester.enterText(
-        find.widgetWithText(TextField, 'Message'),
+        find.byKey(const ValueKey('spinner-message')),
         'A message to validate',
       );
       await tester.ensureVisible(find.text('Validate sample'));
@@ -122,7 +125,7 @@ void main() {
       expect(find.byType(DSpinner), findsNWidgets(2));
       expect(
         tester
-            .widget<TextField>(find.widgetWithText(TextField, 'Subject'))
+            .widget<TextField>(find.byKey(const ValueKey('spinner-subject')))
             .enabled,
         isFalse,
       );
@@ -139,7 +142,7 @@ void main() {
       );
       expect(
         tester
-            .widget<TextField>(find.widgetWithText(TextField, 'Message'))
+            .widget<TextField>(find.byKey(const ValueKey('spinner-message')))
             .enabled,
         isTrue,
       );
@@ -150,8 +153,8 @@ void main() {
       await tester.tap(find.text('Accept sample'));
       await tester.pump();
       expect(find.text('Validation complete'), findsOneWidget);
-      await tester.ensureVisible(find.byTooltip('Send message'));
-      await tester.tap(find.byTooltip('Send message'));
+      await tester.ensureVisible(find.byKey(const ValueKey('spinner-send')));
+      await tester.tap(find.byKey(const ValueKey('spinner-send')));
       await tester.pump();
       expect(find.text('Message sent locally'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -162,6 +165,9 @@ void main() {
     'empty example supports cancellation, failure, retry and completion',
     (tester) async {
       await _pump(tester, 4, narrow: true);
+      await tester.ensureVisible(find.text('Cancel request'));
+      await tester.tap(find.text('Cancel request'));
+      await tester.pump();
       for (final (action, result) in [
         ('Cancel request', 'Request canceled'),
         ('Fail request', 'Request failed. Start again to retry.'),

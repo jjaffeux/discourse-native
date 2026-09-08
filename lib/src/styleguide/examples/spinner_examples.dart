@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
@@ -7,10 +8,11 @@ final spinnerExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   notes:
       'Import package:discourse_native/discourse_ui.dart; no extra dependency. '
-      'DSpinner uses native Apple artwork on macOS/iOS and a Material ring '
-      'elsewhere. A child supplies custom rotating artwork. Size is in logical '
-      'pixels and color inherits IconTheme; explicit colors override it. '
-      'strokeWidth applies to the Material ring. semanticLabel defaults to '
+      'DSpinner reproduces shadcn’s Lucide Loader2 arc on every platform: '
+      'a 24-unit view box, round 2-unit stroke, 16px default box and linear '
+      'clockwise rotation once per second. A child supplies custom artwork. '
+      'Size is in logical pixels; strokeWidth scales with the view box. '
+      'Color inherits IconTheme; explicit colors override it. semanticLabel defaults to '
       'Loading; localize it, or set null when the surrounding control owns the '
       'status. Stationary spinners still mean busy. Remove them on completion. '
       'Motion pauses for Reduce motion, inactive apps and disabled ticker '
@@ -23,7 +25,7 @@ final spinnerExamples = ComponentExamples(
       description:
           'Compare the four reference sizes, then change the sample artwork, '
           'size, color and motion. Preview themes update inherited colors live. '
-          'Reduce motion freezes both the native and custom artwork.',
+          'Reduce motion freezes both the default and custom artwork.',
       states: const ['12', '16', '24', '32', 'Custom icon', 'Stationary'],
       code: '''const Wrap(
   spacing: DSpacing.xl,
@@ -38,7 +40,7 @@ DSpinner(
   color: useAccent ? DTokens.of(context).primary : null,
   animating: animate,
   semanticLabel: 'Processing sample',
-  child: custom ? const Icon(Icons.autorenew) : null,
+  child: customArtwork, // Any child, e.g. a different loader icon.
 )''',
       builder: (_) => const _SpinnerAppearance(),
     ),
@@ -49,7 +51,7 @@ DSpinner(
           'accessible name. Complete or fail the operation, then start again. '
           'The trailing example composes a spinner after its label. Use Tab and '
           'Enter or Space; loading buttons cannot submit twice.',
-      states: const ['Primary', 'Standard', 'Transparent', 'Disabled', 'Error'],
+      states: const ['Default', 'Outline', 'Secondary', 'Disabled', 'Error'],
       code: '''DButton(
   label: const Text('Save changes'),
   loadingLabel: const Text('Saving…'),
@@ -83,14 +85,15 @@ const DButton(
   liveRegion: true,
   excludeSemantics: true,
   child: Container(
-    padding: const EdgeInsetsDirectional.all(DSpacing.sm),
+    padding: const EdgeInsetsDirectional.fromSTEB(5, 1, 7, 1),
     decoration: BoxDecoration(
       color: DTokens.of(context).muted,
-      borderRadius: DTokens.of(context).borderRadius,
+      border: Border.all(color: Colors.transparent),
+      borderRadius: BorderRadius.circular(32),
     ),
     child: Row(mainAxisSize: MainAxisSize.min, children: [
-      if (syncing) const DSpinner(semanticLabel: null),
-      if (syncing) const SizedBox(width: DSpacing.sm),
+      if (syncing) const DSpinner(size: 12, semanticLabel: null),
+      if (syncing) const SizedBox(width: DSpacing.xs),
       Flexible(child: Text(syncing ? 'Syncing' : 'Synced')),
     ]),
   ),
@@ -100,7 +103,7 @@ const DButton(
     StyleguideExample(
       title: 'Input group validation',
       description:
-          'Edit both fields and start validation. The disabled single-line '
+          'Accept the initial validation, edit both fields and validate again. The disabled single-line '
           'input shows an inline-end spinner; the textarea uses a block-end '
           'status and send action. Accept or reject the sample to restore '
           'editing without losing text. No requests are made.',
@@ -108,7 +111,10 @@ const DButton(
       code: '''TextField(
   enabled: !validating,
   decoration: InputDecoration(
-    labelText: 'Subject',
+    hintText: 'Send a message...',
+    isCollapsed: true,
+    border: InputBorder.none,
+    // The surrounding group supplies the border and padding.
     suffixIcon: validating ? const Center(
       widthFactor: 1, heightFactor: 1,
       child: DSpinner(semanticLabel: 'Validating subject'),
@@ -131,18 +137,21 @@ Row(children: [
     StyleguideExample(
       title: 'Empty state with cancellation',
       description:
-          'Start a request, then cancel, complete or fail it. Retry after '
+          'Cancel, complete or fail the initial request, then start again. Retry after '
           'failure. The local state owner replaces the spinner with a readable '
           'result. Longer text wraps at narrow widths and large text scales.',
       states: const ['Empty', 'Busy', 'Canceled', 'Success', 'Error', 'Retry'],
       code: '''Column(children: [
-  if (busy) const DSpinner(
-    size: 32,
-    semanticLabel: 'Processing your request',
+  if (busy) Container(
+    width: 32, height: 32,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(color: DTokens.of(context).muted,
+      borderRadius: DTokens.of(context).borderRadius),
+    child: const DSpinner(semanticLabel: 'Processing your request'),
   ),
   const SizedBox(height: DSpacing.md),
   Text(busy ? 'Processing your request' : status),
-  const Text('You can cancel while this operation is pending.'),
+  const Text('Please wait while we process your request. Do not refresh the page.'),
   const SizedBox(height: DSpacing.md),
   DButton(
     label: Text(busy ? 'Cancel request' : 'Start request'),
@@ -157,31 +166,16 @@ Row(children: [
           'The row inherits the preview direction. Switch Right to left and '
           '200% text. The leading spinner and amount change logical positions '
           'and the long label wraps. Rotation remains clockwise in both '
-          'directions, as on native platforms.',
+          'directions, as in the reference.',
       states: const ['RTL', 'Narrow', 'Large text', 'Inherited color'],
       code: '''Row(children: [
   const DSpinner(semanticLabel: null),
-  const SizedBox(width: DSpacing.md),
-  const Expanded(child: Text('جاري معالجة الدفع…')),
-  const SizedBox(width: DSpacing.sm),
+  const SizedBox(width: 10),
+  const Expanded(child: Text('جاري معالجة الدفع...')),
+  const SizedBox(width: 10),
   Flexible(child: Text('١٠٠٫٠٠ دولار', textAlign: TextAlign.end)),
 ])''',
-      builder: (context) => _SpinnerSurface(
-        child: Semantics(
-          label: 'جاري معالجة الدفع، ١٠٠٫٠٠ دولار',
-          liveRegion: true,
-          excludeSemantics: true,
-          child: const Row(
-            children: [
-              DSpinner(semanticLabel: null),
-              SizedBox(width: DSpacing.md),
-              Expanded(child: Text('جاري معالجة الدفع…')),
-              SizedBox(width: DSpacing.sm),
-              Flexible(child: Text('١٠٠٫٠٠ دولار', textAlign: TextAlign.end)),
-            ],
-          ),
-        ),
-      ),
+      builder: (_) => const _SpinnerPayment(),
     ),
   ],
 );
@@ -229,7 +223,7 @@ class _SpinnerAppearanceState extends State<_SpinnerAppearance> {
               color: _accent ? DTokens.of(context).primary : null,
               animating: _animate,
               semanticLabel: 'Processing sample',
-              child: _custom ? const Icon(Icons.autorenew) : null,
+              child: _custom ? const _ReferenceLoader() : null,
             ),
             const SizedBox(width: DSpacing.md),
             const Expanded(child: Text('Processing sample')),
@@ -291,6 +285,30 @@ class _SpinnerButtonsState extends State<_SpinnerButtons> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
+      const Align(
+        alignment: AlignmentDirectional.center,
+        child: Column(
+          spacing: DSpacing.lg,
+          children: [
+            _ReferenceButton(
+              variant: DButtonVariant.primary,
+              inlineIcon: true,
+              child: _SpinnerStatus(label: 'Loading...'),
+            ),
+            _ReferenceButton(
+              inlineIcon: true,
+              child: _SpinnerStatus(label: 'Please wait'),
+            ),
+            _ReferenceButton(
+              variant: DButtonVariant.flat,
+              inlineIcon: true,
+              child: _SpinnerStatus(label: 'Processing'),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: DSpacing.xl),
+
       Wrap(
         spacing: DSpacing.sm,
         runSpacing: DSpacing.sm,
@@ -364,8 +382,8 @@ class _SpinnerBadgesState extends State<_SpinnerBadges> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(
-          spacing: DSpacing.md,
-          runSpacing: DSpacing.md,
+          spacing: DSpacing.lg,
+          runSpacing: DSpacing.lg,
           children: [
             for (final (label, background, foreground, outlined) in [
               (
@@ -392,23 +410,31 @@ class _SpinnerBadgesState extends State<_SpinnerBadges> {
                 liveRegion: true,
                 excludeSemantics: true,
                 child: Container(
-                  padding: const EdgeInsetsDirectional.symmetric(
-                    horizontal: DSpacing.md,
-                    vertical: DSpacing.sm,
+                  padding: EdgeInsetsDirectional.fromSTEB(
+                    _trailing ? 7 : 5,
+                    1,
+                    _trailing ? 5 : 7,
+                    1,
                   ),
                   decoration: BoxDecoration(
                     color: background,
-                    border: outlined ? Border.all(color: tokens.border) : null,
-                    borderRadius: tokens.borderRadius,
+                    border: Border.all(
+                      color: outlined ? tokens.border : Colors.transparent,
+                    ),
+                    borderRadius: BorderRadius.circular(32),
                   ),
                   child: IconTheme.merge(
                     data: IconThemeData(color: foreground),
                     child: DefaultTextStyle.merge(
-                      style: TextStyle(color: foreground),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelSmall!.copyWith(color: foreground),
                       child: _SpinnerStatus(
                         label: label,
                         trailing: _trailing,
                         busy: _busy,
+                        size: 12,
+                        gap: DSpacing.xs,
                       ),
                     ),
                   ),
@@ -441,9 +467,9 @@ class _SpinnerInputs extends StatefulWidget {
 }
 
 class _SpinnerInputsState extends State<_SpinnerInputs> {
-  bool _validating = false;
+  bool _validating = true;
   String? _error;
-  String _status = 'Ready to validate';
+  String _status = 'Validating...';
 
   void _finish({required bool accepted}) => setState(() {
     _validating = false;
@@ -452,86 +478,210 @@ class _SpinnerInputsState extends State<_SpinnerInputs> {
   });
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      TextField(
-        enabled: !_validating,
-        decoration: InputDecoration(
-          labelText: 'Subject',
-          border: const OutlineInputBorder(),
-          suffixIcon: _validating
-              ? const Center(
-                  widthFactor: 1,
-                  heightFactor: 1,
-                  child: DSpinner(semanticLabel: 'Validating subject'),
-                )
-              : null,
-        ),
-      ),
-      const SizedBox(height: DSpacing.md),
-      _SpinnerSurface(
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final textStyle = Theme.of(context).textTheme.bodySmall;
+    const bareInput = InputDecoration(
+      hintText: 'Send a message...',
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      disabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      filled: false,
+      isCollapsed: true,
+      contentPadding: EdgeInsets.zero,
+    );
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 448),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              enabled: !_validating,
-              minLines: 2,
-              maxLines: 4,
-              decoration: InputDecoration(
-                labelText: 'Message',
-                errorText: _error,
-                errorMaxLines: 4,
+            _SpinnerInputSurface(
+              disabled: _validating,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(10, 5, 8, 5),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Semantics(
+                        label: 'Subject',
+                        child: TextField(
+                          key: const ValueKey('spinner-subject'),
+                          enabled: !_validating,
+                          style: textStyle,
+                          decoration: bareInput,
+                        ),
+                      ),
+                    ),
+                    if (_validating) ...[
+                      const SizedBox(width: 6),
+                      DSpinner(
+                        color: tokens.mutedForeground,
+                        semanticLabel: 'Validating subject',
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: DSpacing.sm),
-            Row(
-              children: [
-                if (_validating) ...[
-                  const DSpinner(semanticLabel: null),
-                  const SizedBox(width: DSpacing.sm),
+            const SizedBox(height: DSpacing.lg),
+            _SpinnerInputSurface(
+              disabled: _validating,
+              invalid: _error != null,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsetsDirectional.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    child: Semantics(
+                      label: 'Message',
+                      child: TextField(
+                        key: const ValueKey('spinner-message'),
+                        enabled: !_validating,
+                        minLines: 3,
+                        maxLines: 4,
+                        style: textStyle,
+                        decoration: bareInput,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(10, 6, 10, 8),
+                    child: IconTheme.merge(
+                      data: IconThemeData(color: tokens.mutedForeground),
+                      child: Row(
+                        children: [
+                          if (_validating) ...[
+                            const DSpinner(semanticLabel: null),
+                            const SizedBox(width: DSpacing.sm),
+                          ],
+                          Expanded(
+                            child: Semantics(
+                              liveRegion: true,
+                              child: Text(
+                                _status,
+                                style: Theme.of(context).textTheme.labelLarge!
+                                    .copyWith(color: tokens.mutedForeground),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: DSpacing.sm),
+                          DButton(
+                            key: const ValueKey('spinner-send'),
+                            semanticLabel: 'Send message',
+                            tooltip: 'Send message',
+                            padding: const EdgeInsets.all(5),
+                            variant: DButtonVariant.primary,
+                            onPressed: _validating
+                                ? null
+                                : () => setState(
+                                    () => _status = 'Message sent locally',
+                                  ),
+                            label: const Icon(Icons.arrow_upward, size: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
-                Expanded(
-                  child: Semantics(liveRegion: true, child: Text(_status)),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: DSpacing.sm),
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  _error!,
+                  style: textStyle!.copyWith(color: tokens.destructive),
                 ),
-                IconButton(
-                  tooltip: 'Send message',
+              ),
+            ],
+            const SizedBox(height: DSpacing.lg),
+            Wrap(
+              spacing: DSpacing.sm,
+              runSpacing: DSpacing.sm,
+              children: [
+                DButton(
+                  label: const Text('Validate sample'),
                   onPressed: _validating
                       ? null
-                      : () => setState(() => _status = 'Message sent locally'),
-                  icon: const Icon(Icons.arrow_upward),
+                      : () => setState(() {
+                          _validating = true;
+                          _error = null;
+                          _status = 'Validating...';
+                        }),
+                ),
+                DButton(
+                  label: const Text('Accept sample'),
+                  onPressed: _validating ? () => _finish(accepted: true) : null,
+                ),
+                DButton(
+                  label: const Text('Reject sample'),
+                  onPressed: _validating
+                      ? () => _finish(accepted: false)
+                      : null,
                 ),
               ],
             ),
           ],
         ),
       ),
-      const SizedBox(height: DSpacing.md),
-      Wrap(
-        spacing: DSpacing.sm,
-        runSpacing: DSpacing.sm,
-        children: [
-          DButton(
-            label: const Text('Validate sample'),
-            onPressed: _validating
-                ? null
-                : () => setState(() {
-                    _validating = true;
-                    _error = null;
-                    _status = 'Validating…';
-                  }),
+    );
+  }
+}
+
+class _SpinnerInputSurface extends StatefulWidget {
+  const _SpinnerInputSurface({
+    required this.child,
+    required this.disabled,
+    this.invalid = false,
+  });
+  final Widget child;
+  final bool disabled;
+  final bool invalid;
+
+  @override
+  State<_SpinnerInputSurface> createState() => _SpinnerInputSurfaceState();
+}
+
+class _SpinnerInputSurfaceState extends State<_SpinnerInputSurface> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final ring = widget.invalid ? tokens.destructive : tokens.focusRing;
+    return Focus(
+      onFocusChange: (value) => setState(() => _focused = value),
+      child: Opacity(
+        opacity: widget.disabled ? 0.5 : 1,
+        child: Container(
+          decoration: BoxDecoration(
+            color: widget.disabled
+                ? tokens.border.withValues(alpha: 0.5)
+                : null,
+            border: Border.all(
+              color: widget.invalid || _focused ? ring : tokens.border,
+            ),
+            borderRadius: tokens.borderRadius,
+            boxShadow: widget.invalid || _focused
+                ? [
+                    BoxShadow(
+                      color: ring.withValues(alpha: widget.invalid ? 0.2 : 0.5),
+                      spreadRadius: 3,
+                    ),
+                  ]
+                : null,
           ),
-          DButton(
-            label: const Text('Accept sample'),
-            onPressed: _validating ? () => _finish(accepted: true) : null,
-          ),
-          DButton(
-            label: const Text('Reject sample'),
-            onPressed: _validating ? () => _finish(accepted: false) : null,
-          ),
-        ],
+          child: widget.child,
+        ),
       ),
-    ],
-  );
+    );
+  }
 }
 
 class _SpinnerEmpty extends StatefulWidget {
@@ -542,8 +692,8 @@ class _SpinnerEmpty extends StatefulWidget {
 }
 
 class _SpinnerEmptyState extends State<_SpinnerEmpty> {
-  bool _busy = false;
-  String _status = 'No request started';
+  bool _busy = true;
+  String _status = 'Processing your request';
 
   void _finish(String status) => setState(() {
     _busy = false;
@@ -551,56 +701,79 @@ class _SpinnerEmptyState extends State<_SpinnerEmpty> {
   });
 
   @override
-  Widget build(BuildContext context) => _SpinnerSurface(
-    child: Column(
-      children: [
-        if (_busy) const DSpinner(size: 32, semanticLabel: null),
-        if (_busy) const SizedBox(height: DSpacing.md),
-        Semantics(
-          liveRegion: true,
-          child: Text(
-            _status,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        ),
-        const SizedBox(height: DSpacing.sm),
-        const Text(
-          'You can cancel while this operation is pending. Your sample data '
-          'stays here when you change themes, direction or text size.',
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: DSpacing.md),
-        Wrap(
-          spacing: DSpacing.sm,
-          runSpacing: DSpacing.sm,
-          alignment: WrapAlignment.center,
-          children: [
-            DButton(
-              label: Text(_busy ? 'Cancel request' : 'Start request'),
-              onPressed: _busy
-                  ? () => _finish('Request canceled')
-                  : () => setState(() {
-                      _busy = true;
-                      _status = 'Processing your request';
-                    }),
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.all(DSpacing.xl),
+      child: Column(
+        children: [
+          if (_busy) ...[
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: tokens.muted,
+                borderRadius: tokens.borderRadius,
+              ),
+              alignment: Alignment.center,
+              child: const DSpinner(semanticLabel: null),
             ),
-            if (_busy) ...[
-              DButton(
-                label: const Text('Complete request'),
-                onPressed: () => _finish('Request complete'),
-              ),
-              DButton(
-                label: const Text('Fail request'),
-                onPressed: () =>
-                    _finish('Request failed. Start again to retry.'),
-              ),
-            ],
+            const SizedBox(height: DSpacing.lg),
           ],
-        ),
-      ],
-    ),
-  );
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              _status,
+              textAlign: TextAlign.center,
+              style: text.labelLarge!.copyWith(letterSpacing: -0.35),
+            ),
+          ),
+          const SizedBox(height: DSpacing.sm),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 384),
+            child: Text(
+              'Please wait while we process your request. Do not refresh the page.',
+              textAlign: TextAlign.center,
+              style: text.bodySmall!.copyWith(
+                height: 1.625,
+                color: tokens.mutedForeground,
+              ),
+            ),
+          ),
+          const SizedBox(height: DSpacing.lg),
+          _ReferenceButton(
+            onPressed: _busy
+                ? () => _finish('Request canceled')
+                : () => setState(() {
+                    _busy = true;
+                    _status = 'Processing your request';
+                  }),
+            child: Text(_busy ? 'Cancel request' : 'Start request'),
+          ),
+          if (_busy) ...[
+            const SizedBox(height: DSpacing.lg),
+            Wrap(
+              spacing: DSpacing.sm,
+              runSpacing: DSpacing.sm,
+              alignment: WrapAlignment.center,
+              children: [
+                DButton(
+                  label: const Text('Complete request'),
+                  onPressed: () => _finish('Request complete'),
+                ),
+                DButton(
+                  label: const Text('Fail request'),
+                  onPressed: () =>
+                      _finish('Request failed. Start again to retry.'),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _SpinnerStatus extends StatelessWidget {
@@ -608,8 +781,12 @@ class _SpinnerStatus extends StatelessWidget {
     required this.label,
     this.trailing = false,
     this.busy = true,
+    this.size = 16,
+    this.gap = DSpacing.xs,
   });
 
+  final double size;
+  final double gap;
   final String label;
   final bool trailing;
   final bool busy;
@@ -619,13 +796,13 @@ class _SpinnerStatus extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       if (busy && !trailing) ...[
-        const DSpinner(semanticLabel: null),
-        const SizedBox(width: DSpacing.sm),
+        DSpinner(size: size, semanticLabel: null),
+        SizedBox(width: gap),
       ],
       Flexible(child: Text(label)),
       if (busy && trailing) ...[
-        const SizedBox(width: DSpacing.sm),
-        const DSpinner(semanticLabel: null),
+        SizedBox(width: gap),
+        DSpinner(size: size, semanticLabel: null),
       ],
     ],
   );
@@ -648,6 +825,176 @@ class _SpinnerSurface extends StatelessWidget {
         borderRadius: tokens.borderRadius,
       ),
       child: child,
+    );
+  }
+}
+
+// The companion catalogue components are separate tasks. These local
+// compositions use their reference dimensions without introducing public APIs.
+class _ReferenceButton extends StatelessWidget {
+  const _ReferenceButton({
+    required this.child,
+    this.variant = DButtonVariant.standard,
+    this.onPressed,
+    this.inlineIcon = false,
+  });
+
+  final Widget child;
+  final DButtonVariant variant;
+  final VoidCallback? onPressed;
+  final bool inlineIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = DTokens.of(context);
+    DButtonStateStyle state(
+      Color background, {
+      BorderSide border = BorderSide.none,
+    }) => DButtonStateStyle(
+      foregroundColor: tokens.foreground,
+      backgroundColor: background,
+      iconColor: tokens.foreground,
+      border: border,
+    );
+    final buttons = theme.discourseButtons.copyWith(
+      disabledOpacity: 0.5,
+      standard: DButtonVariantStyle(
+        enabled: state(
+          tokens.background,
+          border: BorderSide(color: tokens.border),
+        ),
+        interactive: state(
+          tokens.muted,
+          border: BorderSide(color: tokens.border),
+        ),
+      ),
+      flat: DButtonVariantStyle(
+        enabled: state(tokens.muted),
+        interactive: state(tokens.hover),
+      ),
+    );
+    return Theme(
+      data: theme.copyWith(
+        textTheme: theme.textTheme.copyWith(
+          labelLarge: theme.textTheme.labelLarge!.copyWith(
+            fontSize: 12.8,
+            height: 20 / 12.8,
+          ),
+        ),
+        extensions: [
+          for (final extension in theme.extensions.values)
+            if (extension is! DiscourseButtonTheme) extension,
+          buttons,
+        ],
+      ),
+      child: DButton(
+        label: child,
+        variant: variant,
+        size: DButtonSize.small,
+        padding: EdgeInsetsDirectional.fromSTEB(inlineIcon ? 6 : 10, 4, 10, 4),
+        onPressed: onPressed,
+      ),
+    );
+  }
+}
+
+class _SpinnerPayment extends StatelessWidget {
+  const _SpinnerPayment();
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final title = rtl ? 'جاري معالجة الدفع...' : 'Processing payment...';
+    final amount = rtl ? '١٠٠.٠٠ دولار' : '\$100.00';
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: Container(
+          padding: const EdgeInsetsDirectional.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            color: tokens.muted.withValues(alpha: 0.5),
+            border: Border.all(color: Colors.transparent),
+            borderRadius: tokens.borderRadius,
+          ),
+          child: Semantics(
+            label: '$title, $amount',
+            liveRegion: true,
+            excludeSemantics: true,
+            child: Row(
+              children: [
+                const DSpinner(semanticLabel: null),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: MediaQuery.textScalerOf(context).scale(14) <= 14
+                        ? 1
+                        : null,
+                    overflow: MediaQuery.textScalerOf(context).scale(14) <= 14
+                        ? TextOverflow.ellipsis
+                        : null,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelLarge!.copyWith(height: 1.375),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    amount,
+                    textAlign: TextAlign.end,
+                    style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReferenceLoader extends StatelessWidget {
+  const _ReferenceLoader();
+
+  @override
+  Widget build(BuildContext context) {
+    final icons = IconTheme.of(context);
+    return SvgPicture.string(
+      '''<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 2v4" />
+  <path d="m16.2 7.8 2.9-2.9" />
+  <path d="M18 12h4" />
+  <path d="m16.2 16.2 2.9 2.9" />
+  <path d="M12 18v4" />
+  <path d="m4.9 19.1 2.9-2.9" />
+  <path d="M2 12h4" />
+  <path d="m4.9 4.9 2.9 2.9" />
+</svg>''',
+      width: icons.size ?? 16,
+      height: icons.size ?? 16,
+      theme: SvgTheme(
+        currentColor: icons.color ?? DTokens.of(context).foreground,
+      ),
     );
   }
 }

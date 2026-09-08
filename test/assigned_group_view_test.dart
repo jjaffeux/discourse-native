@@ -2,6 +2,7 @@ import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost;
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group.dart';
@@ -110,7 +111,7 @@ void main() {
       );
       await _pumpView(tester, presentation);
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(DSpinner), findsOneWidget);
       expect(
         find.text('No active assignments match this filter.'),
         findsNothing,
@@ -158,7 +159,7 @@ void main() {
         find.text('No active assignments match this filter.'),
         findsOneWidget,
       );
-      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(DSpinner), findsNothing);
       expect(find.text('Try again'), findsNothing);
     });
 

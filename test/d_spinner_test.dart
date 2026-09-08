@@ -1,19 +1,56 @@
+import 'dart:io';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('painted artwork matches the official Lucide SVG', (
+    tester,
+  ) async {
+    const boundaryKey = ValueKey('reference-comparison');
+    await _pump(
+      tester,
+      RepaintBoundary(
+        key: boundaryKey,
+        child: SvgPicture.string(
+          File('test/fixtures/spinner/loader-circle.svg').readAsStringSync(),
+          width: 96,
+          height: 96,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find.byKey(boundaryKey),
+    );
+    final reference = (await tester.runAsync(() => boundary.toImage()))!;
+    addTearDown(reference.dispose);
+    await _pump(
+      tester,
+      const RepaintBoundary(
+        key: boundaryKey,
+        child: DSpinner(size: 96, color: Colors.black, animating: false),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byKey(boundaryKey),
+      matchesReferenceImage(reference),
+    );
+  });
+
   for (final platform in [
     TargetPlatform.iOS,
     TargetPlatform.macOS,
     TargetPlatform.linux,
   ]) {
-    testWidgets('native artwork, size and color on ${platform.name}', (
+    testWidgets('reference artwork size and color on ${platform.name}', (
       tester,
     ) async {
       for (final size in [12.0, 16.0, 24.0, 32.0]) {
@@ -23,21 +60,8 @@ void main() {
           platform: platform,
         );
         expect(tester.getSize(find.byType(DSpinner)), Size.square(size));
-        if (platform == TargetPlatform.linux) {
-          final indicator = tester.widget<CircularProgressIndicator>(
-            find.byType(CircularProgressIndicator),
-          );
-          expect(indicator.color, const Color(0xff126f53));
-          expect(indicator.strokeWidth, 3);
-          expect(indicator.value, isNull);
-        } else {
-          final indicator = tester.widget<CupertinoActivityIndicator>(
-            find.byType(CupertinoActivityIndicator),
-          );
-          expect(indicator.color, const Color(0xff126f53));
-          expect(indicator.radius, size / 2);
-          expect(indicator.animating, isTrue);
-        }
+        expect(_artwork(tester).theme!.currentColor, const Color(0xff126f53));
+        expect(find.byType(CircularProgressIndicator), findsNothing);
       }
     });
   }
@@ -153,7 +177,7 @@ void main() {
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
     testWidgets(
-      'inactive app and ticker subtree pause native and custom motion on ${platform.name}',
+      'inactive app and ticker subtree pause default and custom motion on ${platform.name}',
       (tester) async {
         addTearDown(
           () => tester.binding.handleAppLifecycleStateChanged(
@@ -311,14 +335,7 @@ void main() {
             final expected = renderedButton.style!.iconColor!.resolve({
               WidgetState.disabled,
             });
-            expect(
-              tester
-                  .widget<CupertinoActivityIndicator>(
-                    find.byType(CupertinoActivityIndicator),
-                  )
-                  .color,
-              expected,
-            );
+            expect(_artwork(tester).theme!.currentColor, expected);
             expect(find.bySemanticsLabel('Loading'), findsNothing);
             final node = tester
                 .getSemantics(find.bySemanticsLabel('Save changes'))
@@ -370,21 +387,14 @@ void main() {
       await tester.tap(find.text('Open busy dialog'));
       await tester.pumpAndSettle();
       final state = tester.state(find.byType(DSpinner));
-      final originalColor = tester
-          .widget<CupertinoActivityIndicator>(
-            find.byType(CupertinoActivityIndicator),
-          )
-          .color;
+      expect(
+        _artwork(tester).theme!.currentColor,
+        AppTheme.light.iconTheme.color,
+      );
       theme.value = StyleguideTheme.plum.resolve(AppTheme.light);
       await tester.pumpAndSettle();
       expect(tester.state(find.byType(DSpinner)), same(state));
-      final newColor = tester
-          .widget<CupertinoActivityIndicator>(
-            find.byType(CupertinoActivityIndicator),
-          )
-          .color;
-      expect(newColor, theme.value.iconTheme.color);
-      expect(newColor, isNot(originalColor));
+      expect(_artwork(tester).theme!.currentColor, theme.value.iconTheme.color);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(DSpinner), findsNothing);
@@ -421,3 +431,14 @@ Future<void> _pump(
     ),
   ),
 );
+
+SvgStringLoader _artwork(WidgetTester tester) =>
+    tester
+            .widget<SvgPicture>(
+              find.descendant(
+                of: find.byType(DSpinner),
+                matching: find.byType(SvgPicture),
+              ),
+            )
+            .bytesLoader
+        as SvgStringLoader;

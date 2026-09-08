@@ -1,6 +1,5 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
-import 'package:discourse_native/src/theme/d_tooltip.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -409,18 +408,18 @@ void main() {
           expect(presses, expectedPresses);
 
           if (loading) {
-            final fontSize = DButton.fontSizeFor(DButtonSize.regular);
+            const spinnerSize = 16.0;
             final rendered = find.byType(FilledButton);
             expect(
               tester.getSize(rendered).width,
-              moreOrLessEquals(fontSize + 16 * 1.3 + 2),
+              moreOrLessEquals(spinnerSize + 16 * 1.3 + 2),
             );
             expect(
               tester.getSize(rendered).height,
-              moreOrLessEquals(fontSize + 16 + 2),
+              moreOrLessEquals(spinnerSize + 16 + 2),
             );
             expect(rendered, paintsExactlyCountTimes(#drawParagraph, 0));
-            expect(find.byType(CircularProgressIndicator), findsOneWidget);
+            expect(find.byType(DSpinner), findsOneWidget);
           }
         }
       } finally {
@@ -457,7 +456,7 @@ void main() {
               find.byType(FilledButton),
               paintsExactlyCountTimes(#drawParagraph, 1),
             );
-            expect(find.byType(CircularProgressIndicator), findsOneWidget);
+            expect(find.byType(DSpinner), findsOneWidget);
           }
         }
       }
@@ -598,7 +597,7 @@ void main() {
     try {
       expect(find.text('Save changes'), findsNothing);
       expect(find.text('Saving changes…'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(DSpinner), findsOneWidget);
       expect(
         tester.getSize(rendered).width,
         greaterThan(tester.getSize(rendered).height),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_channels_view.dart';
@@ -316,7 +317,7 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, -100));
       await tester.pump();
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(DSpinner), findsOneWidget);
       expect(find.text('Load more'), findsNothing);
       expect(_offsets(api), [0, 1]);
 

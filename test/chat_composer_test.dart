@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -1923,7 +1924,7 @@ void main() {
       expect(tester.widget<TextField>(field).controller!.text, isEmpty);
       expect(find.text('first message'), findsOneWidget);
       expect(find.text('Sending…'), findsNothing);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(DSpinner), findsNothing);
       expect(fixture.shell.chat.stream(_site, 9).localMessageIds, hasLength(1));
       expect(fixture.api.chatMessagesRequested, hasLength(1));
 

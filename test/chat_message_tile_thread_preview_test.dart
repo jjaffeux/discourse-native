@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -1689,10 +1690,7 @@ void main() {
         );
         expect(button.onPressed, isNull);
         expect(
-          find.descendant(
-            of: action,
-            matching: find.byType(CircularProgressIndicator),
-          ),
+          find.descendant(of: action, matching: find.byType(DSpinner)),
           findsOneWidget,
         );
 

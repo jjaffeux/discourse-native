@@ -1,14 +1,14 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../foundation/tokens.dart';
 
 /// An indeterminate busy indicator. The caller owns loading and completion.
 ///
-/// Uses native Apple activity artwork on iOS/macOS and Material artwork on
-/// other platforms. Supply [child] to rotate custom artwork instead. Neither
-/// artwork nor its descendants receive focus, pointer input or semantics.
+/// Uses shadcn's Lucide Loader2 artwork on every platform. Supply [child] to
+/// rotate custom artwork instead. Neither artwork nor its descendants receive
+/// focus, pointer input or semantics.
 ///
 /// The indicator remains visible without motion when [animating] is false,
 /// reduced motion is requested, its ticker subtree is disabled, or the app is
@@ -33,7 +33,8 @@ class DSpinner extends StatefulWidget {
   /// Custom artwork receives this color through IconTheme and DefaultTextStyle.
   final Color? color;
 
-  /// Material ring thickness. Native Apple and custom artwork own their strokes.
+  /// Stroke width in the reference icon's 24-unit view box (2 by default).
+  /// Scales with [size], as in SVG. Custom artwork owns its strokes.
   final double strokeWidth;
 
   /// Localizable loading status. Null makes the spinner decorative when its
@@ -89,28 +90,22 @@ class _DSpinnerState extends State<DSpinner> with WidgetsBindingObserver {
         _active &&
         TickerMode.valuesOf(context).enabled &&
         !(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
-    final Widget artwork;
-    if (widget.child case final child?) {
-      artwork = _SpinnerArtwork(animating: animate, child: child);
-    } else {
-      artwork = switch (Theme.of(context).platform) {
-        TargetPlatform.iOS ||
-        TargetPlatform.macOS => CupertinoActivityIndicator(
-          animating: animate,
-          radius: widget.size / 2,
-          color: color,
-        ),
-        _ => CircularProgressIndicator(
-          // A static arc avoids motion while the outer semantics remain busy.
-          value: animate ? null : 0.75,
-          color: color,
-          strokeWidth: widget.strokeWidth,
-          strokeAlign: CircularProgressIndicator.strokeAlignInside,
-          padding: EdgeInsets.zero,
-          constraints: BoxConstraints.tight(Size.square(widget.size)),
-        ),
-      };
-    }
+    // Lucide loader-circle (Loader2Icon), the official shadcn default.
+    // Preserve its view box and path verbatim; attribution: licenses/lucide.txt.
+    final artwork = _SpinnerArtwork(
+      animating: animate,
+      child:
+          widget.child ??
+          SvgPicture.string(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+            'fill="none" stroke="currentColor" stroke-width="${widget.strokeWidth}" '
+            'stroke-linecap="round" stroke-linejoin="round">'
+            '<path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>',
+            width: widget.size,
+            height: widget.size,
+            theme: SvgTheme(currentColor: color),
+          ),
+    );
 
     final indicator = ExcludeSemantics(
       child: ExcludeFocus(

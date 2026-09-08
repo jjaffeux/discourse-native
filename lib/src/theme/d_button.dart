@@ -526,7 +526,7 @@ class DButton extends StatelessWidget {
           );
     if (loading) {
       final labelChild = child;
-      final indicator = DSpinner(size: fontSize, semanticLabel: null);
+      const indicator = DSpinner(semanticLabel: null);
       child = loadingLabel == null
           ? indicator
           : DefaultTextStyle.merge(

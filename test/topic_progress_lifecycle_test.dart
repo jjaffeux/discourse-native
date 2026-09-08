@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -186,7 +187,7 @@ void main() {
             navigator.pop();
             await tester.pumpAndSettle();
             expect(find.text('Topic progress'), findsOneWidget);
-            expect(find.byType(CircularProgressIndicator), findsNothing);
+            expect(find.byType(DSpinner), findsNothing);
             expect(
               find.text('Could not open that post. Try again.'),
               succeeds ? findsNothing : findsOneWidget,

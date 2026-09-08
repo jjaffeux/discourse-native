@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
 import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
@@ -1392,10 +1393,7 @@ void main() {
     final button = find.descendant(of: refresh, matching: find.byType(DButton));
     expect(tester.widget<DButton>(button).loading, isTrue);
     expect(
-      find.descendant(
-        of: refresh,
-        matching: find.byType(CircularProgressIndicator),
-      ),
+      find.descendant(of: refresh, matching: find.byType(DSpinner)),
       findsOneWidget,
     );
     expect(
