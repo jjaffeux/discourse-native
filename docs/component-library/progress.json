@@ -42,8 +42,8 @@
   "components": [
     {
       "id": "direction",
-      "status": "queued",
-      "taskId": null,
+      "status": "in_progress",
+      "taskId": "01a0818b-e20a-77d0-bb99-77691899dad7",
       "branch": "codex/ui-direction",
       "dependencies": [],
       "acceptanceCriteria": [],
@@ -54,7 +54,8 @@
       "limitations": [],
       "implementationCommit": null,
       "mergeCommit": null,
-      "clientThreadId": "client-new-thread:3635cbd2-890f-40fc-9fa6-b36f824420b0"
+      "clientThreadId": "client-new-thread:3635cbd2-890f-40fc-9fa6-b36f824420b0",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7cf5/discourse-native"
     },
     {
       "id": "typography",
