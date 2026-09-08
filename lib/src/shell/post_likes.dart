@@ -227,6 +227,8 @@ class _Likers extends StatelessWidget {
   Widget build(BuildContext context) => ShellSelector<_LikersSnapshot>(
     select: (controller) => (
       controller: controller,
+      // Account replacement also needs a reload when both snapshots are empty.
+      session: controller.lifecycle.capture(siteUrl).session,
       likers: controller.likers(post.id, siteUrl: siteUrl),
       error: controller.likersError(post.id, siteUrl: siteUrl),
     ),
@@ -241,6 +243,7 @@ class _Likers extends StatelessWidget {
 
 typedef _LikersSnapshot = ({
   ShellController controller,
+  Object session,
   PostLikers? likers,
   String? error,
 });
@@ -269,6 +272,7 @@ class _LikersViewState extends State<_LikersView> {
   void didUpdateWidget(_LikersView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.snapshot.controller, widget.snapshot.controller) ||
+        !identical(oldWidget.snapshot.session, widget.snapshot.session) ||
         oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.post.id != widget.post.id) {
       _reloadAfterLayout();
@@ -281,10 +285,12 @@ class _LikersViewState extends State<_LikersView> {
     final controller = widget.snapshot.controller;
     final siteUrl = widget.siteUrl;
     final postId = widget.post.id;
+    final lease = controller.lifecycle.capture(siteUrl);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !identical(_reloadToken, token)) return;
       _reloadToken = null;
-      if (!identical(widget.snapshot.controller, controller) ||
+      if (!lease.isCurrent ||
+          !identical(widget.snapshot.controller, controller) ||
           widget.siteUrl != siteUrl ||
           widget.post.id != postId) {
         return;
