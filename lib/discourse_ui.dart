@@ -5,6 +5,7 @@ library;
 export 'src/shell/select.dart';
 export 'src/theme/d_button.dart';
 export 'src/theme/d_tooltip.dart';
+export 'src/ui/components/d_aspect_ratio.dart';
 export 'src/ui/components/d_direction.dart';
 export 'src/ui/components/d_kbd.dart';
 export 'src/ui/components/d_separator.dart';

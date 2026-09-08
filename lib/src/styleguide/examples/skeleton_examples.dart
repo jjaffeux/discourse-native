@@ -121,7 +121,7 @@ DSkeletonRegion(
         const FractionallySizedBox(
           widthFactor: 0.5, child: DSkeleton(height: 16)),
         const SizedBox(height: 16),
-        const AspectRatio(aspectRatio: 16 / 9, child: DSkeleton()),
+        const DAspectRatio(ratio: 16 / 9, child: DSkeleton()),
       ],
     )),
   )),
@@ -639,7 +639,7 @@ class _CardPlaceholder extends StatelessWidget {
         SizedBox(height: DSpacing.xs),
         FractionallySizedBox(widthFactor: 0.5, child: DSkeleton(height: 16)),
         SizedBox(height: DSpacing.lg),
-        AspectRatio(aspectRatio: 16 / 9, child: DSkeleton()),
+        DAspectRatio(ratio: 16 / 9, child: DSkeleton()),
       ],
     ),
   );
@@ -666,8 +666,8 @@ class _CardContentState extends State<_CardContent> {
         ),
         const Text('A place to share what you grow.'),
         const SizedBox(height: DSpacing.lg),
-        AspectRatio(
-          aspectRatio: 16 / 9,
+        DAspectRatio(
+          ratio: 16 / 9,
           child: ColoredBox(
             color: DTokens.of(context).muted,
             child: const Icon(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../../../../discourse_ui.dart';
+
 import '../../../../foundation/diagnostic_errors.dart';
 import '../../../../theme/d_icon.dart';
 import '../../../../theme/d_icons.dart';
@@ -121,8 +123,8 @@ class _Thumbnail extends StatelessWidget {
       width: 88,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(4),
-        child: AspectRatio(
-          aspectRatio: thumbnail.aspectRatio ?? 1,
+        child: DAspectRatio(
+          ratio: thumbnail.aspectRatio ?? 1,
           child: SiteImage(
             url: thumbnail.src,
             siteUrl: siteUrl,

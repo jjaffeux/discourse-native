@@ -645,18 +645,57 @@
     },
     {
       "id": "aspect-ratio",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "review_ready",
+      "taskId": "01a082a9-b9d4-79f0-8a0d-cc48e700cc67",
+      "branch": "codex/ui-aspect-ratio",
       "dependencies": [],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "acceptanceCriteria": [
+        "Export public DAspectRatio with required arbitrary finite positive ratio and ordinary child composition; use Flutter ratio layout, document tight/bounded/unbounded constraints and keep clipping, imagery, colors and loading caller-owned.",
+        "Match frozen 16:9 (max 384px), square (max 192px), portrait 9:16 (max 160px) and RTL figure examples, using rounded-lg/muted/cover/grayscale/dark 20% brightness with live palette, font and radius tokens and an 8px caption gap.",
+        "Preserve descendant state, semantics, pointer and keyboard input, focus, and caller-owned media/controller lifetimes across ratio, theme and direction updates; respect native text scaling and scrolling.",
+        "Audit all core and bundled plugins, migrate appropriate ratio presentation including inline video, oneboxes, lightbox and Chat, preserve normalization/fit/clipping/loading/lifecycles, and record retained metadata, grid and playback APIs.",
+        "Add comprehensive offline public-library examples for reference compositions, arbitrary ratio changes, constraint behavior, interaction/state retention, large text and RTL with Light/Dark/Forest/Plum previews and DButton actions.",
+        "Format/analyze and pass focused component/example/migration/downstream checks without changing Flutter pin or lockfiles; inspect actual rendered reference examples and representative real migrated widgets in an isolated local-data macOS app after the coordinator grants the native slot; record exact evidence and limitations."
+      ],
+      "decisions": [
+        "Public DAspectRatio accepts every finite positive ratio and mounts Flutter RenderAspectRatio directly, with debug assertions and release mount/update validation. Parent constraints take precedence; at least one axis must be bounded. Child composition owns paint, clipping, semantics, focus, input, state and controllers.",
+        "Preserved frozen Markdown and registry JSON under docs/component-library/reference; exact URLs, raw/source-content hashes, CSS measurements, native mapping and adoption exceptions are documented in docs/component-library/aspect-ratio.md. The linked Base UI API currently returns HTTP 404; registry uses a plain CSS ratio div and needs no Base UI dependency.",
+        "Frozen examples retain 384x216 widescreen, 192px square, 160x284.444 portrait, live base radius/muted/cover/grayscale and 20% dark brightness, plus an 8px-gap 14px/20px RTL caption. Local bundled Discourse imagery substitutes for the remote reference avatar.",
+        "An explicit packages/discourse_native/src/styleguide/assets/discourse.png asset declaration and key works in both the root application and the compatibility profile; no runtime network or asset-fallback owner is introduced."
+      ],
+      "migrations": [
+        "Core inline_video now uses DAspectRatio for outer capped geometry and inline/fullscreen playback. Removed competing manual ratio sizing while retaining finite-width fallback, actual-size poster decoding, clipping, taps, async sessions, disposal and scrolling.",
+        "Generic/topic onebox thumbnails and lightbox reserved-image slots use DAspectRatio, preserving metadata normalization, widths, cover/contain fit, clipping, loading/error, links and gallery ownership.",
+        "Bundled Chat upload images and optimistic GIF previews use DAspectRatio; preserve no-upscale/caps, contain fit, dominant fill, loading/error, semantics, playback toggles and gallery behavior.",
+        "Skeleton card placeholder/ready compositions and public snippets now use DAspectRatio; updated relative-sizing API docs."
+      ],
+      "retainedAlternatives": [
+        "Media model aspectRatio values, image-decode normalization and native playback requests are metadata/transport, not widget layout owners.",
+        "YouTube keeps its 200px minimum-height native overlay sizing; ComposerImagePreview retains authored scale, no-upscale, fixed selection/measurement bounds; image mosaic equalized heights and fixed carousel track are deliberate layout policies.",
+        "Voice/GIF sliver grid childAspectRatio stays with Flutter grid layout; upstream video_player_avfoundation and vendored WebRTC example apps do not depend on this application library."
+      ],
+      "verification": [
+        "Acceptance criteria recorded before implementation. Frozen Markdown hash verified; official registry raw and source-content hashes recorded. Other component rows and workflow metadata compared with base and preserved.",
+        "Format check passed for 15 touched Dart files; flutter analyze --no-pub passed without diagnostics.",
+        "Focused component/examples/media/Chat/Skeleton/adoption command recorded in aspect-ratio.md: 305 passed, randomized seed 2654739856. Includes ratio/session retention, pointer/keyboard/focus/semantics, normalization/size caps, offscreen disposal and async race/decode checks.",
+        "After shared asset correction, 32 example tests passed from root (seed 443369763), and 32 passed from profiles/full (seed 1858729558) after enforced-lockfile pub get. Neither Flutter pin nor any lockfile changed.",
+        "Browser inspection of official examples confirmed 384x216, 192x192, 160x284.4375 CSS-pixel boxes; native reference rounded-lg is 10px before app token substitution. Verified object-cover, grayscale, dark brightness(0.2), and RTL caption at 8px gap / 14px font / 20px line-height. Light and Dark reference renders inspected.",
+        "Isolated Aspect Ratio Review macOS app built and inspected at /private/tmp/discourse-aspect-ratio-review-01a082a9/app/build/macos/Build/Products/Debug/Aspect Ratio Review.app. Bundle ID org.discourse.aspect-ratio-review, separate URL scheme, package asset, ad-hoc signature and byte-identical production lib source verified before launch. Only the example implemented-status declaration changed afterward.",
+        "Native reference comparison: widescreen Light/Dark, square Dark, portrait Forest, RTL figure Plum at 360px/200%; image crop/dimming/radii/caption matched recorded geometry and token mapping. Arbitrary ratio 1.37 to 2.72, contain/corner toggles, all constraint examples and outer scrolling inspected.",
+        "Native interactive example: edited local draft, visible Tab focus, Enter increment, retained draft/counter/focus across ratio and live theme/direction changes; inner scroll preserved access to 200% text.",
+        "Actual production OneboxCard, DiscourseTopicOnebox, LightboxThumbnail, ChatUploads, ChatPreviewBody and InlineVideo inspected using bundled image bytes on a temporary loopback-only fixture. Verified cover/contain/caps, ready/loading/error slots, GIF pause-to-play, gallery open/Escape, video lazy activation/pause/0:07 position retention/resizing/fullscreen/Escape. No real account data or video codec playback used.",
+        "Full native styleguide search and registered Aspect Ratio preview inspected. After quitting only the isolated app, a subsequent global CUA app inventory returned no org.discourse.aspect-ratio-review entry; desktop slot released to coordinator. No real runner, SDK or system accessibility setting changed.",
+        "Final component tests passed (5 tests, seed 1837891262) after ensuring semantics handles are disposed on assertion-failure paths as well as success.",
+        "After marking the verified example group implemented, final shared styleguide page plus Aspect Ratio examples passed: 40 tests, seed 29227221. Final flutter analyze --no-pub and touched-file formatting passed; git diff --check was clean."
+      ],
+      "limitations": [
+        "The offline Discourse image intentionally replaces the remote Vercel avatar; app palette/font/radius variables and native glyph shaping differ from web defaults. Browser portrait height quantization is 284.4375px versus exact Flutter arithmetic 284.4444px. No unintended layout/style difference remained and no pixel-identical cross-renderer claim is made.",
+        "No iOS/Linux device, VoiceOver speech or physical codec-playback check. The native media fixture mounted real widgets with a fake session; platform-override widget tests are not device checks.",
+        "The full styleguide exposes fewer native AX nodes than the temporary harness, so its search/navigation used visible pointer targets; component child semantics and keyboard/focus behavior were inspected in the native harness and automated tests."
+      ],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "nativeInspectionStatus": "completed"
     },
     {
       "id": "avatar",
