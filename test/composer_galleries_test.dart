@@ -384,7 +384,197 @@ unfinished
 
   group('gallery native input protection', () {
     const formatter = ComposerImageGalleryInputFormatter();
-    const source = '[grid]\n![one](upload://one)\n[/grid]\ndog';
+    const block = '[grid]\n![one](upload://one)\n[/grid]';
+    const source = '$block\ndog';
+
+    for (final reversed in [false, true]) {
+      test('accepts whole replacements with reversed=$reversed', () {
+        final oldValue = TextEditingValue(
+          text: block,
+          selection: TextSelection(
+            baseOffset: reversed ? block.length : 0,
+            extentOffset: reversed ? 0 : block.length,
+          ),
+        );
+
+        for (final replacement in [
+          '[',
+          ']',
+          '[grid]\n![new](upload://new)\n[/grid]',
+          '[grid]\n![one](upload://one)\n![two](upload://two)\n[/grid]',
+          '',
+        ]) {
+          final newValue = TextEditingValue(
+            text: replacement,
+            selection: TextSelection.collapsed(offset: replacement.length),
+          );
+
+          expect(
+            formatter.formatEditUpdate(oldValue, newValue),
+            newValue,
+            reason: replacement,
+          );
+        }
+      });
+
+      test(
+        'replaces galleries among surrounding text with reversed=$reversed',
+        () {
+          const text = '🐈 Before\n$block\nmiddle\n$block\nafter';
+          final galleries = parseComposerImageGalleries(text);
+
+          for (final range in [
+            TextRange(start: galleries.last.start, end: galleries.last.end),
+            TextRange(start: galleries.first.start, end: galleries.last.end),
+            TextRange(
+              start: galleries.first.start - 2,
+              end: galleries.last.end + 2,
+            ),
+          ]) {
+            final oldValue = TextEditingValue(
+              text: text,
+              selection: TextSelection(
+                baseOffset: reversed ? range.end : range.start,
+                extentOffset: reversed ? range.start : range.end,
+              ),
+            );
+            const replacement = '[grid]\n![new](upload://new)\n[/grid]';
+            final newValue = TextEditingValue(
+              text: text.replaceRange(range.start, range.end, replacement),
+              selection: TextSelection.collapsed(
+                offset: range.start + replacement.length,
+              ),
+            );
+
+            expect(formatter.formatEditUpdate(oldValue, newValue), newValue);
+            final updated = parseComposerImageGalleries(newValue.text).last;
+            expect(updated.start, range.start);
+            expect(updated.end, range.start + replacement.length);
+            expect(updated.images.single.url, 'upload://new');
+          }
+        },
+      );
+    }
+
+    test('rejects a selection covering only part of another gallery', () {
+      const text = '$block\nmiddle\n$block';
+      const oldValue = TextEditingValue(
+        text: text,
+        selection: TextSelection(baseOffset: 0, extentOffset: text.length - 1),
+      );
+
+      expect(
+        formatter.formatEditUpdate(
+          oldValue,
+          const TextEditingValue(
+            text: '[]',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+        ),
+        oldValue,
+      );
+    });
+
+    test('does not trust a selection when text outside it changes', () {
+      const text = '$block\nmiddle\n$block';
+      final galleries = parseComposerImageGalleries(text);
+
+      for (final (selected, edited) in [
+        (galleries.first, galleries.last),
+        (galleries.last, galleries.first),
+      ]) {
+        final oldValue = TextEditingValue(
+          text: text,
+          selection: TextSelection(
+            baseOffset: selected.start,
+            extentOffset: selected.end,
+          ),
+        );
+
+        expect(
+          formatter.formatEditUpdate(
+            oldValue,
+            TextEditingValue(
+              text: text.replaceRange(edited.start + 1, edited.start + 2, 'x'),
+              selection: TextSelection.collapsed(offset: edited.start + 2),
+            ),
+          ),
+          oldValue,
+        );
+      }
+    });
+
+    test('requires nonoverlapping text outside the selection', () {
+      const text = 'x${block}x[';
+      const oldValue = TextEditingValue(
+        text: text,
+        selection: TextSelection(baseOffset: 1, extentOffset: 1 + block.length),
+      );
+
+      expect(
+        formatter.formatEditUpdate(
+          oldValue,
+          const TextEditingValue(
+            text: 'x[',
+            selection: TextSelection.collapsed(offset: 2),
+          ),
+        ),
+        oldValue,
+      );
+    });
+
+    test('falls back safely for invalid and out-of-bounds selections', () {
+      for (final selection in const [
+        TextSelection.collapsed(offset: -1),
+        TextSelection(baseOffset: -1, extentOffset: block.length),
+        TextSelection(baseOffset: 0, extentOffset: source.length + 1),
+        TextSelection(baseOffset: source.length + 1, extentOffset: 0),
+      ]) {
+        final oldValue = TextEditingValue(text: source, selection: selection);
+
+        expect(
+          formatter.formatEditUpdate(
+            oldValue,
+            const TextEditingValue(
+              text: '[grid]\n![new](upload://new)\n[/grid]\ndog',
+              selection: TextSelection.collapsed(offset: 20),
+            ),
+          ),
+          oldValue,
+          reason: '$selection',
+        );
+      }
+    });
+
+    test('preserves composition when replacing a whole gallery', () {
+      const oldValue = TextEditingValue(
+        text: source,
+        selection: TextSelection(baseOffset: 0, extentOffset: block.length),
+      );
+      const newValue = TextEditingValue(
+        text: '[\ndog',
+        selection: TextSelection.collapsed(
+          offset: 1,
+          affinity: TextAffinity.upstream,
+        ),
+        composing: TextRange(start: 0, end: 1),
+      );
+
+      expect(formatter.formatEditUpdate(oldValue, newValue), newValue);
+    });
+
+    test(
+      'passes through selection and composition updates without text edits',
+      () {
+        const oldValue = TextEditingValue(text: source);
+        final newValue = oldValue.copyWith(
+          selection: const TextSelection.collapsed(offset: 2),
+          composing: const TextRange(start: 1, end: 2),
+        );
+
+        expect(formatter.formatEditUpdate(oldValue, newValue), newValue);
+      },
+    );
 
     test('relocates an insertion from hidden source after the gallery', () {
       final gallery = parseComposerImageGalleries(source).single;
@@ -405,6 +595,36 @@ unfinished
         TextSelection.collapsed(offset: gallery.end + 1),
       );
       expect(parseComposerImageGalleries(result.text), hasLength(1));
+    });
+
+    test('rejects composing input at a hidden caret until it commits', () {
+      const oldValue = TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: 2),
+      );
+      final composing = TextEditingValue(
+        text: source.replaceRange(2, 2, 'é'),
+        selection: const TextSelection.collapsed(
+          offset: 3,
+          affinity: TextAffinity.upstream,
+        ),
+        composing: const TextRange(start: 2, end: 3),
+      );
+
+      expect(formatter.formatEditUpdate(oldValue, composing), oldValue);
+      expect(
+        formatter.formatEditUpdate(
+          oldValue,
+          composing.copyWith(composing: TextRange.empty),
+        ),
+        TextEditingValue(
+          text: source.replaceRange(block.length, block.length, 'é'),
+          selection: const TextSelection.collapsed(
+            offset: block.length + 1,
+            affinity: TextAffinity.upstream,
+          ),
+        ),
+      );
     });
 
     test('rejects a partial replacement of gallery source', () {
