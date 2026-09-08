@@ -71,7 +71,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 59 | message-scroller | planned | — | — | message, scroll-area | — |
 | 60 | chart | planned | — | — | tooltip | — |
 | 61 | data-table | planned | — | — | table, pagination, checkbox, input, dropdown-menu | — |
-| 62 | sidebar | planned | — | — | sheet, tooltip, collapsible, input | — |
+| 62 | sidebar | in_progress | 01a08352-7665-7f90-a637-75478a83ea53 | codex/ui-sidebar | sheet, tooltip, collapsible, input | — |
 | 63 | input-otp | planned | — | — | input, field | — |
 | 64 | questionnaire | planned | — | — | field, button, progress, card, dialog, native-select | — |
 
@@ -845,6 +845,42 @@ Status: merged. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/ui-car
 - iOS and Linux native device inspection unavailable in this macOS session. Widget tests and platform overrides are not device testing.
 - No VoiceOver audit; some native accessibility snapshots were sparse. Widget tests verify semantic grouping and keyboard/focus behavior. Preferences, Categories, Aggregate, Voice diagnostics and cooked/request fallback migrations have focused test coverage but were not individually inspected natively.
 - Adjacent Button/Input/Badge/Toggle Group visuals remain pending their owners, as documented in the examples. Native inspected build displayed baseline status before the final metadata-only promotion to implemented.
+
+### sidebar
+
+Status: in_progress. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/ui-sidebar.
+
+**acceptanceCriteria**
+
+- Reproduce base-nova Sidebar provider, physical sides, sidebar/floating/inset variants, offcanvas/icon/static modes, mobile modal behavior and all documented composition subparts.
+- Preserve controlled/uncontrolled state, keyboard shortcut, focus entry/restoration, Escape/outside dismissal, selected/disabled semantics, independent scrolling and live palette/font/radius/RTL/large text.
+- Provide independent examples, document reference metrics and dependency boundaries, audit app/plugin adoption; coordinator owns first styleguide shell adoption.
+- Pass focused tests and analysis; compare isolated native sample app with official rendered reference in coordinator inspection slot.
+
+**decisions**
+
+- Full mapping, API and dependency boundary: docs/component-library/sidebar.md. Official base-nova registry hash 02b1ea430fb246da062048f0161a01d1b34a2c787f6974958c9b20a3142120a6.
+- Provider exposes controlled/uncontrolled desktop and separate mobile state, configurable bounded-width breakpoint and scoped Cmd/Ctrl+B. Native modal route owns focus/dismissal; site colors/fonts/radius update live.
+- Actual Flutter imports are completed Tooltip,Separator,Skeleton. Sheet/Input/Collapsible remain pending catalogue owners; native modal/TextField and local disclosure composition do not claim those tasks complete. Frozen dependency metadata is preserved for coordinator reconciliation.
+
+**migrations**
+
+- Public barrel export and six independent sidebar_examples.dart examples registered. Coordinator owns first application adoption in the corrected styleguide shell.
+
+**retainedAlternatives**
+
+- InstanceSidebar and Chat drawer retain domain-specific persistence, permissions, panel switching and unread/reorder adapters; Events/Voice contribute models to those owners. Per-plugin audit is in sidebar.md.
+
+**verification**
+
+- Root/full flutter pub get --enforce-lockfile passed with lockfiles unchanged. Root/full flutter analyze --no-pub clean.
+- 16 focused Sidebar, examples and existing styleguide tests passed with seed9092026; final rail/inset refinement rerun pending.
+- Isolated sample-data macOS Sidebar Review 0cca builds with org.discourse.sidebarreview0cca. Native inspection slot requested; no CUA used yet.
+
+**limitations**
+
+- Native visual comparison pending coordinator inspection slot; examples remain baseline and component remains in_progress until review gate passes.
+- No iOS/Linux device or spoken VoiceOver verification. Live account navigation adapters retained as documented.
 
 ### Final audit
 
