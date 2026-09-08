@@ -1,12 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../shell/platform.dart';
-import '../../shell/select.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_button.dart';
 import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_environment.dart';
@@ -62,9 +61,10 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
+                    child: DText(
                       title,
-                      style: Theme.of(dialogContext).textTheme.titleLarge,
+                      variant: DTextVariant.h4,
+                      headingLevel: 1,
                     ),
                   ),
                   IconButton(

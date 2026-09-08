@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 
-import '../../theme/d_button.dart';
 import 'voice_controller.dart';
 import 'voice_diagnostics.dart';
 import 'voice_icons.dart';
@@ -1810,11 +1810,13 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
           children: [
             Row(
               children: [
-                Text(
-                  'Room chat',
-                  style: Theme.of(context).textTheme.titleLarge,
+                const Expanded(
+                  child: DText(
+                    'Room chat',
+                    variant: DTextVariant.h4,
+                    headingLevel: 1,
+                  ),
                 ),
-                const Spacer(),
                 IconButton(
                   tooltip: 'Close',
                   onPressed: () => Navigator.pop(context),

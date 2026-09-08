@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'shell_metrics.dart';
@@ -121,7 +121,7 @@ class _SettingsHeader extends StatelessWidget {
 
     return Container(
       key: const ValueKey('app-settings-header'),
-      height: shellHeaderHeight,
+      constraints: const BoxConstraints(minHeight: shellHeaderHeight),
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.shell.divider)),
@@ -129,11 +129,8 @@ class _SettingsHeader extends StatelessWidget {
       child: Row(
         children: [
           const SizedBox(width: 16),
-          Expanded(
-            child: Semantics(
-              header: true,
-              child: Text('Settings', style: theme.textTheme.titleLarge),
-            ),
+          const Expanded(
+            child: DText('Settings', variant: DTextVariant.h4, headingLevel: 1),
           ),
           DButton.iconOnly(
             key: const ValueKey('app-settings-close'),
@@ -171,19 +168,12 @@ class _TextSizeSetting extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Text size',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        const DText('Text size', variant: DTextVariant.large, headingLevel: 2),
         const SizedBox(height: 6),
-        Text(
+        const DText(
           'Applies across every forum. On desktop, use Command or Control '
           'with + or −; use the same modifier with 0 to reset.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          variant: DTextVariant.muted,
         ),
         const SizedBox(height: 16),
         Wrap(
@@ -206,9 +196,10 @@ class _TextSizeSetting extends StatelessWidget {
               label: 'Current text size',
               value: '$percentage percent',
               liveRegion: true,
-              child: SizedBox(
-                width: 64,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 64),
                 child: Center(
+                  widthFactor: 1,
                   child: Text(
                     '$percentage%',
                     style: theme.textTheme.labelLarge?.copyWith(
@@ -250,16 +241,13 @@ class _ContentAlignmentSetting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
+        const DText(
           'Content alignment',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          variant: DTextVariant.large,
+          headingLevel: 2,
         ),
         const SizedBox(height: 20),
         Semantics(

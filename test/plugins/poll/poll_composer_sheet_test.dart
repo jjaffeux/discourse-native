@@ -73,6 +73,18 @@ void main() {
         draft,
         platform: TargetPlatform.macOS,
       );
+      final semantics = tester.ensureSemantics();
+      try {
+        expect(
+          tester
+              .getSemantics(find.text('Add poll'))
+              .getSemanticsData()
+              .headingLevel,
+          1,
+        );
+      } finally {
+        semantics.dispose();
+      }
       expect(find.byType(Dialog), findsOneWidget);
       expect(find.byType(BottomSheet), findsNothing);
 

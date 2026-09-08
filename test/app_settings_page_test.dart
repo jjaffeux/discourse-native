@@ -82,6 +82,29 @@ void main() {
     expect(persistence.disableGifAnimations, isTrue);
   });
 
+  testWidgets('settings heading grows to fit 200% text without clipping', (
+    tester,
+  ) async {
+    final controller = _controller();
+    addTearDown(controller.dispose);
+    await _pumpPage(tester, controller, scale: 2, size: const Size(800, 800));
+    final title = Theme.of(
+      tester.element(find.text('Settings')),
+    ).textTheme.titleLarge!;
+    final header = tester.getRect(
+      find.byKey(const ValueKey('app-settings-header')),
+    );
+    expect(
+      header.height,
+      greaterThanOrEqualTo(title.fontSize! * title.height! * 2),
+    );
+    expect(tester.getSize(find.text('100%')).height, closeTo(40, 0.001));
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const ValueKey('app-settings-close')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppSettingsModal), findsNothing);
+  });
+
   testWidgets('the form and Close control expose useful semantics', (
     tester,
   ) async {
@@ -93,6 +116,16 @@ void main() {
       await _pumpPage(tester, controller);
 
       expect(find.bySemanticsLabel('Close settings'), findsOneWidget);
+      for (final (label, level) in [
+        ('Settings', 1),
+        ('Content alignment', 2),
+        ('Text size', 2),
+      ]) {
+        expect(
+          tester.getSemantics(find.text(label)).getSemanticsData().headingLevel,
+          level,
+        );
+      }
       expect(
         find.bySemanticsLabel('Content alignment options'),
         findsOneWidget,
@@ -209,6 +242,7 @@ Future<void> _pumpPage(
   WidgetTester tester,
   ShellController controller, {
   Size size = const Size(800, 600),
+  double scale = 1,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -219,6 +253,12 @@ Future<void> _pumpPage(
       controller: controller,
       child: MaterialApp(
         theme: AppTheme.light,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(scale)),
+          child: child!,
+        ),
         home: Builder(
           builder: (context) => Scaffold(
             body: TextButton(

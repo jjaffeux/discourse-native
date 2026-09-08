@@ -1,12 +1,12 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../data/discourse_api.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'shell_controller.dart';
@@ -45,10 +45,11 @@ Future<void> showAddInstanceSheet(BuildContext context) {
               padding: const EdgeInsets.fromLTRB(24, 8, 8, 8),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text(
+                  const Expanded(
+                    child: DText(
                       title,
-                      style: Theme.of(dialogContext).textTheme.titleLarge,
+                      variant: DTextVariant.h4,
+                      headingLevel: 1,
                     ),
                   ),
                   IconButton(

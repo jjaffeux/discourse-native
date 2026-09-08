@@ -1,12 +1,11 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
-import 'package:discourse_native/src/shell/select.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -38,13 +37,20 @@ void main() {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const DText(
                         'Page title',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                        variant: DTextVariant.h3,
+                        headingLevel: 1,
                       ),
-                      Text(
+                      const DText(
                         'Section title',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        variant: DTextVariant.large,
+                        headingLevel: 2,
+                      ),
+                      const DText('Native reading'),
+                      const DText(
+                        'Inline code',
+                        variant: DTextVariant.inlineCode,
                       ),
                       const CookedHtml(html: '<p>Reading a discussion.</p>'),
                       for (final size in DButtonSize.values)
@@ -132,6 +138,7 @@ void main() {
           await settings.setTextScale(zoom);
           await tester.pumpAndSettle();
           for (final label in [
+            'Inline code',
             'Native small',
             'Native regular',
             'Native large',
@@ -168,6 +175,13 @@ void main() {
             _paragraph(tester, 'Reading a discussion.').text.style!.fontSize,
             16 * settings.textScaleFactor,
           );
+          expect(_paragraph(tester, 'Native reading').text.style!.fontSize, 16);
+          expect(
+            _paragraph(tester, 'Native reading').textScaler.scale(16),
+            16 * settings.textScaleFactor,
+          );
+          expect(_paragraph(tester, 'Page title').text.style!.fontSize, 24);
+          expect(_paragraph(tester, 'Section title').text.style!.fontSize, 18);
           expect(_paragraph(tester, 'Metadata').text.style!.fontSize, 12);
           expect(tester.takeException(), isNull, reason: '$zoom');
         }

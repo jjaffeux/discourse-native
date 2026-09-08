@@ -1,7 +1,7 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
@@ -30,18 +30,17 @@ class EmptyState extends StatelessWidget {
                     color: theme.colorScheme.primary,
                   ),
                   const SizedBox(height: 16),
-                  Text(
+                  const DText(
                     'No sites yet',
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineSmall,
+                    variant: DTextVariant.h3,
+                    headingLevel: 1,
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  const DText(
                     'Connect a Discourse forum to get started.',
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                    variant: DTextVariant.muted,
                   ),
                   const SizedBox(height: 24),
                   DButton(
