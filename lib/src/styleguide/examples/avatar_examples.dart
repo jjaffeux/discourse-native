@@ -14,7 +14,7 @@ final avatarExampleImage = MemoryImage(
 );
 
 final avatarExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   notes:
       'Installation: import package:discourse_native/discourse_ui.dart. '
       'Composition: DAvatar(image: DAvatarImage(image: provider), fallback: '

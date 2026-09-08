@@ -30,7 +30,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 18 | progress | planned | — | — | label | — |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
 | 20 | aspect-ratio | in_progress | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | — |
-| 21 | avatar | in_progress | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | — |
+| 21 | avatar | review_ready | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | — |
 | 22 | card | planned | — | — | typography | — |
 | 23 | empty | planned | — | — | typography | — |
 | 24 | item | planned | — | — | separator | — |
@@ -558,7 +558,7 @@ Status: in_progress. Task: 01a082a9-b9d4-79f0-8a0d-cc48e700cc67. Branch: codex/u
 
 ### avatar
 
-Status: in_progress. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-avatar.
+Status: review_ready. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-avatar.
 
 **acceptanceCriteria**
 
@@ -575,6 +575,7 @@ Status: in_progress. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/u
 - Six public generic components retain app-independent presentation. ImageProvider stream ownership handles loading/error/ready and stale frames; AvatarImage remains the application networking/decoding adapter.
 - Default groups preserve per-avatar sizes/dimensions and infer count size; explicit group size propagates badge/fallback metrics consistently. Standalone counts retain intrinsic 32px geometry.
 - Above-100% text scaling reserves larger enum-sized boxes to fit initials and avoid ready/fallback geometry shifts; fixed app frames and explicit dimensions retain layout contracts. Narrow groups wrap.
+- Exact Lucide plus SVG and full ISC/Feather MIT license recorded. Explicit badge icon slot hides arbitrary SVG/widget icons at sm; standalone GroupCount owns its 2px background ring.
 
 **migrations**
 
@@ -593,6 +594,18 @@ Status: in_progress. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/u
 - flutter pub get --enforce-lockfile passed on root with no lock changes.
 - flutter analyze --no-pub passed (no issues).
 - 250 focused tests passed with --no-pub --test-randomize-ordering-seed=9082026 across 17 Avatar/example/decode/chat/group/rail/search/media/Voice/Assign/Events/accessibility suites. Exact commands recorded in native-review.md at completion.
+- profiles/full locked pub get and flutter analyze --no-pub passed; no lock/pin/runner changes.
+- After exact SVG icon-slot and standalone ring correction: 15 focused component/example tests passed again with seed 9082026; root analysis passed again.
+- Isolated source-matched macOS 26.6.2 arm64 native inspection completed under exclusive slot; exact conditions, reference comparison, screenshot evidence and commands recorded in docs/component-library/evidence/avatar/native-review.md.
+- Native production loading/error/ready and local forum action; light/dark/site/360px/200%/RTL/reduced-motion compositions; generic error selection preserved across Forest to Plum; dropdown Settings, Return reopen, Escape and visible focus restoration verified.
+- Quit only isolated Avatar app and confirmed its identity absent from subsequent global CUA inventory before releasing desktop slot.
+- Final implemented registration: 12 Avatar/styleguide-page tests passed with seed 9082026; touched-file format check, git diff --check and unrelated-row preservation check passed.
+
+**limitations**
+
+- No iOS/Linux device or spoken VoiceOver run. Nested styleguide main native AX tree was sparse; fixture/menu AX and visual/keyboard interaction verified without forcing global semantics.
+- Reference and native screenshots have different capture/preview dimensions; intrinsic metrics compared at 100% with exact widget geometry tests, not pixel-diff equality. Palette, font and local artwork intentionally use app inputs.
+- Button and Dropdown Menu examples use their available temporary controls pending owning catalogue tasks; domain flair/presence and non-avatar media retain documented ownership.
 
 ### Final audit
 
