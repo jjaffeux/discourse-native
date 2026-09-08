@@ -6,22 +6,17 @@ import '../styleguide_example.dart';
 final labelExamples = ComponentExamples(
   status: ComponentStatus.baseline,
   notes:
-      'Import package:discourse_native/discourse_ui.dart. DLabel has one style, '
-      'with child composition, optional TextStyle emphasis, and enabled state. '
-      'There are no outline, orientation, or submit variants: those props in '
-      'the reference belong to neighboring Field and Button controls. The '
-      'registry text-sm / font-medium / leading-none maps to 14 logical pixels, '
-      'weight 500 and line height 1; gap-2 maps to 8 pixels in composed rows. '
-      'Disabled content uses opacity 0.5 and rejects interaction. There is no '
-      'label padding, border or radius. Live site tokens supply foreground '
-      'color, and the host supplies the font family and text scaler. Native '
-      'list tiles associate the label and control, combine their semantics, '
-      'and own the hit target, Tab focus, Space activation and focus indication. '
-      'A standalone DLabel is ordinary text, not an HTML htmlFor association. '
-      'Keep InputDecoration.labelText and Form for floating field labels, '
-      'descriptions, validation and errors. Label itself creates no focus target, '
-      'gesture, animation or selection owner. Put interactive links outside a '
-      'list tile so they can retain independent keyboard and semantic actions.',
+      'Import package:discourse_native/discourse_ui.dart. DLabel accepts child, '
+      'style and enabled. Registry metrics: 14px, weight 500, line height 1, '
+      '8px composition gap, no padding/border/radius, and disabled opacity 0.5. '
+      'The host supplies the font family, text scaler and live foreground tokens. '
+      'Native control slots own association, activation, focus and combined '
+      'semantics; a standalone DLabel is ordinary text. Keep interactive links '
+      'outside a list tile. Current Checkbox, Switch and TextFormField visuals '
+      'are temporary while their catalogue components and Field are pending. '
+      'Those tasks will port the shadcn visuals and retain native behavior. '
+      'The larger reference FieldDemo belongs to Field; its neighboring '
+      'outline, horizontal and submit props are not Label variants.',
   examples: [
     StyleguideExample(
       title: 'Control association and disabled state',
@@ -83,11 +78,15 @@ CheckboxListTile.adaptive(
     StyleguideExample(
       title: 'Label in a native form',
       description:
-          'This is the native adaptation of Label in Field. Tap the email '
+          'This demonstrates Label in Field ownership with a temporary native '
+          'TextFormField. The larger reference FieldDemo, FieldLabel, '
+          'descriptions and errors belong to the scheduled Field task; Input '
+          'and Field will port their shadcn visuals. Tap the email '
           'label to focus its TextFormField. Submit an empty or invalid address '
           'to see the native error and accessible required state. Submit a '
           'valid address, then reset. The form, not DLabel, owns validation, '
-          'save/reset, descriptions, editing and floating-label colors.',
+          'save/reset, descriptions and editing. Native floating-label '
+          'appearance is not a final exception to reference fidelity.',
       states: const ['Field composition', 'Required', 'Error', 'Save', 'Reset'],
       code: '''// Inside a State with a GlobalKey<FormState> formKey,
 // bool updates = false, and String? savedEmail.

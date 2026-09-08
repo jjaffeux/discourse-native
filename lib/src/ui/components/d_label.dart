@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_typography.dart';
 
@@ -11,9 +12,10 @@ import 'd_typography.dart';
 /// The label adds no gesture handler or tab stop. Standalone labels are ordinary
 /// text; placing one beside a control does not associate them.
 ///
-/// Keep [InputDecoration.labelText] for native form fields: it owns floating
-/// labels, focus/error colors, and the field's accessible name. Labels do not
-/// replace [Form], validation, descriptions, or error messages.
+/// Existing Flutter fields use [InputDecoration.labelText] to own their
+/// accessible name and focus/error behavior. The library's Input and Field
+/// components own the field's visual treatment. Labels do not replace [Form],
+/// validation, descriptions, or error messages.
 ///
 /// [child] can compose text, spans, and decorative icons. Native list tiles merge
 /// their semantics, so put independently interactive links outside the tile.
@@ -60,7 +62,7 @@ class DLabel extends StatelessWidget {
                 child: DefaultTextStyle(
                   style: DText.styleOf(context, DTextVariant.small)
                       .copyWith(
-                        fontSize: 14,
+                        fontSize: DiscourseTypography.sm,
                         fontWeight: FontWeight.w500,
                         height: 1,
                         letterSpacing: 0,

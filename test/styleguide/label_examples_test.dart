@@ -216,6 +216,17 @@ void main() {
       );
       await tester.pumpAndSettle();
       final terms = find.text('Accept terms and conditions');
+      await tester.scrollUntilVisible(
+        terms,
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const ValueKey('styleguide-detail-label')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
       await tester.ensureVisible(terms);
       await tester.tap(terms);
       await tester.pump();
