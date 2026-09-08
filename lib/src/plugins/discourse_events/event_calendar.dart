@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../theme/d_button.dart';
 import '../../theme/discourse_typography.dart';
 import 'event_calendar_data.dart';
 import 'event_data.dart';
@@ -220,19 +220,27 @@ final class _EventCalendarState extends State<EventCalendar> {
     final navigation = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          tooltip: 'Previous ${_view.name}',
-          onPressed: widget.page.move(-1).date.year >= 1900
-              ? () => widget.onPageChanged(widget.page.move(-1))
-              : null,
-          icon: const Icon(Icons.chevron_left),
+        DTooltip(
+          message: 'Previous ${_view.name}',
+          labelTrigger: true,
+          child: IconButton(
+            tooltip: '',
+            onPressed: widget.page.move(-1).date.year >= 1900
+                ? () => widget.onPageChanged(widget.page.move(-1))
+                : null,
+            icon: const Icon(Icons.chevron_left),
+          ),
         ),
-        IconButton(
-          tooltip: 'Next ${_view.name}',
-          onPressed: widget.page.move(1).date.year < 2200
-              ? () => widget.onPageChanged(widget.page.move(1))
-              : null,
-          icon: const Icon(Icons.chevron_right),
+        DTooltip(
+          message: 'Next ${_view.name}',
+          labelTrigger: true,
+          child: IconButton(
+            tooltip: '',
+            onPressed: widget.page.move(1).date.year < 2200
+                ? () => widget.onPageChanged(widget.page.move(1))
+                : null,
+            icon: const Icon(Icons.chevron_right),
+          ),
         ),
         DButton(
           variant: DButtonVariant.transparentPrimary,
@@ -555,7 +563,7 @@ final class _EventCalendarState extends State<EventCalendar> {
         : colors.primary;
     final label =
         '${event.title}, ${DateFormat.yMMMd(_locale).format(event.localStart)}, ${_timeLabel(event)}';
-    return Tooltip(
+    return DTooltip(
       message: label,
       child: Semantics(
         button: true,

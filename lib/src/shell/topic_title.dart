@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -231,7 +232,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
       final editor = MouseRegion(
         key: const ValueKey('topic-header-title-pointer'),
         cursor: SystemMouseCursors.text,
-        child: Tooltip(
+        child: DTooltip(
           message: value.text.isEmpty ? _savedTitle : value.text,
           child: Stack(
             alignment: Alignment.centerLeft,

@@ -70,7 +70,7 @@ void main() {
       expect(
         tester.getSemantics(bold),
         isSemantics(
-          tooltip: 'Bold',
+          label: 'Bold',
           isButton: true,
           hasEnabledState: true,
           isEnabled: true,
@@ -111,7 +111,7 @@ void main() {
 
 FocusNode _focusButton(WidgetTester tester, Finder tooltip) {
   final button = find
-      .ancestor(of: tooltip, matching: find.byType(IconButton))
+      .descendant(of: tooltip, matching: find.byType(IconButton))
       .first;
   final inkWell = find.descendant(of: button, matching: find.byType(InkWell));
   expect(inkWell, findsOneWidget);

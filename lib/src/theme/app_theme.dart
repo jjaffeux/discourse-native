@@ -2,10 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../models/site_appearance.dart';
+import '../ui/components/d_tooltip.dart';
 import '../ui/foundation/tokens.dart';
 import 'color_contrast.dart';
 import 'd_button.dart';
-import 'd_tooltip.dart';
 import 'discourse_typography.dart';
 
 export 'discourse_typography.dart';
@@ -629,20 +629,6 @@ abstract final class AppTheme {
       ),
       shell.floating,
     );
-    final tooltipDecoration = BoxDecoration(
-      color: shell.floating,
-      border: Border.all(color: shell.divider),
-      borderRadius: BorderRadius.circular(10),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(
-            alpha: brightness == Brightness.dark ? 0.40 : 0.22,
-          ),
-          blurRadius: 16,
-          offset: const Offset(0, 6),
-        ),
-      ],
-    );
 
     return ThemeData(
       colorScheme: resolvedColorScheme,
@@ -790,13 +776,19 @@ abstract final class AppTheme {
         padding: DTooltip.defaultPadding,
         margin: DTooltip.defaultMargin,
         verticalOffset: DTooltip.defaultVerticalOffset,
-        decoration: tooltipDecoration,
-        textStyle: textTheme.bodyMedium?.copyWith(
+        decoration: BoxDecoration(
           color: resolvedColorScheme.onSurface,
-          fontWeight: FontWeight.normal,
+          borderRadius: BorderRadius.circular(borderRadius * 0.8),
+        ),
+        textStyle: textTheme.bodySmall?.copyWith(
+          color: shell.content,
+          fontSize: DiscourseTypography.xs,
+          height: DiscourseTypography.lineHeightCaption,
+          letterSpacing: 0,
+          fontWeight: FontWeight.w400,
         ),
         textAlign: TextAlign.start,
-        waitDuration: const Duration(milliseconds: 400),
+        waitDuration: Duration.zero,
         showDuration: const Duration(milliseconds: 1800),
         exitDuration: const Duration(milliseconds: 100),
       ),

@@ -1,5 +1,5 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_tooltip.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +23,7 @@ void main() {
             child: const Center(
               child: DTooltip(
                 message: 'Close',
+                hoverDelay: Duration(milliseconds: 400),
                 child: SizedBox.square(dimension: 48, child: Text('Target')),
               ),
             ),

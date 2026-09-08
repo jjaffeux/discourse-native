@@ -602,8 +602,9 @@ void main() {
 
 IconButton _button(WidgetTester tester, String tooltip) =>
     tester.widget<IconButton>(
-      find.byWidgetPredicate(
-        (widget) => widget is IconButton && widget.tooltip == tooltip,
+      find.descendant(
+        of: find.byTooltip(tooltip),
+        matching: find.byType(IconButton),
       ),
     );
 

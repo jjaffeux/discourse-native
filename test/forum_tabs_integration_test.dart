@@ -176,8 +176,8 @@ void main() {
       expect(aggregateShortcut.control, isFalse);
 
       final forum = find.byKey(const ValueKey('https://two.example'));
-      final rawTooltip = tester.widget<RawTooltip>(
-        find.descendant(of: forum, matching: find.byType(RawTooltip)),
+      final rawTooltip = tester.widget<DTooltip>(
+        find.descendant(of: forum, matching: find.byType(DTooltip)),
       );
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
@@ -190,7 +190,9 @@ void main() {
         const ValueKey('instance-rail-callout-https://two.example'),
       );
       final keycaps = find.descendant(
-        of: callout,
+        of: find
+            .ancestor(of: callout, matching: find.byType(SingleChildScrollView))
+            .first,
         matching: find.byType(DShortcutKeycaps),
       );
       final shortcut = tester.widget<DShortcutKeycaps>(keycaps).shortcut[0];

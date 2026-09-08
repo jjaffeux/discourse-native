@@ -6,7 +6,7 @@ import 'dart:ui'
         SemanticsRole,
         Tristate;
 
-import 'package:discourse_native/discourse_ui.dart' show DSeparator;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -16,7 +16,6 @@ import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_native/src/theme/d_tooltip.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';

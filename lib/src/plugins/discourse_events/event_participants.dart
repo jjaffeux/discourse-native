@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../shell/adaptive_dialog_action.dart';
 import '../../shell/open_link.dart';
 import '../../shell/site_url.dart';
-import '../../theme/d_button.dart';
 import 'event_card.dart' show eventResponseLabel;
 import 'event_controller.dart';
 import 'event_data.dart';
@@ -110,10 +110,14 @@ class _ParticipantsState extends State<_Participants> {
             controller: _search,
             decoration: InputDecoration(
               labelText: 'Search participants',
-              suffixIcon: IconButton(
-                tooltip: 'Search',
-                onPressed: _loading ? null : _load,
-                icon: const Icon(Icons.search),
+              suffixIcon: DTooltip(
+                message: 'Search',
+                labelTrigger: true,
+                child: IconButton(
+                  tooltip: '',
+                  onPressed: _loading ? null : _load,
+                  icon: const Icon(Icons.search),
+                ),
               ),
             ),
             onSubmitted: (_) => _load(),

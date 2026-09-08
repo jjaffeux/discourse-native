@@ -20,7 +20,6 @@ import 'adaptive_activity_indicator.dart';
 import 'add_instance_sheet.dart';
 import 'app_settings_page.dart';
 import 'avatar_image.dart';
-import 'curved_animation_builder.dart';
 import 'instance_actions.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
@@ -925,7 +924,7 @@ class _RailLoadFailure extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Center(
-      child: Tooltip(
+      child: DTooltip(
         message: 'Retry loading sites',
         child: InkWell(
           key: const ValueKey('instance-load-retry-rail'),
@@ -1048,7 +1047,7 @@ class _SettingsButtonState extends State<_SettingsButton> {
             ),
           ),
           Center(
-            child: Tooltip(
+            child: DTooltip(
               message: 'Settings',
               child: InkWell(
                 key: const ValueKey('settings-rail-button'),
@@ -1120,7 +1119,7 @@ class _DiagnosticsButton extends StatelessWidget {
           button: true,
           selected: open,
           label: tooltip,
-          child: Tooltip(
+          child: DTooltip(
             message: tooltip,
             child: InkWell(
               key: const ValueKey('diagnostics-rail-button'),
@@ -1252,7 +1251,7 @@ class _UpdateButton extends StatelessWidget {
             updates.status == UpdateStatus.available ||
             updates.status == UpdateStatus.readyToInstall;
 
-        return Tooltip(
+        return DTooltip(
           message: tooltip,
           child: InkWell(
             onTap: () => showUpdateSheet(context),
@@ -1511,140 +1510,56 @@ class _RailTooltip extends StatelessWidget {
     required this.child,
   });
 
-  static const hoverDelay = Duration(milliseconds: 280);
-  static const dismissDelay = Duration(milliseconds: 80);
-  static const animationStyle = AnimationStyle(
-    duration: Duration(milliseconds: 120),
-    reverseDuration: Duration(milliseconds: 80),
-    curve: Curves.linear,
-  );
-
   final DiscourseInstance instance;
   final Color accent;
   final LogicalKeyboardKey? shortcutKey;
   final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final disableAnimations = MediaQuery.disableAnimationsOf(context);
-
-    return RawTooltip(
-      key: ValueKey(
-        'instance-rail-tooltip-${instance.url}-${disableAnimations ? 'still' : 'motion'}',
-      ),
-      semanticsTooltip: instance.title,
-      hoverDelay: hoverDelay,
-      dismissDelay: dismissDelay,
-      triggerMode: TooltipTriggerMode.manual,
-      enableFeedback: false,
-      animationStyle: disableAnimations
-          ? AnimationStyle.noAnimation
-          : animationStyle,
-      positionDelegate: _positionRailTooltip,
-      ignorePointer: true,
-      tooltipBuilder: (context, animation) {
-        final callout = ExcludeSemantics(
-          child: RepaintBoundary(
-            child: _RailTooltipCallout(
-              instance: instance,
-              accent: accent,
-              shortcutKey: shortcutKey,
-            ),
-          ),
-        );
-
-        return _RailTooltipTransition(animation: animation, child: callout);
-      },
-      child: child,
-    );
-  }
-}
-
-class _RailTooltipTransition extends StatelessWidget {
-  const _RailTooltipTransition({required this.animation, required this.child});
-
-  final Animation<double> animation;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return CurvedAnimationBuilder(
-      parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-      builder: (context, curved) => FadeTransition(
-        opacity: curved,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.96, end: 1).animate(curved),
-          alignment: Alignment.centerLeft,
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-class _RailTooltipCallout extends StatelessWidget {
-  const _RailTooltipCallout({
-    required this.instance,
-    required this.accent,
-    required this.shortcutKey,
-  });
-
-  static const surface = Color(0xFF3C3D43);
-  static const decoration = ShapeDecoration(
-    color: surface,
-    shape: _RailTooltipBorder(),
-    shadows: [
-      BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 3)),
-      BoxShadow(color: Color(0x24000000), blurRadius: 2, offset: Offset(0, 1)),
-    ],
-  );
-
-  final DiscourseInstance instance;
-  final Color accent;
-  final LogicalKeyboardKey? shortcutKey;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final surface = DTokens.of(context).foreground;
     final iconBackground = Color.alphaBlend(accent, surface);
     final iconForeground = contrastSafeForeground(
       background: iconBackground,
       backdrop: surface,
-      preferred: const [Colors.white, Colors.black],
+      preferred: [DTokens.of(context).background, surface],
     );
-
-    return Container(
-      key: ValueKey('instance-rail-callout-${instance.url}'),
-      constraints: const BoxConstraints(minHeight: 36, maxWidth: 240),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: decoration,
-      child: Row(
+    return DTooltip(
+      key: ValueKey('instance-rail-tooltip-${instance.url}'),
+      message: instance.title,
+      side: DTooltipSide.inlineEnd,
+      hoverDelay: const Duration(milliseconds: 280),
+      dismissDelay: const Duration(milliseconds: 80),
+      triggerMode: TooltipTriggerMode.manual,
+      enableFeedback: false,
+      shortcut: shortcutKey == null
+          ? null
+          : DShortcut(primaryShortcutForPlatform(theme.platform, shortcutKey!)),
+      content: Row(
+        key: ValueKey('instance-rail-callout-${instance.url}'),
         mainAxisSize: MainAxisSize.min,
         children: [
-          ExcludeSemantics(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(5),
-              child: AvatarImage(
-                key: ValueKey('instance-rail-callout-icon-${instance.url}'),
-                url: instance.iconUrl,
-                size: 18,
-                fit: BoxFit.contain,
-                fallback: ColoredBox(
-                  color: iconBackground,
-                  child: SizedBox.square(
-                    dimension: 18,
-                    child: Padding(
-                      padding: const EdgeInsets.all(2),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          instance.monogram,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: iconForeground,
-                            fontWeight: FontWeight.w800,
-                          ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(DTokens.of(context).radius),
+            child: AvatarImage(
+              key: ValueKey('instance-rail-callout-icon-${instance.url}'),
+              url: instance.iconUrl,
+              size: 18,
+              fit: BoxFit.contain,
+              fallback: ColoredBox(
+                color: iconBackground,
+                child: SizedBox.square(
+                  dimension: 18,
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        instance.monogram,
+                        style: TextStyle(
+                          color: iconForeground,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
@@ -1653,177 +1568,13 @@ class _RailTooltipCallout extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              instance.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFFF3F3F4),
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.15,
-              ),
-            ),
-          ),
-          if (shortcutKey case final shortcutKey?) ...[
-            const SizedBox(width: 12),
-            Flexible(
-              child: DKbdTheme(
-                foregroundColor: const Color(0xFFF3F3F4),
-                backgroundColor: const Color(0xFFF3F3F4).withValues(
-                  alpha: theme.brightness == Brightness.dark ? 0.10 : 0.20,
-                ),
-                child: DShortcutKeycaps(
-                  shortcut: DShortcut(
-                    primaryShortcutForPlatform(theme.platform, shortcutKey),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          const SizedBox(width: 6),
+          Flexible(child: Text(instance.title)),
         ],
       ),
+      child: child,
     );
   }
-}
-
-Offset _positionRailTooltip(TooltipPositionContext context) {
-  const horizontalGap = 6.0;
-  const viewportMargin = 8.0;
-  return Offset(
-    _fitRailTooltip(
-      wanted: context.target.dx + context.targetSize.width / 2 + horizontalGap,
-      extent: context.overlaySize.width,
-      childExtent: context.tooltipSize.width,
-      margin: viewportMargin,
-    ),
-    _fitRailTooltip(
-      wanted: context.target.dy - context.tooltipSize.height / 2,
-      extent: context.overlaySize.height,
-      childExtent: context.tooltipSize.height,
-      margin: viewportMargin,
-    ),
-  );
-}
-
-double _fitRailTooltip({
-  required double wanted,
-  required double extent,
-  required double childExtent,
-  required double margin,
-}) {
-  if (!extent.isFinite || !childExtent.isFinite) return wanted;
-  final slack = extent - childExtent;
-  if (slack <= margin * 2) return slack / 2;
-  return wanted.clamp(margin, slack - margin);
-}
-
-class _RailTooltipBorder extends OutlinedBorder {
-  const _RailTooltipBorder({
-    super.side = const BorderSide(color: Color(0xFF47484E)),
-    this.pointerWidth = 7,
-    this.pointerHeight = 14,
-    this.radius = 7,
-  });
-
-  final double pointerWidth;
-  final double pointerHeight;
-  final double radius;
-
-  @override
-  EdgeInsetsGeometry get dimensions {
-    final inset = side.strokeInset.clamp(0.0, double.infinity);
-    return EdgeInsets.fromLTRB(pointerWidth + inset, inset, inset, inset);
-  }
-
-  Path _path(Rect rect) {
-    if (rect.isEmpty) return Path();
-
-    final body = Rect.fromLTRB(
-      rect.left + pointerWidth,
-      rect.top,
-      rect.right,
-      rect.bottom,
-    );
-    final corner = radius.clamp(0, body.shortestSide / 2);
-    final pointerHalfHeight = pointerHeight.clamp(0, body.height) / 2;
-
-    return Path()
-      ..moveTo(body.left + corner, body.top)
-      ..lineTo(body.right - corner, body.top)
-      ..quadraticBezierTo(body.right, body.top, body.right, body.top + corner)
-      ..lineTo(body.right, body.bottom - corner)
-      ..quadraticBezierTo(
-        body.right,
-        body.bottom,
-        body.right - corner,
-        body.bottom,
-      )
-      ..lineTo(body.left + corner, body.bottom)
-      ..quadraticBezierTo(
-        body.left,
-        body.bottom,
-        body.left,
-        body.bottom - corner,
-      )
-      ..lineTo(body.left, body.center.dy + pointerHalfHeight)
-      ..lineTo(rect.left, body.center.dy)
-      ..lineTo(body.left, body.center.dy - pointerHalfHeight)
-      ..lineTo(body.left, body.top + corner)
-      ..quadraticBezierTo(body.left, body.top, body.left + corner, body.top)
-      ..close();
-  }
-
-  @override
-  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => _path(rect);
-
-  @override
-  Path getInnerPath(Rect rect, {TextDirection? textDirection}) {
-    return _path(rect.deflate(side.strokeInset));
-  }
-
-  @override
-  _RailTooltipBorder copyWith({
-    BorderSide? side,
-    double? pointerWidth,
-    double? pointerHeight,
-    double? radius,
-  }) {
-    return _RailTooltipBorder(
-      side: side ?? this.side,
-      pointerWidth: pointerWidth ?? this.pointerWidth,
-      pointerHeight: pointerHeight ?? this.pointerHeight,
-      radius: radius ?? this.radius,
-    );
-  }
-
-  @override
-  ShapeBorder scale(double t) => _RailTooltipBorder(
-    side: side.scale(t),
-    pointerWidth: pointerWidth * t,
-    pointerHeight: pointerHeight * t,
-    radius: radius * t,
-  );
-
-  @override
-  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
-    if (side.style == BorderStyle.none) return;
-    final strokeOffset = (side.strokeOutset - side.strokeInset) / 2;
-    canvas.drawPath(_path(rect.inflate(strokeOffset)), side.toPaint());
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return other is _RailTooltipBorder &&
-        other.side == side &&
-        other.pointerWidth == pointerWidth &&
-        other.pointerHeight == pointerHeight &&
-        other.radius == radius;
-  }
-
-  @override
-  int get hashCode => Object.hash(side, pointerWidth, pointerHeight, radius);
 }
 
 class _InstanceAvatar extends StatelessWidget {
@@ -1907,7 +1658,7 @@ class _AddInstanceButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
-      child: Tooltip(
+      child: DTooltip(
         message: label,
         excludeFromSemantics: true,
         child: InkWell(

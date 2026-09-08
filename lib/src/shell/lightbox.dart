@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -969,15 +970,19 @@ class _Button extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton.filled(
-      onPressed: onTap,
-      tooltip: tooltip,
-      style: IconButton.styleFrom(
-        backgroundColor: const Color(0xBB000000),
-        foregroundColor: Colors.white,
-        disabledForegroundColor: Colors.white38,
+    return DTooltip(
+      message: tooltip,
+      labelTrigger: true,
+      child: IconButton.filled(
+        onPressed: onTap,
+        tooltip: '',
+        style: IconButton.styleFrom(
+          backgroundColor: const Color(0xBB000000),
+          foregroundColor: Colors.white,
+          disabledForegroundColor: Colors.white38,
+        ),
+        icon: DIcon(icon, size: 18),
       ),
-      icon: DIcon(icon, size: 18, semanticLabel: tooltip),
     );
   }
 }

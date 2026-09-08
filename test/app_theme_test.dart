@@ -1,7 +1,7 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart' as sdk;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_tooltip.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart' as leaf;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
@@ -525,7 +525,7 @@ void main() {
     expect(hoverColor, isNot(Colors.transparent));
   });
 
-  test('tooltips use the floating surface and compact app typography', () {
+  test('framework tooltips share shadcn color and typography tokens', () {
     for (final theme in [AppTheme.light, AppTheme.dark]) {
       final tooltip = theme.tooltipTheme;
       final decoration = tooltip.decoration! as BoxDecoration;
@@ -534,12 +534,16 @@ void main() {
       expect(tooltip.padding, DTooltip.defaultPadding);
       expect(tooltip.margin, DTooltip.defaultMargin);
       expect(tooltip.verticalOffset, DTooltip.defaultVerticalOffset);
-      expect(tooltip.textStyle?.fontSize, theme.textTheme.bodyMedium?.fontSize);
-      expect(tooltip.textStyle?.color, theme.colorScheme.onSurface);
-      expect(decoration.color, theme.shell.floating);
-      expect(decoration.border, Border.all(color: theme.shell.divider));
-      expect(decoration.borderRadius, BorderRadius.circular(10));
-      expect(decoration.boxShadow, isNotEmpty);
+      expect(tooltip.textStyle?.fontSize, 12);
+      expect(tooltip.textStyle?.height, 16 / 12);
+      expect(tooltip.textStyle?.color, theme.extension<DTokens>()!.background);
+      expect(decoration.color, theme.colorScheme.onSurface);
+      expect(decoration.border, isNull);
+      expect(
+        decoration.borderRadius,
+        BorderRadius.circular(theme.extension<DTokens>()!.radius * 0.8),
+      );
+      expect(decoration.boxShadow, isNull);
     }
   });
 

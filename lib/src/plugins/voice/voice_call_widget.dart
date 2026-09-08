@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import 'voice_call_port.dart';
@@ -51,7 +52,7 @@ class VoiceCallWidget extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (call.recording) ...[
-                                  Tooltip(
+                                  DTooltip(
                                     message: 'Recording',
                                     child: DIcon(
                                       DIcons.circle,
@@ -82,24 +83,32 @@ class VoiceCallWidget extends StatelessWidget {
                         ),
                       ),
                     ),
-                    IconButton(
-                      tooltip: call.muted ? 'Unmute' : 'Mute',
-                      onPressed: () =>
-                          port.dispatch(VoiceCallAction.toggleMuted),
-                      icon: DIcon(
-                        call.muted
-                            ? DIcons.microphoneSlash
-                            : DIcons.microphoneLines,
-                        size: 18,
+                    DTooltip(
+                      message: call.muted ? 'Unmute' : 'Mute',
+                      labelTrigger: true,
+                      child: IconButton(
+                        tooltip: '',
+                        onPressed: () =>
+                            port.dispatch(VoiceCallAction.toggleMuted),
+                        icon: DIcon(
+                          call.muted
+                              ? DIcons.microphoneSlash
+                              : DIcons.microphoneLines,
+                          size: 18,
+                        ),
                       ),
                     ),
-                    IconButton(
-                      tooltip: 'Leave room',
-                      onPressed: () => port.dispatch(VoiceCallAction.leave),
-                      icon: DIcon(
-                        DIcons.phoneSlash,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.error,
+                    DTooltip(
+                      message: 'Leave room',
+                      labelTrigger: true,
+                      child: IconButton(
+                        tooltip: '',
+                        onPressed: () => port.dispatch(VoiceCallAction.leave),
+                        icon: DIcon(
+                          DIcons.phoneSlash,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ),
                   ],

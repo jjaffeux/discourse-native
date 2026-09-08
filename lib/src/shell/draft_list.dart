@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../discourse_ui.dart';
 import '../data/site_lifecycle.dart';
 import '../models/discourse_instance.dart';
 import '../models/draft_feed.dart';
@@ -698,7 +698,7 @@ class _DraftAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
+    return DTooltip(
       message: tooltip,
       child: Material(
         color: onPressed == null

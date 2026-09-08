@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_status.dart';
 import '../plugin_api/emoji_usage.dart';
-import '../theme/d_button.dart';
 import 'emoji_picker.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -262,7 +262,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Tooltip(
+                  DTooltip(
                     message: 'Choose status emoji',
                     child: IconButton.outlined(
                       onPressed: _busy ? null : _pickEmoji,

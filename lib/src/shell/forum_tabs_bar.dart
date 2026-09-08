@@ -576,52 +576,58 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
           label: 'Browse tabs in ${widget.forumName}',
           onTap: controller.open,
           child: ExcludeSemantics(
-            child: IconButton(
-              statesController: _buttonStates,
-              tooltip: 'Browse tabs',
-              constraints: const BoxConstraints.expand(
-                width: ForumTabsBar.minimumActionTarget,
-                height: ForumTabsBar.minimumActionTarget,
-              ),
-              padding: EdgeInsets.zero,
-              style: const ButtonStyle(
-                overlayColor: WidgetStatePropertyAll(Colors.transparent),
-                splashFactory: NoSplash.splashFactory,
-              ),
-              onPressed: controller.isOpen ? controller.close : controller.open,
-              icon: ValueListenableBuilder<Set<WidgetState>>(
-                valueListenable: _buttonStates,
-                builder: (context, states, _) {
-                  final emphasized =
-                      _open ||
-                      states.contains(WidgetState.hovered) ||
-                      states.contains(WidgetState.focused) ||
-                      states.contains(WidgetState.pressed);
-                  return AnimatedContainer(
-                    key: const ValueKey('forum-tabs-switcher-surface'),
-                    width: 28,
-                    height: 28,
-                    duration: reduceMotion
-                        ? Duration.zero
-                        : const Duration(milliseconds: 100),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: emphasized
-                          ? theme.colorScheme.primaryContainer
-                          : theme.shell.content,
-                      border: Border.all(color: theme.shell.divider),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DIcon(
-                      DIcons.chevronDown,
-                      size: 15,
-                      color: emphasized
-                          ? theme.colorScheme.onPrimaryContainer
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  );
-                },
+            child: DTooltip(
+              message: 'Browse tabs',
+              labelTrigger: true,
+              child: IconButton(
+                statesController: _buttonStates,
+                tooltip: '',
+                constraints: const BoxConstraints.expand(
+                  width: ForumTabsBar.minimumActionTarget,
+                  height: ForumTabsBar.minimumActionTarget,
+                ),
+                padding: EdgeInsets.zero,
+                style: const ButtonStyle(
+                  overlayColor: WidgetStatePropertyAll(Colors.transparent),
+                  splashFactory: NoSplash.splashFactory,
+                ),
+                onPressed: controller.isOpen
+                    ? controller.close
+                    : controller.open,
+                icon: ValueListenableBuilder<Set<WidgetState>>(
+                  valueListenable: _buttonStates,
+                  builder: (context, states, _) {
+                    final emphasized =
+                        _open ||
+                        states.contains(WidgetState.hovered) ||
+                        states.contains(WidgetState.focused) ||
+                        states.contains(WidgetState.pressed);
+                    return AnimatedContainer(
+                      key: const ValueKey('forum-tabs-switcher-surface'),
+                      width: 28,
+                      height: 28,
+                      duration: reduceMotion
+                          ? Duration.zero
+                          : const Duration(milliseconds: 100),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: emphasized
+                            ? theme.colorScheme.primaryContainer
+                            : theme.shell.content,
+                        border: Border.all(color: theme.shell.divider),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DIcon(
+                        DIcons.chevronDown,
+                        size: 15,
+                        color: emphasized
+                            ? theme.colorScheme.onPrimaryContainer
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -854,14 +860,18 @@ class _TabSwitcherRowAction extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => IconButton(
-    tooltip: label,
-    constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-    padding: EdgeInsets.zero,
-    style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-    color: Theme.of(context).colorScheme.onSurfaceVariant,
-    onPressed: onPressed,
-    icon: DIcon(icon, size: 14),
+  Widget build(BuildContext context) => DTooltip(
+    message: label,
+    labelTrigger: true,
+    child: IconButton(
+      tooltip: '',
+      constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+      padding: EdgeInsets.zero,
+      style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      onPressed: onPressed,
+      icon: DIcon(icon, size: 14),
+    ),
   );
 }
 

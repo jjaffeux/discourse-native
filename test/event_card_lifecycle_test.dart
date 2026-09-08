@@ -54,11 +54,13 @@ void main() {
     ports.controller.forget(eventSite);
   }
 
-  Finder attendanceMenu(bool withdraw) => find.byWidgetPredicate(
-    (widget) =>
-        widget is PopupMenuButton<Object?> &&
-        widget.tooltip ==
-            (withdraw ? 'Event actions' : 'Choose recurring attendance'),
+  Finder attendanceMenu(bool withdraw) => find.descendant(
+    of: find.byTooltip(
+      withdraw ? 'Event actions' : 'Choose recurring attendance',
+    ),
+    matching: find.byWidgetPredicate(
+      (widget) => widget is PopupMenuButton<Object?>,
+    ),
   );
 
   Finder attendanceChoice(bool withdraw) => find.ancestor(

@@ -2770,7 +2770,7 @@ class _TopicViewHeader extends StatelessWidget {
                               title: title,
                             ),
                           )
-                        : Tooltip(
+                        : DTooltip(
                             message: title,
                             child: siteUrl == null
                                 ? Text(
@@ -4060,7 +4060,7 @@ class _PostTileState extends State<_PostTile> {
                   ),
                   if (post.isWhisper) ...[
                     const SizedBox(width: 8),
-                    Tooltip(
+                    DTooltip(
                       message: 'This post is a private whisper',
                       child: DIcon(
                         DIcons.farEyeSlash,
@@ -4539,7 +4539,7 @@ class _TopicMapStat extends StatelessWidget {
     );
 
     if (menuChildren.isEmpty) {
-      return Tooltip(message: tooltip, child: content);
+      return DTooltip(message: tooltip, child: content);
     }
     return MenuAnchor(
       style: MenuStyle(
@@ -4548,7 +4548,7 @@ class _TopicMapStat extends StatelessWidget {
         maximumSize: const WidgetStatePropertyAll(Size(380, 440)),
       ),
       menuChildren: menuChildren,
-      builder: (context, menu, child) => Tooltip(
+      builder: (context, menu, child) => DTooltip(
         message: tooltip,
         child: InkWell(
           borderRadius: BorderRadius.circular(4),
@@ -4577,7 +4577,7 @@ class _TopicParticipantAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final avatar = Tooltip(
+    final avatar = DTooltip(
       message: '@${participant.username}',
       child: ClipOval(
         child: SizedBox.square(

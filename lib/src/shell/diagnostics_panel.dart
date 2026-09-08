@@ -248,13 +248,17 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                     ),
                     suffixIcon: panelState.query.isEmpty
                         ? null
-                        : IconButton(
-                            tooltip: 'Clear search',
-                            onPressed: () {
-                              _search.clear();
-                              widget.controller.setQuery('');
-                            },
-                            icon: const DIcon(DIcons.xmark, size: 16),
+                        : DTooltip(
+                            message: 'Clear search',
+                            labelTrigger: true,
+                            child: IconButton(
+                              tooltip: '',
+                              onPressed: () {
+                                _search.clear();
+                                widget.controller.setQuery('');
+                              },
+                              icon: const DIcon(DIcons.xmark, size: 16),
+                            ),
                           ),
                     border: const OutlineInputBorder(),
                   ),
@@ -421,11 +425,15 @@ class _PanelHeader extends StatelessWidget {
         children: [
           const SizedBox(width: diagnosticsPanelResizeHandleWidth),
           if (showingDetail)
-            IconButton(
-              key: const ValueKey('diagnostics-detail-back'),
-              tooltip: 'Back to diagnostics',
-              onPressed: onBack,
-              icon: const DIcon(DIcons.arrowLeft, size: 18),
+            DTooltip(
+              message: 'Back to diagnostics',
+              labelTrigger: true,
+              child: IconButton(
+                key: const ValueKey('diagnostics-detail-back'),
+                tooltip: '',
+                onPressed: onBack,
+                icon: const DIcon(DIcons.arrowLeft, size: 18),
+              ),
             ),
           Expanded(
             child: Text(
@@ -438,31 +446,47 @@ class _PanelHeader extends StatelessWidget {
             ),
           ),
           if (showGeneralActions) ...[
-            IconButton(
-              key: const ValueKey('diagnostics-freeze'),
-              tooltip: frozen ? 'Resume live updates' : 'Freeze visible events',
-              onPressed: onToggleFrozen,
-              icon: DIcon(frozen ? DIcons.play : DIcons.snowflake, size: 18),
-              color: frozen ? Theme.of(context).colorScheme.primary : null,
+            DTooltip(
+              message: frozen ? 'Resume live updates' : 'Freeze visible events',
+              labelTrigger: true,
+              child: IconButton(
+                key: const ValueKey('diagnostics-freeze'),
+                tooltip: '',
+                onPressed: onToggleFrozen,
+                icon: DIcon(frozen ? DIcons.play : DIcons.snowflake, size: 18),
+                color: frozen ? Theme.of(context).colorScheme.primary : null,
+              ),
             ),
-            IconButton(
-              key: const ValueKey('diagnostics-copy-report'),
-              tooltip: 'Copy filtered report',
-              onPressed: onCopyReport,
-              icon: const DIcon(DIcons.copy, size: 18),
+            DTooltip(
+              message: 'Copy filtered report',
+              labelTrigger: true,
+              child: IconButton(
+                key: const ValueKey('diagnostics-copy-report'),
+                tooltip: '',
+                onPressed: onCopyReport,
+                icon: const DIcon(DIcons.copy, size: 18),
+              ),
             ),
-            IconButton(
-              key: const ValueKey('diagnostics-clear'),
-              tooltip: 'Clear history',
-              onPressed: onClear,
-              icon: const DIcon(DIcons.trashCan, size: 18),
+            DTooltip(
+              message: 'Clear history',
+              labelTrigger: true,
+              child: IconButton(
+                key: const ValueKey('diagnostics-clear'),
+                tooltip: '',
+                onPressed: onClear,
+                icon: const DIcon(DIcons.trashCan, size: 18),
+              ),
             ),
           ],
-          IconButton(
-            key: const ValueKey('diagnostics-close'),
-            tooltip: 'Close diagnostics',
-            onPressed: onClose,
-            icon: const DIcon(DIcons.xmark, size: 18),
+          DTooltip(
+            message: 'Close diagnostics',
+            labelTrigger: true,
+            child: IconButton(
+              key: const ValueKey('diagnostics-close'),
+              tooltip: '',
+              onPressed: onClose,
+              icon: const DIcon(DIcons.xmark, size: 18),
+            ),
           ),
           const SizedBox(width: 4),
         ],
@@ -736,43 +760,50 @@ class _MultiSelectMenu extends StatelessWidget {
         ? selected.single
         : '$label (${selected.length})';
 
-    return PopupMenuButton<String>(
-      enabled: values.isNotEmpty,
-      tooltip: 'Filter by ${label.toLowerCase()}',
-      popUpAnimationStyle: discoursePopupMenuAnimationStyle(context),
-      onSelected: onToggle,
-      itemBuilder: (context) => [
-        for (final value in values)
-          CheckedPopupMenuItem(
-            value: value,
-            checked: selected.contains(value),
-            child: Text(sentenceCase(value)),
-          ),
-      ],
-      child: Semantics(
-        button: true,
-        label: 'Filter by $label',
-        value: selected.isEmpty ? 'All' : selected.join(', '),
-        child: InputDecorator(
-          isEmpty: selected.isEmpty,
-          decoration: const InputDecoration(
-            isDense: true,
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          ),
-          child: Row(
-            children: [
-              const DIcon(DIcons.filter, size: 14),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  sentenceCase(description),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+    return DTooltip(
+      message: 'Filter by ${label.toLowerCase()}',
+      labelTrigger: true,
+      child: PopupMenuButton<String>(
+        enabled: values.isNotEmpty,
+        tooltip: '',
+        popUpAnimationStyle: discoursePopupMenuAnimationStyle(context),
+        onSelected: onToggle,
+        itemBuilder: (context) => [
+          for (final value in values)
+            CheckedPopupMenuItem(
+              value: value,
+              checked: selected.contains(value),
+              child: Text(sentenceCase(value)),
+            ),
+        ],
+        child: Semantics(
+          button: true,
+          label: 'Filter by $label',
+          value: selected.isEmpty ? 'All' : selected.join(', '),
+          child: InputDecorator(
+            isEmpty: selected.isEmpty,
+            decoration: const InputDecoration(
+              isDense: true,
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
               ),
-              const DIcon(DIcons.chevronDown, size: 12),
-            ],
+            ),
+            child: Row(
+              children: [
+                const DIcon(DIcons.filter, size: 14),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    sentenceCase(description),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const DIcon(DIcons.chevronDown, size: 12),
+              ],
+            ),
           ),
         ),
       ),

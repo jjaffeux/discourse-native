@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_flair.dart';
@@ -61,7 +62,7 @@ class ChatUserAvatar extends StatelessWidget {
               PositionedDirectional(
                 end: -size * .1,
                 bottom: -size * .1,
-                child: Tooltip(
+                child: DTooltip(
                   message: badge.label,
                   child: GroupFlairBadge(
                     url: badge.url,

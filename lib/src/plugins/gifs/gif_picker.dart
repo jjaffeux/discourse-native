@@ -104,11 +104,15 @@ class _DialogHeader extends StatelessWidget {
             headingLevel: 1,
           ),
         ),
-        IconButton(
-          key: const ValueKey('gif-picker-close'),
-          onPressed: onClose,
-          icon: const DIcon(DIcons.xmark),
-          tooltip: 'Close',
+        DTooltip(
+          message: 'Close',
+          labelTrigger: true,
+          child: IconButton(
+            key: const ValueKey('gif-picker-close'),
+            onPressed: onClose,
+            icon: const DIcon(DIcons.xmark),
+            tooltip: '',
+          ),
         ),
       ],
     ),
@@ -211,15 +215,19 @@ class _GifPickerState extends State<GifPicker> {
       );
     }
     if (_search.text.isEmpty) return null;
-    return IconButton(
-      key: const ValueKey('gif-picker-clear'),
-      onPressed: () {
-        _search.clear();
-        widget.controller.updateQuery('');
-        _searchFocus.requestFocus();
-      },
-      icon: const DIcon(DIcons.xmark, size: 16),
-      tooltip: 'Clear search',
+    return DTooltip(
+      message: 'Clear search',
+      labelTrigger: true,
+      child: IconButton(
+        key: const ValueKey('gif-picker-clear'),
+        onPressed: () {
+          _search.clear();
+          widget.controller.updateQuery('');
+          _searchFocus.requestFocus();
+        },
+        icon: const DIcon(DIcons.xmark, size: 16),
+        tooltip: '',
+      ),
     );
   }
 
@@ -363,7 +371,7 @@ class _GifResultTile extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
-      child: Tooltip(
+      child: DTooltip(
         message: label,
         excludeFromSemantics: true,
         child: Material(
@@ -394,7 +402,7 @@ class _GifCategoryTile extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     button: true,
     label: 'Search ${category.title} GIFs',
-    child: Tooltip(
+    child: DTooltip(
       message: 'Search ${category.title} GIFs',
       excludeFromSemantics: true,
       child: Material(

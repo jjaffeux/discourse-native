@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
@@ -204,7 +205,7 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Tooltip(
+              DTooltip(
                 message: '$replyLabel\n${target.topicTitle}',
                 child: Semantics(
                   button: canExpand,

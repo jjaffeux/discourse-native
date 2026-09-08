@@ -498,7 +498,7 @@ void main() {
     const fullscreenButton = ValueKey('inline-video-fullscreen');
     expect(session.state.isPlaying, isTrue);
     expect(
-      tester.widget<IconButton>(find.byKey(fullscreenButton)).tooltip,
+      tester.getSemantics(find.byKey(fullscreenButton)).label,
       'Enter full screen',
     );
 
@@ -518,7 +518,7 @@ void main() {
 
     const closeButton = ValueKey('inline-video-fullscreen-close');
     expect(
-      tester.widget<IconButton>(find.byKey(closeButton)).tooltip,
+      tester.getSemantics(find.byKey(closeButton)).label,
       'Exit full screen',
     );
     await tester.tap(find.byKey(closeButton));

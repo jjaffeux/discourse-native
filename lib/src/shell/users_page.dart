@@ -1,16 +1,15 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart' show DDirection, DSeparator;
 import '../data/user_directory_column_width_store.dart';
 import '../models/user_directory.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
@@ -923,13 +922,17 @@ class _DirectoryToolbar extends StatelessWidget {
           ),
           suffixIcon: searchController.text.isEmpty
               ? null
-              : IconButton(
-                  tooltip: 'Clear search',
-                  onPressed: onClearSearch,
-                  icon: DIcon(
-                    DIcons.xmark,
-                    size: 13,
-                    color: theme.colorScheme.onSurfaceVariant,
+              : DTooltip(
+                  message: 'Clear search',
+                  labelTrigger: true,
+                  child: IconButton(
+                    tooltip: '',
+                    onPressed: onClearSearch,
+                    icon: DIcon(
+                      DIcons.xmark,
+                      size: 13,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
           border: _inputBorder(palette),

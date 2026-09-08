@@ -782,7 +782,7 @@ void main() {
       );
       tester
           .widget<IconButton>(
-            find.ancestor(
+            find.descendant(
               of: find.byTooltip('Save alt text'),
               matching: find.byType(IconButton),
             ),
@@ -1085,7 +1085,7 @@ void main() {
         }
 
         Finder modeButton(String tooltip) => find
-            .ancestor(
+            .descendant(
               of: find.byTooltip(tooltip),
               matching: find.byType(IconButton),
             )
@@ -1093,7 +1093,7 @@ void main() {
         expect(
           tester.getSemantics(modeButton('Grid gallery mode')),
           isSemantics(
-            tooltip: 'Grid gallery mode',
+            label: 'Grid gallery mode',
             isButton: true,
             hasSelectedState: true,
             isSelected: true,
@@ -1102,7 +1102,7 @@ void main() {
         expect(
           tester.getSemantics(modeButton('Carousel gallery mode')),
           isSemantics(
-            tooltip: 'Carousel gallery mode',
+            label: 'Carousel gallery mode',
             isButton: true,
             hasSelectedState: true,
             isSelected: false,
@@ -1361,11 +1361,11 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is IconButton &&
-              widget.tooltip == 'Carousel gallery mode' &&
-              widget.isSelected == true,
+        find.descendant(
+          of: find.byTooltip('Carousel gallery mode'),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is IconButton && widget.isSelected == true,
+          ),
         ),
         findsOneWidget,
       );
@@ -1442,11 +1442,11 @@ void main() {
         await tester.tap(find.text('Upload new images'));
         await tester.pump();
         expect(
-          find.byWidgetPredicate(
-            (widget) =>
-                widget is PopupMenuButton &&
-                widget.tooltip == 'Add images to gallery' &&
-                !widget.enabled,
+          find.descendant(
+            of: find.byTooltip('Add images to gallery'),
+            matching: find.byWidgetPredicate(
+              (widget) => widget is PopupMenuButton && !widget.enabled,
+            ),
           ),
           findsOneWidget,
         );

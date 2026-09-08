@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -9,7 +10,6 @@ import '../../plugin_api/composer_syntax.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/shell_extensions.dart';
 import '../../shell/adaptive_dialog_action.dart';
-import '../../theme/d_button.dart';
 import 'event_composer_parser.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
@@ -368,10 +368,14 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
             ? (_booleans['all-day']! ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm')
             : null,
         suffixIcon: {'start', 'end', 'recurrence-until'}.contains(name)
-            ? IconButton(
-                tooltip: 'Choose date and time',
-                icon: const Icon(Icons.calendar_today),
-                onPressed: () => _chooseDate(name),
+            ? DTooltip(
+                message: 'Choose date and time',
+                labelTrigger: true,
+                child: IconButton(
+                  tooltip: '',
+                  icon: const Icon(Icons.calendar_today),
+                  onPressed: () => _chooseDate(name),
+                ),
               )
             : null,
       ),

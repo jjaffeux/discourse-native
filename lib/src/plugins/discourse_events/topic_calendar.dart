@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
@@ -8,7 +9,6 @@ import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../plugin_api/timezone_host.dart';
-import '../../theme/d_button.dart';
 import '../../theme/discourse_typography.dart';
 import 'topic_calendar_data.dart';
 import 'topic_calendar_event.dart';
@@ -376,18 +376,26 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip:
+                  DTooltip(
+                    message:
                         'Previous ${_view == _CalendarView.agenda ? 'month' : _view.label.toLowerCase()}',
-                    onPressed: () =>
-                        unawaited(_calendar.animateToPreviousPage()),
-                    icon: const Icon(Icons.chevron_left),
+                    labelTrigger: true,
+                    child: IconButton(
+                      tooltip: '',
+                      onPressed: () =>
+                          unawaited(_calendar.animateToPreviousPage()),
+                      icon: const Icon(Icons.chevron_left),
+                    ),
                   ),
-                  IconButton(
-                    tooltip:
+                  DTooltip(
+                    message:
                         'Next ${_view == _CalendarView.agenda ? 'month' : _view.label.toLowerCase()}',
-                    onPressed: () => unawaited(_calendar.animateToNextPage()),
-                    icon: const Icon(Icons.chevron_right),
+                    labelTrigger: true,
+                    child: IconButton(
+                      tooltip: '',
+                      onPressed: () => unawaited(_calendar.animateToNextPage()),
+                      icon: const Icon(Icons.chevron_right),
+                    ),
                   ),
                 ],
               ),
@@ -402,25 +410,29 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                     onPressed: _goToday,
                     label: const Text('Today'),
                   ),
-                  PopupMenuButton<_CalendarView>(
-                    tooltip: 'Calendar view',
-                    initialValue: _view,
-                    onSelected: _switchView,
-                    itemBuilder: (_) => [
-                      for (final view in _CalendarView.values)
-                        PopupMenuItem(value: view, child: Text(view.label)),
-                    ],
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(_view.label),
-                          const Icon(Icons.arrow_drop_down),
-                        ],
+                  DTooltip(
+                    message: 'Calendar view',
+                    labelTrigger: true,
+                    child: PopupMenuButton<_CalendarView>(
+                      tooltip: '',
+                      initialValue: _view,
+                      onSelected: _switchView,
+                      itemBuilder: (_) => [
+                        for (final view in _CalendarView.values)
+                          PopupMenuItem(value: view, child: Text(view.label)),
+                      ],
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(_view.label),
+                            const Icon(Icons.arrow_drop_down),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -639,7 +651,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
         ? Colors.black
         : Colors.white;
     final label = '${event.title}, ${_dateLabel(event)}';
-    return Tooltip(
+    return DTooltip(
       message: label,
       child: Material(
         color: background,

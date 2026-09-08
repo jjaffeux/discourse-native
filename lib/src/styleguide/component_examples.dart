@@ -2,6 +2,7 @@ import 'examples/direction_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/separator_examples.dart';
+import 'examples/tooltip_examples.dart';
 import 'examples/typography_examples.dart';
 import 'styleguide_example.dart';
 
@@ -13,6 +14,6 @@ final componentExamples = <String, ComponentExamples>{
   'separator': separatorExamples,
   'kbd': kbdExamples,
   'button': baselineButtonExamples,
-  'tooltip': baselineTooltipExamples,
+  'tooltip': tooltipExamples,
   'select': baselineSelectExamples,
 };

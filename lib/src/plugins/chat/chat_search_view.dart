@@ -257,10 +257,14 @@ class _SearchControls extends StatelessWidget {
                   prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 18),
                   suffixIcon: state.query.isEmpty
                       ? null
-                      : IconButton(
-                          onPressed: onClear,
-                          icon: const DIcon(DIcons.xmark, size: 16),
-                          tooltip: 'Clear search',
+                      : DTooltip(
+                          message: 'Clear search',
+                          labelTrigger: true,
+                          child: IconButton(
+                            onPressed: onClear,
+                            icon: const DIcon(DIcons.xmark, size: 16),
+                            tooltip: '',
+                          ),
                         ),
                   border: const OutlineInputBorder(),
                   isDense: true,

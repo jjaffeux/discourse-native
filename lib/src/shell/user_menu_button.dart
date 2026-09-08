@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_status.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -187,7 +187,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               button: !connecting,
               enabled: !connecting,
               label: semanticLabel,
-              child: Tooltip(
+              child: DTooltip(
                 message: tooltip,
                 excludeFromSemantics: true,
                 child: Material(
@@ -243,25 +243,33 @@ class _SignedOutAccountActions extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton.filled(
-            key: UserMenuButton.signUpKey,
-            onPressed: connecting ? null : onSignUp,
-            tooltip: 'Sign up',
-            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
-            icon: const DIcon(DIcons.userPlus, size: 16),
+          DTooltip(
+            message: 'Sign up',
+            labelTrigger: true,
+            child: IconButton.filled(
+              key: UserMenuButton.signUpKey,
+              onPressed: connecting ? null : onSignUp,
+              tooltip: '',
+              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+              icon: const DIcon(DIcons.userPlus, size: 16),
+            ),
           ),
           const SizedBox(width: 4),
-          IconButton.filled(
-            key: UserMenuButton.signInKey,
-            onPressed: connecting ? null : onSignIn,
-            tooltip: connecting ? 'Signing in…' : 'Sign in',
-            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
-            icon: connecting
-                ? const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                  )
-                : const DIcon(DIcons.user, size: 16),
+          DTooltip(
+            message: connecting ? 'Signing in…' : 'Sign in',
+            labelTrigger: true,
+            child: IconButton.filled(
+              key: UserMenuButton.signInKey,
+              onPressed: connecting ? null : onSignIn,
+              tooltip: '',
+              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+              icon: connecting
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                    )
+                  : const DIcon(DIcons.user, size: 16),
+            ),
           ),
         ],
       );

@@ -173,43 +173,47 @@ class EventCard extends StatelessWidget {
                   onWeb,
                   onWithdraw,
                 ].any((callback) => callback != null))
-                  PopupMenuButton<VoidCallback>(
-                    tooltip: 'Event actions',
-                    onSelected: (callback) => callback(),
-                    itemBuilder: (_) => [
-                      if (onEdit != null)
-                        PopupMenuItem(
-                          value: onEdit,
-                          child: const Text('Edit event'),
-                        ),
-                      if (onInvite != null)
-                        PopupMenuItem(
-                          value: onInvite,
-                          child: const Text('Invite people'),
-                        ),
-                      if (onWithdraw != null)
-                        PopupMenuItem(
-                          value: onWithdraw,
-                          child: const Text('Remove my response'),
-                        ),
-                      if (onExport != null)
-                        PopupMenuItem(
-                          value: onExport,
-                          child: const Text('Export calendar'),
-                        ),
-                      if (onWeb != null)
-                        PopupMenuItem(
-                          value: onWeb,
-                          child: const Text('Open event on web'),
-                        ),
-                      if (onWeb != null && event.canManage)
-                        PopupMenuItem(
-                          value: onWeb,
-                          child: const Text(
-                            'Bulk invitations and reports on web',
+                  DTooltip(
+                    message: 'Event actions',
+                    labelTrigger: true,
+                    child: PopupMenuButton<VoidCallback>(
+                      tooltip: '',
+                      onSelected: (callback) => callback(),
+                      itemBuilder: (_) => [
+                        if (onEdit != null)
+                          PopupMenuItem(
+                            value: onEdit,
+                            child: const Text('Edit event'),
                           ),
-                        ),
-                    ],
+                        if (onInvite != null)
+                          PopupMenuItem(
+                            value: onInvite,
+                            child: const Text('Invite people'),
+                          ),
+                        if (onWithdraw != null)
+                          PopupMenuItem(
+                            value: onWithdraw,
+                            child: const Text('Remove my response'),
+                          ),
+                        if (onExport != null)
+                          PopupMenuItem(
+                            value: onExport,
+                            child: const Text('Export calendar'),
+                          ),
+                        if (onWeb != null)
+                          PopupMenuItem(
+                            value: onWeb,
+                            child: const Text('Open event on web'),
+                          ),
+                        if (onWeb != null && event.canManage)
+                          PopupMenuItem(
+                            value: onWeb,
+                            child: const Text(
+                              'Bulk invitations and reports on web',
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
               ],
             ),
@@ -347,35 +351,39 @@ class EventCard extends StatelessWidget {
                   for (final status in settings.buttons)
                     if (!event.flag('minimal') || status == 'interested')
                       if (status == 'going' && event.recurring)
-                        PopupMenuButton<VoidCallback>(
-                          tooltip: 'Choose recurring attendance',
-                          enabled: !pending && event.canChoose(status),
-                          // Menu values retain the callback from opening,
-                          // even if the button's widget is replaced meanwhile.
-                          onSelected: (callback) => callback(),
-                          itemBuilder: (_) => [
-                            CheckedPopupMenuItem(
-                              value: () => onRespond!(status, false),
-                              checked:
-                                  selected == 'going' &&
-                                  event.watching?.recurring == false,
-                              child: const Text('This occurrence only'),
-                            ),
-                            CheckedPopupMenuItem(
-                              value: () => onRespond!(status, true),
-                              checked:
-                                  selected == 'going' &&
-                                  event.watching?.recurring == true,
-                              child: const Text('Every occurrence'),
-                            ),
-                          ],
-                          child: IgnorePointer(
-                            child: _ResponseButton(
-                              status: status,
-                              selected: selected == status,
-                              enabled: !pending && event.canChoose(status),
-                              recurring: true,
-                              onTap: () {},
+                        DTooltip(
+                          message: 'Choose recurring attendance',
+                          labelTrigger: true,
+                          child: PopupMenuButton<VoidCallback>(
+                            tooltip: '',
+                            enabled: !pending && event.canChoose(status),
+                            // Menu values retain the callback from opening,
+                            // even if the button's widget is replaced meanwhile.
+                            onSelected: (callback) => callback(),
+                            itemBuilder: (_) => [
+                              CheckedPopupMenuItem(
+                                value: () => onRespond!(status, false),
+                                checked:
+                                    selected == 'going' &&
+                                    event.watching?.recurring == false,
+                                child: const Text('This occurrence only'),
+                              ),
+                              CheckedPopupMenuItem(
+                                value: () => onRespond!(status, true),
+                                checked:
+                                    selected == 'going' &&
+                                    event.watching?.recurring == true,
+                                child: const Text('Every occurrence'),
+                              ),
+                            ],
+                            child: IgnorePointer(
+                              child: _ResponseButton(
+                                status: status,
+                                selected: selected == status,
+                                enabled: !pending && event.canChoose(status),
+                                recurring: true,
+                                onTap: () {},
+                              ),
                             ),
                           ),
                         )
@@ -483,7 +491,7 @@ class _Avatar extends StatelessWidget {
   final String site;
   final double size;
   @override
-  Widget build(BuildContext context) => Tooltip(
+  Widget build(BuildContext context) => DTooltip(
     message: user.username,
     child: ClipOval(
       child: SizedBox.square(

@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../discourse_ui.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
 import '../models/notification_totals.dart';
@@ -589,10 +589,10 @@ class _TabButton extends StatelessWidget {
         button: true,
         selected: selected,
         label: section.label,
-        child: Tooltip(
+        child: DTooltip(
           message: section.label,
           excludeFromSemantics: true,
-          waitDuration: const Duration(milliseconds: 400),
+          hoverDelay: const Duration(milliseconds: 400),
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(8),
@@ -947,7 +947,7 @@ class _HidePresenceTile extends StatelessWidget {
               liveRegion: state.saving || loading,
               onTap: onTap,
               child: ExcludeSemantics(
-                child: Tooltip(
+                child: DTooltip(
                   message: 'Toggle presence features',
                   excludeFromSemantics: true,
                   child: InkWell(

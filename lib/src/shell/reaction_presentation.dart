@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../plugin_api/reaction_presentation.dart';
@@ -70,7 +71,7 @@ class _ReactionPickerButtonState extends State<ReactionPickerButton> {
           button: true,
           enabled: enabled,
           label: 'Add reaction',
-          child: Tooltip(
+          child: DTooltip(
             message: 'Add reaction',
             excludeFromSemantics: true,
             child: SizedBox.square(

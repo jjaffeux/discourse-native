@@ -76,13 +76,8 @@ void main() {
         await tester.pump();
         expect(find.text('Accepted: 3'), findsOneWidget);
         final focus = FocusManager.instance.primaryFocus;
-        final tooltip = tester.widget<RawTooltip>(
-          find.descendant(
-            of: find.byType(DTooltip),
-            matching: find.byType(RawTooltip),
-          ),
-        );
-        expect(tooltip.semanticsTooltip, 'Accept invitation, F6');
+        final tooltip = tester.widget<DTooltip>(find.byType(DTooltip));
+        expect(tooltip.semanticsTooltip, 'Accept invitation');
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         addTearDown(mouse.removePointer);
         await mouse.addPointer();

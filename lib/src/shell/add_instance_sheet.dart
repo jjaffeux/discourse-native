@@ -52,10 +52,14 @@ Future<void> showAddInstanceSheet(BuildContext context) {
                       headingLevel: 1,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    icon: const DIcon(DIcons.xmark),
-                    tooltip: 'Close',
+                  DTooltip(
+                    message: 'Close',
+                    labelTrigger: true,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      icon: const DIcon(DIcons.xmark),
+                      tooltip: '',
+                    ),
                   ),
                 ],
               ),
@@ -294,7 +298,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
         child: CircularProgressIndicator.adaptive(strokeWidth: 2),
       ),
     ),
-    _SiteCheckState.valid => Tooltip(
+    _SiteCheckState.valid => DTooltip(
       message: 'Valid Discourse site',
       child: DIcon(
         DIcons.check,
@@ -303,7 +307,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
         color: theme.discourse.success,
       ),
     ),
-    _SiteCheckState.invalid => Tooltip(
+    _SiteCheckState.invalid => DTooltip(
       message: 'Site is unavailable or is not a Discourse forum',
       child: DIcon(
         DIcons.xmark,

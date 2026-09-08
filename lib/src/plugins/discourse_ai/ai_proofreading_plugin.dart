@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
@@ -62,7 +63,7 @@ class _ProofreadToggle extends StatelessWidget {
       final enabled = controller.isEnabled(composer);
       final interactive = composer.isEditing && !composer.loadingBody;
       final compact = ComposerFooterLayout.isCompactOf(context);
-      return Tooltip(
+      return DTooltip(
         message: 'Proofread automatically before posting',
         child: Semantics(
           key: const ValueKey('composer-proofread-toggle'),

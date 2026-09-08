@@ -1101,34 +1101,38 @@ class _TopicBookmarksSheet extends StatelessWidget {
                         postNumber: bookmark.postNumber,
                       ),
                     ),
-              trailing: PopupMenuButton<_TopicBookmarksActionKind>(
-                tooltip: 'Post bookmark actions',
-                enabled: !snapshot.busyTargets
-                    .split(',')
-                    .contains('${bookmark.bookmarkableId}'),
-                itemBuilder: (_) => [
-                  if (bookmark.postNumber != null)
+              trailing: DTooltip(
+                message: 'Post bookmark actions',
+                labelTrigger: true,
+                child: PopupMenuButton<_TopicBookmarksActionKind>(
+                  tooltip: '',
+                  enabled: !snapshot.busyTargets
+                      .split(',')
+                      .contains('${bookmark.bookmarkableId}'),
+                  itemBuilder: (_) => [
+                    if (bookmark.postNumber != null)
+                      const PopupMenuItem(
+                        value: _TopicBookmarksActionKind.jump,
+                        child: Text('Jump'),
+                      ),
                     const PopupMenuItem(
-                      value: _TopicBookmarksActionKind.jump,
-                      child: Text('Jump'),
+                      value: _TopicBookmarksActionKind.edit,
+                      child: Text('Edit'),
                     ),
-                  const PopupMenuItem(
-                    value: _TopicBookmarksActionKind.edit,
-                    child: Text('Edit'),
-                  ),
-                  const PopupMenuItem(
-                    value: _TopicBookmarksActionKind.delete,
-                    child: Text('Delete'),
-                  ),
-                ],
-                onSelected: (kind) => _choose(
-                  context,
-                  _TopicBookmarksAction(
-                    kind,
-                    bookmark: bookmark,
-                    postNumber: kind == _TopicBookmarksActionKind.jump
-                        ? bookmark.postNumber
-                        : null,
+                    const PopupMenuItem(
+                      value: _TopicBookmarksActionKind.delete,
+                      child: Text('Delete'),
+                    ),
+                  ],
+                  onSelected: (kind) => _choose(
+                    context,
+                    _TopicBookmarksAction(
+                      kind,
+                      bookmark: bookmark,
+                      postNumber: kind == _TopicBookmarksActionKind.jump
+                          ? bookmark.postNumber
+                          : null,
+                    ),
                   ),
                 ),
               ),

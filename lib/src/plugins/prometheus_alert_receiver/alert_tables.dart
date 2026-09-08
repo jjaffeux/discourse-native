@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -286,7 +287,7 @@ class _AlertTableState extends State<_AlertTable> {
                   ),
                 ),
               if (alert.wasRecentlySilenced(now))
-                Tooltip(
+                DTooltip(
                   message:
                       'Previously silenced on '
                       '${DateFormat.yMMMd().format(alert.lastSuppressedAt!.toLocal())}',
@@ -374,17 +375,21 @@ class _AlertActionButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => IconButton(
-    icon: DIcon(icon, size: 14),
-    tooltip: label,
-    onPressed: onPressed,
-    style: IconButton.styleFrom(
-      minimumSize: Size.square(_actionSize(context)),
-      maximumSize: Size.square(_actionSize(context)),
-      padding: EdgeInsets.zero,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+  Widget build(BuildContext context) => DTooltip(
+    message: label,
+    labelTrigger: true,
+    child: IconButton(
+      icon: DIcon(icon, size: 14),
+      tooltip: '',
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        minimumSize: Size.square(_actionSize(context)),
+        maximumSize: Size.square(_actionSize(context)),
+        padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+      ),
     ),
   );
 }

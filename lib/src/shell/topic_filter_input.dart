@@ -1,12 +1,12 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
@@ -377,16 +377,20 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           ),
           suffixIcon: filter.text.text.isEmpty
               ? null
-              : IconButton(
-                  key: widget.clearKey,
-                  tooltip: 'Clear filter',
-                  onPressed: widget.enabled
-                      ? () => unawaited(filter.clear())
-                      : null,
-                  icon: DIcon(
-                    DIcons.xmark,
-                    size: 13,
-                    color: theme.colorScheme.onSurfaceVariant,
+              : DTooltip(
+                  message: 'Clear filter',
+                  labelTrigger: true,
+                  child: IconButton(
+                    key: widget.clearKey,
+                    tooltip: '',
+                    onPressed: widget.enabled
+                        ? () => unawaited(filter.clear())
+                        : null,
+                    icon: DIcon(
+                      DIcons.xmark,
+                      size: 13,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
           border: _plainInputBorder(theme),
@@ -508,13 +512,17 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                 ),
               ),
               if (hasQuery)
-                IconButton(
-                  key: widget.clearKey,
-                  tooltip: 'Clear all filters',
-                  onPressed: widget.enabled
-                      ? () => unawaited(_clearTokenQuery())
-                      : null,
-                  icon: const DIcon(DIcons.xmark, size: 17),
+                DTooltip(
+                  message: 'Clear all filters',
+                  labelTrigger: true,
+                  child: IconButton(
+                    key: widget.clearKey,
+                    tooltip: '',
+                    onPressed: widget.enabled
+                        ? () => unawaited(_clearTokenQuery())
+                        : null,
+                    icon: const DIcon(DIcons.xmark, size: 17),
+                  ),
                 ),
             ],
           ),
@@ -594,7 +602,7 @@ class _TopicFilterTokenChip extends StatelessWidget {
     final theme = Theme.of(context);
     final label = _topicFilterTokenLabel(raw, categories);
     final foreground = theme.colorScheme.onPrimaryContainer;
-    return Tooltip(
+    return DTooltip(
       message: raw,
       child: Material(
         key: ValueKey('topic-filter-token-$index'),
@@ -629,7 +637,7 @@ class _TopicFilterTokenChip extends StatelessWidget {
               Semantics(
                 button: true,
                 label: 'Remove $label',
-                child: Tooltip(
+                child: DTooltip(
                   message: 'Remove $label',
                   child: InkWell(
                     key: ValueKey('topic-filter-token-remove-$index'),
