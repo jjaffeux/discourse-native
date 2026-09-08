@@ -112,6 +112,7 @@ Status: merged. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/compon
 - git diff --check passed.
 - After Spinner exposed the stale baseline guard, coordinator ran flutter test --no-pub test/d_button_adoption_test.dart test/styleguide/styleguide_page_test.dart --test-randomize-ordering-seed=random: 9 passed, seed 1006078620, including actual Direction/Typography state preservation and reset. Touched files are formatted, flutter analyze --no-pub and git diff --check pass. Logs: /private/tmp/component-button-adoption-fix.log and /private/tmp/component-button-adoption-fix-analysis.log.
 - Coordinator rebuilt the real repository-root macOS app after Label and Aspect Ratio integration: flutter build macos --debug --no-pub succeeded at main 4b5bd8b7d6fecb5a11d01732e8fe7ff7bbba0b98 with all seven currently merged catalogue components. Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app. Log: /private/tmp/discourse-main-label-aspect-build.log. The real account app was not launched; this verifies compilation and bundling, and does not diagnose the user-reported startup problem.
+- Coordinator built the real repository-root macOS app after Spinner, Tooltip and Avatar integration: flutter build macos --debug --no-pub succeeded at main 6976336acc1cf7dd1a44da5bfa4ba7dbdf3dd799 (ten merged catalogue components). Artifact: /Users/joffreyjaffeux/Code/discourse-native/build/macos/Build/Products/Debug/Discourse.app; log /private/tmp/discourse-main-avatar-tooltip-spinner-build.log. Full-profile flutter pub get --enforce-lockfile and flutter analyze --no-pub also passed, with no lockfile/pin changes and analysis clean in 2.4s. This is compilation/bundling verification only; the real account app was not launched and the user-reported startup issue remains unverified.
 
 **limitations**
 
@@ -798,6 +799,10 @@ Status: merged. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-ava
 ### card
 
 Status: in_progress. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/ui-card.
+
+**verification**
+
+- Coordinator pre-review is complete, including final header action lifecycle, 16/12px shared spacing, 1.4× radius and app adoption. Read-only integration candidates under /private/tmp/card-integration-preview preserve the merged Tooltip and Avatar owners in Event cards. Native review is waiting on a Codex app-access approval in task 01a082d9-6c59-7443-8e64-f76105fd5e56; task metadata reports waitingOnApproval. The user was asked to approve the pending request. Card remains unmerged and is the only remaining current-batch component.
 
 ### Final audit
 
