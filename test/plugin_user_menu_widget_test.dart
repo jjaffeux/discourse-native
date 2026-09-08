@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
@@ -30,6 +31,77 @@ void main() {
     expect(find.byKey(_betaTabKey), findsNothing);
     expect(find.byKey(_alphaBodyKey), findsNothing);
     expect(find.byKey(_betaBodyKey), findsNothing);
+  });
+
+  testWidgets('profile stays pinned while the rail and notifications scroll', (
+    tester,
+  ) async {
+    await _pumpUserMenu(
+      tester,
+      PluginManifest([
+        for (var index = 0; index < 8; index++)
+          _MenuModule(
+            'extra-$index',
+            'Extra activity $index',
+            ValueKey('extra-user-menu-body-$index'),
+          ),
+      ]),
+      notificationList: [
+        for (var id = 1; id <= 20; id++)
+          DiscourseNotification.test(
+            id: id,
+            typeId: NotificationTypeId(CoreNotificationTypes.replied.wireId),
+            topicId: id,
+            title: 'Notification topic $id',
+            data: const {'display_username': 'reader'},
+          ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    final profile = find.byKey(const ValueKey('user-menu-tab-profile'));
+    expect(profile.hitTestable(), findsOneWidget);
+    final profileRect = tester.getRect(profile);
+    final notificationScroll = find
+        .ancestor(
+          of: find.byKey(const ValueKey('notification-row-1')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final railScroll = find
+        .ancestor(
+          of: find.byKey(const ValueKey('user-menu-tab-all')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+
+    for (final scrollable in [notificationScroll, railScroll]) {
+      await tester.drag(scrollable, const Offset(0, -900));
+      await tester.pumpAndSettle();
+      expect(
+        tester.state<ScrollableState>(scrollable).position.pixels,
+        greaterThan(0),
+      );
+      expect(profile.hitTestable(), findsOneWidget);
+      expect(tester.getRect(profile), profileRect);
+    }
+
+    final lastPlugin = find.byKey(
+      const ValueKey('user-menu-tab-extra-7/activity'),
+    );
+    expect(lastPlugin.hitTestable(), findsOneWidget);
+    await tester.tap(lastPlugin);
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('extra-user-menu-body-7')),
+      findsOneWidget,
+    );
+
+    await tester.tap(profile);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('user-menu-row-summary')), findsOneWidget);
+    expect(tester.getRect(profile), profileRect);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -125,6 +197,7 @@ Future<ShellController> _pumpUserMenu(
   PluginManifest manifest, {
   VoidCallback onDismiss = _ignore,
   NotificationTotals totals = const NotificationTotals(),
+  List<DiscourseNotification> notificationList = const [],
 }) async {
   const user = DiscourseUser(id: 7, username: 'reader', name: 'Reader');
   final plugins = PluginInstaller.install(manifest);
@@ -136,7 +209,7 @@ Future<ShellController> _pumpUserMenu(
     api: FakeDiscourseApi(
       user: user,
       totals: totals,
-      notificationList: const [],
+      notificationList: notificationList,
     ),
     authenticator: authenticator,
     drafts: FakeDraftStore(),
