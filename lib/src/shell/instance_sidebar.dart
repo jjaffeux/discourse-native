@@ -270,10 +270,7 @@ class InstanceSidebar extends StatelessWidget {
             : controller.topicTrackingRevisionFor(instance.url),
         sections: instance == null
             ? const <SidebarSection>[]
-            : [
-                ...instance.sections,
-                ...controller.customSidebarSectionsFor(instance.url),
-              ],
+            : controller.sidebarSectionsFor(instance),
         navigationSections: [?categorySection, ?tagSection],
       );
     },

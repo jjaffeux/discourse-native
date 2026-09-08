@@ -185,7 +185,7 @@ class DiscourseApi
   @override
   Future<List<SidebarSection>> customSidebarSections({
     required String siteUrl,
-    required String apiKey,
+    String? apiKey,
     String? clientId,
   }) async => _account.customSidebarSections(
     siteUrl: siteUrl,

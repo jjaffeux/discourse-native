@@ -96,6 +96,7 @@ final class DiscourseModelCodec {
       whisperer: json['whisperer'] == true,
       canSendPrivateMessages: json['can_send_private_messages'] == true,
       canInviteToForum: json['can_invite_to_forum'] == true,
+      canReview: json['can_review'] == true,
       groups: List.unmodifiable([
         for (final group in jsonObjects(json['groups']))
           ?jsonText(group['name']),

@@ -2039,15 +2039,41 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _customSidebarSectionsLoaded = {};
   final Map<String, Future<void>> _customSidebarSectionRequests = {};
   final Map<String, DateTime> _customSidebarSectionAttemptedAt = {};
+  final Map<
+    String,
+    ({
+      DiscourseInstance instance,
+      List<SidebarSection> custom,
+      List<SidebarSection> sections,
+    })
+  >
+  _sidebarSectionsCache = {};
 
   static const _customSidebarRetryInterval = Duration(minutes: 5);
 
   List<SidebarSection> customSidebarSectionsFor(String siteUrl) =>
       _customSidebarSections[siteUrl] ?? const [];
 
+  List<SidebarSection> sidebarSectionsFor(DiscourseInstance instance) {
+    final custom = customSidebarSectionsFor(instance.url);
+    final cached = _sidebarSectionsCache[instance.url];
+    if (cached != null &&
+        identical(cached.instance, instance) &&
+        identical(cached.custom, custom)) {
+      return cached.sections;
+    }
+    final sections = instance.sectionsWithCustomSections(custom);
+    _sidebarSectionsCache[instance.url] = (
+      instance: instance,
+      custom: custom,
+      sections: sections,
+    );
+    return sections;
+  }
+
   Future<void> _refreshCustomSidebarSections(
     String siteUrl,
-    String apiKey, {
+    String? apiKey, {
     SiteLease? lease,
   }) {
     // Custom sections belong only to the site on screen. A session lookup can
@@ -2078,7 +2104,7 @@ class ShellController extends FrameSafeNotifier
 
   Future<void> _loadCustomSidebarSections(
     String siteUrl,
-    String apiKey, {
+    String? apiKey, {
     SiteLease? lease,
   }) async {
     final session = lease ?? lifecycle.capture(siteUrl);
@@ -12492,6 +12518,7 @@ class ShellController extends FrameSafeNotifier
     _topicComposerCapabilities.remove(siteUrl);
     _postActionCatalogs.remove(siteUrl);
     _customSidebarSections.remove(siteUrl);
+    _sidebarSectionsCache.remove(siteUrl);
     _customSidebarSectionsLoaded.remove(siteUrl);
     _customSidebarSectionAttemptedAt.remove(siteUrl);
     _customSidebarSectionRequests.remove(siteUrl)?.ignore();
@@ -12591,6 +12618,9 @@ class ShellController extends FrameSafeNotifier
     if (canRead) {
       unawaited(_presentation.ensureConfig(instance.url));
       unawaited(_presentation.ensureCustomEmojis(instance.url));
+      if (!instance.isConnected) {
+        unawaited(_refreshCustomSidebarSections(instance.url, null));
+      }
       // Warm the emoji catalog with the first feed to avoid a second title frame.
       unawaited(_presentation.warmEmojiCatalog(instance.url));
       unawaited(_ensureCategoriesFor(instance));

@@ -136,13 +136,15 @@ class SidebarSection {
 
   final String id;
 
-  /// Built-in sections have `section_type` and are already supplied locally.
+  /// Native rows supply the primary Community links; core supplies its More
+  /// links with `segment: secondary`. Other built-in sections stay local.
   static SidebarSection? customFromJson(
     Map<String, dynamic> json, {
     required int index,
     IconNameDecoder icons = const CoreIconNameDecoder(),
   }) {
-    if (json['section_type'] != null) return null;
+    final community = json['section_type'] == 'community';
+    if (json['section_type'] != null && !community) return null;
     final title = jsonText(json['title']);
     if (title == null) return null;
 
@@ -155,6 +157,10 @@ class SidebarSection {
         continue;
       }
       final link = rawLink;
+      if (community && link['segment'] != 'secondary') {
+        linkIndex++;
+        continue;
+      }
       final name = jsonText(link['name']);
       final value = jsonText(link['value']);
       if (name == null || value == null) {
@@ -165,7 +171,7 @@ class SidebarSection {
       final iconName = jsonText(link['icon']);
       destinations.add(
         SidebarDestination(
-          id: 'custom-$sectionId-$linkId',
+          id: '${community ? 'community' : 'custom'}-$sectionId-$linkId',
           label: name,
           icon: icons.iconNamed(iconName, fallback: DIcons.link),
           url: value,
@@ -175,9 +181,12 @@ class SidebarSection {
     }
 
     return SidebarSection(
-      id: 'custom-$sectionId',
+      id: community ? 'community' : 'custom-$sectionId',
       title: title,
-      destinations: List.unmodifiable(destinations),
+      destinations: community ? const [] : List.unmodifiable(destinations),
+      moreDestinations: community ? List.unmodifiable(destinations) : const [],
+      showHeader: !community,
+      collapsible: !community,
     );
   }
 

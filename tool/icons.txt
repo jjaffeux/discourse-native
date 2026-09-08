@@ -43,6 +43,7 @@ minus
 circle-plus
 circle-minus
 circle-info
+circle-question
 triangle-exclamation
 exclamation
 magnifying-glass

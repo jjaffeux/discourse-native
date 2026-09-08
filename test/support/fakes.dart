@@ -1411,7 +1411,7 @@ class FakeDiscourseApi
   @override
   Future<List<SidebarSection>> customSidebarSections({
     required String siteUrl,
-    required String apiKey,
+    String? apiKey,
     String? clientId,
   }) async => customSidebarSectionsBySite[siteUrl] ?? const [];
 

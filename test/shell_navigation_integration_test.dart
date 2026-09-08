@@ -1231,6 +1231,141 @@ void _registerShellNavigationTests() {
     expect(find.widgetWithText(MenuItemButton, 'Filter'), findsNothing);
   });
 
+  for (final connected in [true, false]) {
+    testWidgets(
+      'opens forum More links for ${connected ? 'connected' : 'anonymous'} readers and updates them on site switch',
+      (tester) async {
+        final launched = watchBrowser(tester);
+        final site = DiscourseInstance(
+          url: 'https://forum.example/discuss',
+          title: 'Example',
+          user: connected
+              ? const DiscourseUser(id: 7, username: 'reader')
+              : null,
+        );
+        final auth = FakeAuthenticator();
+        if (connected) auth.keys[site.url] = 'api-key';
+        final api = FakeDiscourseApi(
+          topics: {900: topicPayload(id: 900, title: 'Roadmap')},
+          customSidebarSectionsBySite: {
+            site.url: [
+              SidebarSection.customFromJson({
+                'id': 1,
+                'title': 'Community',
+                'section_type': 'community',
+                'links': [
+                  for (final (index, link) in const [
+                    ('About this forum', '/about'),
+                    ('Roadmap', '/discuss/t/roadmap/900'),
+                    ('Handbook', 'https://docs.example.com/handbook'),
+                    ('Teams', '/g'),
+                    ('Users', '/u'),
+                  ].indexed)
+                    {
+                      'id': index,
+                      'name': link.$1,
+                      'value': link.$2,
+                      'icon': 'fire',
+                      'segment': 'secondary',
+                    },
+                ],
+              }, index: 0)!,
+            ],
+          },
+        );
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [site, instance('other.example.com')],
+          api: api,
+          authenticator: auth,
+        );
+
+        expect(sidebarDestination('More'), findsOneWidget);
+        expect(sidebarDestination('Roadmap'), findsNothing);
+        await tester.tap(sidebarDestination('More'));
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widgetList<MenuItemButton>(find.byType(MenuItemButton))
+              .map((button) => (button.child! as Text).data),
+          ['About this forum', 'Roadmap', 'Handbook', 'Teams'],
+        );
+        expect(
+          find.descendant(
+            of: find.widgetWithText(MenuItemButton, 'Handbook'),
+            matching: find.dIcon(DIcons.fire),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.widgetWithText(MenuItemButton, 'Roadmap'));
+        await tester.pumpAndSettle();
+        expect(api.topicsOpened, [900]);
+
+        await tester.tap(sidebarDestination('More'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(MenuItemButton, 'Handbook'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(sidebarDestination('More'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.widgetWithText(MenuItemButton, 'About this forum'),
+        );
+        await tester.pumpAndSettle();
+        expect(launched, [
+          'https://docs.example.com/handbook',
+          'https://forum.example/discuss/about',
+        ]);
+
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+        if (connected) {
+          api.customSidebarSectionsBySite[site.url] = const [
+            SidebarSection(
+              id: 'community',
+              title: 'Community',
+              destinations: [],
+              moreDestinations: [
+                SidebarDestination(
+                  id: 'community-1-100',
+                  label: 'Public guidelines',
+                  icon: DIcons.circleQuestion,
+                  url: '/faq',
+                ),
+              ],
+            ),
+          ];
+          await controller.disconnectCurrentInstance();
+          await tester.pumpAndSettle();
+          await tester.tap(sidebarDestination('More'));
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widgetList<MenuItemButton>(find.byType(MenuItemButton))
+                .map((button) => (button.child! as Text).data),
+            ['Public guidelines', 'Groups'],
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+        }
+        controller.selectInstance(1);
+        await tester.pumpAndSettle();
+        await tester.tap(sidebarDestination('More'));
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widgetList<MenuItemButton>(find.byType(MenuItemButton))
+              .map((button) => (button.child! as Text).data),
+          ['Groups'],
+        );
+      },
+    );
+  }
+
   testWidgets('promotes Groups for a group detail opened over another route', (
     tester,
   ) async {

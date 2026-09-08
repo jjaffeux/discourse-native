@@ -24,6 +24,7 @@ class DiscourseUser {
     this.whisperer = false,
     this.canSendPrivateMessages = false,
     this.canInviteToForum = false,
+    this.canReview = false,
     this.groups = const [],
     this.messageGroupNames = const [],
     this.sidebarCategoryIds = const [],
@@ -66,6 +67,7 @@ class DiscourseUser {
     whisperer: json['whisperer'] == true,
     canSendPrivateMessages: json['canSendPrivateMessages'] == true,
     canInviteToForum: json['canInviteToForum'] == true,
+    canReview: json['canReview'] == true,
     groups: List.unmodifiable(
       jsonArray(json['groups']).map(jsonText).whereType<String>(),
     ),
@@ -135,6 +137,8 @@ class DiscourseUser {
   final bool canSendPrivateMessages;
 
   final bool canInviteToForum;
+
+  final bool canReview;
 
   final List<String> groups;
 
@@ -208,6 +212,7 @@ class DiscourseUser {
       'whisperer': whisperer,
       'canSendPrivateMessages': canSendPrivateMessages,
       'canInviteToForum': canInviteToForum,
+      'canReview': canReview,
       'groups': groups,
       'messageGroupNames': messageGroupNames,
       'sidebarCategoryIds': sidebarCategoryIds,
@@ -257,6 +262,7 @@ class DiscourseUser {
     whisperer: whisperer,
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
+    canReview: canReview,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -294,6 +300,7 @@ class DiscourseUser {
     whisperer: whisperer,
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
+    canReview: canReview,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -331,6 +338,7 @@ class DiscourseUser {
     whisperer: whisperer,
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
+    canReview: canReview,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -368,6 +376,7 @@ class DiscourseUser {
     whisperer: whisperer,
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
+    canReview: canReview,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -406,6 +415,7 @@ class DiscourseUser {
         whisperer: whisperer,
         canSendPrivateMessages: canSendPrivateMessages,
         canInviteToForum: canInviteToForum,
+        canReview: canReview,
         groups: groups,
         messageGroupNames: messageGroupNames,
         sidebarCategoryIds: sidebarCategoryIds,
@@ -447,6 +457,7 @@ class DiscourseUser {
     whisperer: whisperer,
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
+    canReview: canReview,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -486,6 +497,7 @@ class DiscourseUser {
     whisperer: whisperer,
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
+    canReview: canReview,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -523,6 +535,7 @@ class DiscourseUser {
     whisperer: whisperer,
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
+    canReview: canReview,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -562,6 +575,7 @@ class DiscourseUser {
       other.whisperer == whisperer &&
       other.canSendPrivateMessages == canSendPrivateMessages &&
       other.canInviteToForum == canInviteToForum &&
+      other.canReview == canReview &&
       listEquals(other.groups, groups) &&
       listEquals(other.messageGroupNames, messageGroupNames) &&
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
@@ -605,6 +619,7 @@ class DiscourseUser {
     whisperer,
     canSendPrivateMessages,
     canInviteToForum,
+    canReview,
     Object.hashAll(groups),
     Object.hashAll(messageGroupNames),
     Object.hashAll(sidebarCategoryIds),
