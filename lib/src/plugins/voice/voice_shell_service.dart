@@ -22,7 +22,7 @@ bool _siteDefaultOn(String _) => true;
 
 final class VoiceShellService
     implements PluginLinkHandler, PluginSiteActivator, PluginTrackerAttachment {
-  const VoiceShellService({
+  VoiceShellService({
     required this.controller,
     required PluginRouteNavigationHost host,
     required VoiceRecordingEnabledReader recordingEnabled,
@@ -41,6 +41,7 @@ final class VoiceShellService
   final VoiceSiteFlagReader _meshPrivacyWarningEnabled;
   final VoiceSiteFlagReader _autoStatusEnabled;
   final VoiceUsernameReader _currentUsername;
+  Object? _linkNavigation;
 
   PluginRouteSite? get currentInstance => _host.currentSite;
   ContentRoute? get currentContent => _host.currentContent;
@@ -153,23 +154,47 @@ final class VoiceShellService
     final absolute = resolveSiteUrl(url, _host.currentSite?.url);
     final uri = Uri.tryParse(absolute);
     if (uri == null) return false;
-    final index = _host.sites.indexWhere((instance) => instance.serves(uri));
-    if (index < 0 || !_host.sites[index].isConnected) return false;
-    final path = _host.sites[index].pathWithin(uri);
+    final sites = _host.sites;
+    final index = sites.indexWhere((instance) => instance.serves(uri));
+    if (index < 0) return false;
+    final instance = sites[index];
+    if (!instance.isConnected) return false;
+    final path = instance.pathWithin(uri);
     if (path == null) return false;
     final match = RegExp(
       r'^/voice/r/([^/]+)(?:/invited-by/([^/]+))?/?$',
     ).firstMatch(path);
     if (match == null) return false;
-    if (_host.currentSite?.url != _host.sites[index].url) {
+    final navigation = Object();
+    _linkNavigation = navigation;
+    final sessionIsCurrent = controller.captureSiteSession(instance.url);
+    if (!sessionIsCurrent()) return true;
+    if (_host.currentSite?.url != instance.url) {
       _host.selectInstance(index);
     }
-    final instance = _host.sites[index];
+    final content = _host.currentContent;
+    bool isCurrent() {
+      final selected = _host.currentSite;
+      return identical(_linkNavigation, navigation) &&
+          sessionIsCurrent() &&
+          selected?.url == instance.url &&
+          selected?.isConnected == true &&
+          _host.sites.any(
+            (site) => site.url == instance.url && site.isConnected,
+          ) &&
+          identical(_host.currentContent, content);
+    }
+
+    // Retired Voice links remain handled so cancellation cannot launch an
+    // external fallback. Only current work may navigate or credit an inviter.
+    if (!isCurrent()) return true;
     await controller.ensureLoaded(instance.url);
+    if (!isCurrent()) return true;
     final room = await controller.resolveRoom(
       instance.url,
       Uri.decodeComponent(match.group(1)!),
     );
+    if (!isCurrent()) return true;
     if (room == null) return false;
     final invitedBy = match.group(2);
     if (invitedBy != null) {
