@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../plugin_api/reaction_presentation.dart';
@@ -450,11 +451,7 @@ class _ReactionUsersListState extends State<ReactionUsersList> {
         return const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Center(
-            child: SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-            ),
+            child: SizedBox(width: 18, height: 18, child: DSpinner()),
           ),
         );
       }

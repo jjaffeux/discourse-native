@@ -122,16 +122,55 @@
     },
     {
       "id": "spinner",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a08213-9960-79f1-8d90-9626f24a4b5a",
+      "branch": "codex/ui-spinner",
       "dependencies": [],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
+      "acceptanceCriteria": [
+        "Provide public DSpinner with a 16 logical-pixel default, arbitrary positive sizing, live inherited/explicit color, stroke width and custom rotating artwork; keep async/business state in callers.",
+        "Preserve native Cupertino activity rendering on iOS/macOS and Material rendering elsewhere; expose one customizable loading status with a decorative opt-out, no keyboard focus or interaction interception.",
+        "Stop motion for reduced-motion preferences, inactive applications and disabled ticker subtrees; handle live updates, removal and restoration without leaked animation work.",
+        "Demonstrate all frozen sections with interactive customization, four reference sizes (12/16/24/32), loading buttons, badge/input/empty compositions, start/end placement, cancellation/retry, RTL, narrow layouts and 200% text.",
+        "Audit core and every bundled plugin, migrate circular indeterminate indicators including DButton and remove AdaptiveActivityIndicator ownership; preserve determinate progress and document retained linear/typing alternatives.",
+        "Format/analyze and run focused component, styleguide and migrated-consumer regressions, then inspect an isolated macOS styleguide using the coordinator inspection slot."
+      ],
+      "decisions": [
+        "Frozen spinner.md SHA256 verified as 9c7185da74c70d9b9bb7c3b894e14bb62e2a07c264bed76a786ab7f38325d654; catalogue variant/size=sm/align values belong to demonstration Button/Badge/Item/Input Group/Empty controls, not Spinner props.",
+        "Native adaptation: use the existing Apple activity appearance and Flutter Material circular indicator as default artwork; accept a child for the reference custom-icon pattern without introducing another icon library.",
+        "Composition uses ordinary children and directional Flutter layout. Spinner owns no Button/Badge/Input Group/Empty APIs and no loading completion, errors or cancellation state.",
+        "DSpinner defaults to 16 logical pixels, follows inherited IconTheme color and uses DTokens.foreground as fallback; explicit color/strokeWidth and custom child artwork are supported. Whole-panel busy indicators use DSpacing.xl (24px), and constrained inline slots retain existing dimensions. Text scaling stays with host text owners.",
+        "Use a native loadingSpinner semantics role and a single caller-localizable live label, with semanticLabel=null for decorative artwork. DButton retains its existing name, Loading value, disabled state, tooltip and async ownership.",
+        "Reduced motion renders stationary Apple ticks or a static Material arc with indeterminate semantics; custom artwork pauses. Native and custom motion stops for inactive apps and disabled ticker subtrees and resumes without disposing borrowed state. DMotion.spin supplies the custom artwork cycle.",
+        "No networking, completion callbacks, error state, focus nodes or overlay ownership were added to DSpinner. Example completion/validation/cancellation controls use local sample state."
+      ],
+      "migrations": [
+        "Replaced 97 direct indeterminate circular/adaptive usages in 57 core/plugin source files and migrated DButton loading to DSpinner (98 busy-indicator constructions total). All app callers use the public discourse_ui.dart barrel; DButton imports the component internally.",
+        "Removed shell/adaptive_activity_indicator.dart and migrated its callers in aggregate_view, draft_list, instance_rail, lightbox and topic_list_view. Updated adaptive Apple tests to exercise DSpinner.",
+        "Core adoption covers app loading, account menus/presence, forum/sidebar loading, badges/categories/tags/groups and member/activity views, topic lists/actions/taxonomy/ownership/move-post dialogs, composer image workflows, bookmarks/reactions/likes, emoji/search/pickers, preferences, update installation and video/photo loading.",
+        "Bundled plugin audit: migrated direct circular usages in Assign, Chat (channel/thread/search/message actions/composer), AI summary, GIFs and Voice. Reactions uses the migrated shared reaction presenter. Poll, Events, GitHub, Lazy Videos, Local Dates and Prometheus Alert Receiver have no additional direct circular spinners; existing DButton consumers inherit the new rendering.",
+        "Updated emoji-picker, reaction-list and user-presence regression assertions to the public DSpinner instead of the Material implementation, preserving loading/error/permission/async tests on macOS.",
+        "Added a dedicated spinner_examples.dart with six runnable examples for all frozen documented sections: customizable sizes/artwork, Button, Badge, Input Group, Empty and RTL. Installation/usage are documented through the public barrel."
+      ],
+      "retainedAlternatives": [
+        "instance_rail.dart retains the CircularProgressIndicator with value: updates.progress because update-download percentage is meaningful. update_sheet.dart and composer_panel.dart retain numeric LinearProgressIndicator values for update downloads and composer uploads.",
+        "Horizontal indeterminate bars in badges/categories/tags, bookmark actions, revision history, user-directory empty/loading status, Assign searches/group refresh, Events cards/directory/participants and Chat pinned refresh retain their linear layout for the separate Progress catalogue entry; they do not duplicate circular spinner ownership.",
+        "loading_skeleton.dart and content placeholders remain owned by the concurrent Skeleton task. Vendored video-player example loading bars are upstream sample UI outside the app component migration."
+      ],
+      "verification": [
+        "Flutter 3.47.2 / Dart 3.13.2 verified. Root and profiles/full flutter pub get --enforce-lockfile passed with no lockfile or pin changes.",
+        "dart format --output=none --set-exit-if-changed on all 69 touched/new Dart files passed (0 changes). Final root flutter analyze --no-pub passed (no issues, 3.1s); profiles/full flutter analyze --no-pub passed (no issues, 1.6s). git diff --check passed; no lockfile, Flutter-pin or repository platform-runner changes.",
+        "flutter test --no-pub test/d_spinner_test.dart test/adaptive_apple_widgets_test.dart test/d_button_test.dart test/styleguide test/emoji_picker_test.dart test/reactions_row_accessibility_test.dart test/user_presence_widget_test.dart --test-randomize-ordering-seed=random --reporter expanded: 86 passed, seed 4000949775.",
+        "flutter test --no-pub test/d_spinner_test.dart --plain-name 'an open dialog receives live palette changes without replacing its spinner' --reporter expanded: 1 passed. An already-open dialog retains Spinner state, receives a site-palette update and dismisses via Escape.",
+        "Component tests cover iOS/macOS/Linux target-platform adaptation (not device execution), native and custom motion pause/resume/removal, app inactivity, TickerMode, reduced motion with unchanged busy semantics/no numeric value, decorative semantics/input/focus exclusion, 12/16/24/32 sizing and tight constraints, live light/dark/Forest/Plum colors, all 11 DButton variant colors and disabled named-action semantics.",
+        "Example tests exercise all six examples at 280px with 200% text and RTL, state retention across palette changes, customization, inline start/end placement, button failure/completion, disabled validation with preserved text, rejection/retry/send, empty-state cancel/fail/retry/complete, and styleguide search/registration.",
+        "Broader migration command: flutter test --no-pub test/add_instance_sheet_test.dart test/aggregate_view_test.dart test/anchored_picker_test.dart test/assigned_group_view_test.dart test/badges_page_test.dart test/categories_page_test.dart test/chat_browse_channels_view_test.dart test/chat_channel_info_view_test.dart test/chat_channel_view_lifecycle_test.dart test/chat_composer_test.dart test/chat_header_button_accessibility_test.dart test/composer_image_gallery_test.dart test/composer_image_test.dart test/d_button_adoption_test.dart test/do_not_disturb_dialog_test.dart test/draft_list_test.dart test/emoji_picker_test.dart test/gif_picker_test.dart test/group_page_test.dart test/groups_page_test.dart test/inline_video_test.dart test/lightbox_test.dart test/plugin_dependency_boundary_test.dart test/post_revision_history_test.dart test/preferences_page_test.dart test/reaction_presentation_test.dart test/reactions_row_accessibility_test.dart test/styleguide test/tags_page_test.dart test/topic_create_button_accessibility_test.dart test/topic_header_tags_test.dart test/topic_list_view_lifecycle_test.dart test/topic_taxonomy_fields_test.dart test/user_presence_widget_test.dart test/voice_room_view_test.dart --test-randomize-ordering-seed=random --reporter expanded. Seed 4125606634: 578 passed / 5 failed initially. Four introduced test expectations/navigation issues were corrected and all passed in the final 86-test run; the remaining pre-existing adoption-allowlist failure is recorded under limitations.",
+        "Isolated macOS build: flutter build macos --debug --no-pub --target lib/styleguide_main.dart passed in /private/tmp/discourse-ui-spinner-native, producing Spinner Styleguide.app with bundle ID org.discourse.native.styleguide.spinner. Ad-hoc signing and removal of the unused push entitlement stayed only in the temporary copy; repository runners unchanged.",
+        "Final custom-artwork review: explicitly oversized child icons are fitted into the requested diameter. flutter test --no-pub test/d_spinner_test.dart test/styleguide/spinner_examples_test.dart --test-randomize-ordering-seed=random --reporter expanded: 27 passed, seed 33603198, including the open-dialog and oversized-artwork regressions. The isolated macOS build was refreshed successfully after this change."
+      ],
+      "limitations": [
+        "d_button_adoption_test.dart already fails at task base 5fd6658b because its raw Material-button allowlist omits unchanged styleguide_page.dart (1 button) and direction_examples.dart (2). This task adds no raw Material buttons matched by that check; coordinator informed and baseline source identity verified. Coordinator confirmed the stale baseline allowlist and is correcting explicit counts on main; no need to repeat unaffected passing suites on this isolated branch.",
+        "iOS and Linux devices have not been run; target-platform widget tests do not substitute for device testing. VoiceOver spoken output and authenticated app screens have not been inspected. macOS inspection awaits the coordinator desktop slot."
+      ],
       "implementationCommit": null,
       "mergeCommit": null
     },

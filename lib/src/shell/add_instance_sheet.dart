@@ -1,12 +1,12 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../data/discourse_api.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'shell_controller.dart';
@@ -290,7 +290,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
       child: SizedBox.square(
         key: ValueKey('add-site-checking'),
         dimension: 18,
-        child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+        child: DSpinner(),
       ),
     ),
     _SiteCheckState.valid => Tooltip(

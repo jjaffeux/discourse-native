@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/frame_safe_notifier.dart';
@@ -8,7 +9,6 @@ import '../models/post.dart';
 import '../models/topic.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
@@ -1129,9 +1129,7 @@ class _CategoryChip extends StatelessWidget {
                         const SizedBox(width: 6),
                         const SizedBox.square(
                           dimension: 12,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 1.5,
-                          ),
+                          child: DSpinner(strokeWidth: 1.5),
                         ),
                       ],
                     ],

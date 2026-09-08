@@ -1,0 +1,423 @@
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.macOS,
+    TargetPlatform.linux,
+  ]) {
+    testWidgets('native artwork, size and color on ${platform.name}', (
+      tester,
+    ) async {
+      for (final size in [12.0, 16.0, 24.0, 32.0]) {
+        await _pump(
+          tester,
+          DSpinner(size: size, color: const Color(0xff126f53), strokeWidth: 3),
+          platform: platform,
+        );
+        expect(tester.getSize(find.byType(DSpinner)), Size.square(size));
+        if (platform == TargetPlatform.linux) {
+          final indicator = tester.widget<CircularProgressIndicator>(
+            find.byType(CircularProgressIndicator),
+          );
+          expect(indicator.color, const Color(0xff126f53));
+          expect(indicator.strokeWidth, 3);
+          expect(indicator.value, isNull);
+        } else {
+          final indicator = tester.widget<CupertinoActivityIndicator>(
+            find.byType(CupertinoActivityIndicator),
+          );
+          expect(indicator.color, const Color(0xff126f53));
+          expect(indicator.radius, size / 2);
+          expect(indicator.animating, isTrue);
+        }
+      }
+    });
+  }
+
+  testWidgets('tight constraints and large text do not distort the spinner', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const SizedBox.square(dimension: 10, child: DSpinner(size: 32)),
+      scale: 3,
+    );
+    expect(tester.getSize(find.byType(DSpinner)), const Size.square(10));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'explicitly oversized custom artwork fits the requested diameter',
+    (tester) async {
+      await _pump(
+        tester,
+        const DSpinner(
+          size: 24,
+          animating: false,
+          child: Icon(Icons.autorenew, size: 100),
+        ),
+      );
+      expect(
+        tester.getRect(find.byIcon(Icons.autorenew)),
+        tester.getRect(find.byType(DSpinner)),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final (platform, custom) in [
+    (TargetPlatform.macOS, false),
+    (TargetPlatform.linux, false),
+    (TargetPlatform.macOS, true),
+  ]) {
+    testWidgets(
+      'one busy status survives reduced motion on ${platform.name}, custom=$custom',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        try {
+          final spinner = DSpinner(
+            semanticLabel: 'Saving draft',
+            child: custom
+                ? const Icon(Icons.autorenew, semanticLabel: 'Hidden artwork')
+                : null,
+          );
+          await _pump(tester, spinner, platform: platform);
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(tester.binding.transientCallbackCount, greaterThan(0));
+
+          await _pump(tester, spinner, platform: platform, reducedMotion: true);
+          await tester.pumpAndSettle();
+          expect(tester.binding.transientCallbackCount, 0);
+          final node = tester.getSemantics(
+            find.bySemanticsLabel('Saving draft'),
+          );
+          expect(node.getSemanticsData().role, SemanticsRole.loadingSpinner);
+          expect(node.getSemanticsData().value, isEmpty);
+          expect(node.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
+          expect(find.bySemanticsLabel('Hidden artwork'), findsNothing);
+          expect(find.bySemanticsLabel('Loading'), findsNothing);
+          expect(find.byType(DSpinner), findsOneWidget);
+
+          await _pump(tester, spinner, platform: platform);
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(tester.binding.transientCallbackCount, greaterThan(0));
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+          expect(tester.binding.transientCallbackCount, 0);
+          expect(tester.takeException(), isNull);
+        } finally {
+          semantics.dispose();
+        }
+      },
+    );
+  }
+
+  testWidgets('custom rotation pauses, resumes, and remains clockwise in RTL', (
+    tester,
+  ) async {
+    Widget spinner({bool animate = true}) =>
+        DSpinner(animating: animate, child: const Icon(Icons.autorenew));
+    double turns() => tester
+        .widget<RotationTransition>(
+          find.descendant(
+            of: find.byType(DSpinner),
+            matching: find.byType(RotationTransition),
+          ),
+        )
+        .turns
+        .value;
+    await _pump(tester, spinner());
+    await tester.pump(const Duration(milliseconds: 200));
+    final first = turns();
+    expect(first, greaterThan(0));
+    await _pump(tester, spinner(), direction: TextDirection.rtl);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(turns(), greaterThan(first));
+    await _pump(tester, spinner(animate: false));
+    final paused = turns();
+    await tester.pump(const Duration(seconds: 2));
+    expect(turns(), paused);
+    expect(tester.binding.transientCallbackCount, 0);
+    await _pump(tester, spinner());
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(turns(), isNot(paused));
+  });
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
+    testWidgets(
+      'inactive app and ticker subtree pause native and custom motion on ${platform.name}',
+      (tester) async {
+        addTearDown(
+          () => tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          ),
+        );
+        const indicators = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DSpinner(),
+            DSpinner(child: Icon(Icons.autorenew)),
+          ],
+        );
+        await _pump(tester, indicators, platform: platform);
+        await tester.pump(const Duration(milliseconds: 100));
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.binding.transientCallbackCount, 0);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(tester.binding.transientCallbackCount, greaterThan(0));
+        await _pump(tester, indicators, platform: platform, tickers: false);
+        await tester.pumpAndSettle();
+        expect(tester.binding.transientCallbackCount, 0);
+        await _pump(tester, indicators, platform: platform);
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(tester.binding.transientCallbackCount, greaterThan(0));
+      },
+    );
+  }
+
+  testWidgets(
+    'decorative custom artwork adds no semantics, focus or pointer target',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final artworkFocus = FocusNode();
+        final actionFocus = FocusNode();
+        addTearDown(artworkFocus.dispose);
+        addTearDown(actionFocus.dispose);
+        var presses = 0;
+        var artworkPresses = 0;
+        await _pump(
+          tester,
+          Column(
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => presses++,
+                child: DSpinner(
+                  size: 48,
+                  semanticLabel: null,
+                  child: TextButton(
+                    focusNode: artworkFocus,
+                    onPressed: () => artworkPresses++,
+                    child: const Text('Artwork'),
+                  ),
+                ),
+              ),
+              TextButton(
+                focusNode: actionFocus,
+                onPressed: () => presses++,
+                child: const Text('Next action'),
+              ),
+            ],
+          ),
+        );
+        expect(find.bySemanticsLabel('Loading'), findsNothing);
+        expect(find.bySemanticsLabel('Artwork'), findsNothing);
+        await tester.tapAt(tester.getCenter(find.byType(DSpinner)));
+        expect(presses, 1);
+        expect(artworkPresses, 0);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(artworkFocus.hasFocus, isFalse);
+        expect(actionFocus.hasFocus, isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        expect(presses, 2);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets('live site palettes and explicit colors reach custom artwork', (
+    tester,
+  ) async {
+    for (final sample in [
+      StyleguideTheme.light,
+      StyleguideTheme.dark,
+      StyleguideTheme.forest,
+      StyleguideTheme.plum,
+    ]) {
+      final theme = sample.resolve(AppTheme.light);
+      await _pump(
+        tester,
+        const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DSpinner(child: Icon(Icons.autorenew)),
+            DSpinner(color: Color(0xfff2ab34), child: Icon(Icons.refresh)),
+          ],
+        ),
+        theme: theme,
+      );
+      expect(
+        IconTheme.of(tester.element(find.byIcon(Icons.autorenew))).color,
+        theme.iconTheme.color,
+      );
+      expect(
+        IconTheme.of(tester.element(find.byIcon(Icons.refresh))).color,
+        const Color(0xfff2ab34),
+      );
+      expect(
+        IconTheme.of(tester.element(find.byIcon(Icons.autorenew))).size,
+        16,
+      );
+    }
+  });
+
+  testWidgets(
+    'loading button spinner inherits its variant color and keeps one named action',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        var presses = 0;
+        for (final theme in [
+          AppTheme.light,
+          AppTheme.dark,
+          StyleguideTheme.forest.resolve(AppTheme.light),
+          StyleguideTheme.plum.resolve(AppTheme.light),
+        ]) {
+          for (final variant in DButtonVariant.values) {
+            await _pump(
+              tester,
+              DButton(
+                label: const Text('Save changes'),
+                loadingLabel: const Text('Saving…'),
+                loading: true,
+                variant: variant,
+                onPressed: () => presses++,
+              ),
+              theme: theme,
+              platform: TargetPlatform.macOS,
+            );
+            expect(find.byType(DSpinner), findsOneWidget);
+            final renderedButton = tester.widget<FilledButton>(
+              find.byType(FilledButton),
+            );
+            final expected = renderedButton.style!.iconColor!.resolve({
+              WidgetState.disabled,
+            });
+            expect(
+              tester
+                  .widget<CupertinoActivityIndicator>(
+                    find.byType(CupertinoActivityIndicator),
+                  )
+                  .color,
+              expected,
+            );
+            expect(find.bySemanticsLabel('Loading'), findsNothing);
+            final node = tester
+                .getSemantics(find.bySemanticsLabel('Save changes'))
+                .getSemanticsData();
+            expect(node.value, 'Loading');
+            expect(node.flagsCollection.isButton, isTrue);
+            expect(node.hasAction(SemanticsAction.tap), isFalse);
+            await tester.tap(find.byType(DButton));
+            expect(presses, 0);
+          }
+        }
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'an open dialog receives live palette changes without replacing its spinner',
+    (tester) async {
+      final theme = ValueNotifier(AppTheme.light);
+      addTearDown(theme.dispose);
+      await tester.pumpWidget(
+        ValueListenableBuilder<ThemeData>(
+          valueListenable: theme,
+          builder: (context, value, child) => MaterialApp(
+            theme: value.copyWith(platform: TargetPlatform.macOS),
+            themeAnimationDuration: Duration.zero,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: true),
+              child: child!,
+            ),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: DButton(
+                  label: const Text('Open busy dialog'),
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    useRootNavigator: false,
+                    builder: (context) =>
+                        const Dialog(child: Center(child: DSpinner())),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open busy dialog'));
+      await tester.pumpAndSettle();
+      final state = tester.state(find.byType(DSpinner));
+      final originalColor = tester
+          .widget<CupertinoActivityIndicator>(
+            find.byType(CupertinoActivityIndicator),
+          )
+          .color;
+      theme.value = StyleguideTheme.plum.resolve(AppTheme.light);
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(DSpinner)), same(state));
+      final newColor = tester
+          .widget<CupertinoActivityIndicator>(
+            find.byType(CupertinoActivityIndicator),
+          )
+          .color;
+      expect(newColor, theme.value.iconTheme.color);
+      expect(newColor, isNot(originalColor));
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(DSpinner), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+}
+
+Future<void> _pump(
+  WidgetTester tester,
+  Widget child, {
+  TargetPlatform platform = TargetPlatform.linux,
+  ThemeData? theme,
+  double scale = 1,
+  bool reducedMotion = false,
+  bool tickers = true,
+  TextDirection direction = TextDirection.ltr,
+}) => tester.pumpWidget(
+  MaterialApp(
+    theme: (theme ?? AppTheme.light).copyWith(platform: platform),
+    themeAnimationDuration: Duration.zero,
+    home: MediaQuery(
+      data: MediaQueryData(
+        textScaler: TextScaler.linear(scale),
+        disableAnimations: reducedMotion,
+      ),
+      child: Directionality(
+        textDirection: direction,
+        child: TickerMode(
+          enabled: tickers,
+          child: Scaffold(body: Center(child: child)),
+        ),
+      ),
+    ),
+  ),
+);

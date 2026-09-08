@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -11,7 +12,6 @@ import '../../shell/shell_metrics.dart';
 import '../../shell/title_bar.dart';
 import '../../shell/user_menu_button.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel_search.dart';
@@ -490,7 +490,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
         onSelectionChanged: _setMessageSelected,
       );
     } else if (stream.loading) {
-      content = const Center(child: CircularProgressIndicator.adaptive());
+      content = const Center(child: DSpinner(size: DSpacing.xl));
     } else if (stream.error case final error?) {
       content = _ThreadStateMessage(
         icon: DIcons.triangleExclamation,

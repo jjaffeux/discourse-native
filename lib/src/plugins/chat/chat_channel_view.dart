@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -1752,24 +1753,14 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                 tooltip: 'Quote selected messages',
                 onPressed: count == 0 || busy ? null : _quote,
                 icon: _quoting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      )
+                    ? const SizedBox.square(dimension: 18, child: DSpinner())
                     : const DIcon(DIcons.quoteLeft, size: 18),
               ),
               FilledButton.icon(
                 key: const ValueKey('chat-copy-selection'),
                 onPressed: count == 0 || busy ? null : _copy,
                 icon: _copying
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      )
+                    ? const SizedBox.square(dimension: 16, child: DSpinner())
                     : const DIcon(DIcons.copy, size: 16),
                 label: const Text('Copy'),
               ),
@@ -1782,12 +1773,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                       ? () => _move(moveDestinations)
                       : null,
                   icon: _moving
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        )
+                      ? const SizedBox.square(dimension: 18, child: DSpinner())
                       : const DIcon(DIcons.rightFromBracket, size: 18),
                 ),
               IconButton(
@@ -1798,12 +1784,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                     : 'Delete selected messages',
                 onPressed: canDelete && !busy ? _delete : null,
                 icon: _deleting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      )
+                    ? const SizedBox.square(dimension: 18, child: DSpinner())
                     : const DIcon(DIcons.trashCan, size: 18),
               ),
               IconButton(

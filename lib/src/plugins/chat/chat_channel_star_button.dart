@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
@@ -48,10 +48,7 @@ class ChatChannelStarButton extends StatelessWidget {
               variant: DButtonVariant.flat,
               size: size,
               icon: busy
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    )
+                  ? const SizedBox.square(dimension: 18, child: DSpinner())
                   : DIcon(starred ? DIcons.star : DIcons.farStar, size: 18),
             );
           },

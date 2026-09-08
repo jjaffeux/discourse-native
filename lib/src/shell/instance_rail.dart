@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -13,11 +14,8 @@ import '../models/site_appearance.dart';
 import '../styleguide/styleguide_page.dart';
 import '../theme/app_theme.dart';
 import '../theme/color_contrast.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_tooltip.dart';
-import 'adaptive_activity_indicator.dart';
 import 'add_instance_sheet.dart';
 import 'app_settings_page.dart';
 import 'avatar_image.dart';
@@ -75,10 +73,9 @@ class InstanceRail extends StatelessWidget {
                       InstanceLoadStatus.loading => Center(
                         child: SizedBox.square(
                           dimension: 24,
-                          child: AdaptiveActivityIndicator(
+                          child: DSpinner(
                             color: theme.shell.railForeground,
-                            cupertinoRadius: 12,
-                            materialStrokeWidth: 2,
+                            size: 24,
                           ),
                         ),
                       ),

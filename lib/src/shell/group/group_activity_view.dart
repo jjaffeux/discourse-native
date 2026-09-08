@@ -162,7 +162,7 @@ class _ActivityRows extends StatelessWidget {
       if (error != null) {
         return _GroupState(icon: DIcons.triangleExclamation, title: error!);
       }
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
     if (page!.posts.isEmpty && !loading) {
       return _GroupState(icon: DIcons.comment, title: 'No $kind yet.');
@@ -262,7 +262,7 @@ class _RequestsSection extends StatelessWidget {
       if (error != null) {
         return _GroupState(icon: DIcons.triangleExclamation, title: error!);
       }
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
     if (page!.requesters.isEmpty && !loading) {
       return const _GroupState(
@@ -464,7 +464,7 @@ class _PermissionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (permissions.isEmpty && loading) {
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
     if (permissions.isEmpty && error != null) {
       return _GroupState(icon: DIcons.triangleExclamation, title: error!);

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +12,6 @@ import '../foundation/diagnostic_errors.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import 'adaptive_activity_indicator.dart';
 import 'cooked_dom.dart';
 import 'image_decode.dart';
 import 'image_download.dart';
@@ -763,11 +763,7 @@ class _LightboxGalleryState extends State<LightboxGallery> {
                   loadingBuilder: (context) => const Center(
                     child: SizedBox.square(
                       dimension: 24,
-                      child: AdaptiveActivityIndicator(
-                        color: Colors.white,
-                        cupertinoRadius: 12,
-                        materialStrokeWidth: 2,
-                      ),
+                      child: DSpinner(color: Colors.white, size: 24),
                     ),
                   ),
                   errorBuilder: (context, error, stackTrace) {

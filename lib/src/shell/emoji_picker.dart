@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,7 +10,6 @@ import '../models/site_emoji.dart';
 import '../plugin_api/emoji_preferences.dart';
 import '../plugin_api/emoji_usage.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
@@ -422,10 +422,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
     }
     if (controller.loading && controller.catalog == null) {
       return const Center(
-        child: SizedBox.square(
-          dimension: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        child: SizedBox.square(dimension: 24, child: DSpinner()),
       );
     }
     final catalog = controller.catalog;
@@ -451,10 +448,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
     if ((controller.searchPending || controller.aliasesLoading) &&
         controller.searchResults.isEmpty) {
       return const Center(
-        child: SizedBox.square(
-          dimension: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        child: SizedBox.square(dimension: 24, child: DSpinner()),
       );
     }
     if (controller.searchResults.isEmpty) {
@@ -1023,10 +1017,7 @@ class _SectionHeader extends StatelessWidget {
           onPressed: clearing ? null : onClear,
           visualDensity: VisualDensity.compact,
           icon: clearing
-              ? const SizedBox.square(
-                  dimension: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const SizedBox.square(dimension: 14, child: DSpinner())
               : const DIcon(DIcons.trashCan, size: 14),
           tooltip: 'Clear frequently used emoji',
         ),

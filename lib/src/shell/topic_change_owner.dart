@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/found_user.dart';
 import '../models/post.dart';
-import '../theme/d_button.dart';
 import 'avatar_image.dart';
 import 'shell_controller.dart';
 
@@ -161,7 +161,7 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
             const SizedBox(height: 8),
             Expanded(
               child: _searching
-                  ? const Center(child: CircularProgressIndicator.adaptive())
+                  ? const Center(child: DSpinner(size: DSpacing.xl))
                   : _users.isEmpty
                   ? Center(
                       child: Text(

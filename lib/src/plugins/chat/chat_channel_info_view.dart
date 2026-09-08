@@ -1,12 +1,12 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/user_card.dart';
 import '../../shell/user_status.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
@@ -52,7 +52,7 @@ class ChatChannelInfoView extends StatelessWidget {
               chatShellService,
             ).openChannelInfo(siteUrl: siteUrl, channelId: channelId);
           });
-          return const Center(child: CircularProgressIndicator.adaptive());
+          return const Center(child: DSpinner(size: DSpacing.xl));
         }
 
         return Column(
@@ -915,7 +915,7 @@ class _ChannelMembersState extends State<_ChannelMembers> {
 
   Widget _memberList(ContentReadingLaneGeometry lane) {
     if (!_loaded && _loading) {
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
     if (_error case final error? when _members.isEmpty && _nextOffset == 0) {
       return Center(
@@ -955,7 +955,7 @@ class _ChannelMembersState extends State<_ChannelMembers> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator.adaptive())
+                    ? const Center(child: DSpinner(size: DSpacing.xl))
                     : Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [

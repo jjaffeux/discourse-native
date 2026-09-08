@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import 'composer_images.dart';
@@ -98,9 +99,7 @@ class ComposerImagePreview extends StatelessWidget {
                     : null,
                 onNaturalSize: image.hasDimensions ? null : onNaturalSize,
                 excludeFromSemantics: true,
-                loadingBuilder: (_) => const Center(
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                ),
+                loadingBuilder: (_) => const Center(child: DSpinner()),
                 errorBuilder: (_, _, _) => _ImageFallback(label: image.alt),
               ),
       ),

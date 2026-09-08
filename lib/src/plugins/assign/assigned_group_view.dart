@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/topic.dart';
@@ -8,7 +9,6 @@ import '../../shell/avatar_image.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/topic_list_view.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_services.dart';
@@ -255,7 +255,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
               if (!feed.loaded && feed.loading)
                 const SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Center(child: CircularProgressIndicator.adaptive()),
+                  child: Center(child: DSpinner(size: DSpacing.xl)),
                 )
               else if (topics.isEmpty && feed.error == null)
                 const SliverFillRemaining(

@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/content_reading_lane.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
 import 'chat_drawer.dart';
@@ -111,7 +111,7 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
       final threads = _chat.channelThreads(widget.siteUrl, widget.channelId);
       final error = _chat.channelThreadsError(widget.siteUrl, widget.channelId);
       if (_chat.channelThreadsLoading(widget.siteUrl, widget.channelId)) {
-        return const Center(child: CircularProgressIndicator.adaptive());
+        return const Center(child: DSpinner(size: DSpacing.xl));
       }
       if (threads.isEmpty && error != null) {
         return ChatThreadListMessage(
@@ -171,7 +171,7 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
               )) {
                 return const Padding(
                   padding: EdgeInsets.all(20),
-                  child: Center(child: CircularProgressIndicator.adaptive()),
+                  child: Center(child: DSpinner(size: DSpacing.xl)),
                 );
               }
               return Padding(

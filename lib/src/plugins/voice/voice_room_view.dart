@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 
-import '../../theme/d_button.dart';
 import 'voice_controller.dart';
 import 'voice_diagnostics.dart';
 import 'voice_icons.dart';
@@ -1248,7 +1248,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
               if (suggestions == null)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Center(child: CircularProgressIndicator.adaptive()),
+                  child: Center(child: DSpinner(size: DSpacing.xl)),
                 )
               else if (suggestions.isNotEmpty) ...[
                 const SizedBox(height: 16),
@@ -1831,9 +1831,7 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
                     widget.roomId,
                   );
                   if (chat == null || chat.loading) {
-                    return const Center(
-                      child: CircularProgressIndicator.adaptive(),
-                    );
+                    return const Center(child: DSpinner(size: DSpacing.xl));
                   }
                   if (chat.messages.isEmpty) {
                     return const Center(child: Text('No messages yet.'));

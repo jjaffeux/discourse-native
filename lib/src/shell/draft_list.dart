@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../data/site_lifecycle.dart';
@@ -7,10 +8,8 @@ import '../models/discourse_instance.dart';
 import '../models/draft_feed.dart';
 import '../models/topic.dart';
 import '../models/user_draft.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import 'adaptive_activity_indicator.dart';
 import 'adaptive_dialog_action.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
@@ -714,11 +713,7 @@ class _DraftAction extends StatelessWidget {
               child: loading
                   ? SizedBox.square(
                       dimension: 18,
-                      child: AdaptiveActivityIndicator(
-                        color: foregroundColor,
-                        cupertinoRadius: 9,
-                        materialStrokeWidth: 2,
-                      ),
+                      child: DSpinner(color: foregroundColor, size: 18),
                     )
                   : DIcon(icon, size: 18, color: foregroundColor),
             ),

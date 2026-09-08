@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/choice_menu.dart';
 import '../../shell/content_reading_lane.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_message_tile.dart';
@@ -107,7 +107,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     if (state.hits.isEmpty &&
         (state.phase == ChatSearchPhase.waiting ||
             state.phase == ChatSearchPhase.loading)) {
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
     if (state.phase == ChatSearchPhase.empty) {
       return const _SearchMessage(
@@ -137,7 +137,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
             if (state.loadingMore) {
               return const Padding(
                 padding: EdgeInsets.all(20),
-                child: Center(child: CircularProgressIndicator.adaptive()),
+                child: Center(child: DSpinner(size: DSpacing.xl)),
               );
             }
             return Padding(

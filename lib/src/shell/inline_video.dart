@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:html/dom.dart' as dom;
@@ -10,7 +11,6 @@ import '../data/http_transport.dart';
 import '../data/site_lifecycle.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/uri_path.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -245,10 +245,7 @@ class _InlineVideoState extends State<InlineVideo> {
             icon: downloading
                 ? const SizedBox.square(
                     dimension: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
+                    child: DSpinner(color: Colors.white),
                   )
                 : const DIcon(DIcons.download, size: 18, color: Colors.white),
           );
@@ -657,7 +654,7 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
             return const ColoredBox(
               color: Colors.black,
               child: Center(
-                child: CircularProgressIndicator(color: Colors.white),
+                child: DSpinner(size: DSpacing.xl, color: Colors.white),
               ),
             );
           }
@@ -787,7 +784,9 @@ class _PlaybackBuffering extends StatelessWidget {
     session: session,
     select: (state) => state.isBuffering,
     builder: (context, isBuffering) => isBuffering
-        ? const Center(child: CircularProgressIndicator(color: Colors.white))
+        ? const Center(
+            child: DSpinner(size: DSpacing.xl, color: Colors.white),
+          )
         : const SizedBox.shrink(),
   );
 }

@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderBox, RenderEditable;
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart' show DDirection;
+import '../../discourse_ui.dart';
 import '../data/composer_geometry_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/composer_upload.dart';
@@ -20,7 +20,6 @@ import '../plugin_api/composer_syntax.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
@@ -2967,9 +2966,7 @@ class _GalleryComposerMenu extends StatelessWidget {
                       icon: pickingImages
                           ? const SizedBox.square(
                               dimension: 18,
-                              child: CircularProgressIndicator.adaptive(
-                                strokeWidth: 2,
-                              ),
+                              child: DSpinner(),
                             )
                           : const Icon(
                               Icons.add_photo_alternate_outlined,
@@ -3730,9 +3727,7 @@ class _Footer extends StatelessWidget {
                         ? const SizedBox(
                             width: 14,
                             height: 14,
-                            child: CircularProgressIndicator.adaptive(
-                              strokeWidth: 2,
-                            ),
+                            child: DSpinner(),
                           )
                         : compact
                         ? DIcon(

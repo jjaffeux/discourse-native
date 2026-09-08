@@ -1,7 +1,6 @@
-import 'package:discourse_native/src/shell/adaptive_activity_indicator.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/adaptive_dialog_action.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,10 +11,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _app(
-          platform,
-          const AdaptiveActivityIndicator(color: Color(0xFF123456)),
-        ),
+        _app(platform, const DSpinner(color: Color(0xFF123456))),
       );
 
       final indicator = tester.widget<CupertinoActivityIndicator>(
@@ -53,7 +49,7 @@ void main() {
         TargetPlatform.linux,
         const Column(
           children: [
-            AdaptiveActivityIndicator(color: Color(0xFF123456)),
+            DSpinner(color: Color(0xFF123456)),
             AdaptiveDialogAction(
               onPressed: null,
               kind: AdaptiveDialogActionKind.destructive,

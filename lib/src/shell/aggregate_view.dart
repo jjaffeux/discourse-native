@@ -1,15 +1,14 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import 'adaptive_activity_indicator.dart';
 import 'aggregate_feed_controller.dart';
 import 'content_reading_lane.dart';
 import 'forum_icon.dart';
@@ -228,7 +227,8 @@ class AggregateViewState extends State<AggregateView> {
   ) {
     if (state.loading && state.topics.isEmpty) {
       return Center(
-        child: AdaptiveActivityIndicator(
+        child: DSpinner(
+          size: DSpacing.xl,
           color: Theme.of(context).colorScheme.primary,
         ),
       );
@@ -287,7 +287,8 @@ class AggregateViewState extends State<AggregateView> {
                 child: Padding(
                   padding: const EdgeInsets.all(18),
                   child: Center(
-                    child: AdaptiveActivityIndicator(
+                    child: DSpinner(
+                      size: DSpacing.xl,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                   ),

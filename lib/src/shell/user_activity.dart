@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/discourse_instance.dart';
@@ -7,7 +8,6 @@ import '../models/topic.dart';
 import '../models/user_activity.dart';
 import '../models/user_activity_feed.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_loader.dart';
@@ -185,10 +185,7 @@ class _ActivityList extends StatelessWidget {
                 child: const Padding(
                   padding: EdgeInsets.all(20),
                   child: Center(
-                    child: SizedBox.square(
-                      dimension: 22,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    ),
+                    child: SizedBox.square(dimension: 22, child: DSpinner()),
                   ),
                 ),
               );

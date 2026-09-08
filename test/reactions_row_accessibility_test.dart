@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
@@ -227,7 +228,7 @@ void main() {
         ),
       );
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(DSpinner), findsOneWidget);
       await reactions.load(siteUrl: _siteUrl, postId: _post.id, filter: 'clap');
       await tester.pumpAndSettle();
 

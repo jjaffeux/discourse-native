@@ -1,12 +1,12 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../plugin_api/core_plugin_host.dart';
 import '../../shell/image_decode.dart';
 import '../../shell/shell_sheet.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'gif.dart';
@@ -203,10 +203,7 @@ class _GifPickerState extends State<GifPicker> {
     if (controller.searching || controller.searchPending) {
       return const Padding(
         padding: EdgeInsets.all(14),
-        child: SizedBox.square(
-          dimension: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        child: SizedBox.square(dimension: 18, child: DSpinner()),
       );
     }
     if (_search.text.isEmpty) return null;
@@ -253,10 +250,7 @@ class _GifPickerState extends State<GifPicker> {
               child: controller.loadingMore
                   ? const Padding(
                       padding: EdgeInsets.all(10),
-                      child: SizedBox.square(
-                        dimension: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+                      child: SizedBox.square(dimension: 22, child: DSpinner()),
                     )
                   : DButton(
                       key: const ValueKey('gif-picker-load-more'),
@@ -327,7 +321,7 @@ class _GifPickerState extends State<GifPicker> {
     }
 
     if (controller.isBusy || controller.searchPending) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
 
     if (!controller.hasActiveSearch) {

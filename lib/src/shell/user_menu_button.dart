@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_status.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -257,10 +257,7 @@ class _SignedOutAccountActions extends StatelessWidget {
             tooltip: connecting ? 'Signing in…' : 'Sign in',
             constraints: const BoxConstraints.tightFor(width: 44, height: 44),
             icon: connecting
-                ? const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                  )
+                ? const SizedBox.square(dimension: 16, child: DSpinner())
                 : const DIcon(DIcons.user, size: 16),
           ),
         ],
@@ -287,10 +284,7 @@ class _SignedOutAccountActions extends StatelessWidget {
           onPressed: connecting ? null : onSignIn,
           style: style,
           icon: connecting
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                )
+              ? const SizedBox.square(dimension: 16, child: DSpinner())
               : const DIcon(DIcons.user, size: 16),
           label: Text(connecting ? 'Signing in…' : 'Sign in'),
         ),

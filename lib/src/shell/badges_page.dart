@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -5,10 +6,8 @@ import '../models/badge.dart';
 import '../models/badge_route.dart';
 import '../models/content_route.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_tooltip.dart';
 import 'avatar_image.dart';
 import 'badges_controller.dart';
 import 'content_reading_lane.dart';
@@ -69,7 +68,8 @@ class BadgesPage extends StatelessWidget {
                   const SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
-                      child: CircularProgressIndicator.adaptive(
+                      child: DSpinner(
+                        size: DSpacing.xl,
                         key: ValueKey('badges-loading'),
                       ),
                     ),
@@ -299,7 +299,7 @@ class BadgesPage extends StatelessWidget {
         const SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator.adaptive()),
+            child: Center(child: DSpinner(size: DSpacing.xl)),
           ),
         )
       else if (state.hasMore && state.recipientsError == null)

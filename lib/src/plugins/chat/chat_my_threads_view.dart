@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_status.dart';
@@ -7,7 +8,6 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/user_status.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
@@ -64,7 +64,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
       final threads = _chat.myThreads(widget.siteUrl);
       final error = _chat.myThreadsError(widget.siteUrl);
       if (_chat.myThreadsLoading(widget.siteUrl)) {
-        return const Center(child: CircularProgressIndicator.adaptive());
+        return const Center(child: DSpinner(size: DSpacing.xl));
       }
       if (threads.isEmpty && error != null) {
         return ChatThreadListMessage(
@@ -108,7 +108,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
               if (_chat.myThreadsLoadingMore(widget.siteUrl)) {
                 return const Padding(
                   padding: EdgeInsets.all(20),
-                  child: Center(child: CircularProgressIndicator.adaptive()),
+                  child: Center(child: DSpinner(size: DSpacing.xl)),
                 );
               }
               return Padding(

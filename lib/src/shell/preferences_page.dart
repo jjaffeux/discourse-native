@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/timezone_environment.dart';
@@ -8,12 +9,10 @@ import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
 import 'preferences_controller.dart';
-import 'select.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 
@@ -926,10 +925,7 @@ class _StatusAnnouncement extends StatelessWidget {
           child: Row(
             children: [
               if (kind == _StatusKind.progress)
-                const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+                const SizedBox.square(dimension: 16, child: DSpinner())
               else
                 DIcon(icon!, size: 16, color: foreground),
               const SizedBox(width: 10),
@@ -966,7 +962,7 @@ class _LoadingPreferences extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(strokeWidth: 2),
+            DSpinner(),
             SizedBox(height: 16),
             Text('Loading preferences…'),
           ],

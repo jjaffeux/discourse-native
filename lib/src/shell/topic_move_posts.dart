@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
 import '../models/topic.dart';
-import '../theme/d_button.dart';
 import 'category_icon.dart';
 import 'shell_controller.dart';
 
@@ -307,7 +307,7 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
       const SizedBox(height: 8),
       Expanded(
         child: _searching
-            ? const Center(child: CircularProgressIndicator.adaptive())
+            ? const Center(child: DSpinner(size: DSpacing.xl))
             : _destinations.isEmpty
             ? Center(
                 child: Text(

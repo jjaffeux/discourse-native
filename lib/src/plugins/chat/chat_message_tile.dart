@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
@@ -567,10 +568,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
             ListTile(
               minTileHeight: 52,
               leading: bookmarkBusy
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    )
+                  ? const SizedBox.square(dimension: 18, child: DSpinner())
                   : DIcon(_bookmarkIcon(widget.message.bookmark), size: 18),
               title: Text(bookmarkLabel),
               subtitle: bookmarkBusy ? const Text('Saving…') : null,
@@ -586,10 +584,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
             ListTile(
               minTileHeight: 52,
               leading: _pinning
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    )
+                  ? const SizedBox.square(dimension: 18, child: DSpinner())
                   : const DIcon(DIcons.thumbtack, size: 18),
               title: Text(widget.message.pinned ? 'Unpin' : 'Pin'),
               subtitle: _pinning ? const Text('Saving…') : null,
@@ -634,10 +629,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
             ListTile(
               minTileHeight: 52,
               leading: _restoring
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    )
+                  ? const SizedBox.square(dimension: 18, child: DSpinner())
                   : const DIcon(DIcons.arrowRotateLeft, size: 18),
               title: const Text('Restore deleted message'),
               subtitle: _restoring ? const Text('Restoring…') : null,
@@ -653,10 +645,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
             ListTile(
               minTileHeight: 52,
               leading: _rebaking
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    )
+                  ? const SizedBox.square(dimension: 18, child: DSpinner())
                   : const DIcon(DIcons.arrowsRotate, size: 18),
               title: const Text('Rebuild HTML'),
               subtitle: _rebaking ? const Text('Starting…') : null,
@@ -841,10 +830,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                                 icon: bookmarkBusy
                                     ? const SizedBox.square(
                                         dimension: 16,
-                                        child:
-                                            CircularProgressIndicator.adaptive(
-                                              strokeWidth: 2,
-                                            ),
+                                        child: DSpinner(),
                                       )
                                     : DIcon(
                                         _bookmarkIcon(widget.message.bookmark),
@@ -922,10 +908,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                                       leadingIcon: _pinning
                                           ? const SizedBox.square(
                                               dimension: 16,
-                                              child:
-                                                  CircularProgressIndicator.adaptive(
-                                                    strokeWidth: 2,
-                                                  ),
+                                              child: DSpinner(),
                                             )
                                           : const DIcon(
                                               DIcons.thumbtack,
@@ -979,10 +962,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                                       leadingIcon: _restoring
                                           ? const SizedBox.square(
                                               dimension: 16,
-                                              child:
-                                                  CircularProgressIndicator.adaptive(
-                                                    strokeWidth: 2,
-                                                  ),
+                                              child: DSpinner(),
                                             )
                                           : const DIcon(
                                               DIcons.arrowRotateLeft,
@@ -1003,10 +983,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                                       leadingIcon: _rebaking
                                           ? const SizedBox.square(
                                               dimension: 16,
-                                              child:
-                                                  CircularProgressIndicator.adaptive(
-                                                    strokeWidth: 2,
-                                                  ),
+                                              child: DSpinner(),
                                             )
                                           : const DIcon(
                                               DIcons.arrowsRotate,

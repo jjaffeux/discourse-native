@@ -1,9 +1,9 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../data/app_release.dart';
 import '../data/updater.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -206,11 +206,7 @@ class _Status extends StatelessWidget {
         label: 'Installing update',
         child: Row(
           children: [
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-            ),
+            SizedBox(width: 18, height: 18, child: DSpinner()),
             SizedBox(width: 12),
             Text('Installing…'),
           ],

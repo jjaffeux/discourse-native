@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../models/group.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'choice_menu.dart';
@@ -184,7 +184,8 @@ class _GroupsPageState extends State<GroupsPage> {
                       const SliverFillRemaining(
                         hasScrollBody: false,
                         child: Center(
-                          child: CircularProgressIndicator.adaptive(
+                          child: DSpinner(
+                            size: DSpacing.xl,
                             key: ValueKey('groups-loading'),
                           ),
                         ),
@@ -232,11 +233,7 @@ class _GroupsPageState extends State<GroupsPage> {
                       const SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.only(bottom: 24),
-                          child: Center(
-                            child: CircularProgressIndicator.adaptive(
-                              strokeWidth: 2,
-                            ),
-                          ),
+                          child: Center(child: DSpinner()),
                         ),
                       ),
                     if (data.pageError && data.error != null)

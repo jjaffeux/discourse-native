@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/do_not_disturb.dart';
-import '../theme/d_button.dart';
 import 'external_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -141,9 +141,7 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
                       child: _saving == option
                           ? const SizedBox.square(
                               dimension: 16,
-                              child: CircularProgressIndicator.adaptive(
-                                strokeWidth: 2,
-                              ),
+                              child: DSpinner(),
                             )
                           : Text(option.label),
                     ),
