@@ -220,6 +220,105 @@ void main() {
       );
     });
 
+    test('preserves odd and even prose backslash runs around code', () {
+      for (var count = 1; count <= 4; count++) {
+        final slashes = List.filled(count, r'\').join();
+        final escapedSlashes = List.filled(count, r'\\').join();
+        final resolver = PostQuoteSelectionResolver(
+          '<p>$slashes`before <code>a`b</code> after$slashes`</p>',
+        );
+
+        final result = resolver.resolve('$slashes`before a`b after$slashes`');
+
+        // Each literal slash needs its own escape, leaving the prose ticks
+        // escaped and the generated code delimiters active in markdown-it.
+        expect(
+          result.markdown,
+          '$escapedSlashes\\`before ``a`b`` after$escapedSlashes\\`',
+          reason: '$count prose backslashes',
+        );
+        expect(result.supportsFastEdit, isFalse);
+      }
+    });
+
+    test('preserves prose backslashes directly beside code delimiters', () {
+      const codeSelections = {
+        'plain': '`plain`',
+        'a`b': '``a`b``',
+        '`edge`': '`` `edge` ``',
+        r'\a\`b\\': r'``\a\`b\\``',
+      };
+      for (var count = 1; count <= 4; count++) {
+        final slashes = List.filled(count, r'\').join();
+        final escapedSlashes = List.filled(count, r'\\').join();
+        for (final code in codeSelections.entries) {
+          expect(
+            postQuoteContentsFromSelection(
+              '<p>before$slashes<code>${code.key}</code>${slashes}after</p>',
+              'before$slashes${code.key}${slashes}after',
+            ),
+            'before$escapedSlashes${code.value}${escapedSlashes}after',
+            reason: '$count prose backslashes beside ${code.key}',
+          );
+        }
+      }
+    });
+
+    test('escapes prose backslashes across surrounding mark boundaries', () {
+      final resolver = PostQuoteSelectionResolver(
+        r'<p>before\<strong>bold\<code>a`b</code>end\</strong>'
+        r' <em>em\`<code>`edge`</code>\tail</em>'
+        r' <a href="https://example.com">link\<code>x</code>\</a> after\</p>',
+      );
+      expect(
+        resolver.contentsFor(
+          r'before\bold\a`bend\ em\``edge`\tail link\x\ after\',
+        ),
+        r'before\\**bold\\``a`b``end\\**'
+        r' *em\\\``` `edge` ``\\tail*'
+        r' [link\\`x`\\](https://example.com) after\\',
+      );
+      expect(resolver.contentsFor(r'ld\a`be'), r'**ld\\``a`b``e**');
+      expect(
+        resolver.contentsFor(r'`edge`\tail link\x'),
+        r'*`` `edge` ``\\tail* [link\\`x`](https://example.com)',
+      );
+    });
+
+    test('scopes backslash escaping to the current cached selection', () {
+      const before = r'before\` ';
+      const code = r'a\`b\\';
+      const after = r' after\\`';
+      final resolver = PostQuoteSelectionResolver(
+        '<p>$before<code>$code</code>$after</p>',
+      );
+
+      for (var repeat = 0; repeat < 2; repeat++) {
+        expect(
+          resolver.contentsFor('$before$code$after'),
+          r'before\\\` ``a\`b\\`` after\\\\\`',
+        );
+        expect(resolver.contentsFor(r'\` a\'), r'\\\` `a\`');
+        expect(resolver.contentsFor(r'b\\ after\\'), r'`b\\` after\\\\');
+        expect(resolver.contentsFor(code), r'``a\`b\\``');
+        expect(resolver.resolve(code).supportsFastEdit, isFalse);
+
+        for (final prose in [before, after]) {
+          final result = resolver.resolve(prose);
+          expect(result.markdown, prose.trim());
+          expect(result.supportsFastEdit, isTrue);
+          expect(
+            resolver.resolve(prose, isLocalized: true).supportsFastEdit,
+            isFalse,
+          );
+        }
+      }
+      expect(
+        postQuoteContentsFromSelection('<p>$before$after</p>', '$before$after'),
+        '$before$after'.trim(),
+      );
+    });
+
     test(
       'keeps adjacent code spans from joining their backtick delimiters',
       () {
