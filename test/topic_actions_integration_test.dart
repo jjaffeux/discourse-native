@@ -596,7 +596,7 @@ void _registerTopicModerationTests() {
       await tester.enterText(find.byType(TextField), 'Changed post body');
       await tester.pumpAndSettle();
 
-      expect(find.text('Cancel edit'), findsOneWidget);
+      expect(find.text('Cancel edit'), findsNothing);
       await tester.tap(find.byTooltip('Close composer'));
       await tester.pumpAndSettle();
 
@@ -607,6 +607,9 @@ void _registerTopicModerationTests() {
       await tester.pumpAndSettle();
       expect(find.text('Changed post body'), findsOneWidget);
 
+      await tester.tap(find.byKey(const ValueKey('composer-options')));
+      await tester.pumpAndSettle();
+      expect(find.text('Cancel edit'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('composer-discard')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));

@@ -634,10 +634,15 @@ void main() {
       );
       expect(after, isNot(same(before)));
 
-      final belowGallery = Offset(
-        galleryRect.left + 24,
-        tester.getRect(editable).bottom - 24,
+      // Keep the trailing caret line visible after the layout is rebuilt.
+      tester
+          .state<EditableTextState>(editable)
+          .bringIntoView(TextPosition(offset: gallery.end));
+      await tester.pumpAndSettle();
+      final trailingCaret = render.getLocalRectForCaret(
+        TextPosition(offset: gallery.end),
       );
+      final belowGallery = render.localToGlobal(trailingCaret.center);
       await tester.tapAt(belowGallery);
       await tester.pump();
       await tester.pump();

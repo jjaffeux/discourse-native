@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/composer_geometry_store.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
@@ -22,6 +23,92 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('panel geometry and hit testing', () {
+    testWidgets('formatting menu applies a mark to the selected text', (
+      tester,
+    ) async {
+      final composer = ComposerController(_replyTarget);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.value = const TextEditingValue(
+        text: 'One word',
+        selection: TextSelection(baseOffset: 4, extentOffset: 8),
+      );
+      await _pumpFloatingPanel(tester, shell, composer);
+      await tester.tap(find.byKey(const ValueKey('composer-formatting')));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(MenuItemButton, 'Italic'));
+      await tester.pumpAndSettle();
+      expect(composer.raw, 'One *word*');
+      expect(find.widgetWithText(MenuItemButton, 'Italic'), findsNothing);
+    });
+
+    testWidgets('the focused grip moves the composer with arrow keys', (
+      tester,
+    ) async {
+      final composer = ComposerController(_replyTarget);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpFloatingPanel(tester, shell, composer);
+      final before = tester.getRect(find.byType(ComposerPanel));
+      final grip = find.byKey(const ValueKey('composer-move-control'));
+      Focus.of(tester.element(grip)).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(
+        tester.getRect(find.byType(ComposerPanel)),
+        before.shift(const Offset(-8, -8)),
+      );
+    });
+
+    testWidgets(
+      'reply context expands without covering the editor and follows post visibility',
+      (tester) async {
+        final composer = ComposerController(_replyTarget);
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        const post = Post(
+          id: 1,
+          postNumber: 1,
+          username: 'sam',
+          cooked: '<p>First paragraph.</p><p>Second paragraph.</p>',
+        );
+        shell.store.put(_replyTarget.siteUrl, post);
+        shell.store.put(
+          _replyTarget.siteUrl,
+          const TopicDetail(id: 7, title: 'A topic', stream: [1]),
+        );
+        await _pumpFloatingPanel(tester, shell, composer);
+        final context = find.byKey(const ValueKey('composer-reply-context'));
+        final excerpt = find.byKey(const ValueKey('composer-context-excerpt'));
+        expect(excerpt, findsNothing);
+        await tester.tap(context);
+        await tester.pump();
+        expect(find.text('First paragraph. Second paragraph.'), findsOneWidget);
+        expect(
+          tester.getRect(excerpt).bottom,
+          lessThan(tester.getRect(find.byType(ComposerEditor)).top),
+        );
+        expect(
+          tester.getSize(find.byType(ComposerEditor)).height,
+          greaterThan(30),
+        );
+
+        shell.store.put(_replyTarget.siteUrl, post.copyWith(hidden: true));
+        await tester.pump();
+        expect(excerpt, findsNothing);
+        expect(find.text('First paragraph. Second paragraph.'), findsNothing);
+        await tester.tap(context);
+        await tester.pump();
+        expect(excerpt, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('reports its actual painted bounds after moving', (
       tester,
     ) async {
@@ -64,7 +151,7 @@ void main() {
 
       final initial = tester.getRect(find.byType(ComposerPanel));
       expect(initial.width, 760);
-      expect(initial.height, 220);
+      expect(initial.height, 280);
       expect(initial.center.dx, 450);
       expect(initial.bottom, 634);
 
@@ -670,7 +757,7 @@ void main() {
     });
 
     testWidgets(
-      'keeps footer actions on one line and scrolls overflowing tools',
+      'keeps writing tools and submit visible without discard in the footer',
       (tester) async {
         final composer = ComposerController(
           _newTopicTarget,
@@ -692,34 +779,23 @@ void main() {
         final upload = tester.getCenter(
           find.byKey(const ValueKey('composer-upload')),
         );
-        final discard = tester.getCenter(
-          find.byKey(const ValueKey('composer-discard')),
+        final format = tester.getCenter(
+          find.byKey(const ValueKey('composer-formatting')),
         );
         final create = tester.getCenter(
           find.widgetWithText(FilledButton, 'Create topic'),
         );
-        expect(upload.dy, closeTo(discard.dy, 1));
-        expect(discard.dy, closeTo(create.dy, 1));
+        expect(upload.dy, closeTo(format.dy, 1));
+        expect(format.dy, closeTo(create.dy, 1));
         expect(
           find.byKey(const ValueKey('composer-toolbar-scroll-forward')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('composer-toolbar-scroll-backward')),
           findsNothing,
         );
-
-        await tester.tap(
-          find.byKey(const ValueKey('composer-toolbar-scroll-forward')),
-        );
+        expect(find.byKey(const ValueKey('composer-discard')), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('composer-options')));
         await tester.pumpAndSettle();
-
         expect(
-          find.byKey(const ValueKey('composer-toolbar-scroll-forward')),
-          findsNothing,
-        );
-        expect(
-          find.byKey(const ValueKey('composer-toolbar-scroll-backward')),
+          find.byKey(const ValueKey('composer-discard')).hitTestable(),
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);
@@ -783,7 +859,7 @@ void main() {
       addTearDown(shell.dispose);
       await _pumpFloatingPanel(tester, shell, composer);
 
-      expect(find.text('Message tech-leads'), findsOneWidget);
+      expect(find.text('New message'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('composer-private-message-recipients')),
         findsOneWidget,

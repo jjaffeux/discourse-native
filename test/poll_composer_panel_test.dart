@@ -226,6 +226,8 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        _composerEditable(tester).scrollController!.jumpTo(0);
+        await tester.pump();
         await tester.tap(
           poll
               ? find.byType(PollComposerPill)
@@ -278,7 +280,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.byTooltip(tooltip), findsNothing);
+      expect(find.text(tooltip), findsNothing);
 
       final enabled = await _openComposer(
         api: FakeDiscourseApi(
@@ -303,7 +305,9 @@ void main() {
       for (var frame = 0; frame < 4; frame++) {
         await tester.pump(const Duration(milliseconds: 1));
       }
-      expect(find.byTooltip(tooltip), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('composer-insert')));
+      await tester.pump();
+      expect(find.text(tooltip), findsOneWidget);
 
       await tester.tap(find.byType(TextField).last);
       await tester.pump();
@@ -332,12 +336,7 @@ void main() {
 
       enabled.visibleComposer!.beginSubmit();
       await tester.pump();
-      final action = find
-          .ancestor(
-            of: find.byTooltip(tooltip),
-            matching: find.byType(IconButton),
-          )
-          .first;
+      final action = find.byKey(const ValueKey('composer-insert'));
       expect(tester.widget<IconButton>(action).onPressed, isNull);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
@@ -382,14 +381,16 @@ void main() {
         );
         await tester.pump();
 
-        expect(find.byTooltip('Add poll'), findsNothing);
+        expect(find.text('Add poll'), findsNothing);
 
         api.response.complete(_pollUser);
         for (var frame = 0; frame < 4; frame++) {
           await tester.pump(const Duration(milliseconds: 1));
         }
 
-        expect(find.byTooltip('Add poll'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('composer-insert')));
+        await tester.pump();
+        expect(find.text('Add poll'), findsOneWidget);
       },
     );
   });
@@ -786,12 +787,15 @@ void main() {
         selection: TextSelection.collapsed(offset: _source.length),
       );
 
+      // Keep the pill and its trailing caret line in view during multi-clicks.
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 300),
+            ),
           ),
         ),
       );

@@ -333,7 +333,7 @@ void main() {
     expect(composer.raw, 'The author kept typing.');
   });
 
-  testWidgets('reply header uses the icon-free Proofread switch', (
+  testWidgets('reply footer uses the icon-free Proofread switch', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(360, 640);
@@ -346,6 +346,10 @@ void main() {
 
     final control = find.byKey(const ValueKey('composer-proofread-control'));
     expect(control, findsOneWidget);
+    expect(
+      tester.getRect(control).top,
+      greaterThan(tester.getRect(find.byType(ComposerEditor)).bottom),
+    );
     expect(
       find.descendant(of: control, matching: find.text('Proofread')),
       findsOneWidget,
@@ -377,7 +381,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('new-topic header includes the same Proofread switch', (
+  testWidgets('new-topic footer includes the same Proofread switch', (
     tester,
   ) async {
     final fixture = await _openReply();
@@ -388,7 +392,7 @@ void main() {
     await _pumpComposer(tester, fixture.shell, composer: composer);
     await tester.pump();
 
-    expect(find.text('Create a new topic'), findsOneWidget);
+    expect(find.text('New topic'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('composer-proofread-control')),
       findsOneWidget,

@@ -149,7 +149,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('shows compact taxonomy controls beneath the title', (
+  testWidgets('shows compact taxonomy controls below the writing area', (
     tester,
   ) async {
     final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
@@ -158,12 +158,12 @@ void main() {
     expect(find.text('Add tags'), findsOneWidget);
     expect(find.text('Category'), findsNothing);
     expect(find.text('Tags'), findsNothing);
-    final title = find.widgetWithText(TextField, 'Give your topic a title');
+    final editor = find.byType(ComposerEditor);
     final category = tester.getRect(
       find.byKey(const ValueKey('composer-category-action')),
     );
     final tags = tester.getRect(find.byKey(const ValueKey('composer-add-tag')));
-    expect(category.top, greaterThan(tester.getRect(title).bottom));
+    expect(category.top, greaterThan(tester.getRect(editor).bottom));
     expect(tags.center.dy, category.center.dy);
     expect(tags.left, greaterThan(category.right));
     expect(
@@ -227,7 +227,7 @@ void main() {
     expect(categoryBounds.height, greaterThanOrEqualTo(44));
     expect(tagsBounds.height, greaterThanOrEqualTo(44));
     for (final action in [
-      find.byKey(const ValueKey('composer-discard')),
+      find.byKey(const ValueKey('composer-options')),
       find.widgetWithText(FilledButton, 'Create topic'),
     ]) {
       expect(action.hitTestable(), findsOneWidget);

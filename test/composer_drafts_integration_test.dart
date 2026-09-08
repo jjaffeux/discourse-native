@@ -97,7 +97,7 @@ void _registerTopicReplyTests() {
 
     Finder sendButton() => find.descendant(
       of: find.byType(ComposerPanel),
-      matching: find.widgetWithText(FilledButton, 'Reply'),
+      matching: find.byKey(const ValueKey('composer-submit')),
     );
 
     testWidgets('the reply affordances wait for permission to use them', (
@@ -283,41 +283,45 @@ void _registerTopicReplyTests() {
       final composerTitle = find.byKey(const ValueKey('composer-title'));
       expect(replyOptions, findsOneWidget);
       expect(
-        find.descendant(of: replyOptions, matching: find.text('Topic')),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: replyOptions, matching: find.dIcon(DIcons.reply)),
+        find.descendant(of: replyOptions, matching: find.text('Reply')),
         findsOneWidget,
       );
       expect(
-        tester.getTopRight(replyOptions).dx,
-        lessThan(tester.getTopLeft(composerTitle).dx),
+        tester.getRect(replyOptions).bottom,
+        lessThanOrEqualTo(tester.getRect(composerTitle).top),
       );
       expect(
-        find.descendant(
-          of: composerTitle,
-          matching: find.text('Reply to A real topic'),
-        ),
+        find.descendant(of: composerTitle, matching: find.text('A real topic')),
         findsOneWidget,
       );
 
       await tester.tap(replyOptions);
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-toggle-whisper')));
+      await tester.pumpAndSettle();
 
-      final toggle = find.byKey(const ValueKey('composer-toggle-whisper'));
-      final whisperSwitch = find.byKey(
-        const ValueKey('composer-whisper-switch'),
+      expect(
+        find.byKey(const ValueKey('composer-toggle-whisper')),
+        findsNothing,
       );
-      expect(toggle, findsOneWidget);
-      expect(tester.widget<Switch>(whisperSwitch).value, isFalse);
-
-      await tester.tap(whisperSwitch);
-      await tester.pump();
-
-      expect(toggle, findsOneWidget);
-      expect(tester.widget<Switch>(whisperSwitch).value, isTrue);
+      expect(
+        find.descendant(of: replyOptions, matching: find.text('Whisper')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: sendButton(), matching: find.text('Whisper')),
+        findsOneWidget,
+      );
       expect(shell.visibleComposer?.whisper, isTrue);
+      final frame = tester.widget<Container>(
+        find.byKey(const ValueKey('composer-frame')),
+      );
+      expect(
+        (frame.decoration as BoxDecoration).border,
+        Border.all(
+          color: Theme.of(tester.element(replyOptions)).colorScheme.tertiary,
+        ),
+      );
 
       await shell.submitComposer();
       await tester.pumpAndSettle();
@@ -336,7 +340,7 @@ void _registerTopicReplyTests() {
       await tester.tap(find.byTooltip('Reply to this post'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Reply to @sam'), findsOneWidget);
+      expect(find.text('@sam'), findsOneWidget);
 
       await tester.enterText(find.byType(TextField), 'Agreed.');
       await tester.pumpAndSettle();
@@ -787,7 +791,7 @@ void _registerTopicReplyTests() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
-      expect(find.text('Reply to @sam'), findsOneWidget);
+      expect(find.text('@sam'), findsOneWidget);
     });
 
     testWidgets('closing the composer sends nothing', (tester) async {
@@ -1329,7 +1333,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api);
-      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tapComposerDiscard(tester);
       await tester.pumpAndSettle();
 
       expect(
@@ -1638,7 +1642,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       expect(shell.visibleComposer!.protectsUnappliedDraft, isTrue);
       await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tapComposerDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
@@ -1702,7 +1706,7 @@ void _registerComposerAndDraftTests() {
         await tester.pump();
         expect(api.draftsSaved, hasLength(1));
 
-        await tester.tap(find.byKey(const ValueKey('composer-discard')));
+        await tapComposerDiscard(tester);
         await tester.pumpAndSettle();
         await tester.tap(
           find.byKey(const ValueKey('composer-confirm-discard')),
@@ -1784,7 +1788,7 @@ void _registerComposerAndDraftTests() {
         await tester.pump();
         expect(api.draftsSaved, hasLength(1));
 
-        await tester.tap(find.byKey(const ValueKey('composer-discard')));
+        await tapComposerDiscard(tester);
         await tester.pumpAndSettle();
         await tester.tap(
           find.byKey(const ValueKey('composer-confirm-discard')),
@@ -1860,7 +1864,7 @@ void _registerComposerAndDraftTests() {
       expect(composer.draftSequence, 2);
       expect(composer.text.text, 'Second local revision');
 
-      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tapComposerDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
@@ -1936,7 +1940,7 @@ void _registerComposerAndDraftTests() {
       await openComposer(tester, api, drafts: drafts);
       await tester.enterText(find.byType(TextField), 'Come back to this');
       await settleDraft(tester);
-      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tapComposerDiscard(tester);
       await tester.pumpAndSettle();
 
       expect(find.text('Do you want to discard your post?'), findsOneWidget);
@@ -1944,7 +1948,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       expect(find.text('Come back to this'), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tapComposerDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tapAt(const Offset(1, 1));
       await tester.pumpAndSettle();
@@ -1954,7 +1958,7 @@ void _registerComposerAndDraftTests() {
       );
       expect(find.text('Come back to this'), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tapComposerDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
@@ -2014,7 +2018,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tapComposerDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
@@ -2080,7 +2084,7 @@ void _registerComposerAndDraftTests() {
       final composer = shell.visibleComposer!;
       await tester.enterText(find.byType(TextField), 'First revision');
       await settleDraft(tester);
-      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tapComposerDiscard(tester);
       await tester.pumpAndSettle();
       final confirm = find.byKey(const ValueKey('composer-confirm-discard'));
       await tester.tap(confirm);
@@ -2152,7 +2156,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       expect(shell.visibleComposer?.text.text, 'Queued latest revision');
 
-      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tapComposerDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pump();
@@ -2324,7 +2328,7 @@ void _registerComposerAndDraftTests() {
       await openComposer(tester, api);
       await tester.enterText(find.byType(TextField), 'Keep this revision');
       await settleDraft(tester);
-      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tapComposerDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
@@ -2362,7 +2366,7 @@ void _registerComposerAndDraftTests() {
       await settleDraft(tester);
       drafts.clearFailures = 1;
 
-      await tester.tap(find.byKey(const ValueKey('composer-discard')));
+      await tapComposerDiscard(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
@@ -2416,7 +2420,7 @@ void _registerComposerAndDraftTests() {
       await tester.tap(
         find.descendant(
           of: find.byType(ComposerPanel),
-          matching: find.widgetWithText(FilledButton, 'Reply'),
+          matching: find.byKey(const ValueKey('composer-submit')),
         ),
       );
       await tester.pumpAndSettle();
@@ -2500,7 +2504,7 @@ void _registerComposerAndDraftTests() {
       await openComposer(tester, api);
 
       expect(find.text('Started in a browser'), findsOneWidget);
-      expect(find.text('Reply to @sam'), findsOneWidget);
+      expect(find.text('@sam'), findsOneWidget);
     });
 
     testWidgets('a draft the site would not take is kept on the device', (
@@ -2568,7 +2572,7 @@ void _registerComposerAndDraftTests() {
       await tester.tap(
         find.descendant(
           of: find.byType(ComposerPanel),
-          matching: find.widgetWithText(FilledButton, 'Reply'),
+          matching: find.byKey(const ValueKey('composer-submit')),
         ),
       );
       await tester.pumpAndSettle();

@@ -102,7 +102,9 @@ Future<void> _pumpComposer(WidgetTester tester, ShellController shell) async {
 }
 
 Future<void> _search(WidgetTester tester) async {
-  await tester.tap(find.byTooltip('Search GIFs'));
+  await _openInsertMenu(tester);
+  await tester.tap(find.text('Search GIFs'));
+  await tester.pump();
   await tester.pump(const Duration(milliseconds: 250));
   expect(find.byKey(const ValueKey('gif-picker-search')), findsOneWidget);
 
@@ -122,12 +124,14 @@ void main() {
     final disabled = await _openComposer(_api(enabled: false));
     addTearDown(disabled.dispose);
     await _pumpComposer(tester, disabled);
-    expect(find.byTooltip('Search GIFs'), findsNothing);
+    await _openInsertMenu(tester);
+    expect(find.text('Search GIFs'), findsNothing);
 
     final enabled = await _openComposer(_api(enabled: true));
     addTearDown(enabled.dispose);
     await _pumpComposer(tester, enabled);
-    expect(find.byTooltip('Search GIFs'), findsOneWidget);
+    await _openInsertMenu(tester);
+    expect(find.text('Search GIFs'), findsOneWidget);
   });
 
   testWidgets('an open topic composer gains GIFs when config arrives', (
@@ -137,13 +141,15 @@ void main() {
     final shell = await _openComposer(api);
     addTearDown(shell.dispose);
     await _pumpComposer(tester, shell);
-    expect(find.byTooltip('Search GIFs'), findsNothing);
+    await _openInsertMenu(tester);
+    expect(find.text('Search GIFs'), findsNothing);
 
     api.response.complete(_gifConfig(enabled: true));
     for (var frame = 0; frame < 6; frame++) {
       await tester.pump(const Duration(milliseconds: 1));
     }
-    expect(find.byTooltip('Search GIFs'), findsOneWidget);
+    await _openInsertMenu(tester);
+    expect(find.text('Search GIFs'), findsOneWidget);
   });
 
   testWidgets('topic toolbar hides GIFs while an edit body is loading', (
@@ -153,15 +159,18 @@ void main() {
     addTearDown(shell.dispose);
     final composer = shell.visibleComposer!;
     await _pumpComposer(tester, shell);
-    expect(find.byTooltip('Search GIFs'), findsOneWidget);
+    await _openInsertMenu(tester);
+    expect(find.text('Search GIFs'), findsOneWidget);
 
     composer.beginLoadingBody();
     await tester.pump();
-    expect(find.byTooltip('Search GIFs'), findsNothing);
+    await _openInsertMenu(tester);
+    expect(find.text('Search GIFs'), findsNothing);
 
     composer.loadedBody('Loaded body');
     await tester.pump();
-    expect(find.byTooltip('Search GIFs'), findsOneWidget);
+    await _openInsertMenu(tester);
+    expect(find.text('Search GIFs'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -216,4 +225,14 @@ void main() {
     );
     await tester.pump(const Duration(seconds: 3));
   });
+}
+
+Future<void> _openInsertMenu(WidgetTester tester) async {
+  final insert = find.byKey(const ValueKey('composer-insert'));
+  if (insert.evaluate().isEmpty ||
+      find.byType(MenuItemButton).evaluate().isNotEmpty) {
+    return;
+  }
+  await tester.tap(insert);
+  await tester.pump();
 }
