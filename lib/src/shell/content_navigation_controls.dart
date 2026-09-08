@@ -1,11 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
-import '../theme/d_button.dart';
-import '../theme/d_tooltip.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 

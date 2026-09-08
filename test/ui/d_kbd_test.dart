@@ -1,0 +1,414 @@
+import 'dart:ui' show ViewFocusEvent, ViewFocusState, ViewFocusDirection;
+
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  const chord = DShortcut(
+    SingleActivator(
+      LogicalKeyboardKey.arrowLeft,
+      control: true,
+      alt: true,
+      shift: true,
+      meta: true,
+    ),
+  );
+  const sequence = DShortcut.sequence(
+    SingleActivator(LogicalKeyboardKey.keyG),
+    [SingleActivator(LogicalKeyboardKey.keyH)],
+  );
+
+  test(
+    'spoken formatting preserves activators and distinguishes sequences',
+    () {
+      for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+        expect(
+          chord.semanticLabel(platform),
+          'Control + Option + Shift + Command + Arrow Left',
+        );
+      }
+      expect(
+        chord.semanticLabel(TargetPlatform.linux),
+        'Control + Alt + Shift + Meta + Arrow Left',
+      );
+      expect(sequence.semanticLabel(TargetPlatform.macOS), 'G, then H');
+      expect(chord[0].control, isTrue);
+      expect(chord[0].meta, isTrue);
+      final nextSteps = [const SingleActivator(LogicalKeyboardKey.keyH)];
+      final equivalent = DShortcut.sequence(
+        const SingleActivator(LogicalKeyboardKey.keyG),
+        nextSteps,
+      );
+      expect(equivalent, sequence);
+      expect(equivalent.hashCode, sequence.hashCode);
+      expect(
+        const DShortcut(
+          SingleActivator(LogicalKeyboardKey.keyG, includeRepeats: false),
+        ),
+        isNot(const DShortcut(SingleActivator(LogicalKeyboardKey.keyG))),
+      );
+    },
+  );
+
+  testWidgets('symbols and custom icons are spoken without button semantics', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await _pump(
+        tester,
+        child: const DKbdGroup(
+          children: [
+            DKbd('⌘'),
+            DKbd('↑'),
+            DKbd.child(
+              semanticLabel: 'Brightness up',
+              child: Icon(Icons.brightness_high),
+            ),
+          ],
+        ),
+      );
+      expect(find.bySemanticsLabel('Command'), findsOneWidget);
+      expect(find.bySemanticsLabel('Arrow Up'), findsOneWidget);
+      expect(find.bySemanticsLabel('Brightness up'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.byType(DKbd).first),
+        isSemantics(label: 'Command'),
+      );
+      final focus = FocusManager.instance.primaryFocus;
+      await tester.tap(find.byType(DKbd).first);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus, focus);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets(
+    'a labelled group speaks one localized chord with no duplicate key labels',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await _pump(
+          tester,
+          child: const DShortcutKeycaps(
+            shortcut: chord,
+            semanticLabel: 'تراجع',
+            platform: TargetPlatform.macOS,
+          ),
+        );
+        expect(find.bySemanticsLabel('تراجع'), findsOneWidget);
+        expect(find.bySemanticsLabel('Command'), findsNothing);
+        expect(find.text('⌘'), findsOneWidget);
+        expect(find.text('⌥'), findsOneWidget);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.linux,
+  ]) {
+    testWidgets(
+      '${platform.name} formats hints without changing logical keys',
+      (tester) async {
+        await _pump(
+          tester,
+          child: DShortcutKeycaps(shortcut: chord, platform: platform),
+        );
+        final apple = platform != TargetPlatform.linux;
+        expect(find.text(apple ? '⌘' : 'Meta'), findsOneWidget);
+        expect(find.text(apple ? '⌃' : 'Ctrl'), findsOneWidget);
+        expect(find.text(apple ? '⌥' : 'Alt'), findsOneWidget);
+        expect(find.text('←'), findsOneWidget);
+        expect(
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft),
+          isFalse,
+        );
+        await tester.pump();
+        expect(_cap(tester, 0, 0).highlighted, isTrue);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      },
+    );
+  }
+
+  testWidgets(
+    'wrapping and intrinsic labels fit narrow widths at 200 percent text',
+    (tester) async {
+      for (final width in [80.0, 240.0, 360.0]) {
+        await _pump(
+          tester,
+          width: width,
+          scale: 2,
+          child: const DKbdGroup(
+            children: [
+              DKbd('Control + Backspace'),
+              DKbd('Page Down'),
+              DKbd('KeyboardLanguageSwitch'),
+              DShortcutKeycaps(shortcut: chord, platform: TargetPlatform.linux),
+            ],
+          ),
+        );
+        expect(tester.takeException(), isNull, reason: 'width $width');
+        final bounds = tester.getRect(find.byKey(const ValueKey('bounds')));
+        for (final key in find.byType(DKbd).evaluate()) {
+          final rect = tester.getRect(find.byWidget(key.widget));
+          expect(rect.left, greaterThanOrEqualTo(bounds.left));
+          expect(rect.right, lessThanOrEqualTo(bounds.right + .01));
+        }
+        for (final paragraph in tester.renderObjectList<RenderParagraph>(
+          find.byType(RichText),
+        )) {
+          expect(paragraph.didExceedMaxLines, isFalse);
+        }
+      }
+    },
+  );
+
+  testWidgets(
+    'groups follow direction while notation islands and arrows retain their intent',
+    (tester) async {
+      await _pump(
+        tester,
+        child: const DDirection(
+          textDirection: TextDirection.rtl,
+          child: Column(
+            children: [
+              DKbdGroup(children: [DKbd('A'), DKbd('B')]),
+              DKbdGroup(
+                textDirection: TextDirection.ltr,
+                children: [DKbd('Ctrl'), DKbd('←')],
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(
+        tester.getCenter(find.text('A')).dx,
+        greaterThan(tester.getCenter(find.text('B')).dx),
+      );
+      expect(
+        tester.getCenter(find.text('Ctrl')).dx,
+        lessThan(tester.getCenter(find.text('←')).dx),
+      );
+      expect(tester.widget<Text>(find.text('←')).data, '←');
+    },
+  );
+
+  testWidgets('theme typography, site radius and reduced motion remain live', (
+    tester,
+  ) async {
+    final theme = ValueNotifier(AppTheme.light);
+    addTearDown(theme.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder(
+          valueListenable: theme,
+          builder: (_, value, child) => Theme(data: value, child: child!),
+          child: const MediaQuery(
+            data: MediaQueryData(
+              disableAnimations: true,
+              textScaler: TextScaler.linear(2),
+            ),
+            child: Center(child: DKbd('K', highlighted: true)),
+          ),
+        ),
+      ),
+    );
+    for (final palette in [
+      StyleguideTheme.light,
+      StyleguideTheme.dark,
+      StyleguideTheme.forest,
+      StyleguideTheme.plum,
+    ]) {
+      theme.value = palette
+          .resolve(AppTheme.light)
+          .copyWith(
+            textTheme: AppTheme.light.textTheme.copyWith(
+              labelSmall: const TextStyle(fontSize: 17, height: 1.7),
+            ),
+          );
+      await tester.pump();
+      final context = tester.element(find.byType(DKbd));
+      final tokens = DTokens.of(context);
+      final surface = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: find.byType(DKbd),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      final style = tester
+          .widget<AnimatedDefaultTextStyle>(
+            find.descendant(
+              of: find.byType(DKbd),
+              matching: find.byType(AnimatedDefaultTextStyle),
+            ),
+          )
+          .style;
+      expect((surface.decoration! as BoxDecoration).color, tokens.primary);
+      expect(
+        (surface.decoration! as BoxDecoration).borderRadius,
+        tokens.borderRadius,
+      );
+      expect(surface.duration, Duration.zero);
+      expect(style.fontSize, 17);
+      expect(style.height, 1.7);
+      expect(style.color, tokens.primaryForeground);
+      expect(style.decoration, TextDecoration.underline);
+      expect(tester.getSize(find.byType(DKbd)).height, greaterThan(55));
+    }
+  });
+
+  testWidgets(
+    'sequence feedback survives equivalent rebuilds and resets on wrong keys or completion',
+    (tester) async {
+      final revision = ValueNotifier(0);
+      List<SingleActivator> following() => [
+        const SingleActivator(LogicalKeyboardKey.keyH),
+      ];
+      addTearDown(revision.dispose);
+      await _pump(
+        tester,
+        child: ValueListenableBuilder(
+          valueListenable: revision,
+          builder: (_, value, _) => DShortcutKeycaps(
+            shortcut: DShortcut.sequence(
+              const SingleActivator(LogicalKeyboardKey.keyG),
+              following(),
+            ),
+          ),
+        ),
+      );
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyG), isFalse);
+      await tester.pump();
+      expect(_cap(tester, 0, 0).highlighted, isTrue);
+      revision.value++;
+      await tester.pump();
+      expect(_cap(tester, 0, 0).highlighted, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
+      await tester.pump();
+      expect(_cap(tester, 0, 0).highlighted, isFalse);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyH);
+      await tester.pump();
+      expect(_cap(tester, 1, 0).highlighted, isTrue);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyH);
+      await tester.pump();
+      expect(_cap(tester, 0, 0).highlighted, isFalse);
+      expect(_cap(tester, 1, 0).highlighted, isFalse);
+    },
+  );
+
+  testWidgets(
+    'hidden, inactive, unfocused and removed hints release feedback listeners',
+    (tester) async {
+      final visible = ValueNotifier(true);
+      addTearDown(visible.dispose);
+      await _pump(
+        tester,
+        child: ValueListenableBuilder(
+          valueListenable: visible,
+          builder: (_, value, child) =>
+              TickerMode(enabled: value, child: child!),
+          child: const DShortcutKeycaps(shortcut: sequence),
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.pump();
+      expect(_cap(tester, 0, 0).highlighted, isTrue);
+      visible.value = false;
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyH);
+      await tester.pump();
+      expect(_cap(tester, 0, 0).highlighted, isFalse);
+      expect(_cap(tester, 1, 0).highlighted, isFalse);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyH);
+      visible.value = true;
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(_cap(tester, 0, 0).highlighted, isFalse);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      tester.binding.handleViewFocusChanged(
+        ViewFocusEvent(
+          viewId: tester.view.viewId,
+          state: ViewFocusState.unfocused,
+          direction: ViewFocusDirection.undefined,
+        ),
+      );
+      await tester.pump();
+      expect(_cap(tester, 0, 0).highlighted, isFalse);
+      tester.binding.handleViewFocusChanged(
+        ViewFocusEvent(
+          viewId: tester.view.viewId,
+          state: ViewFocusState.focused,
+          direction: ViewFocusDirection.undefined,
+        ),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyH), isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'static hints do not observe presses and empty groups have no height',
+    (tester) async {
+      await _pump(
+        tester,
+        child: const Column(
+          children: [
+            DShortcutKeycaps(shortcut: chord, listenToKeyboard: false),
+            DKbdGroup(key: ValueKey('empty'), children: []),
+          ],
+        ),
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(_cap(tester, 0, 0).highlighted, isFalse);
+      expect(tester.getSize(find.byKey(const ValueKey('empty'))).height, 0);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    },
+  );
+}
+
+DKbd _cap(WidgetTester tester, int step, int index) =>
+    tester.widget<DKbd>(find.byKey(ValueKey('shortcut-key-$step-$index')));
+
+Future<void> _pump(
+  WidgetTester tester, {
+  required Widget child,
+  double width = 360,
+  double scale = 1,
+}) => tester.pumpWidget(
+  MaterialApp(
+    theme: AppTheme.light,
+    home: Scaffold(
+      body: MediaQuery(
+        data: MediaQueryData(
+          textScaler: TextScaler.linear(scale),
+          disableAnimations: true,
+        ),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            key: const ValueKey('bounds'),
+            width: width,
+            child: SingleChildScrollView(child: child),
+          ),
+        ),
+      ),
+    ),
+  ),
+);

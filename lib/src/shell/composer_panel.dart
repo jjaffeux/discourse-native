@@ -3213,6 +3213,7 @@ class _Toolbar extends StatelessWidget {
                 MenuItemButton(
                   onPressed: composer.isEditing ? action.onInvoke : null,
                   leadingIcon: DIcon(action.icon, size: 16),
+                  shortcut: action.shortcut,
                   child: Text(action.label),
                 ),
             ],

@@ -13,7 +13,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 1 | direction | merged | 01a0818b-e20a-77d0-bb99-77691899dad7 | codex/ui-direction | — | e69458861e83f3989e2f06dd177805c572740a5a |
 | 2 | typography | merged | 01a081e5-0bef-70a1-9ae3-7717028403e0 | codex/ui-typography | direction | 20f42345002e9b0946d1690acd6de6f83b7aa681 |
 | 3 | spinner | in_progress | 01a08213-9960-79f1-8d90-9626f24a4b5a | codex/ui-spinner | — | — |
-| 4 | kbd | planned | — | — | typography | — |
+| 4 | kbd | in_progress | 01a0821b-27cc-7013-affb-99cae203b2a8 | codex/ui-kbd | typography | — |
 | 5 | tooltip | planned | — | — | kbd | — |
 | 6 | button | planned | — | — | spinner, tooltip | — |
 | 7 | separator | in_progress | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | — |
@@ -241,6 +241,56 @@ Status: merged. Task: 01a081e5-0bef-70a1-9ae3-7717028403e0. Branch: codex/ui-typ
 ### spinner
 
 Status: in_progress. Task: 01a08213-9960-79f1-8d90-9626f24a4b5a. Branch: codex/ui-spinner.
+
+### kbd
+
+Status: in_progress. Task: 01a0821b-27cc-7013-affb-99cae203b2a8. Branch: codex/ui-kbd.
+
+**acceptanceCriteria**
+
+- Public DKbd and DKbdGroup cover text, custom icon/child, grouped and inline hints, button, tooltip, input-addon and RTL composition. Kbd className maps to typed Flutter styling/composition; outline and inline-end are demo-control props, not Kbd variants.
+- Keycaps reuse semantic typography and DTokens, have intrinsic text height, wrap with groups at 200% text and narrow widths, reflect live light/dark/site themes, and honor reduced motion.
+- DShortcut and DShortcutKeycaps preserve existing bindings and sequential highlight feedback without handling actions, format platform modifiers and named keys with spoken labels, and clear stale feedback on lifecycle/visibility changes.
+- Search core and all bundled plugins; migrate tooltip ownership, shortcut help, search hints and suitable plugin shortcut hints while preserving dispatch, permissions, focus, state and overlay ownership. Record retained alternatives.
+- Runnable public-library examples demonstrate every frozen section plus logical shortcuts, static/highlighted/icon states, scaling, direction and live compositions using available native controls. Focused rendering/semantics/theme/layout/keyboard/lifecycle and caller tests pass, analysis is clean, and macOS is inspected in the serialized desktop slot.
+
+**decisions**
+
+- Reference read at https://ui.shadcn.com/docs/components/base/kbd and captured Markdown with frozen SHA256 3dd0b0dacf86f4b701ae35df3efe453ba1e9995a542e0a4a004a252f5bdd7978. Kbd and KbdGroup only document className; no additional reference variant enum is needed.
+- Existing app Actions/Shortcuts and app_shortcuts.dart remain binding owners. The Kbd library owns presentation and optional non-consuming hardware feedback only; Button, Tooltip and Input Group remain their separately scheduled catalogue entries.
+- Native APIs are DKbd(label) / DKbd.child with required spoken label, DKbdGroup(children) with wrapping/direction/spacing/semantic label, and the retained typed DShortcut/DShortcutKeycaps APIs. No CSS prop string or parallel action registry is introduced.
+- Small keycaps use the host labelSmall typography and the merged Typography code font, semantic DTokens colors/radius, intrinsic text height and DMotion reduced-motion duration. Apple notation is used on macOS/iOS, Linux uses modifier names. App binding choices in app_shortcuts.dart are unchanged.
+- Optional non-consuming shortcut feedback preserves sequence progression, is disabled for static hints, uses logical activator equality through theme rebuilds, and clears on visibility, app lifecycle and view focus changes. The group has spoken English defaults with caller semanticLabel overrides; sequences visibly say then.
+- Seven self-contained public-library styleguide examples cover text/symbol/custom-icon keycaps, groups/sequences/inline typography, platform formatting, working button/tooltip, focusable search input, RTL/LTR islands and narrow/large-text/empty groups. Existing Button/Tooltip and native input composition do not complete those catalogue entries.
+
+**migrations**
+
+- Moved DKbd, DShortcut and DShortcutKeycaps out of theme/d_tooltip.dart into the public Kbd component owner; DTooltip now composes it and announces shortcut labels. Updated core tooltip/hint imports to discourse_ui.dart and baseline DButton to the shared owner.
+- Keyboard help now renders CharacterActivator hints through DKbd and wraps key groups beside wrapping labels; its sheet/scroll/focus/dispatch owners are retained.
+- ForumSearch replaces plain platform string plus redundant Tooltip with static DShortcutKeycaps sourced from the existing primaryShortcutForPlatform binding; supplementary hints hide below 280 logical pixels of field width while input and clear/advanced controls retain ownership.
+- Rail callout uses the shared group with bounded Flexible layout; obsolete intrinsic-height and inherited-color wrappers were removed. Existing rail/tab/sidebar/navigation/new-topic/reply/draft shortcut hints now resolve to the shared public implementation.
+- Bundled Local Dates replaces embedded modifier text in its Insert menu label with an optional typed MenuSerializableShortcut on ComposerToolbarContribution; composer menu passes it to its existing MenuItemButton formatter. Site gating, editing availability, callbacks and both quick-insert shortcut bindings remain unchanged.
+
+**retainedAlternatives**
+
+- Flutter MenuItemButton retains native menu shortcut presentation for composer formatting and Local Dates; it aligns accelerator columns and participates in the existing menu semantics. Keycap boxes would duplicate that native rendering owner.
+- Help instructions and docs remain prose; emoji keycap names are content identifiers, not keyboard hints. Search hints are intentionally omitted when the field is too narrow. No additional standalone hint owner was found in the other bundled plugins or compatibility wrappers.
+- DTooltip/rail overlay positioning, gestures and native menu/sheet ownership remain with their scheduled Tooltip/menu/sheet components; this task changes only their Kbd presentation and necessary wrapping/semantics.
+
+**verification**
+
+- Official reference page and frozen Markdown read; documented Kbd and KbdGroup className API checked against all frozen sections, demo props and actual examples. Flutter SingleActivator, Wrap, HardwareKeyboard and view focus documentation/source inspected.
+- flutter pub get --enforce-lockfile (root and profiles/full) passed without lockfile or Flutter pin changes.
+- flutter analyze --no-pub passed with no issues; profiles/full flutter analyze --no-pub passed.
+- flutter test --no-pub test/ui/d_kbd_test.dart test/styleguide/kbd_examples_test.dart test/keyboard_shortcuts_help_test.dart test/d_button_test.dart test/d_tooltip_test.dart: 40 passed, covering semantics, platform formatting, 200% text at 80/240/360/900 px, RTL, light/dark/site themes, live open tooltip changes, touch/keyboard/native control composition and lifecycle cleanup.
+- flutter test --no-pub test/forum_tabs_integration_test.dart test/content_navigation_controls_test.dart test/draft_list_test.dart test/keyboard_navigation_test.dart test/styleguide/styleguide_page_test.dart: 91 passed. Rail number-shortcut test rerun after removing obsolete wrappers passed.
+- flutter test --no-pub test/forum_search_clear_accessibility_test.dart test/poll_composer_panel_test.dart test/ui/d_kbd_test.dart: 43 passed, including new search-hint rendering/scaling and unchanged clear-focus/input state, typed Local Dates menu hints, site permissions and shortcut dispatch.
+- Isolated macOS debug styleguide and temporary local-data search/help harness both built successfully with flutter build macos --debug --no-pub, product Discourse Kbd Review, bundle org.discourse.kbd.review4bea, at /private/tmp/discourse-kbd-native-4bea. Runner/signing and fake-data harness changes stay outside the worktree. Native CUA inspection awaits the coordinator desktop slot.
+
+**limitations**
+
+- macOS native inspection is pending the serialized desktop slot; iOS and Linux devices are unavailable on this host. Widget tests with platform overrides are not device tests.
+- Default spoken key names and sequence separator are English; callers can override spoken labels and compose localized DKbdGroup content.
 
 ### separator
 

@@ -2,6 +2,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
+import '../ui/components/d_kbd.dart';
 import 'd_tooltip.dart';
 import 'discourse_typography.dart';
 

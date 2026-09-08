@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 
+import '../app_shortcuts.dart';
 import '../models/search_results.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
@@ -253,9 +255,12 @@ class _ForumSearchState extends State<ForumSearch> {
 
     final theme = Theme.of(context);
     final topicScoped = search.topicId != null;
-    final shortcut = defaultTargetPlatform == TargetPlatform.macOS
-        ? '⌘F'
-        : 'Ctrl F';
+    final shortcut = DShortcut(
+      primaryShortcutForPlatform(
+        defaultTargetPlatform,
+        LogicalKeyboardKey.keyF,
+      ),
+    );
     final forumName = ShellScope.read(
       context,
     ).instanceFor(search.siteUrl!)?.title;
@@ -270,7 +275,7 @@ class _ForumSearchState extends State<ForumSearch> {
             : 420.0;
         final panelWidth = anchorWidth.clamp(280.0, 520.0);
         final showLeadingIcon = anchorWidth >= 140;
-        final showShortcut = anchorWidth >= 180;
+        final showShortcut = anchorWidth >= 280;
         final showClear = search.query.isNotEmpty && anchorWidth >= 64;
         final showAdvanced = search.query.isEmpty
             ? anchorWidth >= 72
@@ -334,6 +339,7 @@ class _ForumSearchState extends State<ForumSearch> {
                         const SizedBox(width: 8),
                       ],
                       Expanded(
+                        flex: 3,
                         child: Stack(
                           alignment: Alignment.centerLeft,
                           children: [
@@ -368,15 +374,14 @@ class _ForumSearchState extends State<ForumSearch> {
                         ),
                       ),
                       if (search.query.isEmpty && showShortcut)
-                        Tooltip(
-                          message: shortcut,
+                        Flexible(
                           child: Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: Text(
-                              shortcut,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                            padding: const EdgeInsetsDirectional.only(
+                              start: DSpacing.sm,
+                            ),
+                            child: DShortcutKeycaps(
+                              shortcut: shortcut,
+                              listenToKeyboard: false,
                             ),
                           ),
                         ),

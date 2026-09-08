@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart' show kPrimaryButton, kSecondaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart' show DDirection;
 import '../app_shortcuts.dart';
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
@@ -14,7 +14,6 @@ import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_tooltip.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';
 import 'shell_scope.dart';

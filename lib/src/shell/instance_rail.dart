@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -13,10 +14,8 @@ import '../models/site_appearance.dart';
 import '../styleguide/styleguide_page.dart';
 import '../theme/app_theme.dart';
 import '../theme/color_contrast.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_tooltip.dart';
 import 'adaptive_activity_indicator.dart';
 import 'add_instance_sheet.dart';
 import 'app_settings_page.dart';
@@ -1669,13 +1668,10 @@ class _RailTooltipCallout extends StatelessWidget {
           ),
           if (shortcutKey case final shortcutKey?) ...[
             const SizedBox(width: 12),
-            IntrinsicHeight(
-              child: DefaultTextStyle(
-                style: const TextStyle(color: Color(0xFFF3F3F4)),
-                child: DShortcutKeycaps(
-                  shortcut: DShortcut(
-                    primaryShortcutForPlatform(theme.platform, shortcutKey),
-                  ),
+            Flexible(
+              child: DShortcutKeycaps(
+                shortcut: DShortcut(
+                  primaryShortcutForPlatform(theme.platform, shortcutKey),
                 ),
               ),
             ),
