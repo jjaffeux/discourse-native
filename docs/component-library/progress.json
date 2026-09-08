@@ -277,7 +277,7 @@
         "53 Divider/VerticalDivider usages in core shell files now use public DSeparator: list rows and loading-list boundaries, user/preferences/group panes, sheets, pickers and native-menu compositions, topic/date streams, diagnostics, drafts, badges, bookmarks, search, uploads and the instance rail. Horizontal height and vertical width become orientation-independent space; prior 17/24 spacing and specialized colors are preserved.",
         "19 dividing rules migrated in Assign, Chat, Discourse Events, GIFs, Local Dates, Poll and Voice plugins. Existing permission checks, list lazy construction, async ownership and callbacks are unchanged; Chat unread marker keeps its error color and visible New label, Assign keeps its ledger color.",
         "The styleguide pane separator uses DSeparator. Public barrel export and dedicated separator_examples.dart registration added. Existing barrel imports were extended and redundant baseline control imports removed where a new complete barrel import already supplies them.",
-        "Three equivalent container rules migrated: forum tab gaps retain 1\u00d718 geometry and hover/selected visibility, MessageInboxTitle retains its 18px line and 10px margins through space: 21, and instance sidebar section boundaries retain their sliver insets and spacing.",
+        "Three equivalent container rules migrated: forum tab gaps retain 1×18 geometry and hover/selected visibility, MessageInboxTitle retains its 18px line and 10px margins through space: 21, and instance sidebar section boundaries retain their sliver insets and spacing.",
         "Updated the existing anchored picker, topic day separator, group list geometry and forum tab tests to assert public DSeparator boundaries while preserving their behavior assertions. Audited all lib/src/plugins modules, packages (including vendored Dart libraries) and profiles; no additional authored package/profile separators were found."
       ],
       "retainedAlternatives": [
@@ -342,7 +342,7 @@
       "clientThreadId": "client-new-thread:aa7ba342-617f-4551-a3ef-9565a8335114",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e53a/discourse-native",
       "baseCommit": "31bbde65b59b47c34a03791c696fa24f2d59ad5e",
-      "nativeInspectionStatus": "not_requested"
+      "nativeInspectionStatus": "queued"
     },
     {
       "id": "badge",
@@ -1350,7 +1350,8 @@
     "nativeInspectionTaskId": "01a0821b-27cc-7013-affb-99cae203b2a8",
     "nativeInspectionQueue": [
       "01a08213-b4ca-77e1-a2aa-8a490808243e",
-      "01a08213-9960-79f1-8d90-9626f24a4b5a"
+      "01a08213-9960-79f1-8d90-9626f24a4b5a",
+      "01a0825a-9fe1-7700-878c-f448801c0851"
     ]
   }
 }
