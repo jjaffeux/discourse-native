@@ -13,7 +13,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 1 | direction | merged | 01a0818b-e20a-77d0-bb99-77691899dad7 | codex/ui-direction | — | e69458861e83f3989e2f06dd177805c572740a5a |
 | 2 | typography | merged | 01a081e5-0bef-70a1-9ae3-7717028403e0 | codex/ui-typography | direction | 20f42345002e9b0946d1690acd6de6f83b7aa681 |
 | 3 | spinner | in_progress | 01a08213-9960-79f1-8d90-9626f24a4b5a | codex/ui-spinner | — | — |
-| 4 | kbd | planned | — | — | typography | — |
+| 4 | kbd | in_progress | 01a0821b-27cc-7013-affb-99cae203b2a8 | codex/ui-kbd | typography | — |
 | 5 | tooltip | planned | — | — | kbd | — |
 | 6 | button | planned | — | — | spinner, tooltip | — |
 | 7 | separator | in_progress | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | — |
@@ -241,6 +241,10 @@ Status: merged. Task: 01a081e5-0bef-70a1-9ae3-7717028403e0. Branch: codex/ui-typ
 ### spinner
 
 Status: in_progress. Task: 01a08213-9960-79f1-8d90-9626f24a4b5a. Branch: codex/ui-spinner.
+
+### kbd
+
+Status: in_progress. Task: 01a0821b-27cc-7013-affb-99cae203b2a8. Branch: codex/ui-kbd.
 
 ### separator
 

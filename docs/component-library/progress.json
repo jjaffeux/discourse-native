@@ -188,9 +188,9 @@
     },
     {
       "id": "kbd",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a0821b-27cc-7013-affb-99cae203b2a8",
+      "branch": "codex/ui-kbd",
       "dependencies": [
         "typography"
       ],
@@ -201,7 +201,10 @@
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "clientThreadId": "client-new-thread:f13877da-2928-498d-90ac-fd4f2c12be97",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4bea/discourse-native",
+      "baseCommit": "bd21f7cbe93b5c3aa6636c73e52fc511827ec084"
     },
     {
       "id": "tooltip",
