@@ -255,7 +255,7 @@
         "Live theme changes in an already-open native MenuAnchor are verified by widget tests. Native palette settings normally dismiss menus on outside interaction, so manual overlay evidence covers rendering after selecting the palette, plus dismissal and preserved local state.",
         "The native inspection preceded final styleguide implemented metadata and a singular-item/usage-text correction. Those non-behavioral text changes were verified by the final focused example test run and refreshed isolated build without reacquiring desktop focus."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "0e3bd2092d6a0544a2c78e8968b7034e7e7f4e69",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2538/discourse-native"
     },
