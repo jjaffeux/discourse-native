@@ -271,7 +271,8 @@
       "mergeCommit": null,
       "clientThreadId": "client-new-thread:11621b86-f28b-44f3-9231-27de7925eea6",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fbbd/discourse-native",
-      "baseCommit": "c00aa3ee5aa057887b73603ff94571f02e609ba6"
+      "baseCommit": "c00aa3ee5aa057887b73603ff94571f02e609ba6",
+      "nativeInspectionStatus": "queued"
     },
     {
       "id": "button",
@@ -659,7 +660,8 @@
       "mergeCommit": null,
       "clientThreadId": "client-new-thread:0790670d-ad70-42ed-9a6d-c0b168c98890",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6b29/discourse-native",
-      "baseCommit": "ff76174c1d87d31775e960467e208c1d3fcf0401"
+      "baseCommit": "ff76174c1d87d31775e960467e208c1d3fcf0401",
+      "nativeInspectionStatus": "queued"
     },
     {
       "id": "avatar",
@@ -1461,7 +1463,9 @@
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
     "nativeInspectionTaskId": "01a08213-9960-79f1-8d90-9626f24a4b5a",
     "nativeInspectionQueue": [
-      "01a0825a-9fe1-7700-878c-f448801c0851"
+      "01a0825a-9fe1-7700-878c-f448801c0851",
+      "01a082a9-b9d4-79f0-8a0d-cc48e700cc67",
+      "01a0829c-ba0d-7282-a010-7e26f190dd4f"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready."
   },
