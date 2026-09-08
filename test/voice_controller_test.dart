@@ -2489,56 +2489,221 @@ void main() {
       );
     });
 
-    test(
-      'preserve batched signal order and admit an early open-room sender',
-      () async {
-        final joinPayload = fixture('join_mesh');
-        final room = joinPayload['room']! as Map<String, dynamic>;
-        room['room_type'] = 'open';
-        room['active_participants'] = [
-          {'id': 1, 'username': 'sam', 'role': 'participant'},
-        ];
-        useTransport(
-          RecordingPluginTransport(
-            responses: {
-              'GET /voice/rooms.json': fixture('directory'),
-              'POST /voice/rooms/7/join.json': joinPayload,
-              'POST /voice/rooms/7/state.json': <String, dynamic>{},
-              'POST /voice/rooms/7/heartbeat.json': <String, dynamic>{},
-              'DELETE /voice/rooms/7/leave.json': <String, dynamic>{},
-            },
-          ),
-        );
-        await controller.ensureLoaded(firstSite);
-        await controller.join(
-          siteUrl: firstSite,
-          siteName: 'One',
-          room: controller.room(firstSite, 7)!,
-        );
+    group('signal sender admission', () {
+      const offer = {'type': 'offer', 'sdp': 'private-offer'};
+      const candidate = {
+        'type': 'candidate',
+        'candidate': {'candidate': 'private-candidate'},
+      };
 
-        firstTracker.deliver('/voice/rooms/7', {
-          'type': 'signal',
-          'sender_id': 2,
-          'sender': {'id': 2, 'username': 'early'},
-          'events': [
-            {'type': 'offer', 'sdp': 'offer'},
-            {
-              'type': 'candidate',
-              'candidate': {'candidate': 'candidate:first'},
-            },
-          ],
-        });
-        await pumpEventQueue();
+      final overflowedEnvelope =
+          jsonDecode(
+                '{"type":"signal","sender_id":1e400,'
+                '"events":[{"type":"offer","sdp":"overflowed-offer"}]}',
+              )
+              as Map<String, dynamic>;
 
-        final media = mediaFactory.sessions.single;
-        expect(media.participants.map((participant) => participant.id), [2, 1]);
-        expect(media.signals.map((signal) => signal.$2['type']), [
-          'offer',
-          'candidate',
-        ]);
-        expect(controller.call?.room.participants.first.username, 'early');
-      },
-    );
+      for (final captureEnabled in [false, true]) {
+        for (final (label, sender) in <(String, Object?)>[
+          ('fractional', 2.9),
+          ('zero', 0),
+          ('negative', -2),
+          ('infinite', double.infinity),
+          ('negative infinite', double.negativeInfinity),
+          ('NaN', double.nan),
+          ('out-of-range integral', 9223372036854775808.0),
+          ('oversized finite', 1e100),
+          ('numeric string', '2'),
+          ('boolean', true),
+          ('missing', null),
+          ('JSON numeric overflow', overflowedEnvelope['sender_id']),
+        ]) {
+          test('rejects $label sender with capture $captureEnabled', () async {
+            diagnostics.captureEnabled = captureEnabled;
+            final reported = await DiagnosticsController.create(
+              persistence: MemoryDiagnosticsPersistence(),
+              sessionId: 'voice-signal-admission',
+            );
+            final binding = DiagnosticsSink.install(reported);
+            addTearDown(() async {
+              binding.close();
+              await reported.close();
+            });
+            await controller.ensureLoaded(firstSite);
+            await controller.join(
+              siteUrl: firstSite,
+              siteName: 'One',
+              room: controller.room(firstSite, 7)!,
+            );
+            // Keep user 2 in the authoritative roster: 2.9 must never route
+            // to that participant by truncating its fractional part.
+            firstTracker.deliver('/voice/rooms/7', {
+              'type': 'participants',
+              'participants': [
+                {'id': 1, 'username': 'sam', 'role': 'speaker'},
+                {'id': 2, 'username': 'lee', 'role': 'speaker'},
+              ],
+            });
+            await pumpEventQueue();
+            final media = mediaFactory.sessions.single;
+            final participants = media.participants;
+            final activeCall = controller.call;
+
+            for (final envelope in <Map<String, dynamic>>[
+              if (label == 'JSON numeric overflow')
+                overflowedEnvelope
+              else
+                {
+                  'type': 'signal',
+                  'sender_id': ?sender,
+                  'sender': {'id': 2, 'username': 'private-sender'},
+                  'events': [offer, candidate],
+                },
+              {'type': 'signal', 'sender_id': ?sender, 'data': offer},
+              {'type': 'signal', 'sender_id': ?sender, 'data': candidate},
+            ]) {
+              firstTracker.deliver('/voice/rooms/7', envelope);
+            }
+            await pumpEventQueue();
+
+            expect(media.signals, isEmpty);
+            expect(media.participants, same(participants));
+            expect(controller.call, same(activeCall));
+            expect(controller.errorFor(firstSite), isNull);
+            expect(
+              diagnostics.records.where(
+                (record) => record.event == 'runtime.error',
+              ),
+              isEmpty,
+            );
+            expect(reported.events.whereType<ErrorDiagnosticEvent>(), isEmpty);
+            expect(
+              diagnostics.rawRecords.where(
+                (record) => record.event == 'signaling.received.raw',
+              ),
+              isEmpty,
+            );
+
+            firstTracker.deliver('/voice/rooms/7', {
+              'type': 'signal',
+              'sender_id': 2.0,
+              'events': [offer, candidate],
+            });
+            await pumpEventQueue();
+
+            expect(media.signals.map((signal) => signal.$1), [2, 2]);
+            expect(media.signals.map((signal) => signal.$2), [
+              offer,
+              candidate,
+            ]);
+            final rawSignals = diagnostics.rawRecords.where(
+              (record) => record.event == 'signaling.received.raw',
+            );
+            expect(rawSignals, hasLength(captureEnabled ? 1 : 0));
+            if (captureEnabled) expect(rawSignals.single.data['senderId'], 2);
+            expect(
+              diagnostics.records
+                  .where((record) => record.event == 'signaling.received')
+                  .map((record) => record.data),
+              everyElement({
+                'roomId': 7,
+                'senderPresent': true,
+                'eventCount': 2,
+                'type': 'offer',
+              }),
+            );
+          });
+        }
+      }
+    });
+
+    for (final (roomType, sender) in [
+      ('open', 2),
+      ('open', 2.0),
+      ('stage', 2),
+      ('stage', 2.0),
+    ]) {
+      test(
+        'preserve ordered signals and $roomType roster admission for sender $sender',
+        () async {
+          final joinPayload = fixture('join_mesh');
+          final room = joinPayload['room']! as Map<String, dynamic>;
+          room['room_type'] = roomType;
+          room['active_participants'] = [
+            {'id': 1, 'username': 'sam', 'role': 'participant'},
+          ];
+          useTransport(
+            RecordingPluginTransport(
+              responses: {
+                'GET /voice/rooms.json': fixture('directory'),
+                'POST /voice/rooms/7/join.json': joinPayload,
+                'POST /voice/rooms/7/state.json': <String, dynamic>{},
+                'POST /voice/rooms/7/heartbeat.json': <String, dynamic>{},
+                'DELETE /voice/rooms/7/leave.json': <String, dynamic>{},
+              },
+            ),
+          );
+          await controller.ensureLoaded(firstSite);
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.room(firstSite, 7)!,
+          );
+
+          final media = mediaFactory.sessions.single;
+          final initialParticipants = media.participants;
+          firstTracker.deliver('/voice/rooms/7', {
+            'type': 'signal',
+            'sender_id': 2.9,
+            'sender': {'id': sender, 'username': 'early'},
+            'events': [
+              {'type': 'offer', 'sdp': 'fractional-sender-offer'},
+            ],
+          });
+          await pumpEventQueue();
+          expect(media.signals, isEmpty);
+          expect(media.participants, same(initialParticipants));
+          expect(controller.call?.room.participants.map((p) => p.id), [1]);
+
+          firstTracker.deliver('/voice/rooms/7', {
+            'type': 'signal',
+            'sender_id': sender,
+            'sender': {'id': sender, 'username': 'early'},
+            'events': [
+              {'type': 'offer', 'sdp': 'offer'},
+              {
+                'type': 'candidate',
+                'candidate': {'candidate': 'candidate:first'},
+              },
+            ],
+          });
+          await pumpEventQueue();
+          firstTracker.deliver('/voice/rooms/7', {
+            'type': 'signal',
+            'sender_id': sender,
+            'data': {'type': 'answer', 'sdp': 'legacy-answer'},
+          });
+          await pumpEventQueue();
+
+          expect(
+            media.participants.map((participant) => participant.id),
+            roomType == 'open'
+                ? [2, 1]
+                : initialParticipants.map((participant) => participant.id),
+          );
+          expect(media.signals.map((signal) => signal.$1), [2, 2, 2]);
+          expect(media.signals.map((signal) => signal.$2['type']), [
+            'offer',
+            'candidate',
+            'answer',
+          ]);
+          expect(
+            controller.call?.room.participants.first.username,
+            roomType == 'open' ? 'early' : 'sam',
+          );
+        },
+      );
+    }
   });
 
   group('participant session propagation', () {
