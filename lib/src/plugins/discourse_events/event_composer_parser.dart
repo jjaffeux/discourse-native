@@ -105,24 +105,27 @@ String eventAttributeSource(String value) {
 /// Conservative authoring recognition: malformed blocks remain editable raw
 /// text. Examples in code, quotes, and indented blocks never become controls.
 bool hasEventMarkup(String source) {
-  final excluded = _excluded(source);
+  final excluded = _ExclusionCursor(source);
   return RegExp(
-        r'^ {0,3}\[event(?=[\s\]])',
-        multiLine: true,
-        caseSensitive: false,
-      )
-      .allMatches(source)
-      .any(
-        (match) => !excluded.any(
-          (range) => range.$1 <= match.start && match.start < range.$2,
-        ),
-      );
+    r'^ {0,3}\[event(?=[\s\]])',
+    multiLine: true,
+    caseSensitive: false,
+  ).allMatches(source).any((match) => !excluded.contains(match.start));
 }
 
 List<EventBlock> parseEventBlocks(String source) {
-  final excluded = _excluded(source);
-  bool ignored(int offset) =>
-      excluded.any((r) => r.$1 <= offset && offset < r.$2);
+  // Index delimiters once: unfinished openers must not copy/search the entire
+  // remaining draft, and rejected outer blocks must not rescan nested bodies.
+  final closings = RegExp(
+    r'\[/event\]',
+    caseSensitive: false,
+  ).allMatches(source).map((match) => match.start).toList();
+  if (closings.isEmpty) return const [];
+  final nested = RegExp(
+    r'\[event',
+    caseSensitive: false,
+  ).allMatches(source).map((match) => match.start).toList();
+  final excluded = _ExclusionCursor(source);
   final blocks = <EventBlock>[];
   final starts = RegExp(
     r'^ {0,3}\[event(?=[\s\]])',
@@ -131,35 +134,35 @@ List<EventBlock> parseEventBlocks(String source) {
   );
   for (final match in starts.allMatches(source)) {
     final start = source.indexOf('[', match.start);
-    if (ignored(start) || blocks.any((b) => start < b.end)) continue;
-    final openEnd = _tagEnd(source, start + 6);
-    if (openEnd == null) continue;
-    final closing = RegExp(
-      r'\[/event\]',
-      caseSensitive: false,
-    ).firstMatch(source.substring(openEnd));
-    if (closing == null) continue;
-    final closeStart = openEnd + closing.start;
-    if (source
-        .substring(openEnd, closeStart)
-        .toLowerCase()
-        .contains('[event')) {
+    if (excluded.contains(start) ||
+        (blocks.isNotEmpty && start < blocks.last.end)) {
       continue;
     }
-    final end = openEnd + closing.end;
-    final raw = source.substring(start, end);
-    final attributes = _attributes(raw, openEnd - start);
+    final openEnd = _tagEnd(source, start + 6);
+    if (openEnd == null) continue;
+    final closingIndex = _firstAtOrAfter(closings, openEnd);
+    if (closingIndex == closings.length) continue;
+    final closeStart = closings[closingIndex];
+    final nestedIndex = _firstAtOrAfter(nested, openEnd);
+    if (nestedIndex < nested.length && nested[nestedIndex] < closeStart) {
+      continue;
+    }
+    final attributes = _attributes(
+      source.substring(start, openEnd),
+      openEnd - start,
+    );
     if (attributes == null ||
         !attributes.any(
           (a) => a.normalizedName == 'start' && a.value.isNotEmpty,
         )) {
       continue;
     }
+    final end = closeStart + '[/event]'.length;
     blocks.add(
       EventBlock(
         start: start,
         end: end,
-        source: raw,
+        source: source.substring(start, end),
         openEnd: openEnd - start,
         closeStart: closeStart - start,
         attributes: attributes,
@@ -167,6 +170,20 @@ List<EventBlock> parseEventBlocks(String source) {
     );
   }
   return List.unmodifiable(blocks);
+}
+
+int _firstAtOrAfter(List<int> offsets, int offset) {
+  var low = 0;
+  var high = offsets.length;
+  while (low < high) {
+    final middle = low + ((high - low) >> 1);
+    if (offsets[middle] < offset) {
+      low = middle + 1;
+    } else {
+      high = middle;
+    }
+  }
+  return low;
 }
 
 int? _tagEnd(String source, int offset) {
@@ -240,6 +257,23 @@ List<EventAttribute>? _attributes(String source, int openEnd) {
   return attrs;
 }
 
+/// Both callers visit offsets in source order. Walk the sorted ranges once,
+/// including overlaps, instead of checking every range for every event opener.
+final class _ExclusionCursor {
+  _ExclusionCursor(String source) : _ranges = _excluded(source).iterator;
+
+  final Iterator<(int, int)> _ranges;
+  (int, int)? _current;
+
+  bool contains(int offset) {
+    while (_current == null || _current!.$2 <= offset) {
+      if (!_ranges.moveNext()) return false;
+      _current = _ranges.current;
+    }
+    return _current!.$1 <= offset;
+  }
+}
+
 List<(int, int)> _excluded(String source) {
   final ranges = <(int, int)>[];
   String? fence;
@@ -269,31 +303,117 @@ List<(int, int)> _excluded(String source) {
   }
   if (fence != null) ranges.add((fenceStart, source.length));
   final stack = <int>[];
-  for (final tag in RegExp(
-    r'\[(/?)(?:quote|code)(?:[=\s][^\]]*)?\]',
-    caseSensitive: false,
-  ).allMatches(source)) {
+  for (final (tag, end) in _terminatedTags(
+    source,
+    RegExp(r'\[(/?)(?:quote|code)(?=[=\s\]])', caseSensitive: false),
+    ']',
+  )) {
     if (tag[1]!.isEmpty) {
       stack.add(tag.start);
     } else if (stack.isNotEmpty) {
       final start = stack.removeLast();
-      if (stack.isEmpty) ranges.add((start, tag.end));
+      if (stack.isEmpty) ranges.add((start, end));
     }
   }
   if (stack.isNotEmpty) ranges.add((stack.first, source.length));
-  for (final pattern in [
-    r'\[quote(?:[=\s][^\]]*)?\][\s\S]*?\[/quote\]',
-    r'\[code(?:=[^\]]*)?\][\s\S]*?\[/code\]',
-    r'<(?:pre|code)\b[^>]*>[\s\S]*?</(?:pre|code)>',
-    r'<!--[\s\S]*?-->',
-    r'(`+)[\s\S]*?\1',
+  for (final (opening, closing, tagEnd) in [
+    (r'\[quote(?=[=\s\]])', r'\[/quote\]', ']'),
+    (r'\[code(?=[=\]])', r'\[/code\]', ']'),
+    (r'<(?:pre|code)\b', r'</(?:pre|code)>', '>'),
+    ('<!--', '-->', null),
   ]) {
-    for (final match in RegExp(
-      pattern,
-      caseSensitive: false,
-    ).allMatches(source)) {
-      ranges.add((match.start, match.end));
-    }
+    ranges.addAll(
+      _delimitedRanges(
+        source,
+        RegExp(opening, caseSensitive: false),
+        RegExp(closing, caseSensitive: false),
+        tagEnd: tagEnd,
+      ),
+    );
   }
+  ranges.addAll(_inlineCodeRanges(source));
+  ranges.sort((a, b) => a.$1.compareTo(b.$1));
   return ranges;
+}
+
+/// Match a tag prefix, then consume through the next terminator. If it is
+/// missing, later prefixes cannot finish either; do not retry the same suffix.
+Iterable<(RegExpMatch, int)> _terminatedTags(
+  String source,
+  RegExp prefix,
+  String terminator,
+) sync* {
+  var consumed = 0;
+  for (final match in prefix.allMatches(source)) {
+    if (match.start < consumed) continue;
+    final end = source.indexOf(terminator, match.end);
+    if (end == -1) break;
+    consumed = end + terminator.length;
+    yield (match, consumed);
+  }
+}
+
+/// Preserve the non-nesting, first-closing-delimiter behavior of the exclusion
+/// patterns, without backtracking over the body for every unfinished opener.
+Iterable<(int, int)> _delimitedRanges(
+  String source,
+  RegExp opening,
+  RegExp closing, {
+  String? tagEnd,
+}) sync* {
+  final starts = tagEnd == null
+      ? opening.allMatches(source).map((match) => (match.start, match.end))
+      : _terminatedTags(
+          source,
+          opening,
+          tagEnd,
+        ).map((tag) => (tag.$1.start, tag.$2));
+  final ends = closing.allMatches(source).iterator;
+  var hasEnd = ends.moveNext();
+  var consumed = 0;
+  for (final (start, openEnd) in starts) {
+    if (start < consumed) continue;
+    while (hasEnd && ends.current.start < openEnd) {
+      hasEnd = ends.moveNext();
+    }
+    if (!hasEnd) break;
+    consumed = ends.current.end;
+    yield (start, consumed);
+  }
+}
+
+Iterable<(int, int)> _inlineCodeRanges(String source) sync* {
+  final runs = RegExp(r'`+').allMatches(source).toList();
+  final longestAfter = List.filled(runs.length + 1, 0);
+  for (var i = runs.length - 1; i >= 0; i--) {
+    final length = runs[i].end - runs[i].start;
+    longestAfter[i] = length > longestAfter[i + 1]
+        ? length
+        : longestAfter[i + 1];
+  }
+  var index = 0;
+  var offset = 0;
+  while (index < runs.length) {
+    final run = runs[index];
+    if (offset < run.start) offset = run.start;
+    final start = offset;
+    final length = run.end - start;
+    // The old (`+)...\1 pattern chose the longest opener that could close,
+    // including within its own run after backtracking. A closer can consume
+    // only part of a run; its remainder can open the next span.
+    var width = longestAfter[index + 1];
+    if (width < length ~/ 2) width = length ~/ 2;
+    if (width > length) width = length;
+    if (width == 0) break;
+    if (width * 2 <= length) {
+      offset = start + width * 2;
+    } else {
+      do {
+        index++;
+      } while (runs[index].end - runs[index].start < width);
+      offset = runs[index].start + width;
+    }
+    yield (start, offset);
+    if (offset == runs[index].end) index++;
+  }
 }
