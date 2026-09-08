@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -65,7 +66,7 @@ void main() {
       await tester.pump();
 
       expect(find.text(_memberError), findsNothing);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(DSpinner), findsOneWidget);
       expect(_requests(api), [('', 0), ('', 20), ('', 20)]);
       gate.complete();
       await tester.pumpAndSettle();
@@ -152,7 +153,7 @@ void main() {
       expect(_requests(api), [('', 0), ('', 20)]);
       expect(_visibleMembers(tester), _names(1, 20));
       expect(find.text('Load more'), findsNothing);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(DSpinner), findsOneWidget);
 
       gate.complete();
       await tester.pumpAndSettle();

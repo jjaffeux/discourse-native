@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/content_reading_lane.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
@@ -221,7 +221,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
 
   Widget _buildResults(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
     final channels = _visibleChannels;
     if (channels.isEmpty && !_hasMore && _error != null) {
@@ -264,7 +264,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
             if (_loadingMore) {
               return const Padding(
                 padding: EdgeInsets.all(20),
-                child: Center(child: CircularProgressIndicator.adaptive()),
+                child: Center(child: DSpinner(size: DSpacing.xl)),
               );
             }
             return Padding(

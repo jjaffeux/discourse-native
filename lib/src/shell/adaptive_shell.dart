@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show AppExitType;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +14,6 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/diagnostics_scope.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'aggregate_view.dart';
@@ -990,7 +990,7 @@ class _ShellLoadProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ColoredBox(
     color: Theme.of(context).shell.content,
-    child: const Center(child: CircularProgressIndicator.adaptive()),
+    child: const Center(child: DSpinner(size: DSpacing.xl)),
   );
 }
 

@@ -52,7 +52,7 @@ class ChatChannelInfoView extends StatelessWidget {
               chatShellService,
             ).openChannelInfo(siteUrl: siteUrl, channelId: channelId);
           });
-          return const Center(child: CircularProgressIndicator.adaptive());
+          return const Center(child: DSpinner(size: DSpacing.xl));
         }
 
         return Column(
@@ -913,7 +913,7 @@ class _ChannelMembersState extends State<_ChannelMembers> {
 
   Widget _memberList(ContentReadingLaneGeometry lane) {
     if (!_loaded && _loading) {
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
     if (_error case final error? when _members.isEmpty && _nextOffset == 0) {
       return Center(
@@ -953,7 +953,7 @@ class _ChannelMembersState extends State<_ChannelMembers> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator.adaptive())
+                    ? const Center(child: DSpinner(size: DSpacing.xl))
                     : Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [

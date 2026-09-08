@@ -2439,12 +2439,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                 child: Row(
                   children: [
                     if (state.busy) ...[
-                      const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      ),
+                      const SizedBox.square(dimension: 18, child: DSpinner()),
                       const SizedBox(width: 10),
                     ],
                     Text(

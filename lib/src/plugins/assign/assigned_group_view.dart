@@ -255,7 +255,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
               if (!feed.loaded && feed.loading)
                 const SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Center(child: CircularProgressIndicator.adaptive()),
+                  child: Center(child: DSpinner(size: DSpacing.xl)),
                 )
               else if (topics.isEmpty && feed.error == null)
                 const SliverFillRemaining(

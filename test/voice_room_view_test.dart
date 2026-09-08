@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost, RecordingPluginLiveChannels;
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
@@ -26,7 +27,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
-// ignore: implementation_imports
 import 'package:flutter_webrtc/src/native/media_stream_track_impl.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 
@@ -935,7 +935,7 @@ void main() {
       await transport.sessionStarted.future;
       await tester.pump();
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(DSpinner), findsOneWidget);
       transport.sessionGate.complete();
       await tester.pumpAndSettle();
       expect(find.text('No messages yet.'), findsOneWidget);

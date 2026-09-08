@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,7 +26,6 @@ import '../../shell/emoji_picker.dart';
 import '../../shell/platform.dart';
 import '../../shell/site_emoji_text.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../gifs/gifs_contract.dart';
@@ -1223,12 +1223,7 @@ class _ChatComposerState extends State<ChatComposer> {
                       ? null
                       : () => _send(composer),
                   icon: _savingEdit
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        )
+                      ? const SizedBox.square(dimension: 18, child: DSpinner())
                       : const DIcon(DIcons.paperPlane, size: 18),
                   tooltip: widget.editingMessage == null
                       ? 'Send message'

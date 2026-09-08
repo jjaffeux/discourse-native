@@ -5,6 +5,7 @@ import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/separator_examples.dart';
 import 'examples/skeleton_examples.dart';
+import 'examples/spinner_examples.dart';
 import 'examples/typography_examples.dart';
 import 'styleguide_example.dart';
 
@@ -18,6 +19,7 @@ final componentExamples = <String, ComponentExamples>{
   'kbd': kbdExamples,
   'label': labelExamples,
   'skeleton': skeletonExamples,
+  'spinner': spinnerExamples,
   'button': baselineButtonExamples,
   'tooltip': baselineTooltipExamples,
   'select': baselineSelectExamples,

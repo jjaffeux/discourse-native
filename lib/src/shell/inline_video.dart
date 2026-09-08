@@ -246,10 +246,7 @@ class _InlineVideoState extends State<InlineVideo> {
             icon: downloading
                 ? const SizedBox.square(
                     dimension: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
+                    child: DSpinner(color: Colors.white),
                   )
                 : const DIcon(DIcons.download, size: 18, color: Colors.white),
           );
@@ -661,7 +658,7 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
             return const ColoredBox(
               color: Colors.black,
               child: Center(
-                child: CircularProgressIndicator(color: Colors.white),
+                child: DSpinner(size: DSpacing.xl, color: Colors.white),
               ),
             );
           }
@@ -791,7 +788,9 @@ class _PlaybackBuffering extends StatelessWidget {
     session: session,
     select: (state) => state.isBuffering,
     builder: (context, isBuffering) => isBuffering
-        ? const Center(child: CircularProgressIndicator(color: Colors.white))
+        ? const Center(
+            child: DSpinner(size: DSpacing.xl, color: Colors.white),
+          )
         : const SizedBox.shrink(),
   );
 }

@@ -929,10 +929,7 @@ class _StatusAnnouncement extends StatelessWidget {
           child: Row(
             children: [
               if (kind == _StatusKind.progress)
-                const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+                const SizedBox.square(dimension: 16, child: DSpinner())
               else
                 DIcon(icon!, size: 16, color: foreground),
               const SizedBox(width: 10),
@@ -969,7 +966,7 @@ class _LoadingPreferences extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(strokeWidth: 2),
+            DSpinner(),
             SizedBox(height: 16),
             Text('Loading preferences…'),
           ],

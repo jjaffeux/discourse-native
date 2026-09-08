@@ -299,11 +299,8 @@ class AnchoredPickerProgress extends StatelessWidget {
       padding: EdgeInsets.all(compact ? 8 : 24),
       child: Center(
         child: compact
-            ? const SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-              )
-            : const CircularProgressIndicator.adaptive(),
+            ? const SizedBox.square(dimension: 20, child: DSpinner())
+            : const DSpinner(size: DSpacing.xl),
       ),
     );
   }

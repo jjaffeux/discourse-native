@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -74,7 +75,7 @@ void main() {
         await tester.pump();
 
         expect(find.text('Offline'), findsOneWidget);
-        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(find.byType(DSpinner), findsOneWidget);
         expect(
           tester.getSemantics(toggle),
           isSemantics(

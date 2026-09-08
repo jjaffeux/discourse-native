@@ -569,7 +569,7 @@ class _GroupLogs extends StatelessWidget {
     if (page == null) {
       body = error != null
           ? _GroupState(icon: DIcons.triangleExclamation, title: error!)
-          : const Center(child: CircularProgressIndicator.adaptive());
+          : const Center(child: DSpinner(size: DSpacing.xl));
     } else if (page!.logs.isEmpty && !loading) {
       body = const _GroupState(
         icon: DIcons.farClock,

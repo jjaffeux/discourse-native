@@ -3,6 +3,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 
 import '../ui/components/d_kbd.dart';
+import '../ui/components/d_spinner.dart';
 import 'd_tooltip.dart';
 import 'discourse_typography.dart';
 
@@ -526,12 +527,7 @@ class DButton extends StatelessWidget {
           );
     if (loading) {
       final labelChild = child;
-      final indicator = ExcludeSemantics(
-        child: SizedBox.square(
-          dimension: fontSize,
-          child: const CircularProgressIndicator(strokeWidth: 2),
-        ),
-      );
+      const indicator = DSpinner(semanticLabel: null);
       child = loadingLabel == null
           ? indicator
           : DefaultTextStyle.merge(

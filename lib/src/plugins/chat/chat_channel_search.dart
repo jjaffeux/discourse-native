@@ -1,8 +1,8 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../plugin_api/plugin_scope.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_notification_counter.dart';
@@ -193,10 +193,7 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
                 ),
                 if (busy) ...[
                   const SizedBox(width: 10),
-                  const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                  ),
+                  const SizedBox.square(dimension: 18, child: DSpinner()),
                 ],
                 if (state.hits.isNotEmpty) ...[
                   const SizedBox(width: 10),

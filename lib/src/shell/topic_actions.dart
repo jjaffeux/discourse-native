@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../data/site_lifecycle.dart';
@@ -7,7 +8,6 @@ import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
 import '../models/topic.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'bookmark_ui.dart';
@@ -36,10 +36,7 @@ class TopicBookmarkButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
     final icon = busy
-        ? const SizedBox.square(
-            dimension: 18,
-            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-          )
+        ? const SizedBox.square(dimension: 18, child: DSpinner())
         : DIcon(
             topic.topicBookmark?.reminderAt != null
                 ? DIcons.discourseBookmarkClock
@@ -446,10 +443,7 @@ class TopicStatusButton extends StatelessWidget {
           variant: DButtonVariant.flat,
           size: DButtonSize.small,
           icon: busy
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                )
+              ? const SizedBox.square(dimension: 16, child: DSpinner())
               : const DIcon(DIcons.wrench, size: 16),
         ),
       ),

@@ -1716,7 +1716,7 @@ void main() {
           find.descendant(of: skeleton, matching: find.byType(DSkeleton)),
           findsNWidgets(4),
         );
-        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byType(DSpinner), findsNothing);
 
         postGate.complete();
         await tester.pumpAndSettle();
@@ -1780,7 +1780,7 @@ void main() {
           find.descendant(of: skeleton, matching: find.byType(DSkeleton)),
           findsNWidgets(4),
         );
-        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byType(DSpinner), findsNothing);
 
         postGate.complete();
         await tester.pumpAndSettle();

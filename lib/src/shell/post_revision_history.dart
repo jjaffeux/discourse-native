@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
@@ -7,7 +8,6 @@ import 'package:html/parser.dart' as html_parser;
 import '../models/post.dart';
 import '../models/post_revision.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'cooked_html.dart';
@@ -171,7 +171,7 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
           if (revision == null && controller.loading) {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 48),
-              child: Center(child: CircularProgressIndicator.adaptive()),
+              child: Center(child: DSpinner(size: DSpacing.xl)),
             );
           }
           if (revision == null) {

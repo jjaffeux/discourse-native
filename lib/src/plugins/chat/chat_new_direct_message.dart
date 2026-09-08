@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
 import '../../shell/avatar_image.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
@@ -418,10 +418,10 @@ class _ChatNewDirectMessageDialogState
 
   Widget _buildResults(String query) {
     if (_searching) {
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
     if (_opening) {
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
     final results = [
       for (final item in _results)

@@ -64,7 +64,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
       final threads = _chat.myThreads(widget.siteUrl);
       final error = _chat.myThreadsError(widget.siteUrl);
       if (_chat.myThreadsLoading(widget.siteUrl)) {
-        return const Center(child: CircularProgressIndicator.adaptive());
+        return const Center(child: DSpinner(size: DSpacing.xl));
       }
       if (threads.isEmpty && error != null) {
         return ChatThreadListMessage(
@@ -108,7 +108,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
               if (_chat.myThreadsLoadingMore(widget.siteUrl)) {
                 return const Padding(
                   padding: EdgeInsets.all(20),
-                  child: Center(child: CircularProgressIndicator.adaptive()),
+                  child: Center(child: DSpinner(size: DSpacing.xl)),
                 );
               }
               return Padding(

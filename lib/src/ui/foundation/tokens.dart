@@ -112,6 +112,7 @@ abstract final class DSpacing {
 }
 
 abstract final class DMotion {
+  static const Duration spin = Duration(seconds: 1);
   static const Duration enter = Duration(milliseconds: 140);
   static const Duration exit = Duration(milliseconds: 100);
   static const Duration change = Duration(milliseconds: 180);

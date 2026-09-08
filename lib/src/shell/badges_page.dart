@@ -68,7 +68,8 @@ class BadgesPage extends StatelessWidget {
                   const SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
-                      child: CircularProgressIndicator.adaptive(
+                      child: DSpinner(
+                        size: DSpacing.xl,
                         key: ValueKey('badges-loading'),
                       ),
                     ),
@@ -298,7 +299,7 @@ class BadgesPage extends StatelessWidget {
         const SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator.adaptive()),
+            child: Center(child: DSpinner(size: DSpacing.xl)),
           ),
         )
       else if (state.hasMore && state.recipientsError == null)

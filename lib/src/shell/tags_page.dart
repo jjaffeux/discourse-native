@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/sidebar_tag.dart';
 import '../models/tag_directory_feed.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
@@ -56,7 +56,7 @@ class _TagsPageState extends State<TagsPage> {
         );
       }
       if (!feed.loaded && feed.tags.isEmpty) {
-        return const Center(child: CircularProgressIndicator.adaptive());
+        return const Center(child: DSpinner(size: DSpacing.xl));
       }
       if (feed.isEmpty) {
         return const _TagPageState(icon: DIcons.tag, title: 'No tags yet');

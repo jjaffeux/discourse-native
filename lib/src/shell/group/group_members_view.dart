@@ -170,7 +170,7 @@ class _MembersSectionState extends State<_MembersSection> {
           title: widget.error!,
         );
       }
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
     if (page.members.isEmpty && !widget.loading) {
       return _GroupState(
@@ -261,7 +261,7 @@ class _MembersLoadingMoreRow extends StatelessWidget {
         child: SizedBox.square(
           key: ValueKey('group-members-loading-more'),
           dimension: 22,
-          child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+          child: DSpinner(),
         ),
       ),
     ),

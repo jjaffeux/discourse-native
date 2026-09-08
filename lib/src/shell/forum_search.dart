@@ -1237,11 +1237,7 @@ class _PanelMessage extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (loading) ...[
-            const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-            ),
+            const SizedBox(width: 16, height: 16, child: DSpinner()),
             const SizedBox(width: 10),
           ],
           if (error) ...[

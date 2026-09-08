@@ -107,7 +107,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     if (state.hits.isEmpty &&
         (state.phase == ChatSearchPhase.waiting ||
             state.phase == ChatSearchPhase.loading)) {
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
     if (state.phase == ChatSearchPhase.empty) {
       return const _SearchMessage(
@@ -137,7 +137,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
             if (state.loadingMore) {
               return const Padding(
                 padding: EdgeInsets.all(20),
-                child: Center(child: CircularProgressIndicator.adaptive()),
+                child: Center(child: DSpinner(size: DSpacing.xl)),
               );
             }
             return Padding(

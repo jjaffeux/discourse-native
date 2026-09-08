@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
@@ -354,13 +355,10 @@ void main() {
 
     expect(controller.searchPending, isTrue);
     expect(
-      find.descendant(
-        of: search,
-        matching: find.byType(CircularProgressIndicator),
-      ),
+      find.descendant(of: search, matching: find.byType(DSpinner)),
       findsNothing,
     );
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(DSpinner), findsOneWidget);
     expect(
       find.byKey(const ValueKey('emoji-picker-clear-search')),
       findsOneWidget,

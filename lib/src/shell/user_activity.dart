@@ -184,10 +184,7 @@ class _ActivityList extends StatelessWidget {
                 child: const Padding(
                   padding: EdgeInsets.all(20),
                   child: Center(
-                    child: SizedBox.square(
-                      dimension: 22,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    ),
+                    child: SizedBox.square(dimension: 22, child: DSpinner()),
                   ),
                 ),
               );

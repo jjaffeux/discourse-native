@@ -534,7 +534,7 @@ void main() {
         );
         expect(find.bySemanticsLabel('Loading older messages'), findsOneWidget);
         expect(find.bySemanticsLabel('Loading newer messages'), findsOneWidget);
-        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byType(DSpinner), findsNothing);
       } finally {
         semantics.dispose();
       }

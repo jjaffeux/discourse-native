@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -89,23 +90,23 @@ void main() {
           tester.widget<Slider>(find.byType(Slider)).secondaryTrackValue,
           60000,
         );
-        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byType(DSpinner), findsNothing);
 
         platform.events.single.add(
           VideoEvent(eventType: VideoEventType.bufferingStart),
         );
         await tester.pump();
-        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(find.byType(DSpinner), findsOneWidget);
         platform.position = const Duration(seconds: 21);
         await tester.pump(const Duration(milliseconds: 100));
         await tester.pump();
         expect(find.text('0:21 / 2:00'), findsOneWidget);
-        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(find.byType(DSpinner), findsOneWidget);
         platform.events.single.add(
           VideoEvent(eventType: VideoEventType.bufferingEnd),
         );
         await tester.pump();
-        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byType(DSpinner), findsNothing);
 
         await tester.tap(find.byTooltip('Pause'));
         await tester.pump();

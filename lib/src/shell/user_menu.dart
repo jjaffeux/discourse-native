@@ -816,9 +816,7 @@ class _DoNotDisturbTile extends StatelessWidget {
                         if (state.saving)
                           const SizedBox.square(
                             dimension: 18,
-                            child: CircularProgressIndicator.adaptive(
-                              strokeWidth: 2,
-                            ),
+                            child: DSpinner(),
                           )
                         else
                           DIcon(
@@ -980,9 +978,7 @@ class _HidePresenceTile extends StatelessWidget {
                             if (state.saving)
                               const SizedBox.square(
                                 dimension: 16,
-                                child: CircularProgressIndicator.adaptive(
-                                  strokeWidth: 2,
-                                ),
+                                child: DSpinner(),
                               )
                             else if (loading)
                               DIcon(
@@ -1466,10 +1462,7 @@ class UserMenuAvatar extends StatelessWidget {
       return SizedBox(
         width: size,
         height: size,
-        child: const Padding(
-          padding: EdgeInsets.all(4),
-          child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-        ),
+        child: const Padding(padding: EdgeInsets.all(4), child: DSpinner()),
       );
     }
 

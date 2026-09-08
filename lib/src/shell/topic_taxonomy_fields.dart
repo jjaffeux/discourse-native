@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
@@ -577,7 +578,7 @@ class _EditableEmptyTopicTags extends StatelessWidget {
                     if (saving)
                       const SizedBox.square(
                         dimension: 11,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                        child: DSpinner(strokeWidth: 1.5),
                       )
                     else
                       DIcon(DIcons.tag, size: 11, color: color),
@@ -658,7 +659,7 @@ class _TopicTaxonomySavingIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox.square(
     dimension: dimension,
-    child: const CircularProgressIndicator.adaptive(strokeWidth: 1.5),
+    child: const DSpinner(strokeWidth: 1.5),
   );
 }
 

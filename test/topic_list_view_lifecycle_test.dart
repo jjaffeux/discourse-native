@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -73,7 +74,7 @@ void main() {
         greaterThanOrEqualTo(TopicListRow.minimumHeight),
       );
       expect(find.bySemanticsLabel('Loading topics'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(DSpinner), findsNothing);
       expect(tester.takeException(), isNull);
 
       api.requests.single.response.complete(_page(1));

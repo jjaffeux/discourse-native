@@ -1,6 +1,5 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-
-import '../theme/d_button.dart';
 
 class UserMenuMessage extends StatelessWidget {
   const UserMenuMessage({
@@ -24,11 +23,7 @@ class UserMenuMessage extends StatelessWidget {
       height: height,
       child: Center(
         child: message == null
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-              )
+            ? const SizedBox(width: 22, height: 22, child: DSpinner())
             : Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(

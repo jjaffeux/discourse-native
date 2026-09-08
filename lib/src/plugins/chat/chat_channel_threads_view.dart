@@ -111,7 +111,7 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
       final threads = _chat.channelThreads(widget.siteUrl, widget.channelId);
       final error = _chat.channelThreadsError(widget.siteUrl, widget.channelId);
       if (_chat.channelThreadsLoading(widget.siteUrl, widget.channelId)) {
-        return const Center(child: CircularProgressIndicator.adaptive());
+        return const Center(child: DSpinner(size: DSpacing.xl));
       }
       if (threads.isEmpty && error != null) {
         return ChatThreadListMessage(
@@ -171,7 +171,7 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
               )) {
                 return const Padding(
                   padding: EdgeInsets.all(20),
-                  child: Center(child: CircularProgressIndicator.adaptive()),
+                  child: Center(child: DSpinner(size: DSpacing.xl)),
                 );
               }
               return Padding(

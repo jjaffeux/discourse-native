@@ -13,7 +13,6 @@ import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import 'adaptive_activity_indicator.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
@@ -956,11 +955,7 @@ class _IncomingBanner extends StatelessWidget {
                     child: loading
                         ? SizedBox.square(
                             dimension: 16,
-                            child: AdaptiveActivityIndicator(
-                              color: accent,
-                              cupertinoRadius: 8,
-                              materialStrokeWidth: 2,
-                            ),
+                            child: DSpinner(color: accent, size: 16),
                           )
                         : DIcon(DIcons.arrowUp, size: 16, color: accent),
                   ),
@@ -982,13 +977,7 @@ class _LoadingMoreRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const Padding(
     padding: EdgeInsets.symmetric(vertical: 20),
-    child: Center(
-      child: SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-      ),
-    ),
+    child: Center(child: SizedBox(width: 20, height: 20, child: DSpinner())),
   );
 }
 

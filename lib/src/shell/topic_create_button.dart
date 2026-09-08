@@ -259,12 +259,7 @@ class _RecentDraftsMenu extends StatelessWidget {
                   const SizedBox(
                     height: 72,
                     child: Center(
-                      child: SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      ),
+                      child: SizedBox.square(dimension: 20, child: DSpinner()),
                     ),
                   )
                 else if (feed.error != null && drafts.isEmpty)

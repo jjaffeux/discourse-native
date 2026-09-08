@@ -1248,7 +1248,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
               if (suggestions == null)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Center(child: CircularProgressIndicator.adaptive()),
+                  child: Center(child: DSpinner(size: DSpacing.xl)),
                 )
               else if (suggestions.isNotEmpty) ...[
                 const SizedBox(height: 16),
@@ -1835,9 +1835,7 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
                     widget.roomId,
                   );
                   if (chat == null || chat.loading) {
-                    return const Center(
-                      child: CircularProgressIndicator.adaptive(),
-                    );
+                    return const Center(child: DSpinner(size: DSpacing.xl));
                   }
                   if (chat.messages.isEmpty) {
                     return const Center(child: Text('No messages yet.'));

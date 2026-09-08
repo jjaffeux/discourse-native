@@ -291,7 +291,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
       child: SizedBox.square(
         key: ValueKey('add-site-checking'),
         dimension: 18,
-        child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+        child: DSpinner(),
       ),
     ),
     _SiteCheckState.valid => Tooltip(

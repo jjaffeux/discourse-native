@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -10,7 +11,6 @@ import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,12 +26,7 @@ const Size phone = Size(390, 844);
 const Size laptop = Size(1000, 800);
 const Size desktop = Size(1440, 900);
 
-Finder get activityIndicators => find.byWidgetPredicate(
-  (widget) =>
-      widget is CircularProgressIndicator ||
-      widget is CupertinoActivityIndicator,
-  description: 'adaptive activity indicator',
-);
+Finder get activityIndicators => find.byType(DSpinner);
 
 Finder minimumHeightDescendants(Finder root, double minimumHeight) =>
     find.descendant(

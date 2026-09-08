@@ -3,11 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../discourse_ui.dart' show DDirection;
+import '../../discourse_ui.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_picker.dart';
@@ -186,9 +185,7 @@ class TopicHeaderTags extends StatelessWidget {
                 child: saving
                     ? const Padding(
                         padding: EdgeInsets.all(6),
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 1.5,
-                        ),
+                        child: DSpinner(strokeWidth: 1.5),
                       )
                     : DButton.iconOnly(
                         key: const ValueKey('topic-header-edit-tags'),

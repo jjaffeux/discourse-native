@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/d_button.dart';
 import 'composer_galleries.dart';
 import 'composer_images.dart';
 import 'image_decode.dart';
@@ -376,9 +376,7 @@ class ComposerImageGalleryTile extends StatelessWidget {
                       ? null
                       : item.onNaturalSize,
                   excludeFromSemantics: true,
-                  loadingBuilder: (_) => const Center(
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                  ),
+                  loadingBuilder: (_) => const Center(child: DSpinner()),
                   errorBuilder: (_, _, _) => ExcludeSemantics(
                     child: Center(
                       child: Icon(

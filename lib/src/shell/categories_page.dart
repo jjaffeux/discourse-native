@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/category_feed.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
@@ -106,7 +106,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
   Widget build(BuildContext context) {
     final feed = widget.feed;
     if (!feed.loaded && feed.categoryIds.isEmpty) {
-      return const Center(child: CircularProgressIndicator.adaptive());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
     if (feed.error != null && feed.categoryIds.isEmpty) {
       return _CategoryPageState(
@@ -172,9 +172,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                           child: Center(
                             child: SizedBox.square(
                               dimension: 22,
-                              child: CircularProgressIndicator.adaptive(
-                                strokeWidth: 2,
-                              ),
+                              child: DSpinner(),
                             ),
                           ),
                         ),

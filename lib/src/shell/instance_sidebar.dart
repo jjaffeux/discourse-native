@@ -1390,7 +1390,7 @@ class _DestinationTileState extends State<_DestinationTile> {
       return SizedBox.square(
         key: ValueKey('sidebar-destination-loading-${destination.id}'),
         dimension: _SidebarSpacing.prefixIconSize(context),
-        child: const CircularProgressIndicator(strokeWidth: 2),
+        child: const DSpinner(),
       );
     }
 

@@ -204,10 +204,7 @@ class _GifPickerState extends State<GifPicker> {
     if (controller.searching || controller.searchPending) {
       return const Padding(
         padding: EdgeInsets.all(14),
-        child: SizedBox.square(
-          dimension: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        child: SizedBox.square(dimension: 18, child: DSpinner()),
       );
     }
     if (_search.text.isEmpty) return null;
@@ -254,10 +251,7 @@ class _GifPickerState extends State<GifPicker> {
               child: controller.loadingMore
                   ? const Padding(
                       padding: EdgeInsets.all(10),
-                      child: SizedBox.square(
-                        dimension: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+                      child: SizedBox.square(dimension: 22, child: DSpinner()),
                     )
                   : DButton(
                       key: const ValueKey('gif-picker-load-more'),
@@ -328,7 +322,7 @@ class _GifPickerState extends State<GifPicker> {
     }
 
     if (controller.isBusy || controller.searchPending) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: DSpinner(size: DSpacing.xl));
     }
 
     if (!controller.hasActiveSearch) {

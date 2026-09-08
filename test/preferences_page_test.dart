@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
@@ -824,7 +825,7 @@ void main() {
 
       expect(tester.element(find.byType(PreferencesPage)), same(page));
       expect(fixture.shell.preferences.stateFor(_siteUrl)?.loaded, isTrue);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(DSpinner), findsNothing);
       expect(
         find.byKey(const ValueKey('notify-on-linked-posts')),
         findsOneWidget,

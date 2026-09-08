@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -829,7 +830,7 @@ void main() {
     sessions.first.completeReady();
     await tester.pump();
     expect(find.byKey(const ValueKey('fake-player')), findsNothing);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(DSpinner), findsOneWidget);
 
     sessions.last.completeReady();
     await tester.pump();
@@ -849,7 +850,7 @@ void main() {
     sessions.first.fail();
     await tester.pump();
     expect(find.text("Couldn't play this video."), findsNothing);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(DSpinner), findsOneWidget);
 
     sessions.last.completeReady();
     await tester.pump();
@@ -893,7 +894,7 @@ void main() {
     await tester.pump();
     expect(sessions, hasLength(2));
     expect(sessions.first.disposeCount, 1);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(DSpinner), findsOneWidget);
 
     sessions.last.completeReady();
     await tester.pump();

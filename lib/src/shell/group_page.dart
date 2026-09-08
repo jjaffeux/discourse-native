@@ -165,9 +165,7 @@ class _GroupPageState extends State<GroupPage> {
         );
       }
       return const Center(
-        child: CircularProgressIndicator.adaptive(
-          key: ValueKey('group-loading'),
-        ),
+        child: DSpinner(size: DSpacing.xl, key: ValueKey('group-loading')),
       );
     }
 

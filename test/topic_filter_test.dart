@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
@@ -655,7 +656,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.bySemanticsLabel('Loading filtered topics'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(DSpinner), findsNothing);
 
     gate.complete();
     await tester.pumpAndSettle();
