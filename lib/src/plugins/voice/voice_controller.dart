@@ -7,6 +7,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
+import '../../models/live_refresh_id.dart';
 import 'voice_api.dart';
 import 'voice_callkit.dart';
 import 'voice_diagnostics.dart';
@@ -1410,7 +1411,9 @@ final class VoiceController extends ChangeNotifier {
     int roomId,
     Map<String, dynamic> envelope,
   ) async {
-    final sender = envelope['sender_id'];
+    final senderId = liveRefreshId(envelope['sender_id']);
+    if (senderId == null) return;
+
     final events = <Map<String, dynamic>>[];
     final rawEvents = envelope['events'];
     if (rawEvents is Iterable) {
@@ -1433,7 +1436,7 @@ final class VoiceController extends ChangeNotifier {
       correlationId: correlationId,
       data: {
         'roomId': roomId,
-        'senderPresent': sender is num,
+        'senderPresent': true,
         'eventCount': events.length,
         if (events.firstOrNull case final first?)
           'type': _voiceSignalingDiagnosticType(first['type']),
@@ -1447,20 +1450,18 @@ final class VoiceController extends ChangeNotifier {
         data: {
           'siteUrl': siteUrl,
           'roomId': roomId,
-          if (sender is num) 'senderId': sender.toInt(),
+          'senderId': senderId,
           'signals': events,
         },
       );
     }
     if (call == null ||
-        sender is! num ||
         call.siteUrl != siteUrl ||
         call.room.id != roomId ||
         events.isEmpty) {
       return;
     }
     final activeCall = call;
-    final senderId = sender.toInt();
 
     // Voice attests the sender and includes their basic serialization so an
     // offer can beat the asynchronous roster broadcast without creating an
