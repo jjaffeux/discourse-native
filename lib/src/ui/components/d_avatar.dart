@@ -523,6 +523,7 @@ class DAvatarGroupCount extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: tokens.muted,
+            boxShadow: [BoxShadow(color: tokens.background, spreadRadius: 2)],
           ),
           child: DefaultTextStyle(
             style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle())
