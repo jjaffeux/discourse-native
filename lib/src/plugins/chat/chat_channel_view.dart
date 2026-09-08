@@ -108,6 +108,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   bool _selectingMessages = false;
   final Set<int> _selectedMessageIds = {};
   ChatMessage? _editingMessage;
+  int _composerFocusRequest = 0;
   final ChatUploadDropController _uploadDropController =
       ChatUploadDropController();
 
@@ -240,12 +241,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
           stream,
           channel: channel,
           channelTitle: channel?.title ?? 'Chat',
-          canCreateThread:
-              channel?.threadingEnabled == true &&
-              widget.chat.canSendMessageTo(
-                widget.siteUrl,
-                ChatChannelTarget(widget.channelId),
-              ),
         ),
       ),
     );
@@ -255,7 +250,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     ChatStreamState stream, {
     required ChatChannel? channel,
     required String channelTitle,
-    required bool canCreateThread,
   }) {
     late final Widget content;
     final hasMessages =
@@ -275,8 +269,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         onOpenThread: (preview) =>
             _openThread(context, widget.siteUrl, widget.channelId, preview),
         onJumpToMessage: _jumpToMessage,
-        canCreateThread: canCreateThread,
-        onReplyInThread: (message) => _replyInThread(context, message),
+        onReply: (message) => _replyToMessage(context, message),
         onEdit: _editMessage,
         selectingMessages: _selectingMessages,
         selectedMessageIds: _selectedMessageIds,
@@ -330,6 +323,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
               siteUrl: widget.siteUrl,
               channelId: widget.channelId,
               uploadDropController: _uploadDropController,
+              focusRequest: _composerFocusRequest,
               editingMessage: _editingMessage,
               onEditMessage: _editMessage,
               onEditFinished: _finishEditing,
@@ -405,31 +399,39 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     );
   }
 
-  Future<void> _replyInThread(BuildContext context, ChatMessage message) async {
-    final shell = PluginUiScope.require(context, chatShellService);
-    final existing = message.thread;
-    if (existing != null) {
-      shell.openThread(
-        siteUrl: widget.siteUrl,
-        channelId: widget.channelId,
-        threadId: existing.threadId,
-        messageId: existing.lastReplyId,
-        focusComposer: true,
+  Future<void> _replyToMessage(
+    BuildContext context,
+    ChatMessage message,
+  ) async {
+    if (!widget.chat.canReplyToMessage(widget.siteUrl, message)) return;
+    final channel = widget.chat.channel(widget.siteUrl, widget.channelId)!;
+    if (!channel.threadingEnabled) {
+      final target = ChatChannelTarget(widget.channelId);
+      final draft = widget.chat.composerDraftFor(widget.siteUrl, target);
+      widget.chat.retainComposerDraft(
+        widget.siteUrl,
+        target,
+        raw: draft?.raw ?? '',
+        uploads: draft?.uploads ?? const [],
+        replyTo: ChatReplyTo.fromMessage(message),
       );
+      setState(() {
+        _editingMessage = null;
+        _composerFocusRequest++;
+      });
       return;
     }
 
-    final channel = widget.chat.channel(widget.siteUrl, widget.channelId);
-    if (channel?.threadingEnabled != true ||
-        !widget.chat.canSendMessageTo(
-          widget.siteUrl,
-          ChatChannelTarget(widget.channelId),
-        )) {
-      if (context.mounted) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(content: Text('You cannot start a thread here.')),
-        );
-      }
+    final shell = PluginUiScope.require(context, chatShellService);
+    final threadId = message.thread?.threadId ?? message.threadId;
+    if (threadId != null) {
+      shell.openThread(
+        siteUrl: widget.siteUrl,
+        channelId: widget.channelId,
+        threadId: threadId,
+        messageId: message.thread?.lastReplyId,
+        focusComposer: true,
+      );
       return;
     }
 
@@ -621,9 +623,8 @@ class ChatMessageStream extends StatefulWidget {
     this.onHighlightComplete,
     this.onOpenThread,
     this.onJumpToMessage,
-    this.onReplyInThread,
+    this.onReply,
     this.onEdit,
-    this.canCreateThread = false,
     this.showThreadSummaries = true,
     this.selectingMessages = false,
     this.selectedMessageIds = const {},
@@ -644,9 +645,8 @@ class ChatMessageStream extends StatefulWidget {
   final ValueChanged<int>? onHighlightComplete;
   final ValueChanged<ChatThreadPreview>? onOpenThread;
   final ValueChanged<int>? onJumpToMessage;
-  final ValueChanged<ChatMessage>? onReplyInThread;
+  final ValueChanged<ChatMessage>? onReply;
   final ValueChanged<ChatMessage>? onEdit;
-  final bool canCreateThread;
   final bool showThreadSummaries;
   final bool selectingMessages;
   final Set<int> selectedMessageIds;
@@ -1340,31 +1340,23 @@ class _StreamState extends State<ChatMessageStream>
                         ),
                         child: _HighlightedChatMessage(
                           highlighted: id == _highlightMessageId,
-                          child: ValueListenableBuilder<ChatMessage?>(
-                            valueListenable: chat.messageRef(siteUrl, id),
-                            builder: (context, message, _) => ChatMessageTile(
-                              siteUrl: siteUrl,
-                              messageId: id,
-                              chained: chained,
-                              contextThreadId: widget.target.threadId,
-                              onOpenThread: widget.onOpenThread,
-                              onJumpToMessage: widget.onJumpToMessage,
-                              onReplyInThread:
-                                  message?.thread != null ||
-                                      widget.canCreateThread
-                                  ? widget.onReplyInThread
-                                  : null,
-                              onEdit: widget.onEdit,
-                              showThreadSummary: widget.showThreadSummaries,
-                              onSelect:
-                                  id > 0 && widget.onStartSelecting != null
-                                  ? () => widget.onStartSelecting!(id)
-                                  : null,
-                              selecting: widget.selectingMessages,
-                              selected: widget.selectedMessageIds.contains(id),
-                              onSelectedChanged: (selected) =>
-                                  widget.onSelectionChanged?.call(id, selected),
-                            ),
+                          child: ChatMessageTile(
+                            siteUrl: siteUrl,
+                            messageId: id,
+                            chained: chained,
+                            contextThreadId: widget.target.threadId,
+                            onOpenThread: widget.onOpenThread,
+                            onJumpToMessage: widget.onJumpToMessage,
+                            onReply: widget.onReply,
+                            onEdit: widget.onEdit,
+                            showThreadSummary: widget.showThreadSummaries,
+                            onSelect: id > 0 && widget.onStartSelecting != null
+                                ? () => widget.onStartSelecting!(id)
+                                : null,
+                            selecting: widget.selectingMessages,
+                            selected: widget.selectedMessageIds.contains(id),
+                            onSelectedChanged: (selected) =>
+                                widget.onSelectionChanged?.call(id, selected),
                           ),
                         ),
                       ),

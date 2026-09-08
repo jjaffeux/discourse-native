@@ -67,6 +67,179 @@ const _gif = GifResult(
 );
 
 void main() {
+  group('inline replies', () {
+    for (final kind in [
+      ChatChannelKind.category,
+      ChatChannelKind.directMessage,
+    ]) {
+      testWidgets(
+        '${kind.name} hover Reply preserves the draft and sends its target',
+        (tester) async {
+          final sendGate = Completer<void>();
+          final fixture = await _fixture(
+            pages: {
+              FakeDiscourseApi.chatMessagesKey(9): (
+                messages: [_message(7)],
+                canLoadMorePast: false,
+                canLoadMoreFuture: false,
+                targetMessageId: null,
+              ),
+            },
+            threadingEnabled: false,
+            channelKind: kind,
+            sendGate: sendGate,
+            sentMessageId: 42,
+          );
+          addTearDown(fixture.shell.dispose);
+          await tester.pumpWidget(_TestView(shell: fixture.shell));
+          await tester.pumpAndSettle();
+          await tester.enterText(_composerField(), 'Already writing');
+          await _hoverReply(tester, 7);
+
+          expect(find.text('Replying to @sam'), findsOneWidget);
+          expect(_text(tester), 'Already writing');
+          expect(_field(tester).focusNode!.hasFocus, isTrue);
+          expect(fixture.api.chatThreadsCreated, isEmpty);
+          expect(fixture.api.chatThreadsRequested, isEmpty);
+
+          await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+          await tester.pump();
+
+          final sent = fixture.api.chatMessagesSent.single;
+          expect(sent.message, 'Already writing');
+          expect(sent.inReplyToId, 7);
+          expect(sent.threadId, isNull);
+          final local = fixture.shell.chat.messages(_site, 9).last;
+          expect(local.replyTo?.id, 7);
+          expect(local.replyTo?.excerpt, 'Message 7');
+          expect(
+            find.byKey(ChatMessageTile.replyIndicatorKey(7)),
+            findsOneWidget,
+          );
+          expect(find.text('Replying to @sam'), findsNothing);
+          expect(_text(tester), isEmpty);
+
+          await tester.enterText(_composerField(), 'Next message');
+          await tester.pump();
+          await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+          sendGate.complete();
+          await tester.pumpAndSettle();
+          expect(fixture.api.chatMessagesSent, hasLength(2));
+          expect(fixture.api.chatMessagesSent.last.inReplyToId, isNull);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      );
+    }
+
+    testWidgets('changing and cancelling Reply keeps the written draft', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        pages: {
+          FakeDiscourseApi.chatMessagesKey(9): (
+            messages: [_message(7), _message(8)],
+            canLoadMorePast: false,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          ),
+        },
+        threadingEnabled: false,
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+      await tester.enterText(_composerField(), 'Keep this draft');
+      await _hoverReply(tester, 7);
+      await _hoverReply(tester, 8);
+      final preview = find.byKey(const ValueKey('chat-composer-reply'));
+      expect(
+        find.descendant(of: preview, matching: find.text('Message 8')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('Cancel reply'));
+      await tester.pumpAndSettle();
+      expect(preview, findsNothing);
+      expect(_text(tester), 'Keep this draft');
+      expect(_field(tester).focusNode!.hasFocus, isTrue);
+
+      await _hoverReply(tester, 7);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(preview, findsNothing);
+      expect(_text(tester), 'Keep this draft');
+      expect(fixture.api.chatMessagesSent, isEmpty);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets(
+      'an empty reply draft survives closing and shares cancellation',
+      (tester) async {
+        final fixture = await _fixture(
+          pages: const {},
+          threadingEnabled: false,
+        );
+        addTearDown(fixture.shell.dispose);
+        fixture.shell.chat.retainComposerDraft(
+          _site,
+          const ChatChannelTarget(9),
+          raw: '',
+          uploads: const [],
+          replyTo: ChatReplyTo.fromMessage(_message(7)),
+        );
+        await tester.pumpWidget(
+          _ComposerVisibilityView(shell: fixture.shell, visible: true),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Replying to @sam'), findsOneWidget);
+        await tester.pumpWidget(
+          _ComposerVisibilityView(shell: fixture.shell, visible: false),
+        );
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(_TwoComposerView(shell: fixture.shell));
+        await tester.pumpAndSettle();
+        expect(find.text('Replying to @sam'), findsNWidgets(2));
+
+        await tester.tap(find.byTooltip('Cancel reply').first);
+        await tester.pumpAndSettle();
+        expect(find.text('Replying to @sam'), findsNothing);
+        expect(
+          fixture.shell.chat.composerDraftFor(
+            _site,
+            const ChatChannelTarget(9),
+          ),
+          isNull,
+        );
+      },
+    );
+
+    testWidgets('a GIF replies to the selected message and preserves text', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        pages: const {},
+        config: _gifsConfig,
+        threadingEnabled: false,
+      );
+      addTearDown(fixture.shell.dispose);
+      fixture.shell.chat.retainComposerDraft(
+        _site,
+        const ChatChannelTarget(9),
+        raw: 'Keep this draft',
+        uploads: const [],
+        replyTo: ChatReplyTo.fromMessage(_message(7)),
+      );
+      await tester.pumpWidget(
+        _ComposerView(shell: fixture.shell, channelId: 9),
+      );
+      await tester.pumpAndSettle();
+      await _openGifPicker(tester);
+      await _closeGifPicker(tester, _gif);
+      expect(fixture.api.chatMessagesSent.single.inReplyToId, 7);
+      expect(_text(tester), 'Keep this draft');
+      expect(find.text('Replying to @sam'), findsNothing);
+    });
+  });
+
   group('draft editing, layout, and uploads', () {
     testWidgets('line-start commands skip the hidden quote prefix', (
       tester,
@@ -2028,6 +2201,8 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   SiteEmojiCatalog? emojiCatalog,
   ComposerUploadResult? composerUploadResult,
   ChatChannelStatus channelStatus = ChatChannelStatus.open,
+  bool threadingEnabled = true,
+  ChatChannelKind channelKind = ChatChannelKind.category,
   PluginDiagnosticsReporter pluginDiagnosticsReporter =
       const PluginDiagnosticsReporter.noop(),
 }) async {
@@ -2067,10 +2242,10 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     ChatChannel(
       id: 9,
       title: 'design',
-      kind: ChatChannelKind.category,
+      kind: channelKind,
       status: channelStatus,
       membership: const ChatMembership(following: true),
-      threadingEnabled: true,
+      threadingEnabled: threadingEnabled,
     ),
   );
   shell.chatRecords.put(
@@ -2099,6 +2274,22 @@ Finder _composerField() => find.descendant(
   of: find.byKey(const ValueKey('chat-composer')),
   matching: find.byType(TextField),
 );
+
+Future<void> _hoverReply(WidgetTester tester, int messageId) async {
+  final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  await pointer.addPointer(location: Offset.zero);
+  try {
+    final tile = find.byWidgetPredicate(
+      (widget) => widget is ChatMessageTile && widget.messageId == messageId,
+    );
+    await pointer.moveTo(tester.getCenter(tile));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Reply'));
+  } finally {
+    await pointer.removePointer();
+  }
+  await tester.pumpAndSettle();
+}
 
 const _drawerComposerKey = ValueKey('drawer-chat-composer');
 const _fullPageComposerKey = ValueKey('full-page-chat-composer');

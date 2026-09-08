@@ -51,16 +51,19 @@ class ChatComposerDraft {
   ChatComposerDraft({
     required this.raw,
     required Iterable<ComposerUploadResult> uploads,
+    this.replyTo,
   }) : uploads = List.unmodifiable(uploads);
 
   final String raw;
   final List<ComposerUploadResult> uploads;
+  final ChatReplyTo? replyTo;
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     if (other is! ChatComposerDraft ||
         other.raw != raw ||
+        other.replyTo != replyTo ||
         other.uploads.length != uploads.length) {
       return false;
     }
@@ -73,6 +76,7 @@ class ChatComposerDraft {
   @override
   int get hashCode => Object.hash(
     raw,
+    replyTo,
     Object.hashAll(
       uploads.map(
         (upload) => Object.hash(
@@ -777,12 +781,13 @@ class ChatController extends FrameSafeNotifier {
     ChatStreamTarget target, {
     required String raw,
     required Iterable<ComposerUploadResult> uploads,
+    ChatReplyTo? replyTo,
   }) {
     if (isDisposed) return;
     final key = _targetKey(siteUrl, target);
     _rememberTarget(siteUrl, target);
     final retainedUploads = List<ComposerUploadResult>.unmodifiable(uploads);
-    if (raw.isEmpty && retainedUploads.isEmpty) {
+    if (raw.isEmpty && retainedUploads.isEmpty && replyTo == null) {
       _composerDraftRefs[key]?.value = null;
       if (!_streams.containsKey(key) && _canEvictRetainedTarget(key)) {
         _evictRetainedTarget(key);
@@ -790,7 +795,11 @@ class ChatController extends FrameSafeNotifier {
       _enforceSiteRetention(siteUrl);
       return;
     }
-    final next = ChatComposerDraft(raw: raw, uploads: retainedUploads);
+    final next = ChatComposerDraft(
+      raw: raw,
+      uploads: retainedUploads,
+      replyTo: replyTo,
+    );
     _composerDraftRefs
             .putIfAbsent(
               key,
@@ -3119,13 +3128,16 @@ class ChatController extends FrameSafeNotifier {
 
   /// Adding requires both message interaction permission and channel membership.
   bool canAddReactionToMessage(String siteUrl, ChatMessage message) =>
-      _canChangeMessageReaction(siteUrl, message, requireFollowing: true);
+      _canInteractWithMessage(siteUrl, message, requireFollowing: true);
+
+  bool canReplyToMessage(String siteUrl, ChatMessage message) =>
+      _canInteractWithMessage(siteUrl, message, requireFollowing: true);
 
   /// Discourse permits removing a reaction after leaving the channel.
   bool canRemoveReactionFromMessage(String siteUrl, ChatMessage message) =>
-      _canChangeMessageReaction(siteUrl, message, requireFollowing: false);
+      _canInteractWithMessage(siteUrl, message, requireFollowing: false);
 
-  bool _canChangeMessageReaction(
+  bool _canInteractWithMessage(
     String siteUrl,
     ChatMessage message, {
     required bool requireFollowing,

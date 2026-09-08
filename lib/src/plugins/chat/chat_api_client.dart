@@ -1083,6 +1083,7 @@ final class ChatApiClient implements ChatApi {
     required String message,
     List<int> uploadIds = const [],
     int? threadId,
+    int? inReplyToId,
     String? stagedId,
     DateTime? clientCreatedAt,
     int? contextTopicId,
@@ -1091,6 +1092,7 @@ final class ChatApiClient implements ChatApi {
   }) async {
     _requirePositiveId(channelId, 'channelId');
     if (threadId != null) _requirePositiveId(threadId, 'threadId');
+    if (inReplyToId != null) _requirePositiveId(inReplyToId, 'inReplyToId');
     if (contextTopicId != null) {
       _requirePositiveId(contextTopicId, 'contextTopicId');
     }
@@ -1129,6 +1131,7 @@ final class ChatApiClient implements ChatApi {
         'message': message,
         'upload_ids': uploadIds.isEmpty ? null : uploadIds,
         'thread_id': threadId,
+        'in_reply_to_id': inReplyToId,
         'staged_id': stagedId,
         'client_created_at': clientCreatedAt?.toUtc().toIso8601String(),
         'context_topic_id': contextTopicId,

@@ -216,6 +216,7 @@ abstract interface class ChatApi {
     required String message,
     List<int> uploadIds = const [],
     int? threadId,
+    int? inReplyToId,
     String? stagedId,
     DateTime? clientCreatedAt,
     int? contextTopicId,

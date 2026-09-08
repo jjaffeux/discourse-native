@@ -569,6 +569,33 @@ void main() {
       expect(jsonDecode(sent.body), {'message': 'hi'});
     });
 
+    test('chat replies serialize the original message ID', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(jsonEncode({'message_id': 42}), 200);
+        }),
+      );
+
+      expect(
+        await ChatApiClient(api).sendChatMessage(
+          siteUrl: 'https://example.com',
+          apiKey: 'secret',
+          channelId: 9,
+          message: 'A reply',
+          inReplyToId: 7,
+        ),
+        42,
+      );
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/chat/9.json');
+      expect(jsonDecode(sent.body), {
+        'message': 'A reply',
+        'in_reply_to_id': 7,
+      });
+    });
+
     test(
       'chat sends serialize optimistic metadata and return the message ID',
       () async {

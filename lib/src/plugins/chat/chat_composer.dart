@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../diagnostics/diagnostics_controller.dart';
+import '../../foundation/frame_safe_notifier.dart';
 import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
 import '../../plugin_api/core_plugin_host.dart';
@@ -22,6 +23,7 @@ import '../../shell/content_reading_lane.dart';
 import '../../shell/emoji_composer.dart';
 import '../../shell/emoji_picker.dart';
 import '../../shell/platform.dart';
+import '../../shell/site_emoji_text.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
@@ -178,7 +180,7 @@ class ChatComposer extends StatefulWidget {
   final VoidCallback? onEditFinished;
   final ComposerImagePicker pickImages;
 
-  /// A counter lets repeated Reply actions refocus an already-open thread.
+  /// A counter lets repeated Reply actions refocus an already-open composer.
   final int focusRequest;
 
   @override
@@ -202,6 +204,10 @@ class _ChatComposerState extends State<ChatComposer> {
   bool _pickingImages = false;
   bool _pickingEmoji = false;
   bool _savingEdit = false;
+  final _replyChanges = FrameSafeValueNotifier<ChatReplyTo?>(null);
+
+  ChatReplyTo? get _replyTo =>
+      widget.threadId == null ? _retainedDraft?.value?.replyTo : null;
 
   void _closeDisabledEmojiAutocomplete(bool emojiEnabled) {
     final composer = _composer;
@@ -300,6 +306,7 @@ class _ChatComposerState extends State<ChatComposer> {
     _retainedDraft = retainedDraft;
 
     void applyRetainedDraft() {
+      _replyChanges.value = _replyTo;
       if (_applyingRetainedDraft ||
           widget.editingMessage != null ||
           !identical(_composer, composer) ||
@@ -311,6 +318,7 @@ class _ChatComposerState extends State<ChatComposer> {
       final current = ChatComposerDraft(
         raw: composer.raw,
         uploads: composer.completedUploads,
+        replyTo: _replyTo,
       );
       if (current == next) return;
 
@@ -348,6 +356,7 @@ class _ChatComposerState extends State<ChatComposer> {
           final next = ChatComposerDraft(
             raw: composer.raw,
             uploads: deferred.uploads,
+            replyTo: _replyTo,
           );
           _deferredRetainedDraft = next;
           chat.retainComposerDraft(
@@ -355,6 +364,7 @@ class _ChatComposerState extends State<ChatComposer> {
             target,
             raw: next.raw,
             uploads: next.uploads,
+            replyTo: next.replyTo,
           );
           return;
         }
@@ -372,6 +382,7 @@ class _ChatComposerState extends State<ChatComposer> {
         final merged = ChatComposerDraft(
           raw: composer.raw,
           uploads: mergedUploads,
+          replyTo: _replyTo,
         );
         _deferredRetainedDraft = null;
         _completedUploadIdsBeforeDeferral = null;
@@ -389,6 +400,7 @@ class _ChatComposerState extends State<ChatComposer> {
           target,
           raw: merged.raw,
           uploads: merged.uploads,
+          replyTo: merged.replyTo,
         );
         return;
       }
@@ -398,6 +410,7 @@ class _ChatComposerState extends State<ChatComposer> {
         target,
         raw: composer.raw,
         uploads: composer.completedUploads,
+        replyTo: _replyTo,
       );
     }
 
@@ -505,6 +518,7 @@ class _ChatComposerState extends State<ChatComposer> {
         retainedDraft.removeListener(listener);
       }
     }
+    _replyChanges.dispose();
     super.dispose();
   }
 
@@ -531,11 +545,13 @@ class _ChatComposerState extends State<ChatComposer> {
       OutgoingChatMessage.text(
         composer.raw,
         uploads: composer.completedUploads,
+        replyTo: _replyTo,
       ),
     );
     if (accepted == null) return;
 
     // Once a row exists, it owns delivery; clear the document before queued I/O.
+    _clearReply(refocus: false);
     composer.focus.unfocus();
     composer.clearDocument();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -613,6 +629,18 @@ class _ChatComposerState extends State<ChatComposer> {
     } else {
       _composer?.clearDocument();
     }
+  }
+
+  void _clearReply({bool refocus = true}) {
+    final draft = _retainedDraft?.value;
+    if (draft?.replyTo == null) return;
+    _chat?.retainComposerDraft(
+      widget.siteUrl,
+      _target,
+      raw: draft!.raw,
+      uploads: draft.uploads,
+    );
+    if (refocus) _requestFocus(_sourceKey!);
   }
 
   Future<void> _pickGif() async {
@@ -743,7 +771,7 @@ class _ChatComposerState extends State<ChatComposer> {
       return;
     }
 
-    _chat!.sendMessageTo(
+    final accepted = _chat!.sendMessageTo(
       widget.siteUrl,
       _target,
       OutgoingChatMessage.trustedGif(
@@ -752,8 +780,10 @@ class _ChatComposerState extends State<ChatComposer> {
         title: result.title,
         width: result.width,
         height: result.height,
+        replyTo: _replyTo,
       ),
     );
+    if (accepted != null) _clearReply(refocus: false);
     // A picked GIF is a separate message and never consumes draft text.
   }
 
@@ -824,11 +854,14 @@ class _ChatComposerState extends State<ChatComposer> {
           );
         }
         return ListenableBuilder(
-          listenable: composer,
+          listenable: Listenable.merge([composer, _replyChanges]),
           builder: (context, _) => _composerLane(
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (_replyTo case final reply?
+                    when widget.editingMessage == null)
+                  _replyPreview(context, reply),
                 if (composer.uploads.isNotEmpty)
                   ComposerUploadQueue(composer: composer),
                 if (composer.notice case final message?)
@@ -859,6 +892,56 @@ class _ChatComposerState extends State<ChatComposer> {
     child: ContentReadingLaneBox(child: child),
   );
 
+  Widget _replyPreview(BuildContext context, ChatReplyTo reply) {
+    final theme = Theme.of(context);
+    return Semantics(
+      liveRegion: true,
+      child: Padding(
+        key: const ValueKey('chat-composer-reply'),
+        padding: const EdgeInsets.fromLTRB(12, 0, 0, 6),
+        child: Row(
+          children: [
+            DIcon(
+              DIcons.reply,
+              size: 16,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Replying to @${reply.username}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium,
+                  ),
+                  SiteEmojiText.plain(
+                    reply.excerpt,
+                    siteUrl: widget.siteUrl,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            DButton.iconOnly(
+              key: const ValueKey('chat-composer-cancel-reply'),
+              onPressed: _clearReply,
+              tooltip: 'Cancel reply',
+              icon: const DIcon(DIcons.xmark, size: 16),
+              variant: DButtonVariant.flat,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   KeyEventResult _handleEditLastMessage(
     KeyEvent event,
     ComposerController composer,
@@ -871,6 +954,7 @@ class _ChatComposerState extends State<ChatComposer> {
         HardwareKeyboard.instance.isShiftPressed ||
         widget.onEditMessage == null ||
         widget.editingMessage != null ||
+        _replyTo != null ||
         composer.text.text.isNotEmpty ||
         composer.uploads.isNotEmpty) {
       return KeyEventResult.ignored;
@@ -929,7 +1013,9 @@ class _ChatComposerState extends State<ChatComposer> {
               showComposerLinkDialog(context: context, composer: composer),
             ),
         if (widget.editingMessage != null)
-          const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit,
+          const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit
+        else if (_replyTo != null)
+          const SingleActivator(LogicalKeyboardKey.escape): _clearReply,
       },
       child: Container(
         key: const ValueKey('chat-composer'),
