@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
+import 'badge_route.dart';
 import 'group_route.dart';
 import 'list_link.dart';
 import 'sidebar.dart';
@@ -177,6 +178,7 @@ class ContentRoute {
     this.feedPath,
     this.messageGroupName,
     this.groupRoute,
+    this.badgeRoute,
   });
 
   factory ContentRoute.list(ListLink link, {String? title, Color? color}) {
@@ -208,6 +210,14 @@ class ContentRoute {
       postNumber: postNumber,
     );
   }
+
+  factory ContentRoute.badges(BadgeRoute route, {String? title}) =>
+      ContentRoute(
+        id: route.id,
+        title: title ?? (route.isDirectory ? 'Badges' : 'Badge'),
+        icon: DIcons.certificate,
+        badgeRoute: route,
+      );
 
   factory ContentRoute.preferences() => const ContentRoute(
     id: 'preferences',
@@ -299,7 +309,8 @@ class ContentRoute {
       postNumber = null,
       feedPath = destination.feedPath,
       messageGroupName = null,
-      groupRoute = null;
+      groupRoute = null,
+      badgeRoute = null;
 
   final String id;
   final String title;
@@ -317,6 +328,10 @@ class ContentRoute {
   final String? messageGroupName;
 
   final GroupRoute? groupRoute;
+
+  final BadgeRoute? badgeRoute;
+
+  bool get isBadges => !isTopic && (badgeRoute != null || id == 'badges');
 
   /// Prevents corrupted persisted state from producing an oversized URI.
   static const int maximumFeedPathLength = 2048;
@@ -420,6 +435,7 @@ class ContentRoute {
     if (feedPath != null) 'feed_path': feedPath,
     if (messageGroupName != null) 'message_group_name': messageGroupName,
     if (groupRoute != null) 'group_route': groupRoute!.toJson(),
+    if (badgeRoute != null) 'badge_route': badgeRoute!.toJson(),
   };
 
   factory ContentRoute.fromJson(Map<String, dynamic> json) {
@@ -474,6 +490,22 @@ class ContentRoute {
     } else {
       throw const FormatException('Invalid content group route');
     }
+    final rawBadgeRoute = json['badge_route'];
+    final BadgeRoute? badgeRoute;
+    if (rawBadgeRoute == null) {
+      badgeRoute = null;
+    } else if (rawBadgeRoute is Map<String, dynamic>) {
+      badgeRoute = BadgeRoute.fromJson(rawBadgeRoute);
+      if (topicId != null ||
+          messageGroupName != null ||
+          groupRoute != null ||
+          feedPath != null ||
+          id != badgeRoute.id) {
+        throw const FormatException('Invalid content badge route');
+      }
+    } else {
+      throw const FormatException('Invalid content badge route');
+    }
     return ContentRoute(
       id: id,
       title: title,
@@ -492,6 +524,7 @@ class ContentRoute {
       feedPath: feedPath as String?,
       messageGroupName: messageGroupName as String?,
       groupRoute: groupRoute,
+      badgeRoute: badgeRoute,
     );
   }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../models/badge_route.dart';
 import '../models/bookmark.dart';
 import '../models/category_feed.dart';
 import '../models/content_route.dart';
@@ -15,6 +16,7 @@ import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
+import 'badges_host.dart';
 import 'categories_page.dart';
 import 'category_icon.dart';
 import 'category_notifications.dart';
@@ -544,6 +546,12 @@ class _ContentViewport extends StatelessWidget {
     if (!route.isTopic && route.id == 'activity' && siteUrl != null) {
       return UserActivityView(siteUrl: siteUrl!);
     }
+    if (route.isBadges && siteUrl != null) {
+      return BadgesHost(
+        siteUrl: siteUrl!,
+        route: route.badgeRoute ?? const BadgeRoute.directory(),
+      );
+    }
     if (route.isUsers && siteUrl != null) {
       return UsersDirectoryHost(siteUrl: siteUrl!);
     }
@@ -868,6 +876,7 @@ class _ContentHeader extends StatelessWidget {
               if (!route.isTopic &&
                   route.id != 'activity' &&
                   !route.isUsers &&
+                  !route.isBadges &&
                   showCreateTopicAction)
                 _TopicCreateAction(controller: controller),
               if (ShellTitleBar.columnsCarryUserMenu) ...[

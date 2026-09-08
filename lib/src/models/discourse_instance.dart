@@ -241,6 +241,7 @@ class DiscourseInstance {
     final hidden = <String>{
       if (!config.groupDirectoryEnabled && user?.staff != true) 'groups',
       if (!config.userDirectoryEnabled) 'users',
+      if (!config.badgesEnabled) 'badges',
     };
     return hidden.isEmpty ? base : _withoutDestinations(base, hidden);
   }
@@ -286,6 +287,7 @@ class DiscourseInstance {
       '/u': 'users',
       '/filter': 'filter',
       '/g': 'groups',
+      '/badges': 'badges',
       '/admin': 'admin',
     };
     final nativeMore = {
@@ -308,7 +310,6 @@ class DiscourseInstance {
         );
       } else {
         final visible = switch (value) {
-          '/badges' => config.badgesEnabled,
           '/review' => user?.canReview == true,
           '/new-invite' => user?.canInviteToForum == true,
           _ => true,
@@ -325,7 +326,6 @@ class DiscourseInstance {
                   const {
                     '/about',
                     '/faq',
-                    '/badges',
                     '/review',
                     '/new-invite',
                   }.contains(value)
@@ -385,6 +385,11 @@ class DiscourseInstance {
       ],
       moreDestinations: [
         SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
+        SidebarDestination(
+          id: 'badges',
+          label: 'Badges',
+          icon: DIcons.certificate,
+        ),
       ],
     ),
   ];
@@ -417,6 +422,11 @@ class DiscourseInstance {
       ],
       moreDestinations: [
         SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
+        SidebarDestination(
+          id: 'badges',
+          label: 'Badges',
+          icon: DIcons.certificate,
+        ),
         SidebarDestination(id: 'admin', label: 'Admin', icon: DIcons.wrench),
       ],
     ),

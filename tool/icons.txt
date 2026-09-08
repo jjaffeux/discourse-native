@@ -173,3 +173,17 @@ notification.upcoming_change_automatically_promoted = discourse-flask-check
 # .watching_first_post onto discourse-bell-exclamation and discourse-bell-one,
 # which are not in the sprites this generator reads. NotificationDescription
 # names an icon for those three itself.
+
+# Core badges
+book-open-reader
+cake-candles
+circle-check
+cube
+face-smile
+file-lines
+file-signature
+medal
+pen
+share-nodes
+stamp
+user-pen

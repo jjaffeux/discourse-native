@@ -440,7 +440,11 @@ void main() {
         await tester.tap(find.textContaining('Meta Helper'));
         await tester.pumpAndSettle();
 
-        expect(launched, ['$_metaUrl/badges/11/meta-helper']);
+        expect(launched, isEmpty);
+        expect(shell.currentInstance?.url, _metaUrl);
+        expect(shell.currentContent?.badgeRoute?.badgeId, 11);
+        expect(find.text('Recently awarded'), findsOneWidget);
+        expect(api.badgeSites, [_metaUrl, _metaUrl]);
         expect(api.readSites, [(siteUrl: _metaUrl, id: 11)]);
       }),
     );
@@ -724,6 +728,7 @@ final class _SiteMenuApi extends FakeDiscourseApi {
       );
 
   final List<String> notificationSites = [];
+  final List<String> badgeSites = [];
   final List<String> replySites = [];
   final List<String> bookmarkSites = [];
   final List<String> inviteSites = [];
@@ -747,6 +752,18 @@ final class _SiteMenuApi extends FakeDiscourseApi {
     required String? apiKey,
     String? clientId,
   }) async {
+    if (path == '/badges/11.json') {
+      badgeSites.add(siteUrl);
+      return const {
+        'badge': {'id': 11, 'name': 'Meta Helper'},
+      };
+    }
+    if (path == '/user_badges.json?badge_id=11&offset=0') {
+      badgeSites.add(siteUrl);
+      return const {
+        'user_badge_info': {'user_badges': <Map<String, dynamic>>[]},
+      };
+    }
     if (Uri.parse(path).path.endsWith('/invited.json')) {
       inviteSites.add(siteUrl);
       return invitePage([
