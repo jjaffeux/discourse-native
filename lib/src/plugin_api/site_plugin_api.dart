@@ -509,6 +509,13 @@ abstract interface class SidebarPlugin {
   Listenable? sidebarListenable(BuildContext context);
 }
 
+/// Adds links to the main Community section, before its More menu.
+abstract interface class CommunitySidebarPlugin {
+  List<SidebarDestination> communitySidebarDestinations(BuildContext context);
+
+  Listenable? communitySidebarListenable(BuildContext context);
+}
+
 /// Describes one plugin-owned sidebar panel and how it composes with the main
 /// forum panel. The shell owns panel rendering and navigation snapshots; the
 /// plugin owns the policy which decides when its sections are combined or

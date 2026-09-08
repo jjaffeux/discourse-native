@@ -399,6 +399,10 @@ class _SidebarPanelBody extends StatelessWidget {
                       controller.accountActivity.totalsListenable,
                       controller.draftList,
                       controller.topicFeeds,
+                      ...registry.communitySidebarListenables(
+                        context,
+                        includeOwner: includePluginOwner,
+                      ),
                     ]),
                     builder: (context, _) => SliverMainAxisGroup(
                       slivers: [
@@ -425,6 +429,13 @@ class _SidebarPanelBody extends StatelessWidget {
                                     )),
                                     siteUrl: sidebar.siteUrl!,
                                     section: section,
+                                    appendedDestinations:
+                                        section.id == 'community'
+                                        ? registry.communitySidebarDestinations(
+                                            context,
+                                            includeOwner: includePluginOwner,
+                                          )
+                                        : const [],
                                     first: first && index == 0,
                                     store: sectionStore,
                                     selectedId: sidebar.destinationId,
@@ -811,6 +822,7 @@ class _Section extends StatefulWidget {
     this.loadingDestinationId,
     this.insertedDestination,
     this.insertAfterDestinationId,
+    this.appendedDestinations = const [],
   });
 
   final String siteUrl;
@@ -823,6 +835,7 @@ class _Section extends StatefulWidget {
   final ValueChanged<SidebarDestination> onSelect;
   final SidebarDestination? insertedDestination;
   final String? insertAfterDestinationId;
+  final List<SidebarDestination> appendedDestinations;
 
   @override
   State<_Section> createState() => _SectionState();
@@ -982,6 +995,7 @@ class _SectionState extends State<_Section> {
     final sectionRows = !section.collapsible || !_collapsed
         ? <SidebarDestination>[
             ...section.destinations,
+            ...widget.appendedDestinations,
             for (final destination in section.moreDestinations)
               if (destination.id == widget.selectedId) destination,
             if (section.moreDestinations.isNotEmpty) _moreDestination,

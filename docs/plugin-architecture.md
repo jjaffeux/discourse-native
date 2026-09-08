@@ -335,8 +335,8 @@ The registry currently provides typed seams for:
 - ordered user-menu sections, plugin notification type definitions and feeds,
   bookmark target strategies, and ordered owner-decoded topic recommendation
   sources;
-- sidebar sections, content routes, content chrome, shell header actions, and
-  app-global overlays;
+- sidebar sections and Community links, content routes, content chrome, shell
+  header actions, and app-global overlays;
 - owner-local icon catalogs for optional artwork and semantic aliases, with a
   required generic fallback for unknown or uninstalled names; shared wire
   readers receive this resolver explicitly, so an installed owner alias works
@@ -368,10 +368,13 @@ owner-scoped target context. Shared reminder UI adapts those two contracts and
 never invents a sentinel topic id for a plugin record.
 
 Sidebar destinations likewise carry only generic presentation and navigation
-state. Optional owners may contribute prefix and label-suffix builders that
-watch their own live records; Chat uses those hooks for presence avatars and
-user status. Voice contributes its indented participant rows directly in
-its section, so the core DTO has no Chat-user or voice-room child fields.
+state. `CommunitySidebarPlugin` adds links before the main section's More menu
+and supplies its own listenable; site settings and availability stay with the
+contributing plugin. Optional owners may contribute prefix and label-suffix
+builders that watch their own live records; Chat uses those hooks for presence
+avatars and user status. Voice contributes its indented participant rows
+directly in its section, so the core DTO has no Chat-user or voice-room child
+fields.
 
 The full manifest declares route and syntax ownership up front. Chat and
 Voice own separate route namespaces; Poll and Local Dates declare their

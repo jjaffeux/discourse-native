@@ -11,6 +11,12 @@ and My Events, calendar export, event images, and links to event Chat and
 livestreams. The module installs without Poll, Local Dates, Chat, or video
 plugins. Unknown/missing event data leaves a readable cooked fallback.
 
+When events are enabled, `sidebar_show_upcoming_events` controls the Upcoming
+events link in the main Community sidebar section, before More. It opens the
+native event directory for both anonymous and connected readers; connected
+readers can switch to My events from there. The setting survives restarts and
+defaults to the server's `true` when absent from older cached settings.
+
 The event menu links to the web for bulk invitations and reports. Upcoming-event
 calendar grids and provider-specific livestream/Zoom interfaces also retain web
 entry points. Category calendars and group timezones are separate server

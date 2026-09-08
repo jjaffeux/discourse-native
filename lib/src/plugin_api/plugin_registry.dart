@@ -1523,6 +1523,27 @@ final class PluginRegistry
     return List.unmodifiable(sections);
   }
 
+  List<SidebarDestination> communitySidebarDestinations(
+    BuildContext context, {
+    bool Function(PluginId owner)? includeOwner,
+  }) => [
+    for (final plugin in plugins.whereType<CommunitySidebarPlugin>())
+      if (includeOwner?.call(_owner(plugin)) ?? true)
+        for (final destination in plugin.communitySidebarDestinations(
+          _uiContext(context, plugin),
+        ))
+          _ownedDestination(plugin, destination),
+  ];
+
+  List<Listenable> communitySidebarListenables(
+    BuildContext context, {
+    bool Function(PluginId owner)? includeOwner,
+  }) => [
+    for (final plugin in plugins.whereType<CommunitySidebarPlugin>())
+      if (includeOwner?.call(_owner(plugin)) ?? true)
+        ?plugin.communitySidebarListenable(_uiContext(context, plugin)),
+  ];
+
   List<SidebarSection> sidebarSections(
     BuildContext context, {
     bool Function(PluginId owner)? includeOwner,
