@@ -33,13 +33,13 @@ void main() {
     final controller = await _controller();
     await _pumpShell(tester, controller, const Size(1200, 800));
 
-    expect(tester.getSize(find.byType(InstanceRail)).width, 56);
+    expect(tester.getSize(find.byType(InstanceRail)).width, 48);
 
     final aggregateButton = find.byKey(const ValueKey('aggregate-rail-button'));
     expect(tester.getSize(aggregateButton), const Size.square(44));
     expect(
       tester.getSize(find.byKey(const ValueKey('aggregate-rail-visual'))),
-      const Size.square(36),
+      const Size.square(32),
     );
     expect(
       tester
@@ -52,7 +52,7 @@ void main() {
             ),
           )
           .size,
-      18,
+      16,
     );
 
     final topics = find.descendant(
@@ -297,7 +297,7 @@ void main() {
     final controller = await _controller();
     await _pumpShell(tester, controller, const Size(768, 800));
 
-    expect(_sidebarWidth(tester), 392);
+    expect(_sidebarWidth(tester), 400);
     expect(
       (await SharedPreferences.getInstance()).getDouble(
         SidebarWidthStore.storageKey,
