@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/poll_card.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -60,9 +62,11 @@ Future<void> pumpPoll(
   VoidCallback? onVoteOnWeb,
   VoidCallback? onConnectAccount,
   DateTime? now,
+  DateTime Function()? clock,
 }) => tester.pumpWidget(
   MaterialApp(
     theme: AppTheme.light,
+    themeAnimationDuration: Duration.zero,
     home: Scaffold(
       body: SingleChildScrollView(
         child: SizedBox(
@@ -79,6 +83,7 @@ Future<void> pumpPoll(
             onVoteOnWeb: onVoteOnWeb,
             onConnectAccount: onConnectAccount,
             now: now,
+            clock: clock,
           ),
         ),
       ),
@@ -480,6 +485,376 @@ void main() {
     });
   });
 
+  group('poll deadlines', () {
+    testWidgets(
+      'a retained poll closes at its deadline without a parent rebuild',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        try {
+          var votes = 0;
+          final closeAt = tester.binding.clock.now().add(
+            const Duration(seconds: 10),
+          );
+          await pumpPoll(
+            tester,
+            poll(closeAt: closeAt, results: PollResults.onClose),
+            clock: tester.binding.clock.now,
+            onVote: (_, _) => votes++,
+          );
+          final state = tester.state(find.byType(PollCard));
+          final option = find.bySemanticsLabel('Alpha');
+          expect(find.text('Open'), findsOneWidget);
+          expect(find.textContaining('Closes '), findsOneWidget);
+          expect(
+            find.text('Results will be shown when this poll closes.'),
+            findsOneWidget,
+          );
+          expect(tester.getSemantics(option), isSemantics(isEnabled: true));
+
+          await tester.pump(const Duration(seconds: 9, milliseconds: 999));
+          expect(find.text('Open'), findsOneWidget);
+          await tester.pump(const Duration(milliseconds: 1));
+
+          expect(tester.state(find.byType(PollCard)), same(state));
+          expect(tester.binding.clock.now(), closeAt);
+          expect(find.text('Open'), findsNothing);
+          expect(find.text('Closed'), findsOneWidget);
+          expect(find.text('Automatically closed'), findsOneWidget);
+          expect(find.text('This poll is closed.'), findsOneWidget);
+          expect(find.textContaining('Automatically closed '), findsOneWidget);
+          expect(find.text('Results are not available.'), findsOneWidget);
+          expect(find.textContaining('%'), findsNothing);
+          expect(find.text('0 votes'), findsNothing);
+          expect(
+            tester.getSemantics(option),
+            isSemantics(
+              hasEnabledState: true,
+              isEnabled: false,
+              isButton: false,
+              hasTapAction: false,
+            ),
+          );
+          await tester.tap(find.byKey(const ValueKey('poll-poll-option-a')));
+          await tester.pump();
+          expect(votes, 0);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          semantics.dispose();
+        }
+      },
+    );
+
+    for (final removing in [false, true]) {
+      testWidgets(
+        'expiry removes the ${removing ? 'withdrawal' : 'cast'} control for a multiple-choice draft',
+        (tester) async {
+          final deadline = _PollDeadlineHarness(tester);
+          await deadline.run(() async {
+            var writes = 0;
+            final closeAt = deadline.now().add(const Duration(seconds: 10));
+            await pumpPoll(
+              tester,
+              poll(
+                type: PollType.multiple,
+                closeAt: closeAt,
+                selection: removing
+                    ? const PollSelection(optionIds: ['a'])
+                    : PollSelection.none,
+              ),
+              clock: deadline.now,
+              onVote: (_, _) => writes++,
+              onRemoveVote: (_) => writes++,
+            );
+            final option = find.byKey(const ValueKey('poll-poll-option-a'));
+            await tester.tap(option);
+            await tester.pumpAndSettle();
+            final cast = find.byKey(const ValueKey('poll-poll-cast'));
+            expect(tester.widget<FilledButton>(cast).onPressed, isNotNull);
+            expect(
+              find.text(removing ? 'Remove votes' : 'Cast votes'),
+              findsOneWidget,
+            );
+
+            await tester.pump(closeAt.difference(deadline.now()));
+
+            expect(find.text('This poll is closed.'), findsOneWidget);
+            expect(cast, findsNothing);
+            expect(find.textContaining('Choose between'), findsNothing);
+            final ink = find.descendant(
+              of: option,
+              matching: find.byType(InkWell),
+            );
+            expect(tester.widget<InkWell>(ink).onTap, isNull);
+            expect(writes, 0);
+            await deadline.expectIdle();
+          });
+        },
+      );
+    }
+
+    for (final ranked in [false, true]) {
+      testWidgets(
+        'expiry removes the ${ranked ? 'web voting' : 'account connection'} control',
+        (tester) async {
+          final deadline = _PollDeadlineHarness(tester);
+          await deadline.run(() async {
+            var opened = 0;
+            await pumpPoll(
+              tester,
+              poll(
+                type: ranked ? PollType.rankedChoice : PollType.regular,
+                closeAt: deadline.now().add(const Duration(seconds: 10)),
+              ),
+              clock: deadline.now,
+              signedIn: ranked,
+              onVoteOnWeb: () => opened++,
+              onConnectAccount: () => opened++,
+            );
+            final control = find.text(
+              ranked ? 'Vote on web' : 'Connect account',
+            );
+            expect(control, findsOneWidget);
+
+            await tester.pump(const Duration(seconds: 10));
+
+            expect(control, findsNothing);
+            expect(find.text('This poll is closed.'), findsOneWidget);
+            expect(opened, 0);
+            await deadline.expectIdle();
+          });
+        },
+      );
+    }
+
+    for (final seconds in [5, 20]) {
+      testWidgets(
+        'a deadline moved ${seconds < 10 ? 'earlier' : 'later'} replaces the old wakeup',
+        (tester) async {
+          final deadline = _PollDeadlineHarness(tester);
+          await deadline.run(() async {
+            final start = deadline.now();
+            await pumpPoll(
+              tester,
+              poll(closeAt: start.add(const Duration(seconds: 10))),
+              clock: deadline.now,
+            );
+            final state = tester.state(find.byType(PollCard));
+            final oldTimer = deadline.activeTimers.single;
+            await tester.pump(const Duration(seconds: 1));
+            await pumpPoll(
+              tester,
+              poll(closeAt: start.add(Duration(seconds: seconds))),
+              clock: deadline.now,
+            );
+            expect(tester.state(find.byType(PollCard)), same(state));
+            expect(oldTimer.isActive, isFalse);
+            expect(deadline.activeTimers, hasLength(1));
+            await tester.pump(
+              Duration(seconds: seconds - 2, milliseconds: 999),
+            );
+            expect(find.text('Open'), findsOneWidget);
+
+            await tester.pump(const Duration(milliseconds: 1));
+
+            expect(find.text('This poll is closed.'), findsOneWidget);
+            await deadline.expectIdle();
+          });
+        },
+      );
+    }
+
+    testWidgets(
+      'removing and adding a deadline cancels and restores the wakeup',
+      (tester) async {
+        final deadline = _PollDeadlineHarness(tester);
+        await deadline.run(() async {
+          await pumpPoll(
+            tester,
+            poll(closeAt: deadline.now().add(const Duration(seconds: 10))),
+            clock: deadline.now,
+          );
+          final state = tester.state(find.byType(PollCard));
+          final oldTimer = deadline.activeTimers.single;
+          await pumpPoll(tester, poll(), clock: deadline.now);
+          expect(tester.state(find.byType(PollCard)), same(state));
+          expect(oldTimer.isActive, isFalse);
+          expect(find.textContaining('Closes '), findsNothing);
+          await deadline.expectIdle();
+          expect(find.text('Open'), findsOneWidget);
+
+          await pumpPoll(
+            tester,
+            poll(closeAt: deadline.now().add(const Duration(seconds: 10))),
+            clock: deadline.now,
+          );
+          expect(deadline.activeTimers, hasLength(1));
+          await tester.pump(const Duration(seconds: 10));
+          expect(find.text('This poll is closed.'), findsOneWidget);
+          await deadline.expectIdle();
+        });
+      },
+    );
+
+    testWidgets('server closure cancels the wakeup and reopening restores it', (
+      tester,
+    ) async {
+      final deadline = _PollDeadlineHarness(tester);
+      await deadline.run(() async {
+        final closeAt = deadline.now().add(const Duration(minutes: 5));
+        await pumpPoll(tester, poll(closeAt: closeAt), clock: deadline.now);
+        final oldTimer = deadline.activeTimers.single;
+        await pumpPoll(
+          tester,
+          poll(closeAt: closeAt, status: PollStatus.closed),
+          clock: deadline.now,
+        );
+        expect(oldTimer.isActive, isFalse);
+        expect(find.text('This poll is closed.'), findsOneWidget);
+        await deadline.expectIdle();
+
+        await pumpPoll(tester, poll(closeAt: closeAt), clock: deadline.now);
+        expect(find.text('Open'), findsOneWidget);
+        expect(deadline.activeTimers, hasLength(1));
+        await tester.pump(closeAt.difference(deadline.now()));
+        expect(find.text('This poll is closed.'), findsOneWidget);
+        await deadline.expectIdle();
+      });
+    });
+
+    testWidgets('already closed polls stay idle', (tester) async {
+      final deadline = _PollDeadlineHarness(tester);
+      await deadline.run(() async {
+        final now = deadline.now();
+        for (final value in [
+          poll(closeAt: now),
+          poll(closeAt: now.subtract(const Duration(days: 1))),
+          poll(
+            status: PollStatus.closed,
+            closeAt: now.add(const Duration(days: 1)),
+          ),
+        ]) {
+          await pumpPoll(tester, value, clock: deadline.now);
+          expect(find.text('This poll is closed.'), findsOneWidget);
+          await deadline.expectIdle();
+        }
+      });
+    });
+
+    testWidgets('disposing a retained card cancels its pending deadline', (
+      tester,
+    ) async {
+      final deadline = _PollDeadlineHarness(tester);
+      await deadline.run(() async {
+        await pumpPoll(
+          tester,
+          poll(closeAt: deadline.now().add(const Duration(seconds: 10))),
+          clock: deadline.now,
+        );
+        final timer = deadline.activeTimers.single;
+        await tester.pumpWidget(const SizedBox.shrink());
+        expect(timer.isActive, isFalse);
+        await deadline.expectIdle();
+        expect(tester.takeException(), isNull);
+      });
+    });
+
+    testWidgets(
+      'fixed now stays frozen and switching clocks replaces the wakeup',
+      (tester) async {
+        final deadline = _PollDeadlineHarness(tester);
+        await deadline.run(() async {
+          final start = deadline.now();
+          final closeAt = start.add(const Duration(minutes: 5));
+          final value = poll(closeAt: closeAt);
+          await pumpPoll(tester, value, now: start, clock: deadline.now);
+          expect(find.text('Open'), findsOneWidget);
+          await deadline.expectIdle();
+
+          await pumpPoll(tester, value, clock: deadline.now);
+          final timer = deadline.activeTimers.single;
+          await pumpPoll(tester, value, now: start, clock: deadline.now);
+          expect(timer.isActive, isFalse);
+          await tester.pump(const Duration(minutes: 10));
+          expect(find.text('Open'), findsOneWidget);
+          await deadline.expectIdle();
+
+          await pumpPoll(tester, value, now: closeAt, clock: deadline.now);
+          expect(find.text('This poll is closed.'), findsOneWidget);
+          await deadline.expectIdle();
+          await pumpPoll(tester, value, clock: deadline.now);
+          expect(find.text('This poll is closed.'), findsOneWidget);
+          await deadline.expectIdle();
+        });
+      },
+    );
+
+    testWidgets('a clock replacement reschedules the retained card deadline', (
+      tester,
+    ) async {
+      final deadline = _PollDeadlineHarness(tester);
+      await deadline.run(() async {
+        final value = poll(
+          closeAt: deadline.now().add(const Duration(seconds: 10)),
+        );
+        await pumpPoll(tester, value, clock: deadline.now);
+        final oldTimer = deadline.activeTimers.single;
+        await pumpPoll(
+          tester,
+          value,
+          clock: () => deadline.now().add(const Duration(seconds: 5)),
+        );
+        expect(oldTimer.isActive, isFalse);
+        expect(deadline.activeTimers, hasLength(1));
+        await tester.pump(const Duration(seconds: 5));
+        expect(find.text('This poll is closed.'), findsOneWidget);
+        await deadline.expectIdle();
+      });
+    });
+
+    testWidgets('a clock moving back reschedules until the actual deadline', (
+      tester,
+    ) async {
+      final deadline = _PollDeadlineHarness(tester);
+      await deadline.run(() async {
+        var offset = Duration.zero;
+        await pumpPoll(
+          tester,
+          poll(closeAt: deadline.now().add(const Duration(seconds: 10))),
+          clock: () => deadline.now().add(offset),
+        );
+        offset = const Duration(seconds: -5);
+        await tester.pump(const Duration(seconds: 10));
+        expect(find.text('Open'), findsOneWidget);
+        expect(deadline.activeTimers, hasLength(1));
+        await tester.pump(const Duration(seconds: 5));
+        expect(find.text('This poll is closed.'), findsOneWidget);
+        await deadline.expectIdle();
+      });
+    });
+
+    testWidgets(
+      'fractional millisecond deadlines close within one millisecond',
+      (tester) async {
+        final deadline = _PollDeadlineHarness(tester);
+        await deadline.run(() async {
+          await pumpPoll(
+            tester,
+            poll(
+              closeAt: deadline.now().add(const Duration(microseconds: 1500)),
+            ),
+            clock: deadline.now,
+          );
+          expect(deadline.activeTimers, hasLength(1));
+          await tester.pump(const Duration(milliseconds: 1));
+          expect(find.text('Open'), findsOneWidget);
+          await tester.pump(const Duration(milliseconds: 1));
+          expect(find.text('This poll is closed.'), findsOneWidget);
+          await deadline.expectIdle();
+        });
+      },
+    );
+  });
+
   group('voting eligibility', () {
     testWidgets('matches group names case-insensitively', (tester) async {
       List<String>? cast;
@@ -583,4 +958,53 @@ void main() {
       expect(find.text('0'), findsNothing);
     });
   });
+}
+
+class _PollDeadlineHarness {
+  _PollDeadlineHarness(this.tester);
+
+  final WidgetTester tester;
+  final List<Timer> _timers = [];
+  int _clockReads = 0;
+
+  Iterable<Timer> get activeTimers => _timers.where((timer) => timer.isActive);
+
+  DateTime now() {
+    _clockReads++;
+    return tester.binding.clock.now();
+  }
+
+  Future<void> run(Future<void> Function() body) => runZoned(
+    () async {
+      try {
+        await body();
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    },
+    zoneSpecification: ZoneSpecification(
+      createTimer: (self, parent, zone, duration, callback) {
+        final timer = parent.createTimer(zone, duration, callback);
+        _timers.add(timer);
+        return timer;
+      },
+    ),
+  );
+
+  Future<void> expectIdle() async {
+    final reads = _clockReads;
+    expect(activeTimers, isEmpty);
+    // Bounded pumps catch stray refreshes without hiding a zero-delay loop in
+    // pumpAndSettle. Counting clock reads also catches unnecessary rebuilds.
+    for (final duration in [
+      Duration.zero,
+      const Duration(milliseconds: 1),
+      const Duration(seconds: 30),
+    ]) {
+      await tester.pump(duration);
+      expect(activeTimers, isEmpty);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      expect(_clockReads, reads);
+    }
+  }
 }

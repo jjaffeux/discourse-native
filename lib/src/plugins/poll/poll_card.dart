@@ -30,6 +30,7 @@ class PollCard extends StatefulWidget {
     this.onVoteOnWeb,
     this.onConnectAccount,
     this.now,
+    this.clock,
   });
 
   final Poll poll;
@@ -54,7 +55,11 @@ class PollCard extends StatefulWidget {
 
   final VoidCallback? onConnectAccount;
 
+  /// A fixed instant for tests and previews. Disables automatic expiry refresh.
   final DateTime? now;
+
+  /// Clock for live deadline evaluation; [now] takes precedence when supplied.
+  final DateTime Function()? clock;
 
   @override
   State<PollCard> createState() => _PollCardState();
@@ -63,6 +68,7 @@ class PollCard extends StatefulWidget {
 class _PollCardState extends State<PollCard> {
   late Set<String> _selection;
   String? _plainTitle;
+  Timer? _closeTimer;
   var _submitting = false;
 
   Poll get _poll => widget.poll;
@@ -73,7 +79,7 @@ class _PollCardState extends State<PollCard> {
 
   bool get _isRankedChoice => _poll.type == PollType.rankedChoice;
 
-  DateTime get _now => widget.now ?? DateTime.now();
+  DateTime get _now => widget.now ?? widget.clock?.call() ?? DateTime.now();
 
   bool get _automaticallyClosed =>
       _poll.closeAt != null && !_poll.closeAt!.isAfter(_now);
@@ -100,11 +106,19 @@ class _PollCardState extends State<PollCard> {
     super.initState();
     _selection = _savedSelection;
     _plainTitle = _poll.title == null ? null : _plainText(_poll.title!);
+    _scheduleCloseRefresh();
   }
 
   @override
   void didUpdateWidget(PollCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.poll.closeAt != _poll.closeAt ||
+        oldWidget.poll.status != _poll.status ||
+        oldWidget.now != widget.now ||
+        oldWidget.clock != widget.clock) {
+      _scheduleCloseRefresh();
+    }
 
     if (oldWidget.poll.title != _poll.title) {
       _plainTitle = _poll.title == null ? null : _plainText(_poll.title!);
@@ -126,6 +140,37 @@ class _PollCardState extends State<PollCard> {
     } else {
       _selection.removeWhere((id) => !newOptions.contains(id));
     }
+  }
+
+  @override
+  void dispose() {
+    _closeTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleCloseRefresh() {
+    _closeTimer?.cancel();
+    _closeTimer = null;
+    final closeAt = _poll.closeAt;
+    if (widget.now != null || !_poll.isOpen || closeAt == null) return;
+
+    final remaining = closeAt.difference(_now);
+    if (remaining <= Duration.zero) return;
+
+    // Timers use milliseconds. Round up so a fractional millisecond cannot
+    // wake the card before the deadline and leave its controls enabled.
+    final delay = Duration(
+      milliseconds:
+          (remaining.inMicroseconds / Duration.microsecondsPerMillisecond)
+              .ceil(),
+    );
+    _closeTimer = Timer(delay, () {
+      if (!mounted) return;
+      setState(() {});
+      // Recheck wall time in case the clock moved back while waiting. Once
+      // closed, the card stays idle and server updates still own result data.
+      _scheduleCloseRefresh();
+    });
   }
 
   String? get _voteRestriction {
