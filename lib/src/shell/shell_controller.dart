@@ -780,6 +780,8 @@ class ShellController extends FrameSafeNotifier
     api: api.drafts,
     credentials: authenticator,
     lifecycle: lifecycle,
+    deleteDraft: (siteUrl, draft, isCurrent) =>
+        _composerDrafts.deleteListedDraft(siteUrl, draft, isCurrent),
   );
 
   late final UserSummaryController userSummary = UserSummaryController(

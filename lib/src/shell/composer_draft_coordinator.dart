@@ -93,6 +93,8 @@ final class ComposerDraftCoordinator {
   final Map<_DraftSessionKey, _RetiredDraftSaves> _retiredSaves = {};
   final Map<_DraftSessionKey, Object> _saveRequests = {};
   final Map<_DraftSessionKey, Future<void>> _operations = {};
+  final Map<_DraftSessionKey, Future<void>> _listedDeletions = {};
+  final Map<_DraftSessionKey, int> _deletedGenerations = {};
   final Set<_DraftSessionKey> _knownServerDrafts = {};
   final Set<_DraftSessionKey> _draftsCreatedAfterCachedCount = {};
   final Map<String, int> _sequences = {};
@@ -128,6 +130,98 @@ final class ComposerDraftCoordinator {
 
   Future<bool>? restoreTaskFor(ComposerController composer) =>
       _restoreTasks[composer];
+
+  Future<void> deleteListedDraft(
+    String siteUrl,
+    UserDraft draft,
+    bool Function() requestIsCurrent,
+  ) {
+    final lease = _lifecycle.capture(siteUrl);
+    final key = (siteUrl: siteUrl, draftKey: draft.key, session: lease.session);
+    final generation = _generation;
+    final recoveryGeneration = _latestGenerations[key];
+    bool isCurrent() => !_isDisposed() && lease.isCurrent && requestIsCurrent();
+    bool ownsRecovery() =>
+        isCurrent() && _latestGenerations[key] == recoveryGeneration;
+
+    final task = () async {
+      // A retired controller may still have a second save to enqueue. Drain
+      // it before joining the same queue, without holding up its own saves.
+      await _retiredSaves[key]?.task;
+      if (!isCurrent()) return;
+      await _serialize<void>(key, () async {
+        if (!isCurrent()) return;
+        final credential = await _readCredential(siteUrl);
+        if (!isCurrent()) return;
+        if (credential.failure case final failure?) throw failure;
+
+        final topicId = draft.key.startsWith('topic_')
+            ? int.tryParse(draft.key.substring('topic_'.length))
+            : null;
+        final target = topicId != null && draft.key == 'topic_$topicId'
+            ? ComposerTarget(
+                siteUrl: siteUrl,
+                topicId: topicId,
+                slug: '',
+                topicTitle: '',
+              )
+            : null;
+        final sequenceKey = _sequenceKey(siteUrl, draft.key);
+        final sequence = _sequences[sequenceKey] ?? 0;
+        if (sequence > draft.sequence ||
+            (target != null && _readCachedSequence(target) > draft.sequence)) {
+          throw const WriteException(WriteFailure.validation);
+        }
+        await _draftsApi.deleteUserDraft(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          draftKey: draft.key,
+          sequence: draft.sequence,
+        );
+        if (!isCurrent()) return;
+        final cleared = await _localStore.clearChecked(
+          siteUrl,
+          draft.key,
+          ifCurrent: ownsRecovery,
+        );
+        if (!isCurrent()) return;
+        if (!cleared && ownsRecovery()) throw const DraftWriteException();
+
+        if (target != null && _readCachedSequence(target) <= draft.sequence) {
+          _writeCachedDraft(target, null, draft.sequence);
+        }
+        if (!isCurrent()) return;
+        _sequences.update(
+          sequenceKey,
+          (sequence) => sequence > draft.sequence ? sequence : draft.sequence,
+          ifAbsent: () => draft.sequence,
+        );
+        if (target != null) {
+          _commitSequence(target, _readCachedSequence(target));
+        }
+        _knownServerDrafts.remove(key);
+        _draftsCreatedAfterCachedCount.remove(key);
+        // Saves which had not reached the queue must not recreate this
+        // snapshot. A current composer can claim a newer generation as usual.
+        _deletedGenerations[key] = generation;
+        if (ownsRecovery()) _latestGenerations[key] = ++_generation;
+      });
+    }();
+    _listedDeletions[key] = task;
+    void finished() {
+      if (identical(_listedDeletions[key], task)) {
+        final _ = _listedDeletions.remove(key);
+      }
+    }
+
+    unawaited(
+      task.then(
+        (_) => finished(),
+        onError: (Object _, StackTrace _) => finished(),
+      ),
+    );
+    return task;
+  }
 
   void startRestore(ComposerController composer) {
     final restore = _restoreDraft(composer);
@@ -242,6 +336,8 @@ final class ComposerDraftCoordinator {
   void forgetSite(String siteUrl) {
     _saveRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
     _operations.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _listedDeletions.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _deletedGenerations.removeWhere((key, _) => key.siteUrl == siteUrl);
     _retiredSaves.removeWhere((key, _) => key.siteUrl == siteUrl);
     _latestGenerations.removeWhere((key, _) => key.siteUrl == siteUrl);
     _knownServerDrafts.removeWhere((key) => key.siteUrl == siteUrl);
@@ -528,6 +624,7 @@ final class ComposerDraftCoordinator {
       ifCurrent: () =>
           save.isCurrent() &&
           session._lease.isCurrent &&
+          generation > (_deletedGenerations[key] ?? -1) &&
           _latestGenerations[key] == generation,
     );
   }
@@ -542,6 +639,7 @@ final class ComposerDraftCoordinator {
     final key = session._keyFor(target);
     final generation = _claimGeneration(key, session);
     bool ownsLatestGeneration() => _latestGenerations[key] == generation;
+    bool wasDeleted() => generation <= (_deletedGenerations[key] ?? -1);
 
     // Preserve the local-first durability guarantee even when an older
     // controller is still draining. Its later queued writes are generation
@@ -554,7 +652,10 @@ final class ComposerDraftCoordinator {
           target.draftKey,
           data,
           ifCurrent: () =>
-              save.isCurrent() && ownsLatestGeneration() && lease.commit(() {}),
+              save.isCurrent() &&
+              !wasDeleted() &&
+              ownsLatestGeneration() &&
+              lease.commit(() {}),
         );
       } on DraftWriteException catch (error) {
         failure = error;
@@ -565,7 +666,6 @@ final class ComposerDraftCoordinator {
     }();
 
     await _waitForRetiredSaves(target, session);
-    final localFailure = await localWrite;
     if (!lease.isCurrent || !save.isCurrent()) return null;
 
     final request = Object();
@@ -573,7 +673,12 @@ final class ComposerDraftCoordinator {
 
     return _serialize<int?>(key, () async {
       try {
-        if (!lease.commit(() {})) return null;
+        // Reserve this save's place before a slow local write completes, so
+        // deleting an older list row cannot overtake it.
+        final localFailure = await localWrite;
+        if (!lease.commit(() {}) || !save.isCurrent() || wasDeleted()) {
+          return null;
+        }
 
         // After the sync has given up, the local copy above is the whole save:
         // the site is not asked again, and the copy is not cleared.
@@ -651,12 +756,25 @@ final class ComposerDraftCoordinator {
     });
   }
 
-  Future<bool> _restoreDraft(ComposerController composer) async {
+  Future<bool> _restoreDraft(
+    ComposerController composer, {
+    int? startingRevision,
+  }) async {
     final target = composer.target;
     final lease = _lifecycle.capture(target.siteUrl);
-    final startingRevision = composer.draftRevision;
+    startingRevision ??= composer.draftRevision;
+    final key = _sessions[composer]?._keyFor(target);
 
     bool isCurrent() => lease.isCurrent && _isCurrent(composer);
+
+    final deletion = _listedDeletions[key];
+    if (deletion != null) {
+      try {
+        await deletion;
+      } catch (_) {}
+      if (!isCurrent()) return true;
+    }
+    final deletedGeneration = _deletedGenerations[key];
 
     // The local copy exists only while the site does not have the text, so if
     // there is one it is the newer of the two by construction.
@@ -705,6 +823,10 @@ final class ComposerDraftCoordinator {
       }
     }
     if (!isCurrent()) return true;
+    if (_listedDeletions.containsKey(key) ||
+        _deletedGenerations[key] != deletedGeneration) {
+      return _restoreDraft(composer, startingRevision: startingRevision);
+    }
     lease.commit(() {
       if (!_isCurrentComposer(composer)) return;
       if (target.createsTopic && remoteSequence > 0) {
