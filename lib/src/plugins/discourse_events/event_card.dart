@@ -494,7 +494,7 @@ class _Avatar extends StatelessWidget {
           fallback: ColoredBox(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: Center(
-              child: Text(user.username.substring(0, 1).toUpperCase()),
+              child: Text(user.username.characters.first.toUpperCase()),
             ),
           ),
         ),
