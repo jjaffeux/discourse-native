@@ -188,6 +188,8 @@ final class _EventCalendarState extends State<EventCalendar> {
         ? null
         : (values) => onChanged(values.single),
     style: SegmentedButton.styleFrom(
+      selectedBackgroundColor: Theme.of(context).colorScheme.primary,
+      selectedForegroundColor: Theme.of(context).colorScheme.onPrimary,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       visualDensity: VisualDensity.compact,
