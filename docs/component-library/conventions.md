@@ -39,9 +39,14 @@ ordinary Material themes. `AppTheme` maps the real site palette into this
 extension. Generic components read tokens during build; do not cache palette
 colors in initState, route closures, or overlay entries. `DSpacing` and
 `DMotion` supply shared geometry and motion. Typography uses the existing
-semantic `Theme.of(context).textTheme` roles; do not scale font sizes manually.
-The site's radius, contrast policy, and native conventions take precedence over
-literal web CSS. Avoid hardcoded light/dark swatches in reusable components.
+unscaled `DiscourseTypography` size tokens with each shadcn component's explicit
+leading, weight and tracking. Theme text roles supply font families, not substitute
+component metrics. Do not scale font sizes manually. Map the configured site
+palette, font and radius into shadcn's semantic variables and relative radius
+scale. Preserve contrast and native interaction without replacing the reference
+appearance with Material or Cupertino defaults. A deviation needs a concrete
+conflict and a specific rationale. Follow [visual fidelity](visual-fidelity.md).
+Avoid hardcoded light/dark swatches in reusable components.
 
 Use logical constraints, directional padding/alignment and intrinsic text
 height. Pointer layouts may be compact while touch controls retain accessible
@@ -93,7 +98,10 @@ meaningful focused interaction/regression tests, including downstream consumers
 when shared primitives change. Run affected compatibility-package checks as
 needed. Do not update unrelated lockfiles or the Flutter pin (3.47.2).
 Inspect the running styleguide and changed app surfaces in representative
-palettes and viewport sizes. Temporary local-data fixtures that mount the real
+palettes and viewport sizes. Compare the rendered component with the official
+reference at matching width, text scale and state; passing interaction and
+overflow tests alone does not establish visual fidelity. Temporary local-data
+fixtures that mount the real
 production widgets can exercise migrated loading, empty, error and ready states
 without changing account data. Record the actual surfaces inspected alongside
 the styleguide examples. Report exactly which platforms and interactions

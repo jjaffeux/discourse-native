@@ -1349,9 +1349,41 @@
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
     "nativeInspectionTaskId": "01a0821b-27cc-7013-affb-99cae203b2a8",
     "nativeInspectionQueue": [
+      "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
       "01a08213-b4ca-77e1-a2aa-8a490808243e",
       "01a08213-9960-79f1-8d90-9626f24a4b5a",
       "01a0825a-9fe1-7700-878c-f448801c0851"
-    ]
+    ],
+    "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready."
+  },
+  "visualFidelity": {
+    "status": "in_progress",
+    "clarification": "I basically want a copy of shadcn library for our app if it was not clear",
+    "taskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
+    "branch": "codex/ui-shadcn-fidelity",
+    "referenceStyle": "base-nova; frozen original Typography examples",
+    "acceptanceCriteria": [
+      "Match reference geometry, explicit typography metrics, semantic colors, relative radii, borders, artwork, states and motion; idiomatic Flutter interaction owners do not justify a different visual design.",
+      "Recheck merged Direction, Typography and Separator; correct unjustified differences and inspect actual rendered examples before merging corrections.",
+      "Require official registry/source mappings and rendered visual comparison in every current and future component task."
+    ],
+    "decisions": [
+      "Direction owns no intrinsic visual styling. Separator source confirms a one-pixel square-ended border-colored horizontal/vertical rule, matching the implementation.",
+      "Typography corrections restore 800-weight h1, tight heading tracking, 28px paragraph leading, 14px Small leading, reference inline-code padding, list indentation, base text in lists/quotes/tables and heading-specific article gaps.",
+      "Kbd, Spinner, Skeleton and Label tasks received the clarified design specification before merge. Native desktop inspections remain serialized."
+    ],
+    "verification": [
+      "Official frozen Typography Markdown preserved verbatim with original SHA256; Separator registry source captured and hashed with upstream MIT license.",
+      "Initial focused typography, four-palette examples, nonlinear text scaling and adoption checks: 17 passed. Static analysis passed without diagnostics.",
+      "Final impact run covered Typography, all styleguide groups, scaling boundary, adoption guard, Settings, Add-a-site and Poll: 73 passed, one existing styleguide navigation test needed its outer scroll position targeted explicitly after note/preview geometry changed (seed 446229861). The repaired Typography preview test passed (seed 3779910838); no production scrolling behavior changed.",
+      "The final run includes the new original-text specimen and balanced-heading layout check. flutter analyze --no-pub passed with no diagnostics.",
+      "Isolated macOS build completed at /private/tmp/discourse-shadcn-fidelity.4xigijr8/app/build/macos/Build/Products/Debug/Shadcn Fidelity Review.app using real Settings, EmptyState and Poll fixtures with in-memory stores. Native visual inspection is pending the shared desktop slot."
+    ],
+    "limitations": [
+      "Native visual comparison of the corrected typography is pending; no code merge is approved yet. iOS/Linux device inspection and VoiceOver speech were not performed for this follow-up."
+    ],
+    "implementationCommit": "9fa7b99575d64610f63974b0a9f8061d9c3b2eff",
+    "mergeCommit": null,
+    "nativeInspectionStatus": "queued"
   }
 }

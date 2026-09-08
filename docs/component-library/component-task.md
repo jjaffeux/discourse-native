@@ -4,12 +4,18 @@ You are implementing exactly the catalogue component assigned by the coordinator
 Read `brief.md`, `conventions.md`, `catalogue.json`, `progress.json`, and the
 current code. Your worktree starts from the latest local main. Keep this task
 focused on its assigned component and necessary shared/downstream changes.
+The user wants a Flutter copy of shadcn. Read [visual-fidelity.md](visual-fidelity.md)
+and reproduce its appearance as well as behavior; native interaction owners do
+not justify substituting Material or Cupertino visual styles.
 
 1. Create branch `codex/ui-<component>` (unless the coordinator supplied another
    branch). Read the assigned official reference page, documented variants,
    examples and API, and relevant dependency docs. Consult the frozen sections
    and prop values so every capability remains accounted for. Define concrete
    acceptance criteria and native adaptations in your progress row first.
+   Inspect the official registry/source for the reference styling, record its
+   URL and content hash, and map sizes, padding/gaps, typography, radii, borders,
+   shadows, colors, icons, states and motion to the Flutter implementation.
 2. Implement complete idiomatic Flutter behavior, composition and states using
    shared conventions. Adopt suitable existing primitives, not a new parallel
    rendering owner. Keep all networking and business state outside UI.
@@ -27,7 +33,9 @@ focused on its assigned component and necessary shared/downstream changes.
    migration and any deliberately retained alternative with a reason.
 6. Format, analyze, run focused meaningful tests for the component, migrations
    and affected shared code. Inspect the running styleguide and affected app
-   screens at relevant widths and representative themes. Temporary local-data
+   screens at relevant widths and representative themes. Compare actual renders
+   with the reference and correct unintended visual differences. Record the
+   comparison conditions and any remaining difference explicitly. Temporary local-data
    fixtures may mount the actual migrated app widgets for this inspection;
    record which real surfaces were exercised. Clearly distinguish
    tests, macOS inspection and unavailable iOS/Linux device checks. Fix failures
