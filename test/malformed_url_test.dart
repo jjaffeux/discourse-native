@@ -27,6 +27,8 @@ void main() {
   final readers = <String, bool Function(String)>{
     'topic': (value) => TopicLink.parse('/t/$value/1') == null,
     'category': (value) => ListLink.parse('/c/$value/1') == null,
+    'category query': (value) =>
+        ListLink.parse('/c/todo/5?assigned=$value') == null,
     'group': (value) => GroupRoute.parse('/g/$value') == null,
     'assigned group': (value) =>
         AssignedGroupLink.parse('/g/$value/assigned') == null,

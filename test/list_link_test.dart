@@ -25,6 +25,36 @@ void main() {
       expect(read('/c/12'), 'category::12:/c/12.json');
     });
 
+    test('reads a category named only by slug', () {
+      expect(read('/c/todo'), 'category:todo:null:/c/todo.json');
+    });
+
+    test('preserves query filters in category and tag feeds', () {
+      for (final path in ['/c/todo', '/c/todo/5', '/tag/tasks']) {
+        final link = ListLink.parse('$path/?status=open&assigned=nobody')!;
+
+        expect(
+          link.feedPath,
+          '$path.json?status=open&assigned=nobody',
+          reason: path,
+        );
+      }
+    });
+
+    test('preserves repeated and encoded filters without the fragment', () {
+      const query = 'tags[]=ux&tags[]=help%20wanted&title=a%26b%3Fc';
+      final link = ListLink.parse('/c/todo?$query#heading')!;
+
+      expect(
+        link.feedPath,
+        '/c/todo.json?tags%5B%5D=ux&tags%5B%5D=help%20wanted&title=a%26b%3Fc',
+      );
+      expect(Uri.parse(link.feedPath).queryParametersAll, {
+        'tags[]': ['ux', 'help wanted'],
+        'title': ['a&b?c'],
+      });
+    });
+
     test('reads a tag', () {
       expect(read('/tag/ux/3'), 'tag:ux:3:/tag/ux/3.json');
     });
@@ -74,6 +104,9 @@ void main() {
     });
 
     test('refuses a filtered list', () {
+      expect(read('/c/bug/l/top'), '-');
+      expect(read('/c/bug/none'), '-');
+      expect(read('/c/bug/subcategories'), '-');
       expect(read('/c/bug/5/l/top'), '-');
       expect(read('/c/bug/5/l/latest'), '-');
       expect(read('/c/bug/5/none'), '-');
@@ -82,7 +115,7 @@ void main() {
     });
 
     test('refuses everything that is not a list', () {
-      expect(read('/c/bug'), '-');
+      expect(read('/c'), '-');
       expect(read('/tags'), '-');
       expect(read('/tags/c/bug/5/ux'), '-');
       expect(read('/t/a-slug/9'), '-');
