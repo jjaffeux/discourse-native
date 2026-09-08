@@ -143,6 +143,7 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
           child: TextField(
+            style: Theme.of(context).textTheme.bodyMedium,
             key: const ValueKey('voice-diagnostics-search'),
             controller: _search,
             decoration: InputDecoration(
@@ -435,7 +436,6 @@ class _CaptureControls extends StatelessWidget {
                 'redacted. Restarting the app turns recording off.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.35,
                 ),
               ),
               const SizedBox(height: 10),
@@ -704,7 +704,6 @@ class _CaptureEventDetail extends StatelessWidget {
                       fontFamily: entry.value is Map || entry.value is Iterable
                           ? 'monospace'
                           : null,
-                      height: 1.35,
                     ),
                   ),
                 ],

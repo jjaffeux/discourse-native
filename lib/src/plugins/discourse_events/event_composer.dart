@@ -360,6 +360,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
   Widget _field(String name) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 6),
     child: TextField(
+      style: Theme.of(context).textTheme.bodyMedium,
       controller: _fields[name],
       decoration: InputDecoration(
         labelText: _textFields[name] ?? name,
@@ -482,6 +483,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
             _field('url'),
             _field('location'),
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               controller: _description,
               minLines: 3,
               maxLines: 8,

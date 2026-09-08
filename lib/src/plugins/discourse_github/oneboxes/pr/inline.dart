@@ -29,7 +29,7 @@ class GithubPullRequestInlineOnebox {
         builder: (context) {
           final fontSize =
               DefaultTextStyle.of(context).style.fontSize ??
-              DiscourseTypography.fontDown1;
+              DiscourseTypography.sm;
           return DIcon(status.icon, size: fontSize * 1.2, color: status.color);
         },
       ),

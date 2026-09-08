@@ -313,7 +313,8 @@ final class _EventCalendarState extends State<EventCalendar> {
   Widget _buildCalendar() {
     final rowHeight = math.max(
       26.0,
-      MediaQuery.textScalerOf(context).scale(DiscourseTypography.fontDown1) +
+      MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
+              DiscourseTypography.lineHeightSmall +
           10,
     );
     final tiles = kalender.TileComponents(tileBuilder: _tile);
@@ -597,9 +598,8 @@ final class _EventCalendarState extends State<EventCalendar> {
                   overflow: timeline
                       ? TextOverflow.clip
                       : TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: foreground,
-                    fontSize: DiscourseTypography.fontDown1,
                     fontWeight: block ? FontWeight.normal : FontWeight.w600,
                   ),
                 );

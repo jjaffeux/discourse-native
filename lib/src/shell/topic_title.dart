@@ -327,8 +327,6 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
                 key: const ValueKey('topic-header-title-edit-hint'),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: DiscourseTypography.fontDown2,
-                  height: DiscourseTypography.lineHeightCooked,
                 ),
               ),
             ),
@@ -423,9 +421,7 @@ class _TopicTitleEditingController extends TextEditingController {
             child: SiteEmojiImage(
               siteUrl: siteUrl,
               name: name,
-              size:
-                  (style?.fontSize ?? DiscourseTypography.fontDown1) *
-                  emojiScale,
+              size: (style?.fontSize ?? DiscourseTypography.sm) * emojiScale,
               alt: '',
               style: style,
             ),

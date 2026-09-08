@@ -190,7 +190,7 @@ void main() {
       final labels = tester.widgetList<Text>(find.text('AduForum')).toList();
       expect(
         labels.map((label) => label.style?.fontSize),
-        containsAll([DiscourseTypography.base, DiscourseTypography.fontUp1]),
+        containsAll([DiscourseTypography.sm, DiscourseTypography.base]),
       );
       expect(
         labels.map((label) => label.style?.color),

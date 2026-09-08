@@ -78,6 +78,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
             Semantics(
               isRequired: true,
               child: TextField(
+                style: Theme.of(context).textTheme.bodyMedium,
                 controller: _name,
                 autofocus: true,
                 onChanged: (_) => setState(() {}),
@@ -88,6 +89,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
               ),
             ),
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               controller: _description,
               decoration: const InputDecoration(labelText: 'Description'),
               minLines: 2,
@@ -109,6 +111,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
               title: const Text('Allow video'),
             ),
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               controller: _maximum,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
@@ -128,6 +131,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
               ],
             ),
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               controller: _chatChannel,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
@@ -135,6 +139,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
               ),
             ),
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               controller: _chatIdle,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'Chat idle minutes'),

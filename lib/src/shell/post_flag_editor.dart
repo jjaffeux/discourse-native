@@ -279,6 +279,7 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
               if (selected?.requireMessage == true) ...[
                 const SizedBox(height: 12),
                 TextField(
+                  style: Theme.of(context).textTheme.bodyMedium,
                   key: const ValueKey('post-flag-message'),
                   controller: _message,
                   focusNode: _messageFocus,

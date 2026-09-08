@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/plugins/discourse_events/event_calendar.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_calendar_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kalender/kalender.dart' as kalender;
@@ -50,6 +51,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        theme: AppTheme.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) => MediaQuery(
@@ -173,7 +175,7 @@ void main() {
   testWidgets(
     'a narrow window with large text keeps all navigation reachable',
     (tester) async {
-      await pump(tester, [event(1)], size: const Size(320, 780), scale: 1.8);
+      await pump(tester, [event(1)], size: const Size(320, 780), scale: 2);
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('Day'));
       await tester.pumpAndSettle();

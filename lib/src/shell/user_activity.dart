@@ -287,7 +287,7 @@ class UserActivityRow extends StatelessWidget {
                                 siteUrl: siteUrl,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleMedium?.copyWith(
+                                style: theme.textTheme.titleSmall?.copyWith(
                                   color: theme.colorScheme.primary,
                                   fontWeight: FontWeight.w500,
                                 ),

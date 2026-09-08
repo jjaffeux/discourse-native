@@ -411,7 +411,7 @@ class _NestedThreadListRowState extends State<_NestedThreadListRow> {
                           title,
                           maxLines: compact ? 2 : 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
+                          style: theme.textTheme.titleSmall?.copyWith(
                             color: theme.colorScheme.onSurface,
                             fontWeight: unread
                                 ? FontWeight.w700

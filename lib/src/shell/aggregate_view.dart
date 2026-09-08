@@ -529,7 +529,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
             padding: const EdgeInsets.all(24),
             child: Text(
               'No forums available',
-              style: theme.textTheme.bodySmall?.copyWith(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -603,7 +603,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
                                       forum.title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodySmall
+                                      style: theme.textTheme.bodyMedium
                                           ?.copyWith(
                                             color: forum.isConnected
                                                 ? null
@@ -617,7 +617,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
                                         'Sign in to include',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.bodySmall
+                                        style: theme.textTheme.bodyMedium
                                             ?.copyWith(
                                               color: theme.disabledColor,
                                             ),
@@ -678,8 +678,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
     return Padding(
       key: const ValueKey('aggregate-filter-forum-controls'),
       padding: const EdgeInsets.fromLTRB(10, 5, 10, 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
+      child: Wrap(
         children: [
           DButton(
             key: const ValueKey('aggregate-filter-select-all'),
@@ -709,7 +708,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
           padding: const EdgeInsets.all(24),
           child: Text(
             'Connect a forum to configure its filter.',
-            style: theme.textTheme.bodySmall?.copyWith(
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -758,7 +757,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
           Text(
             helper,
             key: const ValueKey('aggregate-filter-editor-helper'),
-            style: theme.textTheme.bodySmall?.copyWith(
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),

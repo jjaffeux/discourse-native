@@ -813,7 +813,6 @@ class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
-                                  height: 1.3,
                                 ),
                               ),
                             ],

@@ -554,12 +554,7 @@ class _UsersPageState extends State<UsersPage> {
               vertical: 24,
             ),
             titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-            title: Text(
-              'Directory columns',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            title: Text('Directory columns', style: theme.textTheme.titleLarge),
             contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             content: SizedBox(
               key: const ValueKey('users-manage-columns-content'),
@@ -589,7 +584,6 @@ class _UsersPageState extends State<UsersPage> {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
-                            height: 1.2,
                           ),
                         ),
                         subtitle: Text(
@@ -602,7 +596,6 @@ class _UsersPageState extends State<UsersPage> {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
-                            height: 1.2,
                           ),
                         ),
                         secondary: Row(
@@ -1144,7 +1137,7 @@ class _ToolbarButton extends StatelessWidget {
                 ),
                 child: Text(
                   '$count',
-                  style: theme.textTheme.labelSmall?.copyWith(
+                  style: theme.textTheme.labelMedium?.copyWith(
                     color: theme.colorScheme.onPrimaryContainer,
                   ),
                 ),
@@ -1932,7 +1925,7 @@ class _HeaderButton extends StatelessWidget {
                           alignment == AlignmentDirectional.centerEnd
                       ? TextAlign.right
                       : TextAlign.left,
-                  style: theme.textTheme.labelSmall?.copyWith(
+                  style: theme.textTheme.labelMedium?.copyWith(
                     color: sorted ? palette.ink : palette.faint,
                     fontWeight: FontWeight.w600,
                   ),
@@ -2100,7 +2093,7 @@ class _IdentityRow extends StatelessWidget {
                                 ),
                                 child: Text(
                                   group,
-                                  style: Theme.of(context).textTheme.labelSmall
+                                  style: Theme.of(context).textTheme.labelMedium
                                       ?.copyWith(
                                         color: palette.green,
                                         fontWeight: FontWeight.w600,
@@ -2146,7 +2139,7 @@ class _AvatarFallback extends StatelessWidget {
     color: palette.avatarFor(user.id),
     child: Text(
       _initials(user),
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
         color: palette.dark,
         fontWeight: FontWeight.w600,
       ),

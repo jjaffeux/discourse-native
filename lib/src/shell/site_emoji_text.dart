@@ -144,9 +144,7 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
           child: SiteEmojiImage(
             siteUrl: widget.siteUrl,
             name: resolved.name,
-            size:
-                (emojiStyle.fontSize ?? DiscourseTypography.fontDown1) *
-                emojiScale,
+            size: (emojiStyle.fontSize ?? DiscourseTypography.sm) * emojiScale,
             alt: match.group(0)!,
             style: emojiStyle,
           ),

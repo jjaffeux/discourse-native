@@ -100,9 +100,7 @@ class _DialogHeader extends StatelessWidget {
         Expanded(
           child: Text(
             'Search GIFs',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.titleLarge,
           ),
         ),
         IconButton(
@@ -169,6 +167,7 @@ class _GifPickerState extends State<GifPicker> {
       AnimatedBuilder(
         animation: widget.controller,
         builder: (context, _) => TextField(
+          style: Theme.of(context).textTheme.bodyMedium,
           key: const ValueKey('gif-picker-search'),
           controller: _search,
           focusNode: _searchFocus,

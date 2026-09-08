@@ -715,6 +715,9 @@ void main() {
         400,
         scrollable: find.byType(Scrollable),
       );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Load more'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Load more'));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
@@ -763,6 +766,9 @@ void main() {
       expect(find.text('No drafts yet'), findsNothing);
       expect(find.text('Load more'), findsOneWidget);
 
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Load more'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Load more'));
       await tester.pumpAndSettle();
 

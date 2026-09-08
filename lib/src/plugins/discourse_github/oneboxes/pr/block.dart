@@ -41,7 +41,7 @@ class GithubPullRequestOnebox extends StatelessWidget {
                 children: [
                   Text(
                     data.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    style: theme.textTheme.titleSmall?.copyWith(
                       color: theme.colorScheme.primary,
                     ),
                   ),

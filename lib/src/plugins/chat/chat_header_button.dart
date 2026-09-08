@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_shell.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -162,7 +161,6 @@ class _UrgentBadge extends StatelessWidget {
         label,
         style: theme.textTheme.labelSmall?.copyWith(
           color: Colors.white,
-          fontSize: DiscourseTypography.fontDown3,
           height: 1,
           fontWeight: FontWeight.w700,
         ),

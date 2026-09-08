@@ -30,6 +30,8 @@ class DSelectField<T> extends StatelessWidget {
     return DropdownButtonFormField<T>(
       initialValue: initialValue,
       items: items,
+      style: theme.textTheme.bodyMedium,
+      itemHeight: null,
       onChanged: onChanged,
       decoration: decoration,
       isExpanded: isExpanded,
@@ -71,6 +73,8 @@ class DSelect<T> extends StatelessWidget {
     return DropdownButton<T>(
       value: value,
       items: items,
+      style: theme.textTheme.bodyMedium,
+      itemHeight: null,
       onChanged: onChanged,
       isExpanded: isExpanded,
       elevation: 8,

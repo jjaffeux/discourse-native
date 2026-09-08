@@ -41,7 +41,7 @@ class UserMenuMessage extends StatelessWidget {
                         child: Text(
                           message,
                           textAlign: TextAlign.center,
-                          style: theme.textTheme.bodySmall?.copyWith(
+                          style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
@@ -50,7 +50,7 @@ class UserMenuMessage extends StatelessWidget {
                       Text(
                         message,
                         textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),

@@ -578,7 +578,7 @@ abstract final class AppTheme {
     final modalShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(borderRadius),
     );
-    final textTheme = _discourseTextTheme(
+    final textTheme = DiscourseTypography.textTheme(
       ThemeData(colorScheme: resolvedColorScheme).textTheme,
     );
     final buttonShape = RoundedRectangleBorder(
@@ -596,9 +596,7 @@ abstract final class AppTheme {
         ),
       ),
       shape: WidgetStatePropertyAll(buttonShape),
-      textStyle: const WidgetStatePropertyAll(
-        TextStyle(fontWeight: FontWeight.normal),
-      ),
+      textStyle: WidgetStatePropertyAll(textTheme.labelLarge),
       // Flutter's desktop density removes eight pixels of vertical padding,
       // making ordinary actions look substantially smaller than DButtons.
       // Compact toolbars opt into compact density at their own call sites.
@@ -658,6 +656,20 @@ abstract final class AppTheme {
         primaryContrastingColor: resolvedColorScheme.onPrimary,
         barBackgroundColor: shell.sidebar,
         scaffoldBackgroundColor: shell.content,
+        textTheme: CupertinoTextThemeData(
+          textStyle: textTheme.bodyMedium,
+          actionTextStyle: textTheme.labelLarge?.copyWith(
+            color: resolvedColorScheme.primary,
+          ),
+          tabLabelTextStyle: textTheme.labelSmall,
+          navTitleTextStyle: textTheme.titleMedium,
+          navLargeTitleTextStyle: textTheme.headlineMedium,
+          navActionTextStyle: textTheme.labelLarge?.copyWith(
+            color: resolvedColorScheme.primary,
+          ),
+          pickerTextStyle: textTheme.bodyLarge,
+          dateTimePickerTextStyle: textTheme.bodyLarge,
+        ),
         selectionHandleColor: resolvedColorScheme.primary,
         // Modern iOS and macOS both apply the accent to controls such as
         // switches. Flutter leaves this off by default for compatibility.
@@ -698,11 +710,13 @@ abstract final class AppTheme {
         shadowColor: Colors.black.withValues(alpha: 0.4),
         surfaceTintColor: Colors.transparent,
         textStyle: textTheme.bodyMedium,
+        labelTextStyle: WidgetStatePropertyAll(textTheme.bodyMedium),
         position: PopupMenuPosition.under,
       ),
       menuTheme: MenuThemeData(style: menuStyle),
       menuButtonTheme: MenuButtonThemeData(
         style: ButtonStyle(
+          textStyle: WidgetStatePropertyAll(textTheme.bodyMedium),
           minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -726,13 +740,46 @@ abstract final class AppTheme {
         textStyle: textTheme.bodyMedium,
         menuStyle: menuStyle,
       ),
+      appBarTheme: AppBarThemeData(titleTextStyle: textTheme.titleMedium),
+      listTileTheme: ListTileThemeData(
+        titleTextStyle: textTheme.bodyMedium,
+        subtitleTextStyle: textTheme.bodySmall,
+        leadingAndTrailingTextStyle: textTheme.bodySmall,
+      ),
+      inputDecorationTheme: InputDecorationThemeData(
+        labelStyle: textTheme.bodyMedium,
+        floatingLabelStyle: textTheme.bodyLarge,
+        hintStyle: textTheme.bodyMedium?.copyWith(
+          color: resolvedColorScheme.onSurfaceVariant,
+        ),
+        helperStyle: textTheme.bodySmall,
+        errorStyle: textTheme.bodySmall?.copyWith(
+          color: resolvedColorScheme.error,
+        ),
+      ),
+      dataTableTheme: DataTableThemeData(
+        headingTextStyle: textTheme.labelLarge,
+        dataTextStyle: textTheme.bodyMedium,
+        dataRowMinHeight: kMinInteractiveDimension,
+        dataRowMaxHeight: double.infinity,
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelStyle: textTheme.labelLarge,
+        unselectedLabelStyle: textTheme.labelLarge,
+      ),
+      chipTheme: ChipThemeData(labelStyle: textTheme.labelMedium),
+      snackBarTheme: SnackBarThemeData(
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: resolvedColorScheme.onInverseSurface,
+        ),
+      ),
       tooltipTheme: TooltipThemeData(
         constraints: DTooltip.defaultConstraints,
         padding: DTooltip.defaultPadding,
         margin: DTooltip.defaultMargin,
         verticalOffset: DTooltip.defaultVerticalOffset,
         decoration: tooltipDecoration,
-        textStyle: textTheme.bodySmall?.copyWith(
+        textStyle: textTheme.bodyMedium?.copyWith(
           color: resolvedColorScheme.onSurface,
           fontWeight: FontWeight.normal,
         ),
@@ -743,9 +790,9 @@ abstract final class AppTheme {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: shell.content,
-        titleTextStyle: textTheme.headlineSmall?.copyWith(
+        titleTextStyle: textTheme.titleLarge?.copyWith(
           color: resolvedColorScheme.onSurface,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
         contentTextStyle: textTheme.bodyMedium?.copyWith(
           color: resolvedColorScheme.onSurface,
@@ -760,6 +807,7 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(style: buttonGeometry),
       outlinedButtonTheme: OutlinedButtonThemeData(style: buttonGeometry),
+      elevatedButtonTheme: ElevatedButtonThemeData(style: buttonGeometry),
       textButtonTheme: TextButtonThemeData(style: buttonGeometry),
       bottomSheetTheme: BottomSheetThemeData(
         modalBackgroundColor: shell.content,
@@ -776,95 +824,6 @@ abstract final class AppTheme {
       ),
     );
   }
-
-  static TextTheme _discourseTextTheme(TextTheme base) => TextTheme(
-    displayLarge: _textStyle(
-      base.displayLarge,
-      DiscourseTypography.fontUp6,
-      DiscourseTypography.lineHeightMedium,
-    ),
-    displayMedium: _textStyle(
-      base.displayMedium,
-      DiscourseTypography.fontUp5,
-      DiscourseTypography.lineHeightMedium,
-    ),
-    displaySmall: _textStyle(
-      base.displaySmall,
-      DiscourseTypography.fontUp4,
-      DiscourseTypography.lineHeightMedium,
-    ),
-    headlineLarge: _textStyle(
-      base.headlineLarge,
-      DiscourseTypography.fontUp4,
-      DiscourseTypography.lineHeightMedium,
-    ),
-    headlineMedium: _textStyle(
-      base.headlineMedium,
-      DiscourseTypography.fontUp3,
-      DiscourseTypography.lineHeightMedium,
-    ),
-    headlineSmall: _textStyle(
-      base.headlineSmall,
-      DiscourseTypography.fontUp3,
-      DiscourseTypography.lineHeightMedium,
-    ),
-    titleLarge: _textStyle(
-      base.titleLarge,
-      DiscourseTypography.fontUp2,
-      DiscourseTypography.lineHeightMedium,
-    ),
-    titleMedium: _textStyle(
-      base.titleMedium,
-      DiscourseTypography.fontUp1,
-      DiscourseTypography.lineHeightMedium,
-    ),
-    titleSmall: _textStyle(
-      base.titleSmall,
-      DiscourseTypography.base,
-      DiscourseTypography.lineHeightMedium,
-    ),
-    bodyLarge: _textStyle(
-      base.bodyLarge,
-      DiscourseTypography.base,
-      DiscourseTypography.lineHeightLarge,
-    ),
-    bodyMedium: _textStyle(
-      base.bodyMedium,
-      DiscourseTypography.base,
-      DiscourseTypography.lineHeightLarge,
-    ),
-    bodySmall: _textStyle(
-      base.bodySmall,
-      DiscourseTypography.fontDown1,
-      DiscourseTypography.lineHeightLarge,
-    ),
-    labelLarge: _textStyle(
-      base.labelLarge,
-      DiscourseTypography.base,
-      DiscourseTypography.lineHeightMedium,
-    ),
-    labelMedium: _textStyle(
-      base.labelMedium,
-      DiscourseTypography.fontDown1,
-      DiscourseTypography.lineHeightLarge,
-    ),
-    labelSmall: _textStyle(
-      base.labelSmall,
-      DiscourseTypography.fontDown2,
-      DiscourseTypography.lineHeightMedium,
-    ),
-  );
-
-  static TextStyle? _textStyle(
-    TextStyle? base,
-    double fontSize,
-    double height,
-  ) => base?.copyWith(
-    fontSize: fontSize,
-    fontWeight: FontWeight.normal,
-    height: height,
-    letterSpacing: 0,
-  );
 
   static ColorScheme _fallbackColorScheme(
     Brightness brightness,

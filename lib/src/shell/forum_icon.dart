@@ -25,12 +25,16 @@ class ForumIcon extends StatelessWidget {
             color: forum.accentColor.withValues(alpha: 0.16),
             child: SizedBox.square(
               dimension: size,
-              child: Center(
-                child: Text(
-                  forum.monogram,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    forum.monogram,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ),

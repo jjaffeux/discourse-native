@@ -606,7 +606,7 @@ void main() {
         paragraphOf(tester, 'virtual tour'),
         contains('virtual tour\u{fffc}'),
       );
-      expect(styleOf(tester, '9').fontSize, DiscourseTypography.fontDown2);
+      expect(styleOf(tester, '9').fontSize, DiscourseTypography.xs);
       expect(styleOf(tester, '9').color, AppTheme.dark.discourse.whisper);
     });
 
@@ -1540,20 +1540,13 @@ void main() {
       ].join(),
     );
 
-    final expected = [
-      DiscourseTypography.fontUp3,
-      DiscourseTypography.fontUp2,
-      DiscourseTypography.fontUp1,
-      DiscourseTypography.base,
-      DiscourseTypography.fontDown1,
-      DiscourseTypography.fontDown2,
-    ];
+    final expected = [30.0, 24.0, 20.0, 18.0, 16.0, 14.0];
     for (var level = 1; level <= 6; level++) {
       final style = styleOf(tester, 'Heading $level');
       expect(style.fontSize, expected[level - 1], reason: 'heading $level');
       expect(
         style.height,
-        closeTo(DiscourseTypography.lineHeightMedium, 0.0001),
+        closeTo(DiscourseTypography.headingLineHeight(level), 0.0001),
         reason: 'heading $level',
       );
     }

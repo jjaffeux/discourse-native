@@ -439,7 +439,7 @@ class ReactionGrid extends StatelessWidget {
         child: Text(
           'Still finding out which reactions this site allows.',
           textAlign: TextAlign.center,
-          style: theme.textTheme.bodySmall?.copyWith(
+          style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),

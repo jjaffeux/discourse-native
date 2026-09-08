@@ -33,7 +33,7 @@ class DiscourseCategoryOnebox extends StatelessWidget {
             children: [
               Text(
                 data.name,
-                style: theme.textTheme.titleMedium?.copyWith(
+                style: theme.textTheme.titleSmall?.copyWith(
                   color: theme.colorScheme.primary,
                 ),
               ),

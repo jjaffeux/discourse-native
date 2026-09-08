@@ -1151,7 +1151,6 @@ class _Badge extends StatelessWidget {
         style: theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.onError,
           fontWeight: FontWeight.w700,
-          height: 1.2,
         ),
       ),
     );

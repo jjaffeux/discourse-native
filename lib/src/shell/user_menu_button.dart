@@ -331,7 +331,6 @@ class _UnreadBadge extends StatelessWidget {
         style: theme.textTheme.labelSmall?.copyWith(
           color: foreground,
           fontWeight: FontWeight.w700,
-          height: 1.2,
         ),
       ),
     );

@@ -7,16 +7,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('button sizes use the modular type scale', () {
-    expect(
-      DButton.fontSizeFor(DButtonSize.small),
-      DiscourseTypography.fontDown1,
-    );
-    expect(DButton.fontSizeFor(DButtonSize.regular), DiscourseTypography.base);
-    expect(DButton.fontSizeFor(DButtonSize.large), DiscourseTypography.fontUp1);
+  test('button sizes keep the same control typography', () {
+    for (final size in DButtonSize.values) {
+      expect(DButton.fontSizeFor(size), DiscourseTypography.sm);
+    }
   });
 
-  testWidgets('text buttons use core font-relative geometry', (tester) async {
+  testWidgets('button sizes change spacing while keeping control typography', (
+    tester,
+  ) async {
     for (final size in DButtonSize.values) {
       await tester.pumpWidget(
         MaterialApp(
@@ -33,22 +32,30 @@ void main() {
         ),
       );
 
-      final fontSize = DButton.fontSizeFor(size);
+      final spacingUnit = switch (size) {
+        DButtonSize.small => 14.0,
+        DButtonSize.regular => 16.0,
+        DButtonSize.large => 18.0,
+      };
       final rendered = find.byType(FilledButton);
       final style = tester.widget<FilledButton>(rendered).style!;
 
       expect(
         style.padding!.resolve({}),
         EdgeInsets.symmetric(
-          horizontal: fontSize * 0.65 + 1,
-          vertical: fontSize * 0.5 + 1,
+          horizontal: spacingUnit * 0.65 + 1,
+          vertical: spacingUnit * 0.5 + 1,
         ),
       );
       expect(style.minimumSize!.resolve({}), Size.zero);
-      expect(style.textStyle!.resolve({})?.height, 1.2);
+      expect(style.textStyle!.resolve({})?.fontSize, 14);
+      expect(
+        style.textStyle!.resolve({})?.height,
+        DiscourseTypography.lineHeightSmall,
+      );
       expect(
         tester.getSize(rendered).height,
-        moreOrLessEquals(fontSize * 2.2 + 2, epsilon: 0.5),
+        moreOrLessEquals(20 + spacingUnit + 2, epsilon: 0.5),
       );
     }
   });
@@ -270,7 +277,7 @@ void main() {
     final message = find.text('Reply to this topic');
     expect(
       DefaultTextStyle.of(tester.element(message)).style.fontSize,
-      AppTheme.dark.textTheme.bodySmall?.fontSize,
+      AppTheme.dark.textTheme.bodyMedium?.fontSize,
     );
     expect(find.byType(DKbd), findsNWidgets(2));
     expect(find.text('⇧'), findsOneWidget);
@@ -406,11 +413,11 @@ void main() {
             final rendered = find.byType(FilledButton);
             expect(
               tester.getSize(rendered).width,
-              moreOrLessEquals(fontSize * 2.3 + 2),
+              moreOrLessEquals(fontSize + 16 * 1.3 + 2),
             );
             expect(
               tester.getSize(rendered).height,
-              moreOrLessEquals(fontSize * 2 + 2),
+              moreOrLessEquals(fontSize + 16 + 2),
             );
             expect(rendered, paintsExactlyCountTimes(#drawParagraph, 0));
             expect(find.byType(CircularProgressIndicator), findsOneWidget);

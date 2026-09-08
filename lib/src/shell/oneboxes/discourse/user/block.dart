@@ -41,7 +41,7 @@ class DiscourseUserOnebox extends StatelessWidget {
             children: [
               Text(
                 data.username,
-                style: theme.textTheme.titleMedium?.copyWith(
+                style: theme.textTheme.titleSmall?.copyWith(
                   color: theme.colorScheme.primary,
                 ),
               ),

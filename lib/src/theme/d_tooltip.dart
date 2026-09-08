@@ -97,7 +97,7 @@ class _TooltipSurface extends StatelessWidget {
     final tooltip = TooltipTheme.of(context);
     final textStyle =
         tooltip.textStyle ??
-        theme.textTheme.bodySmall?.copyWith(
+        theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onInverseSurface,
         );
     final decoration =
@@ -277,7 +277,7 @@ class DKbd extends StatelessWidget {
           style: TextStyle(
             color: keyForeground,
             fontFamily: 'JetBrains Mono',
-            fontSize: DiscourseTypography.fontDown2,
+            fontSize: DiscourseTypography.xs,
             fontWeight: FontWeight.w600,
             height: 1,
           ),

@@ -357,7 +357,7 @@ class _CodeBlockState extends State<CodeBlock> {
     if (data.lines.isEmpty) return const SizedBox();
 
     final style = monospaceTextStyle.copyWith(
-      fontSize: DiscourseTypography.fontDown1,
+      fontSize: DiscourseTypography.sm,
       height: DiscourseTypography.codeLineHeight,
       color: theme.discourse.primaryVeryHigh,
     );
@@ -474,7 +474,7 @@ class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final style = monospaceTextStyle.copyWith(
-      fontSize: DiscourseTypography.fontDown1,
+      fontSize: DiscourseTypography.sm,
       height: DiscourseTypography.codeLineHeight,
       color: theme.discourse.primaryVeryHigh,
     );

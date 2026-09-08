@@ -922,7 +922,7 @@ class _ChatComposerState extends State<ChatComposer> {
                     siteUrl: widget.siteUrl,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
+                    style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -1141,8 +1141,8 @@ class _ChatComposerState extends State<ChatComposer> {
                                 );
                               },
                           hintText: hint,
-                          textStyle: theme.textTheme.bodyMedium,
-                          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                          textStyle: theme.textTheme.bodyLarge,
+                          hintStyle: theme.textTheme.bodyLarge?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),

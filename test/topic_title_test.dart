@@ -275,7 +275,7 @@ void main() {
             theme: theme,
             textScaler: const TextScaler.linear(2),
             style: const TextStyle(
-              fontSize: DiscourseTypography.fontUp3,
+              fontSize: DiscourseTypography.xxl,
               fontWeight: FontWeight.w600,
               height: 1.28,
             ),

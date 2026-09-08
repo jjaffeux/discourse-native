@@ -60,10 +60,7 @@ void main() {
       matching: find.text('Topics'),
     );
     expect(topics, findsOneWidget);
-    expect(
-      tester.widget<Text>(topics).style?.fontSize,
-      DiscourseTypography.fontDown1,
-    );
+    expect(tester.widget<Text>(topics).style?.fontSize, DiscourseTypography.sm);
     expect(
       tester
           .getSize(
@@ -101,6 +98,7 @@ void main() {
         final textRect = tester.getRect(topics);
         final rowRect = tester.getRect(row);
 
+        expect(tester.widget<Text>(topics).style?.fontSize, 14);
         expect(rowRect.height, greaterThan(size.width <= 640 ? 38.4 : 30));
         expect(textRect.top, greaterThanOrEqualTo(rowRect.top));
         expect(textRect.bottom, lessThanOrEqualTo(rowRect.bottom));

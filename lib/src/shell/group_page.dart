@@ -609,6 +609,7 @@ class _DeleteGroupDialogState extends State<_DeleteGroupDialog> {
         Text('This cannot be undone. Type “${widget.group.name}” to confirm.'),
         const SizedBox(height: 12),
         TextField(
+          style: Theme.of(context).textTheme.bodyMedium,
           key: const ValueKey('group-delete-confirmation'),
           controller: controller,
           autofocus: true,

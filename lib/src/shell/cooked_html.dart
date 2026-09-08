@@ -153,7 +153,8 @@ class CookedHtml extends StatelessWidget {
     if (headingLevel != null) {
       styles['font-size'] =
           '${DiscourseTypography.headingSize(headingLevel)}px';
-      styles['line-height'] = '${DiscourseTypography.lineHeightMedium}';
+      styles['line-height'] =
+          '${DiscourseTypography.headingLineHeight(headingLevel)}';
     }
 
     if (element.classes.contains(_linkClickCountClass)) {
@@ -162,7 +163,7 @@ class CookedHtml extends StatelessWidget {
         'border-radius': '10px',
         'color': linkCountForeground,
         'display': 'inline-block',
-        'font-size': '${DiscourseTypography.fontDown2}px',
+        'font-size': '${DiscourseTypography.xs}px',
         'font-weight': 'normal',
         'line-height': '${DiscourseTypography.lineHeightMedium}',
         'margin': '0.15em',
@@ -207,7 +208,7 @@ class CookedHtml extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = textStyle ?? theme.textTheme.bodyMedium;
+    final style = textStyle ?? theme.textTheme.bodyLarge;
     final surface = theme.colorScheme.surface;
     final horizontalRuleColor = _cssColor(
       theme.extension<ShellColors>()?.divider ?? theme.dividerColor,

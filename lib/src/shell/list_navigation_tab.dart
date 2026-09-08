@@ -99,14 +99,15 @@ class _ListNavigationTabState extends State<ListNavigationTab> {
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.visible,
-                  style: widget.textStyle?.copyWith(
-                    color: color,
-                    fontWeight: widget.selected
-                        ? widget.underline || widget.segmented
-                              ? FontWeight.w600
-                              : FontWeight.w500
-                        : FontWeight.w400,
-                  ),
+                  style: (widget.textStyle ?? theme.textTheme.labelLarge)
+                      ?.copyWith(
+                        color: color,
+                        fontWeight: widget.selected
+                            ? widget.underline || widget.segmented
+                                  ? FontWeight.w600
+                                  : FontWeight.w500
+                            : FontWeight.w400,
+                      ),
                 ),
               );
               return AnimatedContainer(
@@ -177,8 +178,6 @@ class _ListNavigationTabState extends State<ListNavigationTab> {
                             Text(
                               '${widget.count}',
                               style: theme.textTheme.labelSmall?.copyWith(
-                                fontSize: DiscourseTypography.fontDown2,
-                                height: 1.2,
                                 color: theme.colorScheme.onSurfaceVariant,
                                 fontWeight: FontWeight.w400,
                                 fontFeatures: const [

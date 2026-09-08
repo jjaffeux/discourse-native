@@ -218,7 +218,7 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
                             siteUrl: widget.siteUrl,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
+                            style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.discourse.primaryHigh,
                             ),
                           ),

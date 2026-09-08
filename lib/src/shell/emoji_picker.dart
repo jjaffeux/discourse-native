@@ -793,6 +793,7 @@ class _SearchAndTone extends StatelessWidget {
           child: Focus(
             onKeyEvent: onSearchKey,
             child: TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               key: const ValueKey('emoji-picker-search'),
               controller: search,
               focusNode: searchFocus,

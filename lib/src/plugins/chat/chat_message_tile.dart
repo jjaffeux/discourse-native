@@ -1064,7 +1064,7 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final messageTextStyle = theme.textTheme.bodyLarge?.copyWith(height: 1.4);
+    final messageTextStyle = theme.textTheme.bodyLarge;
     final messageBody = switch (message) {
       ChatMessage(canonicalReceived: true, cooked: final cooked)
           when cooked.isNotEmpty =>
@@ -1324,7 +1324,6 @@ class _Header extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodyLarge?.copyWith(
-                height: 1.4,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1401,7 +1400,7 @@ class _ReplyIndicator extends StatelessWidget {
               children: [
                 DIcon(
                   DIcons.share,
-                  size: DiscourseTypography.fontDown1,
+                  size: DiscourseTypography.sm,
                   color: theme.discourse.primaryLowMid,
                 ),
                 const SizedBox(width: 8),
@@ -1420,7 +1419,7 @@ class _ReplyIndicator extends StatelessWidget {
                     siteUrl: siteUrl,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
+                    style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.discourse.primaryHigh,
                     ),
                   ),
@@ -1958,12 +1957,10 @@ class _Tag extends StatelessWidget {
       child: Text(
         isBot ? label.toUpperCase() : label,
         style: isBot
-            ? TextStyle(
+            ? Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: color,
-                fontSize: DiscourseTypography.fontDown3,
-                height: DiscourseTypography.lineHeightMedium,
                 fontWeight: FontWeight.w700,
-                letterSpacing: DiscourseTypography.fontDown3 * 0.1,
+                letterSpacing: DiscourseTypography.xs * 0.1,
               )
             : Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
       ),

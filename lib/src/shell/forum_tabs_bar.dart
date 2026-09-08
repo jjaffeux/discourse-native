@@ -76,13 +76,22 @@ class ForumTabsBar extends StatefulWidget {
 
   static const double height = 38;
 
+  static double heightFor(BuildContext context) {
+    final style = Theme.of(context).textTheme.labelMedium!;
+    final fontSize = style.fontSize!;
+    final growth =
+        (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
+        style.height!;
+    return height + math.max(0, growth);
+  }
+
   static const double minimumActionTarget = 34;
 
   static const double _tabContentInset = 4;
 
   static const double minimumTabWidth = 112 + 2 * _tabContentInset;
 
-  static const double maximumTabWidth = 184 + 2 * _tabContentInset;
+  static const double maximumTabWidth = 216 + 2 * _tabContentInset;
 
   static const double closeTargetWidth = 24;
 
@@ -196,7 +205,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     return Container(
       key: const ValueKey('forum-tabs-bar'),
       width: double.infinity,
-      height: ForumTabsBar.height,
+      height: ForumTabsBar.heightFor(context),
       decoration: BoxDecoration(color: theme.shell.sidebar),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(4, 3, 5, 0),
@@ -727,7 +736,7 @@ class _TabSwitcherRow extends StatelessWidget {
     final foreground = selected
         ? theme.colorScheme.primary
         : theme.colorScheme.onSurfaceVariant;
-    final labelStyle = theme.textTheme.bodySmall?.copyWith(
+    final labelStyle = theme.textTheme.bodyMedium?.copyWith(
       fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
     );
     final title = switch (item.siteUrl) {
@@ -1020,7 +1029,7 @@ class _ForumTabDragFeedback extends StatelessWidget {
       shape: const _ForumTabShape(selected: true),
       child: SizedBox(
         width: width,
-        height: ForumTabsBar.height - 3,
+        height: ForumTabsBar.heightFor(context) - 3,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
@@ -1040,7 +1049,6 @@ class _ForumTabDragFeedback extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: theme.colorScheme.onSurface,
-                    fontSize: DiscourseTypography.fontDown2,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
@@ -1308,9 +1316,14 @@ class _ForumTabState extends State<_ForumTab> {
 
     return Container(
       key: ValueKey('forum-tab-badge-${widget.item.id}'),
-      height: 18,
+      height: math.max(
+        18,
+        MediaQuery.textScalerOf(context).scale(DiscourseTypography.xs) *
+                DiscourseTypography.lineHeightCaption +
+            2,
+      ),
       constraints: const BoxConstraints(minWidth: 19),
-      padding: const EdgeInsets.symmetric(horizontal: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: badge.urgent ? theme.colorScheme.error : theme.shell.selected,
@@ -1322,24 +1335,35 @@ class _ForumTabState extends State<_ForumTab> {
           color: badge.urgent
               ? theme.colorScheme.onError
               : theme.colorScheme.primary,
-          fontSize: DiscourseTypography.fontDown3,
           fontWeight: FontWeight.w700,
-          height: 1,
         ),
       ),
     );
   }
 
-  bool _badgeFits(double selectWidth, {required bool hasPrefix}) {
+  bool _badgeFits(
+    BuildContext context,
+    double selectWidth, {
+    required bool hasPrefix,
+  }) {
     final badge = widget.item.badge;
     if (!badge.isVisible) return false;
     // Select padding consumes 9px. A prefix and its gap consume another 22px.
     final leadingWidth = hasPrefix ? 31 : 9;
     if (badge.dot) return selectWidth >= leadingWidth + _dotGap + 8;
-    final estimatedBadgeWidth = math.max(
-      19,
-      badge.count.toString().length * 6 + 10,
-    );
+    final painter = TextPainter(
+      text: TextSpan(
+        text: '${badge.count}',
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final estimatedBadgeWidth = math.max(19, painter.width + 10);
+    painter.dispose();
     return selectWidth >= leadingWidth + estimatedBadgeWidth;
   }
 
@@ -1352,7 +1376,6 @@ class _ForumTabState extends State<_ForumTab> {
     final prefix = _tabPrefix(context, widget.item, foreground);
     final labelStyle = theme.textTheme.labelMedium?.copyWith(
       color: foreground,
-      fontSize: DiscourseTypography.fontDown2,
       fontWeight: FontWeight.w400,
     );
     final label = switch (widget.item.siteUrl) {
@@ -1410,6 +1433,7 @@ class _ForumTabState extends State<_ForumTab> {
                         builder(context, 13),
                       if (widget.item.badge.dot &&
                           _badgeFits(
+                            context,
                             constraints.maxWidth,
                             hasPrefix: prefix != null,
                           )) ...[
@@ -1421,7 +1445,11 @@ class _ForumTabState extends State<_ForumTab> {
           ),
           if (!_renaming &&
               !widget.item.badge.dot &&
-              _badgeFits(constraints.maxWidth, hasPrefix: prefix != null))
+              _badgeFits(
+                context,
+                constraints.maxWidth,
+                hasPrefix: prefix != null,
+              ))
             _badge(context),
         ],
       ),

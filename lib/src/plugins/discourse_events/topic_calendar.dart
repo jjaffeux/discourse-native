@@ -473,7 +473,8 @@ final class _TopicCalendarState extends State<TopicCalendar> {
   Widget _buildCalendar(BuildContext context, BoxConstraints constraints) {
     final rowHeight = math.max(
       28.0,
-      MediaQuery.textScalerOf(context).scale(DiscourseTypography.fontDown1) +
+      MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
+              DiscourseTypography.lineHeightSmall +
           10,
     );
     final lanes = constraints.maxWidth < 450 ? 3 : 4;
@@ -607,7 +608,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
           '${day.day}',
           semanticsLabel:
               '${DateFormat.yMMMMEEEEd(_locale).format(day)}, ${_eventsOn(day).length} entries',
-          style: const TextStyle(fontSize: DiscourseTypography.fontDown1),
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
       ),
     );
@@ -661,10 +662,9 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                 semanticsLabel: label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: foreground,
-                  fontSize: DiscourseTypography.fontDown1,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: foreground),
               ),
             ),
           ),
@@ -702,6 +702,7 @@ final class _TimezonePickerState extends State<_TimezonePicker> {
         child: Column(
           children: [
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               decoration: const InputDecoration(labelText: 'Search timezones'),
               onChanged: (value) => setState(() => _query = value),
             ),

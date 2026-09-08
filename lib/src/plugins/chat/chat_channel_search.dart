@@ -167,6 +167,7 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
               children: [
                 Expanded(
                   child: TextField(
+                    style: Theme.of(context).textTheme.bodyMedium,
                     key: const ValueKey('chat-channel-search-field'),
                     controller: _query,
                     autofocus: true,

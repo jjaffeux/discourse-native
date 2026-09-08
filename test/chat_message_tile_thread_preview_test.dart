@@ -286,7 +286,7 @@ void main() {
           );
           final icon = tester.widget<DIcon>(iconFinder);
           expect(icon.icon, DIcons.share);
-          expect(icon.size, DiscourseTypography.fontDown1);
+          expect(icon.size, DiscourseTypography.sm);
           expect(
             icon.color,
             Theme.of(tester.element(target)).discourse.primaryLowMid,
@@ -306,7 +306,7 @@ void main() {
 
           final excerpt = tester.widget<Text>(find.text(reply.excerpt));
           final theme = Theme.of(tester.element(target));
-          expect(excerpt.style?.fontSize, DiscourseTypography.fontDown1);
+          expect(excerpt.style?.fontSize, DiscourseTypography.sm);
           expect(excerpt.style?.color, theme.discourse.primaryHigh);
           expect(
             tester.getSemantics(
@@ -522,7 +522,7 @@ void main() {
         final cooked = tester.widget<CookedHtml>(find.byType(CookedHtml));
         expect(cooked.compactParagraphs, isTrue);
         expect(cooked.textStyle?.fontSize, 16);
-        expect(cooked.textStyle?.height, 1.4);
+        expect(cooked.textStyle?.height, DiscourseTypography.lineHeightBody);
         final author = tester.widget<Text>(find.text('Root author'));
         expect(author.style?.fontSize, 16);
         expect(author.style?.fontWeight, FontWeight.w700);
@@ -689,7 +689,7 @@ void main() {
           final theme = Theme.of(tester.element(marker));
 
           expect(text.data, '(edited)');
-          expect(text.style?.fontSize, DiscourseTypography.fontDown2);
+          expect(text.style?.fontSize, DiscourseTypography.xs);
           expect(text.style?.color, theme.discourse.whisper);
           expect(
             tester.getTopLeft(marker).dy,

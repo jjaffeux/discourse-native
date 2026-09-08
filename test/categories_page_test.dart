@@ -220,9 +220,9 @@ void main() {
             matching: find.text('Ordinary topic'),
           ),
         );
-        expect(categoryTitle.style?.fontSize, DiscourseTypography.fontUp2);
+        expect(categoryTitle.style?.fontSize, DiscourseTypography.base);
         expect(categoryTitle.style?.fontWeight, FontWeight.w700);
-        expect(featuredTitle.style?.fontSize, DiscourseTypography.fontUp1);
+        expect(featuredTitle.style?.fontSize, DiscourseTypography.base);
         expect(
           featuredTitle.style?.color,
           AppTheme.light.colorScheme.onSurface,

@@ -93,7 +93,7 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
         final lineHeight =
             MediaQuery.textScalerOf(
               context,
-            ).scale(secondaryStyle?.fontSize ?? DiscourseTypography.fontDown2) *
+            ).scale(secondaryStyle?.fontSize ?? DiscourseTypography.xs) *
             (secondaryStyle?.height ?? DiscourseTypography.lineHeightMedium);
         final showTopic = constraints.maxHeight >= lineHeight * 2 + 14;
         final headerHeight = math.min(
@@ -253,7 +253,7 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
                     child: SingleChildScrollView(
                       child: Text(
                         excerpt,
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),

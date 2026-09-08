@@ -153,7 +153,7 @@ class _CategoryFilterAnchor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final optionTextStyle = Theme.of(context).textTheme.bodySmall;
+    final optionTextStyle = Theme.of(context).textTheme.bodyMedium;
     return ChoiceMenuAnchor<int>(
       title: 'Categories',
       showPopoverTitle: false,
@@ -230,7 +230,7 @@ class _SubcategoryFilterAnchor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final optionTextStyle = Theme.of(context).textTheme.bodySmall;
+    final optionTextStyle = Theme.of(context).textTheme.bodyMedium;
     return ChoiceMenuAnchor<int>(
       title: 'Subcategories of ${parent.name}',
       showPopoverTitle: false,

@@ -370,12 +370,13 @@ class DButton extends StatelessWidget {
   static const double minimumDimension = 48;
   static const double flatSurfacePadding = 4;
   static const double _borderWidth = 1;
-  static const double _textLineHeight = 1.2;
 
-  static double fontSizeFor(DButtonSize size) => switch (size) {
-    DButtonSize.small => DiscourseTypography.fontDown1,
-    DButtonSize.regular => DiscourseTypography.base,
-    DButtonSize.large => DiscourseTypography.fontUp1,
+  static double fontSizeFor(DButtonSize size) => DiscourseTypography.sm;
+
+  static double _spacingUnitFor(DButtonSize size) => switch (size) {
+    DButtonSize.small => 14,
+    DButtonSize.regular => 16,
+    DButtonSize.large => 18,
   };
 
   static double iconOnlyDimensionFor(DButtonSize size) => switch (size) {
@@ -390,6 +391,7 @@ class DButton extends StatelessWidget {
     final buttons = theme.discourseButtons;
     final variantStyle = buttons.styleFor(variant);
     final fontSize = fontSizeFor(size);
+    final spacingUnit = _spacingUnitFor(size);
     final iconOnlyDimension = iconOnlyDimensionFor(size);
     final insetIconSurface =
         _iconOnly &&
@@ -443,18 +445,12 @@ class DButton extends StatelessWidget {
                     // Core uses border-box sizing with 1px borders around its
                     // 0.5em/0.65em padding. Flutter paints borders inside the
                     // layout box, so include that space in the padding here.
-                    horizontal: fontSize * 0.65 + _borderWidth,
-                    vertical: fontSize * 0.5 + _borderWidth,
+                    horizontal: spacingUnit * 0.65 + _borderWidth,
+                    vertical: spacingUnit * 0.5 + _borderWidth,
                   )),
       ),
-      textStyle: WidgetStatePropertyAll(
-        TextStyle(
-          fontSize: fontSize,
-          fontWeight: FontWeight.normal,
-          height: _textLineHeight,
-        ),
-      ),
-      iconSize: WidgetStatePropertyAll(fontSize),
+      textStyle: WidgetStatePropertyAll(theme.textTheme.labelLarge),
+      iconSize: WidgetStatePropertyAll(spacingUnit),
       foregroundColor: WidgetStateProperty.resolveWith(
         (states) => resolveState(states).foregroundColor,
       ),

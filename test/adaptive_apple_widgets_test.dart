@@ -122,7 +122,7 @@ void main() {
     );
     expect(
       tester.getSize(find.widgetWithText(DButton, 'Cancel')).height,
-      moreOrLessEquals(37.2, epsilon: 0.5),
+      moreOrLessEquals(38, epsilon: 0.5),
     );
     final cancel = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Cancel'),

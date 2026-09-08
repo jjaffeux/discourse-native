@@ -50,13 +50,13 @@ class _MessageListNavigation extends StatelessWidget {
     ),
     builder: (context, state, _) {
       final theme = Theme.of(context);
-      final style = theme.textTheme.bodySmall;
+      final style = theme.textTheme.bodyMedium;
       final height = math.max(
         52.0,
         MediaQuery.textScalerOf(
                   context,
-                ).scale(style?.fontSize ?? DiscourseTypography.fontDown1) *
-                (style?.height ?? 1.2) +
+                ).scale(style?.fontSize ?? DiscourseTypography.sm) *
+                (style?.height ?? DiscourseTypography.lineHeightSmall) +
             18,
       );
       return ContentReadingLaneBox(

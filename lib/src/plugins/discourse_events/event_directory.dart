@@ -457,6 +457,7 @@ class _EventDirectoryState extends State<EventDirectory> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               controller: _search,
               onSubmitted: (_) => _load(),
               decoration: InputDecoration(

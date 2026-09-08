@@ -155,7 +155,7 @@ abstract final class _SidebarSpacing {
   static const double desktopRowHeight = 30;
   static const double compactRowHeight = 38.4;
   static const double desktopSectionHeaderHeight = 24;
-  static const double sectionHeaderFontSize = DiscourseTypography.fontDown3;
+  static const double sectionHeaderFontSize = DiscourseTypography.xs;
 
   static bool isCompact(BuildContext context) =>
       MediaQuery.sizeOf(context).width <= compactBreakpoint;
@@ -163,14 +163,12 @@ abstract final class _SidebarSpacing {
   static double rowHeight(BuildContext context) {
     final compact = isCompact(context);
     final minimum = compact ? compactRowHeight : desktopRowHeight;
-    final fontSize = compact
-        ? DiscourseTypography.base
-        : DiscourseTypography.fontDown1;
+    const fontSize = DiscourseTypography.sm;
     return _heightWithScaledText(
       context,
       minimum: minimum,
       fontSize: fontSize,
-      lineHeight: DiscourseTypography.lineHeightLarge,
+      lineHeight: DiscourseTypography.lineHeightSmall,
     );
   }
 
@@ -180,17 +178,13 @@ abstract final class _SidebarSpacing {
       context,
       minimum: desktopSectionHeaderHeight,
       fontSize: sectionHeaderFontSize,
-      lineHeight: DiscourseTypography.lineHeightMedium,
+      lineHeight: DiscourseTypography.lineHeightCaption,
     );
   }
 
-  static double labelFontSize(BuildContext context) => isCompact(context)
-      ? DiscourseTypography.base
-      : DiscourseTypography.fontDown1;
+  static double labelFontSize(BuildContext context) => DiscourseTypography.sm;
 
-  static double countFontSize(BuildContext context) => isCompact(context)
-      ? DiscourseTypography.fontDown1
-      : DiscourseTypography.fontDown2;
+  static double countFontSize(BuildContext context) => DiscourseTypography.xs;
 
   static double prefixArtSize(BuildContext context) =>
       isCompact(context) ? 22 : 18;
@@ -633,7 +627,7 @@ class _SidebarUserHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       key: const ValueKey('sidebar-user-header'),
-      height: shellHeaderHeight,
+      constraints: const BoxConstraints(minHeight: shellHeaderHeight),
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.shell.divider)),
@@ -745,12 +739,16 @@ class _ForumIdentityHeader extends StatelessWidget {
                     size: 24,
                     fallback: ColoredBox(
                       color: accentColor,
-                      child: Center(
-                        child: Text(
-                          monogram,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: fallbackForeground,
-                            fontWeight: FontWeight.w700,
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            monogram,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: fallbackForeground,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
@@ -771,7 +769,7 @@ class _ForumIdentityHeader extends StatelessWidget {
                       maxLines: 1,
                       softWrap: false,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
+                      style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1309,7 +1307,7 @@ class _SectionTitle extends StatelessWidget {
       _SidebarSpacing.sectionHeaderFontSize,
     );
     final scaledLineHeight =
-        scaledFontSize * DiscourseTypography.lineHeightMedium;
+        scaledFontSize * DiscourseTypography.lineHeightCaption;
     // RenderParagraph rounds its line box to a logical pixel. Base the
     // padding on that same footprint so a one-line header keeps its exact
     // existing height while wrapped text remains free to size intrinsically.

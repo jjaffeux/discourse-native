@@ -820,6 +820,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextFormField(
+            style: Theme.of(context).textTheme.bodyMedium,
             controller: _name,
             maxLength: 100,
             enabled: !_busy,
@@ -896,6 +897,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
               SizedBox(
                 width: 84,
                 child: TextField(
+                  style: Theme.of(context).textTheme.bodyMedium,
                   controller: _relative,
                   keyboardType: TextInputType.number,
                   enabled: !_busy,

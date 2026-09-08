@@ -5,7 +5,6 @@ import 'package:discourse_native/src/plugins/discourse_events/discourse_events_m
 import 'package:discourse_native/src/plugins/discourse_events/topic_calendar.dart';
 import 'package:discourse_native/src/plugins/discourse_events/topic_calendar_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/topic_calendar_plugin.dart';
-import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
@@ -29,7 +28,7 @@ void main() {
     VoidCallback? openWeb,
     TopicCalendarSettings settings = const TopicCalendarSettings(),
   }) => MaterialApp(
-    theme: ThemeData(brightness: brightness),
+    theme: brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
     home: Scaffold(
       body: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -384,6 +383,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Team availability'), findsOneWidget);
+      expect(
+        tester.getSize(find.text('Team availability')).height,
+        greaterThanOrEqualTo(40),
+      );
       expect(tester.takeException(), isNull);
       final label = tester.widget<Text>(find.text('Team availability'));
       expect(label.semanticsLabel, contains('Sep 7, 2026 – Sep 10, 2026'));

@@ -180,7 +180,7 @@ class ChatTranscriptBlock extends StatelessWidget {
             CookedHtml(
               html: data.bodyHtml,
               siteUrl: siteUrl,
-              textStyle: theme.textTheme.bodyMedium,
+              textStyle: theme.textTheme.bodyLarge,
               compactParagraphs: true,
             ),
           for (final transcript in data.nestedTranscriptsHtml)

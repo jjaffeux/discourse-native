@@ -64,8 +64,7 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(dialogContext).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: Theme.of(dialogContext).textTheme.titleLarge,
                     ),
                   ),
                   IconButton(
@@ -237,6 +236,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
             children: [
               if (!_hasEnd) ...[
                 TextField(
+                  style: Theme.of(context).textTheme.bodyMedium,
                   controller: _recurring,
                   decoration: const InputDecoration(
                     labelText: 'Recurrence (optional)',
@@ -283,6 +283,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
               ),
               const SizedBox(height: 12),
               TextField(
+                style: Theme.of(context).textTheme.bodyMedium,
                 controller: _format,
                 decoration: InputDecoration(
                   labelText: 'Moment format (optional)',
@@ -390,6 +391,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
         children: [
           Expanded(
             child: TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               controller: date,
               keyboardType: TextInputType.datetime,
               decoration: InputDecoration(labelText: '$label date'),
@@ -414,6 +416,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
           children: [
             Expanded(
               child: TextField(
+                style: Theme.of(context).textTheme.bodyMedium,
                 controller: time,
                 keyboardType: TextInputType.datetime,
                 decoration: InputDecoration(

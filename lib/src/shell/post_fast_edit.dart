@@ -129,6 +129,7 @@ class _PostFastEditorState extends State<_PostFastEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextField(
+            style: Theme.of(context).textTheme.bodyLarge,
             key: const ValueKey('fast-edit-input'),
             controller: _text,
             autofocus: true,

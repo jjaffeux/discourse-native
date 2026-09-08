@@ -349,7 +349,7 @@ class _CategoryCard extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
-                            style: theme.textTheme.titleLarge?.copyWith(
+                            style: theme.textTheme.titleSmall?.copyWith(
                               color: foreground,
                               fontWeight: FontWeight.w700,
                             ),
@@ -416,7 +416,7 @@ class _FeaturedTopicRow extends StatelessWidget {
                   siteUrl: siteUrl,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
+                  style: theme.textTheme.titleSmall?.copyWith(
                     color: theme.colorScheme.onSurface,
                   ),
                 ),
@@ -492,7 +492,7 @@ class _CategoryPageState extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: theme.textTheme.titleMedium,
+              style: theme.textTheme.titleSmall,
             ),
             if (actionLabel case final label?) ...[
               const SizedBox(height: 16),

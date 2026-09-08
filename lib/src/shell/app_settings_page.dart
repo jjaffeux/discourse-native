@@ -132,12 +132,7 @@ class _SettingsHeader extends StatelessWidget {
           Expanded(
             child: Semantics(
               header: true,
-              child: Text(
-                'Settings',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child: Text('Settings', style: theme.textTheme.titleLarge),
             ),
           ),
           DButton.iconOnly(
@@ -186,7 +181,7 @@ class _TextSizeSetting extends StatelessWidget {
         Text(
           'Applies across every forum. On desktop, use Command or Control '
           'with + or −; use the same modifier with 0 to reset.',
-          style: theme.textTheme.bodySmall?.copyWith(
+          style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),

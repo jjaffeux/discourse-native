@@ -1413,7 +1413,7 @@ class MarkdownEditingController extends TextEditingController {
     }
     if (cache.cached(url) == null) return null;
 
-    final size = (base.fontSize ?? DiscourseTypography.fontDown1) * emojiScale;
+    final size = (base.fontSize ?? DiscourseTypography.sm) * emojiScale;
     return [
       TextSpan(text: text.substring(run.start, run.end - 1), style: _hidden),
       WidgetSpan(

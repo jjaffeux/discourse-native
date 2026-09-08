@@ -250,6 +250,7 @@ class _InviteListState extends State<InviteList> {
             ),
             const SizedBox(height: 8),
             TextField(
+              style: Theme.of(context).textTheme.bodyMedium,
               controller: _search,
               maxLength: 255,
               decoration: const InputDecoration(

@@ -164,7 +164,7 @@ Widget? emojiWidgetBuilder(
         ? 32
         : compactOnlyEmoji
         ? 20
-        : (baseStyle?.fontSize ?? DiscourseTypography.fontDown1) * emojiScale,
+        : (baseStyle?.fontSize ?? DiscourseTypography.sm) * emojiScale,
     alt: element.attributes['alt'] ?? element.attributes['title'] ?? '',
     style: baseStyle,
   );

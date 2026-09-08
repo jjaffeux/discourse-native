@@ -28,6 +28,10 @@ Future<T?> showShellSheet<T>({
     return showDialog<T>(
       context: context,
       builder: (context) => Dialog(
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: MediaQuery.sizeOf(context).width < 400 ? 16 : 40,
+          vertical: 24,
+        ),
         clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
           constraints: desktopDialogConstraints,
@@ -113,14 +117,7 @@ class _SheetBody extends StatelessWidget {
                     icon: const DIcon(DIcons.arrowLeft),
                     tooltip: 'Back',
                   ),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
+                Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
                 if (!nested)
                   IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),

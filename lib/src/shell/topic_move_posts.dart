@@ -243,6 +243,7 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
   Widget _newTopicFields() => ListView(
     children: [
       TextField(
+        style: Theme.of(context).textTheme.bodyMedium,
         key: const ValueKey('topic-move-posts-title'),
         controller: _title,
         autofocus: true,
@@ -292,6 +293,7 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       TextField(
+        style: Theme.of(context).textTheme.bodyMedium,
         key: const ValueKey('topic-move-posts-search'),
         controller: _search,
         autofocus: true,

@@ -326,7 +326,7 @@ class GithubBodyText extends StatelessWidget {
         style: theme.textTheme.bodyMedium
             ?.merge(monospaceTextStyle)
             .copyWith(
-              fontSize: DiscourseTypography.fontDown1,
+              fontSize: DiscourseTypography.sm,
               height: DiscourseTypography.codeLineHeight,
               color: theme.discourse.primaryVeryHigh,
             ),

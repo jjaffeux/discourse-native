@@ -42,16 +42,9 @@ class TopicInboxRow extends StatelessWidget {
       final metadata =
           (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
               .topicListMetadata(context, siteUrl, topic);
-      final smallStyle = theme.textTheme.labelSmall?.copyWith(
-        fontSize: DiscourseTypography.fontDown2,
-        color: muted,
-      );
-      final metadataStyle = smallStyle?.copyWith(
-        fontSize: DiscourseTypography.fontDown1,
-      );
+      final smallStyle = theme.textTheme.labelSmall?.copyWith(color: muted);
+      final metadataStyle = theme.textTheme.bodyMedium?.copyWith(color: muted);
       final titleStyle = theme.textTheme.titleSmall?.copyWith(
-        fontSize: DiscourseTypography.base,
-        height: 1.45,
         fontWeight: topic.visited
             ? FontWeight.w400
             : topic.hasUnseenActivity
@@ -61,7 +54,7 @@ class TopicInboxRow extends StatelessWidget {
       );
       final titleLineHeight =
           MediaQuery.textScalerOf(context).scale(DiscourseTypography.base) *
-          1.45;
+          DiscourseTypography.lineHeightBody;
       final age = topic.bumpedAt == null ? null : relativeTime(topic.bumpedAt!);
       final preview =
           topic.excerpt ??
