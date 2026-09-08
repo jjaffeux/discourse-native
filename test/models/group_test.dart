@@ -60,6 +60,81 @@ void main() {
     },
   );
 
+  for (final scenario in [
+    (name: 'a null slot', row: null, slots: 20),
+    (name: 'a non-object slot', row: 'malformed', slots: 20),
+    (name: 'an object beyond the raw cap', row: null, slots: 21),
+  ]) {
+    test('activity preserves its raw page boundary with ${scenario.name}', () {
+      final page = GroupActivityPage.fromWire({
+        'posts': [
+          for (var id = 1; id <= scenario.slots; id++)
+            if (id == 10)
+              scenario.row
+            else
+              {
+                'id': id,
+                'topic_id': id,
+                'created_at': DateTime.utc(
+                  2026,
+                  9,
+                  1,
+                  12,
+                  0,
+                  20 - id,
+                ).toIso8601String(),
+              },
+        ],
+      }, siteUrl);
+
+      expect(page.rawPostCount, 20);
+      expect(page.posts, hasLength(19));
+      expect(page.posts.map((post) => post.id), [
+        for (var id = 1; id <= 20; id++)
+          if (id != 10) id,
+      ]);
+      expect(page.before, DateTime.utc(2026, 9, 1, 12));
+      expect(page.hasMore, isTrue);
+    });
+  }
+
+  test('activity cannot use a timestamp beyond the raw page cap', () {
+    final page = GroupActivityPage.fromWire({
+      'posts': [
+        ...List<Object?>.filled(20, null),
+        const {'id': 21, 'topic_id': 21, 'created_at': '2026-09-01T12:00:00Z'},
+      ],
+    }, siteUrl);
+
+    expect(page.rawPostCount, 20);
+    expect(page.posts, isEmpty);
+    expect(page.before, isNull);
+    expect(page.hasMore, isFalse);
+  });
+
+  for (final timestamp in [null, 'invalid']) {
+    test('mixed activity stops when its final timestamp is $timestamp', () {
+      final page = GroupActivityPage.fromWire({
+        'posts': [
+          for (var id = 1; id <= 20; id++)
+            if (id == 10)
+              null
+            else
+              {
+                'id': id,
+                'topic_id': id,
+                'created_at': id == 20 ? timestamp : '2026-09-01T12:00:00Z',
+              },
+        ],
+      }, siteUrl);
+
+      expect(page.rawPostCount, 20);
+      expect(page.posts, hasLength(19));
+      expect(page.before, isNull);
+      expect(page.hasMore, isFalse);
+    });
+  }
+
   test('detail keeps capabilities, management settings, and plugin data', () {
     final detail = GroupDetail.fromWire(
       const {

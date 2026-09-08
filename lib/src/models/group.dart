@@ -613,11 +613,15 @@ final class GroupActivityPage {
     Map<String, dynamic> json,
     String siteUrl,
   ) {
-    final rows = jsonObjects(json['posts']).take(pageSize).toList();
+    // Pagination counts raw server slots, including rows we cannot display.
+    final rows = jsonArray(
+      json['posts'],
+    ).take(pageSize).toList(growable: false);
     return GroupActivityPage(
       rawPostCount: rows.length,
       posts: List.unmodifiable([
-        for (final post in rows) GroupActivityPost.fromWire(post, siteUrl),
+        for (final post in jsonObjects(rows))
+          GroupActivityPost.fromWire(post, siteUrl),
       ]),
       categories: List.unmodifiable([
         for (final category in jsonObjects(json['categories']).take(pageSize))
