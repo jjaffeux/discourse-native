@@ -42,6 +42,12 @@ class ListLink {
     };
     if (kind == null) return null;
 
+    try {
+      final _ = uri.queryParametersAll;
+    } on FormatException {
+      return null;
+    }
+
     // Rebuilt from the segments rather than taken from `uri.path`, so a
     // trailing slash or a query string cannot end up inside the filename.
     // Re-encode each segment so decoded punctuation remains part of its name.
@@ -51,15 +57,16 @@ class ListLink {
         ...segments.take(segments.length - 1),
         '${segments.last}.json',
       ],
-    ).path;
+      query: uri.hasQuery ? uri.query : null,
+    ).toString();
     final rest = segments.sublist(1);
 
     // Anything past the id is a filter — `/l/top`, `/none`, `/subcategories` —
     // and none of them are this list.
     final id = int.tryParse(rest.last);
     if (id == null) {
-      // The only idless form Discourse still writes is `/tag/{name}`.
-      if (kind != ListKind.tag || rest.length != 1) return null;
+      // Discourse resolves single-slug category and tag links without an ID.
+      if (rest.length != 1) return null;
       return ListLink(uri: uri, kind: kind, slug: rest.first, feedPath: path);
     }
     if (id <= 0) return null;

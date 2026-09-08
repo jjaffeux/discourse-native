@@ -20,6 +20,22 @@ void main() {
   });
 
   group('ContentRoute category identity', () {
+    test('restores slug-only category lists with distinct query filters', () {
+      final open = ContentRoute.list(
+        ListLink.parse('/c/todo?status=open&assigned=nobody')!,
+      );
+      final closed = ContentRoute.list(
+        ListLink.parse('/c/todo?status=closed&assigned=nobody')!,
+      );
+      final restored = ContentRoute.fromJson(open.toJson());
+
+      expect(restored.id, open.id);
+      expect(restored.id, isNot(closed.id));
+      expect(restored.feedPath, '/c/todo.json?status=open&assigned=nobody');
+      expect(restored.isTopicList, isTrue);
+      expect(restored.title, 'Todo');
+    });
+
     test('reads top-level and nested category feed paths', () {
       expect(ContentRoute.list(ListLink.parse('/c/support/5')!).categoryId, 5);
       expect(

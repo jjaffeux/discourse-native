@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -23,6 +24,45 @@ void main() {
     expect(controller.tabsForCurrentForum, hasLength(1));
     expect(controller.currentContent?.topicId, 42);
   });
+
+  for (final newTab in [false, true]) {
+    testWidgets('opens filtered category links natively (new tab: $newTab)', (
+      tester,
+    ) async {
+      const feedPath = '/c/todo.json?status=open&assigned=nobody';
+      final api = FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [],
+          feedPath: [Topic(id: 7, title: 'Open task', slug: 'open-task')],
+        },
+      );
+      final launched = watchBrowser(tester);
+      final controller = await _pumpLink(
+        tester,
+        url: '/c/todo?status=open&assigned=nobody',
+        api: api,
+      );
+      final originalId = controller.activeTabId;
+
+      await tester.tap(
+        find.text('Open link'),
+        kind: PointerDeviceKind.mouse,
+        buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+
+      expect(launched, isEmpty);
+      expect(controller.activeTabId, originalId);
+      expect(controller.tabsForCurrentForum, hasLength(newTab ? 2 : 1));
+      if (newTab) {
+        controller.selectTab(controller.tabsForCurrentForum.last.id);
+        await tester.pumpAndSettle();
+      }
+      expect(controller.currentContent?.feedPath, feedPath);
+      expect(controller.currentFeed?.topicIds, [7]);
+      expect(api.feedPaths, ['/latest.json', feedPath]);
+    });
+  }
 
   testWidgets('middle-click falls back to the browser for an external URL', (
     tester,
@@ -119,10 +159,11 @@ Future<ShellController> _pumpLink(
   WidgetTester tester, {
   String url = '/t/a-topic/42',
   bool tabsEnabled = true,
+  FakeDiscourseApi? api,
 }) async {
   final controller = ShellController(
     instanceStore: FakeInstanceStore([instance('one.example')]),
-    api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+    api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
     authenticator: FakeAuthenticator(),
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),

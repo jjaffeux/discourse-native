@@ -404,6 +404,7 @@ class ContentRoute {
       !isTopic &&
       (TopicListMode.fromRoute(this) != null ||
           isTopicListFilter ||
+          id.startsWith('list-') ||
           id == 'bookmarks');
 
   /// Contains presentation only, never fetched content or credentials.

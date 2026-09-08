@@ -2210,6 +2210,7 @@ Every tapped link — in a post, a quote attribution, a onebox card — goes thr
 | a topic on another site in the rail       | that site, then the topic      |
 | `/u/{username}` on the site being read    | that person's card             |
 | `/c/{slug…}/{id}` — a category            | here, as a filtered topic list |
+| `/c/{slug}` — a category without an ID    | the same                       |
 | `/tag/{slug}/{id}` — a tag                | the same                       |
 | `/g/{group}/assigned/{group}` with Assign | here, as assigned topics       |
 | anything else                             | the platform browser           |
@@ -2236,11 +2237,11 @@ The two list routes are the only ones that carry their own feed path
 destination is one the sidebar already knows the address of; a category exists
 here only because a post mentioned it, so the route brings the address with it
 and `_feedPath` looks in the content stack before its own table. The path is the
-href with `.json` appended and is never rebuilt from the slug and the id — a
+href with `.json` appended to its path, retaining query filters such as
+`status=open&assigned=nobody`, and is never rebuilt from the slug and the id — a
 category's slug path is arbitrarily deep, and a tag with no slug is written
-`/tag/12-tag/12`. Only the *unfiltered* list is claimed: `/c/x/5/l/top` is a
-filter with no screen here, and showing the unfiltered list instead would be
-answering a different question.
+`/tag/12-tag/12`. Path suffixes such as `/c/x/5/l/top` still fall back to the
+browser; query filters stay part of the native feed and its saved route.
 
 ### Mentions and hashtags
 
