@@ -262,7 +262,7 @@
       "clientThreadId": "client-new-thread:b4596a22-9c59-44df-a4db-02c9bafd1d88",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2538/discourse-native",
       "baseCommit": "5fd6658b9fded22bf4b19323257c8ad822dc89eb",
-      "nativeInspectionStatus": "queued"
+      "nativeInspectionStatus": "in_progress"
     },
     {
       "id": "label",
@@ -468,7 +468,7 @@
       "clientThreadId": "client-new-thread:0c87dee9-6ef3-431f-8194-4202d98ca399",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8c25/discourse-native",
       "baseCommit": "5fd6658b9fded22bf4b19323257c8ad822dc89eb",
-      "nativeInspectionStatus": "in_progress"
+      "nativeInspectionStatus": "completed"
     },
     {
       "id": "aspect-ratio",
@@ -1283,9 +1283,8 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": "01a08213-b4ca-77e1-a2aa-8a490808243e",
+    "nativeInspectionTaskId": "01a08213-a2e5-7692-a127-f09d2a03094b",
     "nativeInspectionQueue": [
-      "01a08213-a2e5-7692-a127-f09d2a03094b",
       "01a08213-9960-79f1-8d90-9626f24a4b5a",
       "01a0821b-27cc-7013-affb-99cae203b2a8"
     ]
