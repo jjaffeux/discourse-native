@@ -255,9 +255,9 @@
     },
     {
       "id": "tooltip",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a0829c-ba0d-7282-a010-7e26f190dd4f",
+      "branch": "codex/ui-tooltip",
       "dependencies": [
         "kbd"
       ],
@@ -268,7 +268,10 @@
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "clientThreadId": "client-new-thread:11621b86-f28b-44f3-9231-27de7925eea6",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fbbd/discourse-native",
+      "baseCommit": "c00aa3ee5aa057887b73603ff94571f02e609ba6"
     },
     {
       "id": "button",

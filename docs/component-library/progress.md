@@ -14,7 +14,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 2 | typography | merged | 01a081e5-0bef-70a1-9ae3-7717028403e0 | codex/ui-typography | direction | 20f42345002e9b0946d1690acd6de6f83b7aa681 |
 | 3 | spinner | in_progress | 01a08213-9960-79f1-8d90-9626f24a4b5a | codex/ui-spinner | — | — |
 | 4 | kbd | merged | 01a0821b-27cc-7013-affb-99cae203b2a8 | codex/ui-kbd | typography | 8d0936ff13346650682f3b04e55b612074bd3f66 |
-| 5 | tooltip | planned | — | — | kbd | — |
+| 5 | tooltip | in_progress | 01a0829c-ba0d-7282-a010-7e26f190dd4f | codex/ui-tooltip | kbd | — |
 | 6 | button | planned | — | — | spinner, tooltip | — |
 | 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
 | 8 | label | in_progress | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | — |
@@ -336,6 +336,10 @@ Status: merged. Task: 01a0821b-27cc-7013-affb-99cae203b2a8. Branch: codex/ui-kbd
 - Native Command+K remains unverified: CUA super+k and Meta_L+k reached the passive Flutter diagnostic as Key K with Meta false. Logical macOS/iOS/Linux focus-shortcut tests pass. No VoiceOver speech check is claimed; native AX inspection and widget semantics checks are distinct.
 - iOS and Linux were not inspected on devices during this task; a wireless iPhone is detected on the host. Widget target-platform overrides are not device tests.
 - Default spoken key names and sequence separator are English; callers can override spoken labels and compose localized DKbdGroup content.
+
+### tooltip
+
+Status: in_progress. Task: 01a0829c-ba0d-7282-a010-7e26f190dd4f. Branch: codex/ui-tooltip.
 
 ### separator
 
