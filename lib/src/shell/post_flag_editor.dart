@@ -1,9 +1,9 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/post.dart';
 import '../models/post_flag.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'cooked_html.dart';
@@ -322,8 +322,11 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
                         ),
                   controlAffinity: ListTileControlAffinity.leading,
                   contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'What I’ve written above is accurate and complete',
+                  title: DLabel(
+                    enabled: !_saving,
+                    child: const Text(
+                      'What I’ve written above is accurate and complete',
+                    ),
                   ),
                 ),
               ],

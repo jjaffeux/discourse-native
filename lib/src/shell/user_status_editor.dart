@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_status.dart';
 import '../plugin_api/emoji_usage.dart';
-import '../theme/d_button.dart';
 import 'emoji_picker.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -360,7 +360,10 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                       },
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('Pause notifications'),
+                title: DLabel(
+                  enabled: !_busy,
+                  child: const Text('Pause notifications'),
+                ),
               ),
               if (preview != null) ...[
                 const SizedBox(height: 12),

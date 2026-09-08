@@ -73,9 +73,7 @@ void main() {
     expect(persistence.textScale, AppTextScale.percent100.name);
     expect(find.text('100%'), findsOneWidget);
 
-    await tester.tap(
-      find.byKey(const ValueKey('disable-gif-animations-switch')),
-    );
+    await tester.tap(find.text('Disable GIF animations'));
     await tester.pump();
 
     expect(controller.appSettings.disableGifAnimations, isTrue);

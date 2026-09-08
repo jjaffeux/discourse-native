@@ -91,7 +91,9 @@ class AppSettingsModal extends StatelessWidget {
                       SwitchListTile.adaptive(
                         key: const ValueKey('disable-gif-animations-switch'),
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Disable GIF animations'),
+                        title: const DLabel(
+                          child: Text('Disable GIF animations'),
+                        ),
                         subtitle: const Text(
                           'Pause GIFs by default in posts and chat messages.',
                         ),

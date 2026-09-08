@@ -201,7 +201,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
           const SizedBox(height: 8),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
-            title: const Text('End date and time'),
+            title: const DLabel(child: Text('End date and time')),
             value: _hasEnd,
             onChanged: (value) => setState(() {
               _hasEnd = value;
@@ -246,7 +246,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                 const SizedBox(height: 8),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Countdown'),
+                  title: const DLabel(child: Text('Countdown')),
                   value: _countdown,
                   onChanged: (value) => setState(() => _countdown = value),
                 ),
@@ -407,7 +407,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
       CheckboxListTile(
         contentPadding: EdgeInsets.zero,
         controlAffinity: ListTileControlAffinity.leading,
-        title: Text('$label time'),
+        title: DLabel(child: Text('$label time')),
         value: hasTime,
         onChanged: (value) => onTimeEnabled(value ?? false),
       ),

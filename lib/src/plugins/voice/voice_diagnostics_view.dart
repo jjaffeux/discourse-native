@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../discourse_ui.dart';
 import 'voice_report_exporter.dart';
 
 const int voiceDiagnosticsClipboardByteLimit = 10 * 1024 * 1024;
@@ -392,42 +392,49 @@ class _CaptureControls extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLow,
-          border: Border.all(color: theme.shell.divider),
+      child: Material(
+        color: theme.colorScheme.surfaceContainerLow,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: theme.shell.divider),
           borderRadius: BorderRadius.circular(10),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  DIcon(
-                    DIcons.circle,
-                    size: 10,
-                    color: state.enabled
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      state.enabled ? 'Recording On' : 'Recording Off',
-                      key: const ValueKey('voice-recording-state'),
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+              SwitchListTile.adaptive(
+                key: const ValueKey('voice-capture-switch'),
+                contentPadding: EdgeInsets.zero,
+                value: state.enabled,
+                onChanged: busy ? null : onCaptureChanged,
+                title: DLabel(
+                  enabled: !busy,
+                  child: Row(
+                    children: [
+                      ExcludeSemantics(
+                        child: DIcon(
+                          DIcons.circle,
+                          size: 10,
+                          color: state.enabled
+                              ? theme.colorScheme.error
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          state.enabled ? 'Recording On' : 'Recording Off',
+                          key: const ValueKey('voice-recording-state'),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  Switch(
-                    key: const ValueKey('voice-capture-switch'),
-                    value: state.enabled,
-                    onChanged: busy ? null : onCaptureChanged,
-                  ),
-                ],
+                ),
               ),
               const SizedBox(height: 4),
               Text(

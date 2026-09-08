@@ -17,7 +17,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 5 | tooltip | planned | — | — | kbd | — |
 | 6 | button | planned | — | — | spinner, tooltip | — |
 | 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
-| 8 | label | planned | — | — | typography | — |
+| 8 | label | in_progress | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | — |
 | 9 | badge | planned | — | — | spinner | — |
 | 10 | input | planned | — | — | label | — |
 | 11 | textarea | planned | — | — | label | — |
@@ -321,6 +321,53 @@ Status: merged. Task: 01a08213-a2e5-7692-a127-f09d2a03094b. Branch: codex/ui-sep
 - Authenticated core/plugin screens were not inspected in a signed-in session. Native migration evidence uses the actual date/picker/sheet widgets with local temporary fixtures, while the broader app/plugin migrations are covered by the 567 focused regression tests already listed.
 - Live theme changes in an already-open native MenuAnchor are verified by widget tests. Native palette settings normally dismiss menus on outside interaction, so manual overlay evidence covers rendering after selecting the palette, plus dismissal and preserved local state.
 - The native inspection preceded final styleguide implemented metadata and a singular-item/usage-text correction. Those non-behavioral text changes were verified by the final focused example test run and refreshed isolated build without reacquiring desktop focus.
+
+### label
+
+Status: in_progress. Task: 01a0825a-9fe1-7700-878c-f448801c0851. Branch: codex/ui-label.
+
+**acceptanceCriteria**
+
+- Account for the frozen Installation, Usage, Label in Field, RTL and API Reference sections, with hash 7263b641bac78acd5ec6cfbffefeddda484eaedb1d32b8a73a675b53da0644c2. Export DLabel through discourse_ui.dart without external runtime dependencies.
+- Match the official registry Label metrics: text-sm=14 logical pixels, font-medium=weight 500, leading-none=line height 1, gap-2=8 pixels in composed rows, zero outer padding/border/radius, select-none and disabled opacity 0.5. Preserve host font family, live DTokens foreground, inherited text scaling/direction and unconstrained wrapping.
+- Use the title/label slots of native Flutter controls for association, full-row touch activation, one accessible control name/state, one keyboard focus target, visible focus, and disabled/busy guards. Keep native InputDecoration and Form validation ownership and do not add an HTML ID registry or a second form/focus system.
+- Demonstrate basic checkbox labeling, disabled states, rich wrapping content, native form labels/descriptions/errors and submission/reset, Arabic/Hebrew RTL, and lifecycle/state retention with runnable public widgets and accurate snippets.
+- Audit core and every bundled plugin; migrate appropriate checkbox/switch label titles, preserve native field labels and non-control metadata, and document retained alternatives.
+- Format and analyze, pass focused component/example/migration/downstream tests, build and verify an isolated macOS app identity, then inspect styleguide and real migrated production surfaces only after coordinator grants the shared desktop slot.
+
+**decisions**
+
+- The official base-nova registry source renders a styled native HTML label with ordinary element props. The catalogue outline variant, horizontal orientation, and button/submit types belong to neighboring controls in the Field demo, not Label variants.
+- DLabel accepts child composition, optional TextStyle emphasis and enabled state. It derives the host font family from DText small, then explicitly applies the shadcn 14/500/1/0-letter-spacing metrics. Native CheckboxListTile/SwitchListTile/RadioListTile own control association, activation and semantics. Native InputDecoration.labelText remains the field-label owner for floating focus/error behavior; Label in Field uses Flutter Form/TextFormField.
+- The linked Base UI Label API and .md endpoint return HTTP 404 on 2026-09-08; inspected the frozen Markdown and official shadcn base-nova registry source instead. No missing API is inferred.
+- The label creates no focus target, gesture handler, overlay, animation, controller, networking or business state. Native owners retain lifecycle and interaction; disabled content uses full-subtree opacity 0.5, a forbidden pointer cursor, disabled semantics, IgnorePointer and ExcludeFocus. Callers must also disable the native control callback.
+- Visual fidelity mapping: HTML label -> DLabel content in an existing native label slot; flex items-center/gap-2 -> centered Row with 8 logical pixels for icons/spans; text-sm/font-medium/leading-none -> 14 px/500/1; select-none -> SelectionContainer.disabled; disabled opacity-50 -> Opacity(0.5); peer-disabled cursor/pointer rules -> forbidden cursor and interaction suppression. The component has no default outer padding, border, radius or background. Native control hit areas and control visuals belong to their respective controls, which are not implemented by this task.
+
+**migrations**
+
+- Core: AppSettingsModal GIF switch, Preferences linked-post notifications, InviteEditor send-email option, PostFlagEditor legal confirmation, TopicMovePosts chronological order, UserStatusEditor pause notifications, and GroupPage membership/read-state/SMTP/unknown-sender options now use DLabel. Existing permission, busy, validation and callback ownership remains unchanged.
+- Bundled plugins: Poll public-voter/automatic-close settings; Local Dates end/countdown/time options; Events all-day and dynamic boolean fields; Voice privacy acknowledgment, room options, push-to-talk and auto-status settings use DLabel.
+- VoiceDiagnosticsView replaces its unassociated caption-plus-switch Row with a native SwitchListTile using DLabel and one combined semantic control. Tapping the recording caption now enters the existing consent flow; busy/start/stop callbacks are retained. Its old DecoratedBox surface becomes Material with the same color/border/radius so native focus and ink remain visible.
+
+**retainedAlternatives**
+
+- Native InputDecoration.labelText is retained in all core and plugin editable/select fields because it already owns accessible naming, floating-label focus/error colors, descriptions and validation; replacing it with a fixed-style label would break those state visuals.
+- Core user/group/topic result lists, image selection, aggregate/feed/post selection, topic property metadata, revision section captions, badges, menu labels and action text retain their existing list/typography owners. They are selection content or descriptions rather than standalone control labels.
+- Every bundled plugin was searched: Assign and Chat use native field labels and selection/message content; Discourse AI, GitHub, Lazy Videos, GIFs, Prometheus Alert Receiver and Reactions contain no standalone input label needing replacement. GitHub issue labels are domain badges. Poll/Local Dates/Events/Voice migrations are listed above. packages/discourse_voice is a native bridge; profiles/full shares this same bundled UI and has no separate label renderer.
+
+**verification**
+
+- Frozen Label Markdown SHA256 verified as 7263b641bac78acd5ec6cfbffefeddda484eaedb1d32b8a73a675b53da0644c2; inspected https://ui.shadcn.com/docs/components/base/label and https://ui.shadcn.com/r/styles/base-nova/label.json. Linked Base UI Label HTML/.md endpoints returned HTTP 404.
+- flutter pub get --enforce-lockfile passed on Flutter 3.47.2 / Dart 3.13.2 without lockfile changes.
+- flutter analyze --no-pub passed with no issues. All touched Dart files formatted; git diff --check passed.
+- flutter test --no-pub test/ui/d_label_test.dart test/styleguide/label_examples_test.dart test/voice_diagnostics_view_test.dart test/app_settings_page_test.dart test/preferences_page_test.dart test/user_status_editor_test.dart test/invite_list_test.dart test/post_flag_editor_test.dart test/post_flag_editor_ownership_test.dart test/topic_move_posts_ownership_test.dart test/group_page_test.dart test/plugins/poll/poll_composer_sheet_test.dart test/plugins/local_dates/local_date_composer_sheet_lifecycle_test.dart test/event_composer_test.dart test/voice_room_view_test.dart test/voice_diagnostics_panel_test.dart test/styleguide/styleguide_page_test.dart test/d_button_adoption_test.dart test/ui/d_typography_test.dart --test-randomize-ordering-seed=random: 267 passed, seed 1867985777. Log: /private/tmp/ui-label-regression-tests.log.
+- After final centered rich-content mapping and test cleanup, flutter test --no-pub test/ui/d_label_test.dart test/styleguide/label_examples_test.dart --test-randomize-ordering-seed=random: 19 passed. Log: /private/tmp/ui-label-final-component-tests.log. Component checks cover native label/row and semantic activation, checked/disabled semantics, one Tab stop/Space/Shift-Tab, removal during activation, disabled descendants, non-selectability, exact text metrics, live light/dark/Forest/Plum/default themes, RTL and 200% text at 216px and 720px. Example checks cover required input naming/focus/error/save/reset, rich-label wrapping and independent terms action, RTL interactions, theme/width/scale/direction/motion state retention and Reset.
+- Built the temporary in-memory fixture target build/label-inspection/main.dart with flutter build macos --debug --no-pub. Final app: build/macos/Build/Products/Debug/Discourse Label.app. Actual Info.plist verified CFBundleName/Executable=Discourse Label, CFBundleIdentifier=org.discourse.native.label-review, URL scheme=discourse-label-review. Temporary Xcode/Info overrides were restored. Fixture mounts the real PostFlagEditor, VoiceMeshPrivacyDialog and VoiceDiagnosticsView as well as ComponentStyleguidePage. No app launch or CUA before coordinator grant.
+
+**limitations**
+
+- macOS desktop inspection is queued with the coordinator; the example group remains baseline and row remains in_progress until that evidence is complete.
+- iOS and Linux are uninspected. A wireless iPhone is detected but has not been run. No new native platform dependency is introduced.
 
 ### skeleton
 
