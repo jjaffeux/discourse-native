@@ -11,6 +11,7 @@ import '../../shell/adaptive_shell.dart';
 import '../../shell/emoji.dart';
 import '../../shell/platform.dart';
 import '../../shell/relative_time.dart';
+import '../../shell/site_emoji_text.dart';
 import '../../shell/title_bar.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_button.dart';
@@ -1258,11 +1259,12 @@ class _DrawerChannelRow extends StatelessWidget {
                                 ],
                               ),
                               const SizedBox(height: 3),
-                              Text(
+                              SiteEmojiText.plain(
                                 preview,
                                 key: ValueKey(
                                   'chat-drawer-preview-${channel.id}',
                                 ),
+                                siteUrl: siteUrl,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodySmall?.copyWith(
