@@ -9,6 +9,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/bookmark_feed.dart';
 import '../models/discourse_instance.dart';
+import '../models/json.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/notification_type_counts.dart';
@@ -27,6 +28,11 @@ typedef OtherNotificationTypes =
 typedef _GroupedUnreadAuthorityToken = ({
   int snapshotRevision,
   Map<NotificationTypeId, int> typeRevisions,
+});
+
+typedef _TotalsAuthorityToken = ({
+  Map<NotificationTotalsField, int> fields,
+  Map<PluginNotificationCounterId, int> pluginCounters,
 });
 
 final class AccountActivityController extends FrameSafeNotifier {
@@ -118,6 +124,11 @@ final class AccountActivityController extends FrameSafeNotifier {
   _pluginNotificationDismissTasks = {};
   final Map<String, int> _groupedUnreadSnapshotRevisions = {};
   final Map<(String, NotificationTypeId), int> _groupedUnreadTypeRevisions = {};
+  // Accepted confirmations can leave values unchanged or return to the
+  // request's original counts. Authority advances independently of publishing.
+  final Map<(String, NotificationTotalsField), int> _totalsFieldRevisions = {};
+  final Map<(String, PluginNotificationCounterId), int>
+  _pluginCounterRevisions = {};
 
   NotificationTotals? totalsFor(String siteUrl) => _totals[siteUrl];
 
@@ -221,6 +232,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     final request = Object();
     _totalsRequests[instance.url] = request;
     final before = _totals[instance.url] ?? const NotificationTotals();
+    final authority = _captureTotalsAuthority(instance.url);
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);
       if (apiKey == null ||
@@ -235,20 +247,41 @@ final class AccountActivityController extends FrameSafeNotifier {
       final accepted = _commit(lease, () {
         if (!identical(_totalsRequests[instance.url], request)) return;
         final current = _totals[instance.url];
+        final updatedFields = {
+          for (final field in NotificationTotalsField.values)
+            if ((_totalsFieldRevisions[(instance.url, field)] ?? 0) !=
+                authority.fields[field])
+              field,
+        };
         final resolved = current != null
             ? NotificationTotals.mergeRefresh(
                 response: totals,
                 before: before,
                 live: current,
+                updatedFields: updatedFields,
+                updatedPluginCounters: {
+                  for (final entry in _pluginCounterRevisions.entries)
+                    if (entry.key.$1 == instance.url &&
+                        entry.value !=
+                            (authority.pluginCounters[entry.key.$2] ?? 0))
+                      entry.key.$2,
+                },
               )
             : totals;
         applied = resolved;
+        if (totals.groupedUnreadNotifications.isAvailable &&
+            !updatedFields.contains(
+              NotificationTotalsField.groupedUnreadNotifications,
+            ) &&
+            (current == null ||
+                current.groupedUnreadNotifications ==
+                    before.groupedUnreadNotifications)) {
+          // An accepted response also supersedes older typed writes when its
+          // grouped count is equal. A retained live count grants no authority
+          // to the response which lost reconciliation.
+          _advanceGroupedUnreadSnapshotAuthority(instance.url);
+        }
         if (current != resolved) {
-          if (resolved.groupedUnreadNotifications.isAvailable &&
-              current?.groupedUnreadNotifications !=
-                  resolved.groupedUnreadNotifications) {
-            _advanceGroupedUnreadSnapshotAuthority(instance.url);
-          }
           _totals[instance.url] = resolved;
           _notifyTotals(instance.url, resolved);
         }
@@ -1290,6 +1323,12 @@ final class AccountActivityController extends FrameSafeNotifier {
     final updated = held.copyWith(
       groupedUnreadNotifications: NotificationTypeCounts.fromWire(updatedWire),
     );
+    // Local decrements and rollbacks supersede older totals reads without
+    // invalidating the separate authority token used to decide a rollback.
+    _advanceTotalsField(
+      siteUrl,
+      NotificationTotalsField.groupedUnreadNotifications,
+    );
     _totals[siteUrl] = updated;
     _notifyTotals(siteUrl, updated);
     return true;
@@ -1316,6 +1355,10 @@ final class AccountActivityController extends FrameSafeNotifier {
   }
 
   void _advanceGroupedUnreadSnapshotAuthority(String siteUrl) {
+    _advanceTotalsField(
+      siteUrl,
+      NotificationTotalsField.groupedUnreadNotifications,
+    );
     _groupedUnreadSnapshotRevisions.update(
       siteUrl,
       (revision) => revision + 1,
@@ -1354,6 +1397,12 @@ final class AccountActivityController extends FrameSafeNotifier {
     String siteUrl,
     Set<NotificationTypeId> typeIds,
   ) {
+    if (_totals[siteUrl]?.groupedUnreadNotifications.isAvailable == true) {
+      _advanceTotalsField(
+        siteUrl,
+        NotificationTotalsField.groupedUnreadNotifications,
+      );
+    }
     for (final typeId in typeIds) {
       _groupedUnreadTypeRevisions.update(
         (siteUrl, typeId),
@@ -1381,6 +1430,26 @@ final class AccountActivityController extends FrameSafeNotifier {
     final held = _totals[siteUrl] ?? const NotificationTotals();
     final updated = fold(held);
     if (updated == held) return;
+    if (updated.unreadNotifications != held.unreadNotifications) {
+      _advanceTotalsField(siteUrl, NotificationTotalsField.unreadNotifications);
+    }
+    if (updated.unreadPersonalMessages != held.unreadPersonalMessages) {
+      _advanceTotalsField(
+        siteUrl,
+        NotificationTotalsField.unreadPersonalMessages,
+      );
+    }
+    if (updated.unseenReviewables != held.unseenReviewables) {
+      _advanceTotalsField(siteUrl, NotificationTotalsField.unseenReviewables);
+    }
+    for (final id in {
+      ...held.pluginCounters.ids,
+      ...updated.pluginCounters.ids,
+    }) {
+      if (updated.pluginCounter(id) != held.pluginCounter(id)) {
+        _advancePluginCounter(siteUrl, id);
+      }
+    }
     if (updated.groupedUnreadNotifications != held.groupedUnreadNotifications) {
       _advanceGroupedUnreadSnapshotAuthority(siteUrl);
     }
@@ -1404,11 +1473,26 @@ final class AccountActivityController extends FrameSafeNotifier {
   }
 
   void applyLiveNotificationState(String siteUrl, Object? data) {
-    if (isDisposed) return;
-    if (data is Map &&
-        NotificationTypeCounts.fromWire(
-          data['grouped_unread_notifications'],
-        ).isAvailable) {
+    if (isDisposed || data is! Map) return;
+    final hasUnread =
+        jsonIntOrNull(data['all_unread_notifications_count']) != null;
+    final hasPersonal =
+        jsonIntOrNull(data['new_personal_messages_notifications_count']) !=
+        null;
+    final hasGrouped = NotificationTypeCounts.fromWire(
+      data['grouped_unread_notifications'],
+    ).isAvailable;
+    if (!hasUnread && !hasPersonal && !hasGrouped) return;
+    if (hasUnread) {
+      _advanceTotalsField(siteUrl, NotificationTotalsField.unreadNotifications);
+    }
+    if (hasPersonal) {
+      _advanceTotalsField(
+        siteUrl,
+        NotificationTotalsField.unreadPersonalMessages,
+      );
+    }
+    if (hasGrouped) {
       // Every grouped snapshot is a new authority boundary, even when it has
       // the same numeric values. An older local write must not clear or roll
       // back counts after a newer live snapshot has been accepted.
@@ -1416,9 +1500,22 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
     final held = _totals[siteUrl] ?? const NotificationTotals();
     final updated = held.withNotification(data);
-    if (updated == held) return;
     _totals[siteUrl] = updated;
+    if (updated == held) return;
     _notifyTotals(siteUrl, updated);
+  }
+
+  void applyReviewableCounts(String siteUrl, Object? data) {
+    if (isDisposed ||
+        data is! Map ||
+        jsonIntOrNull(data['unseen_reviewable_count']) == null) {
+      return;
+    }
+    _advanceTotalsField(siteUrl, NotificationTotalsField.unseenReviewables);
+    final held = _totals[siteUrl] ?? const NotificationTotals();
+    final updated = held.withReviewableCounts(data);
+    _totals[siteUrl] = updated;
+    if (updated != held) _notifyTotals(siteUrl, updated);
   }
 
   void applyPluginCounter(
@@ -1426,7 +1523,39 @@ final class AccountActivityController extends FrameSafeNotifier {
     PluginNotificationCounter counter,
     int Function(int current) reduce,
   ) {
-    applyCounts(siteUrl, (held) => held.updatePluginCounter(counter, reduce));
+    if (isDisposed) return;
+    final held = _totals[siteUrl] ?? const NotificationTotals();
+    final updated = held.updatePluginCounter(counter, reduce);
+    _advancePluginCounter(siteUrl, counter.id);
+    _totals[siteUrl] = updated;
+    if (updated != held) _notifyTotals(siteUrl, updated);
+  }
+
+  _TotalsAuthorityToken _captureTotalsAuthority(String siteUrl) => (
+    fields: {
+      for (final field in NotificationTotalsField.values)
+        field: _totalsFieldRevisions[(siteUrl, field)] ?? 0,
+    },
+    pluginCounters: {
+      for (final entry in _pluginCounterRevisions.entries)
+        if (entry.key.$1 == siteUrl) entry.key.$2: entry.value,
+    },
+  );
+
+  void _advanceTotalsField(String siteUrl, NotificationTotalsField field) {
+    _totalsFieldRevisions.update(
+      (siteUrl, field),
+      (revision) => revision + 1,
+      ifAbsent: () => 1,
+    );
+  }
+
+  void _advancePluginCounter(String siteUrl, PluginNotificationCounterId id) {
+    _pluginCounterRevisions.update(
+      (siteUrl, id),
+      (revision) => revision + 1,
+      ifAbsent: () => 1,
+    );
   }
 
   void forget(String siteUrl) {
@@ -1487,6 +1616,8 @@ final class AccountActivityController extends FrameSafeNotifier {
     });
     _groupedUnreadSnapshotRevisions.remove(siteUrl);
     _groupedUnreadTypeRevisions.removeWhere((key, _) => key.$1 == siteUrl);
+    _totalsFieldRevisions.removeWhere((key, _) => key.$1 == siteUrl);
+    _pluginCounterRevisions.removeWhere((key, _) => key.$1 == siteUrl);
     final changed =
         hadTotals ||
         hadNotifications ||
@@ -1624,6 +1755,8 @@ final class AccountActivityController extends FrameSafeNotifier {
     _pluginNotificationDismissTasks.clear();
     _groupedUnreadSnapshotRevisions.clear();
     _groupedUnreadTypeRevisions.clear();
+    _totalsFieldRevisions.clear();
+    _pluginCounterRevisions.clear();
     _totalsChanges.dispose();
     _notificationChanges.dispose();
     _replyNotificationChanges.dispose();
