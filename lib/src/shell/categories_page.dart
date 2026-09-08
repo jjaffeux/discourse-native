@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../models/category_feed.dart';
 import '../models/topic.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
@@ -301,13 +300,8 @@ class _CategoryCard extends StatelessWidget {
         ? theme.colorScheme.onSurfaceVariant
         : theme.colorScheme.onSurface;
 
-    return Material(
-      color: theme.shell.panel,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(7),
-        side: BorderSide(color: theme.shell.divider),
-      ),
-      clipBehavior: Clip.antiAlias,
+    return DCard(
+      spacing: 0,
       child: InkWell(
         onTap: onTap,
         child: Stack(

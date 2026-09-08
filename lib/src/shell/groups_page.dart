@@ -493,9 +493,8 @@ class _GroupDirectoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bio = (group.plainBio ?? group.bioExcerpt)?.trim();
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
+    return DCard(
+      spacing: 0,
       child: InkWell(
         onTap: onTap,
         mouseCursor: SystemMouseCursors.click,

@@ -183,8 +183,8 @@ class _ActivityRows extends StatelessWidget {
           return Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 900),
-              child: Card(
-                margin: EdgeInsets.zero,
+              child: DCard(
+                spacing: 0,
                 child: InkWell(
                   onTap: () => onOpenPost?.call(post),
                   child: Padding(
@@ -286,8 +286,8 @@ class _RequestsSection extends StatelessWidget {
           return Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 900),
-              child: Card(
-                margin: EdgeInsets.zero,
+              child: DCard(
+                spacing: 0,
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(

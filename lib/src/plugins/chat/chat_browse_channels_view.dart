@@ -336,95 +336,99 @@ class _ChannelCard extends StatelessWidget {
       ChatChannelStatus.closed => 'Closed',
       ChatChannelStatus.archived => 'Archived',
     };
-    return Card(
-      key: ValueKey('chat-browse-channel-${channel.id}'),
-      margin: const EdgeInsets.symmetric(vertical: 5),
-      child: InkWell(
-        onTap: following
-            ? () => PluginUiScope.require(
-                context,
-                chatShellService,
-              ).openChannel(channel.id)
-            : null,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: DIcon(
-                  channel.readRestricted ? DIcons.lock : DIcons.comment,
-                  color: channel.categoryColor,
-                  size: 20,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: DCard(
+        spacing: 0,
+        key: ValueKey('chat-browse-channel-${channel.id}'),
+        child: InkWell(
+          onTap: following
+              ? () => PluginUiScope.require(
+                  context,
+                  chatShellService,
+                ).openChannel(channel.id)
+              : null,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: DIcon(
+                    channel.readRestricted ? DIcons.lock : DIcons.comment,
+                    color: channel.categoryColor,
+                    size: 20,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            channel.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                        ),
-                        if (status != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
                             child: Text(
-                              status,
-                              style: Theme.of(context).textTheme.labelSmall,
+                              channel.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleSmall,
                             ),
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${channel.membershipsCount} ${channel.membershipsCount == 1 ? 'member' : 'members'}',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                    if (channel.description case final description?
-                        when description.trim().isNotEmpty) ...[
-                      const SizedBox(height: 5),
+                          if (status != null)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(
+                                status,
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
                       Text(
-                        description,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
+                        '${channel.membershipsCount} ${channel.membershipsCount == 1 ? 'member' : 'members'}',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                      if (channel.description case final description?
+                          when description.trim().isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          description,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: following
+                            ? DButton(
+                                key: ValueKey('chat-unfollow-${channel.id}'),
+                                label: const Text('Unfollow'),
+                                onPressed: () =>
+                                    _changeFollowing(context, false),
+                                loading: busy,
+                                loadingLabel: const Text('Saving…'),
+                              )
+                            : DButton(
+                                key: ValueKey('chat-join-${channel.id}'),
+                                label: const Text('Join'),
+                                onPressed: !canJoin
+                                    ? null
+                                    : () => _changeFollowing(context, true),
+                                variant: DButtonVariant.primary,
+                                loading: busy,
+                                loadingLabel: const Text('Joining…'),
+                              ),
                       ),
                     ],
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: following
-                          ? DButton(
-                              key: ValueKey('chat-unfollow-${channel.id}'),
-                              label: const Text('Unfollow'),
-                              onPressed: () => _changeFollowing(context, false),
-                              loading: busy,
-                              loadingLabel: const Text('Saving…'),
-                            )
-                          : DButton(
-                              key: ValueKey('chat-join-${channel.id}'),
-                              label: const Text('Join'),
-                              onPressed: !canJoin
-                                  ? null
-                                  : () => _changeFollowing(context, true),
-                              variant: DButtonVariant.primary,
-                              loading: busy,
-                              loadingLabel: const Text('Joining…'),
-                            ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

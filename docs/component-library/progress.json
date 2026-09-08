@@ -911,27 +911,57 @@
     },
     {
       "id": "card",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a082d9-6c59-7443-8e64-f76105fd5e56",
       "branch": "codex/ui-card",
       "dependencies": [
         "typography"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [
-        "Coordinator pre-review is complete, including final header action lifecycle, 16/12px shared spacing, 1.4× radius and app adoption. Read-only integration candidates under /private/tmp/card-integration-preview preserve the merged Tooltip and Avatar owners in Event cards. Native review is waiting on a Codex app-access approval in task 01a082d9-6c59-7443-8e64-f76105fd5e56; task metadata reports waitingOnApproval. The user was asked to approve the pending request. Card remains unmerged and is the only remaining current-batch component.",
-        "The pending native Card app-access request subsequently returned successfully after approximately 1337 seconds, with no denial. Coordinator verified the task active with no waitingOnApproval flag. The agreed native inspection is now running under the existing exclusive slot; no further user approval is needed for that request."
+      "acceptanceCriteria": [
+        "Export all seven passive Card composition APIs, with default/small metrics and live shared spacing; preserve child focus, selection, callbacks and lifecycle.",
+        "Match base-nova surface, foreground ring, radius, title/description metrics, header action alignment, footer border/shading, absent parts and clipped edge images; document registry hashes and CSS mapping.",
+        "Reproduce frozen login, small, spacing, edge-to-edge terms, image and RTL examples with local state; document pending Button/Input/Badge/Toggle Group owners.",
+        "Audit core and every bundled plugin presentation owner; migrate appropriate group/member/activity, Chat, Poll, Events and Skeleton surfaces while preserving domain behavior; justify retained alternatives.",
+        "Pass format, static analysis and focused seeded component/example/adoption/downstream tests; inspect byte-matched isolated macOS styleguide and real local-data production fixtures in exclusive desktop slot across palettes/narrow/200%/RTL."
       ],
-      "limitations": [],
-      "implementationCommit": null,
+      "decisions": [
+        "Frozen Card Markdown and all seven APIs covered. Registry raw SHA256 e73e3fe00ab2e14c4db1dccb1ff5c67041a94c0926ac3216c1dc6dd6dee9d7e0; decoded source 645c3d73e387a99f1492220cc619453b0c7f5454134ee3cd548be7a80f7eccde. Exact metrics and complete adoption audit: docs/component-library/card.md.",
+        "Passive DCard with Header/Title/Description/Action/Content/Footer; 16/12px spacing, shared override, 1px foreground/10 outer ring, live radius ×1.4, explicit typography and native Material ink without elevation or action. Semantic container preserves existing grouping.",
+        "Direct footer children and explicit footer slot remove bottom padding. Leading/trailing edge slots clip images; edgeToEdge and joinNext express shared-spacing negative margins. Header reflows below 240px or above 150% text using stable Flex topology, preserving child element/focus.",
+        "Eight runnable local-state examples reproduce reference compositions before application states. Adjacent Button link/outline/secondary/submit, Input email/password visuals, Badge and Toggle Group remain explicitly pending owners. Bundled package image has no network fallback.",
+        "Examples reuse already-merged Label, Aspect Ratio and Skeleton; the frozen catalogue dependency remains typography."
+      ],
+      "migrations": [
+        "Core Groups directory, compact members, activity and requests; Preferences, Badge and Category directories; Aggregate passive panels. Existing navigation, permission, callbacks, fields and state ownership preserved.",
+        "Chat browse channels and preference form; Poll interactive and cooked fallback; Events loaded/unavailable/cooked fallback; Voice diagnostics controls. Plugin services, hydration and write ownership remain in their modules.",
+        "Skeleton reference Card now uses DCard; removed its competing frame decoration and Aggregate custom surface owner."
+      ],
+      "retainedAlternatives": [
+        "See docs/component-library/card.md for per-owner audit covering all bundled plugins. Retain core popovers/sheets/menus and divider-only topic sidebar; media/identity chips and tables are not passive Card surfaces.",
+        "Retain Chat message/thread previews with focus/unread/selection contracts, Assign scrollable member navigation pane, Voice video/ringing tiles, Events calendar/chips, Local Dates overlay preview, Poll voting/chart decorations, GitHub labels, Prometheus tables, GIF media and reaction controls."
+      ],
+      "verification": [
+        "flutter pub get --enforce-lockfile passed in root and profiles/full; lockfiles and Flutter 3.47.2 pin unchanged.",
+        "flutter analyze --no-pub passed in root and profiles/full with no issues.",
+        "Seed 834729: Card/component/examples + Skeleton examples + Groups/Group + Chat browse + Poll card + Event card/lifecycle + Preferences + Badge + Category suites passed 181 tests. Initial run caught and fixed Poll semantic-container regression.",
+        "Seed 834729: Card/examples + Voice diagnostics + Aggregate + Preferences + d_button_adoption suites passed 48 tests.",
+        "Seed 834729: final Card/examples run passed 12 tests, including 1fr/auto LTR/RTL geometry, shared spacing, direct footer, image/joined content, retained editing, keyboard activation, 200% reflow and unchanged header action element/focus.",
+        "macOS debug local fixture build succeeded. Isolated /tmp/DiscourseCard5995.app uses org.discourse.native.card5995 and discourse-card5995 scheme. Deep/strict ad-hoc signature and App.framework payload byte matching verified. Native screenshots and AX evidence are inline in the Card task; ignored build/card-review/native-manifest.json and byte-match.json record the inspected build.",
+        "Exclusive macOS native pass compared official rendered Card metrics and light/dark screenshots with all eight examples, Plum palette, RTL, narrow layout and 200% text. Exercised login, spacing draft retention, terms acceptance, image details, disabled/selected/busy/error/empty states; inspected actual bundled styleguide. Real local-data Groups, Members, Activity, Poll, Events, Chat and Badge fixtures exercised navigation, retry, vote, RSVP and join/unfollow callbacks.",
+        "Coordinator reviewed stable clean Card HEAD 31663949f52a70ff90f791641a156e272cd8fd90, its seven passive APIs, exact 16/12px spacing and 1.4× radius, retained action elements/focus during header reflow, direct footer spacing, eight complete examples and core/plugin adoptions. Native inspection and isolated app closure are complete, including official light/dark comparison, narrow/RTL/200%/Plum examples and real Groups/Members/Activity/Poll/Events/Chat/Badge fixtures; device and other surface limitations remain explicit. Applied pre-reviewed reconciliation with both-parent fingerprints verified, preserving current Tooltip and Avatar within Event Card surfaces.",
+        "Coordinator combined-main verification: all 466 focused library/styleguide/Tooltip and affected core, Chat, Poll, Events, preferences, directory, aggregate and Voice tests passed, seed 3790819455; log /private/tmp/component-card-integration-tests.log. The full profile passed 63 Card/Skeleton/Aspect Ratio component and example cases, seed 2853461005; log /private/tmp/component-card-full-tests.log. Root and full analysis are clean (11.3s and 3.2s); full-profile locked pub get passed with no lockfile/pin changes. All 19 touched Dart files are formatted and git diff --check passes. Generic Card, its eight examples and adopted Skeleton source exactly match the reviewed branch. All previously merged Tooltip, Avatar, Spinner, Skeleton, Aspect Ratio and Label owners remain present in changed application source."
+      ],
+      "limitations": [
+        "iOS and Linux native device inspection unavailable in this macOS session. Widget tests and platform overrides are not device testing.",
+        "No VoiceOver audit; some native accessibility snapshots were sparse. Widget tests verify semantic grouping and keyboard/focus behavior. Preferences, Categories, Aggregate, Voice diagnostics and cooked/request fallback migrations have focused test coverage but were not individually inspected natively.",
+        "Adjacent Button/Input/Badge/Toggle Group visuals remain pending their owners, as documented in the examples. Native inspected build displayed baseline status before the final metadata-only promotion to implemented."
+      ],
+      "implementationCommit": "4c0dcc6b4fea696768722afae8837d80fbd43b40",
       "mergeCommit": null,
       "clientThreadId": "client-new-thread:9ce651a0-9d90-4b15-a53d-3ce86e3821a4",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5995/discourse-native",
       "baseCommit": "f23ee956e2197452d3aab40e98933543e5eeb5f2",
-      "nativeInspectionStatus": "in_progress"
+      "nativeInspectionStatus": "completed"
     },
     {
       "id": "empty",
@@ -1699,7 +1729,7 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": "01a082d9-6c59-7443-8e64-f76105fd5e56",
+    "nativeInspectionTaskId": null,
     "nativeInspectionQueue": [],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
@@ -1711,10 +1741,8 @@
         "avatar",
         "card"
       ],
-      "status": "finish_current_batch_then_pause",
-      "remainingComponents": [
-        "card"
-      ],
+      "status": "verifying_final_build_then_pause",
+      "remainingComponents": [],
       "reviewDocument": "docs/component-library/review-checkpoint.md"
     }
   },
