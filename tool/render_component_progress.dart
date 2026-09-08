@@ -21,7 +21,7 @@ void main() {
     ..writeln(
       'Foundation: **${foundation['status']}** on `${foundation['branch']}`. Merge: ${cell(foundation['mergeCommit'])}.\n',
     )
-    ..writeln('## Sequential implementation\n')
+    ..writeln('## Component implementation\n')
     ..writeln(
       '| # | Component | Status | Task | Branch | Dependencies | Merge |',
     )

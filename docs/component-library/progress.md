@@ -6,7 +6,7 @@ Coordinator task: `01a0816f-d4e0-7f93-9d6b-baeaf6961181`. Reference: 2026-09-08.
 
 Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d3323f9b7619bdead025fd76a57be402a97.
 
-## Sequential implementation
+## Component implementation
 
 | # | Component | Status | Task | Branch | Dependencies | Merge |
 | --- | --- | --- | --- | --- | --- | --- |
