@@ -12,11 +12,11 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | direction | merged | 01a0818b-e20a-77d0-bb99-77691899dad7 | codex/ui-direction | — | e69458861e83f3989e2f06dd177805c572740a5a |
 | 2 | typography | in_progress | 01a081e5-0bef-70a1-9ae3-7717028403e0 | codex/ui-typography | direction | — |
-| 3 | spinner | planned | — | — | — | — |
+| 3 | spinner | in_progress | 01a08213-9960-79f1-8d90-9626f24a4b5a | codex/ui-spinner | — | — |
 | 4 | kbd | planned | — | — | typography | — |
 | 5 | tooltip | planned | — | — | kbd | — |
 | 6 | button | planned | — | — | spinner, tooltip | — |
-| 7 | separator | planned | — | — | — | — |
+| 7 | separator | in_progress | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | — |
 | 8 | label | planned | — | — | typography | — |
 | 9 | badge | planned | — | — | spinner | — |
 | 10 | input | planned | — | — | label | — |
@@ -28,7 +28,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 16 | toggle-group | planned | — | — | toggle | — |
 | 17 | slider | planned | — | — | label | — |
 | 18 | progress | planned | — | — | label | — |
-| 19 | skeleton | planned | — | — | — | — |
+| 19 | skeleton | in_progress | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | — |
 | 20 | aspect-ratio | planned | — | — | — | — |
 | 21 | avatar | planned | — | — | — | — |
 | 22 | card | planned | — | — | typography | — |
@@ -177,6 +177,18 @@ Status: merged. Task: 01a0818b-e20a-77d0-bb99-77691899dad7. Branch: codex/ui-dir
 ### typography
 
 Status: in_progress. Task: 01a081e5-0bef-70a1-9ae3-7717028403e0. Branch: codex/ui-typography.
+
+### spinner
+
+Status: in_progress. Task: 01a08213-9960-79f1-8d90-9626f24a4b5a. Branch: codex/ui-spinner.
+
+### separator
+
+Status: in_progress. Task: 01a08213-a2e5-7692-a127-f09d2a03094b. Branch: codex/ui-separator.
+
+### skeleton
+
+Status: in_progress. Task: 01a08213-b4ca-77e1-a2aa-8a490808243e. Branch: codex/ui-skeleton.
 
 ### Final audit
 
