@@ -490,6 +490,12 @@ class _TopicListViewState extends State<TopicListView> {
                 commands: {
                   ReadingCommand.nextTopic: () => _moveSelection(1),
                   ReadingCommand.previousTopic: () => _moveSelection(-1),
+                  ReadingCommand.nextPost: () =>
+                      controller.currentContent?.isTopic != true &&
+                      _moveSelection(1),
+                  ReadingCommand.previousPost: () =>
+                      controller.currentContent?.isTopic != true &&
+                      _moveSelection(-1),
                   ReadingCommand.openTopic: _openSelection,
                 },
                 child: ListBoundaryShortcuts(

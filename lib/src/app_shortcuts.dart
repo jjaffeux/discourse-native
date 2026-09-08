@@ -76,8 +76,10 @@ enum ReadingCommand {
     SingleActivator(LogicalKeyboardKey.enter, includeRepeats: false),
     SingleActivator(LogicalKeyboardKey.numpadEnter, includeRepeats: false),
   ]),
-  nextPost('Next post', [SingleActivator(LogicalKeyboardKey.keyJ)]),
-  previousPost('Previous post', [SingleActivator(LogicalKeyboardKey.keyK)]),
+  nextPost('Next post or topic', [SingleActivator(LogicalKeyboardKey.keyJ)]),
+  previousPost('Previous post or topic', [
+    SingleActivator(LogicalKeyboardKey.keyK),
+  ]),
   replyToPost('Reply to selected post', [
     SingleActivator(LogicalKeyboardKey.keyR, includeRepeats: false),
   ]),

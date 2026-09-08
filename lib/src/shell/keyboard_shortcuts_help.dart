@@ -19,6 +19,7 @@ Future<void> showKeyboardShortcuts(BuildContext context) async {
           const Text(
             'Shift+J and Shift+K select topics without opening them. '
             'J and K move through posts in the open topic. '
+            'When no topic is open, J and K select topics in the list. '
             'Navigation shortcuts pause while you type or use a menu.',
           ),
           const SizedBox(height: 16),
