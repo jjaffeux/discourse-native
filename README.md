@@ -1238,6 +1238,8 @@ New topics and first-post edits put category and tags directly below the title,
 before the body.
 The footer keeps attachment, emoji and formatting controls visible, groups
 plugin tools under **Insert**, and places **Proofread** beside the submit button.
+The formatting menu shows aligned shortcut hints, using Command on Apple
+platforms and Control elsewhere.
 
 One invariant carries the whole thing:
 

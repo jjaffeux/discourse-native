@@ -69,6 +69,76 @@ void main() {
       );
     });
 
+    testWidgets('Linux formatting hints match their keyboard actions', (
+      tester,
+    ) async {
+      await _withTargetPlatform(TargetPlatform.linux, () async {
+        final composer = ComposerController(_replyTarget);
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpFloatingPanel(tester, shell, composer);
+        await tester.tap(find.byKey(const ValueKey('composer-formatting')));
+        await tester.pump();
+
+        const actions = [
+          ('Bold', LogicalKeyboardKey.keyB, '**format** me'),
+          ('Italic', LogicalKeyboardKey.keyI, '*format* me'),
+          ('Inline code', LogicalKeyboardKey.keyE, '`format` me'),
+          ('Link', LogicalKeyboardKey.keyL, null),
+        ];
+        double? shortcutRight;
+        for (final (label, key, _) in actions) {
+          final item = find.widgetWithText(MenuItemButton, label);
+          final hint = find.descendant(
+            of: item,
+            matching: find.text('Ctrl+${key.keyLabel}'),
+          );
+          expect(hint, findsOneWidget);
+          final bounds = tester.getRect(hint);
+          shortcutRight ??= bounds.right;
+          expect(bounds.right, closeTo(shortcutRight, 0.1));
+          expect(
+            bounds.left,
+            greaterThan(tester.getRect(find.text(label)).right),
+          );
+        }
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump();
+        composer.focus.requestFocus();
+
+        for (final (_, key, raw) in actions) {
+          composer.text.value = const TextEditingValue(
+            text: 'format me',
+            selection: TextSelection(baseOffset: 0, extentOffset: 6),
+          );
+          await tester.pump();
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+          await tester.sendKeyEvent(key);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+          await tester.pump();
+          if (raw != null) {
+            expect(composer.raw, raw);
+          } else {
+            expect(
+              find.byKey(const ValueKey('composer-link-dialog')),
+              findsOneWidget,
+            );
+            expect(
+              tester
+                  .widget<TextField>(
+                    find.byKey(const ValueKey('composer-link-anchor')),
+                  )
+                  .controller!
+                  .text,
+              'format',
+            );
+          }
+        }
+        expect(tester.takeException(), isNull);
+      });
+    });
+
     testWidgets(
       'reply context expands without covering the editor and follows post visibility',
       (tester) async {
