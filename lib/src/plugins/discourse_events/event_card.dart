@@ -493,7 +493,7 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DTooltip(
     message: user.username,
-    child: ClipOval(
+    child: DAvatar.frame(
       child: SizedBox.square(
         dimension: size,
         child: AvatarImage(

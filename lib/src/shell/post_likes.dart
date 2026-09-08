@@ -382,7 +382,7 @@ class _LikerRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            ClipOval(
+            DAvatar.frame(
               child: SizedBox(
                 width: 24,
                 height: 24,

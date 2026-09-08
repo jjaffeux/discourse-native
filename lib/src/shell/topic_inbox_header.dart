@@ -749,7 +749,7 @@ class _TopicActivitySummary extends StatelessWidget {
                       left: i * 15,
                       child: DTooltip(
                         message: participants[i].displayName,
-                        child: ClipOval(
+                        child: DAvatar.frame(
                           child: AvatarImage(
                             url: participants[i].avatarUrl,
                             size: 20,

@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
 import 'package:flutter/material.dart';
 
 import '../models/discourse_instance.dart';
@@ -15,7 +16,7 @@ class ForumIcon extends StatelessWidget {
     return Semantics(
       label: forum.title,
       image: true,
-      child: ClipRRect(
+      child: DAvatar.frame(
         borderRadius: BorderRadius.circular(size / 4),
         child: AvatarImage(
           url: forum.iconUrl,

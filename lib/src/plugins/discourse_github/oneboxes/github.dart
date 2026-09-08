@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:html/dom.dart' as dom;
@@ -195,7 +196,7 @@ class GithubUser extends StatelessWidget {
           if (avatarUrl != null) ...[
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
-              child: ClipRRect(
+              child: DAvatar.frame(
                 borderRadius: BorderRadius.circular(2),
                 child: SizedBox.square(
                   dimension: 20,

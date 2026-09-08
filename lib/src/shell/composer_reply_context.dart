@@ -111,7 +111,7 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
         final title = Row(
           children: [
             if (username != null)
-              ClipOval(
+              DAvatar.frame(
                 child: SizedBox.square(
                   dimension: 28,
                   child: AvatarImage(

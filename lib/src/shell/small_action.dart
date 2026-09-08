@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
@@ -127,7 +128,7 @@ class SmallActionTile extends StatelessWidget {
                 color: muted,
               ),
               const SizedBox(width: 10),
-              ClipOval(
+              DAvatar.frame(
                 child: SizedBox(
                   width: 20,
                   height: 20,

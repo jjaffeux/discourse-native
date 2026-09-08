@@ -184,7 +184,7 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
                                 'topic-change-owner-user-${user.username}',
                               ),
                               value: user,
-                              secondary: ClipOval(
+                              secondary: DAvatar.frame(
                                 child: SizedBox.square(
                                   dimension: 32,
                                   child: AvatarImage(

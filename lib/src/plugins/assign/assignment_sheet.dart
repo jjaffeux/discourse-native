@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+
 import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
@@ -566,7 +568,7 @@ class AssignmentAssigneeAvatar extends StatelessWidget {
         ),
       ),
     );
-    return ClipOval(
+    return DAvatar.frame(
       child: SizedBox.square(
         dimension: size,
         child: assignee.isGroup

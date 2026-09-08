@@ -500,7 +500,7 @@ class _UserAvatar extends StatelessWidget {
   final ChatDirectMessageUser user;
 
   @override
-  Widget build(BuildContext context) => ClipOval(
+  Widget build(BuildContext context) => DAvatar.frame(
     child: SizedBox.square(
       dimension: 36,
       child: AvatarImage(

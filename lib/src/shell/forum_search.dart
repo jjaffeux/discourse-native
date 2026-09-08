@@ -750,7 +750,7 @@ class _SuggestionLeading extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (suggestion.avatarUrl case final avatar?) {
-      return ClipOval(
+      return DAvatar.frame(
         child: AvatarImage(
           url: avatar,
           size: 30,
@@ -1209,12 +1209,11 @@ class _SearchAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ClipOval(
+    return DAvatar.frame(
       child: AvatarImage(
         url: user.avatarUrl,
         size: 30,
-        fallback: CircleAvatar(
-          radius: 15,
+        fallback: DAvatarFallback(
           backgroundColor: theme.colorScheme.surfaceContainerHigh,
           child: Text(user.username.characters.first.toUpperCase()),
         ),

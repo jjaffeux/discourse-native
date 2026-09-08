@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -24,7 +25,7 @@ class DiscourseUserOnebox extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipOval(
+        DAvatar.frame(
           child: SizedBox.square(
             dimension: 56,
             child: AvatarImage(

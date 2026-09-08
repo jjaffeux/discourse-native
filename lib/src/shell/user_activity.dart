@@ -244,12 +244,11 @@ class UserActivityRow extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipOval(
+                DAvatar.frame(
                   child: AvatarImage(
                     url: item.avatarUrl,
                     size: 44,
-                    fallback: CircleAvatar(
-                      radius: 22,
+                    fallback: DAvatarFallback(
                       backgroundColor:
                           theme.colorScheme.surfaceContainerHighest,
                       child: Text(

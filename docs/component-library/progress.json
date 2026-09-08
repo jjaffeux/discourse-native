@@ -854,17 +854,54 @@
     },
     {
       "id": "avatar",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a082d2-4434-73b1-8ab4-88c9b2ba9b66",
       "branch": "codex/ui-avatar",
       "dependencies": [],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
+      "acceptanceCriteria": [
+        "Public DAvatar, DAvatarImage, DAvatarFallback, DAvatarBadge, DAvatarGroup and DAvatarGroupCount reproduce base-nova metrics at sm/default/lg and accept ordinary Flutter composition.",
+        "Image absence/loading/error/ready and source replacement preserve fallback and accessible identity without stale image flashes; optional fallback delay and status callback have lifecycle tests.",
+        "Dot/icon/count badges and overlapping groups support RTL, narrow constraints, 200% text, live light/dark/site palettes and decorative semantics without taking interaction focus.",
+        "All frozen documentation sections have self-contained runnable examples and correct public API snippets; Button/Dropdown ownership stays explicit and state survives preview changes.",
+        "Audit core and every bundled plugin; migrate appropriate avatar visual owners while retaining MediaPipeline, AvatarLoader, stale guards, raster/SVG decode reporting and domain flair/presence ownership.",
+        "Focused seeded component, styleguide, adapter and downstream regressions plus analysis pass; isolated macOS app compares reference and real migrated fixtures after exclusive desktop grant."
+      ],
+      "decisions": [
+        "Reference hashes, exact CSS-to-Flutter metrics, native adaptations and complete adoption audit are recorded in docs/component-library/evidence/avatar/implementation.md.",
+        "Six public generic components retain app-independent presentation. ImageProvider stream ownership handles loading/error/ready and stale frames; AvatarImage remains the application networking/decoding adapter.",
+        "Default groups preserve per-avatar sizes/dimensions and infer count size; explicit group size propagates badge/fallback metrics consistently. Standalone counts retain intrinsic 32px geometry.",
+        "Above-100% text scaling reserves larger enum-sized boxes to fit initials and avoid ready/fallback geometry shifts; fixed app frames and explicit dimensions retain layout contracts. Narrow groups wrap.",
+        "Exact Lucide plus SVG and full ISC/Feather MIT license recorded. Explicit badge icon slot hides arbitrary SVG/widget icons at sm; standalone GroupCount owns its 2px background ring."
+      ],
+      "migrations": [
+        "Core topic/post/group/user/composer/quote/reaction/search identities; Chat, Voice, Assign and Events avatar owners now use DAvatar.frame. Four CircleAvatar fallbacks removed.",
+        "Rounded forum/rail/sidebar/directory/GitHub identity clips use public presentation with preserved domain radius. Topic poster overlap uses DAvatarGroup.",
+        "AvatarImage reserves requested dimensions for every loading/ready/error state; cache, asynchronous pipeline guards, SVG/raster decode and reporting remain app-owned."
+      ],
+      "retainedAlternatives": [
+        "Domain online rings, flair, unread/count/recording indicators and UserStatus emoji retain their distinct meaning and geometry; underlying identities migrate.",
+        "Video/camera/media/onebox thumbnails, shell/card clips and category swatches are not avatars. Adjacent 20px inbox posters retain their non-overlapping layout.",
+        "Existing fallback text, custom colors and DiscourseAvatarTheme radius values remain application presentation inputs; Button/Dropdown temporary controls remain their pending owners."
+      ],
+      "verification": [
+        "flutter pub get --enforce-lockfile passed on root with no lock changes.",
+        "flutter analyze --no-pub passed (no issues).",
+        "250 focused tests passed with --no-pub --test-randomize-ordering-seed=9082026 across 17 Avatar/example/decode/chat/group/rail/search/media/Voice/Assign/Events/accessibility suites. Exact commands recorded in native-review.md at completion.",
+        "profiles/full locked pub get and flutter analyze --no-pub passed; no lock/pin/runner changes.",
+        "After exact SVG icon-slot and standalone ring correction: 15 focused component/example tests passed again with seed 9082026; root analysis passed again.",
+        "Isolated source-matched macOS 26.6.2 arm64 native inspection completed under exclusive slot; exact conditions, reference comparison, screenshot evidence and commands recorded in docs/component-library/evidence/avatar/native-review.md.",
+        "Native production loading/error/ready and local forum action; light/dark/site/360px/200%/RTL/reduced-motion compositions; generic error selection preserved across Forest to Plum; dropdown Settings, Return reopen, Escape and visible focus restoration verified.",
+        "Quit only isolated Avatar app and confirmed its identity absent from subsequent global CUA inventory before releasing desktop slot.",
+        "Final implemented registration: 12 Avatar/styleguide-page tests passed with seed 9082026; touched-file format check, git diff --check and unrelated-row preservation check passed.",
+        "Coordinator reviewed final clean Avatar HEAD c5da5fd6ee548d415c496be27052c314d391f39b, generic image stream/fallback ownership, mixed group sizing, exact plus artwork and rings, app media adapters and migrations. Independently inspected the saved official light badge comparison, native light badges, Forest 360px/200% RTL groups and actual dark RTL 200% ForumIcon/AvatarImage fixture. Native inspection and app closure are complete; only the example status changed afterward. Merge retains all prior component owners and the Tooltip rail surface, token radius and fitted monogram while adopting its DAvatar frame.",
+        "Coordinator combined-main verification: all 593 focused library/styleguide, image/media/cache, shell/rail/forum, topic, Chat, Voice, Assign and Events cases passed, seed 342701054; log /private/tmp/component-avatar-integration-tests.log. All 41 touched Dart files pass formatting; flutter analyze --no-pub is clean (6.8s), log /private/tmp/component-avatar-integration-analysis.log; git diff --check passes. Generic Avatar, examples and AvatarImage/ForumIcon adapters exactly match the reviewed branch. All changed app source retains the prior Spinner, Tooltip, Skeleton, Aspect Ratio and Label owners, including Tooltip rail geometry and fitted monograms."
+      ],
+      "limitations": [
+        "No iOS/Linux device or spoken VoiceOver run. Nested styleguide main native AX tree was sparse; fixture/menu AX and visual/keyboard interaction verified without forcing global semantics.",
+        "Reference and native screenshots have different capture/preview dimensions; intrinsic metrics compared at 100% with exact widget geometry tests, not pixel-diff equality. Palette, font and local artwork intentionally use app inputs.",
+        "Button and Dropdown Menu examples use their available temporary controls pending owning catalogue tasks; domain flair/presence and non-avatar media retain documented ownership."
+      ],
+      "implementationCommit": "4c7783272937f3db8fb523389f97c75ac4bdefd7",
       "mergeCommit": null,
       "clientThreadId": "client-new-thread:e0bb64b3-4828-4026-85b8-af933a41a275",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/32e1/discourse-native",

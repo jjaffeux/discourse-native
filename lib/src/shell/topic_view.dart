@@ -3953,7 +3953,7 @@ class _PostTileState extends State<_PostTile> {
                   UserCardTarget(
                     username: post.username,
                     siteUrl: widget.siteUrl,
-                    child: ClipOval(
+                    child: DAvatar.frame(
                       child: SizedBox(
                         width: 32,
                         height: 32,
@@ -4575,7 +4575,7 @@ class _TopicParticipantAvatar extends StatelessWidget {
     final theme = Theme.of(context);
     final avatar = DTooltip(
       message: '@${participant.username}',
-      child: ClipOval(
+      child: DAvatar.frame(
         child: SizedBox.square(
           dimension: size,
           child: AvatarImage(

@@ -1,4 +1,5 @@
 import 'examples/aspect_ratio_examples.dart';
+import 'examples/avatar_examples.dart';
 import 'examples/direction_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/kbd_examples.dart';
@@ -14,6 +15,7 @@ import 'styleguide_example.dart';
 final componentExamples = <String, ComponentExamples>{
   'foundations': foundationExamples,
   'aspect-ratio': aspectRatioExamples,
+  'avatar': avatarExamples,
   'direction': directionExamples,
   'typography': typographyExamples,
   'separator': separatorExamples,

@@ -535,10 +535,14 @@ class _BadgeRecipient extends StatelessWidget {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AvatarImage(
-          url: grant.avatarUrl,
-          size: 36,
-          fallback: const DIcon(DIcons.user, size: 24),
+        DAvatar.frame(
+          child: AvatarImage(
+            url: grant.avatarUrl,
+            size: 36,
+            fallback: const DAvatarFallback(
+              child: DIcon(DIcons.user, size: 24),
+            ),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(

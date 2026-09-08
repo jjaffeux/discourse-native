@@ -263,7 +263,7 @@ class TopicInboxRow extends StatelessWidget {
                                     when topic.excerpt == null) ...[
                                   DTooltip(
                                     message: '@$username',
-                                    child: ClipOval(
+                                    child: DAvatar.frame(
                                       child: AvatarImage(
                                         url: topic.lastPosterAvatarUrl,
                                         size: 20,
@@ -281,7 +281,7 @@ class TopicInboxRow extends StatelessWidget {
                                   ))
                                     Padding(
                                       padding: const EdgeInsets.only(right: 2),
-                                      child: ClipOval(
+                                      child: DAvatar.frame(
                                         child: AvatarImage(
                                           url: avatar,
                                           size: 20,
