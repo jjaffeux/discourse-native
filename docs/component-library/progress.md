@@ -119,6 +119,15 @@ Status: merged. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/compon
 
 Status: in_progress. Task: 01a0818b-e20a-77d0-bb99-77691899dad7. Branch: codex/ui-direction.
 
+**verification**
+
+- Coordinator preliminary review of the Direction provider, examples, and 13 core/Chat lookup migrations found no implementation issue.
+- Coordinator: flutter test --no-pub test/ui/d_direction_test.dart test/styleguide test/resizable_pane_test.dart test/chat_drawer_test.dart test/users_page_test.dart test/composer_toolbar_test.dart test/topic_header_tags_test.dart test/topic_list_navigation_test.dart test/forum_tabs_bar_test.dart test/app_settings_page_test.dart --test-randomize-ordering-seed=random: 186 passed, seed 4165766908; log /tmp/direction-coordinator-regression-tests.log.
+
+**limitations**
+
+- Native macOS inspection, the component task commit, final coordinator review, and merge remain pending. At 2026-09-08 15:23 UTC the component task reports waitingOnApproval after its computer-use inventory call; user input has been requested.
+
 ### Final audit
 
 Status: planned. Task: —. Branch: —.
