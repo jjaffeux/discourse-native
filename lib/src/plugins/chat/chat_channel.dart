@@ -801,7 +801,7 @@ class ChatChannel with Storable<ChatChannel> {
 
   ChatChannel withRemoteMetadata({
     required String title,
-    required String slug,
+    required String? slug,
     required String? description,
   }) => ChatChannel(
     id: id,
