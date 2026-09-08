@@ -2344,6 +2344,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
     ShellController controller,
     int count,
   ) async {
+    final lease = controller.lifecycle.capture(siteUrl);
     final confirmed = await _confirm(
       context,
       title: 'Delete selected posts?',
@@ -2351,7 +2352,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
       action: 'Delete',
       destructive: true,
     );
-    if (!confirmed || !context.mounted) return;
+    if (!confirmed || !context.mounted || !lease.isCurrent) return;
     final error = await controller.deleteSelectedTopicPosts(siteUrl, topic.id);
     if (error != null && context.mounted) {
       ScaffoldMessenger.maybeOf(
@@ -2365,13 +2366,14 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
     ShellController controller,
     int count,
   ) async {
+    final lease = controller.lifecycle.capture(siteUrl);
     final confirmed = await _confirm(
       context,
       title: 'Merge selected posts?',
       message: 'Merge $count posts by the same author into one post?',
       action: 'Merge',
     );
-    if (!confirmed || !context.mounted) return;
+    if (!confirmed || !context.mounted || !lease.isCurrent) return;
     final error = await controller.mergeSelectedTopicPosts(siteUrl, topic.id);
     if (error != null && context.mounted) {
       ScaffoldMessenger.maybeOf(
