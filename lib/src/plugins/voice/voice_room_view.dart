@@ -1451,7 +1451,7 @@ Future<void> _showMediaSettings(
                 if (Platform.isMacOS || Platform.isLinux)
                   SwitchListTile.adaptive(
                     value: pushToTalk,
-                    title: const Text('Push to talk'),
+                    title: const DLabel(child: Text('Push to talk')),
                     subtitle: const Text(
                       'Hold Space while the room is focused.',
                     ),
@@ -1463,7 +1463,9 @@ Future<void> _showMediaSettings(
                 if (autoStatusAvailable)
                   SwitchListTile.adaptive(
                     value: autoStatus,
-                    title: const Text('Show my status while in a call'),
+                    title: const DLabel(
+                      child: Text('Show my status while in a call'),
+                    ),
                     subtitle: const Text(
                       'Sets your user status to the room you are in.',
                     ),

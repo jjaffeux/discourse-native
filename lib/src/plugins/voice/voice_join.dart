@@ -1,6 +1,6 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../theme/d_button.dart';
 import 'voice_controller.dart';
 import 'voice_models.dart';
 
@@ -107,7 +107,7 @@ class _VoiceMeshPrivacyDialogState extends State<VoiceMeshPrivacyDialog> {
         CheckboxListTile.adaptive(
           value: _dontShowAgain,
           onChanged: (value) => setState(() => _dontShowAgain = value ?? false),
-          title: const Text("Don't show this again"),
+          title: const DLabel(child: Text("Don't show this again")),
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
         ),

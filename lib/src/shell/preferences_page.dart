@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../discourse_ui.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
@@ -572,7 +572,10 @@ class _NotificationsForm extends StatelessWidget {
         SwitchListTile.adaptive(
           key: const ValueKey('notify-on-linked-posts'),
           contentPadding: EdgeInsets.zero,
-          title: const Text('Notify me about replies to linked posts'),
+          title: DLabel(
+            enabled: enabled,
+            child: const Text('Notify me about replies to linked posts'),
+          ),
           subtitle: const Text(
             'Get a notification when someone replies to a post you linked.',
           ),

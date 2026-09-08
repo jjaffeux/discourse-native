@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics_view.dart';
 import 'package:discourse_native/src/plugins/voice/voice_report_exporter.dart';
@@ -13,49 +14,69 @@ void main() {
   testWidgets('deep capture requires consent and stops immediately', (
     tester,
   ) async {
-    final harness = _Harness();
-    await _pumpView(tester, harness);
+    final semantics = tester.ensureSemantics();
+    try {
+      final harness = _Harness();
+      await _pumpView(tester, harness);
 
-    expect(find.text('Recording Off'), findsOneWidget);
-    expect(find.textContaining('Secrets are redacted'), findsOneWidget);
-    expect(find.textContaining('Restarting the app turns'), findsOneWidget);
+      expect(find.text('Recording Off'), findsOneWidget);
+      expect(find.textContaining('Secrets are redacted'), findsOneWidget);
+      expect(find.textContaining('Restarting the app turns'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('voice-capture-switch')));
-    await tester.pumpAndSettle();
-    expect(find.text('Turn on deep Voice capture?'), findsOneWidget);
-    expect(find.textContaining('raw SDP and ICE'), findsOneWidget);
+      expect(find.bySemanticsLabel('Recording Off'), findsOneWidget);
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel('Recording Off'))
+            .getSemanticsData()
+            .flagsCollection
+            .isToggled,
+        isNot(Tristate.none),
+      );
+      await tester.tap(find.text('Recording Off'));
+      await tester.pumpAndSettle();
+      expect(find.text('Turn on deep Voice capture?'), findsOneWidget);
+      expect(find.textContaining('raw SDP and ICE'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Cancel'));
-    await tester.pumpAndSettle();
-    expect(harness.state.value.enabled, isFalse);
+      await tester.tap(find.widgetWithText(FilledButton, 'Cancel'));
+      await tester.pumpAndSettle();
+      expect(harness.state.value.enabled, isFalse);
 
-    await tester.tap(find.byKey(const ValueKey('voice-capture-switch')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('voice-confirm-start-capture')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('voice-capture-switch')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('voice-confirm-start-capture')),
+      );
+      await tester.pumpAndSettle();
 
-    expect(harness.startCount, 1);
-    expect(find.text('Recording On'), findsOneWidget);
-    expect(find.text('Capture capture-1'), findsOneWidget);
-    expect(
-      tester
-          .widget<IconButton>(find.byKey(const ValueKey('voice-clear-capture')))
-          .onPressed,
-      isNull,
-    );
+      expect(harness.startCount, 1);
+      expect(find.text('Recording On'), findsOneWidget);
+      expect(find.text('Capture capture-1'), findsOneWidget);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byKey(const ValueKey('voice-clear-capture')),
+            )
+            .onPressed,
+        isNull,
+      );
 
-    await tester.tap(find.byKey(const ValueKey('voice-capture-switch')));
-    await tester.pumpAndSettle();
-    expect(find.text('Turn on deep Voice capture?'), findsNothing);
-    expect(harness.stopCount, 1);
-    expect(find.text('Recording Off'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('voice-capture-switch')));
+      await tester.pumpAndSettle();
+      expect(find.text('Turn on deep Voice capture?'), findsNothing);
+      expect(harness.stopCount, 1);
+      expect(find.text('Recording Off'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('voice-clear-capture')));
-    await tester.pumpAndSettle();
-    expect(find.text('Clear Voice capture?'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('voice-confirm-clear-capture')));
-    await tester.pumpAndSettle();
-    expect(harness.clearCount, 1);
+      await tester.tap(find.byKey(const ValueKey('voice-clear-capture')));
+      await tester.pumpAndSettle();
+      expect(find.text('Clear Voice capture?'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('voice-confirm-clear-capture')),
+      );
+      await tester.pumpAndSettle();
+      expect(harness.clearCount, 1);
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('shows metadata and searches latest-first capture details', (

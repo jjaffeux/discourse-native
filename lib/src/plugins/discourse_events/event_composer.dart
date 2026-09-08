@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -9,7 +10,6 @@ import '../../plugin_api/composer_syntax.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/shell_extensions.dart';
 import '../../shell/adaptive_dialog_action.dart';
-import '../../theme/d_button.dart';
 import 'event_composer_parser.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
@@ -424,7 +424,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
             _field('end'),
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('All day'),
+              title: const DLabel(child: Text('All day')),
               value: _booleans['all-day'],
               onChanged: (value) =>
                   setState(() => _booleans['all-day'] = value!),
@@ -503,7 +503,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                   if (entry.key != 'all-day')
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(entry.value),
+                      title: DLabel(child: Text(entry.value)),
                       value: _booleans[entry.key],
                       onChanged: (value) =>
                           setState(() => _booleans[entry.key] = value!),

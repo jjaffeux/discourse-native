@@ -1,7 +1,7 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../theme/d_button.dart';
 import 'voice_controller.dart';
 import 'voice_models.dart';
 import 'voice_services.dart';
@@ -98,17 +98,17 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
             SwitchListTile.adaptive(
               value: _isPublic,
               onChanged: (value) => setState(() => _isPublic = value),
-              title: const Text('Public room'),
+              title: const DLabel(child: Text('Public room')),
             ),
             SwitchListTile.adaptive(
               value: _stage,
               onChanged: (value) => setState(() => _stage = value),
-              title: const Text('Stage room'),
+              title: const DLabel(child: Text('Stage room')),
             ),
             SwitchListTile.adaptive(
               value: _video,
               onChanged: (value) => setState(() => _video = value),
-              title: const Text('Allow video'),
+              title: const DLabel(child: Text('Allow video')),
             ),
             TextField(
               style: Theme.of(context).textTheme.bodyMedium,
@@ -148,7 +148,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
               SwitchListTile.adaptive(
                 value: _livekit,
                 onChanged: (value) => setState(() => _livekit = value),
-                title: const Text('Use LiveKit'),
+                title: const DLabel(child: Text('Use LiveKit')),
               ),
           ],
         ),

@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/invite.dart';
-import '../theme/d_button.dart';
 import 'invites_controller.dart';
 
 class InviteEditor extends StatefulWidget {
@@ -217,7 +217,10 @@ class _InviteEditorState extends State<InviteEditor> {
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
-                  title: const Text('Send invitation email'),
+                  title: DLabel(
+                    enabled: !_saving,
+                    child: const Text('Send invitation email'),
+                  ),
                   value: _sendEmail,
                   onChanged: _saving
                       ? null

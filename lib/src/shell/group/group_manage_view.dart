@@ -240,7 +240,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
         ),
         SwitchListTile.adaptive(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Members can leave'),
+          title: const DLabel(child: Text('Members can leave')),
           value: controller.publicExit,
           onChanged: controller.setPublicExit,
         ),
@@ -292,7 +292,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
         ),
         SwitchListTile.adaptive(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Publish read state'),
+          title: const DLabel(child: Text('Publish read state')),
           subtitle: const Text('Let members share message read state.'),
           value: controller.publishReadState,
           onChanged: controller.setPublishReadState,
@@ -309,7 +309,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
         ),
         SwitchListTile.adaptive(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Enable SMTP'),
+          title: const DLabel(child: Text('Enable SMTP')),
           value: controller.smtpEnabled,
           onChanged: controller.setSmtpEnabled,
         ),
@@ -334,7 +334,9 @@ class _GroupManageFormState extends State<_GroupManageForm> {
         _textField('email_from_alias', 'From alias'),
         SwitchListTile.adaptive(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Allow replies from unknown senders'),
+          title: const DLabel(
+            child: Text('Allow replies from unknown senders'),
+          ),
           value: controller.allowUnknownSenderReplies,
           onChanged: controller.setAllowUnknownSenderReplies,
         ),

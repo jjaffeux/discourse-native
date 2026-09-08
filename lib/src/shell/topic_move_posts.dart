@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
 import '../models/topic.dart';
-import '../theme/d_button.dart';
 import 'category_icon.dart';
 import 'shell_controller.dart';
 
@@ -344,7 +344,10 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
         onChanged: _saving
             ? null
             : (value) => setState(() => _chronologicalOrder = value ?? false),
-        title: const Text('Preserve chronological order'),
+        title: DLabel(
+          enabled: !_saving,
+          child: const Text('Preserve chronological order'),
+        ),
         controlAffinity: ListTileControlAffinity.leading,
       ),
     ],
