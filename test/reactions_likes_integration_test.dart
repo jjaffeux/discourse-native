@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/src/data/discourse_api.dart';
@@ -1241,6 +1242,50 @@ void _registerReactionAndLikeTests() {
       expect(find.byType(ReactionGrid), findsOneWidget);
       expect(api.reacted, isEmpty);
       expect(api.liked, isEmpty);
+    });
+
+    testWidgets('overflowed counts preserve reaction writes in the menu', (
+      tester,
+    ) async {
+      final first = Post.fromJson(
+        jsonDecode('''{
+          "id": 1,
+          "post_number": 1,
+          "username": "sam",
+          "cooked": "<p>First post body</p>",
+          "actions_summary": [
+            {"id": 2, "count": 3, "acted": true, "can_undo": true}
+          ],
+          "reactions": [
+            {"id": "heart", "count": 1e400},
+            {"id": "clap", "count": 2}
+          ],
+          "current_user_reaction": {
+            "id": "heart", "count": -1e400, "can_undo": true
+          },
+          "current_user_used_main_reaction": true,
+          "reaction_users_count": 1e400
+        }''')
+            as Map<String, dynamic>,
+        site,
+        extensions: pluginRegistry,
+      );
+      final api = await openTopic(tester, config: configured, posts: [first]);
+      await openPostMenu(tester);
+
+      expect(find.byType(PostLikes), findsNothing);
+      expect(menuAction('React'), findsOneWidget);
+      expect(menuAction('Like'), findsNothing);
+      expect(menuAction('Remove like'), findsNothing);
+
+      await tester.tap(menuAction('React'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('clap'));
+      await tester.pumpAndSettle();
+
+      expect(api.reacted, [(postId: 1, reaction: 'clap')]);
+      expect(api.liked, isEmpty);
+      expect(api.unliked, isEmpty);
     });
 
     testWidgets('React highlights the reaction the reader already gave', (

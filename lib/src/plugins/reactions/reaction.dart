@@ -36,7 +36,7 @@ class Reaction {
     return Reaction(
       id: id,
       count: switch (json['count']) {
-        final num n => n.toInt(),
+        final num n when n.isFinite => n.toInt(),
         _ => 0,
       },
       canUndo: json['can_undo'] == true,
@@ -81,7 +81,7 @@ class Reactions {
       mine: Reaction.fromJson(json['current_user_reaction']),
       usedMainReaction: json['current_user_used_main_reaction'] == true,
       userCount: switch (json['reaction_users_count']) {
-        final num n => n.toInt(),
+        final num n when n.isFinite => n.toInt(),
         _ => 0,
       },
     );

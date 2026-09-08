@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -48,6 +50,51 @@ Post postFrom(Map<String, dynamic> json) => Post.fromJson(
 Reactions reactionsOf(Map<String, dynamic> json) => postFrom(json).reactions!;
 
 void main() {
+  group('reading reaction counts', () {
+    for (final (count, expected) in const <(Object?, int)>[
+      (0, 0),
+      (7, 7),
+      (7.0, 7),
+      (7.9, 7),
+      (-7.9, -7),
+      (null, 0),
+      ('7', 0),
+      (true, 0),
+      (double.nan, 0),
+      (double.infinity, 0),
+      (double.negativeInfinity, 0),
+    ]) {
+      test('reads $count as $expected without discarding reactions', () {
+        final reactions = Reactions.fromJson({
+          'reactions': [
+            {'id': 'heart', 'count': count},
+            entry('clap', 2),
+          ],
+          'current_user_reaction': {
+            'id': 'heart',
+            'count': count,
+            'can_undo': true,
+          },
+          'current_user_used_main_reaction': true,
+          'reaction_users_count': count,
+        });
+
+        expect(
+          reactions,
+          Reactions(
+            entries: [
+              Reaction(id: 'heart', count: expected),
+              const Reaction(id: 'clap', count: 2),
+            ],
+            mine: Reaction(id: 'heart', count: expected, canUndo: true),
+            usedMainReaction: true,
+            userCount: expected,
+          ),
+        );
+      });
+    }
+  });
+
   group('reading a post', () {
     test('says nothing at all when the site did not mention reactions', () {
       final post = postFrom({
@@ -84,6 +131,52 @@ void main() {
       expect(reactions.mine?.canUndo, isTrue);
       expect(reactions.userCount, 7);
     });
+
+    for (final field in [
+      'reactions',
+      'reaction_users_count',
+      'current_user_reaction',
+    ]) {
+      for (final overflow in ['1e400', '-1e400']) {
+        test('retains the post when $field contains $overflow', () {
+          final overflowJson = switch (field) {
+            'reactions' => '[{"id":"heart","count":$overflow}]',
+            'current_user_reaction' =>
+              '{"id":"heart","count":$overflow,"can_undo":false}',
+            _ => overflow,
+          };
+          final post = postFrom({
+            ...payload(
+              reactions: [entry('heart', 5)],
+              mine: {'id': 'heart', 'can_undo': false},
+              usedMain: true,
+              userCount: 7,
+              acted: true,
+              canUndo: true,
+              likeCount: 3,
+            ),
+            ...jsonDecode('{"$field":$overflowJson}') as Map<String, dynamic>,
+          });
+
+          expect(post.cooked, '<p>Hi</p>');
+          expect(post.likeCount, 3);
+          expect(post.hasReactions, isTrue);
+          expect(post.canToggleLike, isTrue);
+          expect(post.canReact, isFalse);
+          expect(
+            post.reactions,
+            Reactions(
+              entries: [
+                Reaction(id: 'heart', count: field == 'reactions' ? 0 : 5),
+              ],
+              mine: const Reaction(id: 'heart'),
+              usedMainReaction: true,
+              userCount: field == 'reaction_users_count' ? 0 : 7,
+            ),
+          );
+        });
+      }
+    }
 
     test('a plain like reads as the main reaction, because it is one', () {
       final reactions = reactionsOf(
