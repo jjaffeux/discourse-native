@@ -1238,6 +1238,9 @@ New topics and first-post edits put category and tags directly below the title,
 before the body.
 The footer keeps attachment, emoji and formatting controls visible, groups
 plugin tools under **Insert**, and places **Proofread** beside the submit button.
+At narrow widths, the footer stays on one row: Proofread keeps only its switch,
+and submit uses a reply arrow for replies, whispers and edits, or a new-topic
+icon for new topics. Tooltips and accessible labels keep each action named.
 The formatting menu shows aligned shortcut hints, using Command on Apple
 platforms and Control elsewhere.
 

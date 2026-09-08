@@ -14,6 +14,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
+import '../plugin_api/composer_footer_layout.dart';
 import '../plugin_api/composer_syntax.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
@@ -3661,59 +3662,67 @@ class _Footer extends StatelessWidget {
                   : theme.colorScheme.onSurfaceVariant,
             ),
           );
-    final submit = FilledButton(
-      key: const ValueKey('composer-submit'),
-      onPressed: busy ? null : onSubmit,
-      style: composer.whisper
-          ? FilledButton.styleFrom(
-              backgroundColor: theme.colorScheme.tertiary,
-              foregroundColor: theme.colorScheme.onTertiary,
-            )
-          : null,
-      child: busy
-          ? const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-            )
-          : Text(label),
-    );
-
     final toolbar = composer.target.isTaxonomyEdit
         ? null
         : _Toolbar(composer: composer, pickImages: pickImages);
     final controls = LayoutBuilder(
       builder: (context, constraints) {
-        final stacked =
+        final compact =
             constraints.maxWidth <
             (300 + pluginControls.length * 120) *
                 MediaQuery.textScalerOf(context).scale(14) /
                 14;
         // Native image pickers outlive a resize, so the toolbar keeps its state.
-        return Flex(
-          direction: stacked ? Axis.vertical : Axis.horizontal,
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: stacked
-              ? CrossAxisAlignment.stretch
-              : CrossAxisAlignment.center,
-          children: [
-            if (toolbar != null)
-              Flexible(
-                flex: stacked ? 0 : 1,
-                fit: FlexFit.tight,
-                child: toolbar,
-              )
-            else if (!stacked)
-              const Spacer(),
-            SizedBox(height: stacked ? 8 : 0),
-            OverflowBar(
-              alignment: stacked ? MainAxisAlignment.end : null,
-              overflowAlignment: OverflowBarAlignment.end,
-              spacing: 8,
-              overflowSpacing: 8,
-              children: [...pluginControls, submit],
-            ),
-          ],
+        return ComposerFooterLayout(
+          compact: compact,
+          child: Row(
+            children: [
+              if (toolbar != null) Expanded(child: toolbar) else const Spacer(),
+              for (final control in pluginControls)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 8),
+                  child: control,
+                ),
+              Tooltip(
+                message: compact ? label : '',
+                excludeFromSemantics: true,
+                child: FilledButton(
+                  key: const ValueKey('composer-submit'),
+                  onPressed: busy ? null : onSubmit,
+                  style: FilledButton.styleFrom(
+                    minimumSize: compact ? const Size(44, 40) : null,
+                    padding: compact ? EdgeInsets.zero : null,
+                    backgroundColor: composer.whisper
+                        ? theme.colorScheme.tertiary
+                        : null,
+                    foregroundColor: composer.whisper
+                        ? theme.colorScheme.onTertiary
+                        : null,
+                  ),
+                  child: Semantics(
+                    label: label,
+                    excludeSemantics: true,
+                    child: busy
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator.adaptive(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : compact
+                        ? DIcon(
+                            composer.target.isNewTopic
+                                ? DIcons.farPenToSquare
+                                : DIcons.reply,
+                            size: 18,
+                          )
+                        : Text(label),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

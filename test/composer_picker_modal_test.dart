@@ -231,7 +231,7 @@ void main() {
     expect(tagsBounds.height, greaterThanOrEqualTo(44));
     for (final action in [
       find.byKey(const ValueKey('composer-options')),
-      find.widgetWithText(FilledButton, 'Create topic'),
+      find.byTooltip('Create topic'),
     ]) {
       expect(action.hitTestable(), findsOneWidget);
       expect(tester.getRect(action).right, lessThanOrEqualTo(320));

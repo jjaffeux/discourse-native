@@ -333,7 +333,7 @@ void main() {
     expect(composer.raw, 'The author kept typing.');
   });
 
-  testWidgets('reply footer uses the icon-free Proofread switch', (
+  testWidgets('narrow footer hides labels and preserves Proofread on resize', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(360, 640);
@@ -352,12 +352,40 @@ void main() {
     );
     expect(
       find.descendant(of: control, matching: find.text('Proofread')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.descendant(of: control, matching: find.byType(DIcon)),
       findsNothing,
     );
+    final submit = find.byKey(const ValueKey('composer-submit'));
+    final format = find.byKey(const ValueKey('composer-formatting'));
+    expect(
+      find.descendant(of: submit, matching: find.text('Reply')),
+      findsNothing,
+    );
+    expect(
+      tester.getCenter(control).dy,
+      closeTo(tester.getCenter(format).dy, 1),
+    );
+    expect(
+      tester.getCenter(submit).dy,
+      closeTo(tester.getCenter(format).dy, 1),
+    );
+    final semantics = tester.ensureSemantics();
+    try {
+      expect(
+        tester
+            .getSemantics(
+              find.byKey(const ValueKey('composer-proofread-toggle')),
+            )
+            .label,
+        'Proofread',
+      );
+      expect(tester.getSemantics(submit).label, 'Reply');
+    } finally {
+      semantics.dispose();
+    }
     expect(
       tester
           .widget<Switch>(
@@ -377,6 +405,40 @@ void main() {
           )
           .value,
       isTrue,
+    );
+
+    tester.view.physicalSize = const Size(800, 640);
+    await tester.pump();
+    expect(find.text('Proofread'), findsOneWidget);
+    expect(
+      find.descendant(of: submit, matching: find.text('Reply')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Switch>(
+            find.byKey(const ValueKey('composer-proofread-switch')),
+          )
+          .value,
+      isTrue,
+    );
+
+    tester.view.physicalSize = const Size(360, 640);
+    await tester.pump();
+    expect(find.text('Proofread'), findsNothing);
+    expect(
+      tester.getCenter(control).dy,
+      closeTo(tester.getCenter(submit).dy, 1),
+    );
+    await tester.tap(control);
+    await tester.pump();
+    expect(
+      tester
+          .widget<Switch>(
+            find.byKey(const ValueKey('composer-proofread-switch')),
+          )
+          .value,
+      isFalse,
     );
     expect(tester.takeException(), isNull);
   });
