@@ -187,7 +187,8 @@
       "clientThreadId": "client-new-thread:96389418-9fde-4b24-a7dc-7e3fb7a06b2c",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2515/discourse-native",
       "baseCommit": "5fd6658b9fded22bf4b19323257c8ad822dc89eb",
-      "nativeInspectionStatus": "in_progress"
+      "nativeInspectionStatus": "follow_up_queued",
+      "nativeInspectionFollowUp": "Normal Spinner examples and real core/GIF fixtures passed native inspection. A crash during temporary explicit semantics instrumentation requires a bounded comparison against pre-migration native indicators before review_ready."
     },
     {
       "id": "kbd",
@@ -208,7 +209,7 @@
       "clientThreadId": "client-new-thread:f13877da-2928-498d-90ac-fd4f2c12be97",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4bea/discourse-native",
       "baseCommit": "bd21f7cbe93b5c3aa6636c73e52fc511827ec084",
-      "nativeInspectionStatus": "queued"
+      "nativeInspectionStatus": "in_progress"
     },
     {
       "id": "tooltip",
@@ -1346,10 +1347,10 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": "01a08213-9960-79f1-8d90-9626f24a4b5a",
+    "nativeInspectionTaskId": "01a0821b-27cc-7013-affb-99cae203b2a8",
     "nativeInspectionQueue": [
-      "01a0821b-27cc-7013-affb-99cae203b2a8",
-      "01a08213-b4ca-77e1-a2aa-8a490808243e"
+      "01a08213-b4ca-77e1-a2aa-8a490808243e",
+      "01a08213-9960-79f1-8d90-9626f24a4b5a"
     ]
   }
 }
