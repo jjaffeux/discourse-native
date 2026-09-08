@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
@@ -312,156 +313,157 @@ class _PollCardState extends State<PollCard> {
     return Semantics(
       container: true,
       label: _plainTitle == null ? 'Poll' : 'Poll: $_plainTitle',
-      child: Card(
-        key: ValueKey<String>('poll-${_poll.name}'),
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        elevation: 0,
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-        child: AbsorbPointer(
-          absorbing: disabled,
-          child: AnimatedOpacity(
-            opacity: disabled ? 0.68 : 1,
-            duration: const Duration(milliseconds: 120),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (_poll.title != null &&
-                      _poll.title!.trim().isNotEmpty) ...[
-                    CookedHtml(
-                      html: _poll.title!,
-                      siteUrl: widget.siteUrl,
-                      textStyle: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  _PollMetadata(
-                    poll: _poll,
-                    effectivelyOpen: _effectivelyOpen,
-                    automaticallyClosed: _automaticallyClosed,
-                  ),
-                  const SizedBox(height: 12),
-                  if (_isRankedChoice)
-                    _RankedChoiceBody(poll: _poll, siteUrl: widget.siteUrl)
-                  else ...[
-                    if (_poll.type == PollType.number && hasVisibleResults)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Text(
-                          'Weighted average: ${_formatAverage(calculateNumberPollAverage(_poll))}',
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                      ),
-                    for (var index = 0; index < _poll.options.length; index++)
-                      _PollOptionRow(
-                        key: ValueKey<String>(
-                          'poll-${_poll.name}-option-${_poll.options[index].id}',
-                        ),
-                        option: _poll.options[index],
-                        selected: _selection.contains(_poll.options[index].id),
-                        multiple: _isMultiple,
-                        canSelect:
-                            _canVote &&
-                            (!_isMultiple ||
-                                _selection.contains(_poll.options[index].id) ||
-                                _selection.length < _multipleMax),
-                        percentage: percentages?[index],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: DCard(
+          spacing: 0,
+          key: ValueKey<String>('poll-${_poll.name}'),
+          child: AbsorbPointer(
+            absorbing: disabled,
+            child: AnimatedOpacity(
+              opacity: disabled ? 0.68 : 1,
+              duration: const Duration(milliseconds: 120),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_poll.title != null &&
+                        _poll.title!.trim().isNotEmpty) ...[
+                      CookedHtml(
+                        html: _poll.title!,
                         siteUrl: widget.siteUrl,
-                        onTap: _isMultiple
-                            ? () => _toggleMultiple(_poll.options[index].id)
-                            : () => _chooseSingle(_poll.options[index].id),
+                        textStyle: Theme.of(context).textTheme.bodyLarge,
                       ),
-                  ],
-                  if (_isMultiple &&
-                      _poll.supportsNativeVoting &&
-                      restriction == null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      _multipleMin == _multipleMax
-                          ? 'Choose exactly $_multipleMin.'
-                          : 'Choose between $_multipleMin and $_multipleMax options.',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      const SizedBox(height: 8),
+                    ],
+                    _PollMetadata(
+                      poll: _poll,
+                      effectivelyOpen: _effectivelyOpen,
+                      automaticallyClosed: _automaticallyClosed,
                     ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: FilledButton(
-                        key: ValueKey<String>('poll-${_poll.name}-cast'),
-                        onPressed: _canVote && _multipleSelectionValid
-                            ? _castMultiple
-                            : null,
-                        child: Text(
-                          _selection.isEmpty && _savedSelection.isNotEmpty
-                              ? 'Remove votes'
-                              : 'Cast votes',
+                    const SizedBox(height: 12),
+                    if (_isRankedChoice)
+                      _RankedChoiceBody(poll: _poll, siteUrl: widget.siteUrl)
+                    else ...[
+                      if (_poll.type == PollType.number && hasVisibleResults)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Text(
+                            'Weighted average: ${_formatAverage(calculateNumberPollAverage(_poll))}',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                        ),
+                      for (var index = 0; index < _poll.options.length; index++)
+                        _PollOptionRow(
+                          key: ValueKey<String>(
+                            'poll-${_poll.name}-option-${_poll.options[index].id}',
+                          ),
+                          option: _poll.options[index],
+                          selected: _selection.contains(
+                            _poll.options[index].id,
+                          ),
+                          multiple: _isMultiple,
+                          canSelect:
+                              _canVote &&
+                              (!_isMultiple ||
+                                  _selection.contains(
+                                    _poll.options[index].id,
+                                  ) ||
+                                  _selection.length < _multipleMax),
+                          percentage: percentages?[index],
+                          siteUrl: widget.siteUrl,
+                          onTap: _isMultiple
+                              ? () => _toggleMultiple(_poll.options[index].id)
+                              : () => _chooseSingle(_poll.options[index].id),
+                        ),
+                    ],
+                    if (_isMultiple &&
+                        _poll.supportsNativeVoting &&
+                        restriction == null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        _multipleMin == _multipleMax
+                            ? 'Choose exactly $_multipleMin.'
+                            : 'Choose between $_multipleMin and $_multipleMax options.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: FilledButton(
+                          key: ValueKey<String>('poll-${_poll.name}-cast'),
+                          onPressed: _canVote && _multipleSelectionValid
+                              ? _castMultiple
+                              : null,
+                          child: Text(
+                            _selection.isEmpty && _savedSelection.isNotEmpty
+                                ? 'Remove votes'
+                                : 'Cast votes',
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                  if (!hasVisibleResults && !_isRankedChoice) ...[
-                    const SizedBox(height: 10),
-                    _Guidance(text: _hiddenResultsMessage),
-                  ],
-                  if (restriction != null) ...[
-                    const SizedBox(height: 10),
-                    _Guidance(text: restriction),
-                  ] else if (unavailableType) ...[
-                    const SizedBox(height: 10),
-                    _Guidance(
-                      text: _isRankedChoice
-                          ? 'Ranked-choice voting is available on the web.'
-                          : 'This poll type is read only in the app. You can vote on the web.',
-                    ),
-                  ],
-                  if (!_isRankedChoice && _poll.options.isEmpty) ...[
-                    const SizedBox(height: 10),
-                    const _Guidance(
-                      text: 'This poll has no options that can be displayed.',
-                    ),
-                  ],
-                  if (widget.pending || _submitting) ...[
-                    const SizedBox(height: 10),
-                    const _Guidance(text: 'Saving vote…'),
-                  ],
-                  if (!_effectivelyOpen && _poll.closeAt != null) ...[
-                    const SizedBox(height: 10),
-                    _CloseTime(closeAt: _poll.closeAt!, closed: true),
-                  ] else if (_effectivelyOpen && _poll.closeAt != null) ...[
-                    const SizedBox(height: 10),
-                    _CloseTime(closeAt: _poll.closeAt!, closed: false),
-                  ],
-                  if (unavailableType &&
-                      _effectivelyOpen &&
-                      widget.onVoteOnWeb != null) ...[
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: OutlinedButton(
-                        key: ValueKey<String>('poll-${_poll.name}-web'),
-                        onPressed: widget.onVoteOnWeb,
-                        child: const Text('Vote on web'),
+                    ],
+                    if (!hasVisibleResults && !_isRankedChoice) ...[
+                      const SizedBox(height: 10),
+                      _Guidance(text: _hiddenResultsMessage),
+                    ],
+                    if (restriction != null) ...[
+                      const SizedBox(height: 10),
+                      _Guidance(text: restriction),
+                    ] else if (unavailableType) ...[
+                      const SizedBox(height: 10),
+                      _Guidance(
+                        text: _isRankedChoice
+                            ? 'Ranked-choice voting is available on the web.'
+                            : 'This poll type is read only in the app. You can vote on the web.',
                       ),
-                    ),
-                  ] else if (!widget.signedIn &&
-                      _effectivelyOpen &&
-                      _poll.supportsNativeVoting &&
-                      widget.onConnectAccount != null) ...[
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        key: ValueKey<String>('poll-${_poll.name}-connect'),
-                        onPressed: widget.onConnectAccount,
-                        child: const Text('Connect account'),
+                    ],
+                    if (!_isRankedChoice && _poll.options.isEmpty) ...[
+                      const SizedBox(height: 10),
+                      const _Guidance(
+                        text: 'This poll has no options that can be displayed.',
                       ),
-                    ),
+                    ],
+                    if (widget.pending || _submitting) ...[
+                      const SizedBox(height: 10),
+                      const _Guidance(text: 'Saving vote…'),
+                    ],
+                    if (!_effectivelyOpen && _poll.closeAt != null) ...[
+                      const SizedBox(height: 10),
+                      _CloseTime(closeAt: _poll.closeAt!, closed: true),
+                    ] else if (_effectivelyOpen && _poll.closeAt != null) ...[
+                      const SizedBox(height: 10),
+                      _CloseTime(closeAt: _poll.closeAt!, closed: false),
+                    ],
+                    if (unavailableType &&
+                        _effectivelyOpen &&
+                        widget.onVoteOnWeb != null) ...[
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton(
+                          key: ValueKey<String>('poll-${_poll.name}-web'),
+                          onPressed: widget.onVoteOnWeb,
+                          child: const Text('Vote on web'),
+                        ),
+                      ),
+                    ] else if (!widget.signedIn &&
+                        _effectivelyOpen &&
+                        _poll.supportsNativeVoting &&
+                        widget.onConnectAccount != null) ...[
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          key: ValueKey<String>('poll-${_poll.name}-connect'),
+                          onPressed: widget.onConnectAccount,
+                          child: const Text('Connect account'),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -855,48 +857,46 @@ class PollFallbackCard extends StatelessWidget {
     label: title == null
         ? 'Poll, read only'
         : 'Poll: ${_plainText(title!)}, read only',
-    child: Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (title != null) ...[
-              CookedHtml(
-                html: title!,
-                siteUrl: siteUrl,
-                textStyle: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 8),
-            ],
-            for (final option in options)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('•  '),
-                    Expanded(
-                      child: CookedHtml(
-                        html: option,
-                        siteUrl: siteUrl,
-                        textStyle: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ),
-                  ],
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: DCard(
+        spacing: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (title != null) ...[
+                CookedHtml(
+                  html: title!,
+                  siteUrl: siteUrl,
+                  textStyle: Theme.of(context).textTheme.bodyLarge,
                 ),
-              ),
-            if (options.isEmpty)
-              const _Guidance(
-                text: 'This poll cannot be displayed interactively.',
-              ),
-          ],
+                const SizedBox(height: 8),
+              ],
+              for (final option in options)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('•  '),
+                      Expanded(
+                        child: CookedHtml(
+                          html: option,
+                          siteUrl: siteUrl,
+                          textStyle: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (options.isEmpty)
+                const _Guidance(
+                  text: 'This poll cannot be displayed interactively.',
+                ),
+            ],
+          ),
         ),
       ),
     ),

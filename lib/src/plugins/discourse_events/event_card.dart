@@ -77,346 +77,353 @@ class EventCard extends StatelessWidget {
     final url = event.text('url');
     final location = event.text('location_html') ?? event.text('location');
     final stats = event.stats;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.dividerColor),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (eventText(eventObject(event.fields['image_upload'])?['url'])
-                case final image?)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: SiteImage(
-                    url: image,
-                    siteUrl: siteUrl,
-                    width: double.infinity,
-                    height: 180,
-                    fit: BoxFit.cover,
-                    semanticLabel: '${event.title} cover',
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: DCard(
+        spacing: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (eventText(eventObject(event.fields['image_upload'])?['url'])
+                  case final image?)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: SiteImage(
+                      url: image,
+                      siteUrl: siteUrl,
+                      width: double.infinity,
+                      height: 180,
+                      fit: BoxFit.cover,
+                      semanticLabel: '${event.title} cover',
+                    ),
                   ),
                 ),
-              ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (date != null) ...[
-                  Container(
-                    width: 58,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: theme.dividerColor),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          DateFormat.MMM().format(date).toUpperCase(),
-                          style: theme.textTheme.labelSmall,
-                        ),
-                        Text(
-                          '${date.day}',
-                          style: theme.textTheme.headlineSmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      InkWell(
-                        onTap: onOpen,
-                        child: Text(
-                          event.title,
-                          style: theme.textTheme.titleLarge,
-                        ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (date != null) ...[
+                    Container(
+                      width: 58,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: theme.dividerColor),
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                      child: Column(
                         children: [
                           Text(
-                            event.private
-                                ? 'Private'
-                                : event.public
-                                ? 'Public'
-                                : 'Event',
+                            DateFormat.MMM().format(date).toUpperCase(),
+                            style: theme.textTheme.labelSmall,
                           ),
-                          if (creator != null) ...[
-                            const Text('· Created by'),
-                            _Avatar(user: creator, site: siteUrl, size: 24),
-                            Text(creator.name ?? creator.username),
-                          ],
+                          Text(
+                            '${date.day}',
+                            style: theme.textTheme.headlineSmall,
+                          ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                if ([
-                  onEdit,
-                  onInvite,
-                  onExport,
-                  onWeb,
-                  onWithdraw,
-                ].any((callback) => callback != null))
-                  PopupMenuButton<VoidCallback>(
-                    tooltip: 'Event actions',
-                    onSelected: (callback) => callback(),
-                    itemBuilder: (_) => [
-                      if (onEdit != null)
-                        PopupMenuItem(
-                          value: onEdit,
-                          child: const Text('Edit event'),
-                        ),
-                      if (onInvite != null)
-                        PopupMenuItem(
-                          value: onInvite,
-                          child: const Text('Invite people'),
-                        ),
-                      if (onWithdraw != null)
-                        PopupMenuItem(
-                          value: onWithdraw,
-                          child: const Text('Remove my response'),
-                        ),
-                      if (onExport != null)
-                        PopupMenuItem(
-                          value: onExport,
-                          child: const Text('Export calendar'),
-                        ),
-                      if (onWeb != null)
-                        PopupMenuItem(
-                          value: onWeb,
-                          child: const Text('Open event on web'),
-                        ),
-                      if (onWeb != null && event.canManage)
-                        PopupMenuItem(
-                          value: onWeb,
-                          child: const Text(
-                            'Bulk invitations and reports on web',
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        InkWell(
+                          onTap: onOpen,
+                          child: Text(
+                            event.title,
+                            style: theme.textTheme.titleLarge,
                           ),
                         ),
-                    ],
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              event.private
+                                  ? 'Private'
+                                  : event.public
+                                  ? 'Public'
+                                  : 'Event',
+                            ),
+                            if (creator != null) ...[
+                              const Text('· Created by'),
+                              _Avatar(user: creator, site: siteUrl, size: 24),
+                              Text(creator.name ?? creator.username),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _Detail(
-              icon: Icons.schedule,
-              child: Text(
-                eventDateLabel(event, zones, accountTimezone: accountTimezone),
+                  if ([
+                    onEdit,
+                    onInvite,
+                    onExport,
+                    onWeb,
+                    onWithdraw,
+                  ].any((callback) => callback != null))
+                    PopupMenuButton<VoidCallback>(
+                      tooltip: 'Event actions',
+                      onSelected: (callback) => callback(),
+                      itemBuilder: (_) => [
+                        if (onEdit != null)
+                          PopupMenuItem(
+                            value: onEdit,
+                            child: const Text('Edit event'),
+                          ),
+                        if (onInvite != null)
+                          PopupMenuItem(
+                            value: onInvite,
+                            child: const Text('Invite people'),
+                          ),
+                        if (onWithdraw != null)
+                          PopupMenuItem(
+                            value: onWithdraw,
+                            child: const Text('Remove my response'),
+                          ),
+                        if (onExport != null)
+                          PopupMenuItem(
+                            value: onExport,
+                            child: const Text('Export calendar'),
+                          ),
+                        if (onWeb != null)
+                          PopupMenuItem(
+                            value: onWeb,
+                            child: const Text('Open event on web'),
+                          ),
+                        if (onWeb != null && event.canManage)
+                          PopupMenuItem(
+                            value: onWeb,
+                            child: const Text(
+                              'Bulk invitations and reports on web',
+                            ),
+                          ),
+                      ],
+                    ),
+                ],
               ),
-            ),
-            if (recurrence != null)
-              _Detail(icon: Icons.repeat, child: Text(recurrence)),
-            if (location != null)
+              const SizedBox(height: 20),
               _Detail(
-                icon: Icons.place_outlined,
-                child: CookedHtml(
-                  html: location,
-                  siteUrl: siteUrl,
-                  compactParagraphs: true,
+                icon: Icons.schedule,
+                child: Text(
+                  eventDateLabel(
+                    event,
+                    zones,
+                    accountTimezone: accountTimezone,
+                  ),
                 ),
               ),
-            if (url != null && !event.flag('url_restates_location'))
-              _Detail(
-                icon: Icons.link,
-                child: InkWell(
-                  onTap: () => unawaited(
-                    openLink(context, eventLinkUrl(url), siteUrl: siteUrl),
+              if (recurrence != null)
+                _Detail(icon: Icons.repeat, child: Text(recurrence)),
+              if (location != null)
+                _Detail(
+                  icon: Icons.place_outlined,
+                  child: CookedHtml(
+                    html: location,
+                    siteUrl: siteUrl,
+                    compactParagraphs: true,
                   ),
+                ),
+              if (url != null && !event.flag('url_restates_location'))
+                _Detail(
+                  icon: Icons.link,
+                  child: InkWell(
+                    onTap: () => unawaited(
+                      openLink(context, eventLinkUrl(url), siteUrl: siteUrl),
+                    ),
+                    child: Text(
+                      url,
+                      style: TextStyle(color: theme.colorScheme.primary),
+                    ),
+                  ),
+                ),
+              if (description != null && description.trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 12),
+                  child: CookedHtml(
+                    html: description,
+                    siteUrl: siteUrl,
+                    compactParagraphs: true,
+                  ),
+                )
+              else if (event.text('description') case final text?)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(text),
+                ),
+              if (eventObject(event.fields['custom_fields']) case final fields?)
+                for (final entry in fields.entries)
+                  if (entry.value is String &&
+                      (entry.value as String).isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Text('${entry.key}: ${entry.value}'),
+                    ),
+              if (event.displayInvitees && !event.flag('minimal'))
+                _Detail(
+                  icon: Icons.people_outline,
+                  child: InkWell(
+                    onTap: pending ? null : onParticipants,
+                    child: Semantics(
+                      button: onParticipants != null,
+                      label: 'View participants',
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          for (final invitee in event.sampleInvitees)
+                            _Avatar(
+                              user: invitee.user,
+                              site: siteUrl,
+                              size: 30,
+                            ),
+                          if (stats?['going'] case final int count)
+                            Text('$count going'),
+                          if (stats?['interested'] case final int count)
+                            Text('· $count interested'),
+                          if (event.sampleInvitees.isEmpty && stats == null)
+                            const Text('Participants'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              if (event.fields['channel']
+                  case final Map<Object?, Object?> channel)
+                if (eventInt(channel['id']) case final id?)
+                  _Detail(
+                    icon: Icons.chat_bubble_outline,
+                    child: DButton(
+                      onPressed: () => unawaited(
+                        openLink(
+                          context,
+                          resolveSitePath(siteUrl, 'chat/c/-/$id'),
+                          siteUrl: siteUrl,
+                        ),
+                      ),
+                      variant: DButtonVariant.link,
+                      label: const Text('Open event chat'),
+                    ),
+                  ),
+              if (event.text('livestream_url') case final link?)
+                _Detail(
+                  icon: Icons.videocam_outlined,
+                  child: DButton(
+                    onPressed: () =>
+                        unawaited(openLink(context, link, siteUrl: siteUrl)),
+                    variant: DButtonVariant.link,
+                    label: const Text('Open livestream'),
+                  ),
+                ),
+              if (event.flag('is_closed') ||
+                  event.flag('is_expired') ||
+                  event.flag('at_capacity'))
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    url,
-                    style: TextStyle(color: theme.colorScheme.primary),
+                    event.flag('is_closed')
+                        ? 'This event is closed.'
+                        : event.flag('is_expired')
+                        ? 'This event has ended.'
+                        : 'This event is at capacity.',
                   ),
                 ),
-              ),
-            if (description != null && description.trim().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 12),
-                child: CookedHtml(
-                  html: description,
-                  siteUrl: siteUrl,
-                  compactParagraphs: true,
+              if (onConnect != null &&
+                  !event.flag('is_expired') &&
+                  !event.flag('is_closed'))
+                DButton(
+                  label: const Text('Connect to respond'),
+                  onPressed: onConnect,
                 ),
-              )
-            else if (event.text('description') case final text?)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(text),
-              ),
-            if (eventObject(event.fields['custom_fields']) case final fields?)
-              for (final entry in fields.entries)
-                if (entry.value is String && (entry.value as String).isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: Text('${entry.key}: ${entry.value}'),
-                  ),
-            if (event.displayInvitees && !event.flag('minimal'))
-              _Detail(
-                icon: Icons.people_outline,
-                child: InkWell(
-                  onTap: pending ? null : onParticipants,
+              if (onRespond != null && event.canRespond) ...[
+                const DSeparator(space: 24),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final status in settings.buttons)
+                      if (!event.flag('minimal') || status == 'interested')
+                        if (status == 'going' && event.recurring)
+                          PopupMenuButton<VoidCallback>(
+                            tooltip: 'Choose recurring attendance',
+                            enabled: !pending && event.canChoose(status),
+                            // Menu values retain the callback from opening,
+                            // even if the button's widget is replaced meanwhile.
+                            onSelected: (callback) => callback(),
+                            itemBuilder: (_) => [
+                              CheckedPopupMenuItem(
+                                value: () => onRespond!(status, false),
+                                checked:
+                                    selected == 'going' &&
+                                    event.watching?.recurring == false,
+                                child: const Text('This occurrence only'),
+                              ),
+                              CheckedPopupMenuItem(
+                                value: () => onRespond!(status, true),
+                                checked:
+                                    selected == 'going' &&
+                                    event.watching?.recurring == true,
+                                child: const Text('Every occurrence'),
+                              ),
+                            ],
+                            child: IgnorePointer(
+                              child: _ResponseButton(
+                                status: status,
+                                selected: selected == status,
+                                enabled: !pending && event.canChoose(status),
+                                recurring: true,
+                                onTap: () {},
+                              ),
+                            ),
+                          )
+                        else
+                          _ResponseButton(
+                            status: status,
+                            selected: selected == status,
+                            enabled: !pending && event.canChoose(status),
+                            onTap: () => onRespond!(status, false),
+                          ),
+                  ],
+                ),
+              ],
+              if (pending)
+                const Padding(
+                  padding: EdgeInsets.only(top: 10),
+                  child: LinearProgressIndicator(),
+                ),
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
                   child: Semantics(
-                    button: onParticipants != null,
-                    label: 'View participants',
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                    liveRegion: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        for (final invitee in event.sampleInvitees)
-                          _Avatar(user: invitee.user, site: siteUrl, size: 30),
-                        if (stats?['going'] case final int count)
-                          Text('$count going'),
-                        if (stats?['interested'] case final int count)
-                          Text('· $count interested'),
-                        if (event.sampleInvitees.isEmpty && stats == null)
-                          const Text('Participants'),
+                        Text(
+                          error!,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                        if (onRetry != null)
+                          DButton(
+                            onPressed: onRetry,
+                            variant: DButtonVariant.link,
+                            label: const Text('Refresh event'),
+                          ),
                       ],
                     ),
                   ),
                 ),
-              ),
-            if (event.fields['channel']
-                case final Map<Object?, Object?> channel)
-              if (eventInt(channel['id']) case final id?)
-                _Detail(
-                  icon: Icons.chat_bubble_outline,
-                  child: DButton(
-                    onPressed: () => unawaited(
-                      openLink(
-                        context,
-                        resolveSitePath(siteUrl, 'chat/c/-/$id'),
-                        siteUrl: siteUrl,
-                      ),
-                    ),
-                    variant: DButtonVariant.link,
-                    label: const Text('Open event chat'),
-                  ),
-                ),
-            if (event.text('livestream_url') case final link?)
-              _Detail(
-                icon: Icons.videocam_outlined,
-                child: DButton(
-                  onPressed: () =>
-                      unawaited(openLink(context, link, siteUrl: siteUrl)),
-                  variant: DButtonVariant.link,
-                  label: const Text('Open livestream'),
-                ),
-              ),
-            if (event.flag('is_closed') ||
-                event.flag('is_expired') ||
-                event.flag('at_capacity'))
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  event.flag('is_closed')
-                      ? 'This event is closed.'
-                      : event.flag('is_expired')
-                      ? 'This event has ended.'
-                      : 'This event is at capacity.',
-                ),
-              ),
-            if (onConnect != null &&
-                !event.flag('is_expired') &&
-                !event.flag('is_closed'))
-              DButton(
-                label: const Text('Connect to respond'),
-                onPressed: onConnect,
-              ),
-            if (onRespond != null && event.canRespond) ...[
-              const DSeparator(space: 24),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final status in settings.buttons)
-                    if (!event.flag('minimal') || status == 'interested')
-                      if (status == 'going' && event.recurring)
-                        PopupMenuButton<VoidCallback>(
-                          tooltip: 'Choose recurring attendance',
-                          enabled: !pending && event.canChoose(status),
-                          // Menu values retain the callback from opening,
-                          // even if the button's widget is replaced meanwhile.
-                          onSelected: (callback) => callback(),
-                          itemBuilder: (_) => [
-                            CheckedPopupMenuItem(
-                              value: () => onRespond!(status, false),
-                              checked:
-                                  selected == 'going' &&
-                                  event.watching?.recurring == false,
-                              child: const Text('This occurrence only'),
-                            ),
-                            CheckedPopupMenuItem(
-                              value: () => onRespond!(status, true),
-                              checked:
-                                  selected == 'going' &&
-                                  event.watching?.recurring == true,
-                              child: const Text('Every occurrence'),
-                            ),
-                          ],
-                          child: IgnorePointer(
-                            child: _ResponseButton(
-                              status: status,
-                              selected: selected == status,
-                              enabled: !pending && event.canChoose(status),
-                              recurring: true,
-                              onTap: () {},
-                            ),
-                          ),
-                        )
-                      else
-                        _ResponseButton(
-                          status: status,
-                          selected: selected == status,
-                          enabled: !pending && event.canChoose(status),
-                          onTap: () => onRespond!(status, false),
-                        ),
-                ],
-              ),
             ],
-            if (pending)
-              const Padding(
-                padding: EdgeInsets.only(top: 10),
-                child: LinearProgressIndicator(),
-              ),
-            if (error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Semantics(
-                  liveRegion: true,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        error!,
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
-                      if (onRetry != null)
-                        DButton(
-                          onPressed: onRetry,
-                          variant: DButtonVariant.link,
-                          label: const Text('Refresh event'),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );
@@ -684,7 +691,8 @@ class EventUnavailableCard extends StatelessWidget {
   final VoidCallback? onRetry;
   final VoidCallback? onWeb;
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => DCard(
+    spacing: 0,
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -725,7 +733,8 @@ class EventCookedFallback extends StatelessWidget {
   final String? start;
   final String description;
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => DCard(
+    spacing: 0,
     child: Padding(
       padding: const EdgeInsets.all(12),
       child: Column(

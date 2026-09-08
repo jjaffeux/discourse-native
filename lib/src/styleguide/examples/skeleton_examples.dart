@@ -102,30 +102,16 @@ DSkeletonRegion(
           'and a 16:9 cover, matching the frozen reference. '
           'Switch to Ready and activate Follow to verify the real content.',
       states: const ['Aspect ratio', 'Fractional width', 'Ready action'],
-      code: '''final tokens = DTokens.of(context);
-DSkeletonRegion(
+      code: """DSkeletonRegion(
   semanticsLabel: 'Loading card',
-  child: SizedBox(width: 320, child: DecoratedBox(
-    decoration: BoxDecoration(
-      color: tokens.surface,
-      borderRadius: BorderRadius.circular(tokens.radius * 1.4),
-      boxShadow: [BoxShadow(
-        color: tokens.foreground.withValues(alpha: 0.1), spreadRadius: 1)],
+  child: SizedBox(width: 320, child: DCard(children: [
+    DCardHeader(
+      title: FractionallySizedBox(widthFactor: 2 / 3, child: DSkeleton(height: 16)),
+      description: FractionallySizedBox(widthFactor: 0.5, child: DSkeleton(height: 16)),
     ),
-    child: Padding(padding: const EdgeInsets.all(16), child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const FractionallySizedBox(
-          widthFactor: 2 / 3, child: DSkeleton(height: 16)),
-        const SizedBox(height: 4),
-        const FractionallySizedBox(
-          widthFactor: 0.5, child: DSkeleton(height: 16)),
-        const SizedBox(height: 16),
-        const DAspectRatio(ratio: 16 / 9, child: DSkeleton()),
-      ],
-    )),
-  )),
-)''',
+    DCardContent(child: DAspectRatio(ratio: 16 / 9, child: DSkeleton())),
+  ])),
+)""",
       builder: (_) => const _LoadingPreview(
         semanticsLabel: 'Loading card',
         placeholder: _CardPlaceholder(),
@@ -601,30 +587,12 @@ class _ProfileContent extends StatelessWidget {
   );
 }
 
-// A local rendering of the frozen Card composition, pending the Card task.
-// Measurements come from the base-nova Card registry rather than Material Card.
 class _CardFrame extends StatelessWidget {
   const _CardFrame({required this.child});
-
   final Widget child;
-
   @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        borderRadius: BorderRadius.circular(tokens.radius * 1.4),
-        boxShadow: [
-          BoxShadow(
-            color: tokens.foreground.withValues(alpha: 0.1),
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: Padding(padding: const EdgeInsets.all(16), child: child),
-    );
-  }
+  Widget build(BuildContext context) =>
+      DCard(children: [DCardContent(child: child)]);
 }
 
 class _CardPlaceholder extends StatelessWidget {

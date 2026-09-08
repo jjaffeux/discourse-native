@@ -1,9 +1,8 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_preferences.dart';
 import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/select.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
 import 'chat_plugin_data.dart';
 
@@ -47,14 +46,8 @@ class _ChatPreferenceForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.shell.panel,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.shell.divider),
-      ),
+    return DCard(
+      spacing: 0,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: DSelectField<ChatSeparateSidebarPreference>(

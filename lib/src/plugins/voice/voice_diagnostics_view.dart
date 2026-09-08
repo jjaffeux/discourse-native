@@ -392,13 +392,8 @@ class _CaptureControls extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-      child: Material(
-        color: theme.colorScheme.surfaceContainerLow,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: theme.shell.divider),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        clipBehavior: Clip.antiAlias,
+      child: DCard(
+        spacing: 0,
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(

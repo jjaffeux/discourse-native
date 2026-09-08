@@ -31,7 +31,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
 | 20 | aspect-ratio | merged | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | 60a3c432c8ba92b9676125b9527776b2d55c5a13 |
 | 21 | avatar | in_progress | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | — |
-| 22 | card | planned | — | — | typography | — |
+| 22 | card | review_ready | 01a082d9-6c59-7443-8e64-f76105fd5e56 | codex/ui-card | typography | — |
 | 23 | empty | planned | — | — | typography | — |
 | 24 | item | planned | — | — | separator | — |
 | 25 | table | planned | — | — | typography | — |
@@ -611,6 +611,53 @@ Status: merged. Task: 01a082a9-b9d4-79f0-8a0d-cc48e700cc67. Branch: codex/ui-asp
 ### avatar
 
 Status: in_progress. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-avatar.
+
+### card
+
+Status: review_ready. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/ui-card.
+
+**acceptanceCriteria**
+
+- Export all seven passive Card composition APIs, with default/small metrics and live shared spacing; preserve child focus, selection, callbacks and lifecycle.
+- Match base-nova surface, foreground ring, radius, title/description metrics, header action alignment, footer border/shading, absent parts and clipped edge images; document registry hashes and CSS mapping.
+- Reproduce frozen login, small, spacing, edge-to-edge terms, image and RTL examples with local state; document pending Button/Input/Badge/Toggle Group owners.
+- Audit core and every bundled plugin presentation owner; migrate appropriate group/member/activity, Chat, Poll, Events and Skeleton surfaces while preserving domain behavior; justify retained alternatives.
+- Pass format, static analysis and focused seeded component/example/adoption/downstream tests; inspect byte-matched isolated macOS styleguide and real local-data production fixtures in exclusive desktop slot across palettes/narrow/200%/RTL.
+
+**decisions**
+
+- Frozen Card Markdown and all seven APIs covered. Registry raw SHA256 e73e3fe00ab2e14c4db1dccb1ff5c67041a94c0926ac3216c1dc6dd6dee9d7e0; decoded source 645c3d73e387a99f1492220cc619453b0c7f5454134ee3cd548be7a80f7eccde. Exact metrics and complete adoption audit: docs/component-library/card.md.
+- Passive DCard with Header/Title/Description/Action/Content/Footer; 16/12px spacing, shared override, 1px foreground/10 outer ring, live radius ×1.4, explicit typography and native Material ink without elevation or action. Semantic container preserves existing grouping.
+- Direct footer children and explicit footer slot remove bottom padding. Leading/trailing edge slots clip images; edgeToEdge and joinNext express shared-spacing negative margins. Header reflows below 240px or above 150% text using stable Flex topology, preserving child element/focus.
+- Eight runnable local-state examples reproduce reference compositions before application states. Adjacent Button link/outline/secondary/submit, Input email/password visuals, Badge and Toggle Group remain explicitly pending owners. Bundled package image has no network fallback.
+- Examples reuse already-merged Label, Aspect Ratio and Skeleton; the frozen catalogue dependency remains typography.
+
+**migrations**
+
+- Core Groups directory, compact members, activity and requests; Preferences, Badge and Category directories; Aggregate passive panels. Existing navigation, permission, callbacks, fields and state ownership preserved.
+- Chat browse channels and preference form; Poll interactive and cooked fallback; Events loaded/unavailable/cooked fallback; Voice diagnostics controls. Plugin services, hydration and write ownership remain in their modules.
+- Skeleton reference Card now uses DCard; removed its competing frame decoration and Aggregate custom surface owner.
+
+**retainedAlternatives**
+
+- See docs/component-library/card.md for per-owner audit covering all bundled plugins. Retain core popovers/sheets/menus and divider-only topic sidebar; media/identity chips and tables are not passive Card surfaces.
+- Retain Chat message/thread previews with focus/unread/selection contracts, Assign scrollable member navigation pane, Voice video/ringing tiles, Events calendar/chips, Local Dates overlay preview, Poll voting/chart decorations, GitHub labels, Prometheus tables, GIF media and reaction controls.
+
+**verification**
+
+- flutter pub get --enforce-lockfile passed in root and profiles/full; lockfiles and Flutter 3.47.2 pin unchanged.
+- flutter analyze --no-pub passed in root and profiles/full with no issues.
+- Seed 834729: Card/component/examples + Skeleton examples + Groups/Group + Chat browse + Poll card + Event card/lifecycle + Preferences + Badge + Category suites passed 181 tests. Initial run caught and fixed Poll semantic-container regression.
+- Seed 834729: Card/examples + Voice diagnostics + Aggregate + Preferences + d_button_adoption suites passed 48 tests.
+- Seed 834729: final Card/examples run passed 12 tests, including 1fr/auto LTR/RTL geometry, shared spacing, direct footer, image/joined content, retained editing, keyboard activation, 200% reflow and unchanged header action element/focus.
+- macOS debug local fixture build succeeded. Isolated /tmp/DiscourseCard5995.app uses org.discourse.native.card5995 and discourse-card5995 scheme. Deep/strict ad-hoc signature and App.framework payload byte matching verified. Native screenshots and AX evidence are inline in the Card task; ignored build/card-review/native-manifest.json and byte-match.json record the inspected build.
+- Exclusive macOS native pass compared official rendered Card metrics and light/dark screenshots with all eight examples, Plum palette, RTL, narrow layout and 200% text. Exercised login, spacing draft retention, terms acceptance, image details, disabled/selected/busy/error/empty states; inspected actual bundled styleguide. Real local-data Groups, Members, Activity, Poll, Events, Chat and Badge fixtures exercised navigation, retry, vote, RSVP and join/unfollow callbacks.
+
+**limitations**
+
+- iOS and Linux native device inspection unavailable in this macOS session. Widget tests and platform overrides are not device testing.
+- No VoiceOver audit; some native accessibility snapshots were sparse. Widget tests verify semantic grouping and keyboard/focus behavior. Preferences, Categories, Aggregate, Voice diagnostics and cooked/request fallback migrations have focused test coverage but were not individually inspected natively.
+- Adjacent Button/Input/Badge/Toggle Group visuals remain pending their owners, as documented in the examples. Native inspected build displayed baseline status before the final metadata-only promotion to implemented.
 
 ### Final audit
 

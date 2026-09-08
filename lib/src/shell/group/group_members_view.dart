@@ -510,8 +510,8 @@ class _MemberCard extends StatelessWidget {
   Widget build(BuildContext context) => Center(
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 900),
-      child: Card(
-        margin: EdgeInsets.zero,
+      child: DCard(
+        spacing: 0,
         child: InkWell(
           onTap: onTap,
           child: Padding(

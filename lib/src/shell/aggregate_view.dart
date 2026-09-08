@@ -276,7 +276,8 @@ class AggregateViewState extends State<AggregateView> {
           itemBuilder: (context, index) {
             if (state.failures.isNotEmpty) {
               if (index == 0) {
-                return _AggregateCard(
+                return DCard(
+                  spacing: 0,
                   child: _PartialFailureBanner(
                     failed: state.failures.length,
                     onRetry: () => unawaited(controller.refreshAggregate()),
@@ -286,7 +287,8 @@ class AggregateViewState extends State<AggregateView> {
               index--;
             }
             if (index >= state.topics.length) {
-              return _AggregateCard(
+              return DCard(
+                spacing: 0,
                 child: Padding(
                   padding: const EdgeInsets.all(18),
                   child: Center(
@@ -1019,30 +1021,6 @@ class _AggregateTabToolbar extends StatelessWidget {
   }
 }
 
-class _AggregateCard extends StatelessWidget {
-  const _AggregateCard({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    return Material(
-      color: theme.shell.floating,
-      surfaceTintColor: Colors.transparent,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: theme.shell.divider),
-      ),
-      elevation: isDark ? 0 : 1,
-      shadowColor: const Color(0x1A2B1C47),
-      child: child,
-    );
-  }
-}
-
 class _AggregateTopicRow extends StatelessWidget {
   const _AggregateTopicRow({super.key, required this.reference});
 
@@ -1140,7 +1118,8 @@ class _AggregateEmptyState extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 460),
-          child: _AggregateCard(
+          child: DCard(
+            spacing: 0,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(36, 34, 36, 32),
               child: Column(

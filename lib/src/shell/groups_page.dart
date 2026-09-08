@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../models/group.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'choice_menu.dart';
@@ -492,9 +492,8 @@ class _GroupDirectoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bio = (group.plainBio ?? group.bioExcerpt)?.trim();
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
+    return DCard(
+      spacing: 0,
       child: InkWell(
         onTap: onTap,
         mouseCursor: SystemMouseCursors.click,

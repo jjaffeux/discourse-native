@@ -333,17 +333,10 @@ class BadgeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final shape =
-        (theme.cardTheme.shape as OutlinedBorder? ??
-                const RoundedRectangleBorder())
-            .copyWith(side: BorderSide(color: theme.shell.divider));
-    return Material(
-      color: theme.shell.sidebar,
-      shape: shape,
-      clipBehavior: Clip.antiAlias,
+    return DCard(
+      spacing: 0,
       child: InkWell(
         onTap: onTap,
-        customBorder: shape,
         hoverColor: theme.shell.hover,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 166),
