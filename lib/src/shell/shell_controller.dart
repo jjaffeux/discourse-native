@@ -4409,9 +4409,13 @@ class ShellController extends FrameSafeNotifier
   void setForeground(bool foreground) {
     if (foreground == _foreground) return;
     _foreground = foreground;
-    // The OS may suspend or kill a backgrounded process before any timer
-    // fires again, so an anchor waiting out its window must be durable now.
-    if (!foreground) _flushPendingAnchorPersist();
+    // The OS may suspend the process before a debounce timer fires again.
+    if (!foreground) {
+      _flushPendingAnchorPersist();
+      for (final composer in _composers.values) {
+        unawaited(composer.flushDraftOnBackground());
+      }
+    }
     _observePluginLifecycle(
       _pluginSession.setForeground(foreground),
       'plugins.session.setForeground',

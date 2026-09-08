@@ -2088,6 +2088,18 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     return _enqueueDraft();
   }
 
+  Future<void> flushDraftOnBackground() {
+    if (!(_draftTimer?.isActive ?? false) ||
+        _discarding ||
+        (_state != ComposerState.editing &&
+            _state != ComposerState.unresolved)) {
+      return Future.value();
+    }
+    // Queued revisions are already staged locally. Enqueuing them again
+    // could reclaim a shared draft key from another retained composer.
+    return flushDraft();
+  }
+
   Future<void> finishDraftSaves() async {
     final shouldFlush =
         (_draftTimer?.isActive ?? false) || _queuedDraft != null;
