@@ -207,7 +207,8 @@
       "mergeCommit": null,
       "clientThreadId": "client-new-thread:f13877da-2928-498d-90ac-fd4f2c12be97",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4bea/discourse-native",
-      "baseCommit": "bd21f7cbe93b5c3aa6636c73e52fc511827ec084"
+      "baseCommit": "bd21f7cbe93b5c3aa6636c73e52fc511827ec084",
+      "nativeInspectionStatus": "queued"
     },
     {
       "id": "tooltip",
@@ -1285,7 +1286,8 @@
     "nativeInspectionTaskId": "01a08213-b4ca-77e1-a2aa-8a490808243e",
     "nativeInspectionQueue": [
       "01a08213-a2e5-7692-a127-f09d2a03094b",
-      "01a08213-9960-79f1-8d90-9626f24a4b5a"
+      "01a08213-9960-79f1-8d90-9626f24a4b5a",
+      "01a0821b-27cc-7013-affb-99cae203b2a8"
     ]
   }
 }
