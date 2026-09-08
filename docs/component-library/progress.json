@@ -637,7 +637,7 @@
         "Shared overlaps for coordinator reconciliation: discourse_ui.dart, component_examples.dart, tokens.dart, own progress row and app/test imports in topic_view.dart, topic_list_view.dart, draft_list.dart, instance_sidebar.dart, user_activity.dart, user_summary.dart and Chat. No other component branch was imported or merged."
       ],
       "implementationCommit": "bf302bea761f3c2c3ee32f94a3365f4e4ba72198",
-      "mergeCommit": null,
+      "mergeCommit": "fc43a2bdb09ba15b703c0a84863941cde7b009d5",
       "clientThreadId": "client-new-thread:0c87dee9-6ef3-431f-8194-4202d98ca399",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/8c25/discourse-native",
       "baseCommit": "5fd6658b9fded22bf4b19323257c8ad822dc89eb",

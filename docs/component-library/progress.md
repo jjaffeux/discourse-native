@@ -28,7 +28,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 16 | toggle-group | planned | — | — | toggle | — |
 | 17 | slider | planned | — | — | label | — |
 | 18 | progress | planned | — | — | label | — |
-| 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | — |
+| 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
 | 20 | aspect-ratio | planned | — | — | — | — |
 | 21 | avatar | planned | — | — | — | — |
 | 22 | card | planned | — | — | typography | — |
