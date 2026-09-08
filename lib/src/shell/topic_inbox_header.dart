@@ -764,8 +764,7 @@ class _TopicActivitySummary extends StatelessWidget {
                               child: Text(
                                 participants[i].username.isEmpty
                                     ? '?'
-                                    : participants[i].username
-                                          .substring(0, 1)
+                                    : participants[i].username.characters.first
                                           .toUpperCase(),
                                 style: style?.copyWith(
                                   fontSize: DiscourseTypography.fontDown3,
