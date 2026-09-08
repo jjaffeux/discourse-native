@@ -15,6 +15,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -151,6 +152,22 @@ Future<void> _pumpFrames(WidgetTester tester) async {
   }
 }
 
+Map<String, String> _decodeMailtoFields(Uri uri) {
+  final fields = uri.query.split('&');
+  expect(fields, hasLength(2));
+  return Map.fromEntries(
+    fields.map((field) {
+      final parts = field.split('=');
+      expect(parts, hasLength(2));
+      // Mailto uses percent decoding, which leaves literal '+' signs intact.
+      return MapEntry(
+        Uri.decodeComponent(parts[0]),
+        Uri.decodeComponent(parts[1]),
+      );
+    }),
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -206,9 +223,21 @@ void main() {
   testWidgets('anonymous readers get the explanatory email path only', (
     tester,
   ) async {
+    const channel = MethodChannel('plugins.flutter.io/url_launcher');
+    final messenger = tester.binding.defaultBinaryMessenger;
+    final launched = <String>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'launch') {
+        launched.add((call.arguments as Map)['url'] as String);
+      }
+      return true;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+    const topicTitle = 'Civil + Safe & Café';
     const config = SiteConfig(
       allowAllUsersToFlagIllegalContent: true,
-      illegalContentReportEmail: 'legal@example.com',
+      illegalContentReportEmail: 'legal+reports@example.com',
     );
     final api = FakeDiscourseApi(
       feeds: const {'/latest.json': []},
@@ -228,11 +257,11 @@ void main() {
     addTearDown(shell.dispose);
     await shell.load();
     shell.pushContent(
-      ContentRoute.topic(topicId: 7, slug: 'civil-topic', title: 'Civil Topic'),
+      ContentRoute.topic(topicId: 7, slug: 'civil-topic', title: topicTitle),
     );
     shell.store.put(
       _siteUrl,
-      const TopicDetail(id: 7, title: 'Civil Topic', stream: [42]),
+      const TopicDetail(id: 7, title: topicTitle, stream: [42]),
     );
 
     await tester.pumpWidget(_plainActionsHost(shell, _availablePost));
@@ -258,9 +287,36 @@ void main() {
     await _pumpFrames(tester);
     expect(find.text('Report illegal content'), findsOneWidget);
     expect(find.text('Open email'), findsOneWidget);
+    expect(launched, isEmpty);
 
     await tester.tap(find.text('Cancel'));
     await _pumpFrames(tester);
+    expect(launched, isEmpty);
+
+    await pointer.moveTo(Offset.zero);
+    await pointer.moveTo(tester.getCenter(find.text('Post body')));
+    await tester.pump();
+    await tester.tap(find.byTooltip('More actions'));
+    await _pumpFrames(tester);
+    await tester.tap(
+      find.widgetWithText(MenuItemButton, 'Report illegal content'),
+    );
+    await _pumpFrames(tester);
+    await tester.tap(find.text('Open email'));
+    await _pumpFrames(tester);
+
+    expect(launched, hasLength(1));
+    final mailto = Uri.parse(launched.single);
+    expect(mailto.scheme, 'mailto');
+    expect(mailto.path, 'legal+reports@example.com');
+    expect(_decodeMailtoFields(mailto), {
+      'subject': 'Illegal content: $topicTitle',
+      'body':
+          'This post https://meta.discourse.org/t/civil-topic/7/2 '
+          'contains illegal content.',
+    });
+    expect(find.text('Open email'), findsNothing);
+
     await tester.pumpWidget(
       _plainActionsHost(shell, _availablePost.copyWith(hidden: true)),
     );
@@ -358,12 +414,38 @@ void main() {
 
     expect(uri.scheme, 'mailto');
     expect(uri.path, 'legal@example.com');
-    expect(uri.queryParameters, {
+    expect(_decodeMailtoFields(uri), {
       'subject': 'Illegal content: Civil & Safe',
       'body':
           'This post https://meta.discourse.org/t/civil-topic/7/2 '
           'contains illegal content.',
     });
-    expect(uri.toString(), contains('Civil+%26+Safe'));
+    expect(uri.toString(), contains('Civil%20%26%20Safe'));
   });
+
+  test(
+    'anonymous mailto fields round-trip without splitting or corruption',
+    () {
+      const topicTitle = 'Civil + Safe &amp; Café 日本語? #100%';
+      const postUrl =
+          'https://meta.discourse.org/t/caf%C3%A9/7/2'
+          '?search=a+b%20c&label=日本語&x=%26%3D#reply-2';
+      final uri = Uri.parse(
+        illegalContentMailtoUri(
+          email: 'legal+reports@example.com',
+          topicTitle: topicTitle,
+          postUrl: postUrl,
+        ).toString(),
+      );
+
+      expect(uri.path, 'legal+reports@example.com');
+      expect(uri.fragment, isEmpty);
+      expect(_decodeMailtoFields(uri), {
+        'subject': 'Illegal content: $topicTitle',
+        'body': 'This post $postUrl contains illegal content.',
+      });
+      expect(uri.query, contains('%20%2B%20'));
+      expect(uri.query, isNot(contains('+')));
+    },
+  );
 }
