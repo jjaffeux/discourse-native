@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -35,6 +37,7 @@ const _editablePost = Post(
   canEdit: true,
 );
 const _body = 'Read selected words here';
+const _replacementUser = DiscourseUser(id: 99, username: 'replacement');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -372,11 +375,97 @@ void main() {
       expect(api.updated.single['raw'], 'Read  words here');
     });
 
-    testWidgets('keeps failed edits visible with their input', (tester) async {
-      final api = FakeDiscourseApi(
-        postsById: const {22: _editablePost},
-        writeFailure: const WriteException(WriteFailure.conflict),
-      );
+    for (final disconnect in [false, true]) {
+      for (final retry in [false, true]) {
+        testWidgets(
+          'compact edit ${retry ? 'retry' : 'save'} refuses the opening account '
+          'after ${disconnect ? 'disconnect and reconnect' : 'replacement'}',
+          (tester) async {
+            final api = _FastEditApi();
+            final auth = _CountingAuthenticator();
+            final shell = await _pumpSelection(
+              tester,
+              post: _editablePost,
+              api: api,
+              authenticator: auth,
+            );
+            addTearDown(shell.dispose);
+            await _openFastEditor(tester);
+            final input = find.byKey(const ValueKey('fast-edit-input'));
+            final text = tester.widget<TextField>(input).controller!;
+            await tester.enterText(input, 'my replacement');
+            if (retry) {
+              api.nextWriteFailure = const WriteException(
+                WriteFailure.conflict,
+              );
+              await _saveFastEdit(tester);
+              expect(
+                find.text('Someone else changed that first.'),
+                findsOneWidget,
+              );
+              expect(api.editKeys, ['api-key']);
+            }
+
+            if (disconnect) await shell.disconnectCurrentInstance();
+            await shell.connectCurrentInstance();
+            await tester.pumpAndSettle();
+            expect(shell.currentInstance?.user, _replacementUser);
+            expect(auth.keys[_siteUrl], 'replacement-key');
+            expect(shell.store.read<Post>(_siteUrl, _editablePost.id), isNull);
+            _showTopic(shell, _editablePost);
+            await tester.pumpAndSettle();
+
+            // Restore every eligibility check that would otherwise mask an
+            // old sheet using the replacement account's credentials.
+            expect(shell.currentContent?.topicId, 7);
+            expect(shell.currentTopic?.stream, contains(_editablePost.id));
+            expect(shell.store.read<Post>(_siteUrl, 22)?.canEdit, isTrue);
+            expect(shell.siteConfigFor(_siteUrl).fastEditEnabled, isTrue);
+            expect(tester.widget<TextField>(input).controller, same(text));
+            final keyReads = auth.keyReads;
+            final clientReads = auth.clientReads;
+            final fetches = api.postFetches.length;
+            final writes = api.updated.length;
+
+            await _saveFastEdit(tester);
+
+            expect(api.editKeys, retry ? ['api-key'] : isEmpty);
+            expect(auth.keyReads, keyReads);
+            expect(auth.clientReads, clientReads);
+            expect(api.postFetches, hasLength(fetches));
+            expect(api.updated, hasLength(writes));
+            expect(shell.store.read<Post>(_siteUrl, 22), same(_editablePost));
+            expect(shell.postWriteInFlight(22), isFalse);
+            expect(input, findsOneWidget);
+            expect(text.text, 'my replacement');
+            expect(tester.widget<TextField>(input).enabled, isTrue);
+            expect(
+              find.text('The topic changed before the edit could be saved.'),
+              findsOneWidget,
+            );
+
+            await tester.tap(find.byKey(const ValueKey('fast-edit-cancel')));
+            await tester.pumpAndSettle();
+            await _openFastEditor(tester);
+            await tester.enterText(input, 'fresh replacement');
+            await _saveFastEdit(tester);
+
+            expect(api.editKeys.last, 'replacement-key');
+            expect(
+              api.updated.last['raw'],
+              'Read fresh replacement words here',
+            );
+            expect(input, findsNothing);
+          },
+        );
+      }
+    }
+
+    testWidgets('keeps failed edits visible and retries their input', (
+      tester,
+    ) async {
+      final api = _FastEditApi()
+        ..nextWriteFailure = const WriteException(WriteFailure.conflict);
       final shell = await _pumpSelection(tester, post: _editablePost, api: api);
       addTearDown(shell.dispose);
       await _selectWord(tester);
@@ -395,7 +484,109 @@ void main() {
       );
       expect(find.byKey(const ValueKey('fast-edit-error')), findsOneWidget);
       expect(find.text('Someone else changed that first.'), findsOneWidget);
+
+      await _saveFastEdit(tester);
+
+      expect(api.editKeys, ['api-key', 'api-key']);
+      expect(api.updated.last['raw'], 'Read my replacement words here');
+      expect(input, findsNothing);
     });
+
+    testWidgets(
+      'can retry after returning to the topic under the same account',
+      (tester) async {
+        final api = _FastEditApi();
+        final auth = _CountingAuthenticator();
+        final shell = await _pumpSelection(
+          tester,
+          post: _editablePost,
+          api: api,
+          authenticator: auth,
+        );
+        addTearDown(shell.dispose);
+        await _openFastEditor(tester);
+        final input = find.byKey(const ValueKey('fast-edit-input'));
+        await tester.enterText(input, 'my replacement');
+        final openingRoute = shell.currentContent!;
+        shell.replaceCurrentContent(
+          ContentRoute.topic(topicId: 8, slug: 'other', title: 'Other'),
+        );
+        await tester.pumpAndSettle();
+        final keyReads = auth.keyReads;
+
+        await _saveFastEdit(tester);
+
+        expect(find.text('This post can no longer be edited.'), findsOneWidget);
+        expect(auth.keyReads, keyReads);
+        expect(api.editKeys, isEmpty);
+        expect(
+          tester.widget<TextField>(input).controller!.text,
+          'my replacement',
+        );
+
+        shell.replaceCurrentContent(openingRoute);
+        await tester.enterText(input, 'revised replacement');
+        await tester.pump();
+        expect(find.byKey(const ValueKey('fast-edit-error')), findsNothing);
+        await _saveFastEdit(tester);
+
+        expect(api.editKeys, ['api-key']);
+        expect(
+          api.updated.single['raw'],
+          'Read revised replacement words here',
+        );
+        expect(input, findsNothing);
+      },
+    );
+
+    for (final fails in [false, true]) {
+      testWidgets(
+        'reports the retired account after an in-flight ${fails ? 'failure' : 'success'}',
+        (tester) async {
+          final gate = Completer<void>();
+          final api = _FastEditApi(updatePostGate: gate);
+          if (fails) {
+            api.nextWriteFailure = const WriteException(WriteFailure.conflict);
+          }
+          final shell = await _pumpSelection(
+            tester,
+            post: _editablePost,
+            api: api,
+            authenticator: _CountingAuthenticator(),
+          );
+          addTearDown(shell.dispose);
+          await _openFastEditor(tester);
+          final input = find.byKey(const ValueKey('fast-edit-input'));
+          await tester.enterText(input, 'my replacement');
+          await tester.pump();
+          await tester.tap(find.byKey(const ValueKey('fast-edit-save')));
+          await tester.pump();
+          expect(api.editKeys, ['api-key']);
+
+          await shell.connectCurrentInstance();
+          await tester.pump();
+          _showTopic(shell, _editablePost);
+          expect(shell.currentInstance?.user, _replacementUser);
+          gate.complete();
+          await tester.pumpAndSettle();
+
+          expect(input, findsOneWidget);
+          expect(tester.widget<TextField>(input).enabled, isTrue);
+          expect(
+            tester.widget<TextField>(input).controller!.text,
+            'my replacement',
+          );
+          expect(
+            find.text('The topic changed before the edit could be saved.'),
+            findsOneWidget,
+          );
+          expect(shell.store.read<Post>(_siteUrl, 22), same(_editablePost));
+          await _saveFastEdit(tester);
+          expect(api.editKeys, ['api-key']);
+          expect(shell.postWriteInFlight(22), isFalse);
+        },
+      );
+    }
 
     testWidgets('disables editing while a save is in flight', (tester) async {
       final gate = Completer<void>();
@@ -528,9 +719,15 @@ Future<ShellController> _pumpSelection(
   Post post = _post,
   Widget child = const Text(_body),
   FakeDiscourseApi? api,
+  FakeAuthenticator? authenticator,
   SiteConfig config = const SiteConfig.unknown(),
 }) async {
-  final shell = await _shell(post: post, api: api, config: config);
+  final shell = await _shell(
+    post: post,
+    api: api,
+    authenticator: authenticator,
+    config: config,
+  );
   await tester.pumpWidget(
     ShellScope(
       controller: shell,
@@ -557,9 +754,11 @@ Future<ShellController> _shell({
   FakeDraftStore? drafts,
   Post post = _post,
   FakeDiscourseApi? api,
+  FakeAuthenticator? authenticator,
   SiteConfig config = const SiteConfig.unknown(),
 }) async {
-  final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
+  authenticator ??= FakeAuthenticator();
+  authenticator.keys[_siteUrl] = 'api-key';
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
       instance('meta.discourse.org').copyWith(config: config),
@@ -571,6 +770,11 @@ Future<ShellController> _shell({
     updateStore: FakeUpdateStore(),
   );
   await shell.load();
+  _showTopic(shell, post);
+  return shell;
+}
+
+void _showTopic(ShellController shell, Post post) {
   shell.store.put(
     _siteUrl,
     TopicDetail(
@@ -584,7 +788,19 @@ Future<ShellController> _shell({
   shell.pushContent(
     ContentRoute.topic(topicId: 7, slug: 'a-topic', title: 'A topic'),
   );
-  return shell;
+}
+
+Future<void> _openFastEditor(WidgetTester tester) async {
+  await _selectWord(tester);
+  await tester.tap(find.byKey(const ValueKey('edit-selection')));
+  await tester.pumpAndSettle();
+  expect(find.byKey(const ValueKey('fast-edit-input')), findsOneWidget);
+}
+
+Future<void> _saveFastEdit(WidgetTester tester) async {
+  await tester.pump();
+  await tester.tap(find.byKey(const ValueKey('fast-edit-save')));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _selectWord(WidgetTester tester) async {
@@ -613,4 +829,77 @@ Future<void> _selectWord(WidgetTester tester) async {
   await gesture.up();
   await tester.pump(const Duration(milliseconds: 151));
   await tester.pump();
+}
+
+class _CountingAuthenticator extends FakeAuthenticator {
+  _CountingAuthenticator()
+    : super(
+        credentials: const UserApiCredentials(
+          key: 'replacement-key',
+          apiVersion: 4,
+          push: false,
+        ),
+      );
+
+  var keyReads = 0;
+  var clientReads = 0;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    keyReads++;
+    return super.apiKeyFor(siteUrl);
+  }
+
+  @override
+  Future<String> clientId() {
+    clientReads++;
+    return super.clientId();
+  }
+}
+
+class _FastEditApi extends FakeDiscourseApi {
+  _FastEditApi({super.updatePostGate})
+    : super(postsById: const {22: _editablePost});
+
+  final editKeys = <String>[];
+  WriteException? nextWriteFailure;
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async => apiKey == 'replacement-key'
+      ? _replacementUser
+      : await super.currentUser(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+        );
+
+  @override
+  Future<Post> updatePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String raw,
+    String? originalText,
+    String? editReason,
+    String? clientId,
+  }) async {
+    editKeys.add(apiKey);
+    final failure = nextWriteFailure;
+    nextWriteFailure = null;
+    final updated = await super.updatePost(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      postId: postId,
+      raw: raw,
+      originalText: originalText,
+      editReason: editReason,
+      clientId: clientId,
+    );
+    if (failure != null) throw failure;
+    return updated;
+  }
 }
