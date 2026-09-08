@@ -599,15 +599,32 @@ void main() {
       expect(controller.activeTabId, originalId);
       expect(_bar(tester).selectedId, originalId);
 
-      await tester.tap(find.byKey(ValueKey('forum-tab-close-$originalId')));
+      await tester.tap(
+        find.byKey(const ValueKey('forum-tabs-switcher-surface')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(ValueKey('forum-tabs-switcher-open-$originalId')),
+          matching: find.byType(IconButton),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(controller.tabsForCurrentForum.map((tab) => tab.id), [newId]);
       expect(_bar(tester).items.single.id, newId);
       expect(_bar(tester).selectedId, newId);
       expect(_bar(tester).recentlyClosedItems.single.id, originalId);
+      expect(
+        find.byKey(const ValueKey('forum-tabs-switcher-menu')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(ValueKey('forum-tabs-switcher-recent-$originalId')),
+        findsNothing,
+      );
 
       await tester.tap(
-        find.byKey(const ValueKey('forum-tabs-switcher-surface')),
+        find.byKey(const ValueKey('forum-tabs-switcher-history')),
       );
       await tester.pumpAndSettle();
       await tester.tap(

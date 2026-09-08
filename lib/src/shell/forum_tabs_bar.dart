@@ -349,6 +349,7 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
   final FocusNode _searchFocus = FocusNode(debugLabel: 'tab switcher search');
   final WidgetStatesController _buttonStates = WidgetStatesController();
   bool _open = false;
+  bool _historyExpanded = false;
 
   @override
   void dispose() {
@@ -368,7 +369,12 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
   void _handleClose() {
     _searchFocus.unfocus();
     _search.clear();
-    if (mounted) setState(() => _open = false);
+    if (mounted) {
+      setState(() {
+        _open = false;
+        _historyExpanded = false;
+      });
+    }
   }
 
   bool _matches(ForumTabItem item) {
@@ -390,17 +396,10 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final media = MediaQuery.of(context);
-    final panelWidth = math.max(0.0, math.min(390.0, media.size.width - 16));
+    final panelWidth = math.max(0.0, math.min(500.0, media.size.width - 16));
     final availablePanelHeight = math.max(
       0.0,
-      media.size.height - media.padding.vertical - 72,
-    );
-    final visibleRowCount =
-        widget.items.length + math.max(1, widget.recentlyClosedItems.length);
-    final desiredPanelHeight = math.max(240.0, 155 + visibleRowCount * 42.0);
-    final panelHeight = math.min(
-      availablePanelHeight,
-      math.min(480.0, desiredPanelHeight),
+      media.size.height - media.padding.vertical - media.viewInsets.bottom - 72,
     );
     final openItems = widget.items.where(_matches).toList(growable: false);
     final closedItems = widget.recentlyClosedItems
@@ -419,7 +418,7 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
           padding: const WidgetStatePropertyAll(EdgeInsets.zero),
           backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
           surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-          elevation: const WidgetStatePropertyAll(14),
+          elevation: const WidgetStatePropertyAll(8),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(
               side: BorderSide(color: theme.shell.divider),
@@ -428,98 +427,132 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
           ),
         ),
         menuChildren: [
-          SizedBox(
+          Container(
             key: const ValueKey('forum-tabs-switcher-menu'),
             width: panelWidth,
-            height: panelHeight,
+            constraints: BoxConstraints(
+              maxHeight: math.min(480.0, availablePanelHeight),
+            ),
+            padding: const EdgeInsets.all(10),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-                  child: TextField(
-                    key: const ValueKey('forum-tabs-switcher-search'),
-                    controller: _search,
-                    focusNode: _searchFocus,
-                    onChanged: (_) => setState(() {}),
-                    maxLines: 1,
-                    textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      hintText: 'Search tabs',
-                      prefixIcon: const Padding(
-                        padding: EdgeInsets.all(11),
-                        child: DIcon(DIcons.magnifyingGlass, size: 18),
+                TextField(
+                  key: const ValueKey('forum-tabs-switcher-search'),
+                  controller: _search,
+                  focusNode: _searchFocus,
+                  onChanged: (_) => setState(() {}),
+                  maxLines: 1,
+                  textInputAction: TextInputAction.search,
+                  style: theme.textTheme.bodyMedium,
+                  decoration: InputDecoration(
+                    hintText: 'Search tabs…',
+                    hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    prefixIcon: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: DIcon(
+                        DIcons.magnifyingGlass,
+                        size: 17,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      prefixIconConstraints: const BoxConstraints(
-                        minWidth: 40,
-                        minHeight: 40,
-                      ),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 11,
-                      ),
-                      filled: true,
-                      fillColor: theme.shell.content,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(9),
-                        borderSide: BorderSide(color: theme.shell.divider),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(9),
-                        borderSide: BorderSide(color: theme.shell.divider),
+                    ),
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 9,
+                    ),
+                    filled: true,
+                    fillColor: theme.shell.content,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.35,
+                        ),
                       ),
                     ),
                   ),
                 ),
-                Divider(height: 1, color: theme.shell.divider),
-                Expanded(
-                  child: ListView(
+                const SizedBox(height: 10),
+                Flexible(
+                  child: SingleChildScrollView(
                     primary: false,
-                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
-                    children: [
-                      _TabSwitcherHeading(
-                        label: 'Open tabs',
-                        count: widget.items.length,
-                      ),
-                      for (final item in openItems)
-                        _TabSwitcherRow(
-                          key: ValueKey('forum-tabs-switcher-open-${item.id}'),
-                          item: item,
-                          selected: item.id == widget.selectedId,
-                          onTap: () => _select(item.id),
-                          trailing: _TabSwitcherRowAction(
-                            label: 'Close ${item.title}',
-                            icon: DIcons.xmark,
-                            onPressed: () => widget.onClose(item.id),
-                          ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _TabSwitcherHeading(
+                          label: _search.text.trim().isEmpty
+                              ? 'Open tabs'
+                              : 'Matching tabs',
+                          count: openItems.length,
                         ),
-                      if (openItems.isEmpty)
-                        const _TabSwitcherEmpty(label: 'No matching open tabs'),
-                      const SizedBox(height: 12),
-                      _TabSwitcherHeading(
-                        label: 'Recently closed',
-                        count: widget.recentlyClosedItems.length,
-                      ),
-                      for (final item in closedItems)
-                        _TabSwitcherRow(
-                          key: ValueKey(
-                            'forum-tabs-switcher-recent-${item.id}',
+                        for (final item in openItems)
+                          _TabSwitcherRow(
+                            key: ValueKey(
+                              'forum-tabs-switcher-open-${item.id}',
+                            ),
+                            item: item,
+                            selected: item.id == widget.selectedId,
+                            onTap: () => _select(item.id),
+                            trailing: _TabSwitcherRowAction(
+                              label: 'Close ${item.title}',
+                              icon: DIcons.xmark,
+                              onPressed: () => widget.onClose(item.id),
+                            ),
                           ),
-                          item: item,
-                          onTap: widget.onReopen == null
-                              ? null
-                              : () => _reopen(item.id),
-                          trailing: const DIcon(
-                            DIcons.arrowRotateLeft,
-                            size: 15,
+                        if (openItems.isEmpty)
+                          const _TabSwitcherEmpty(
+                            label: 'No matching open tabs',
                           ),
-                        ),
-                      if (closedItems.isEmpty)
-                        const _TabSwitcherEmpty(
-                          label: 'No matching recently closed tabs',
-                        ),
-                    ],
+                        if (widget.recentlyClosedItems.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Divider(height: 1, color: theme.shell.divider),
+                          _TabSwitcherHistoryToggle(
+                            count: closedItems.length,
+                            expanded: _historyExpanded,
+                            onTap: () => setState(
+                              () => _historyExpanded = !_historyExpanded,
+                            ),
+                          ),
+                          if (_historyExpanded) ...[
+                            for (final item in closedItems)
+                              _TabSwitcherRow(
+                                key: ValueKey(
+                                  'forum-tabs-switcher-recent-${item.id}',
+                                ),
+                                item: item,
+                                onTap: widget.onReopen == null
+                                    ? null
+                                    : () => _reopen(item.id),
+                                trailing: const DIcon(
+                                  DIcons.arrowRotateLeft,
+                                  size: 15,
+                                ),
+                              ),
+                            if (closedItems.isEmpty)
+                              const _TabSwitcherEmpty(
+                                label: 'No matching recently closed tabs',
+                              ),
+                          ],
+                        ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -598,12 +631,59 @@ class _TabSwitcherHeading extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 5, 10, 6),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
       child: Text(
         count == 0 ? label : '$label  $count',
         style: theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+class _TabSwitcherHistoryToggle extends StatelessWidget {
+  const _TabSwitcherHistoryToggle({
+    required this.count,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final int count;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      expanded: expanded,
+      child: InkWell(
+        key: const ValueKey('forum-tabs-switcher-history'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(7),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            children: [
+              DIcon(
+                expanded ? DIcons.chevronDown : DIcons.chevronRight,
+                size: 12,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Recently closed  $count',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -644,35 +724,108 @@ class _TabSwitcherRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      color: selected ? theme.colorScheme.primaryContainer : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        hoverColor: theme.colorScheme.primaryContainer,
-        child: SizedBox(
-          height: 42,
-          child: Row(
-            children: [
-              const SizedBox(width: 11),
-              Expanded(
-                child: Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+    final foreground = selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
+    final labelStyle = theme.textTheme.bodySmall?.copyWith(
+      fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+    );
+    final title = switch (item.siteUrl) {
+      final siteUrl? => SiteEmojiText.plain(
+        item.title,
+        siteUrl: siteUrl,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: labelStyle,
+      ),
+      null => Text(
+        item.title,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: labelStyle,
+      ),
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Material(
+        color: selected
+            ? Color.alphaBlend(
+                theme.colorScheme.primary.withValues(alpha: 0.12),
+                theme.shell.floating,
+              )
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(7),
+        child: Stack(
+          children: [
+            if (selected)
+              PositionedDirectional(
+                start: 0,
+                top: 12,
+                bottom: 12,
+                width: 2,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing!,
-                const SizedBox(width: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    selected: selected,
+                    child: DTooltip(
+                      message: item.title,
+                      excludeFromSemantics: true,
+                      child: InkWell(
+                        onTap: onTap,
+                        borderRadius: BorderRadius.circular(7),
+                        hoverColor: theme.hoverColor,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 40),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 9,
+                            ),
+                            child: Row(
+                              children: [
+                                ExcludeSemantics(
+                                  child: SizedBox(
+                                    width: 18,
+                                    height: 20,
+                                    child: Center(
+                                      child:
+                                          _tabPrefix(
+                                            context,
+                                            item,
+                                            foreground,
+                                            size: 17,
+                                          ) ??
+                                          DIcon(
+                                            DIcons.layerGroup,
+                                            size: 17,
+                                            color: foreground,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 11),
+                                Expanded(child: title),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (trailing != null) ...[trailing!, const SizedBox(width: 4)],
               ],
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -693,11 +846,73 @@ class _TabSwitcherRowAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => IconButton(
     tooltip: label,
-    constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+    constraints: const BoxConstraints.tightFor(width: 30, height: 30),
     padding: EdgeInsets.zero,
+    style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+    color: Theme.of(context).colorScheme.onSurfaceVariant,
     onPressed: onPressed,
-    icon: DIcon(icon, size: 13),
+    icon: DIcon(icon, size: 14),
   );
+}
+
+Widget? _tabPrefix(
+  BuildContext context,
+  ForumTabItem item,
+  Color foreground, {
+  double size = 15,
+}) {
+  final theme = Theme.of(context);
+
+  if (item.prefixBuilder case final builder?) {
+    return builder(context, size);
+  }
+
+  if (item.avatarUrl case final url?) {
+    return ClipOval(
+      child: SizedBox.square(
+        dimension: size + 1,
+        child: AvatarImage(
+          url: url,
+          size: size + 1,
+          fallback: ColoredBox(color: theme.shell.floating),
+        ),
+      ),
+    );
+  }
+
+  if ((item.emojiUrl, item.emojiName) case (final url?, final name?)) {
+    return EmojiImage(
+      url: url,
+      size: size,
+      alt: ':$name:',
+      style: theme.textTheme.labelSmall,
+    );
+  }
+
+  if (item.color case final color?) {
+    final parentColor = item.parentColor;
+    return Container(
+      key: ValueKey('forum-tab-prefix-${item.id}'),
+      width: size - 3,
+      height: size - 3,
+      decoration: BoxDecoration(
+        color: parentColor == null ? color : null,
+        gradient: parentColor == null
+            ? null
+            : LinearGradient(
+                colors: [parentColor, color],
+                stops: const [0.5, 0.5],
+              ),
+        borderRadius: BorderRadius.circular(3),
+      ),
+    );
+  }
+
+  if (item.icon case final icon?) {
+    return DIcon(icon, size: size, color: item.iconColor ?? foreground);
+  }
+
+  return null;
 }
 
 class _ReorderableForumTab extends StatelessWidget {
@@ -1072,62 +1287,6 @@ class _ForumTabState extends State<_ForumTab> {
         '${badge.count == 1 ? 'unread item' : 'unread items'}';
   }
 
-  Widget? _prefix(BuildContext context, Color foreground) {
-    final item = widget.item;
-    final theme = Theme.of(context);
-
-    if (item.prefixBuilder case final builder?) {
-      return builder(context, 15);
-    }
-
-    if (item.avatarUrl case final url?) {
-      return ClipOval(
-        child: SizedBox.square(
-          dimension: 16,
-          child: AvatarImage(
-            url: url,
-            size: 16,
-            fallback: ColoredBox(color: theme.shell.floating),
-          ),
-        ),
-      );
-    }
-
-    if ((item.emojiUrl, item.emojiName) case (final url?, final name?)) {
-      return EmojiImage(
-        url: url,
-        size: 15,
-        alt: ':$name:',
-        style: theme.textTheme.labelSmall,
-      );
-    }
-
-    if (item.color case final color?) {
-      final parentColor = item.parentColor;
-      return Container(
-        key: ValueKey('forum-tab-prefix-${item.id}'),
-        width: 12,
-        height: 12,
-        decoration: BoxDecoration(
-          color: parentColor == null ? color : null,
-          gradient: parentColor == null
-              ? null
-              : LinearGradient(
-                  colors: [parentColor, color],
-                  stops: const [0.5, 0.5],
-                ),
-          borderRadius: BorderRadius.circular(3),
-        ),
-      );
-    }
-
-    if (item.icon case final icon?) {
-      return DIcon(icon, size: 15, color: item.iconColor ?? foreground);
-    }
-
-    return null;
-  }
-
   Widget _badge(BuildContext context) {
     final badge = widget.item.badge;
     if (!badge.isVisible) return const SizedBox.shrink();
@@ -1190,7 +1349,7 @@ class _ForumTabState extends State<_ForumTab> {
     BoxConstraints constraints,
   ) {
     final theme = Theme.of(context);
-    final prefix = _prefix(context, foreground);
+    final prefix = _tabPrefix(context, widget.item, foreground);
     final labelStyle = theme.textTheme.labelMedium?.copyWith(
       color: foreground,
       fontSize: DiscourseTypography.fontDown2,
