@@ -10,10 +10,17 @@ Uri illegalContentMailtoUri({
 }) => Uri(
   scheme: 'mailto',
   path: email,
-  queryParameters: {
-    'subject': 'Illegal content: $topicTitle',
-    'body': 'This post $postUrl contains illegal content.',
-  },
+  // Mailto spaces must be %20; queryParameters uses form-style '+'.
+  query:
+      {
+            'subject': 'Illegal content: $topicTitle',
+            'body': 'This post $postUrl contains illegal content.',
+          }.entries
+          .map(
+            (entry) =>
+                '${Uri.encodeComponent(entry.key)}=${Uri.encodeComponent(entry.value)}',
+          )
+          .join('&'),
 );
 
 Future<void> showAnonymousIllegalContentDialog({
