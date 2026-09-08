@@ -2393,6 +2393,13 @@ retired callbacks from opening browser windows or changing the new document.
 Discourse markup parsing and the native posters independent of the platform
 package.
 
+YouTube and uploaded-video posters cache raster pixels at the card's physical
+cover resolution. The decoder uses the poster's intrinsic dimensions to keep
+its aspect ratio and enough detail on both sides of the crop, even when it
+differs from the video. Smaller sources are never upscaled during decoding;
+SVG posters keep vector rendering. Resizing the card or changing displays
+selects the corresponding cached resolution without activating a player.
+
 Uploaded video is a separate, shared media path. Chat exposes an upload record
 outside cooked HTML, while topics use either core's lazy
 `video-placeholder-container` or its activated `video-onebox` markup;
