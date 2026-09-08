@@ -176,10 +176,15 @@ void main() {
 
     test('uses a fresh transient key pair for each connection', () async {
       final store = _FakeSecureStore();
+      final events = <String>[];
       var generationCount = 0;
       final authenticator = Authenticator(
         store: store,
         protocol: _FakeProtocol(),
+        pushRegistrations: _FakePushRegistrationProvider(
+          _macosRegistration,
+          events: events,
+        ),
         nonceGenerator: () => 'nonce',
         keyPairGenerator: () async {
           generationCount += 1;
@@ -192,6 +197,7 @@ void main() {
       await authenticator.connect('https://two.example');
 
       expect(generationCount, 2);
+      expect(events, ['read-push-registration', 'read-push-registration']);
       expect(store.apiKeys.keys, {
         'https://one.example',
         'https://two.example',
@@ -227,6 +233,7 @@ void main() {
 
       expect(protocol.clientId, 'macos-apns-token');
       expect(protocol.pushUrl, PlatformPushRegistrationProvider.macosPushUrl);
+      expect(await authenticator.clientId(), 'macos-apns-token');
       expect(events, [
         'read-push-registration',
         'generate-key-pair',
@@ -236,8 +243,105 @@ void main() {
         'decode-payload',
         'write-api-key',
       ]);
-      expect(await authenticator.clientId(), 'macos-apns-token');
     });
+
+    for (final persist in [false, true]) {
+      test(
+        '${persist ? 'connect' : 'authorize'} refreshes a client ID cached as unavailable within the retry interval',
+        () async {
+          final events = <String>[];
+          var now = DateTime.utc(2026, 9, 8, 12);
+          final provider = _FakePushRegistrationProvider(null, events: events);
+          final store = _FakeSecureStore(events: events);
+          final protocol = _FakeProtocol();
+          final authenticator = Authenticator(
+            store: store,
+            protocol: protocol,
+            pushRegistrations: provider,
+            clock: () => now,
+            keyPairGenerator: () async => _pair,
+            nonceGenerator: () => 'nonce',
+            launcher: (_, _) async => 'discourse://auth_redirect?payload=reply',
+          );
+
+          expect(await authenticator.clientId(), 'client-id');
+          provider.value = _macosRegistration;
+          now = now.add(const Duration(seconds: 30));
+
+          final credentials = await (persist
+              ? authenticator.connect(_site)
+              : authenticator.authorize(_site));
+
+          expect(credentials, same(_credentials));
+          expect(protocol.clientId, _macosRegistration.clientId);
+          expect(protocol.pushUrl, _macosRegistration.pushUrl);
+          expect(store.apiKeyWrites, [if (persist) (_site, _credentials.key)]);
+          expect(await authenticator.clientId(), _macosRegistration.clientId);
+          now = now.add(const Duration(minutes: 3));
+          expect(await authenticator.clientId(), _macosRegistration.clientId);
+          expect(events.where((event) => event == 'read-push-registration'), [
+            'read-push-registration',
+            'read-push-registration',
+          ]);
+          expect(events.where((event) => event == 'read-client-id'), [
+            'read-client-id',
+          ]);
+        },
+      );
+    }
+
+    test(
+      'a superseded connection can learn the push identity without continuing its handshake',
+      () async {
+        final events = <String>[];
+        final provider = _ControlledPushRegistrationProvider();
+        final store = _FakeSecureStore();
+        final authenticator = Authenticator(
+          store: store,
+          protocol: _FakeProtocol(events: events),
+          pushRegistrations: provider,
+          keyPairGenerator: () async {
+            events.add('generate-key-pair');
+            return _pair;
+          },
+          nonceGenerator: () => 'nonce',
+          launcher: (_, _) async {
+            events.add('launch');
+            return 'discourse://auth_redirect?payload=reply';
+          },
+        );
+
+        final superseded = expectLater(
+          authenticator.connect(_site),
+          throwsA(
+            isA<UserApiAuthException>().having(
+              (error) => error.failure,
+              'failure',
+              UserApiAuthFailure.cancelled,
+            ),
+          ),
+        );
+        final connection = authenticator.connect(_site);
+        expect(provider.requests, hasLength(2));
+        provider.requests[1].complete(null);
+        expect(await connection, same(_credentials));
+
+        provider.requests[0].complete(_macosRegistration);
+        await superseded;
+
+        final clientId = authenticator.clientId();
+        expect(provider.requests, hasLength(2));
+        expect(await clientId, _macosRegistration.clientId);
+        expect(store.apiKeyWrites, [(_site, _credentials.key)]);
+        expect(events, [
+          'generate-key-pair',
+          'auth-url',
+          'launch',
+          'callback-payload',
+          'decode-payload',
+        ]);
+      },
+    );
 
     test(
       'disconnect cancels only its pending site before credential persistence',
@@ -448,6 +552,105 @@ void main() {
   });
 
   group('Authenticator.clientId', () {
+    for (final routineCompletesLast in [true, false]) {
+      test(
+        'a late unavailable ${routineCompletesLast ? 'client ID read' : 'authorization registration'} keeps the successful push identity',
+        () async {
+          final events = <String>[];
+          final provider = _ControlledPushRegistrationProvider();
+          final protocol = _FakeProtocol();
+          final authenticator = Authenticator(
+            store: _FakeSecureStore(events: events),
+            protocol: protocol,
+            pushRegistrations: provider,
+            keyPairGenerator: () async => _pair,
+            nonceGenerator: () => 'nonce',
+            launcher: (_, _) async => 'discourse://auth_redirect?payload=reply',
+          );
+
+          final reads = [authenticator.clientId(), authenticator.clientId()];
+          expect(provider.requests, hasLength(1));
+          final authorization = authenticator.authorize(_site);
+          expect(provider.requests, hasLength(2));
+
+          if (routineCompletesLast) {
+            provider.requests[1].complete(_macosRegistration);
+            await authorization;
+            reads.add(authenticator.clientId());
+            provider.requests[0].complete(null);
+          } else {
+            provider.requests[0].complete(_macosRegistration);
+            await Future.wait(reads);
+            provider.requests[1].complete(null);
+          }
+
+          expect(await authorization, same(_credentials));
+          expect(await Future.wait(reads), [
+            _macosRegistration.clientId,
+            _macosRegistration.clientId,
+            if (routineCompletesLast) _macosRegistration.clientId,
+          ]);
+          expect(protocol.clientId, _macosRegistration.clientId);
+          expect(protocol.pushUrl, _macosRegistration.pushUrl);
+          expect(await authenticator.clientId(), _macosRegistration.clientId);
+          expect(provider.requests, hasLength(2));
+          expect(events, isEmpty);
+        },
+      );
+    }
+
+    for (final authorizing in [false, true]) {
+      test(
+        '${authorizing ? 'authorize' : 'clientId'} uses a push identity learned while the fallback client ID is being read',
+        () async {
+          final events = <String>[];
+          final fallbackStarted = Completer<void>();
+          final fallback = Completer<String>();
+          final provider = _FakePushRegistrationProvider(null, events: events);
+          final protocol = _FakeProtocol();
+          final authenticator = Authenticator(
+            store: _FakeSecureStore(
+              events: events,
+              clientIdReader: () {
+                fallbackStarted.complete();
+                return fallback.future;
+              },
+            ),
+            protocol: protocol,
+            pushRegistrations: provider,
+            keyPairGenerator: () async => _pair,
+            nonceGenerator: () => 'nonce',
+            launcher: (_, _) async => 'discourse://auth_redirect?payload=reply',
+          );
+
+          final pendingRead = authorizing
+              ? authenticator.authorize(_site)
+              : authenticator.clientId();
+          await fallbackStarted.future;
+          provider.value = _macosRegistration;
+          if (authorizing) {
+            expect(await authenticator.clientId(), _macosRegistration.clientId);
+          } else {
+            await authenticator.authorize(_site);
+          }
+          fallback.complete('client-id');
+
+          expect(
+            await pendingRead,
+            authorizing ? same(_credentials) : _macosRegistration.clientId,
+          );
+          expect(protocol.clientId, _macosRegistration.clientId);
+          expect(protocol.pushUrl, _macosRegistration.pushUrl);
+          expect(await authenticator.clientId(), _macosRegistration.clientId);
+          expect(events, [
+            'read-push-registration',
+            'read-client-id',
+            'read-push-registration',
+          ]);
+        },
+      );
+    }
+
     test('reuses the push registration for later client id reads', () async {
       final events = <String>[];
       final authenticator = Authenticator(
@@ -607,9 +810,22 @@ final class _FakePushRegistrationProvider implements PushRegistrationProvider {
   }
 }
 
+final class _ControlledPushRegistrationProvider
+    implements PushRegistrationProvider {
+  final requests = <Completer<PushRegistration?>>[];
+
+  @override
+  Future<PushRegistration?> registration() {
+    final request = Completer<PushRegistration?>();
+    requests.add(request);
+    return request.future;
+  }
+}
+
 final class _FakeSecureStore implements SecureStore {
   _FakeSecureStore({
     this.events,
+    this.clientIdReader,
     this.clientIdError,
     this.readApiKeyError,
     this.writeApiKeyError,
@@ -617,6 +833,7 @@ final class _FakeSecureStore implements SecureStore {
   });
 
   final List<String>? events;
+  final Future<String> Function()? clientIdReader;
   final Object? clientIdError;
   final Object? readApiKeyError;
   final Object? writeApiKeyError;
@@ -629,6 +846,7 @@ final class _FakeSecureStore implements SecureStore {
   Future<String> readOrCreateClientId() async {
     events?.add('read-client-id');
     if (clientIdError != null) throw clientIdError!;
+    if (clientIdReader case final read?) return read();
     return 'client-id';
   }
 

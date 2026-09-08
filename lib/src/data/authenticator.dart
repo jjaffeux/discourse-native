@@ -78,9 +78,9 @@ class Authenticator implements ApiCredentialReader {
     try {
       // Connecting is when registration must be attempted, so the platform is
       // asked directly: an absence remembered by [clientId] is not trusted.
-      final pushRegistration = await _pushRegistrations.registration();
-      final clientId =
-          pushRegistration?.clientId ?? await store.readOrCreateClientId();
+      _rememberPushRegistration(await _pushRegistrations.registration());
+      final clientId = await _readClientId();
+      final pushRegistration = _knownPushRegistration;
       _ensureCurrent(siteUrl, generation);
       // The private half is needed only to decrypt this callback. Keeping it
       // transient avoids persisting another secret and prevents one pair from
@@ -171,9 +171,23 @@ class Authenticator implements ApiCredentialReader {
 
   @override
   Future<String> clientId() async {
-    final pushRegistration = await _pushRegistration();
+    await _pushRegistration();
+    return _readClientId();
+  }
+
+  Future<String> _readClientId() async {
+    final pushRegistration = _knownPushRegistration;
     if (pushRegistration != null) return pushRegistration.clientId;
-    return store.readOrCreateClientId();
+    final fallback = await store.readOrCreateClientId();
+    // An overlapping registration can succeed while the fallback is read.
+    return _knownPushRegistration?.clientId ?? fallback;
+  }
+
+  void _rememberPushRegistration(PushRegistration? registration) {
+    // A late absence must not replace a successful overlapping registration.
+    if (registration == null) return;
+    _knownPushRegistration = registration;
+    _pushRegistrationUnavailableAt = null;
   }
 
   /// Reads the push registration for [clientId], asking the platform at most
@@ -201,12 +215,11 @@ class Authenticator implements ApiCredentialReader {
     read = _pushRegistrations
         .registration()
         .then((registration) {
-          if (registration != null) {
-            _knownPushRegistration = registration;
-          } else {
+          _rememberPushRegistration(registration);
+          if (_knownPushRegistration == null) {
             _pushRegistrationUnavailableAt = _clock();
           }
-          return registration;
+          return _knownPushRegistration;
         })
         .whenComplete(() {
           if (identical(_pendingPushRegistration, read)) {
