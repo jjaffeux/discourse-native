@@ -2,8 +2,9 @@
 
 `lib/src/theme/discourse_typography.dart` owns every base font size and the
 semantic Material text theme. AppTheme applies it to light, dark, site palette,
-and Cupertino themes. Widgets choose a role and override color or emphasis
-when needed; they do not invent another size or line height.
+and Cupertino themes. Existing app widgets choose a role and override color or emphasis when needed.
+The shadcn library uses the same numeric tokens with its reference component
+metrics, including explicit weights, tracking and leading.
 
 ## Scale and roles
 
@@ -67,21 +68,24 @@ render native `Text` / `Text.rich`; `DProse`, `DBlockquote` and `DTextList`
 compose ordinary Flutter widgets. They add no typography scale, text scaler,
 networking, focus manager, or selection owner.
 
-| DTextVariant | Existing role | Presentation |
+| DTextVariant | Size / leading | Weight and treatment |
 | --- | --- | --- |
-| h1 | headlineLarge | Level 1 heading; caller may center it |
-| h2 | headlineMedium | Level 2 heading with a token-colored bottom rule |
-| h3 | headlineSmall | Level 3 heading |
-| h4 | titleLarge | Level 4 heading |
-| paragraph (default) | bodyLarge | Reading text |
-| lead | titleLarge | Normal weight, muted foreground |
-| large | titleMedium | Emphasized text |
-| small | labelLarge | Compact label, with the app's readable leading |
-| muted | bodyMedium | Secondary interface prose |
-| inlineCode | bodyMedium | Bundled JetBrains Mono, semibold, muted background |
+| h1 | 36 / 40 | 800, -0.025em tracking, balanced plain-text heading |
+| h2 | 30 / 36 | 600, -0.025em tracking, 1px bottom rule and 8px bottom padding |
+| h3 | 24 / 32 | 600, -0.025em tracking |
+| h4 | 20 / 28 | 600, -0.025em tracking |
+| paragraph (default) | 16 / 28 | Normal weight |
+| lead | 20 / 28 | Normal weight, muted foreground |
+| large | 18 / 28 | 600 |
+| small | 14 / 14 | 500, reference leading-none |
+| muted | 14 / 20 | Normal weight, muted foreground |
+| inlineCode | 14 / 20 | Bundled JetBrains Mono, 600, muted background |
 
-`style` merges after the chosen role. Use it for color/emphasis and keep numeric
-sizes/leading in the host theme. `headingLevel` can override semantic hierarchy
+`DText.bodyStyleOf(context)` supplies the reference's inherited 16/24 body text
+for lists, quotes and table compositions. `style` merges after the reference
+style for intentional caller customization. All values remain unscaled; font
+families and semantic colors come from the live theme.
+`headingLevel` can override semantic hierarchy
 without changing visual size: a compact dialog title can use h4 with level 1,
 or a section can use large with level 2. Zero opts out of heading semantics.
 `semanticsLabel`, `textAlign`, `softWrap`, `maxLines` and `overflow` have native
@@ -109,8 +113,9 @@ SelectionArea(
 ```
 
 The host supplies bounded width and scrolling. `DProse` supplies reading style,
-full-width blocks and `DSpacing.xl` between children, without outer margins.
-Its `spacing` can be changed for nested content. `DBlockquote` supplies a leading
+full-width blocks and 24px between children, with 40px before h2 and 32px before
+h3, without outer margins. Its optional `spacing` overrides these defaults for
+compact nested content. `DBlockquote` supplies a leading
 rule, directional inset and inherited italic reading text; explicit child styles
 can identify an attribution. `DTextList` supplies directional bullets or ordered
 markers (`ordered: true`, `start: 9`), native list/item semantics and wrapping
@@ -136,14 +141,18 @@ is outside this catalogue entry. The official
 [Typography demo source](https://github.com/shadcn-ui/ui/blob/main/apps/v4/registry/new-york-v4/examples/typography-demo.tsx)
 also shows the original composition.
 
-The app's paired size/leading and heading weights take precedence over CSS
-tracking, extra-bold display type and tight small-text leading. Fonts remain
-platform/theme-owned except the existing code family. Flutter uses natural line
-wrapping rather than CSS `text-balance`, and callers own scroll-to-heading
-behavior instead of CSS `scroll-margin`. DProse uses explicit spacing instead of
-CSS sibling selectors. Typography has no added animation, including for borders.
+The user's clarification that this is a copy of shadcn supersedes the earlier
+adaptation to generic Material typography roles. The table above now matches
+the frozen utilities. The same numeric size owner and native scaler remain in
+use. Plain h1 text balances up to six lines by finding a narrower measure that
+preserves the natural line count without introducing extra breaks within words.
+Native font shaping and soft breaks can differ from a browser; rich headings
+retain native span layout for selection/copy.
+Callers own scroll-to-heading behavior instead of CSS scroll margins. DProse
+translates the reference's sibling margins into explicit Flutter block gaps.
 
-Standalone inline code has a padded rounded background using DTokens. Within a
+Standalone inline code has a rounded background using DTokens and the reference’s 4.8px horizontal / 3.2px
+vertical padding. Within a
 paragraph, `DText.styleOf(context, DTextVariant.inlineCode)` supplies a rectangular
 span background so code can wrap, select and copy as text. Using a boxed
 WidgetSpan for the code itself would compromise those behaviors. Generic code
@@ -151,7 +160,8 @@ uses the reference's muted surface; authored post code retains its distinct
 CodeColors and syntax-highlighting contract.
 
 The styleguide's table example uses Flutter `Table` with flexible columns,
-intrinsic row heights, TableBorder, alternating token backgrounds, column-header
+16/24 body text, bold headers, 16px/8px cell padding, intrinsic row heights,
+TableBorder, alternating token backgrounds, column-header
 semantics and start/center/end cell alignment. Flutter owns table/row semantics;
 only column-header roles need annotation. Cells wrap to fit the preview instead
 of requiring a minimum-width horizontal scroller. This is a documented native

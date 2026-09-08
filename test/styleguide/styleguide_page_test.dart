@@ -184,20 +184,21 @@ void main() {
       await tester.ensureVisible(find.text('Show details'));
       await tester.tap(find.text('Show details'));
       await tester.pump();
-      await tester.scrollUntilVisible(
-        find.text('Preview settings'),
-        -250,
-        scrollable: find
-            .descendant(
-              of: find.byKey(const ValueKey('styleguide-detail-typography')),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      await tester.drag(
-        find.byKey(const ValueKey('styleguide-detail-typography')),
-        const Offset(0, 400),
-      );
+      // The preview has its own scrollable under the detail view's center.
+      // Return the outer view to its settings without dragging the preview.
+      tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: find.byKey(
+                    const ValueKey('styleguide-detail-typography'),
+                  ),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position
+          .jumpTo(0);
       await tester.pumpAndSettle();
       await _choose(tester, 'Theme', 'Plum site');
       await _choose(tester, 'Viewport width', '360 px');

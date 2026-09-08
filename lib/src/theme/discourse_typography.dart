@@ -34,11 +34,13 @@ abstract final class DiscourseTypography {
   static const double lineHeightCaption = 16 / xs;
   static const double lineHeightSmall = 20 / sm;
   static const double lineHeightBody = 24 / base;
+  static const double lineHeightProse = 28 / base;
   static const double lineHeightLarge = 28 / lg;
   static const double lineHeightTitle = 28 / xl;
   static const double lineHeightHeading = 32 / xxl;
   static const double lineHeightDisplaySmall = 36 / xxxl;
   static const double lineHeightDisplayLarge = 40 / xxxxl;
+  static const double trackingTight = -0.025;
 
   /// Authored headings share the scale with the interface (h1 through h6).
   static const List<double> headingSizes = [xxxl, xxl, xl, lg, base, sm];

@@ -117,6 +117,42 @@ Status: merged. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/compon
 - iOS and Linux devices were not run during the foundation phase. No new native platform dependency was introduced.
 - Baseline Button, Tooltip and Select are explicitly unfinished catalogue implementations; their full reference behavior and migrations belong to their upcoming tasks.
 
+### shadcn visual fidelity correction
+
+Status: merged. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/ui-shadcn-fidelity.
+
+**acceptanceCriteria**
+
+- Match reference geometry, explicit typography metrics, semantic colors, relative radii, borders, artwork, states and motion; idiomatic Flutter interaction owners do not justify a different visual design.
+- Recheck merged Direction, Typography and Separator; correct unjustified differences and inspect actual rendered examples before merging corrections.
+- Require official registry/source mappings and rendered visual comparison in every current and future component task.
+
+**decisions**
+
+- Direction owns no intrinsic visual styling. Separator source confirms a one-pixel square-ended border-colored horizontal/vertical rule, matching the implementation.
+- Typography corrections restore 800-weight h1, tight heading tracking, 28px paragraph leading, 14px Small leading, reference inline-code padding, list indentation, base text in lists/quotes/tables and heading-specific article gaps.
+- Kbd, Spinner, Skeleton and Label tasks received the clarified design specification before merge. Native desktop inspections remain serialized.
+
+**verification**
+
+- Official frozen Typography Markdown preserved verbatim with original SHA256; Separator registry source captured and hashed with upstream MIT license.
+- Initial focused typography, four-palette examples, nonlinear text scaling and adoption checks: 17 passed. Static analysis passed without diagnostics.
+- Final impact run covered Typography, all styleguide groups, scaling boundary, adoption guard, Settings, Add-a-site and Poll: 73 passed, one existing styleguide navigation test needed its outer scroll position targeted explicitly after note/preview geometry changed (seed 446229861). The repaired Typography preview test passed (seed 3779910838); no production scrolling behavior changed.
+- The final run includes the new original-text specimen and balanced-heading layout check. flutter analyze --no-pub passed with no diagnostics.
+- Isolated macOS build completed at /private/tmp/discourse-shadcn-fidelity.4xigijr8/app/build/macos/Build/Products/Debug/Shadcn Fidelity Review.app using real Settings, EmptyState and Poll fixtures with in-memory stores. Native visual inspection is pending the shared desktop slot.
+- Compared the native original-text specimen at 768px Light and 360px Dark with a browser reconstruction of the exact frozen CSS utilities using corresponding app colors and a system font. This was a local reconstruction because the original Typography HTML now redirects; no claim of pixel-identical live-site rendering is made.
+- Inspected the real EmptyState at 200%, actual Settings heading/layout with visible Tab focus, and real Poll dialog in Plum at 200%. Escape dismissed the dialogs; all stores and data were isolated in-memory fixtures.
+- Native visual review prompted exact CSS border-box spacing (1px h2 border in addition to 8px padding; 2px quote border in addition to 24px inset) and a guard against balancing that introduces additional breaks within words at 200%. Rebuilt and re-inspected the final source at 360px/200% with RTL/reduced motion, including the corrected heading and directional quote.
+- Final component and all eight Typography examples passed 14 focused tests after the border correction, then 14 after the native large-text refinement. Final flutter analyze --no-pub passed. The native build source was byte-compared with the reviewed source.
+- Native application Info.plist and ad-hoc signature verified: Shadcn Fidelity Review, org.discourse.shadcn-fidelity, isolated discourse-shadcn-fidelity URL scheme. All runner/signing/fixture adjustments were confined to /private/tmp. Native app quit and comparison tab closed after inspection.
+- Coordinator reviewed final branch aee3b24c113b2c5cc1793fbff9973d77ffca5c4c and reconciled only progress/contract metadata against main. All reviewed Dart code, tests and preserved reference source match the native-inspected branch exactly.
+
+**limitations**
+
+- The app keeps its configured fonts, palettes and radius. Native font shaping and soft line breaks can differ from browser rendering. Plain h1 uses a conservative compact measure; rich headings retain native span layout so selection/copy remains intact.
+- The original Typography live HTML redirects to Typeset; comparison used the preserved original source and an explicitly identified local CSS reconstruction. No automated pixel-exact cross-renderer comparison is claimed.
+- iOS/Linux devices and VoiceOver speech were not inspected for this follow-up. Normal Flutter semantics and selection behavior remain covered by the focused tests; the styleguide AX tree exposed fewer nodes than the initial app fixtures.
+
 ### direction
 
 Status: merged. Task: 01a0818b-e20a-77d0-bb99-77691899dad7. Branch: codex/ui-direction.
@@ -183,7 +219,7 @@ Status: merged. Task: 01a081e5-0bef-70a1-9ae3-7717028403e0. Branch: codex/ui-typ
 **acceptanceCriteria**
 
 - Expose reusable DText plain/rich semantic variants for h1, h2, h3, h4, paragraph, lead, large, small, muted and inline code, plus directional blockquote/list composition through discourse_ui.dart; account for all 14 frozen sections.
-- Keep DiscourseTypography the only numeric size/line-height owner and AppTheme/TextTheme the live style owner; preserve platform fonts, caller emphasis, site tokens and the unchanged nonlinear platform/app TextScaler composition.
+- Keep DiscourseTypography as the single numeric size owner; reproduce the frozen shadcn weights, leading and tracking while preserving app fonts, semantic colors and the inherited nonlinear platform/app TextScaler.
 - Use native Text/InlineSpan selection under the caller's SelectionArea, heading/list semantics, intrinsic wrapping and directional geometry; demonstrate keyboard-focusable composed actions without adding typography-owned interaction or overlay state.
 - Cover the frozen table composition with native Flutter Table, semantic headings, column alignment, wrapping and themed borders/striping; leave general table behavior to the later Table catalogue entry.
 - Provide runnable public-API examples for every frozen section plus article/rich-code/interactive content, nested lists, empty/long text, RTL, live light/dark/site themes and 200% narrow layouts; keep usage code accurate.
@@ -193,7 +229,7 @@ Status: merged. Task: 01a081e5-0bef-70a1-9ae3-7717028403e0. Branch: codex/ui-typ
 **decisions**
 
 - Frozen Markdown SHA256 verified as 3ff202e83d6c90b2521ec471af07cab3c59314028c51ef8d040b3218ec9a9541. The live HTML now redirects to Typeset; the captured original examples define scope, not Typeset.
-- Native adaptation: use existing headlineLarge/headlineMedium/headlineSmall/titleLarge for h1-h4, bodyLarge for reading, titleLarge for lead, titleMedium for large, labelLarge for small and bodyMedium for muted/code. Keep the app's paired leading and theme heading emphasis instead of literal CSS sizes/tracking/balanced wrapping.
+- The initial adaptation to generic TextTheme metrics was superseded by the user clarification to copy shadcn. The coordinator follow-up restores the exact frozen typography metrics, reference body text and spacing; TextTheme supplies live font families and DTokens supplies semantic colors.
 - Use native Text and Text.rich plus caller-owned SelectionArea; inline code spans can fragment and remain selectable with a rectangular text background, while standalone code can use token radius/padding. Use the existing bundled JetBrains Mono for code only; all other families come from TextTheme.
 - Block/list spacing belongs to explicit Flutter composition instead of CSS sibling selectors and scroll margins. Directional quote borders and list markers follow DDirection/Directionality. Typography introduces no animations, overlays, focus nodes or network/business state; composed native controls retain their interaction ownership.
 - Table is a documented native Table composition in the examples, not a second public table engine. Existing authored markup and composer renderers continue to own their formatting, source offsets, specialized selection and heading mappings.
@@ -201,6 +237,7 @@ Status: merged. Task: 01a081e5-0bef-70a1-9ae3-7717028403e0. Branch: codex/ui-typ
 - DText.styleOf resolves live, unscaled TextTheme roles for rich spans. Native Text still owns shaping, wrapping and selection. Standalone code backgrounds fit the text even in a full-width prose flow; caller alignment and current token radius remain effective.
 - Seven runnable examples cover every frozen section, full and RTL articles, rich actions, nested/ordered/empty lists, long and empty text, explicit truncation, and native table alignment. Table/article usage includes the complete self-contained sample table class. Marked implemented only after the checks and native inspection below.
 - No global type scale, AppTheme, AppTextScaleRegion, source renderer, native runner, dependency, Flutter pin or lockfile was changed. No separate typography implementation existed to remove; migrated callers now delegate their semantic text rendering through the public library.
+- The coordinator visual-fidelity follow-up adds an original-text specimen (eight total examples), plain-heading balance with native wrapping limits, and exact border-box insets. See the dedicated visualFidelity record for source mapping, checks and remaining platform differences.
 
 **migrations**
 

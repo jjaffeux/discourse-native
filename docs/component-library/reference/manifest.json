@@ -1,0 +1,21 @@
+{
+  "capturedAt": "2026-09-08",
+  "files": [
+    {
+      "path": "typography.md",
+      "url": "https://ui.shadcn.com/docs/components/base/typography.md",
+      "sha256": "3ff202e83d6c90b2521ec471af07cab3c59314028c51ef8d040b3218ec9a9541",
+      "note": "Original frozen catalogue capture; preserved before the redirect to Typeset."
+    },
+    {
+      "path": "separator.json",
+      "url": "https://ui.shadcn.com/r/styles/base-nova/separator.json",
+      "sha256": "3ad65962485f464592201cb90017b3d52a5c9fe272ce41ee049485b4c42e0d76"
+    },
+    {
+      "path": "LICENSE.shadcn.md",
+      "url": "https://raw.githubusercontent.com/shadcn-ui/ui/main/LICENSE.md",
+      "sha256": "1564074e13439397221ffd522e2e504d56561994a23d371aa5e3ad43e4f5423f"
+    }
+  ]
+}

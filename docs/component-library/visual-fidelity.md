@@ -58,8 +58,9 @@ Fix unintended differences before `review_ready` and coordinator merge.
 The coordinator reopened the visual review of already merged components after
 the clarification. Direction has no intrinsic visual treatment. Separator's
 1px square-ended token-colored rule matches the official registry source.
-Typography's inherited heading weights/tracking, paragraph and small leading,
-code padding, list indent and article spacing require correction. In-flight
+Typography's correction restores heading weights/tracking, paragraph and small
+leading, code padding, list indent, table text and article spacing. Native
+comparison also verified border-box insets and accessible heading wrapping. In-flight
 Kbd, Spinner, Skeleton and Label tasks received this same standard before merge.
 
 Supporting sources:

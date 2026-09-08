@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
-    'all variants keep host sizes, leading, fonts and caller emphasis',
+    'reference metrics keep host fonts, native scaling and caller emphasis',
     (tester) async {
       final base = AppTheme.light;
       final custom = base.copyWith(
@@ -60,12 +60,28 @@ void main() {
           text.bodyMedium!,
           text.bodyMedium!,
         ];
+        // Frozen shadcn Typography utilities, converted from a 16px root rem.
+        const metrics = [
+          (36.0, 40.0, FontWeight.w800, -0.9),
+          (30.0, 36.0, FontWeight.w600, -0.75),
+          (24.0, 32.0, FontWeight.w600, -0.6),
+          (20.0, 28.0, FontWeight.w600, -0.5),
+          (16.0, 28.0, FontWeight.w400, 0.0),
+          (20.0, 28.0, FontWeight.w400, 0.0),
+          (18.0, 28.0, FontWeight.w600, 0.0),
+          (14.0, 14.0, FontWeight.w500, 0.0),
+          (14.0, 20.0, FontWeight.w400, 0.0),
+          (14.0, 20.0, FontWeight.w600, 0.0),
+        ];
         for (final (index, variant) in DTextVariant.values.indexed) {
           final paragraph = _paragraph(tester, variant.name);
           final style = paragraph.text.style!;
           final role = roles[index];
-          expect(style.fontSize, role.fontSize, reason: variant.name);
-          expect(style.height, role.height, reason: variant.name);
+          final (size, leading, weight, tracking) = metrics[index];
+          expect(style.fontSize, size, reason: variant.name);
+          expect(style.height, leading / size, reason: variant.name);
+          expect(style.fontWeight, weight, reason: variant.name);
+          expect(style.letterSpacing, closeTo(tracking, 0.00001));
           expect(
             style.fontFamily,
             variant == DTextVariant.inlineCode
@@ -74,15 +90,71 @@ void main() {
           );
           expect(
             paragraph.textScaler.scale(style.fontSize!),
-            const _NonlinearScaler().scale(role.fontSize!) * 2,
+            const _NonlinearScaler().scale(size) * 2,
           );
         }
         final emphasis = _paragraph(tester, 'Caller emphasis').text.style!;
-        expect(emphasis.fontSize, text.titleLarge!.fontSize);
+        expect(emphasis.fontSize, 20);
         expect(emphasis.color, Colors.orange);
         expect(emphasis.fontWeight, FontWeight.w400);
         expect(tester.takeException(), isNull);
       }
+    },
+  );
+
+  testWidgets(
+    'plain h1 balances lines without changing content or line count',
+    (tester) async {
+      const words = 'Taxing Laughter: The Joke Tax Chronicles';
+      await _pump(
+        tester,
+        const DProse(
+          children: [
+            DText(words, variant: DTextVariant.h1),
+            DText.rich(TextSpan(text: words), variant: DTextVariant.h1),
+          ],
+        ),
+        width: 640,
+      );
+      final paragraphs = tester
+          .renderObjectList<RenderParagraph>(find.byType(RichText))
+          .where((value) => value.text.toPlainText() == words)
+          .toList();
+      final balanced = paragraphs[0];
+      final natural = paragraphs[1];
+      const selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: words.length,
+      );
+      expect(balanced.size.width, lessThan(natural.size.width));
+      expect(
+        balanced.getBoxesForSelection(selection).length,
+        natural.getBoxesForSelection(selection).length,
+      );
+      expect(balanced.size.height, natural.size.height);
+      expect(balanced.didExceedMaxLines, isFalse);
+      expect(tester.takeException(), isNull);
+
+      // Large text with a word wider than the viewport must retain all of the
+      // available measure rather than introducing more breaks within words.
+      await _pump(
+        tester,
+        const DProse(
+          children: [
+            DText(words, variant: DTextVariant.h1),
+            DText.rich(TextSpan(text: words), variant: DTextVariant.h1),
+          ],
+        ),
+        width: 360,
+        scaler: const TextScaler.linear(2),
+      );
+      final large = tester
+          .renderObjectList<RenderParagraph>(find.byType(RichText))
+          .where((value) => value.text.toPlainText() == words)
+          .toList();
+      expect(large[0].size, large[1].size);
+      expect(large[0].didExceedMaxLines, isFalse);
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -176,7 +248,7 @@ void main() {
             value == TextDirection.ltr
                 ? words.left - quote.left
                 : quote.right - words.right,
-            DSpacing.xl,
+            DSpacing.xl + 2,
           );
           expect(
             _paragraph(tester, 'A wrapping quotation.').text.style!.fontStyle,
