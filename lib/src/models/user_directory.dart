@@ -195,13 +195,15 @@ final class UserDirectoryItem {
     return values[column.name];
   }
 
-  num? numericValueFor(UserDirectoryColumn column) =>
-      switch (valueFor(column)) {
-        final num value when value.isFinite => value,
-        final String value when value.length <= maximumJsonIntegerCodeUnits =>
-          num.tryParse(value),
-        _ => null,
-      };
+  num? numericValueFor(UserDirectoryColumn column) {
+    final numeric = switch (valueFor(column)) {
+      final num value => value,
+      final String value when value.length <= maximumJsonIntegerCodeUnits =>
+        num.tryParse(value),
+      _ => null,
+    };
+    return numeric != null && numeric.isFinite ? numeric : null;
+  }
 }
 
 @immutable

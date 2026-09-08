@@ -1,7 +1,51 @@
+import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('numeric directory values from wire data', () {
+    const column = UserDirectoryColumn(
+      id: 1,
+      name: 'time_read',
+      type: UserDirectoryColumnType.automatic,
+      position: 1,
+    );
+    final bounded = '123'.padLeft(maximumJsonIntegerCodeUnits, '0');
+    for (final (value, expected) in <(Object?, num?)>[
+      (123, 123),
+      (12.5, 12.5),
+      ('123', 123),
+      ('-12.5', -12.5),
+      (' 123 ', 123),
+      ('1e3', 1000),
+      ('1e300', 1e300),
+      (bounded, 123),
+      ('0$bounded', null),
+      ('NaN', null),
+      ('Infinity', null),
+      ('-Infinity', null),
+      ('1e999', null),
+      (double.nan, null),
+      (double.infinity, null),
+      (double.negativeInfinity, null),
+      ('not a number', null),
+      (null, null),
+    ]) {
+      test(
+        'accepts only finite bounded numeric ${value is String ? 'text' : 'values'}: $value',
+        () {
+          final item = UserDirectoryItem.fromWire({
+            'user': const {'id': 1, 'username': 'sam'},
+            column.name: value,
+          }, 'https://example.com');
+
+          expect(item.numericValueFor(column), expected);
+          expect(item.valueFor(column), same(value));
+        },
+      );
+    }
+  });
+
   test('decodes dynamic columns, directory values, and public user fields', () {
     final metadata = UserDirectoryMetadata.fromColumns(
       const {

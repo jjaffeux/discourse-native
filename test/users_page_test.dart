@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
+import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/shell/user_directory_controller.dart';
@@ -29,6 +30,12 @@ const _days = UserDirectoryColumn(
   name: 'days_visited',
   type: UserDirectoryColumnType.automatic,
   position: 3,
+);
+const _timeRead = UserDirectoryColumn(
+  id: 4,
+  name: 'time_read',
+  type: UserDirectoryColumnType.automatic,
+  position: 4,
 );
 const _solutions = UserDirectoryColumn(
   id: 9,
@@ -63,6 +70,152 @@ const _hawk = UserDirectoryItem(
 );
 
 void main() {
+  for (final value in <Object>[
+    'NaN',
+    'Infinity',
+    '-Infinity',
+    '1e999',
+    double.nan,
+    double.infinity,
+    double.negativeInfinity,
+    '123'.padLeft(maximumJsonIntegerCodeUnits + 1, '0'),
+    'not a number with all its original text',
+  ]) {
+    testWidgets(
+      'invalid directory ${value is String ? 'text' : 'number'} $value renders as unscaled text',
+      (tester) async {
+        const columns = [_timeRead, _likes, _solutions];
+        await _pump(
+          tester,
+          UsersPage(
+            siteUrl: 'https://example.com',
+            data: UsersPageData(
+              items: [
+                for (final (index, (username, metric)) in [
+                  ('invalid', value),
+                  ('half', '60'),
+                  ('full', 120),
+                ].indexed)
+                  UserDirectoryItem.fromWire({
+                    'user': {'id': index + 1, 'username': username},
+                    for (final column in columns) column.name: metric,
+                  }, 'https://example.com'),
+              ],
+              columns: columns,
+              loaded: true,
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('$value'), findsNWidgets(columns.length));
+        expect(_barWidths(tester, 'invalid'), isEmpty);
+        expect(_barWidths(tester, 'half'), [.5, .5, .5]);
+        expect(_barWidths(tester, 'full'), [1, 1, 1]);
+        for (final text in tester.widgetList<Text>(find.text('$value'))) {
+          expect(text.style?.fontWeight, FontWeight.w400);
+        }
+      },
+    );
+  }
+
+  for (final value in <Object>[
+    9223372036855,
+    '9223372036855',
+    -9223372036855,
+    '-9223372036855',
+    9223372036854775807,
+    -9223372036854775808,
+    1e300,
+    '1e300',
+  ]) {
+    testWidgets(
+      'oversized directory time ${value is String ? 'text' : 'number'} $value renders without overflow',
+      (tester) async {
+        await _pump(
+          tester,
+          UsersPage(
+            siteUrl: 'https://example.com',
+            data: UsersPageData(
+              items: [
+                UserDirectoryItem.fromWire({
+                  'user': const {'id': 1, 'username': 'sam'},
+                  'time_read': value,
+                }, 'https://example.com'),
+              ],
+              columns: const [_timeRead],
+              loaded: true,
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        final texts = tester.widgetList<Text>(
+          find.descendant(
+            of: find.byKey(const ValueKey('user-metrics-background-sam')),
+            matching: find.byType(Text),
+          ),
+        );
+        expect(texts.map((text) => text.data), ['$value']);
+      },
+    );
+  }
+
+  testWidgets('directory keeps normal time and compact number formatting', (
+    tester,
+  ) async {
+    final bounded = '120'.padLeft(maximumJsonIntegerCodeUnits, '0');
+    final rows = <(Object?, Object?, Object?)>[
+      (0, 0, null),
+      (59.9, 12.5, 'words'),
+      ('3599.9', '1200', ['one', 'two']),
+      ('3661', '1250000', []),
+      (-61, '-1250', '3.5'),
+      (9223372036854, bounded, '1e300'),
+      (bounded, '1e3', '1.0'),
+    ];
+    await _pump(
+      tester,
+      UsersPage(
+        siteUrl: 'https://example.com',
+        data: UsersPageData(
+          items: [
+            for (final (index, (time, likes, solutions)) in rows.indexed)
+              UserDirectoryItem.fromWire({
+                'user': {'id': index + 1, 'username': 'user$index'},
+                'time_read': time,
+                'likes_received': likes,
+                'solutions': solutions,
+              }, 'https://example.com'),
+          ],
+          columns: const [_timeRead, _likes, _solutions],
+          loaded: true,
+        ),
+      ),
+      size: const Size(1100, 900),
+    );
+
+    const expectedRows = [
+      ['0m', '0', '—'],
+      ['0m', '13', 'words'],
+      ['59m', '1.2k', 'one · two'],
+      ['1h 1m', '1.3m', '—'],
+      ['-1m', '-1.3k', '3.5'],
+      ['2562047788h 0m', '120', '1e+294m'],
+      ['2m', '1k', '1'],
+    ];
+    for (final (index, expected) in expectedRows.indexed) {
+      final texts = tester.widgetList<Text>(
+        find.descendant(
+          of: find.byKey(ValueKey('user-metrics-background-user$index')),
+          matching: find.byType(Text),
+        ),
+      );
+      expect(texts.map((text) => text.data), expected);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('directory hover updates only the affected row backgrounds', (
     tester,
   ) async {

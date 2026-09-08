@@ -2204,7 +2204,7 @@ class _MetricCell extends StatelessWidget {
           Align(
             alignment: userField ? Alignment.centerLeft : Alignment.centerRight,
             child: Text(
-              _formatValue(item.valueFor(column), column),
+              _formatValue(item.valueFor(column), column, numeric),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: userField ? TextAlign.left : TextAlign.right,
@@ -2362,19 +2362,17 @@ bool _sameUsername(String username, String? currentUsername) =>
     currentUsername != null &&
     username.toLowerCase() == currentUsername.toLowerCase();
 
-String _formatValue(Object? value, UserDirectoryColumn column) {
+String _formatValue(Object? value, UserDirectoryColumn column, num? numeric) {
   if (value == null) return '—';
   if (value is List) {
     final joined = value.whereType<Object>().map((item) => '$item').join(' · ');
     return joined.isEmpty ? '—' : joined;
   }
-  final numeric = switch (value) {
-    final num number when number.isFinite => number,
-    final String text => num.tryParse(text),
-    _ => null,
-  };
   if (numeric == null) return '$value';
   if (column.name == 'time_read') {
+    // Duration stores microseconds in a native signed 64-bit integer.
+    const maximumSeconds = 0x7fffffffffffffff ~/ Duration.microsecondsPerSecond;
+    if (numeric < -maximumSeconds || numeric > maximumSeconds) return '$value';
     final duration = Duration(seconds: numeric.toInt());
     if (duration.inHours >= 1) {
       return '${duration.inHours}h ${duration.inMinutes.remainder(60)}m';
