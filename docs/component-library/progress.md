@@ -163,6 +163,7 @@ Status: review_ready. Task: 01a0818b-e20a-77d0-bb99-77691899dad7. Branch: codex/
 - CUA inspected the running macOS Direction editor in the 1280x860 logical window: typed a local draft, saved via Tab/Enter, switched inherited LTR to RTL, and confirmed draft/saved value and directional arrow/field/action geometry. Inspected current dark and light previews, Forest palette at 360px and 200% text, and scrolling to the saved value without overflow.
 - CUA inspected the nested example at 360px/200% Forest: Arabic RTL outer section, wrapping fixed LTR URL, inherited LTR lookup, and resumed RTL sibling. In Plum at 360px/100%, inspected the RTL native menu, visible arrow-key focus, Enter selection, restored trigger focus, and Escape dismissal while keeping the styleguide open.
 - git diff --check passed; catalogue snapshot, native runners, pubspecs and lockfiles are unchanged.
+- Rebuilt the final committed native examples and confirmed Direction is marked implemented and its live editor renders in the running catalogue.
 
 **limitations**
 
