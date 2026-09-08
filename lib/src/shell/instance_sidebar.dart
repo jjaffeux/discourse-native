@@ -238,6 +238,8 @@ class InstanceSidebar extends StatelessWidget {
       var selectedDestinationId = controller.destinationId;
       if (currentContent?.groupRoute != null) {
         selectedDestinationId = 'groups';
+      } else if (currentContent?.isBadges == true) {
+        selectedDestinationId = 'badges';
       } else if (currentContent?.isTopic == true &&
           selectedDestinationId == 'drafts') {
         // Reply drafts keep Drafts in their back stack, but the topic itself

@@ -45,6 +45,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/badge_fixtures.dart';
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
@@ -1826,10 +1827,18 @@ void _registerConnectionSessionTests() {
       expect(renderedText('First post body'), findsOneWidget);
     });
 
-    testWidgets('one the app has no page for opens the browser', (
+    testWidgets('a badge notification opens native details and marks it read', (
       tester,
     ) async {
-      final api = FakeDiscourseApi(notificationList: notifications);
+      final api = FakeDiscourseApi(
+        notificationList: notifications,
+        pluginResponses: {
+          'GET /badges/24.json': {
+            'badge': {...badgeWire, 'id': 24, 'name': 'Nice Reply'},
+          },
+          'GET /user_badges.json?badge_id=24&offset=0': badgeGrantsWire(),
+        },
+      );
       final launched = watchBrowser(tester);
 
       await pumpShell(
@@ -1843,9 +1852,12 @@ void _registerConnectionSessionTests() {
       await tester.tap(find.textContaining('You earned the Nice Reply badge'));
       await tester.pumpAndSettle();
 
-      // Resolved against the site it came from, since Discourse writes its own
-      // links site-relative.
-      expect(launched, ['https://meta.discourse.org/badges/24/nice-reply']);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      expect(controller.currentContent!.badgeRoute?.badgeId, 24);
+      expect(find.text('Recently awarded'), findsOneWidget);
+      expect(launched, isEmpty);
       expect(api.markedRead, [3]);
       expect(find.byType(NotificationRow), findsNothing);
     });

@@ -1290,7 +1290,7 @@ void _registerShellNavigationTests() {
           tester
               .widgetList<MenuItemButton>(find.byType(MenuItemButton))
               .map((button) => (button.child! as Text).data),
-          ['About this forum', 'Roadmap', 'Handbook', 'Teams'],
+          ['About this forum', 'Roadmap', 'Handbook', 'Teams', 'Badges'],
         );
         expect(
           find.descendant(
@@ -1347,7 +1347,7 @@ void _registerShellNavigationTests() {
             tester
                 .widgetList<MenuItemButton>(find.byType(MenuItemButton))
                 .map((button) => (button.child! as Text).data),
-            ['Public guidelines', 'Groups'],
+            ['Public guidelines', 'Groups', 'Badges'],
           );
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pumpAndSettle();
@@ -1360,7 +1360,7 @@ void _registerShellNavigationTests() {
           tester
               .widgetList<MenuItemButton>(find.byType(MenuItemButton))
               .map((button) => (button.child! as Text).data),
-          ['Groups'],
+          ['Groups', 'Badges'],
         );
       },
     );

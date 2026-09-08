@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:discourse_native/src/models/badge.dart';
+import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/found_group.dart';
@@ -201,6 +203,23 @@ const _keys = [
   'most_replied_to_users',
   'top_categories',
   'badge_id',
+  'badges',
+  'badge_groupings',
+  'badge_type_id',
+  'badge_grouping_id',
+  'grant_count',
+  'has_badge',
+  'long_description',
+  'multiple_grant',
+  'allow_title',
+  'image_url',
+  'icon',
+  'position',
+  'user_badge_info',
+  'user_badges',
+  'granted_at',
+  'user_id',
+  'listable',
   'likes_given',
   'likes_received',
   'topics_entered',
@@ -324,6 +343,24 @@ void main() {
       _recordCorpusShapes(json, reachedShapes);
       _recordCorpusShapes(loose, reachedShapes);
 
+      probe('DiscourseBadge', () => DiscourseBadge.fromJson(json, site), json);
+      probe('BadgeCatalog', () {
+        BadgeCatalog.fromJson(json, site);
+        BadgeCatalog.fromJson({
+          'badges': [json, loose],
+          'badge_groupings': [json, loose],
+        }, site);
+      }, json);
+      probe('BadgeGrantPage', () {
+        BadgeGrantPage.fromJson(json, site);
+        BadgeGrantPage.fromJson({
+          'user_badge_info': {
+            'user_badges': [json, loose],
+          },
+          'users': [json, loose],
+          'topics': [json, loose],
+        }, site);
+      }, json);
       probe('Bookmark', () => Bookmark.fromJson(json), json);
       probe('ComposerDraft', () => ComposerDraft.fromJson(json), json);
       probe('FoundGroup', () => FoundGroup.fromJson(json, site), json);
@@ -640,6 +677,11 @@ void main() {
       probe('VoiceRoomEvent', () => VoiceRoomEvent.fromJson(json), json);
 
       probe('TopicLink', () => TopicLink.parse('$loose'), loose);
+      probe(
+        'BadgeRoute',
+        () => BadgeRoute.parse('$loose', siteUrl: site),
+        loose,
+      );
       probe('ListLink', () => ListLink.parse('$loose'), loose);
     }
 
@@ -666,6 +708,7 @@ void main() {
       // the rail, and a workspace with an unreadable anchor keeps its tabs.
       'ContentRoute',
       'GroupRoute',
+      'BadgeRoute',
       'DiscourseInstance',
       'DiscourseUser',
       'ForumTabAnchor',

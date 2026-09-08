@@ -9,6 +9,7 @@ import '../data/account_session_coordinator.dart';
 import '../data/aggregate_preferences_store.dart';
 import '../data/app_settings_store.dart';
 import '../data/authenticator.dart';
+import '../data/badges_api.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/draft_store.dart';
 import '../data/emoji_picker_store.dart';
@@ -31,6 +32,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/bounded_lru_cache.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../foundation/timezone_environment.dart';
+import '../models/badge_route.dart';
 import '../models/bookmark.dart';
 import '../models/bookmark_feed.dart';
 import '../models/category_feed.dart';
@@ -85,6 +87,7 @@ import '../theme/d_icons.dart';
 import 'account_activity_controller.dart';
 import 'aggregate_feed_controller.dart';
 import 'app_settings_controller.dart';
+import 'badges_controller.dart';
 import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
 import 'composer_draft_coordinator.dart';
@@ -792,6 +795,12 @@ class ShellController extends FrameSafeNotifier
     lifecycle: lifecycle,
   );
 
+  late final BadgesController badges = BadgesController(
+    api: BadgesApi(api.pluginTransport),
+    credentials: authenticator,
+    lifecycle: lifecycle,
+  );
+
   late final GroupsController groups = GroupsController(
     api: GroupsApi(api.pluginTransport, api.models),
     credentials: authenticator,
@@ -1082,6 +1091,9 @@ class ShellController extends FrameSafeNotifier
     if (pluginHandled) {
       return _revealNotificationTarget();
     }
+    if (openBadgeUrl(absolute, refresh: true)) {
+      return _revealNotificationTarget();
+    }
     if (openGroupUrl(absolute)) return _revealNotificationTarget();
     if (_openTopicUrl(absolute, refresh: true)) {
       return _revealNotificationTarget();
@@ -1242,6 +1254,14 @@ class ShellController extends FrameSafeNotifier
         if (topicListContent case final source?)
           loadFeed(source.id, force: true),
       ]);
+      return;
+    }
+    if (route.isBadges) {
+      await badges.load(
+        instance,
+        route.badgeRoute ?? const BadgeRoute.directory(),
+        refresh: true,
+      );
       return;
     }
     final hydrator = _pluginSession
@@ -4033,6 +4053,7 @@ class ShellController extends FrameSafeNotifier
           accountActivity.forget(siteUrl);
           groups.forget(siteUrl);
           userDirectory.forget(siteUrl);
+          badges.forget(siteUrl);
           _topicTrackingBySite.remove(siteUrl);
           _topicTrackingMessageFilters.remove(siteUrl);
           _topicTrackingSnapshotsLoaded.remove(siteUrl);
@@ -5083,6 +5104,9 @@ class ShellController extends FrameSafeNotifier
     final topic = TopicLink.parse(absolute, siteUrl: instance.url);
     final list = ListLink.parse(absolute);
     final group = GroupRoute.parse(absolute);
+    final badge = instance.config.badgesEnabled
+        ? BadgeRoute.parse(absolute, siteUrl: instance.url)
+        : null;
     final ContentRoute route;
     if (topic != null) {
       route = ContentRoute.topic(
@@ -5100,6 +5124,8 @@ class ShellController extends FrameSafeNotifier
         title: title,
         color: category == null ? null : Color(category.colorValue),
       );
+    } else if (badge != null) {
+      route = ContentRoute.badges(badge, title: title);
     } else if (group != null) {
       route = ContentRoute.group(
         group,
@@ -5129,6 +5155,27 @@ class ShellController extends FrameSafeNotifier
     _syncTopicChannels();
     _notify();
     return TabOpenResult.opened;
+  }
+
+  bool openBadgeUrl(String url, {String? title, bool refresh = false}) {
+    final absolute = absoluteUrl(url);
+    final target = Uri.tryParse(absolute);
+    if (target == null) return false;
+    final index = _instances.indexWhere((instance) => instance.serves(target));
+    if (index < 0) return false;
+    final instance = _instances[index];
+    if (!instance.config.badgesEnabled) return false;
+    final route = BadgeRoute.parse(absolute, siteUrl: instance.url);
+    if (route == null) return false;
+    if (index != _instanceIndex) selectInstance(index);
+    final rootChanged = _setForumContentRoot();
+    if (currentContent?.badgeRoute != route) {
+      pushContent(ContentRoute.badges(route, title: title));
+    } else if (rootChanged) {
+      _notify();
+    }
+    unawaited(badges.load(instance, route, refresh: refresh));
+    return true;
   }
 
   bool openGroupUrl(String url) {
@@ -12437,6 +12484,7 @@ class ShellController extends FrameSafeNotifier
     userSummary.forget(siteUrl);
     groups.forget(siteUrl);
     userDirectory.forget(siteUrl);
+    badges.forget(siteUrl);
     preferences.forget(siteUrl);
     store.forget(siteUrl);
 
@@ -12685,6 +12733,10 @@ class ShellController extends FrameSafeNotifier
               : route.postNumber,
         ),
       );
+    } else if (route.isBadges) {
+      unawaited(
+        badges.load(instance, route.badgeRoute ?? const BadgeRoute.directory()),
+      );
     } else if (route.feedPath != null && route.id != root.id) {
       unawaited(loadFeed(route.id));
     }
@@ -12880,6 +12932,11 @@ class ShellController extends FrameSafeNotifier
 
     final content = destination.id == 'groups'
         ? ContentRoute.group(const GroupRoute.directory())
+        : destination.id == 'badges'
+        ? ContentRoute.badges(
+            const BadgeRoute.directory(),
+            title: destination.label,
+          )
         : ContentRoute.fromDestination(destination);
     _replaceActiveTab(
       tab.copyWith(
@@ -12892,7 +12949,11 @@ class ShellController extends FrameSafeNotifier
     _syncTopicChannels();
     _notify();
 
-    if (destination.id == 'users') {
+    if (destination.id == 'badges') {
+      unawaited(
+        badges.load(instance, const BadgeRoute.directory(), refresh: refresh),
+      );
+    } else if (destination.id == 'users') {
       unawaited(userDirectory.load(instance, refresh: refresh));
     } else if (destination.id == 'all-tags') {
       if (refresh) unawaited(loadTags(instance.url, force: true));
@@ -13759,6 +13820,7 @@ class ShellController extends FrameSafeNotifier
     userSummary.dispose();
     groups.dispose();
     userDirectory.dispose();
+    badges.dispose();
     preferences.dispose();
     topicFeeds.dispose();
     aggregate.dispose();

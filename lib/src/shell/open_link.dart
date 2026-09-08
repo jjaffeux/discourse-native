@@ -33,6 +33,7 @@ Future<bool> openLink(
       false) {
     return true;
   }
+  if (controller?.openBadgeUrl(target, title: title) ?? false) return true;
   if (controller?.openGroupUrl(target) ?? false) return true;
   if (controller?.openTopicUrl(target) ?? false) return true;
   if (controller?.openListUrl(target, title: title) ?? false) return true;

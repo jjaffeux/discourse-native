@@ -59,6 +59,7 @@ void main() {
       ]);
       expect(section.moreDestinations.map((destination) => destination.id), [
         'groups',
+        'badges',
       ]);
     });
 
@@ -74,7 +75,9 @@ void main() {
         'users',
         'filter',
       ]);
-      expect(section.moreDestinations, isEmpty);
+      expect(section.moreDestinations.map((destination) => destination.id), [
+        'badges',
+      ]);
     });
 
     test('keeps Filter visible for connected accounts', () {
@@ -93,6 +96,7 @@ void main() {
       ]);
       expect(section.moreDestinations.map((destination) => destination.id), [
         'groups',
+        'badges',
       ]);
     });
 
@@ -189,6 +193,9 @@ void main() {
         expect(groups.id, 'groups');
         expect(groups.url, isNull);
         expect(groups.icon, DIcons.fire);
+        final badges = sections.first.moreDestinations[3];
+        expect(badges.id, 'badges');
+        expect(badges.url, isNull);
         expect(
           sections.first.moreDestinations.first.url,
           'https://example.com/forum/about',
@@ -266,7 +273,7 @@ void main() {
             .single
             .moreDestinations
             .map((destination) => destination.label),
-        ['About', 'Groups', 'Admin'],
+        ['About', 'Groups', 'Badges', 'Admin'],
       );
     });
   });
