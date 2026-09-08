@@ -16,14 +16,14 @@ final class _PendingRead {
     required this.apiKey,
     required this.clientId,
     required this.topicId,
-    required this.postNumber,
+    required this.postNumbers,
   });
 
   final String siteUrl;
   final String apiKey;
   final String? clientId;
   final int topicId;
-  final int postNumber;
+  final List<int> postNumbers;
   final Completer<void> response = Completer();
 }
 
@@ -31,11 +31,11 @@ final class _ControlledTopicReadsApi implements TopicReadsApi {
   final List<_PendingRead> requests = [];
 
   @override
-  Future<void> recordTopicRead({
+  Future<void> recordTopicReads({
     required String siteUrl,
     required String apiKey,
     required int topicId,
-    required int postNumber,
+    required List<int> postNumbers,
     int milliseconds = 500,
     String? clientId,
   }) {
@@ -44,21 +44,20 @@ final class _ControlledTopicReadsApi implements TopicReadsApi {
       apiKey: apiKey,
       clientId: clientId,
       topicId: topicId,
-      postNumber: postNumber,
+      postNumbers: postNumbers,
     );
     requests.add(request);
     return request.response.future;
   }
 }
 
-({String siteUrl, String apiKey, String? clientId, int topicId, int postNumber})
-_requestSnapshot(_PendingRead request) => (
-  siteUrl: request.siteUrl,
-  apiKey: request.apiKey,
-  clientId: request.clientId,
-  topicId: request.topicId,
-  postNumber: request.postNumber,
-);
+Map<String, Object?> _requestSnapshot(_PendingRead request) => {
+  'siteUrl': request.siteUrl,
+  'apiKey': request.apiKey,
+  'clientId': request.clientId,
+  'topicId': request.topicId,
+  'postNumbers': request.postNumbers,
+};
 
 final class _GatedClientIdReader implements ApiCredentialReader {
   final Completer<void> clientIdStarted = Completer();
@@ -165,20 +164,20 @@ void main() {
         api.requests.last.response.complete();
         await caughtUp;
         expect(api.requests.map(_requestSnapshot), [
-          (
-            siteUrl: siteUrl,
-            apiKey: 'key',
-            clientId: 'test-client',
-            topicId: 1,
-            postNumber: 5,
-          ),
-          (
-            siteUrl: siteUrl,
-            apiKey: 'key',
-            clientId: 'test-client',
-            topicId: 1,
-            postNumber: 10,
-          ),
+          {
+            'siteUrl': siteUrl,
+            'apiKey': 'key',
+            'clientId': 'test-client',
+            'topicId': 1,
+            'postNumbers': [5],
+          },
+          {
+            'siteUrl': siteUrl,
+            'apiKey': 'key',
+            'clientId': 'test-client',
+            'topicId': 1,
+            'postNumbers': [10],
+          },
         ]);
       },
     );
@@ -203,6 +202,34 @@ void main() {
   });
 
   group('receipt coalescing and write outcomes', () {
+    test(
+      'an older caught-up retry preserves the maximum across stale rows',
+      () async {
+        const siteUrl = 'https://one.example';
+        credentials.keys[siteUrl] = 'key';
+        store.put(siteUrl, _topic());
+        final failed = controller.mark(siteUrl, 1, 5, caughtUp: false);
+        await pumpEventQueue();
+        final newer = controller.mark(siteUrl, 1, 10, caughtUp: false);
+        api.requests.single.response.completeError(StateError('offline'));
+        await pumpEventQueue();
+        api.requests.last.response.complete();
+        await Future.wait([failed, newer]);
+
+        store.put(siteUrl, _topic(lastRead: 4, highest: 5));
+        final retry = controller.mark(siteUrl, 1, 5, caughtUp: true);
+        expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 10);
+        await pumpEventQueue();
+        expect(api.requests.last.postNumbers, [5]);
+        api.requests.last.response.complete();
+        await retry;
+
+        await controller.mark(siteUrl, 1, 5, caughtUp: true);
+        expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 10);
+        expect(api.requests, hasLength(3));
+      },
+    );
+
     test(
       'a failed position can be retried when it is observed again',
       () async {
@@ -230,7 +257,10 @@ void main() {
         expect(api.requests, hasLength(1));
         final retry = controller.mark(siteUrl, 1, 5, caughtUp: true);
         await pumpEventQueue();
-        expect(api.requests.map((request) => request.postNumber), [5, 5]);
+        expect(api.requests.map((request) => request.postNumbers), [
+          [5],
+          [5],
+        ]);
         api.requests.last.response.complete();
         await retry;
 
@@ -244,7 +274,7 @@ void main() {
       },
     );
 
-    test('a newer queued read supersedes a failed receipt', () async {
+    test('a newer queued read preserves a failed receipt for retry', () async {
       const siteUrl = 'https://one.example';
       credentials.keys[siteUrl] = 'key';
       store.put(siteUrl, _topic());
@@ -253,17 +283,23 @@ void main() {
       final newer = controller.mark(siteUrl, 1, 5, caughtUp: false);
       api.requests.first.response.completeError(StateError('offline'));
       await pumpEventQueue();
-      await controller.mark(siteUrl, 1, 1, caughtUp: false);
+      final retry = controller.mark(siteUrl, 1, 1, caughtUp: false);
       api.requests.last.response.complete();
-      await Future.wait([first, newer]);
+      await pumpEventQueue();
 
-      expect(api.requests.map((request) => request.postNumber), [1, 5]);
+      expect(api.requests.map((request) => request.postNumbers), [
+        [1],
+        [5],
+        [1],
+      ]);
+      api.requests.last.response.complete();
+      await Future.wait([first, newer, retry]);
       expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 5);
     });
 
     for (final forget in [false, true]) {
       test(
-        'confirmed read state supersedes failed receipts after forget $forget',
+        'a newer server position only drops failed receipts after forget $forget',
         () async {
           const siteUrl = 'https://one.example';
           credentials.keys[siteUrl] = 'key';
@@ -280,15 +316,22 @@ void main() {
           } else {
             store.put(siteUrl, _topic(lastRead: 8));
           }
-          await controller.mark(siteUrl, 1, 5, caughtUp: false);
+          final retry = controller.mark(siteUrl, 1, 5, caughtUp: false);
+          await pumpEventQueue();
 
-          expect(api.requests, hasLength(1));
+          expect(api.requests, hasLength(forget ? 1 : 2));
+          if (!forget) api.requests.last.response.complete();
+          await retry;
+          expect(
+            store.read<Topic>(siteUrl, 1)?.lastReadPostNumber,
+            forget ? 5 : 8,
+          );
         },
       );
     }
 
     test(
-      'a store listener cannot replace a newer receipt with the older mark',
+      'a store listener preserves both the older and newer receipt',
       () async {
         const siteUrl = 'https://one.example';
         credentials.keys[siteUrl] = 'key';
@@ -315,55 +358,65 @@ void main() {
         api.requests.single.response.complete();
         await pumpEventQueue();
 
-        expect([for (final request in api.requests) request.postNumber], [3]);
+        expect(
+          [for (final request in api.requests) request.postNumbers],
+          [
+            [1, 3],
+          ],
+        );
         await Future.wait([first, newer!]);
         expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 3);
       },
     );
 
-    test(
-      'sends only the newest position queued behind an active write',
-      () async {
-        const siteUrl = 'https://one.example';
-        credentials.keys[siteUrl] = 'key';
-        store.put(siteUrl, _topic());
+    test('batches every position queued behind an active write', () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'key';
+      store.put(siteUrl, _topic());
 
-        final first = controller.mark(siteUrl, 1, 1, caughtUp: false);
-        await pumpEventQueue();
-        final second = controller.mark(siteUrl, 1, 2, caughtUp: false);
-        final newest = controller.mark(siteUrl, 1, 3, caughtUp: false);
-        await pumpEventQueue();
+      final first = controller.mark(siteUrl, 1, 1, caughtUp: false);
+      await pumpEventQueue();
+      final second = controller.mark(siteUrl, 1, 2, caughtUp: false);
+      final newest = controller.mark(siteUrl, 1, 3, caughtUp: false);
+      await pumpEventQueue();
 
-        expect([for (final request in api.requests) request.postNumber], [1]);
+      expect(
+        [for (final request in api.requests) request.postNumbers],
+        [
+          [1],
+        ],
+      );
 
-        api.requests.first.response.complete();
-        await pumpEventQueue();
-        expect(
-          [for (final request in api.requests) request.postNumber],
-          [1, 3],
-        );
+      api.requests.first.response.complete();
+      await pumpEventQueue();
+      expect(
+        [for (final request in api.requests) request.postNumbers],
+        [
+          [1],
+          [2, 3],
+        ],
+      );
 
-        api.requests.last.response.complete();
-        await Future.wait([first, second, newest]);
-        expect(api.requests.map(_requestSnapshot), [
-          (
-            siteUrl: siteUrl,
-            apiKey: 'key',
-            clientId: 'test-client',
-            topicId: 1,
-            postNumber: 1,
-          ),
-          (
-            siteUrl: siteUrl,
-            apiKey: 'key',
-            clientId: 'test-client',
-            topicId: 1,
-            postNumber: 3,
-          ),
-        ]);
-        expect(errors, isEmpty);
-      },
-    );
+      api.requests.last.response.complete();
+      await Future.wait([first, second, newest]);
+      expect(api.requests.map(_requestSnapshot), [
+        {
+          'siteUrl': siteUrl,
+          'apiKey': 'key',
+          'clientId': 'test-client',
+          'topicId': 1,
+          'postNumbers': [1],
+        },
+        {
+          'siteUrl': siteUrl,
+          'apiKey': 'key',
+          'clientId': 'test-client',
+          'topicId': 1,
+          'postNumbers': [2, 3],
+        },
+      ]);
+      expect(errors, isEmpty);
+    });
 
     test(
       'reports a failed write and still sends the newest position',
@@ -380,8 +433,11 @@ void main() {
         await pumpEventQueue();
 
         expect(
-          [for (final request in api.requests) request.postNumber],
-          [1, 4],
+          [for (final request in api.requests) request.postNumbers],
+          [
+            [1],
+            [4],
+          ],
         );
         expect(errors, hasLength(1));
         expect(errors.single.error, same(failure));
@@ -394,6 +450,68 @@ void main() {
   });
 
   group('site and account invalidation', () {
+    test('a late failure cannot restore a forgotten account batch', () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'old-key';
+      store.put(siteUrl, _topic());
+      final retired = controller.mark(siteUrl, 1, 1, caughtUp: false);
+      await pumpEventQueue();
+      final oldQueued = [
+        controller.mark(siteUrl, 1, 2, caughtUp: false),
+        controller.mark(siteUrl, 1, 3, caughtUp: false),
+      ];
+
+      lifecycle.invalidate(siteUrl);
+      controller.forget(siteUrl);
+      credentials.keys[siteUrl] = 'new-key';
+      store.put(siteUrl, _topic());
+      final replacement = controller.mark(siteUrl, 1, 5, caughtUp: false);
+      await pumpEventQueue();
+      api.requests.first.response.completeError(StateError('old failure'));
+      await Future.wait([retired, ...oldQueued]);
+      final newer = controller.mark(siteUrl, 1, 6, caughtUp: false);
+      expect(api.requests, hasLength(2));
+      api.requests.last.response.complete();
+      await pumpEventQueue();
+
+      expect(api.requests.map((request) => request.postNumbers), [
+        [1],
+        [5],
+        [6],
+      ]);
+      expect(api.requests.map((request) => request.apiKey), [
+        'old-key',
+        'new-key',
+        'new-key',
+      ]);
+      api.requests.last.response.complete();
+      await Future.wait([replacement, newer]);
+      await controller.mark(siteUrl, 1, 6, caughtUp: false);
+      expect(api.requests, hasLength(3));
+      expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 6);
+      expect(errors, isEmpty);
+    });
+
+    for (final dispose in [false, true]) {
+      test(
+        'a store listener can cancel admitted receipts with dispose $dispose',
+        () async {
+          const siteUrl = 'https://one.example';
+          credentials.keys[siteUrl] = 'key';
+          store.put(siteUrl, _topic());
+          final ref = store.ref<Topic>(siteUrl, 1);
+          void cancel() =>
+              dispose ? controller.dispose() : controller.forget(siteUrl);
+          ref.addListener(cancel);
+          addTearDown(() => ref.removeListener(cancel));
+
+          await controller.mark(siteUrl, 1, 1, caughtUp: false);
+          expect(api.requests, isEmpty);
+          expect(errors, isEmpty);
+        },
+      );
+    }
+
     test(
       'a store listener can replace the account without losing its queued receipt',
       () async {
@@ -430,7 +548,7 @@ void main() {
         expect(
           [
             for (final request in api.requests)
-              (request.apiKey, request.postNumber),
+              (request.apiKey, request.postNumbers.single),
           ],
           [('new-key', 2), ('new-key', 3)],
         );
@@ -518,27 +636,30 @@ void main() {
         api.requests.first.response.complete();
         await pumpEventQueue();
         expect(
-          [for (final request in api.requests) request.postNumber],
-          [1, 2],
+          [for (final request in api.requests) request.postNumbers],
+          [
+            [1],
+            [2],
+          ],
         );
 
         api.requests.last.response.complete();
         await Future.wait([first, newer]);
         expect(api.requests.map(_requestSnapshot), [
-          (
-            siteUrl: retained,
-            apiKey: 'key',
-            clientId: 'test-client',
-            topicId: 1,
-            postNumber: 1,
-          ),
-          (
-            siteUrl: retained,
-            apiKey: 'key',
-            clientId: 'test-client',
-            topicId: 1,
-            postNumber: 2,
-          ),
+          {
+            'siteUrl': retained,
+            'apiKey': 'key',
+            'clientId': 'test-client',
+            'topicId': 1,
+            'postNumbers': [1],
+          },
+          {
+            'siteUrl': retained,
+            'apiKey': 'key',
+            'clientId': 'test-client',
+            'topicId': 1,
+            'postNumbers': [2],
+          },
         ]);
         expect(errors, isEmpty);
       },
@@ -546,6 +667,24 @@ void main() {
   });
 
   group('disposal', () {
+    test('drops queued batches and ignores a late failed request', () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'key';
+      store.put(siteUrl, _topic());
+      final first = controller.mark(siteUrl, 1, 1, caughtUp: false);
+      await pumpEventQueue();
+      final queued = [
+        controller.mark(siteUrl, 1, 2, caughtUp: false),
+        controller.mark(siteUrl, 1, 3, caughtUp: false),
+      ];
+      controller.dispose();
+      api.requests.single.response.completeError(StateError('late failure'));
+      await Future.wait([first, ...queued]);
+
+      expect(api.requests, hasLength(1));
+      expect(errors, isEmpty);
+    });
+
     test('cancels credential waits and ignores later marks', () async {
       const siteUrl = 'https://one.example';
       final gatedCredentials = _GatedClientIdReader();

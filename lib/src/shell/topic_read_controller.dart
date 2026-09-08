@@ -14,7 +14,7 @@ typedef _TopicReadKey = (String siteUrl, int topicId);
 typedef _TopicReadReceipt = ({
   String siteUrl,
   int topicId,
-  int postNumber,
+  Set<int> postNumbers,
   SiteLease lease,
 });
 
@@ -34,7 +34,7 @@ final class TopicReadController {
   final TopicReadErrorReporter reportError;
 
   final Map<_TopicReadKey, int> _positions = {};
-  final Map<_TopicReadKey, int> _retryPositions = {};
+  final Map<_TopicReadKey, _TopicReadReceipt> _retries = {};
   final Map<_TopicReadKey, _TopicReadReceipt> _queued = {};
   final Map<_TopicReadKey, Future<void>> _tasks = {};
   final Map<_TopicReadKey, Object> _runs = {};
@@ -53,50 +53,39 @@ final class TopicReadController {
     final held = store.read<Topic>(siteUrl, topicId);
     final local = _positions[key] ?? 0;
     final server = held?.lastReadPostNumber ?? 0;
-    var retryPosition = _retryPositions[key];
-    if (retryPosition != null && server > retryPosition) {
-      _retryPositions.remove(key);
-      retryPosition = null;
-    }
-    final shouldRetry = retryPosition != null && postNumber >= retryPosition;
-    if ((local > server ? local : server) >= postNumber && !shouldRetry) {
+    final position = local > server ? local : server;
+    final failed = _retries[key];
+    final retryPosts = failed != null && failed.lease.isCurrent
+        ? failed.postNumbers.where((post) => post <= postNumber).toSet()
+        : <int>{};
+    if (position >= postNumber && retryPosts.isEmpty) {
       if (caughtUp) {
         store.update<Topic>(
           siteUrl,
           topicId,
-          (row) => row.copyWith(
-            markRead:
-                row.highestPostNumber <= 0 ||
-                postNumber >= row.highestPostNumber,
-          ),
+          (row) => _projectRead(row, position, postNumber, caughtUp: true),
         );
       }
       return Future.value();
     }
 
     final lease = lifecycle.capture(siteUrl);
-    _positions[key] = postNumber;
-    _retryPositions.remove(key);
+    final nextPosition = postNumber > position ? postNumber : position;
+    _positions[key] = nextPosition;
+    failed?.postNumbers.removeAll(retryPosts);
+    if (failed != null && failed.postNumbers.isEmpty) _retries.remove(key);
     // Store listeners may advance this topic again, forget it, or replace its
     // account. Accept this receipt before publishing the optimistic position.
-    _queued[key] = (
+    _retain(_queued, key, (
       siteUrl: siteUrl,
       topicId: topicId,
-      postNumber: postNumber,
+      postNumbers: {if (postNumber > position) postNumber, ...retryPosts},
       lease: lease,
-    );
+    ));
     store.update<Topic>(
       siteUrl,
       topicId,
-      (row) => row.copyWith(
-        lastReadPostNumber: postNumber,
-        // A live list update can know about a newer post than the detail
-        // stream on screen. Reaching that stream's end must not clear unread
-        // state for a post the reader has not received yet.
-        markRead:
-            caughtUp &&
-            (row.highestPostNumber <= 0 || postNumber >= row.highestPostNumber),
-      ),
+      (row) => _projectRead(row, nextPosition, postNumber, caughtUp: caughtUp),
     );
 
     if (_disposed || !lease.isCurrent) return Future.value();
@@ -114,7 +103,7 @@ final class TopicReadController {
 
   void forget(String siteUrl) {
     _positions.removeWhere((key, _) => key.$1 == siteUrl);
-    _retryPositions.removeWhere((key, _) => key.$1 == siteUrl);
+    _retries.removeWhere((key, _) => key.$1 == siteUrl);
     _queued.removeWhere((key, _) => key.$1 == siteUrl);
     _tasks.removeWhere((key, _) => key.$1 == siteUrl);
     _runs.removeWhere((key, _) => key.$1 == siteUrl);
@@ -124,47 +113,98 @@ final class TopicReadController {
     if (_disposed) return;
     _disposed = true;
     _positions.clear();
-    _retryPositions.clear();
+    _retries.clear();
     _queued.clear();
     _tasks.clear();
     _runs.clear();
   }
 
+  Topic _projectRead(
+    Topic row,
+    int position,
+    int postNumber, {
+    required bool caughtUp,
+  }) {
+    final updated = row.copyWith(
+      lastReadPostNumber: position,
+      // A live list update may know about posts beyond the stream on screen.
+      markRead:
+          caughtUp &&
+          (row.highestPostNumber <= 0 || postNumber >= row.highestPostNumber),
+    );
+    // markRead projects the row's highest post, which can be stale when an
+    // older receipt is retried. Keep the optimistic maximum in that case.
+    return updated.lastReadPostNumber == position
+        ? updated
+        : updated.copyWith(lastReadPostNumber: position);
+  }
+
   Future<void> _drain(_TopicReadKey key, Object run) async {
     while (_isCurrentRun(key, run)) {
-      final receipt = _queued.remove(key);
-      if (receipt == null) {
+      final pending = _queued[key];
+      if (pending == null) {
         _finishRun(key, run);
         return;
       }
+      final posts = pending.postNumbers
+          .take(TopicReadsApi.maximumPostsPerRequest)
+          .toSet();
+      pending.postNumbers.removeAll(posts);
+      if (pending.postNumbers.isEmpty) _queued.remove(key);
+      final receipt = (
+        siteUrl: pending.siteUrl,
+        topicId: pending.topicId,
+        postNumbers: posts,
+        lease: pending.lease,
+      );
 
       try {
         final apiKey = await credentials.apiKeyFor(receipt.siteUrl);
-        if (!_canSend(key, run, receipt.lease) || apiKey == null) continue;
+        if (!_canSend(key, run, receipt.lease)) continue;
+        if (apiKey == null) {
+          // Defer all admitted posts until another observation can retry with
+          // credentials. Do not spin through the remaining batches.
+          _retain(_retries, key, receipt);
+          final remaining = _queued.remove(key);
+          if (remaining != null) _retain(_retries, key, remaining);
+          _finishRun(key, run);
+          return;
+        }
 
         final clientId = await credentials.clientId();
         if (!_canSend(key, run, receipt.lease)) continue;
 
-        await api.recordTopicRead(
+        await api.recordTopicReads(
           siteUrl: receipt.siteUrl,
           apiKey: apiKey,
           clientId: clientId,
           topicId: receipt.topicId,
-          postNumber: receipt.postNumber,
+          postNumbers: receipt.postNumbers.toList(),
         );
       } catch (error, stackTrace) {
         if (_canSend(key, run, receipt.lease)) {
-          // Optimistic state still prevents duplicate writes. Remember a
-          // failed receipt separately so observing it again can retry, unless
-          // a newer queued position will already cover it. Failure alone does
-          // not schedule another network request.
-          if (!_queued.containsKey(key)) {
-            _retryPositions[key] = receipt.postNumber;
-          }
+          // Notifications are cleared for exact timing keys. A newer local or
+          // server position cannot acknowledge these posts. Retry only after
+          // another observation, while still attempting pending newer reads.
+          _retain(_retries, key, receipt);
           reportError(error, stackTrace, 'topic.markRead');
         }
         // A newer queued position must still be attempted after this failure.
       }
+    }
+  }
+
+  void _retain(
+    Map<_TopicReadKey, _TopicReadReceipt> queue,
+    _TopicReadKey key,
+    _TopicReadReceipt receipt,
+  ) {
+    final pending = queue[key];
+    if (pending != null &&
+        identical(pending.lease.session, receipt.lease.session)) {
+      pending.postNumbers.addAll(receipt.postNumbers);
+    } else {
+      queue[key] = receipt;
     }
   }
 

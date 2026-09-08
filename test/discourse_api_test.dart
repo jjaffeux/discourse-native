@@ -2540,6 +2540,63 @@ void _feedGroups() {
     });
 
     test(
+      'batches exact posts with one timing allowance per distinct post',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response('', 200);
+          }),
+        );
+        addTearDown(api.close);
+
+        await api.recordTopicReads(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          topicId: 12,
+          postNumbers: [2, 7, 2],
+          milliseconds: 750,
+        );
+
+        expect(jsonDecode(sent.body), {
+          'topic_id': 12,
+          'topic_time': 1500,
+          'timings': {'2': 750, '7': 750},
+        });
+      },
+    );
+
+    test('validates complete timing batches before transport', () async {
+      var requests = 0;
+      final api = DiscourseApi(
+        client: MockClient((_) async {
+          requests++;
+          return http.Response('', 200);
+        }),
+      );
+      addTearDown(api.close);
+
+      for (final posts in [
+        <int>[],
+        [1, 0],
+        [1, -1],
+        [for (var post = 1; post <= 101; post++) post],
+      ]) {
+        await expectLater(
+          api.recordTopicReads(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            topicId: 12,
+            postNumbers: posts,
+          ),
+          throwsRangeError,
+        );
+      }
+      expect(requests, 0);
+    });
+
+    test(
       'updates a topic notification level through the web endpoint',
       () async {
         late http.Request sent;

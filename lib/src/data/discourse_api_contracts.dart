@@ -1002,11 +1002,13 @@ abstract interface class TopicFeedsApi {
 }
 
 abstract interface class TopicReadsApi {
-  Future<void> recordTopicRead({
+  static const maximumPostsPerRequest = 100;
+
+  Future<void> recordTopicReads({
     required String siteUrl,
     required String apiKey,
     required int topicId,
-    required int postNumber,
+    required List<int> postNumbers,
     int milliseconds = 500,
     String? clientId,
   });

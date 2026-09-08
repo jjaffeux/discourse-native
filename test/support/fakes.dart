@@ -1638,15 +1638,18 @@ class FakeDiscourseApi
   }
 
   @override
-  Future<void> recordTopicRead({
+  Future<void> recordTopicReads({
     required String siteUrl,
     required String apiKey,
     required int topicId,
-    required int postNumber,
+    required List<int> postNumbers,
     int milliseconds = 500,
     String? clientId,
   }) async {
-    topicReadsRecorded.add((topicId: topicId, postNumber: postNumber));
+    topicReadsRecorded.addAll([
+      for (final postNumber in postNumbers)
+        (topicId: topicId, postNumber: postNumber),
+    ]);
   }
 
   @override
