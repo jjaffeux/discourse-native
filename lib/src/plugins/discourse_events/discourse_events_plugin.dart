@@ -32,7 +32,7 @@ final class DiscourseEventsPlugin
         ComposerSyntaxPlugin,
         ComposerToolbarPlugin,
         NotificationTypePlugin,
-        SidebarPlugin,
+        CommunitySidebarPlugin,
         ContentPlugin {
   const DiscourseEventsPlugin();
   @override
@@ -156,33 +156,21 @@ final class DiscourseEventsPlugin
   }
 
   @override
-  Listenable? sidebarListenable(BuildContext context) =>
+  Listenable? communitySidebarListenable(BuildContext context) =>
       PluginUiScope.maybe(context, eventControllerKey);
   @override
-  List<SidebarSection> sidebarSections(BuildContext context) {
+  List<SidebarDestination> communitySidebarDestinations(BuildContext context) {
     final controller = PluginUiScope.require(context, eventControllerKey);
     final navigation = PluginUiScope.require(context, eventNavigationKey);
     final site = navigation.host.currentSite;
-    if (site == null || !controller.settings(site.url).enabled) return const [];
-    return [
-      SidebarSection(
-        id: 'events',
-        title: 'Events',
-        destinations: [
-          SidebarDestination(
-            id: 'events-upcoming',
-            label: 'Upcoming events',
-            icon: EventIcons.calendar,
-            onTap: () => navigation.openDirectory(),
-          ),
-          if (site.isConnected)
-            SidebarDestination(
-              id: 'events-mine',
-              label: 'My events',
-              icon: EventIcons.calendar,
-              onTap: () => navigation.openDirectory(mine: true),
-            ),
-        ],
+    if (site == null) return const [];
+    final settings = controller.settings(site.url);
+    if (!settings.enabled || !settings.showUpcomingEvents) return const [];
+    return const [
+      SidebarDestination(
+        id: 'events-upcoming',
+        label: 'Upcoming events',
+        icon: EventIcons.calendar,
       ),
     ];
   }

@@ -262,6 +262,7 @@ final class EventTopicData {
 final class EventSettings {
   const EventSettings({
     this.enabled = false,
+    this.showUpcomingEvents = true,
     this.buttons = const ['going', 'interested', 'not_going'],
     this.displayTopicDate = true,
     this.customFields = const [],
@@ -270,6 +271,7 @@ final class EventSettings {
     enabled:
         json['discourse_events_enabled'] == true &&
         json['discourse_post_event_enabled'] == true,
+    showUpcomingEvents: json['sidebar_show_upcoming_events'] != false,
     buttons: List.unmodifiable(
       _settingList(
             json['event_participation_buttons'] ?? 'going|interested|not going',
@@ -283,6 +285,7 @@ final class EventSettings {
     ),
   );
   final bool enabled;
+  final bool showUpcomingEvents;
   final List<String> buttons;
   final bool displayTopicDate;
   final List<String> customFields;
@@ -290,12 +293,14 @@ final class EventSettings {
   bool operator ==(Object other) =>
       other is EventSettings &&
       enabled == other.enabled &&
+      showUpcomingEvents == other.showUpcomingEvents &&
       displayTopicDate == other.displayTopicDate &&
       listEquals(buttons, other.buttons) &&
       listEquals(customFields, other.customFields);
   @override
   int get hashCode => Object.hash(
     enabled,
+    showUpcomingEvents,
     displayTopicDate,
     Object.hashAll(buttons),
     Object.hashAll(customFields),
@@ -348,6 +353,7 @@ final class EventSettingsCodec
   Object encode(EventSettings value) => {
     'discourse_events_enabled': value.enabled,
     'discourse_post_event_enabled': value.enabled,
+    'sidebar_show_upcoming_events': value.showUpcomingEvents,
     'event_participation_buttons': value.buttons,
     'display_post_event_date_on_topic_title': value.displayTopicDate,
     'discourse_post_event_allowed_custom_fields': value.customFields,

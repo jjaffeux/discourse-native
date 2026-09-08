@@ -127,10 +127,13 @@ void main() {
     final settings = EventSettings.decode(const {
       'discourse_events_enabled': true,
       'discourse_post_event_enabled': true,
+      'sidebar_show_upcoming_events': false,
       'event_participation_buttons': 'interested|not going',
       'discourse_post_event_allowed_custom_fields': 'dress-code|cost',
     });
     expect(settings.buttons, ['interested', 'not_going']);
+    expect(settings.enabled, isTrue);
+    expect(settings.showUpcomingEvents, isFalse);
     expect(() => settings.buttons[0] = 'going', throwsUnsupportedError);
     const codec = EventSettingsCodec();
     expect(codec.decode(codec.encode(settings)), settings);
@@ -140,6 +143,20 @@ void main() {
         'can_create_discourse_post_event': true,
       })!.canCreate,
       isTrue,
+    );
+  });
+
+  test('older cached event settings use the default sidebar visibility', () {
+    const codec = EventSettingsCodec();
+    final settings = codec.decode({
+      'discourse_events_enabled': true,
+      'discourse_post_event_enabled': true,
+    })!;
+    expect(settings.showUpcomingEvents, isTrue);
+    expect(codec.decode(codec.encode(settings)), settings);
+    expect(
+      settings,
+      isNot(const EventSettings(enabled: true, showUpcomingEvents: false)),
     );
   });
 }
