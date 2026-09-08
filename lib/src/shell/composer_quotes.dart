@@ -56,6 +56,7 @@ List<ComposerQuoteBlock> parseComposerQuotes(
   }
 
   final codeRanges = knownCodeRanges ?? CodeRanges.of(scanMarkdown(source));
+  final tags = _QuoteTagScanner(source);
   final blocks = <ComposerQuoteBlock>[];
   var offset = 0;
 
@@ -67,13 +68,13 @@ List<ComposerQuoteBlock> parseComposerQuotes(
       continue;
     }
 
-    final openTag = _quoteTagAt(source, opening);
+    final openTag = tags.at(opening);
     if (openTag == null || openTag.closing) {
       offset = opening + 1;
       continue;
     }
 
-    final closeTag = _matchingClose(source, openTag.end, codeRanges);
+    final closeTag = tags.matchingClose(openTag.end, codeRanges);
     if (closeTag == null) {
       // As in core, an unmatched outer opener makes the rest ambiguous. Do
       // not turn a plausible inner quote into an editable-looking fragment.
@@ -353,60 +354,113 @@ class _QuoteTag {
   final String? value;
 }
 
-_QuoteTag? _quoteTagAt(String source, int start) {
-  if (start < 0 || start >= source.length || source[start] != '[') return null;
-  final closing = start + 1 < source.length && source[start + 1] == '/';
-  final nameStart = start + (closing ? 2 : 1);
-  const name = 'quote';
-  final nameEnd = nameStart + name.length;
-  if (nameEnd > source.length ||
-      source.substring(nameStart, nameEnd).toLowerCase() != name) {
+class _QuoteTagScanner {
+  _QuoteTagScanner(this.source);
+
+  final String source;
+  final _nextDelimiters = <String, int>{};
+  final _quotedEnds = <String, ({int quote, int end})>{};
+
+  // Both callers visit tag starts in increasing order. Retain the next match
+  // (including a missing one) so malformed values cannot rescan the same suffix.
+  int _next(String delimiter, int offset) {
+    final cached = _nextDelimiters[delimiter];
+    if (cached != null && (cached == -1 || cached >= offset)) return cached;
+    return _nextDelimiters[delimiter] = source.indexOf(delimiter, offset);
+  }
+
+  int _quotedEnd(String closeQuote, int quote) {
+    final cached = _quotedEnds[closeQuote];
+    if (cached != null && cached.quote == quote) return cached.end;
+
+    // Many unfinished openers can share this closing mark. Validate its tail
+    // once, without copying it, and keep trim's Unicode whitespace semantics.
+    var end = -1;
+    for (var offset = quote + 1; offset < source.length; offset++) {
+      final character = source[offset];
+      if (character == ']') {
+        end = offset + 1;
+        break;
+      }
+      if (character == '\r' ||
+          character == '\n' ||
+          character.trim().isNotEmpty) {
+        break;
+      }
+    }
+    _quotedEnds[closeQuote] = (quote: quote, end: end);
+    return end;
+  }
+
+  _QuoteTag? at(int start) {
+    if (start < 0 || start >= source.length || source[start] != '[') {
+      return null;
+    }
+    final closing = start + 1 < source.length && source[start + 1] == '/';
+    final nameStart = start + (closing ? 2 : 1);
+    const name = 'quote';
+    final nameEnd = nameStart + name.length;
+    if (nameEnd > source.length ||
+        source.substring(nameStart, nameEnd).toLowerCase() != name) {
+      return null;
+    }
+
+    if (closing) {
+      if (nameEnd >= source.length || source[nameEnd] != ']') return null;
+      return _QuoteTag(start: start, end: nameEnd + 1, closing: true);
+    }
+    if (nameEnd >= source.length) return null;
+    if (source[nameEnd] == ']') {
+      return _QuoteTag(start: start, end: nameEnd + 1, closing: false);
+    }
+    if (source[nameEnd] != '=') return null;
+
+    final valueStart = nameEnd + 1;
+    final closeQuote = valueStart < source.length
+        ? _closingQuote(source[valueStart])
+        : null;
+    final offset = valueStart + (closeQuote == null ? 0 : 1);
+    final delimiter = _next(closeQuote ?? ']', offset);
+    if (delimiter == -1) return null;
+    final cr = _next('\r', offset);
+    final lf = _next('\n', offset);
+    if ((cr != -1 && cr < delimiter) || (lf != -1 && lf < delimiter)) {
+      return null;
+    }
+
+    final end = closeQuote == null
+        ? delimiter + 1
+        : _quotedEnd(closeQuote, delimiter);
+    if (end == -1) return null;
+    return _QuoteTag(
+      start: start,
+      end: end,
+      closing: false,
+      value: closeQuote == null
+          ? source.substring(valueStart, delimiter).trim()
+          : source.substring(valueStart + 1, delimiter),
+    );
+  }
+
+  _QuoteTag? matchingClose(int offset, CodeRanges codeRanges) {
+    var depth = 1;
+    while (offset < source.length) {
+      final next = source.indexOf('[', offset);
+      if (next == -1) return null;
+      offset = next + 1;
+      if (codeRanges.contains(next)) continue;
+      final tag = at(next);
+      if (tag == null) continue;
+      if (tag.closing) {
+        depth--;
+        if (depth == 0) return tag;
+      } else if (_startsBlock(source, next)) {
+        depth++;
+      }
+      offset = tag.end;
+    }
     return null;
   }
-
-  if (closing) {
-    if (nameEnd >= source.length || source[nameEnd] != ']') return null;
-    return _QuoteTag(start: start, end: nameEnd + 1, closing: true);
-  }
-  if (nameEnd >= source.length) return null;
-  if (source[nameEnd] == ']') {
-    return _QuoteTag(start: start, end: nameEnd + 1, closing: false);
-  }
-  if (source[nameEnd] != '=') return null;
-
-  final valueStart = nameEnd + 1;
-  String? closeQuote;
-  var offset = valueStart;
-  if (offset < source.length) closeQuote = _closingQuote(source[offset]);
-  if (closeQuote != null) offset++;
-  for (; offset < source.length; offset++) {
-    final character = source[offset];
-    if (character == '\n' || character == '\r') return null;
-    if (closeQuote != null) {
-      if (character != closeQuote) continue;
-      final tail = source.indexOf(']', offset + 1);
-      if (tail == -1 ||
-          source.substring(offset + 1, tail).contains(RegExp(r'[\r\n]')) ||
-          source.substring(offset + 1, tail).trim().isNotEmpty) {
-        return null;
-      }
-      return _QuoteTag(
-        start: start,
-        end: tail + 1,
-        closing: false,
-        value: source.substring(valueStart + 1, offset),
-      );
-    }
-    if (character == ']') {
-      return _QuoteTag(
-        start: start,
-        end: offset + 1,
-        closing: false,
-        value: source.substring(valueStart, offset).trim(),
-      );
-    }
-  }
-  return null;
 }
 
 String? _closingQuote(String character) => switch (character) {
@@ -418,26 +472,6 @@ String? _closingQuote(String character) => switch (character) {
   '‹' => '›',
   _ => null,
 };
-
-_QuoteTag? _matchingClose(String source, int offset, CodeRanges codeRanges) {
-  var depth = 1;
-  while (offset < source.length) {
-    final next = source.indexOf('[', offset);
-    if (next == -1) return null;
-    offset = next + 1;
-    if (codeRanges.contains(next)) continue;
-    final tag = _quoteTagAt(source, next);
-    if (tag == null) continue;
-    if (tag.closing) {
-      depth--;
-      if (depth == 0) return tag;
-    } else if (_startsBlock(source, next)) {
-      depth++;
-    }
-    offset = tag.end;
-  }
-  return null;
-}
 
 bool _startsBlock(String source, int offset) {
   final earliest = offset < 3 ? 0 : offset - 3;
