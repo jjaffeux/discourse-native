@@ -957,7 +957,7 @@
         "Adjacent Button/Input/Badge/Toggle Group visuals remain pending their owners, as documented in the examples. Native inspected build displayed baseline status before the final metadata-only promotion to implemented."
       ],
       "implementationCommit": "4c0dcc6b4fea696768722afae8837d80fbd43b40",
-      "mergeCommit": null,
+      "mergeCommit": "a73f465ac86105fdda35f5b56f8b491da4b3936d",
       "clientThreadId": "client-new-thread:9ce651a0-9d90-4b15-a53d-3ce86e3821a4",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5995/discourse-native",
       "baseCommit": "f23ee956e2197452d3aab40e98933543e5eeb5f2",
