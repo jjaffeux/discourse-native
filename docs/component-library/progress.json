@@ -169,7 +169,8 @@
       "mergeCommit": "20f42345002e9b0946d1690acd6de6f83b7aa681",
       "clientThreadId": "client-new-thread:bc7d5eb7-2b13-40ee-b1d5-03729b31fb40",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9a2b/discourse-native",
-      "baseCommit": "d40bd8e08f7cece238e1e2502e93d592807c037b"
+      "baseCommit": "d40bd8e08f7cece238e1e2502e93d592807c037b",
+      "visualFidelityMergeCommit": "7fb9165fe5b166971d048b4ef69f3ed7d424f021"
     },
     {
       "id": "spinner",
@@ -1390,7 +1391,7 @@
       "iOS/Linux devices and VoiceOver speech were not inspected for this follow-up. Normal Flutter semantics and selection behavior remain covered by the focused tests; the styleguide AX tree exposed fewer nodes than the initial app fixtures."
     ],
     "implementationCommit": "ffd2cab16b13380fb2f947770fa40d5b5a0e1132",
-    "mergeCommit": null,
+    "mergeCommit": "7fb9165fe5b166971d048b4ef69f3ed7d424f021",
     "nativeInspectionStatus": "completed"
   }
 }
