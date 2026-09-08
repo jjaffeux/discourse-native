@@ -803,6 +803,7 @@ Status: in_progress. Task: 01a082d9-6c59-7443-8e64-f76105fd5e56. Branch: codex/u
 **verification**
 
 - Coordinator pre-review is complete, including final header action lifecycle, 16/12px shared spacing, 1.4× radius and app adoption. Read-only integration candidates under /private/tmp/card-integration-preview preserve the merged Tooltip and Avatar owners in Event cards. Native review is waiting on a Codex app-access approval in task 01a082d9-6c59-7443-8e64-f76105fd5e56; task metadata reports waitingOnApproval. The user was asked to approve the pending request. Card remains unmerged and is the only remaining current-batch component.
+- The pending native Card app-access request subsequently returned successfully after approximately 1337 seconds, with no denial. Coordinator verified the task active with no waitingOnApproval flag. The agreed native inspection is now running under the existing exclusive slot; no further user approval is needed for that request.
 
 ### Final audit
 

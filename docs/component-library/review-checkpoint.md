@@ -3,8 +3,9 @@
 Spinner, Tooltip and Avatar are merged into local `main` in
 `/Users/joffreyjaffeux/Code/discourse-native`. The frozen catalogue is
 **10 of 64 components complete**. Card is implemented and its automated checks
-pass, but native inspection is waiting on a Codex app-access approval in
-**Implement Card component**. Card remains unmerged.
+pass. The native-access request has cleared, and **Implement Card component**
+is completing its inspection. Card remains unmerged until that verification
+and the coordinator review are complete.
 
 The user's instruction is to finish this four-component batch, then pause for
 review and directions. Only Card remains in the batch; no further component or

@@ -922,7 +922,8 @@
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [
-        "Coordinator pre-review is complete, including final header action lifecycle, 16/12px shared spacing, 1.4× radius and app adoption. Read-only integration candidates under /private/tmp/card-integration-preview preserve the merged Tooltip and Avatar owners in Event cards. Native review is waiting on a Codex app-access approval in task 01a082d9-6c59-7443-8e64-f76105fd5e56; task metadata reports waitingOnApproval. The user was asked to approve the pending request. Card remains unmerged and is the only remaining current-batch component."
+        "Coordinator pre-review is complete, including final header action lifecycle, 16/12px shared spacing, 1.4× radius and app adoption. Read-only integration candidates under /private/tmp/card-integration-preview preserve the merged Tooltip and Avatar owners in Event cards. Native review is waiting on a Codex app-access approval in task 01a082d9-6c59-7443-8e64-f76105fd5e56; task metadata reports waitingOnApproval. The user was asked to approve the pending request. Card remains unmerged and is the only remaining current-batch component.",
+        "The pending native Card app-access request subsequently returned successfully after approximately 1337 seconds, with no denial. Coordinator verified the task active with no waitingOnApproval flag. The agreed native inspection is now running under the existing exclusive slot; no further user approval is needed for that request."
       ],
       "limitations": [],
       "implementationCommit": null,
@@ -930,7 +931,7 @@
       "clientThreadId": "client-new-thread:9ce651a0-9d90-4b15-a53d-3ce86e3821a4",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/5995/discourse-native",
       "baseCommit": "f23ee956e2197452d3aab40e98933543e5eeb5f2",
-      "nativeInspectionStatus": "awaiting_approval"
+      "nativeInspectionStatus": "in_progress"
     },
     {
       "id": "empty",
@@ -1710,7 +1711,7 @@
         "avatar",
         "card"
       ],
-      "status": "awaiting_card_native_approval_then_pause",
+      "status": "finish_current_batch_then_pause",
       "remainingComponents": [
         "card"
       ],
