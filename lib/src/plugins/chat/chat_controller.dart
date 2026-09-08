@@ -24,6 +24,7 @@ import 'chat_channel_refresh.dart';
 import 'chat_direct_message_search.dart';
 import 'chat_live_sync_coordinator.dart';
 import 'chat_message.dart';
+import 'chat_message_summary.dart';
 import 'chat_message_timeline.dart';
 import 'chat_pin.dart';
 import 'chat_plugin_data.dart';
@@ -2787,14 +2788,13 @@ class ChatController extends FrameSafeNotifier {
         final latest = _store.read<ChatMessage>(siteUrl, messageId);
         if (latest == null || latest.isDeleted == deleted) return;
         final deletedAt = deleted ? _clock().toUtc() : null;
-        _store.put(
-          siteUrl,
-          latest.withDeletedAt(
-            deletedAt,
-            deletedById: deleted ? _currentUserFor(siteUrl)?.id : null,
-            clearDeletedById: !deleted,
-          ),
+        final updated = latest.withDeletedAt(
+          deletedAt,
+          deletedById: deleted ? _currentUserFor(siteUrl)?.id : null,
+          clearDeletedById: !deleted,
         );
+        _store.put(siteUrl, updated);
+        _updateChannelMessagePreview(siteUrl, updated);
         _bumpStreamsHolding(siteUrl, messageId);
         _setLoadedThreadOriginalDeleted(
           siteUrl,
@@ -3003,10 +3003,9 @@ class ChatController extends FrameSafeNotifier {
     final preview = _previewEngine.project(
       ChatPreviewRequest(raw: raw, siteConfig: _siteConfigFor(siteUrl)),
     );
-    _store.put(
-      siteUrl,
-      held.withPendingEdit(raw, preview, uploads: editedUploads),
-    );
+    final pending = held.withPendingEdit(raw, preview, uploads: editedUploads);
+    _store.put(siteUrl, pending);
+    _updateChannelMessagePreview(siteUrl, pending);
 
     bool canonicalEditArrived() {
       final current = _store.read<ChatMessage>(siteUrl, messageId);
@@ -3019,7 +3018,11 @@ class ChatController extends FrameSafeNotifier {
       if (!ownsRequest() || canonicalEditArrived()) return;
       lease.commit(() {
         final latest = _store.read<ChatMessage>(siteUrl, messageId);
-        if (latest != null) _store.put(siteUrl, latest.withContentOf(held));
+        if (latest != null) {
+          final restored = latest.withContentOf(held);
+          _store.put(siteUrl, restored);
+          _updateChannelMessagePreview(siteUrl, restored);
+        }
       });
     }
 
@@ -3124,6 +3127,34 @@ class ChatController extends FrameSafeNotifier {
             ]
           : incoming,
     );
+    for (final message in incoming) {
+      _updateChannelMessagePreview(siteUrl, message);
+    }
+  }
+
+  void _updateChannelMessagePreview(String siteUrl, ChatMessage message) {
+    final held = channel(siteUrl, message.channelId);
+    if (held == null || held.lastMessageId != message.id) return;
+    final preview = chatMessageSummary(
+      cooked: message.canonicalReceived ? message.cooked : null,
+      raw: message.raw,
+      deleted: message.isDeleted,
+      hasUploads: message.uploads.isNotEmpty,
+    );
+    if (held.lastMessagePreview != preview) {
+      _putChannel(siteUrl, held.withLastMessagePreview(preview));
+    }
+  }
+
+  void _clearDeletedChannelPreview(
+    String siteUrl,
+    int? channelId,
+    Iterable<int> messageIds,
+  ) {
+    final held = channelId == null ? null : channel(siteUrl, channelId);
+    if (held != null && messageIds.contains(held.lastMessageId)) {
+      _putChannel(siteUrl, held.withLastMessagePreview('Message deleted'));
+    }
   }
 
   /// Adding requires both message interaction permission and channel membership.
@@ -3525,6 +3556,7 @@ class ChatController extends FrameSafeNotifier {
         ? message.withBookmarkOf(replaced)
         : message;
     _store.put(siteUrl, effective);
+    _updateChannelMessagePreview(siteUrl, effective);
     if (replaced != null &&
         (replaced.isDeleted != effective.isDeleted ||
             replaced.pinned != effective.pinned)) {
@@ -3628,6 +3660,7 @@ class ChatController extends FrameSafeNotifier {
   /// Tombstones [ids] locally once the site has accepted their deletion or
   /// move, ahead of the bus echo that confirms it.
   void _markMessagesDeleted(String siteUrl, int channelId, List<int> ids) {
+    _clearDeletedChannelPreview(siteUrl, channelId, ids);
     final deletedAt = _clock().toUtc();
     final deletedById = _currentUserFor(siteUrl)?.id;
     for (final id in ids) {
@@ -3684,6 +3717,7 @@ class ChatController extends FrameSafeNotifier {
 
     final latest = jsonIntOrNull(data['latest_not_deleted_message_id']);
     final resolvedChannelId = channelId ?? message?.channelId;
+    _clearDeletedChannelPreview(siteUrl, resolvedChannelId, [deletedId]);
     final heldChannel = resolvedChannelId == null
         ? null
         : channel(siteUrl, resolvedChannelId);
@@ -3728,6 +3762,7 @@ class ChatController extends FrameSafeNotifier {
       deletedIds.add(deletedId);
       _applyDeletedId(siteUrl, data, deletedId);
     }
+    _clearDeletedChannelPreview(siteUrl, channelId, deletedIds);
     final heldChannel = channelId == null ? null : channel(siteUrl, channelId);
     if (heldChannel != null &&
         deletedIds.contains(heldChannel.membership.lastReadMessageId)) {
@@ -4482,6 +4517,11 @@ class ChatController extends FrameSafeNotifier {
         final updated = heldChannel.withNewMessage(
           canonical.id,
           sentAt,
+          preview: chatMessageSummary(
+            cooked: canonical.cooked,
+            raw: canonical.raw,
+            hasUploads: canonical.uploads.isNotEmpty,
+          ),
           markRead: true,
           incrementUnread: false,
         );

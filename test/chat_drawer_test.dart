@@ -280,7 +280,7 @@ _pumpDrawer(
     headerLeadingBuilder: (_, _) => headerLeading,
     headerTitleTrailingBuilder: (_, _) => null,
     headerTitleActionBuilder: (_, _) => null,
-    showFooterForRoute: (_) => false,
+    showNavigationForRoute: (_) => false,
   );
   await tester.pumpWidget(
     ShellScope(

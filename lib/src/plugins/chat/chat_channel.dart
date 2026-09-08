@@ -6,6 +6,7 @@ import '../../data/store.dart';
 import '../../models/json.dart';
 import '../../models/sidebar.dart';
 import '../../models/user_status.dart';
+import 'chat_message_summary.dart';
 
 /// `chatable_type` is open-ended, so unknown values remain drawable as [other].
 enum ChatChannelKind {
@@ -496,6 +497,7 @@ class ChatChannel with Storable<ChatChannel> {
     this.threadingEnabled = false,
     this.lastMessageId,
     this.lastMessageAt,
+    this.lastMessagePreview,
     this.messageBus = const ChatChannelMessageBusState(),
   });
 
@@ -558,6 +560,7 @@ class ChatChannel with Storable<ChatChannel> {
       threadingEnabled: json['threading_enabled'] == true,
       lastMessageId: jsonIntOrNull(lastMessage['id']),
       lastMessageAt: jsonDate(lastMessage['created_at']),
+      lastMessagePreview: chatMessageSummaryFromJson(lastMessage),
       messageBus: ChatChannelMessageBusState.fromJson(
         metadata['message_bus_last_ids'],
       ),
@@ -740,6 +743,7 @@ class ChatChannel with Storable<ChatChannel> {
 
   final int? lastMessageId;
   final DateTime? lastMessageAt;
+  final String? lastMessagePreview;
 
   final ChatChannelMessageBusState messageBus;
 
@@ -796,6 +800,40 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    lastMessagePreview: lastMessagePreview,
+    messageBus: messageBus,
+  );
+
+  ChatChannel withLastMessagePreview(String? preview) => ChatChannel(
+    id: id,
+    title: title,
+    kind: kind,
+    chatableId: chatableId,
+    slug: slug,
+    emoji: emoji,
+    description: description,
+    categoryName: categoryName,
+    categoryColor: categoryColor,
+    readRestricted: readRestricted,
+    status: status,
+    userSilenced: userSilenced,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+    pinnedMessagesCount: pinnedMessagesCount,
+    membershipsCount: membershipsCount,
+    canJoin: canJoin,
+    isGroup: isGroup,
+    users: users,
+    membership: membership,
+    tracking: tracking,
+    unreadThreadOverview: unreadThreadOverview,
+    threadingEnabled: threadingEnabled,
+    lastMessageId: lastMessageId,
+    lastMessageAt: lastMessageAt,
+    lastMessagePreview: preview,
     messageBus: messageBus,
   );
 
@@ -832,6 +870,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    lastMessagePreview: lastMessagePreview,
     messageBus: messageBus,
   );
 
@@ -868,6 +907,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    lastMessagePreview: lastMessagePreview,
     messageBus: messageBus,
   );
 
@@ -900,6 +940,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    lastMessagePreview: lastMessagePreview,
     messageBus: messageBus,
   );
 
@@ -932,6 +973,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    lastMessagePreview: lastMessagePreview,
     messageBus: messageBus,
   );
 
@@ -964,6 +1006,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    lastMessagePreview: lastMessagePreview,
     messageBus: messageBus,
   );
 
@@ -996,6 +1039,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: enabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    lastMessagePreview: lastMessagePreview,
     messageBus: messageBus,
   );
 
@@ -1032,6 +1076,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    lastMessagePreview: lastMessagePreview,
     messageBus: messageBus,
   );
 
@@ -1067,6 +1112,7 @@ class ChatChannel with Storable<ChatChannel> {
         threadingEnabled: threadingEnabled,
         lastMessageId: lastMessageId,
         lastMessageAt: lastMessageAt,
+        lastMessagePreview: lastMessagePreview,
         messageBus: messageBus,
       );
 
@@ -1099,6 +1145,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    lastMessagePreview: lastMessagePreview,
     messageBus: messageBus,
   );
 
@@ -1134,6 +1181,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    lastMessagePreview: lastMessagePreview,
     messageBus: messageBus,
   );
 
@@ -1174,6 +1222,7 @@ class ChatChannel with Storable<ChatChannel> {
         threadingEnabled: threadingEnabled,
         lastMessageId: lastMessageId,
         lastMessageAt: lastMessageAt,
+        lastMessagePreview: lastMessagePreview,
         messageBus: messageBus,
       );
 
@@ -1213,6 +1262,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
+    lastMessagePreview: lastMessagePreview,
     messageBus: messageBus,
   );
 
@@ -1229,6 +1279,7 @@ class ChatChannel with Storable<ChatChannel> {
     bool threadMembershipKnown = false,
     bool forceThread = false,
     bool incrementWatchedThreadUnread = false,
+    String? preview,
   }) {
     var nextThreadOverview = unreadThreadOverview;
     if (threadId != null && markThreadRead) {
@@ -1287,6 +1338,7 @@ class ChatChannel with Storable<ChatChannel> {
       threadingEnabled: threadingEnabled,
       lastMessageId: messageId,
       lastMessageAt: createdAt,
+      lastMessagePreview: preview,
       messageBus: messageBus,
     );
   }
@@ -1326,6 +1378,12 @@ class ChatChannel with Storable<ChatChannel> {
       threadingEnabled: incoming.threadingEnabled,
       lastMessageId: incoming.lastMessageId ?? lastMessageId,
       lastMessageAt: incoming.lastMessageAt ?? lastMessageAt,
+      lastMessagePreview:
+          incoming.lastMessagePreview ??
+          (incoming.lastMessageId == null ||
+                  incoming.lastMessageId == lastMessageId
+              ? lastMessagePreview
+              : null),
       messageBus: messageBus,
     );
   }
@@ -1384,6 +1442,7 @@ class ChatChannel with Storable<ChatChannel> {
           other.threadingEnabled == threadingEnabled &&
           other.lastMessageId == lastMessageId &&
           other.lastMessageAt == lastMessageAt &&
+          other.lastMessagePreview == lastMessagePreview &&
           other.messageBus == messageBus;
 
   @override
@@ -1420,6 +1479,7 @@ class ChatChannel with Storable<ChatChannel> {
     threadingEnabled,
     lastMessageId,
     lastMessageAt,
+    lastMessagePreview,
     messageBus,
   ]);
 

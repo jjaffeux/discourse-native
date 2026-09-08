@@ -37,7 +37,7 @@ typedef ChatDrawerHeaderWidgetBuilder =
     Widget? Function(BuildContext context, ContentRoute route);
 typedef ChatDrawerHeaderActionBuilder =
     VoidCallback? Function(BuildContext context, ContentRoute route);
-typedef ChatDrawerFooterVisibility = bool Function(ContentRoute route);
+typedef ChatDrawerNavigationVisibility = bool Function(ContentRoute route);
 
 enum ChatDrawerChannelListKind { channels, starred, directMessages }
 
@@ -84,7 +84,7 @@ class ChatDrawerOverlay extends StatefulWidget {
     required this.headerLeadingBuilder,
     required this.headerTitleTrailingBuilder,
     required this.headerTitleActionBuilder,
-    required this.showFooterForRoute,
+    required this.showNavigationForRoute,
     this.preferencesStore = const ChatDrawerPreferencesStore(),
   });
 
@@ -93,7 +93,7 @@ class ChatDrawerOverlay extends StatefulWidget {
   final ChatDrawerHeaderWidgetBuilder headerLeadingBuilder;
   final ChatDrawerHeaderWidgetBuilder headerTitleTrailingBuilder;
   final ChatDrawerHeaderActionBuilder headerTitleActionBuilder;
-  final ChatDrawerFooterVisibility showFooterForRoute;
+  final ChatDrawerNavigationVisibility showNavigationForRoute;
   final ChatDrawerPreferencesStore preferencesStore;
 
   static const Key drawerKey = ValueKey('chat-drawer');
@@ -105,6 +105,7 @@ class ChatDrawerOverlay extends StatefulWidget {
   static const Key fullPageButtonKey = ValueKey('chat-drawer-full-page');
   static const Key overflowButtonKey = ValueKey('chat-drawer-overflow');
   static const Key closeButtonKey = ValueKey('chat-drawer-close');
+  static const Key searchButtonKey = ValueKey('chat-drawer-search');
   static const double headerHeight = 45;
   static const double endMargin = 15;
   static const double topMargin = 15;
@@ -323,6 +324,13 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
   ) {
     final route = shell.drawerCurrentContent;
     if (route == null) return const SizedBox.shrink();
+    final showNavigation = widget.showNavigationForRoute(route);
+    final siteUrl = shell.currentSiteUrl;
+    final isChannelList = const {
+      'chat-channels',
+      'chat-starred',
+      'chat-direct-messages',
+    }.contains(route.id);
 
     final titleBarOffset = ShellTitleBar.isSupported
         ? ShellTitleBar.height
@@ -413,11 +421,22 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
                   header: _DrawerHeader(
                     route: route,
                     expanded: expanded,
-                    canGoBack: shell.drawerCanGoBack,
+                    canGoBack: !isChannelList && shell.drawerCanGoBack,
+                    isChannelList: isChannelList,
                     onBack: shell.drawerBack,
                     onToggle: shell.toggleDrawerExpanded,
                     onFullPage: () => unawaited(shell.openFullPageFromDrawer()),
                     onClose: shell.closeDrawer,
+                    onSearch:
+                        showNavigation &&
+                            shell.currentUser != null &&
+                            siteUrl != null &&
+                            shell.chat
+                                .siteConfigFor(siteUrl)
+                                .chatSettings
+                                .searchEnabled
+                        ? shell.openSearch
+                        : null,
                     leading: widget.headerLeadingBuilder(context, route),
                     titleTrailing: widget.headerTitleTrailingBuilder(
                       context,
@@ -436,8 +455,8 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
                           widget.contentBuilder(drawerContext, route),
                     ),
                   ),
-                  footer: widget.showFooterForRoute(route)
-                      ? const ChatDrawerFooter()
+                  navigation: showNavigation
+                      ? const ChatDrawerNavigation()
                       : null,
                 ),
               ),
@@ -558,13 +577,13 @@ class _DrawerFrame extends StatelessWidget {
     required this.expanded,
     required this.header,
     required this.content,
-    required this.footer,
+    required this.navigation,
   });
 
   final bool expanded;
   final Widget header;
   final Widget content;
-  final Widget? footer;
+  final Widget? navigation;
 
   @override
   Widget build(BuildContext context) {
@@ -581,21 +600,22 @@ class _DrawerFrame extends StatelessWidget {
       child: Column(
         children: [
           header,
-          Offstage(
-            offstage: !expanded,
-            child: Divider(height: 1, color: colors.outlineVariant),
-          ),
+          if (navigation case final navigation?)
+            TickerMode(
+              enabled: expanded,
+              child: Offstage(offstage: !expanded, child: navigation),
+            )
+          else
+            Offstage(
+              offstage: !expanded,
+              child: Divider(height: 1, color: colors.outlineVariant),
+            ),
           Expanded(
             child: TickerMode(
               enabled: expanded,
               child: Offstage(offstage: !expanded, child: content),
             ),
           ),
-          if (footer case final footer?)
-            TickerMode(
-              enabled: expanded,
-              child: Offstage(offstage: !expanded, child: footer),
-            ),
         ],
       ),
     );
@@ -607,10 +627,12 @@ class _DrawerHeader extends StatelessWidget {
     required this.route,
     required this.expanded,
     required this.canGoBack,
+    required this.isChannelList,
     required this.onBack,
     required this.onToggle,
     required this.onFullPage,
     required this.onClose,
+    required this.onSearch,
     required this.leading,
     required this.titleTrailing,
     required this.titleAction,
@@ -621,10 +643,12 @@ class _DrawerHeader extends StatelessWidget {
   final ContentRoute route;
   final bool expanded;
   final bool canGoBack;
+  final bool isChannelList;
   final VoidCallback onBack;
   final VoidCallback onToggle;
   final VoidCallback onFullPage;
   final VoidCallback onClose;
+  final VoidCallback? onSearch;
   final Widget? leading;
   final Widget? titleTrailing;
   final VoidCallback? titleAction;
@@ -679,7 +703,17 @@ class _DrawerHeader extends StatelessWidget {
                     onTap: expanded ? (titleAction ?? onToggle) : onToggle,
                     child: Row(
                       children: [
-                        Flexible(child: _DrawerRouteTitle(route: route)),
+                        Flexible(
+                          child: isChannelList
+                              ? Text(
+                                  'Chat',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                )
+                              : _DrawerRouteTitle(route: route),
+                        ),
                         if (titleTrailing != null) ...[
                           const SizedBox(width: 5),
                           titleTrailing!,
@@ -688,6 +722,16 @@ class _DrawerHeader extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (expanded && onSearch != null)
+                  DButton.iconOnly(
+                    key: ChatDrawerOverlay.searchButtonKey,
+                    tooltip: 'Search chat',
+                    onPressed: onSearch,
+                    variant: route.id == 'chat-search'
+                        ? DButtonVariant.transparentPrimary
+                        : DButtonVariant.flat,
+                    icon: const DIcon(DIcons.magnifyingGlass, size: 16),
+                  ),
                 if (overflowActions)
                   _DrawerHeaderOverflowMenu(
                     actions: [...routeActions, fullPageButton()],
@@ -972,8 +1016,9 @@ class ChatDrawerChannelsView extends StatelessWidget {
                   .publicChannelsEnabled =>
             _DrawerListAction(
               key: const ValueKey('chat-drawer-browse-action'),
-              label: 'Browse channels',
-              icon: DIcons.list,
+              label: 'Browse',
+              tooltip: 'Browse channels',
+              icon: DIcons.plus,
               onPressed: shell.openBrowseChannels,
             ),
           ChatDrawerChannelListKind.directMessages
@@ -981,7 +1026,8 @@ class ChatDrawerChannelsView extends StatelessWidget {
                   shell.currentUser?.canDirectMessage == true =>
             _DrawerListAction(
               key: const ValueKey('chat-drawer-new-message-action'),
-              label: 'New message',
+              label: 'New',
+              tooltip: 'New message',
               icon: DIcons.plus,
               onPressed: () => unawaited(
                 showChatNewDirectMessageDialog(
@@ -994,42 +1040,77 @@ class ChatDrawerChannelsView extends StatelessWidget {
             ),
           _ => null,
         };
-        if (channels.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+        final colors = Theme.of(context).colorScheme;
+        return Column(
+          children: [
+            Padding(
+              key: const ValueKey('chat-drawer-list-heading'),
+              padding: const EdgeInsets.fromLTRB(16, 10, 12, 8),
+              child: Row(
                 children: [
-                  Text(switch (kind) {
-                    ChatDrawerChannelListKind.channels =>
-                      'You have not joined any channels yet.',
-                    ChatDrawerChannelListKind.starred =>
-                      'You have no starred channels.',
-                    ChatDrawerChannelListKind.directMessages =>
-                      'You have no direct messages yet.',
-                  }, textAlign: TextAlign.center),
-                  if (action != null) ...[const SizedBox(height: 12), action],
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            switch (kind) {
+                              ChatDrawerChannelListKind.channels => 'Channels',
+                              ChatDrawerChannelListKind.starred => 'Starred',
+                              ChatDrawerChannelListKind.directMessages =>
+                                'Direct messages',
+                            },
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${channels.length}',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: colors.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (action != null) ...[const SizedBox(width: 8), action],
                 ],
               ),
             ),
-          );
-        }
-        return ListView(
-          key: PageStorageKey<ChatDrawerChannelListKind>(kind),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          children: [
-            if (action != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-                child: action,
-              ),
-            for (final channel in channels)
-              _DrawerChannelRow(
-                siteUrl: siteUrl,
-                channel: channel,
-                onTap: () => shell.openChannel(channel.id),
-              ),
+            Expanded(
+              child: channels.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(switch (kind) {
+                          ChatDrawerChannelListKind.channels =>
+                            'You have not joined any channels yet.',
+                          ChatDrawerChannelListKind.starred =>
+                            'You have no starred channels.',
+                          ChatDrawerChannelListKind.directMessages =>
+                            'You have no direct messages yet.',
+                        }, textAlign: TextAlign.center),
+                      ),
+                    )
+                  : ListView.builder(
+                      key: PageStorageKey<ChatDrawerChannelListKind>(kind),
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                      itemCount: channels.length,
+                      itemBuilder: (context, index) {
+                        final channel = channels[index];
+                        return ValueListenableBuilder<ChatChannel?>(
+                          key: ValueKey(channel.id),
+                          valueListenable: chat.channelRef(siteUrl, channel.id),
+                          builder: (context, current, _) => _DrawerChannelRow(
+                            siteUrl: siteUrl,
+                            channel: current ?? channel,
+                            onTap: () => shell.openChannel(channel.id),
+                          ),
+                        );
+                      },
+                    ),
+            ),
           ],
         );
       },
@@ -1041,20 +1122,23 @@ class _DrawerListAction extends StatelessWidget {
   const _DrawerListAction({
     super.key,
     required this.label,
+    required this.tooltip,
     required this.icon,
     required this.onPressed,
   });
 
   final String label;
+  final String tooltip;
   final DIconData icon;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) => DButton(
     label: Text(label),
+    tooltip: tooltip,
     icon: DIcon(icon, size: 16),
     onPressed: onPressed,
-    variant: DButtonVariant.flat,
+    variant: DButtonVariant.transparentPrimary,
     size: DButtonSize.small,
   );
 }
@@ -1082,62 +1166,147 @@ class _DrawerChannelRow extends StatelessWidget {
         ? channel.users.first
         : null;
     final status = directUser?.status;
-    return ListTile(
+    final colors = theme.colorScheme;
+    final at = _drawerChannelActivityAt(channel);
+    final preview =
+        channel.lastMessagePreview ??
+        (channel.lastMessageId == null ? 'No messages yet' : '');
+    final radius = BorderRadius.circular(8);
+    return Padding(
       key: ValueKey('chat-drawer-channel-${channel.id}'),
-      dense: true,
-      leading: _DrawerChannelPrefix(
-        siteUrl: siteUrl,
-        channel: channel,
-        foreground: foreground,
-      ),
-      title: Row(
-        children: [
-          Flexible(
-            child: Text(
-              channel.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: foreground),
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Material(
+        color: badge.isVisible && !muted
+            ? colors.primary.withValues(
+                alpha: theme.brightness == Brightness.dark ? 0.14 : 0.07,
+              )
+            : Colors.transparent,
+        borderRadius: radius,
+        child: Row(
+          children: [
+            Expanded(
+              child: Semantics(
+                button: true,
+                label: badge.isVisible ? 'Unread conversation' : null,
+                child: InkWell(
+                  borderRadius: radius,
+                  onTap: onTap,
+                  onLongPress: context.isTouch
+                      ? () => unawaited(
+                          ChatChannelMenuButton.showSheet(
+                            context: context,
+                            siteUrl: siteUrl,
+                            channelId: channel.id,
+                          ),
+                        )
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 11,
+                    ),
+                    child: Row(
+                      children: [
+                        _DrawerChannelPrefix(
+                          siteUrl: siteUrl,
+                          channel: channel,
+                          foreground: foreground,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      channel.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: foreground,
+                                        fontSize: DiscourseTypography.fontDown1,
+                                        fontWeight: badge.isVisible
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  if (channel.readRestricted) ...[
+                                    const SizedBox(width: 5),
+                                    DIcon(
+                                      DIcons.lock,
+                                      size: 10,
+                                      color: foreground,
+                                    ),
+                                  ],
+                                  if (status != null)
+                                    UserStatusMessage(
+                                      siteUrl: siteUrl,
+                                      userId: directUser!.id,
+                                      status: status,
+                                      size: 14,
+                                      leadingGap: 4,
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                preview,
+                                key: ValueKey(
+                                  'chat-drawer-preview-${channel.id}',
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: muted
+                                      ? foreground
+                                      : colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (at != null || badge.isVisible) ...[
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (at != null)
+                                Text(
+                                  relativeTime(at),
+                                  key: ValueKey(
+                                    'chat-drawer-time-${channel.id}',
+                                  ),
+                                  maxLines: 1,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
+                              if (badge.isVisible) ...[
+                                const SizedBox(height: 6),
+                                _DrawerBadge(badge: badge),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-          if (status != null)
-            UserStatusMessage(
-              siteUrl: siteUrl,
-              userId: directUser!.id,
-              status: status,
-              size: 14,
-              leadingGap: 4,
-            ),
-        ],
-      ),
-      subtitle: switch (_drawerChannelActivityAt(channel)) {
-        final at? => Text(
-          relativeTime(at),
-          maxLines: 1,
-          style: theme.textTheme.labelSmall?.copyWith(color: foreground),
-        ),
-        null => null,
-      },
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (badge.isVisible)
-            _DrawerBadge(badge: badge)
-          else if (channel.membership.starred)
-            DIcon(DIcons.star, size: 14, color: foreground),
-          ChatChannelMenuButton(siteUrl: siteUrl, channelId: channel.id),
-        ],
-      ),
-      onTap: onTap,
-      onLongPress: context.isTouch
-          ? () => unawaited(
-              ChatChannelMenuButton.showSheet(
-                context: context,
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 6),
+              child: ChatChannelMenuButton(
                 siteUrl: siteUrl,
                 channelId: channel.id,
               ),
-            )
-          : null,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1162,7 +1331,7 @@ class _DrawerChannelPrefix extends StatelessWidget {
         siteUrl: siteUrl,
         userId: user.id,
         url: channel.avatarUrl,
-        size: 24,
+        size: 36,
         fallback: DIcon(DIcons.user, size: 18, color: foreground),
       );
     } else if (channel.isDirectMessage) {
@@ -1181,17 +1350,17 @@ class _DrawerChannelPrefix extends StatelessWidget {
         color: channel.categoryColor ?? foreground,
       );
     }
-    if (!channel.isCategoryChannel || !channel.readRestricted) return art;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        art,
-        Positioned(
-          right: -4,
-          bottom: -4,
-          child: DIcon(DIcons.lock, size: 10, color: foreground),
-        ),
-      ],
+    return Container(
+      width: 36,
+      height: 36,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: channel.isDirectMessage && channel.users.length == 1
+            ? null
+            : Theme.of(context).colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: art,
     );
   }
 }
@@ -1218,15 +1387,14 @@ SidebarBadge _drawerChannelBadge(ChatChannel channel) {
 }
 
 class _DrawerBadge extends StatelessWidget {
-  const _DrawerBadge({required this.badge});
+  const _DrawerBadge({super.key, required this.badge});
 
   final SidebarBadge badge;
 
   @override
   Widget build(BuildContext context) {
-    final color = badge.urgent
-        ? Theme.of(context).colorScheme.error
-        : Theme.of(context).colorScheme.primary;
+    final colors = Theme.of(context).colorScheme;
+    final color = colors.primary;
     if (badge.dot) {
       return Container(
         width: 8,
@@ -1234,32 +1402,41 @@ class _DrawerBadge extends StatelessWidget {
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       );
     }
-    return Text(
-      badge.count > 99 ? '99+' : '${badge.count}',
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+    return Container(
+      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
         color: color,
-        fontWeight: FontWeight.w700,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        badge.count > 99 ? '99+' : '${badge.count}',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colors.onPrimary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
 }
 
-class ChatDrawerFooter extends StatelessWidget {
-  const ChatDrawerFooter({super.key});
+class ChatDrawerNavigation extends StatelessWidget {
+  const ChatDrawerNavigation({super.key});
 
-  static const Key footerKey = ValueKey('chat-drawer-footer');
+  static const Key navigationKey = ValueKey('chat-drawer-navigation');
 
   @override
   Widget build(BuildContext context) {
     final shell = PluginUiScope.require(context, chatShellService);
     final chat = PluginUiScope.require(context, chatControllerService);
     return ListenableBuilder(
-      listenable: chat,
-      builder: (context, _) => _buildFooter(context, shell, chat),
+      listenable: Listenable.merge([shell, chat]),
+      builder: (context, _) => _buildNavigation(context, shell, chat),
     );
   }
 
-  Widget _buildFooter(
+  Widget _buildNavigation(
     BuildContext context,
     ChatShellService shell,
     ChatController chat,
@@ -1278,7 +1455,6 @@ class ChatDrawerFooter extends StatelessWidget {
             shell.currentUser?.canDirectMessage == true ||
             chat.directChannels(siteUrl).isNotEmpty);
     final includeThreads = settings.threadsEnabled && chat.hasThreads(siteUrl);
-    final includeSearch = shell.currentUser != null && settings.searchEnabled;
     if (!includeStarred && shell.drawerShowingStarred) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => shell.leaveEmptyStarredRoute(),
@@ -1300,14 +1476,14 @@ class ChatDrawerFooter extends StatelessWidget {
       ...chat.directChannels(siteUrl),
     ];
 
-    final items = <_FooterItem>[
+    final items = <_NavigationItem>[
       if (includeStarred)
-        _FooterItem(
+        _NavigationItem(
           'chat-starred',
           'Starred',
           DIcons.star,
           shell.openStarredChannels,
-          _footerBadge(
+          _navigationBadge(
             urgent: starred.fold(
               0,
               (count, channel) =>
@@ -1326,12 +1502,12 @@ class ChatDrawerFooter extends StatelessWidget {
         ),
       // Web keeps the channel-list destination in every rendered footer; the
       // public-channel capability participates only in the render threshold.
-      _FooterItem(
+      _NavigationItem(
         'chat-channels',
         'Channels',
         DIcons.comments,
         shell.openChannels,
-        _footerBadge(
+        _navigationBadge(
           urgent: public.fold(
             0,
             (count, channel) => count + channel.tracking.mentionCount,
@@ -1343,12 +1519,12 @@ class ChatDrawerFooter extends StatelessWidget {
         ),
       ),
       if (directMessagesEnabled)
-        _FooterItem(
+        _NavigationItem(
           'chat-direct-messages',
           'DMs',
           DIcons.users,
           shell.openDirectMessages,
-          _footerBadge(
+          _navigationBadge(
             urgent: direct.fold(
               0,
               (count, channel) =>
@@ -1359,12 +1535,12 @@ class ChatDrawerFooter extends StatelessWidget {
           ),
         ),
       if (includeThreads)
-        _FooterItem(
+        _NavigationItem(
           'chat-my-threads',
           'My threads',
           DIcons.comments,
           shell.openMyThreads,
-          _footerBadge(
+          _navigationBadge(
             urgent: allChannels.fold(
               0,
               (count, channel) =>
@@ -1376,108 +1552,97 @@ class ChatDrawerFooter extends StatelessWidget {
             ),
           ),
         ),
-      if (includeSearch)
-        _FooterItem(
-          'chat-search',
-          'Search',
-          DIcons.magnifyingGlass,
-          shell.openSearch,
-          SidebarBadge.none,
-        ),
     ];
+    final colors = Theme.of(context).colorScheme;
     return Container(
-      key: footerKey,
+      key: navigationKey,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
+        border: Border(bottom: BorderSide(color: colors.outlineVariant)),
       ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 52,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final showLabels = constraints.maxWidth >= 375;
-              return Row(
-                children: [
-                  for (final item in items)
-                    Expanded(
-                      child: Semantics(
-                        selected:
-                            shell.drawerCurrentContent?.id == item.routeId,
-                        child: showLabels
-                            ? DButton(
-                                key: ValueKey(
-                                  'chat-drawer-footer-${item.routeId}',
-                                ),
-                                tooltip: item.label,
-                                label: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    item.label,
-                                    maxLines: 1,
-                                    style: const TextStyle(
-                                      fontSize: DiscourseTypography.fontDown2,
-                                    ),
-                                  ),
-                                ),
-                                icon: _footerIcon(item, 17),
-                                onPressed: item.onPressed,
-                                variant:
-                                    shell.drawerCurrentContent?.id ==
-                                        item.routeId
-                                    ? DButtonVariant.transparentPrimary
-                                    : DButtonVariant.flat,
-                                size: DButtonSize.small,
-                              )
-                            : DButton.iconOnly(
-                                key: ValueKey(
-                                  'chat-drawer-footer-${item.routeId}',
-                                ),
-                                tooltip: item.label,
-                                onPressed: item.onPressed,
-                                variant:
-                                    shell.drawerCurrentContent?.id ==
-                                        item.routeId
-                                    ? DButtonVariant.transparentPrimary
-                                    : DButtonVariant.flat,
-                                icon: _footerIcon(item, 18),
-                              ),
-                      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final textScale =
+              MediaQuery.textScalerOf(
+                context,
+              ).scale(DiscourseTypography.fontDown2) /
+              DiscourseTypography.fontDown2;
+          final showIcons = constraints.maxWidth >= 340 && textScale <= 1.25;
+          Widget tab(_NavigationItem item) {
+            final selected = shell.drawerCurrentContent?.id == item.routeId;
+            return Semantics(
+              selected: selected,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 44),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: selected ? colors.primary : Colors.transparent,
+                      width: 2,
                     ),
-                ],
-              );
-            },
-          ),
-        ),
+                  ),
+                ),
+                child: DButton(
+                  key: ValueKey('chat-drawer-navigation-${item.routeId}'),
+                  tooltip: item.label,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 10,
+                  ),
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        item.routeId == 'chat-my-threads'
+                            ? 'Threads'
+                            : item.label,
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontSize: DiscourseTypography.fontDown2,
+                        ),
+                      ),
+                      if (item.badge.isVisible) ...[
+                        const SizedBox(width: 4),
+                        _DrawerBadge(
+                          key: ValueKey(
+                            'chat-drawer-navigation-badge-${item.routeId}',
+                          ),
+                          badge: item.badge,
+                        ),
+                      ],
+                    ],
+                  ),
+                  icon: showIcons ? DIcon(item.icon, size: 16) : null,
+                  onPressed: item.onPressed,
+                  variant: selected
+                      ? DButtonVariant.transparentPrimary
+                      : DButtonVariant.flat,
+                  size: DButtonSize.small,
+                ),
+              ),
+            );
+          }
+
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [for (final item in items) tab(item)]),
+          );
+        },
       ),
     );
   }
 }
 
-Widget _footerIcon(_FooterItem item, double size) => Stack(
-  clipBehavior: Clip.none,
-  children: [
-    DIcon(item.icon, size: size),
-    if (item.badge.isVisible)
-      Positioned(
-        key: ValueKey('chat-drawer-footer-badge-${item.routeId}'),
-        top: -7,
-        right: -9,
-        child: _DrawerBadge(badge: item.badge),
-      ),
-  ],
-);
-
-SidebarBadge _footerBadge({required int urgent, int unread = 0}) => urgent > 0
+SidebarBadge _navigationBadge({required int urgent, int unread = 0}) =>
+    urgent > 0
     ? SidebarBadge.urgentCount(urgent)
     : unread > 0
     ? const SidebarBadge.dot()
     : SidebarBadge.none;
 
-class _FooterItem {
-  const _FooterItem(
+class _NavigationItem {
+  const _NavigationItem(
     this.routeId,
     this.label,
     this.icon,
