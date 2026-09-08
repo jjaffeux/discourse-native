@@ -134,7 +134,8 @@ class _SheetBody extends StatelessWidget {
               ],
             ),
           ),
-          if (showHeaderDivider) Divider(color: theme.shell.divider, height: 1),
+          if (showHeaderDivider)
+            DSeparator(color: theme.shell.divider, space: 1),
           Flexible(
             child: SingleChildScrollView(
               padding: EdgeInsets.only(
@@ -146,7 +147,7 @@ class _SheetBody extends StatelessWidget {
             ),
           ),
           if (footerBuilder case final footerBuilder?) ...[
-            Divider(color: theme.shell.divider, height: 1),
+            DSeparator(color: theme.shell.divider, space: 1),
             Padding(
               padding: EdgeInsets.only(
                 bottom: insetsBottom ? MediaQuery.paddingOf(context).bottom : 0,

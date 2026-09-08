@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../discourse_ui.dart';
 import '../../models/json.dart';
 import '../../models/post.dart';
 import '../../models/topic.dart';
@@ -10,7 +11,6 @@ import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/inline_action.dart';
 import '../../shell/pill.dart';
 import '../../shell/post_action.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_data.dart';
@@ -759,11 +759,11 @@ class _PostAssignmentLedger extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (showTopDivider)
-          Divider(height: 1, thickness: 1, color: dividerColor),
+          DSeparator(space: 1, thickness: 1, color: dividerColor),
         for (var index = 0; index < rows.length; index++) ...[
           rows[index],
           if (index < rows.length - 1)
-            Divider(height: 1, thickness: 1, color: dividerColor),
+            DSeparator(space: 1, thickness: 1, color: dividerColor),
         ],
       ],
     );

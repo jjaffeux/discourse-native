@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart';
 import '../diagnostics/diagnostic_event.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/topic_scroll_capture.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
@@ -136,7 +136,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                     onClear: _confirmClear,
                     onClose: widget.onClose,
                   ),
-                  Divider(height: 1, color: theme.shell.divider),
+                  DSeparator(space: 1, color: theme.shell.divider),
                   _DiagnosticsTabs(
                     plugins: widget.plugins,
                     selectedPlugin: _selectedPlugin,
@@ -154,7 +154,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                       _selectedPlugin = plugin;
                     }),
                   ),
-                  Divider(height: 1, color: theme.shell.divider),
+                  DSeparator(space: 1, color: theme.shell.divider),
                   Expanded(
                     child: _showTopicScrollCapture
                         ? _TopicScrollCapturePanel(

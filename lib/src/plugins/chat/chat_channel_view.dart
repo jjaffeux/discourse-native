@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../../../discourse_ui.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_dialog_action.dart';
 import '../../shell/content_reading_lane.dart';
@@ -1939,7 +1940,7 @@ class _NewDivider extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
       child: Row(
         children: [
-          Expanded(child: Divider(height: 1, color: theme.colorScheme.error)),
+          Expanded(child: DSeparator(space: 1, color: theme.colorScheme.error)),
           Padding(
             padding: const EdgeInsets.only(left: 8),
             child: Text(

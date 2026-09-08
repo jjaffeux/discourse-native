@@ -6,6 +6,7 @@ import 'dart:ui'
         SemanticsRole,
         Tristate;
 
+import 'package:discourse_native/discourse_ui.dart' show DSeparator;
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -216,7 +217,7 @@ void main() {
 
       expect(divider, findsOneWidget);
       expect(tester.getSize(divider), const Size(1, 18));
-      expect(tester.widget<Container>(divider).color, theme.shell.divider);
+      expect(tester.widget<DSeparator>(divider).color, theme.shell.divider);
       expect(
         tester.getCenter(divider).dy,
         moreOrLessEquals(tester.getCenter(firstTab).dy),
@@ -238,11 +239,11 @@ void main() {
       for (final tab in [firstTab, secondTab]) {
         await pointer.moveTo(tester.getCenter(tab));
         await tester.pumpAndSettle();
-        expect(tester.widget<Container>(divider).color, Colors.transparent);
+        expect(tester.widget<DSeparator>(divider).color, Colors.transparent);
       }
       await pointer.moveTo(Offset.zero);
       await tester.pumpAndSettle();
-      expect(tester.widget<Container>(divider).color, theme.shell.divider);
+      expect(tester.widget<DSeparator>(divider).color, theme.shell.divider);
     });
 
     testWidgets(

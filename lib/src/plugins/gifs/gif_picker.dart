@@ -63,7 +63,7 @@ Future<GifResult?> showGifPicker({
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _DialogHeader(onClose: () => Navigator.of(dialogContext).pop()),
-              const Divider(height: 1),
+              const DSeparator(space: 1),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),

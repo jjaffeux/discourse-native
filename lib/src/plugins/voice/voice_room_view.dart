@@ -2057,7 +2057,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
               ],
             ),
           ),
-          const Divider(),
+          const DSeparator(),
           Row(
             children: [
               Expanded(

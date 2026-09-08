@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../models/user_activity.dart';
 import '../models/user_activity_feed.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_loader.dart';
@@ -152,7 +152,7 @@ class _ActivityList extends StatelessWidget {
                 ? Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1000),
-                      child: const Divider(height: 1),
+                      child: const DSeparator(space: 1),
                     ),
                   )
                 : const SizedBox.shrink(),
@@ -433,7 +433,7 @@ class _ActivityLoadingSkeleton extends StatelessWidget {
       builder: (context, lane) => ListView.separated(
         padding: lane.padding,
         itemCount: 6,
-        separatorBuilder: (context, index) => const Divider(height: 1),
+        separatorBuilder: (context, index) => const DSeparator(space: 1),
         itemBuilder: (context, index) => Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 976, minHeight: 112),

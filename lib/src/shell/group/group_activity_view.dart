@@ -79,8 +79,9 @@ class _ActivitySection extends StatelessWidget {
                     onSelect: select,
                   ),
                 ),
-                VerticalDivider(
-                  width: 1,
+                DSeparator(
+                  orientation: Axis.vertical,
+                  space: 1,
                   color: Theme.of(context).shell.divider,
                 ),
                 Expanded(child: content),
@@ -413,8 +414,9 @@ class _MessagesSection extends StatelessWidget {
                     onSelect: select,
                   ),
                 ),
-                VerticalDivider(
-                  width: 1,
+                DSeparator(
+                  orientation: Axis.vertical,
+                  space: 1,
                   color: Theme.of(context).shell.divider,
                 ),
                 Expanded(child: messageContent),

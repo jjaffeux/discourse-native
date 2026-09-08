@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../../discourse_ui.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/cooked_dom.dart';
 import '../../shell/cooked_html.dart';
@@ -165,7 +166,7 @@ class ChatTranscriptBlock extends StatelessWidget {
               ),
               compactParagraphs: true,
             ),
-            Divider(color: theme.dividerColor),
+            DSeparator(color: theme.dividerColor),
           ],
           if (data.username != null ||
               data.displayName != null ||

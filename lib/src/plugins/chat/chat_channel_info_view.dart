@@ -672,7 +672,7 @@ class _InfoSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           for (var index = 0; index < children.length; index++) ...[
-            if (index > 0) Divider(height: 1, color: theme.dividerColor),
+            if (index > 0) DSeparator(space: 1, color: theme.dividerColor),
             children[index],
           ],
         ],

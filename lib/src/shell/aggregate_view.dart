@@ -3,10 +3,10 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
@@ -266,7 +266,10 @@ class AggregateViewState extends State<AggregateView> {
             final firstTopicIndex = state.failures.isNotEmpty ? 1 : 0;
             final lastTopicIndex = firstTopicIndex + state.topics.length - 1;
             if (index >= firstTopicIndex && index < lastTopicIndex) {
-              return Divider(height: 1, color: Theme.of(context).shell.divider);
+              return DSeparator(
+                space: 1,
+                color: Theme.of(context).shell.divider,
+              );
             }
             return const SizedBox(height: 9);
           },
@@ -493,7 +496,11 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     SizedBox(width: 270, child: _buildForumPane(context)),
-                    VerticalDivider(width: 1, color: theme.shell.divider),
+                    DSeparator(
+                      orientation: Axis.vertical,
+                      space: 1,
+                      color: theme.shell.divider,
+                    ),
                     Expanded(child: _buildFocusedEditor(context)),
                   ],
                 ),
@@ -509,7 +516,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(height: listHeight, child: _buildForumPane(context)),
-                Divider(height: 1, color: theme.shell.divider),
+                DSeparator(space: 1, color: theme.shell.divider),
                 _buildFocusedEditor(context),
               ],
             );
@@ -660,7 +667,7 @@ class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildForumControls(),
-          Divider(height: 1, color: theme.shell.divider),
+          DSeparator(space: 1, color: theme.shell.divider),
           Expanded(child: _buildForumList(context)),
         ],
       ),

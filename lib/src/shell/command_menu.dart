@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import 'anchored_layout.dart';
@@ -274,7 +275,7 @@ class _CommandMenuRowsState<T> extends State<_CommandMenuRows<T>> {
             children: [
               for (var index = 0; index < widget.options.length; index++) ...[
                 if (widget.options[index].dividerBefore)
-                  Divider(height: 1, color: widget.dividerColor),
+                  DSeparator(space: 1, color: widget.dividerColor),
                 MenuItemButton(
                   key: widget.options[index].key,
                   focusNode: _focusNodes[index],

@@ -60,7 +60,7 @@ Future<void> showAddInstanceSheet(BuildContext context) {
                 ],
               ),
             ),
-            Divider(color: Theme.of(dialogContext).shell.divider, height: 1),
+            DSeparator(color: Theme.of(dialogContext).shell.divider, space: 1),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: form,

@@ -5,11 +5,11 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart';
 import '../models/site_emoji.dart';
 import '../plugin_api/emoji_preferences.dart';
 import '../plugin_api/emoji_usage.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
@@ -256,7 +256,7 @@ class _DesktopPickerCard extends StatelessWidget {
                 ),
               ),
             ),
-            Divider(height: 1, color: theme.shell.divider),
+            DSeparator(space: 1, color: theme.shell.divider),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),

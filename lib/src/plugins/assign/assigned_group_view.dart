@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../discourse_ui.dart';
 import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/topic_list_view.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_services.dart';
@@ -272,8 +272,8 @@ class AssignedGroupPresentationView extends StatelessWidget {
                   ),
                   sliver: SliverList.separated(
                     itemCount: topics.length,
-                    separatorBuilder: (context, _) => Divider(
-                      height: 1,
+                    separatorBuilder: (context, _) => DSeparator(
+                      space: 1,
                       color: Theme.of(context).shell.divider,
                     ),
                     itemBuilder: (context, index) => TopicListRow(

@@ -1,5 +1,6 @@
 import 'examples/direction_examples.dart';
 import 'examples/foundation_examples.dart';
+import 'examples/separator_examples.dart';
 import 'examples/typography_examples.dart';
 import 'styleguide_example.dart';
 
@@ -8,6 +9,7 @@ final componentExamples = <String, ComponentExamples>{
   'foundations': foundationExamples,
   'direction': directionExamples,
   'typography': typographyExamples,
+  'separator': separatorExamples,
   'button': baselineButtonExamples,
   'tooltip': baselineTooltipExamples,
   'select': baselineSelectExamples,

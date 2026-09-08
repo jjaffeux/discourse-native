@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -153,9 +154,9 @@ class AnchoredPickerContent extends StatelessWidget {
                 : null,
           ),
         ),
-        Divider(
+        DSeparator(
           key: separatorKey,
-          height: 1,
+          space: 1,
           color: theme.colorScheme.onSurface.withValues(alpha: 0.14),
         ),
         Padding(
@@ -167,8 +168,8 @@ class AnchoredPickerContent extends StatelessWidget {
           ),
         ),
         if (footer case final footer?) ...[
-          Divider(
-            height: 1,
+          DSeparator(
+            space: 1,
             color: theme.colorScheme.onSurface.withValues(alpha: 0.14),
           ),
           Padding(

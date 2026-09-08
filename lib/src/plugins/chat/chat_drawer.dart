@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../discourse_ui.dart' show DDirection;
+import '../../../discourse_ui.dart' show DDirection, DSeparator;
 import '../../models/content_route.dart';
 import '../../models/sidebar.dart';
 import '../../plugin_api/plugin_scope.dart';
@@ -610,7 +610,7 @@ class _DrawerFrame extends StatelessWidget {
           else
             Offstage(
               offstage: !expanded,
-              child: Divider(height: 1, color: colors.outlineVariant),
+              child: DSeparator(space: 1, color: colors.outlineVariant),
             ),
           Expanded(
             child: TickerMode(

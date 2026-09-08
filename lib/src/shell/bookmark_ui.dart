@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../discourse_ui.dart';
 import '../data/bookmark_reminder_store.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
@@ -10,7 +11,6 @@ import '../models/bookmark_reminder.dart';
 import '../models/post.dart';
 import '../plugin_api/bookmark_host.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
@@ -1074,7 +1074,7 @@ class _TopicBookmarksSheet extends StatelessWidget {
                     ),
                   ),
           ),
-          const Divider(),
+          const DSeparator(),
           for (final bookmark in topic.postBookmarks)
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -1134,7 +1134,7 @@ class _TopicBookmarksSheet extends StatelessWidget {
               ),
             ),
           if (topic.bookmarks.length > 1) ...[
-            const Divider(),
+            const DSeparator(),
             DButton(
               label: const Text('Delete all bookmarks'),
               onPressed: snapshot.busyTargets.isNotEmpty

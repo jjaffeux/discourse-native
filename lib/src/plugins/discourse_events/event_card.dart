@@ -339,7 +339,7 @@ class EventCard extends StatelessWidget {
                 onPressed: onConnect,
               ),
             if (onRespond != null && event.canRespond) ...[
-              const Divider(height: 24),
+              const DSeparator(space: 24),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,

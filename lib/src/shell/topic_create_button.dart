@@ -3,14 +3,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart';
 import '../app_shortcuts.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_draft.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_tooltip.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_title.dart';
@@ -287,7 +286,7 @@ class _RecentDraftsMenu extends StatelessWidget {
                       onTap: () => _resume(draft),
                     ),
                 if (otherDraftCount > 0) ...[
-                  Divider(height: 1, color: theme.shell.divider),
+                  DSeparator(space: 1, color: theme.shell.divider),
                   _ViewAllDraftsRow(
                     otherDraftCount: otherDraftCount,
                     onTap: _viewAll,

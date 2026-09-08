@@ -75,7 +75,7 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
                 ],
               ),
             ),
-            Divider(color: Theme.of(dialogContext).shell.divider, height: 1),
+            DSeparator(color: Theme.of(dialogContext).shell.divider, space: 1),
             Flexible(
               child: SingleChildScrollView(child: editor(dialogContext)),
             ),

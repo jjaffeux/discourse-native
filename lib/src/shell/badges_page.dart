@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../discourse_ui.dart';
 import '../models/badge.dart';
 import '../models/badge_route.dart';
 import '../models/content_route.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_tooltip.dart';
 import 'avatar_image.dart';
 import 'badges_controller.dart';
 import 'content_reading_lane.dart';
@@ -240,7 +239,7 @@ class BadgesPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            Divider(color: theme.shell.divider),
+            DSeparator(color: theme.shell.divider),
             const SizedBox(height: 16),
             Semantics(
               header: true,
