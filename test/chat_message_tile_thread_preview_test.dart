@@ -44,7 +44,7 @@ import 'support/media_pipeline.dart';
 
 const _siteUrl = 'https://meta.example';
 const _messageTileKey = ValueKey('message-tile');
-const _replyInThreadAction = CustomSemanticsAction(label: 'Reply in thread');
+const _replyToMessageAction = CustomSemanticsAction(label: 'Reply');
 const _copyLinkAction = CustomSemanticsAction(label: 'Copy link');
 
 void main() {
@@ -596,7 +596,7 @@ void main() {
             _TestTile(
               controller: controller,
               onOpenThread: (_) {},
-              onReplyInThread: (_) {},
+              onReply: (_) {},
               chained: variant.chained,
             ),
           );
@@ -620,7 +620,7 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(find.text('Message actions'), findsOneWidget);
-          expect(find.text('Reply in thread'), findsOneWidget);
+          expect(find.text('Reply'), findsOneWidget);
         },
       );
     }
@@ -926,20 +926,20 @@ void main() {
         _TestTile(
           controller: controller,
           onOpenThread: (_) {},
-          onReplyInThread: replies.add,
+          onReply: replies.add,
         ),
       );
       await tester.pumpAndSettle();
 
       await _hoverMessage(tester);
 
-      final action = find.byTooltip('Reply in thread');
+      final action = find.byTooltip('Reply');
       expect(action, findsOneWidget);
       expect(tester.getSize(action), HoverActionButton.size);
       expect(
         tester.getSemantics(action),
         isSemantics(
-          tooltip: 'Reply in thread',
+          tooltip: 'Reply',
           isButton: true,
           hasEnabledState: true,
           isEnabled: true,
@@ -1034,7 +1034,7 @@ void main() {
         _TestTile(
           controller: controller,
           onOpenThread: (_) {},
-          onReplyInThread: (_) {},
+          onReply: (_) {},
         ),
       );
       await tester.pumpAndSettle();
@@ -1054,7 +1054,7 @@ void main() {
               ),
             )
             .map((button) => button.tooltip),
-        ['Add reaction', 'Bookmark', 'Reply in thread', 'More message actions'],
+        ['Add reaction', 'Bookmark', 'Reply', 'More message actions'],
       );
       expect(
         tester.getSize(toolbar),
@@ -1077,10 +1077,7 @@ void main() {
       final copyLink = find.widgetWithText(MenuItemButton, 'Copy link');
       expect(copyLink, findsOneWidget);
       expect(find.widgetWithText(MenuItemButton, 'Bookmark'), findsNothing);
-      expect(
-        find.widgetWithText(MenuItemButton, 'Reply in thread'),
-        findsNothing,
-      );
+      expect(find.widgetWithText(MenuItemButton, 'Reply'), findsNothing);
 
       final material = find.descendant(
         of: copyLink,
@@ -1130,7 +1127,7 @@ void main() {
         _TestTile(
           controller: controller,
           onOpenThread: (_) {},
-          onReplyInThread: (_) {},
+          onReply: (_) {},
           chained: true,
         ),
       );
@@ -1138,7 +1135,7 @@ void main() {
 
       await _hoverMessage(tester);
 
-      final action = find.byTooltip('Reply in thread');
+      final action = find.byTooltip('Reply');
       final actionStack = find.ancestor(
         of: action,
         matching: find.byWidgetPredicate(
@@ -1706,9 +1703,7 @@ void main() {
   });
 
   group('reply and long-press semantics', () {
-    testWidgets('exposes Reply in thread as a custom semantics action', (
-      tester,
-    ) async {
+    testWidgets('exposes Reply as a custom semantics action', (tester) async {
       final message = _message(_thread());
       final controller = await _controller(message);
       final replies = <ChatMessage>[];
@@ -1720,7 +1715,7 @@ void main() {
           _TestTile(
             controller: controller,
             onOpenThread: (_) {},
-            onReplyInThread: replies.add,
+            onReply: replies.add,
           ),
         );
         await tester.pumpAndSettle();
@@ -1736,12 +1731,12 @@ void main() {
                   const <int>[])
             CustomSemanticsAction.getAction(id),
         ];
-        expect(actions, contains(_replyInThreadAction));
+        expect(actions, contains(_replyToMessageAction));
 
         tester
             .widget<Semantics>(owner)
             .properties
-            .customSemanticsActions![_replyInThreadAction]!();
+            .customSemanticsActions![_replyToMessageAction]!();
         await tester.pump();
 
         expect(replies, [same(message)]);
@@ -1752,18 +1747,25 @@ void main() {
 
     for (final variant
         in <
-          ({String name, ChatMessage Function() message, bool provideCallback})
+          ({
+            String name,
+            ChatMessage Function() message,
+            bool provideCallback,
+            int? contextThreadId,
+          })
         >[
           (
             name: 'the callback is absent',
             message: () => _message(_thread()),
             provideCallback: false,
+            contextThreadId: null,
           ),
           (
             name: 'the message is deleted',
             message: () =>
                 _message(_thread(), deletedAt: DateTime.utc(2026, 8, 12)),
             provideCallback: true,
+            contextThreadId: null,
           ),
           (
             name: 'the message is optimistic',
@@ -1780,11 +1782,13 @@ void main() {
               createdAt: DateTime.utc(2026, 8, 12),
             ),
             provideCallback: true,
+            contextThreadId: null,
           ),
           (
-            name: 'the message is already a thread reply',
-            message: () => _message(null, threadId: 3),
+            name: 'the message is in a thread pane',
+            message: () => _message(_thread()),
             provideCallback: true,
+            contextThreadId: 3,
           ),
         ]) {
       testWidgets('hides the reply action when ${variant.name}', (
@@ -1800,14 +1804,15 @@ void main() {
             controller: controller,
             messageId: message.id,
             onOpenThread: (_) {},
-            onReplyInThread: variant.provideCallback ? replies.add : null,
+            onReply: variant.provideCallback ? replies.add : null,
+            contextThreadId: variant.contextThreadId,
           ),
         );
         await tester.pumpAndSettle();
 
         await _hoverMessage(tester);
 
-        expect(find.byTooltip('Reply in thread'), findsNothing);
+        expect(find.byTooltip('Reply'), findsNothing);
         expect(_replySemanticsOwner(), findsNothing);
         expect(replies, isEmpty);
       });
@@ -1834,7 +1839,7 @@ void main() {
           _TestTile(
             controller: controller,
             onOpenThread: (_) {},
-            onReplyInThread: replies.add,
+            onReply: replies.add,
           ),
         );
         await tester.pumpAndSettle();
@@ -1859,7 +1864,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Message actions'), findsOneWidget);
-        final action = find.text('Reply in thread');
+        final action = find.text('Reply');
         expect(action, findsOneWidget);
 
         await tester.tap(action);
@@ -1882,7 +1887,7 @@ void main() {
         _TestTile(
           controller: controller,
           onOpenThread: (_) {},
-          onReplyInThread: replies.add,
+          onReply: replies.add,
           platform: TargetPlatform.android,
         ),
       );
@@ -1892,7 +1897,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Message actions'), findsOneWidget);
-      final action = find.text('Reply in thread');
+      final action = find.text('Reply');
       expect(action, findsOneWidget);
 
       await tester.tap(action);
@@ -1913,7 +1918,7 @@ void main() {
         _TestTile(
           controller: controller,
           onOpenThread: (_) {},
-          onReplyInThread: (_) {},
+          onReply: (_) {},
         ),
       );
       await tester.pumpAndSettle();
@@ -2067,7 +2072,7 @@ class _TestTile extends StatelessWidget {
     required this.onOpenThread,
     this.messageId = 7,
     this.onJumpToMessage,
-    this.onReplyInThread,
+    this.onReply,
     this.onEdit,
     this.contextThreadId,
     this.showThreadSummary = true,
@@ -2079,7 +2084,7 @@ class _TestTile extends StatelessWidget {
   final int messageId;
   final ValueChanged<ChatThreadPreview> onOpenThread;
   final ValueChanged<int>? onJumpToMessage;
-  final ValueChanged<ChatMessage>? onReplyInThread;
+  final ValueChanged<ChatMessage>? onReply;
   final ValueChanged<ChatMessage>? onEdit;
   final int? contextThreadId;
   final bool showThreadSummary;
@@ -2106,7 +2111,7 @@ class _TestTile extends StatelessWidget {
                 contextThreadId: contextThreadId,
                 onOpenThread: onOpenThread,
                 onJumpToMessage: onJumpToMessage,
-                onReplyInThread: onReplyInThread,
+                onReply: onReply,
                 onEdit: onEdit,
                 showThreadSummary: showThreadSummary,
               ),
@@ -2135,7 +2140,7 @@ Finder _replySemanticsOwner() => find.byWidgetPredicate(
   (widget) =>
       widget is Semantics &&
       (widget.properties.customSemanticsActions?.containsKey(
-            _replyInThreadAction,
+            _replyToMessageAction,
           ) ??
           false),
 );

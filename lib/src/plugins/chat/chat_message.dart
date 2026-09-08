@@ -12,12 +12,18 @@ import 'chat_preview.dart';
 /// Preview metadata is trusted only when supplied by an app-owned picker.
 @immutable
 final class OutgoingChatMessage {
-  const OutgoingChatMessage._(this.raw, this.trustedPreviewSeed, this.uploads);
+  const OutgoingChatMessage._(
+    this.raw,
+    this.trustedPreviewSeed,
+    this.uploads,
+    this.replyTo,
+  );
 
   factory OutgoingChatMessage.text(
     String raw, {
     List<ComposerUploadResult> uploads = const [],
-  }) => OutgoingChatMessage._(raw, null, List.unmodifiable(uploads));
+    ChatReplyTo? replyTo,
+  }) => OutgoingChatMessage._(raw, null, List.unmodifiable(uploads), replyTo);
 
   factory OutgoingChatMessage.trustedGif({
     required String raw,
@@ -25,6 +31,7 @@ final class OutgoingChatMessage {
     required String title,
     required int width,
     required int height,
+    ChatReplyTo? replyTo,
   }) {
     final uri = Uri.tryParse(url);
     if (uri == null ||
@@ -48,12 +55,14 @@ final class OutgoingChatMessage {
         height: height,
       ),
       const [],
+      replyTo,
     );
   }
 
   final String raw;
   final TrustedPreviewSeed? trustedPreviewSeed;
   final List<ComposerUploadResult> uploads;
+  final ChatReplyTo? replyTo;
 }
 
 enum ChatSendResult { sent, failed, cancelled }
@@ -377,6 +386,15 @@ class ChatReplyTo {
     this.flair,
   });
 
+  factory ChatReplyTo.fromMessage(ChatMessage message) => ChatReplyTo(
+    id: message.id,
+    userId: message.author.id,
+    excerpt: jsonHtmlText(message.cooked) ?? message.raw,
+    username: message.author.username,
+    avatarUrl: message.author.avatarUrl,
+    flair: message.author.flair,
+  );
+
   factory ChatReplyTo.fromJson(Map<String, dynamic> json, String siteUrl) {
     final user = jsonObject(json['user']);
     return ChatReplyTo(
@@ -578,6 +596,7 @@ class ChatMessage with Storable<ChatMessage> {
     required ChatMessageAuthor author,
     required DateTime createdAt,
     int? threadId,
+    ChatReplyTo? replyTo,
     List<ChatUpload> uploads = const [],
   }) {
     assert(id < 0);
@@ -589,6 +608,7 @@ class ChatMessage with Storable<ChatMessage> {
       raw: raw,
       createdAt: createdAt,
       threadId: threadId,
+      replyTo: replyTo,
       optimisticRaw: raw,
       preview: preview,
       uploads: List.unmodifiable(uploads),

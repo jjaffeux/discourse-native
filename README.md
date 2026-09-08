@@ -1923,6 +1923,14 @@ keyboard and touch surfaces. Channel rows copy
 server id before offering a link. The mobile sheet also mirrors core's Copy
 text action and places the original Markdown source on the clipboard rather
 than flattening cooked HTML.
+Channel messages also expose Reply on the hover toolbar, action sheet and
+keyboard accessibility actions. As in core, a channel with threading enabled
+opens or creates the message's thread and focuses its composer. Otherwise,
+Reply keeps the channel composer and shows a cancellable preview of the
+original message. That reply target follows the draft across drawer and
+full-page views, is sent as `in_reply_to_id`, and appears on the optimistic
+message immediately. Thread panes and messages that cannot be interacted with
+do not expose Reply.
 Persisted channel and thread rows also expose the web client's Select action.
 Selection is scoped to its pane, replaces the composer with a bulk-action bar,
 and asks Chat's `/chat/{channel}/quote` service for canonical `[chat]` Markdown

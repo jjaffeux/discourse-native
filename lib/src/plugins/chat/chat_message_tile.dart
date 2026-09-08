@@ -44,7 +44,7 @@ class ChatMessageTile extends StatelessWidget {
     this.contextThreadId,
     this.onOpenThread,
     this.onJumpToMessage,
-    this.onReplyInThread,
+    this.onReply,
     this.onEdit,
     this.showThreadSummary = true,
     this.onSelect,
@@ -65,7 +65,7 @@ class ChatMessageTile extends StatelessWidget {
 
   final ValueChanged<int>? onJumpToMessage;
 
-  final ValueChanged<ChatMessage>? onReplyInThread;
+  final ValueChanged<ChatMessage>? onReply;
 
   final ValueChanged<ChatMessage>? onEdit;
 
@@ -140,12 +140,11 @@ class ChatMessageTile extends StatelessWidget {
             ),
           );
         }
-        final canReplyInThread =
-            onReplyInThread != null &&
-            !message.isDeleted &&
-            !message.isOptimistic &&
-            (message.threadId == null || message.thread != null);
         final chat = PluginUiScope.require(context, chatControllerService);
+        final canReply =
+            onReply != null &&
+            contextThreadId == null &&
+            chat.canReplyToMessage(siteUrl, message);
         final canBookmark = chat.canBookmarkMessage(siteUrl, message);
         final canEdit = onEdit != null && chat.canEditMessage(siteUrl, message);
         final canDelete = chat.canDeleteMessage(siteUrl, message);
@@ -168,7 +167,7 @@ class ChatMessageTile extends StatelessWidget {
               TargetPlatform.android || TargetPlatform.iOS => true,
               _ => false,
             };
-        return canReplyInThread ||
+        return canReply ||
                 canBookmark ||
                 canEdit ||
                 canDelete ||
@@ -184,9 +183,7 @@ class ChatMessageTile extends StatelessWidget {
                 siteUrl: siteUrl,
                 message: message,
                 contextThreadId: contextThreadId,
-                onReply: canReplyInThread
-                    ? () => onReplyInThread!(message)
-                    : null,
+                onReply: canReply ? () => onReply!(message) : null,
                 onEdit: onEdit,
                 canBookmark: canBookmark,
                 canCopyLink: canCopyLink,
@@ -520,7 +517,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
             ListTile(
               minTileHeight: 52,
               leading: const DIcon(DIcons.reply, size: 18),
-              title: const Text('Reply in thread'),
+              title: const Text('Reply'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _reply();
@@ -745,7 +742,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         const CustomSemanticsAction(label: 'Add reaction'): () =>
             unawaited(_pickReaction()),
       if (widget.onReply != null)
-        const CustomSemanticsAction(label: 'Reply in thread'): _reply,
+        const CustomSemanticsAction(label: 'Reply'): _reply,
       if (widget.canCopyLink)
         const CustomSemanticsAction(label: 'Copy link'): () =>
             unawaited(_copyLink()),
@@ -856,7 +853,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                               ),
                             if (widget.onReply != null)
                               HoverActionButton(
-                                tooltip: 'Reply in thread',
+                                tooltip: 'Reply',
                                 onPressed: _reply,
                                 icon: const DIcon(DIcons.reply, size: 16),
                               ),

@@ -17,6 +17,7 @@ import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/shell/loading_skeleton.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -1126,10 +1127,92 @@ void main() {
       expect(tracker.pluginChannelCallbacks['/chat/9'], isNotEmpty);
     });
 
+    for (final threadingEnabled in [true, false]) {
+      for (final existing in [true, false]) {
+        testWidgets(
+          'hover Reply routes with threading=$threadingEnabled and existing thread=$existing',
+          (tester) async {
+            final message = _message(
+              7,
+              thread: existing
+                  ? const ChatThreadPreview(threadId: 3, replyCount: 1)
+                  : null,
+            );
+            final api = _ChatApi(
+              openPages: {
+                firstSite: [
+                  (
+                    messages: [message],
+                    canLoadMorePast: false,
+                    canLoadMoreFuture: false,
+                    targetMessageId: null,
+                  ),
+                ],
+              },
+              createdChatThreadsByKey: {
+                FakeDiscourseApi.createdChatThreadKey(9, 7): const ChatThread(
+                  id: 3,
+                  channelId: 9,
+                  status: 'open',
+                  replyCount: 0,
+                  membership: ChatThreadMembership(threadId: 3),
+                ),
+              },
+            );
+            final controller = await _controller(
+              api,
+              sites: const [firstSite],
+              user: const DiscourseUser(id: 1, username: 'reader'),
+            );
+            addTearDown(controller.dispose);
+            controller.chatRecords.put(
+              firstSite,
+              _channel(lastRead: 0).withThreadingEnabled(threadingEnabled),
+            );
+            await tester.pumpWidget(_TestView(controller: controller));
+            await tester.pumpAndSettle();
+
+            final mouse = await tester.createGesture(
+              kind: PointerDeviceKind.mouse,
+            );
+            await mouse.addPointer(location: Offset.zero);
+            addTearDown(mouse.removePointer);
+            await mouse.moveTo(tester.getCenter(find.byType(ChatMessageTile)));
+            await tester.pump();
+            await tester.tap(find.byTooltip('Reply'));
+            await tester.pumpAndSettle();
+
+            expect(
+              api.chatThreadsCreated,
+              threadingEnabled && !existing
+                  ? [(channelId: 9, originalMessageId: 7, title: null)]
+                  : isEmpty,
+            );
+            if (threadingEnabled) {
+              expect(controller.currentContent?.id, 'chat-c-9-t-3');
+              expect(controller.chatNavigation.value?.focusComposer, isTrue);
+              expect(find.text('Replying to @sam'), findsNothing);
+            } else {
+              expect(controller.currentContent?.id, isNot('chat-c-9-t-3'));
+              expect(find.text('Replying to @sam'), findsOneWidget);
+              expect(
+                tester
+                    .widget<TextField>(find.byType(TextField))
+                    .focusNode!
+                    .hasFocus,
+                isTrue,
+              );
+            }
+          },
+          variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+        );
+      }
+    }
+
     testWidgets(
-      'read-only channels remove thread creation while existing threads remain openable',
+      'read-only channels remove Reply while existing threads remain openable',
       (tester) async {
-        const replyAction = CustomSemanticsAction(label: 'Reply in thread');
+        const replyAction = CustomSemanticsAction(label: 'Reply');
         Finder replyActionFor(int messageId) => find.descendant(
           of: find.byKey(ChatMessageTile.actionsKey(messageId)),
           matching: find.byWidgetPredicate(
@@ -1188,7 +1271,7 @@ void main() {
         await tester.pump();
 
         expect(replyActionFor(1), findsNothing);
-        expect(replyActionFor(2), findsOneWidget);
+        expect(replyActionFor(2), findsNothing);
 
         final threadPreview = find.byKey(ChatMessageTile.threadPreviewKey(3));
         expect(tester.widget<Semantics>(threadPreview).properties.link, isTrue);
@@ -1352,7 +1435,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.longPress(find.byType(ChatMessageTile));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Reply in thread'));
+      await tester.tap(find.text('Reply'));
       await tester.pumpAndSettle();
 
       expect(api.chatThreadsCreated.single.originalMessageId, 1);
@@ -2028,6 +2111,7 @@ final class _ChatApi extends FakeDiscourseApi {
     super.chatPinsByChannel,
     super.chatQuoteMarkdown,
     super.chatMoveFirstMessageId,
+    super.createdChatThreadsByKey,
     required this.openPages,
     this.failNewer = false,
     this.gatedOpen,
