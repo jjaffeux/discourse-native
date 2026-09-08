@@ -7,6 +7,7 @@ import '../models/post.dart';
 import '../models/post_flag.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
+import '../models/topic.dart';
 import '../shell/composer_controller.dart';
 import 'bookmark_host.dart';
 import 'discourse_model_codec.dart';
@@ -169,10 +170,14 @@ final class PluginSiteStateHost {
   const PluginSiteStateHost({
     required this.currentUserFor,
     required this.siteConfigFor,
+    this.categoryFor,
   });
 
   final PluginCurrentUserReader currentUserFor;
   final PluginSiteConfigReader siteConfigFor;
+
+  /// Read-only access to category metadata already loaded by the host.
+  final TopicCategory? Function(String siteUrl, int id)? categoryFor;
 }
 
 final class PluginAccountEventsHost {

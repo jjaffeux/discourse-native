@@ -100,7 +100,10 @@ void main() {
       expect(controller.currentContent?.id, 'events-upcoming');
       expect(controller.destinationId, 'events-upcoming');
       expect(find.byType(EventDirectory), findsOneWidget);
-      expect(find.text('Engineering Managers Call'), findsOneWidget);
+      expect(
+        find.textContaining('Engineering Managers Call', findRichText: true),
+        findsOneWidget,
+      );
       expect(requests.map((request) => (request.method, request.url.path)), [
         ('GET', _eventsPath),
       ]);
@@ -110,9 +113,12 @@ void main() {
         await tester.tap(contentText('My events'));
         await tester.pumpAndSettle();
 
-        expect(controller.currentContent?.id, 'events-mine');
+        expect(controller.currentContent?.id, startsWith('events-mine/month/'));
         expect(controller.destinationId, 'events-upcoming');
-        expect(find.text('Engineering Managers Call'), findsOneWidget);
+        expect(
+          find.textContaining('Engineering Managers Call', findRichText: true),
+          findsOneWidget,
+        );
         expect(requests.map((request) => (request.method, request.url.path)), [
           ('GET', _eventsPath),
           ('GET', _eventsPath),
@@ -193,14 +199,12 @@ void main() {
 }
 
 Map<String, Object> _query({bool mine = false}) => {
-  'include_details': 'true',
   'include_ongoing': 'true',
   'order': 'asc',
   'limit': '200',
   if (mine) 'attending_user': 'lee',
-  if (mine) 'include_interested': 'true',
-  'search': '',
   'after': isA<String>().having(DateTime.tryParse, 'ISO timestamp', isNotNull),
+  'before': isA<String>().having(DateTime.tryParse, 'ISO timestamp', isNotNull),
 };
 
 final class _EventListApi extends FakeDiscourseApi {

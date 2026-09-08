@@ -10,6 +10,7 @@ import '../../models/sidebar.dart';
 import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
+import 'event_calendar_data.dart';
 import 'event_card.dart';
 import 'event_composer.dart';
 import 'event_composer_parser.dart';
@@ -177,13 +178,15 @@ final class DiscourseEventsPlugin
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {
-    if (route.id != 'events-upcoming' && route.id != 'events-mine') return null;
+    final calendarRoute = EventCalendarPage.readRoute(route.id);
+    if (calendarRoute == null) return null;
     final navigation = PluginUiScope.require(context, eventNavigationKey);
     final site = navigation.host.currentSite;
     if (site == null) return null;
     return EventDirectory(
       site: site.url,
-      mine: route.id == 'events-mine',
+      mine: calendarRoute.mine,
+      page: calendarRoute.page,
       navigation: navigation,
       controller: PluginUiScope.require(context, eventControllerKey),
     );

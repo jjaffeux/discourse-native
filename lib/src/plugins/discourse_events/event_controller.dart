@@ -290,6 +290,8 @@ final class EventController extends FrameSafeNotifier
     String site, {
     bool mine = false,
     String? search,
+    DateTime? after,
+    DateTime? before,
   }) async {
     final lease = requests.capture(site);
     final username = mine ? siteState.currentUserFor(site)?.username : null;
@@ -303,7 +305,11 @@ final class EventController extends FrameSafeNotifier
       credentials,
       attendingUser: username,
       search: search,
-      upcoming: true,
+      upcoming: after == null,
+      after: after,
+      before: before,
+      includeDetails: after == null,
+      includeInterested: after == null,
     );
     if (!lease.isCurrent || isDisposed) {
       throw const WriteException(WriteFailure.forbidden);

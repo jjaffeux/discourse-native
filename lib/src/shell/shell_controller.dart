@@ -443,6 +443,7 @@ class ShellController extends FrameSafeNotifier
         PluginSiteStateHost(
           currentUserFor: (siteUrl) => _instanceAt(siteUrl)?.user,
           siteConfigFor: siteConfigFor,
+          categoryFor: (siteUrl, id) => categoryFor(id, siteUrl: siteUrl),
         ),
       ),
       PluginHostPort<Object>(
