@@ -252,9 +252,8 @@ class ComposerPanel extends StatelessWidget {
                                     controller: composer.title,
                                     readOnly: !composer.isEditing,
                                     textInputAction: TextInputAction.next,
-                                    style: theme.textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
                                     decoration: const InputDecoration(
                                       isDense: true,
                                       hintText: 'Title',
@@ -3146,9 +3145,12 @@ class _Toolbar extends StatelessWidget {
             onPressed: composer.isEditing
                 ? (menu.isOpen ? menu.close : menu.open)
                 : null,
-            icon: const Text(
+            icon: Text(
               'Aa',
-              style: TextStyle(fontSize: DiscourseTypography.base),
+              style: TextStyle(
+                fontSize: DiscourseTypography.base,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             tooltip: 'Formatting',
             visualDensity: VisualDensity.compact,
