@@ -353,6 +353,218 @@ void main() {
     expect(keycap(1).highlighted, isFalse);
   });
 
+  for (final (description, label, name) in [
+    ('text', const Text('Save changes'), 'Save changes'),
+    (
+      'rich text',
+      const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4),
+        child: Text.rich(
+          TextSpan(
+            text: 'Save ',
+            children: [
+              TextSpan(text: 'changes', semanticsLabel: 'preferences'),
+            ],
+          ),
+        ),
+      ),
+      'Save preferences',
+    ),
+    (
+      'custom widget',
+      Semantics(
+        label: 'Save preferences',
+        excludeSemantics: true,
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [Text('Save'), Text(' changes')],
+        ),
+      ),
+      'Save preferences',
+    ),
+  ]) {
+    testWidgets('$description button keeps its name while loading', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        var presses = 0;
+        var expectedPresses = 0;
+        for (final loading in [false, true, false]) {
+          await _pumpButton(
+            tester,
+            DButton(label: label, onPressed: () => presses++, loading: loading),
+          );
+
+          _expectButtonSemantics(tester, label: name, loading: loading);
+          await tester.tap(find.byType(DButton));
+          if (!loading) expectedPresses++;
+          expect(presses, expectedPresses);
+
+          if (loading) {
+            final fontSize = DButton.fontSizeFor(DButtonSize.regular);
+            final rendered = find.byType(FilledButton);
+            expect(
+              tester.getSize(rendered).width,
+              moreOrLessEquals(fontSize * 2.3 + 2),
+            );
+            expect(
+              tester.getSize(rendered).height,
+              moreOrLessEquals(fontSize * 2 + 2),
+            );
+            expect(rendered, paintsExactlyCountTimes(#drawParagraph, 0));
+            expect(find.byType(CircularProgressIndicator), findsOneWidget);
+          }
+        }
+      } finally {
+        semantics.dispose();
+      }
+    });
+  }
+
+  testWidgets('loading text does not replace or duplicate the button name', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      for (final loadingText in ['Saving changes…', 'Save changes']) {
+        for (final loading in [false, true, false]) {
+          await _pumpButton(
+            tester,
+            DButton(
+              label: const Text('Save changes'),
+              icon: const Icon(Icons.save, semanticLabel: 'Decorative icon'),
+              loadingLabel: Text(loadingText),
+              onPressed: _noop,
+              loading: loading,
+            ),
+          );
+
+          _expectButtonSemantics(
+            tester,
+            label: 'Save changes',
+            loading: loading,
+          );
+          if (loading) {
+            expect(
+              find.byType(FilledButton),
+              paintsExactlyCountTimes(#drawParagraph, 1),
+            );
+            expect(find.byType(CircularProgressIndicator), findsOneWidget);
+          }
+        }
+      }
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('retained names do not affect loading geometry or baselines', (
+    tester,
+  ) async {
+    for (final loadingLabel in [null, const Text('Saving changes…')]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  for (final semanticLabel in [null, 'Save preferences'])
+                    IntrinsicWidth(
+                      child: DButton(
+                        label: const Text('Save changes to all preferences'),
+                        semanticLabel: semanticLabel,
+                        loadingLabel: loadingLabel,
+                        loading: true,
+                        onPressed: _noop,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final buttons = find.byType(FilledButton);
+      final retainedNameRect = tester.getRect(buttons.at(0));
+      final explicitNameRect = tester.getRect(buttons.at(1));
+      expect(retainedNameRect.size, explicitNameRect.size);
+      expect(retainedNameRect.top, explicitNameRect.top);
+    }
+  });
+
+  testWidgets('explicit button names override labels and tooltips while busy', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      for (final loadingLabel in [null, const Text('Saving changes…')]) {
+        for (final loading in [false, true, false]) {
+          await _pumpButton(
+            tester,
+            DButton(
+              label: const Text.rich(TextSpan(text: 'Save changes')),
+              icon: const Icon(Icons.save, semanticLabel: 'Decorative icon'),
+              tooltip: 'Save these settings',
+              semanticLabel: 'Save preferences',
+              loadingLabel: loadingLabel,
+              onPressed: _noop,
+              loading: loading,
+            ),
+          );
+
+          _expectButtonSemantics(
+            tester,
+            label: 'Save preferences',
+            loading: loading,
+          );
+        }
+      }
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('icon buttons retain their tooltip or explicit name while busy', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      for (final semanticLabel in [null, 'Add an item']) {
+        for (final loading in [false, true, false]) {
+          await _pumpButton(
+            tester,
+            DButton.iconOnly(
+              icon: const Icon(Icons.add, semanticLabel: 'Decorative icon'),
+              tooltip: 'Add',
+              semanticLabel: semanticLabel,
+              onPressed: _noop,
+              loading: loading,
+            ),
+          );
+
+          _expectButtonSemantics(
+            tester,
+            label: semanticLabel ?? '',
+            tooltip: semanticLabel == null ? 'Add' : '',
+            loading: loading,
+          );
+          expect(
+            tester.getSize(find.byType(FilledButton)),
+            const Size.square(DButton.minimumDimension),
+          );
+        }
+      }
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('loading labels keep progress visible on text buttons', (
     tester,
   ) async {
@@ -399,6 +611,35 @@ void main() {
       semantics.dispose();
     }
   });
+}
+
+Future<void> _pumpButton(WidgetTester tester, DButton button) =>
+    tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(body: Center(child: button)),
+      ),
+    );
+
+void _expectButtonSemantics(
+  WidgetTester tester, {
+  required String label,
+  required bool loading,
+  String tooltip = '',
+}) {
+  expect(
+    tester.getSemantics(find.byType(DButton)),
+    isSemantics(
+      label: label,
+      tooltip: tooltip,
+      value: loading ? 'Loading' : '',
+      isButton: true,
+      hasEnabledState: true,
+      isEnabled: !loading,
+      hasTapAction: !loading,
+      isLiveRegion: loading,
+    ),
+  );
 }
 
 void _noop() {}

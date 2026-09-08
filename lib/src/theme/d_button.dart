@@ -528,6 +528,7 @@ class DButton extends StatelessWidget {
                   ),
           );
     if (loading) {
+      final labelChild = child;
       final indicator = ExcludeSemantics(
         child: SizedBox.square(
           dimension: fontSize,
@@ -554,6 +555,26 @@ class DButton extends StatelessWidget {
                 ],
               ),
             );
+      if (!_iconOnly && semanticLabel == null) {
+        child = Stack(
+          alignment: Alignment.center,
+          children: [
+            ExcludeSemantics(child: child),
+            // Keep the label's own semantics without painting it or changing
+            // the loading content's size. Its layout keeps the usual constraints.
+            SizedOverflowBox(
+              size: Size.zero,
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: 0,
+                  alwaysIncludeSemantics: true,
+                  child: labelChild,
+                ),
+              ),
+            ),
+          ],
+        );
+      }
     }
 
     Widget result = FilledButton(
