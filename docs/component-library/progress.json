@@ -243,7 +243,7 @@
         "On the first relaunch for the three final example corrections, the native Theme menu stopped responding after typed search. Verified Spinner Fidelity PID 13780 was at 97.6% CPU, with no crash report; a one-second passive sample showed repeated FlutterKeyboardManager/FlutterChannelKeyResponder/FlutterEmbedderKeyResponder message processing. Cause remains unassigned. Sample SHA-256 7fc2c30a768983cea7dd552c4f042f98fae0b80c8c4d6fcd0e2a0020ef8887fd. The app quit normally through its native menu. Final correction inspection subsequently passed using pointer-only navigation under a new slot grant; that success does not establish a cause or fix for the keyboard event loop."
       ],
       "implementationCommit": "ec571d4d64ce8173ea46ee11f06abee0a27e8b33",
-      "mergeCommit": null,
+      "mergeCommit": "07a085c175c57c3e6b4868fd700885f8bfe5212c",
       "clientThreadId": "client-new-thread:96389418-9fde-4b24-a7dc-7e3fb7a06b2c",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2515/discourse-native",
       "baseCommit": "5fd6658b9fded22bf4b19323257c8ad822dc89eb",
