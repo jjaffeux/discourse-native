@@ -1,0 +1,244 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../discourse_ui.dart';
+import '../styleguide_example.dart';
+
+final foundationExamples = ComponentExamples(
+  status: ComponentStatus.implemented,
+  notes:
+      'Colors follow the host palette. Text uses the app typography. '
+      'Preview controls affect examples only and never save app settings.',
+  examples: [
+    StyleguideExample(
+      title: 'Theme tokens',
+      description:
+          'Switch theme and text size to inspect semantic colors '
+          'and existing app controls together.',
+      states: const ['Live theme', 'Text scaling', 'Reduced motion', 'RTL'],
+      code: '''final tokens = DTokens.of(context);
+Container(
+  padding: const EdgeInsets.all(DSpacing.lg),
+  decoration: BoxDecoration(
+    color: tokens.surface,
+    border: Border.all(color: tokens.border),
+    borderRadius: tokens.borderRadius,
+  ),
+  child: Text('A themed surface',
+    style: Theme.of(context).textTheme.bodyMedium),
+)''',
+      builder: (_) => const _TokenPreview(),
+    ),
+  ],
+);
+
+final baselineButtonExamples = ComponentExamples(
+  status: ComponentStatus.baseline,
+  notes:
+      'Existing app control, exposed through discourse_ui.dart. '
+      'The Button task will implement the complete frozen reference and migrate callers.',
+  examples: [
+    StyleguideExample(
+      title: 'Existing variants and states',
+      description:
+          'Each enabled action increments a local counter. '
+          'Disabled and loading controls cannot activate.',
+      states: const ['Hover', 'Focus', 'Pressed', 'Disabled', 'Loading'],
+      code: '''DButton(
+  label: const Text('Save'),
+  variant: DButtonVariant.primary,
+  onPressed: () => setState(() => count++),
+)''',
+      builder: (_) => const _ButtonPreview(),
+    ),
+  ],
+);
+
+final baselineTooltipExamples = ComponentExamples(
+  status: ComponentStatus.baseline,
+  notes:
+      'Existing tooltip and shortcut keycaps. The Tooltip task will '
+      'extend positioning, focus, and complete reference coverage.',
+  examples: [
+    StyleguideExample(
+      title: 'Tooltip with keyboard shortcut',
+      description:
+          'Hover or long press the control. Change the preview '
+          'theme while the tooltip is visible.',
+      states: const ['Hover', 'Long press', 'Shortcut', 'Live overlay theme'],
+      code: '''DTooltip(
+  message: 'Save changes',
+  shortcut: const DShortcut(
+    SingleActivator(LogicalKeyboardKey.keyS, control: true),
+  ),
+  child: DButton(label: const Text('Save'), onPressed: save),
+)''',
+      builder: (_) => Center(
+        child: DTooltip(
+          message: 'Save changes',
+          shortcut: const DShortcut(
+            SingleActivator(LogicalKeyboardKey.keyS, control: true),
+          ),
+          child: DButton(label: const Text('Save'), onPressed: () {}),
+        ),
+      ),
+    ),
+  ],
+);
+
+final baselineSelectExamples = ComponentExamples(
+  status: ComponentStatus.baseline,
+  notes:
+      'Existing native dropdown adapter. The Select task will add '
+      'complete composition, states, lifecycle, and migrate core and plugin forms.',
+  examples: [
+    StyleguideExample(
+      title: 'Controlled selection',
+      description:
+          'A self-contained selection with long labels and '
+          'an unavailable option.',
+      states: const ['Selected', 'Disabled option', 'Keyboard', 'Long text'],
+      code: '''DSelect<String>(
+  value: value,
+  isExpanded: true,
+  items: const [
+    DropdownMenuItem(value: 'all', child: Text('All activity')),
+    DropdownMenuItem(value: 'mentions', child: Text('Mentions only')),
+  ],
+  onChanged: (next) => setState(() => value = next!),
+)''',
+      builder: (_) => const _SelectPreview(),
+    ),
+  ],
+);
+
+class _TokenPreview extends StatelessWidget {
+  const _TokenPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: DSpacing.sm,
+          runSpacing: DSpacing.sm,
+          children: [
+            for (final (label, color, foreground) in [
+              ('Surface', tokens.surface, tokens.foreground),
+              ('Muted', tokens.muted, tokens.mutedForeground),
+              ('Primary', tokens.primary, tokens.primaryForeground),
+              ('Selected', tokens.selected, tokens.selectedForeground),
+              ('Destructive', tokens.destructive, tokens.destructiveForeground),
+            ])
+              Container(
+                padding: const EdgeInsets.all(DSpacing.md),
+                decoration: BoxDecoration(
+                  color: color,
+                  border: Border.all(color: tokens.border),
+                  borderRadius: tokens.borderRadius,
+                ),
+                child: Text(label, style: TextStyle(color: foreground)),
+              ),
+          ],
+        ),
+        const SizedBox(height: DSpacing.lg),
+        Text(
+          'Made for your community',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: DSpacing.sm),
+        const Text(
+          'Native controls, shared colors, and readable type at every size.',
+        ),
+        const SizedBox(height: DSpacing.lg),
+        const _ButtonPreview(compact: true),
+      ],
+    );
+  }
+}
+
+class _ButtonPreview extends StatefulWidget {
+  const _ButtonPreview({this.compact = false});
+  final bool compact;
+
+  @override
+  State<_ButtonPreview> createState() => _ButtonPreviewState();
+}
+
+class _ButtonPreviewState extends State<_ButtonPreview> {
+  int _count = 0;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Wrap(
+        spacing: DSpacing.sm,
+        runSpacing: DSpacing.sm,
+        children: [
+          for (final variant
+              in widget.compact
+                  ? [DButtonVariant.primary, DButtonVariant.standard]
+                  : DButtonVariant.values)
+            DButton(
+              label: Text(variant.name),
+              variant: variant,
+              onPressed: () => setState(() => _count++),
+            ),
+          if (!widget.compact) ...[
+            const DButton(label: Text('Disabled'), onPressed: null),
+            DButton(
+              label: const Text('Loading'),
+              loading: true,
+              onPressed: () {},
+            ),
+          ],
+        ],
+      ),
+      const SizedBox(height: DSpacing.md),
+      Semantics(liveRegion: true, child: Text('Actions: $_count')),
+    ],
+  );
+}
+
+class _SelectPreview extends StatefulWidget {
+  const _SelectPreview();
+
+  @override
+  State<_SelectPreview> createState() => _SelectPreviewState();
+}
+
+class _SelectPreviewState extends State<_SelectPreview> {
+  String _value = 'all';
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text('Notifications'),
+      DSelect<String>(
+        value: _value,
+        isExpanded: true,
+        items: const [
+          DropdownMenuItem(value: 'all', child: Text('All activity')),
+          DropdownMenuItem(
+            value: 'mentions',
+            child: Text('Mentions and replies to my posts'),
+          ),
+          DropdownMenuItem(
+            value: 'paused',
+            enabled: false,
+            child: Text('Paused (unavailable)'),
+          ),
+        ],
+        onChanged: (value) {
+          if (value != null) setState(() => _value = value);
+        },
+      ),
+      const SizedBox(height: DSpacing.md),
+      Semantics(liveRegion: true, child: Text('Selected: $_value')),
+    ],
+  );
+}

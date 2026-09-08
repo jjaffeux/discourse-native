@@ -10,8 +10,10 @@ import '../app_shortcuts.dart';
 import '../diagnostics/diagnostics_scope.dart';
 import '../models/discourse_instance.dart';
 import '../models/site_appearance.dart';
+import '../styleguide/styleguide_page.dart';
 import '../theme/app_theme.dart';
 import '../theme/color_contrast.dart';
+import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_tooltip.dart';
@@ -972,6 +974,23 @@ class _RailFooter extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 2),
             child: Center(child: _UpdateButton()),
           ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Center(
+            child: DButton.iconOnly(
+              key: const ValueKey('styleguide-rail-button'),
+              tooltip: 'Open component styleguide',
+              semanticLabel: 'Open component styleguide',
+              variant: DButtonVariant.flat,
+              onPressed: () => unawaited(showComponentStyleguide(context)),
+              icon: Icon(
+                Icons.palette_outlined,
+                size: _railIconSize,
+                color: Theme.of(context).shell.railForeground,
+              ),
+            ),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Center(

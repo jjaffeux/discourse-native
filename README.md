@@ -502,6 +502,17 @@ network and rate-limit failures remain retryable without discarding edits.
 
 ### App settings
 
+The palette button in the bottom-left instance rail opens the **Component
+library** styleguide, including before a forum has loaded. Search components
+and reference capabilities, interact with examples, and preview light, dark,
+custom site palettes, viewport widths, text scaling, direction, and reduced
+motion. Closing the styleguide returns to the mounted workspace. Preview
+settings and sample data are local to the styleguide. Run it independently
+with `flutter run -d macos -t lib/styleguide_main.dart --no-pub`.
+See the [component library progress](docs/component-library/progress.md) and
+[conventions](docs/component-library/conventions.md) for the frozen catalogue,
+implementation status, public API, migration inventory, and verification.
+
 The gear at the very bottom of the instance rail opens **Settings**, an
 app-owned modal which is available even before any forum loads. It is
 not the profile menu's **Preferences** page: Preferences are stored by one

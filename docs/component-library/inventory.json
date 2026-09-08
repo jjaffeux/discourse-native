@@ -1,0 +1,2640 @@
+{
+  "referenceDate": "2026-09-08",
+  "baseCommit": "956fd40689256e8e8393129fe023f623810cbf28",
+  "controls": {
+    "DButton": [
+      {
+        "file": "lib/src/shell/draft_list.dart",
+        "lines": [
+          399,
+          451,
+          777
+        ]
+      },
+      {
+        "file": "lib/src/shell/app_settings_page.dart",
+        "lines": [
+          138,
+          194,
+          221,
+          229
+        ]
+      },
+      {
+        "file": "lib/src/shell/hover_action_toolbar.dart",
+        "lines": [
+          41,
+          42,
+          55
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_move_posts.dart",
+        "lines": [
+          226,
+          230
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_inbox_header.dart",
+        "lines": [
+          224,
+          605,
+          840,
+          850,
+          1228,
+          1237
+        ]
+      },
+      {
+        "file": "lib/src/shell/content_navigation_controls.dart",
+        "lines": [
+          44,
+          58,
+          70
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_tag_picker.dart",
+        "lines": [
+          380
+        ]
+      },
+      {
+        "file": "lib/src/shell/group_pages_host.dart",
+        "lines": [
+          169,
+          173
+        ]
+      },
+      {
+        "file": "lib/src/shell/notification_list.dart",
+        "lines": [
+          272,
+          309
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_list_view.dart",
+        "lines": [
+          1036,
+          2164
+        ]
+      },
+      {
+        "file": "lib/src/shell/group_page.dart",
+        "lines": [
+          402,
+          424,
+          444,
+          465,
+          622,
+          626
+        ]
+      },
+      {
+        "file": "lib/src/shell/tags_page.dart",
+        "lines": [
+          217,
+          255
+        ]
+      },
+      {
+        "file": "lib/src/shell/aggregate_view.dart",
+        "lines": [
+          339,
+          344,
+          683,
+          690,
+          968,
+          977,
+          988,
+          997,
+          1103,
+          1175
+        ]
+      },
+      {
+        "file": "lib/src/shell/invite_editor.dart",
+        "lines": [
+          126,
+          132,
+          239,
+          250
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_link.dart",
+        "lines": [
+          621,
+          625
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_change_owner.dart",
+        "lines": [
+          226,
+          230
+        ]
+      },
+      {
+        "file": "lib/src/shell/groups_page.dart",
+        "lines": [
+          256,
+          351,
+          438,
+          616
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_flag_editor.dart",
+        "lines": [
+          347
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_activity.dart",
+        "lines": [
+          411,
+          531
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_header_tags.dart",
+        "lines": [
+          192
+        ]
+      },
+      {
+        "file": "lib/src/shell/invite_list.dart",
+        "lines": [
+          197,
+          207,
+          303,
+          312,
+          419,
+          424,
+          435,
+          441,
+          447
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_list_filter_bar.dart",
+        "lines": [
+          415
+        ]
+      },
+      {
+        "file": "lib/src/shell/instance_actions.dart",
+        "lines": [
+          125,
+          137,
+          154
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_actions.dart",
+        "lines": [
+          1022,
+          1031,
+          1093
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_filter_input.dart",
+        "lines": [
+          358
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_panel.dart",
+        "lines": [
+          3082,
+          3086
+        ]
+      },
+      {
+        "file": "lib/src/shell/inline_video.dart",
+        "lines": [
+          1117,
+          1122
+        ]
+      },
+      {
+        "file": "lib/src/shell/categories_page.dart",
+        "lines": [
+          457,
+          499
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_summary.dart",
+        "lines": [
+          1000,
+          1050
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_menu_message.dart",
+        "lines": [
+          58
+        ]
+      },
+      {
+        "file": "lib/src/shell/adaptive_dialog_action.dart",
+        "lines": [
+          97,
+          102,
+          107
+        ]
+      },
+      {
+        "file": "lib/src/shell/category_notifications.dart",
+        "lines": [
+          109
+        ]
+      },
+      {
+        "file": "lib/src/shell/preferences_page.dart",
+        "lines": [
+          320,
+          764,
+          1012
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_create_button.dart",
+        "lines": [
+          123,
+          132,
+          152,
+          174
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_header.dart",
+        "lines": [
+          128
+        ]
+      },
+      {
+        "file": "lib/src/shell/emoji_picker.dart",
+        "lines": [
+          416
+        ]
+      },
+      {
+        "file": "lib/src/shell/bookmark_ui.dart",
+        "lines": [
+          921,
+          942,
+          947,
+          1138
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_image_gallery.dart",
+        "lines": [
+          229,
+          238
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_tag_removal_notice.dart",
+        "lines": [
+          68
+        ]
+      },
+      {
+        "file": "lib/src/shell/code_block.dart",
+        "lines": [
+          384,
+          501,
+          668
+        ]
+      },
+      {
+        "file": "lib/src/shell/instance_sidebar.dart",
+        "lines": [
+          589,
+          600
+        ]
+      },
+      {
+        "file": "lib/src/shell/message_create_button.dart",
+        "lines": [
+          52,
+          61,
+          137,
+          142
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_permanent_delete.dart",
+        "lines": [
+          33,
+          140,
+          144
+        ]
+      },
+      {
+        "file": "lib/src/shell/adaptive_shell.dart",
+        "lines": [
+          679,
+          761,
+          771,
+          1035
+        ]
+      },
+      {
+        "file": "lib/src/shell/youtube_video.dart",
+        "lines": [
+          824
+        ]
+      },
+      {
+        "file": "lib/src/shell/empty_state.dart",
+        "lines": [
+          47
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_progress.dart",
+        "lines": [
+          237,
+          241,
+          248
+        ]
+      },
+      {
+        "file": "lib/src/shell/message_inbox_title.dart",
+        "lines": [
+          86
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_notice_editor.dart",
+        "lines": [
+          122,
+          128,
+          132
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_revision_history.dart",
+        "lines": [
+          842,
+          899,
+          905,
+          911,
+          917,
+          929,
+          935,
+          941,
+          947
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_view.dart",
+        "lines": [
+          2253,
+          2325,
+          2329,
+          2749,
+          3023,
+          4467
+        ]
+      },
+      {
+        "file": "lib/src/shell/site_image.dart",
+        "lines": [
+          402
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_actions.dart",
+        "lines": [
+          67,
+          78,
+          151,
+          242,
+          246,
+          435,
+          527,
+          542
+        ]
+      },
+      {
+        "file": "lib/src/shell/users_page.dart",
+        "lines": [
+          516,
+          525,
+          604,
+          629,
+          672,
+          677,
+          892,
+          1117,
+          1172
+        ]
+      },
+      {
+        "file": "lib/src/shell/do_not_disturb_dialog.dart",
+        "lines": [
+          167,
+          171
+        ]
+      },
+      {
+        "file": "lib/src/shell/update_sheet.dart",
+        "lines": [
+          140,
+          197,
+          234,
+          280
+        ]
+      },
+      {
+        "file": "lib/src/shell/add_instance_sheet.dart",
+        "lines": [
+          352
+        ]
+      },
+      {
+        "file": "lib/src/shell/main_content.dart",
+        "lines": [
+          320,
+          728,
+          1292,
+          1356,
+          1368
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_fast_edit.dart",
+        "lines": [
+          160,
+          166
+        ]
+      },
+      {
+        "file": "lib/src/shell/diagnostics_panel.dart",
+        "lines": [
+          579,
+          593,
+          601,
+          608,
+          613,
+          631,
+          914
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_card.dart",
+        "lines": [
+          335
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_share.dart",
+        "lines": [
+          157,
+          280,
+          322
+        ]
+      },
+      {
+        "file": "lib/src/shell/badges_page.dart",
+        "lines": [
+          177,
+          258,
+          264,
+          310,
+          510,
+          553,
+          577
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_status_editor.dart",
+        "lines": [
+          404,
+          408,
+          412
+        ]
+      },
+      {
+        "file": "lib/src/theme/d_button.dart",
+        "lines": [
+          302,
+          303,
+          324
+        ]
+      },
+      {
+        "file": "lib/src/theme/app_theme.dart",
+        "lines": [
+          593
+        ]
+      },
+      {
+        "file": "lib/src/shell/group/group_activity_view.dart",
+        "lines": [
+          313,
+          327
+        ]
+      },
+      {
+        "file": "lib/src/shell/group/group_shared_view.dart",
+        "lines": [
+          219,
+          275
+        ]
+      },
+      {
+        "file": "lib/src/shell/group/group_members_view.dart",
+        "lines": [
+          306,
+          314,
+          749,
+          753,
+          779,
+          891,
+          978,
+          1001
+        ]
+      },
+      {
+        "file": "lib/src/shell/group/group_manage_view.dart",
+        "lines": [
+          193
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_header_button.dart",
+        "lines": [
+          57,
+          78
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_thread_view.dart",
+        "lines": [
+          770,
+          796,
+          815,
+          836,
+          906,
+          960
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_drawer.dart",
+        "lines": [
+          664,
+          686,
+          727,
+          744,
+          754,
+          843,
+          847,
+          848,
+          849,
+          850,
+          851,
+          944,
+          1143,
+          1592
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_browse_channels_view.dart",
+        "lines": [
+          278,
+          406,
+          413,
+          477
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_composer.dart",
+        "lines": [
+          932,
+          1077,
+          1168,
+          1200,
+          1212
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_new_direct_message.dart",
+        "lines": [
+          362,
+          366,
+          376
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_plugin.dart",
+        "lines": [
+          584
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_search.dart",
+        "lines": [
+          40,
+          224,
+          240
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_threads_view.dart",
+        "lines": [
+          186
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_star_button.dart",
+        "lines": [
+          39
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_status.dart",
+        "lines": [
+          88,
+          92
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_pinned_bar.dart",
+        "lines": [
+          165
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_search_view.dart",
+        "lines": [
+          152,
+          278,
+          402
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_my_threads_view.dart",
+        "lines": [
+          123,
+          842
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_user_card.dart",
+        "lines": [
+          84
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_thread_settings.dart",
+        "lines": [
+          118
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_editor.dart",
+        "lines": [
+          160,
+          164
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_info_view.dart",
+        "lines": [
+          462,
+          501,
+          606,
+          927,
+          966
+        ]
+      },
+      {
+        "file": "lib/src/plugins/gifs/gif_picker.dart",
+        "lines": [
+          261,
+          277,
+          511
+        ]
+      },
+      {
+        "file": "lib/src/plugins/local_dates/local_date_composer_sheet.dart",
+        "lines": [
+          505,
+          513,
+          517
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_user_card.dart",
+        "lines": [
+          84
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_editor.dart",
+        "lines": [
+          158,
+          162
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_diagnostics_view.dart",
+        "lines": [
+          473,
+          479,
+          677
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_join.dart",
+        "lines": [
+          117,
+          121
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_incoming_call.dart",
+        "lines": [
+          109,
+          117
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_view.dart",
+        "lines": [
+          302,
+          374,
+          947,
+          1234,
+          1286,
+          1305,
+          1327,
+          1377,
+          1482,
+          1524,
+          1681,
+          1685,
+          1710,
+          1714,
+          1847,
+          2089
+        ]
+      },
+      {
+        "file": "lib/src/plugins/assign/assignment_sheet.dart",
+        "lines": [
+          431,
+          446,
+          453
+        ]
+      },
+      {
+        "file": "lib/src/plugins/assign/assign_plugin.dart",
+        "lines": [
+          361,
+          392,
+          439,
+          730,
+          888,
+          900
+        ]
+      },
+      {
+        "file": "lib/src/plugins/assign/assigned_group_view.dart",
+        "lines": [
+          291,
+          399,
+          784
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_ai/ai_summary_plugin.dart",
+        "lines": [
+          112,
+          292,
+          294,
+          299
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/topic_calendar_plugin.dart",
+        "lines": [
+          154
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_calendar.dart",
+        "lines": [
+          237,
+          511,
+          523
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_composer.dart",
+        "lines": [
+          526,
+          531,
+          536
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_participants.dart",
+        "lines": [
+          171,
+          266,
+          272
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_directory.dart",
+        "lines": [
+          481
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_card.dart",
+        "lines": [
+          299,
+          314,
+          337,
+          410,
+          442,
+          699,
+          705
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/topic_calendar.dart",
+        "lines": [
+          303,
+          319,
+          400,
+          427,
+          460,
+          723
+        ]
+      },
+      {
+        "file": "lib/src/plugins/poll/poll_composer_sheet.dart",
+        "lines": [
+          359,
+          448,
+          454,
+          458
+        ]
+      }
+    ],
+    "DTooltip": [
+      {
+        "file": "lib/src/shell/forum_tabs_bar.dart",
+        "lines": [
+          788,
+          1098,
+          1776
+        ]
+      },
+      {
+        "file": "lib/src/shell/instance_sidebar.dart",
+        "lines": [
+          776,
+          793,
+          1282
+        ]
+      },
+      {
+        "file": "lib/src/shell/instance_rail.dart",
+        "lines": [
+          872
+        ]
+      },
+      {
+        "file": "lib/src/shell/badges_page.dart",
+        "lines": [
+          467
+        ]
+      },
+      {
+        "file": "lib/src/theme/d_button.dart",
+        "lines": [
+          587
+        ]
+      },
+      {
+        "file": "lib/src/theme/app_theme.dart",
+        "lines": [
+          789,
+          790,
+          791,
+          792
+        ]
+      },
+      {
+        "file": "lib/src/theme/d_tooltip.dart",
+        "lines": [
+          24,
+          25,
+          111,
+          117,
+          118
+        ]
+      }
+    ],
+    "DShortcutKeycaps": [
+      {
+        "file": "lib/src/shell/keyboard_shortcuts_help.dart",
+        "lines": [
+          104
+        ]
+      },
+      {
+        "file": "lib/src/shell/instance_rail.dart",
+        "lines": [
+          1670
+        ]
+      },
+      {
+        "file": "lib/src/theme/d_tooltip.dart",
+        "lines": [
+          126,
+          135,
+          136,
+          141,
+          144,
+          154
+        ]
+      }
+    ],
+    "DKbd": [
+      {
+        "file": "lib/src/theme/d_tooltip.dart",
+        "lines": [
+          216,
+          236,
+          237
+        ]
+      }
+    ],
+    "DSelect": [
+      {
+        "file": "lib/src/shell/select.dart",
+        "lines": [
+          52,
+          53
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_view.dart",
+        "lines": [
+          2069
+        ]
+      }
+    ],
+    "DSelectField": [
+      {
+        "file": "lib/src/shell/select.dart",
+        "lines": [
+          7,
+          8
+        ]
+      },
+      {
+        "file": "lib/src/shell/preferences_page.dart",
+        "lines": [
+          208,
+          544,
+          606,
+          636,
+          669,
+          805
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_preferences.dart",
+        "lines": [
+          60
+        ]
+      },
+      {
+        "file": "lib/src/plugins/local_dates/local_date_composer_sheet.dart",
+        "lines": [
+          263
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_editor.dart",
+        "lines": [
+          121
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_view.dart",
+        "lines": [
+          1611
+        ]
+      },
+      {
+        "file": "lib/src/plugins/assign/assignment_sheet.dart",
+        "lines": [
+          394
+        ]
+      },
+      {
+        "file": "lib/src/plugins/poll/poll_composer_sheet.dart",
+        "lines": [
+          292,
+          416
+        ]
+      }
+    ],
+    "AdaptiveActivityIndicator": [
+      {
+        "file": "lib/src/shell/draft_list.dart",
+        "lines": [
+          717
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_list_view.dart",
+        "lines": [
+          959
+        ]
+      },
+      {
+        "file": "lib/src/shell/aggregate_view.dart",
+        "lines": [
+          231,
+          290
+        ]
+      },
+      {
+        "file": "lib/src/shell/lightbox.dart",
+        "lines": [
+          766
+        ]
+      },
+      {
+        "file": "lib/src/shell/adaptive_activity_indicator.dart",
+        "lines": [
+          4,
+          5
+        ]
+      },
+      {
+        "file": "lib/src/shell/instance_rail.dart",
+        "lines": [
+          77
+        ]
+      }
+    ],
+    "AdaptiveDialogAction": [
+      {
+        "file": "lib/src/shell/draft_list.dart",
+        "lines": [
+          111,
+          115
+        ]
+      },
+      {
+        "file": "lib/src/shell/notification_list.dart",
+        "lines": [
+          211,
+          215
+        ]
+      },
+      {
+        "file": "lib/src/shell/anonymous_flag_dialog.dart",
+        "lines": [
+          41,
+          45
+        ]
+      },
+      {
+        "file": "lib/src/shell/instance_actions.dart",
+        "lines": [
+          32,
+          36
+        ]
+      },
+      {
+        "file": "lib/src/shell/adaptive_dialog_action.dart",
+        "lines": [
+          53,
+          54
+        ]
+      },
+      {
+        "file": "lib/src/shell/bookmark_ui.dart",
+        "lines": [
+          1192,
+          1196
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_discard.dart",
+        "lines": [
+          172,
+          178
+        ]
+      },
+      {
+        "file": "lib/src/shell/diagnostics_panel.dart",
+        "lines": [
+          362,
+          366
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_view.dart",
+        "lines": [
+          1620,
+          1624,
+          1684,
+          1688
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_diagnostics_view.dart",
+        "lines": [
+          241,
+          245,
+          274,
+          278
+        ]
+      },
+      {
+        "file": "lib/src/plugins/poll/poll_composer_sheet.dart",
+        "lines": [
+          118,
+          122
+        ]
+      }
+    ],
+    "EmptyState": [
+      {
+        "file": "lib/src/shell/adaptive_shell.dart",
+        "lines": [
+          858,
+          975
+        ]
+      },
+      {
+        "file": "lib/src/shell/empty_state.dart",
+        "lines": [
+          9,
+          10
+        ]
+      }
+    ],
+    "ResizablePane": [
+      {
+        "file": "lib/src/shell/resizable_pane.dart",
+        "lines": [
+          123,
+          124,
+          156,
+          159,
+          168
+        ]
+      },
+      {
+        "file": "lib/src/shell/adaptive_shell.dart",
+        "lines": [
+          452,
+          963
+        ]
+      },
+      {
+        "file": "lib/src/shell/main_content.dart",
+        "lines": [
+          358
+        ]
+      }
+    ],
+    "AnchoredPicker": [],
+    "ChoiceMenu": [],
+    "CommandMenu": [],
+    "AvatarImage": [
+      {
+        "file": "lib/src/shell/topic_inbox_header.dart",
+        "lines": [
+          753
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_inbox_row.dart",
+        "lines": [
+          266,
+          284
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_list_view.dart",
+        "lines": [
+          2109
+        ]
+      },
+      {
+        "file": "lib/src/shell/avatar_image.dart",
+        "lines": [
+          11,
+          12,
+          26,
+          29,
+          41
+        ]
+      },
+      {
+        "file": "lib/src/shell/quote.dart",
+        "lines": [
+          145
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_change_owner.dart",
+        "lines": [
+          190
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_activity.dart",
+        "lines": [
+          252
+        ]
+      },
+      {
+        "file": "lib/src/shell/forum_icon.dart",
+        "lines": [
+          20
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_summary.dart",
+        "lines": [
+          686
+        ]
+      },
+      {
+        "file": "lib/src/shell/forum_tabs_bar.dart",
+        "lines": [
+          883
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_reply_context.dart",
+        "lines": [
+          116
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_suggestions.dart",
+        "lines": [
+          284
+        ]
+      },
+      {
+        "file": "lib/src/shell/instance_sidebar.dart",
+        "lines": [
+          737,
+          1400
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_likes.dart",
+        "lines": [
+          392
+        ]
+      },
+      {
+        "file": "lib/src/shell/instance_rail.dart",
+        "lines": [
+          1625,
+          1867
+        ]
+      },
+      {
+        "file": "lib/src/shell/forum_search.dart",
+        "lines": [
+          735,
+          1194
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_view.dart",
+        "lines": [
+          3965,
+          4586
+        ]
+      },
+      {
+        "file": "lib/src/shell/users_page.dart",
+        "lines": [
+          2053
+        ]
+      },
+      {
+        "file": "lib/src/shell/small_action.dart",
+        "lines": [
+          134
+        ]
+      },
+      {
+        "file": "lib/src/shell/reaction_presentation.dart",
+        "lines": [
+          539
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_card.dart",
+        "lines": [
+          499
+        ]
+      },
+      {
+        "file": "lib/src/shell/group_flair.dart",
+        "lines": [
+          43,
+          111
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_menu.dart",
+        "lines": [
+          1495
+        ]
+      },
+      {
+        "file": "lib/src/shell/badges_page.dart",
+        "lines": [
+          538
+        ]
+      },
+      {
+        "file": "lib/src/shell/group/group_members_view.dart",
+        "lines": [
+          544,
+          861
+        ]
+      },
+      {
+        "file": "lib/src/shell/oneboxes/discourse/user/block.dart",
+        "lines": [
+          30
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_user_avatar.dart",
+        "lines": [
+          126
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_new_direct_message.dart",
+        "lines": [
+          506
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_transcript.dart",
+        "lines": [
+          272
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_incoming_call.dart",
+        "lines": [
+          78
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_view.dart",
+        "lines": [
+          452,
+          659,
+          1265
+        ]
+      },
+      {
+        "file": "lib/src/plugins/assign/assignment_sheet.dart",
+        "lines": [
+          574
+        ]
+      },
+      {
+        "file": "lib/src/plugins/assign/assigned_group_view.dart",
+        "lines": [
+          643
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_card.dart",
+        "lines": [
+          491
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_github/oneboxes/github.dart",
+        "lines": [
+          202
+        ]
+      }
+    ],
+    "TextField": [
+      {
+        "file": "lib/src/shell/topic_move_posts.dart",
+        "lines": [
+          245,
+          295
+        ]
+      },
+      {
+        "file": "lib/src/shell/group_pages_host.dart",
+        "lines": [
+          160
+        ]
+      },
+      {
+        "file": "lib/src/shell/group_page.dart",
+        "lines": [
+          611
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_link.dart",
+        "lines": [
+          597,
+          609
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_change_owner.dart",
+        "lines": [
+          148
+        ]
+      },
+      {
+        "file": "lib/src/shell/groups_page.dart",
+        "lines": [
+          300
+        ]
+      },
+      {
+        "file": "lib/src/shell/choice_menu.dart",
+        "lines": [
+          459
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_title.dart",
+        "lines": [
+          122,
+          261
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_flag_editor.dart",
+        "lines": [
+          281
+        ]
+      },
+      {
+        "file": "lib/src/shell/invite_list.dart",
+        "lines": [
+          252
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_filter_input.dart",
+        "lines": [
+          361,
+          479
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_panel.dart",
+        "lines": [
+          264,
+          1580,
+          1609,
+          1615,
+          1623,
+          1809,
+          2839
+        ]
+      },
+      {
+        "file": "lib/src/shell/anchored_picker.dart",
+        "lines": [
+          138
+        ]
+      },
+      {
+        "file": "lib/src/shell/forum_tabs_bar.dart",
+        "lines": [
+          450,
+          1408
+        ]
+      },
+      {
+        "file": "lib/src/shell/emoji_picker.dart",
+        "lines": [
+          795
+        ]
+      },
+      {
+        "file": "lib/src/shell/bookmark_ui.dart",
+        "lines": [
+          899
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_permanent_delete.dart",
+        "lines": [
+          116
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_notice_editor.dart",
+        "lines": [
+          94
+        ]
+      },
+      {
+        "file": "lib/src/shell/users_page.dart",
+        "lines": [
+          895
+        ]
+      },
+      {
+        "file": "lib/src/shell/add_instance_sheet.dart",
+        "lines": [
+          331
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_fast_edit.dart",
+        "lines": [
+          131
+        ]
+      },
+      {
+        "file": "lib/src/shell/diagnostics_panel.dart",
+        "lines": [
+          238
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_status_editor.dart",
+        "lines": [
+          279
+        ]
+      },
+      {
+        "file": "lib/src/shell/group/group_members_view.dart",
+        "lines": [
+          297,
+          831,
+          956,
+          965
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_surface/capability_gate.dart",
+        "lines": [
+          32,
+          37,
+          72
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_surface/composer_surface.dart",
+        "lines": [
+          231
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_browse_channels_view.dart",
+        "lines": [
+          151
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_new_direct_message.dart",
+        "lines": [
+          317,
+          331
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_search.dart",
+        "lines": [
+          169
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_search_view.dart",
+        "lines": [
+          247
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_thread_settings.dart",
+        "lines": [
+          89
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_editor.dart",
+        "lines": [
+          104,
+          117,
+          131
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_info_view.dart",
+        "lines": [
+          893
+        ]
+      },
+      {
+        "file": "lib/src/plugins/gifs/gif_picker.dart",
+        "lines": [
+          169
+        ]
+      },
+      {
+        "file": "lib/src/plugins/local_dates/local_date_composer_sheet.dart",
+        "lines": [
+          238,
+          285,
+          393,
+          418
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_editor.dart",
+        "lines": [
+          80,
+          91,
+          113,
+          133,
+          141
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_diagnostics_view.dart",
+        "lines": [
+          145
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_view.dart",
+        "lines": [
+          1219,
+          1670,
+          1874,
+          2062
+        ]
+      },
+      {
+        "file": "lib/src/plugins/assign/assignment_sheet.dart",
+        "lines": [
+          379
+        ]
+      },
+      {
+        "file": "lib/src/plugins/assign/assigned_group_view.dart",
+        "lines": [
+          418,
+          668
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_composer.dart",
+        "lines": [
+          362,
+          485
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_participants.dart",
+        "lines": [
+          108,
+          252
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_directory.dart",
+        "lines": [
+          459
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/topic_calendar.dart",
+        "lines": [
+          704
+        ]
+      },
+      {
+        "file": "lib/src/plugins/poll/poll_composer_sheet.dart",
+        "lines": [
+          212,
+          254,
+          331,
+          400
+        ]
+      }
+    ],
+    "TextFormField": [
+      {
+        "file": "lib/src/shell/invite_editor.dart",
+        "lines": [
+          142,
+          164,
+          175,
+          197,
+          227
+        ]
+      },
+      {
+        "file": "lib/src/shell/bookmark_ui.dart",
+        "lines": [
+          822
+        ]
+      },
+      {
+        "file": "lib/src/shell/message_create_button.dart",
+        "lines": [
+          115
+        ]
+      },
+      {
+        "file": "lib/src/shell/group/group_manage_view.dart",
+        "lines": [
+          366,
+          395,
+          455
+        ]
+      }
+    ],
+    "Checkbox": [
+      {
+        "file": "lib/src/shell/keyboard_navigation.dart",
+        "lines": [
+          37
+        ]
+      },
+      {
+        "file": "lib/src/shell/aggregate_view.dart",
+        "lines": [
+          561
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_view.dart",
+        "lines": [
+          3944
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_drawer.dart",
+        "lines": [
+          220
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_message_tile.dart",
+        "lines": [
+          130
+        ]
+      }
+    ],
+    "Switch": [
+      {
+        "file": "lib/src/shell/keyboard_navigation.dart",
+        "lines": [
+          41
+        ]
+      },
+      {
+        "file": "lib/src/shell/update_sheet.dart",
+        "lines": [
+          141,
+          145
+        ]
+      },
+      {
+        "file": "lib/src/plugin_api/site_plugin_api.dart",
+        "lines": [
+          557
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_drawer.dart",
+        "lines": [
+          222
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_info_view.dart",
+        "lines": [
+          306,
+          380
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_diagnostics_view.dart",
+        "lines": [
+          425
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_ai/ai_proofreading_plugin.dart",
+        "lines": [
+          101
+        ]
+      }
+    ],
+    "Slider": [
+      {
+        "file": "lib/src/shell/keyboard_navigation.dart",
+        "lines": [
+          43
+        ]
+      },
+      {
+        "file": "lib/src/shell/inline_video.dart",
+        "lines": [
+          985
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_progress.dart",
+        "lines": [
+          211
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_drawer.dart",
+        "lines": [
+          223
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_view.dart",
+        "lines": [
+          1360
+        ]
+      }
+    ],
+    "TabBar": [],
+    "PopupMenuButton": [
+      {
+        "file": "lib/src/shell/composer_panel.dart",
+        "lines": [
+          2953
+        ]
+      },
+      {
+        "file": "lib/src/shell/emoji_picker.dart",
+        "lines": [
+          849
+        ]
+      },
+      {
+        "file": "lib/src/shell/bookmark_ui.dart",
+        "lines": [
+          1104
+        ]
+      },
+      {
+        "file": "lib/src/shell/diagnostics_panel.dart",
+        "lines": [
+          739
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_drawer.dart",
+        "lines": [
+          226
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_view.dart",
+        "lines": [
+          707,
+          2032
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_directory.dart",
+        "lines": [
+          407
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_card.dart",
+        "lines": [
+          176,
+          350
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/topic_calendar.dart",
+        "lines": [
+          405
+        ]
+      }
+    ],
+    "MenuAnchor": [
+      {
+        "file": "lib/src/shell/instance_actions.dart",
+        "lines": [
+          247
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_actions.dart",
+        "lines": [
+          885,
+          1063
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_menu_button.dart",
+        "lines": [
+          170
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_panel.dart",
+        "lines": [
+          3153,
+          3209
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_create_button.dart",
+        "lines": [
+          65
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_header.dart",
+        "lines": [
+          88,
+          179
+        ]
+      },
+      {
+        "file": "lib/src/shell/forum_tabs_bar.dart",
+        "lines": [
+          422,
+          1687
+        ]
+      },
+      {
+        "file": "lib/src/shell/instance_sidebar.dart",
+        "lines": [
+          682,
+          1107
+        ]
+      },
+      {
+        "file": "lib/src/shell/forum_search.dart",
+        "lines": [
+          279
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_view.dart",
+        "lines": [
+          4545
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_drawer.dart",
+        "lines": [
+          227,
+          909
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_message_tile.dart",
+        "lines": [
+          861
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_actions.dart",
+        "lines": [
+          99
+        ]
+      }
+    ],
+    "AlertDialog": [
+      {
+        "file": "lib/src/shell/topic_move_posts.dart",
+        "lines": [
+          175
+        ]
+      },
+      {
+        "file": "lib/src/shell/group_pages_host.dart",
+        "lines": [
+          158
+        ]
+      },
+      {
+        "file": "lib/src/shell/group_page.dart",
+        "lines": [
+          603
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_link.dart",
+        "lines": [
+          589
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_change_owner.dart",
+        "lines": [
+          134
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_panel.dart",
+        "lines": [
+          3045
+        ]
+      },
+      {
+        "file": "lib/src/shell/adaptive_dialog_action.dart",
+        "lines": [
+          40
+        ]
+      },
+      {
+        "file": "lib/src/shell/message_create_button.dart",
+        "lines": [
+          109
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_permanent_delete.dart",
+        "lines": [
+          28,
+          100
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_notice_editor.dart",
+        "lines": [
+          81
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_view.dart",
+        "lines": [
+          2321
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_actions.dart",
+        "lines": [
+          235
+        ]
+      },
+      {
+        "file": "lib/src/shell/users_page.dart",
+        "lines": [
+          486,
+          550
+        ]
+      },
+      {
+        "file": "lib/src/shell/do_not_disturb_dialog.dart",
+        "lines": [
+          118
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_status_editor.dart",
+        "lines": [
+          253
+        ]
+      },
+      {
+        "file": "lib/src/shell/group/group_members_view.dart",
+        "lines": [
+          743
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_new_direct_message.dart",
+        "lines": [
+          307
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_status.dart",
+        "lines": [
+          65
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_editor.dart",
+        "lines": [
+          95
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_editor.dart",
+        "lines": [
+          70
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_join.dart",
+        "lines": [
+          92
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_view.dart",
+        "lines": [
+          1207,
+          1358,
+          1413,
+          1668,
+          1702,
+          2010
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_ai/ai_summary_plugin.dart",
+        "lines": [
+          215
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_calendar.dart",
+        "lines": [
+          484
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/topic_calendar.dart",
+        "lines": [
+          277,
+          697
+        ]
+      }
+    ],
+    "SnackBar": [
+      {
+        "file": "lib/src/shell/topic_move_posts.dart",
+        "lines": [
+          47
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_tag_picker.dart",
+        "lines": [
+          145
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_list_view.dart",
+        "lines": [
+          1689
+        ]
+      },
+      {
+        "file": "lib/src/shell/group_page.dart",
+        "lines": [
+          376
+        ]
+      },
+      {
+        "file": "lib/src/shell/emoji_composer.dart",
+        "lines": [
+          55
+        ]
+      },
+      {
+        "file": "lib/src/shell/aggregate_view.dart",
+        "lines": [
+          1074
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_category_picker.dart",
+        "lines": [
+          159
+        ]
+      },
+      {
+        "file": "lib/src/shell/anonymous_flag_dialog.dart",
+        "lines": [
+          63
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_title.dart",
+        "lines": [
+          187
+        ]
+      },
+      {
+        "file": "lib/src/shell/instance_actions.dart",
+        "lines": [
+          55
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_actions.dart",
+        "lines": [
+          621,
+          633
+        ]
+      },
+      {
+        "file": "lib/src/shell/lightbox.dart",
+        "lines": [
+          446,
+          453
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_menu_button.dart",
+        "lines": [
+          58,
+          66
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_text_selection.dart",
+        "lines": [
+          130
+        ]
+      },
+      {
+        "file": "lib/src/shell/inline_video.dart",
+        "lines": [
+          202,
+          217
+        ]
+      },
+      {
+        "file": "lib/src/shell/open_link.dart",
+        "lines": [
+          46
+        ]
+      },
+      {
+        "file": "lib/src/shell/bookmark_ui.dart",
+        "lines": [
+          1210
+        ]
+      },
+      {
+        "file": "lib/src/shell/code_block.dart",
+        "lines": [
+          652
+        ]
+      },
+      {
+        "file": "lib/src/shell/post_likes.dart",
+        "lines": [
+          58
+        ]
+      },
+      {
+        "file": "lib/src/shell/instance_rail.dart",
+        "lines": [
+          118
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_view.dart",
+        "lines": [
+          2360,
+          2381,
+          4339
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_actions.dart",
+        "lines": [
+          200,
+          218,
+          269
+        ]
+      },
+      {
+        "file": "lib/src/shell/users_page.dart",
+        "lines": [
+          700
+        ]
+      },
+      {
+        "file": "lib/src/shell/do_not_disturb_dialog.dart",
+        "lines": [
+          108
+        ]
+      },
+      {
+        "file": "lib/src/shell/reaction_presentation.dart",
+        "lines": [
+          217
+        ]
+      },
+      {
+        "file": "lib/src/shell/composer_discard.dart",
+        "lines": [
+          89
+        ]
+      },
+      {
+        "file": "lib/src/shell/diagnostics_panel.dart",
+        "lines": [
+          391,
+          660
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_menu.dart",
+        "lines": [
+          779
+        ]
+      },
+      {
+        "file": "lib/src/shell/topic_share.dart",
+        "lines": [
+          200
+        ]
+      },
+      {
+        "file": "lib/src/shell/group/group_members_view.dart",
+        "lines": [
+          766,
+          940,
+          986
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_thread_view.dart",
+        "lines": [
+          619
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_browse_channels_view.dart",
+        "lines": [
+          444
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_message_tile.dart",
+        "lines": [
+          351,
+          365,
+          400,
+          413,
+          430,
+          442,
+          1493
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_actions.dart",
+        "lines": [
+          465,
+          478,
+          518
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_star_button.dart",
+        "lines": [
+          72
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_search_view.dart",
+        "lines": [
+          191
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_my_threads_view.dart",
+        "lines": [
+          292
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_user_card.dart",
+        "lines": [
+          74
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_view.dart",
+        "lines": [
+          446,
+          1532,
+          1564,
+          1653,
+          1709
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_info_view.dart",
+        "lines": [
+          197
+        ]
+      },
+      {
+        "file": "lib/src/plugins/reactions/reaction_picker.dart",
+        "lines": [
+          529
+        ]
+      },
+      {
+        "file": "lib/src/plugins/gifs/gifs_plugin.dart",
+        "lines": [
+          96
+        ]
+      },
+      {
+        "file": "lib/src/plugins/local_dates/local_dates_plugin.dart",
+        "lines": [
+          605
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_notices.dart",
+        "lines": [
+          44
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_user_card.dart",
+        "lines": [
+          75
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_diagnostics_view.dart",
+        "lines": [
+          367
+        ]
+      },
+      {
+        "file": "lib/src/plugins/voice/voice_room_view.dart",
+        "lines": [
+          1166,
+          1173,
+          1184,
+          1310,
+          1497,
+          1644
+        ]
+      },
+      {
+        "file": "lib/src/plugins/assign/assign_plugin.dart",
+        "lines": [
+          934,
+          940,
+          963
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_card.dart",
+        "lines": [
+          598
+        ]
+      },
+      {
+        "file": "lib/src/plugins/poll/poll_plugin.dart",
+        "lines": [
+          442,
+          527,
+          557
+        ]
+      }
+    ],
+    "DropdownButton": [
+      {
+        "file": "lib/src/shell/keyboard_navigation.dart",
+        "lines": [
+          35
+        ]
+      },
+      {
+        "file": "lib/src/shell/select.dart",
+        "lines": [
+          73
+        ]
+      },
+      {
+        "file": "lib/src/shell/user_status_editor.dart",
+        "lines": [
+          308
+        ]
+      },
+      {
+        "file": "lib/src/theme/app_theme.dart",
+        "lines": [
+          680
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_drawer.dart",
+        "lines": [
+          224
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_info_view.dart",
+        "lines": [
+          327
+        ]
+      }
+    ],
+    "DropdownButtonFormField": [
+      {
+        "file": "lib/src/shell/topic_move_posts.dart",
+        "lines": [
+          258
+        ]
+      },
+      {
+        "file": "lib/src/shell/select.dart",
+        "lines": [
+          30
+        ]
+      },
+      {
+        "file": "lib/src/shell/invite_list.dart",
+        "lines": [
+          217
+        ]
+      },
+      {
+        "file": "lib/src/shell/bookmark_ui.dart",
+        "lines": [
+          833,
+          909
+        ]
+      },
+      {
+        "file": "lib/src/shell/group/group_manage_view.dart",
+        "lines": [
+          229,
+          502,
+          533
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_browse_channels_view.dart",
+        "lines": [
+          166,
+          191
+        ]
+      },
+      {
+        "file": "lib/src/plugins/chat/chat_channel_view.dart",
+        "lines": [
+          1596
+        ]
+      },
+      {
+        "file": "lib/src/plugins/assign/assigned_group_view.dart",
+        "lines": [
+          686
+        ]
+      },
+      {
+        "file": "lib/src/plugins/discourse_events/event_composer.dart",
+        "lines": [
+          433,
+          459
+        ]
+      }
+    ]
+  }
+}

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../models/site_appearance.dart';
+import '../ui/foundation/tokens.dart';
 import 'color_contrast.dart';
 import 'd_button.dart';
 import 'd_tooltip.dart';
@@ -681,6 +682,17 @@ abstract final class AppTheme {
       // implementations the same visible pointer treatment.
       hoverColor: menuItemHoverColor,
       extensions: [
+        DTokens(
+          colors: resolvedColorScheme,
+          background: shell.content,
+          surface: shell.floating,
+          muted: shell.panel,
+          border: shell.divider,
+          hover: shell.hover,
+          selected: shell.selected,
+          selectedForeground: shell.selectedForeground,
+          radius: borderRadius,
+        ),
         shell,
         code,
         discourse,
