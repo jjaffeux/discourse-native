@@ -30,7 +30,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 18 | progress | planned | — | — | label | — |
 | 19 | skeleton | merged | 01a08213-b4ca-77e1-a2aa-8a490808243e | codex/ui-skeleton | — | fc43a2bdb09ba15b703c0a84863941cde7b009d5 |
 | 20 | aspect-ratio | in_progress | 01a082a9-b9d4-79f0-8a0d-cc48e700cc67 | codex/ui-aspect-ratio | — | — |
-| 21 | avatar | planned | — | — | — | — |
+| 21 | avatar | in_progress | 01a082d2-4434-73b1-8ab4-88c9b2ba9b66 | codex/ui-avatar | — | — |
 | 22 | card | planned | — | — | typography | — |
 | 23 | empty | planned | — | — | typography | — |
 | 24 | item | planned | — | — | separator | — |
@@ -555,6 +555,10 @@ Status: merged. Task: 01a08213-b4ca-77e1-a2aa-8a490808243e. Branch: codex/ui-ske
 ### aspect-ratio
 
 Status: in_progress. Task: 01a082a9-b9d4-79f0-8a0d-cc48e700cc67. Branch: codex/ui-aspect-ratio.
+
+### avatar
+
+Status: in_progress. Task: 01a082d2-4434-73b1-8ab4-88c9b2ba9b66. Branch: codex/ui-avatar.
 
 ### Final audit
 
