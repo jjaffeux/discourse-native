@@ -55,6 +55,16 @@ import 'topic_tag_picker.dart';
 const double _composerPanelRadius = 22;
 const double _composerHeaderHeight = ComposerHeader.height;
 
+bool get _usesCommandModifier =>
+    defaultTargetPlatform == TargetPlatform.macOS ||
+    defaultTargetPlatform == TargetPlatform.iOS;
+
+SingleActivator _formattingShortcut(LogicalKeyboardKey key) => SingleActivator(
+  key,
+  meta: _usesCommandModifier,
+  control: !_usesCommandModifier,
+);
+
 class ComposerPanel extends StatelessWidget {
   const ComposerPanel({
     super.key,
@@ -83,6 +93,8 @@ class ComposerPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
+    void openLink() =>
+        unawaited(showComposerLinkDialog(context: context, composer: composer));
     composer.text.configureQuoteContentsResolver(
       (block) => controller.quoteContentsFor(composer.target, block),
       context: (controller, composer.target),
@@ -158,13 +170,14 @@ class ComposerPanel extends StatelessWidget {
                   composer.toggleMark(ComposerMark.italic),
               const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
                   composer.toggleSelectedInlineCode,
-              const SingleActivator(LogicalKeyboardKey.keyL, meta: true): () =>
-                  unawaited(
-                    showComposerLinkDialog(
-                      context: context,
-                      composer: composer,
-                    ),
-                  ),
+              if (!_usesCommandModifier)
+                const SingleActivator(LogicalKeyboardKey.keyE, control: true):
+                    composer.toggleSelectedInlineCode,
+              const SingleActivator(LogicalKeyboardKey.keyL, meta: true):
+                  openLink,
+              if (!_usesCommandModifier)
+                const SingleActivator(LogicalKeyboardKey.keyL, control: true):
+                    openLink,
               for (final binding in PluginScope.of(
                 context,
               ).registry.composerShortcuts(context, composer).entries)
@@ -3114,16 +3127,27 @@ class _Toolbar extends StatelessWidget {
           ),
         MenuAnchor(
           menuChildren: [
-            for (final (label, icon, mark) in [
-              ('Bold', DIcons.bold, ComposerMark.bold),
-              ('Italic', DIcons.italic, ComposerMark.italic),
-              ('Inline code', DIcons.code, ComposerMark.inlineCode),
+            for (final (label, icon, mark, key) in [
+              ('Bold', DIcons.bold, ComposerMark.bold, LogicalKeyboardKey.keyB),
+              (
+                'Italic',
+                DIcons.italic,
+                ComposerMark.italic,
+                LogicalKeyboardKey.keyI,
+              ),
+              (
+                'Inline code',
+                DIcons.code,
+                ComposerMark.inlineCode,
+                LogicalKeyboardKey.keyE,
+              ),
             ])
               MenuItemButton(
                 onPressed: composer.isEditing
                     ? () => composer.toggleMark(mark)
                     : null,
                 leadingIcon: DIcon(icon, size: 16),
+                shortcut: _formattingShortcut(key),
                 child: Text(label),
               ),
             MenuItemButton(
@@ -3136,6 +3160,7 @@ class _Toolbar extends StatelessWidget {
                     )
                   : null,
               leadingIcon: const DIcon(DIcons.link, size: 16),
+              shortcut: _formattingShortcut(LogicalKeyboardKey.keyL),
               child: const Text('Link'),
             ),
           ],
