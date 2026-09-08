@@ -1,6 +1,9 @@
 import 'package:discourse_native/src/shell/composer_quotes.dart';
+import 'package:discourse_native/src/shell/markdown_highlight.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/scaling_benchmark.dart';
 
 void main() {
   group('parseComposerQuotes', () {
@@ -9,8 +12,16 @@ void main() {
       // which on a line that has none walks to the top of the document. The
       // composer rescans on every keystroke, so that is felt as a freeze.
       const unit = '[quote="s, post:1, topic:2"] ';
-      final small = _bestOf(() => parseComposerQuotes(unit * 800));
-      final large = _bestOf(() => parseComposerQuotes(unit * 6400));
+      final smallSource = unit * 800;
+      final largeSource = unit * 6400;
+      final smallCode = CodeRanges.of(scanMarkdown(smallSource));
+      final largeCode = CodeRanges.of(scanMarkdown(largeSource));
+      final (:small, :large) = measureScaling(
+        () =>
+            parseComposerQuotes(smallSource, knownCodeRanges: smallCode).length,
+        () =>
+            parseComposerQuotes(largeSource, knownCodeRanges: largeCode).length,
+      );
 
       expect(
         large,
@@ -127,17 +138,4 @@ void main() {
     );
     expect(formatter.formatEditUpdate(old, removed), removed);
   });
-}
-
-int _bestOf(void Function() body) {
-  var best = -1;
-  for (var run = 0; run < 3; run += 1) {
-    final elapsed = Stopwatch()..start();
-    body();
-    elapsed.stop();
-    if (best < 0 || elapsed.elapsedMicroseconds < best) {
-      best = elapsed.elapsedMicroseconds;
-    }
-  }
-  return best;
 }
