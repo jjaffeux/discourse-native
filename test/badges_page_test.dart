@@ -4,6 +4,7 @@ import 'package:discourse_native/src/shell/badges_controller.dart';
 import 'package:discourse_native/src/shell/badges_page.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,6 +14,92 @@ import 'support/shell_test_harness.dart' show renderedText;
 const _site = 'https://example.com';
 
 void main() {
+  for (final (width, scale, platform) in [
+    (825.0, 1.0, TargetPlatform.macOS),
+    (825.0, 2.0, TargetPlatform.macOS),
+    (1100.0, 1.0, TargetPlatform.android),
+    (390.0, 1.0, TargetPlatform.iOS),
+    (390.0, 2.0, TargetPlatform.iOS),
+  ]) {
+    testWidgets(
+      'scrolls through every badge group at $width and scale $scale',
+      (tester) async {
+        final catalog = BadgeCatalog.fromJson({
+          'badge_groupings': [
+            for (var group = 1; group <= 5; group++)
+              {'id': group, 'name': 'Group $group', 'position': group},
+          ],
+          'badges': [
+            for (var id = 1; id <= 75; id++)
+              {
+                ...badgeWire,
+                'id': id,
+                'name': 'Badge ${id.toString().padLeft(2, '0')}',
+                'badge_grouping_id': (id - 1) ~/ 15 + 1,
+                'description':
+                    'Contributions remarquables durant le premier mois. ' *
+                    (id % 3 + 1),
+              },
+          ],
+        }, _site);
+        await _pump(
+          tester,
+          BadgesState(catalog: catalog, loaded: true),
+          size: Size(width, 844),
+          scale: scale,
+        );
+        final scrollable = find.byType(Scrollable).first;
+        final position = tester.state<ScrollableState>(scrollable).position;
+        final pointerPosition = tester.getCenter(find.byType(CustomScrollView));
+        for (var group = 1; group <= 5; group++) {
+          final lastCard = find.byKey(ValueKey('badge-card-${group * 15}'));
+          for (
+            var step = 0;
+            step < 150 && lastCard.hitTestable().evaluate().isEmpty;
+            step++
+          ) {
+            final before = position.pixels;
+            await tester.sendEventToBinding(
+              PointerScrollEvent(
+                position: pointerPosition,
+                scrollDelta: const Offset(0, 400),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+            expect(
+              position.pixels,
+              greaterThan(before),
+              reason: 'Scroll stopped before group $group',
+            );
+          }
+          expect(lastCard.hitTestable(), findsOneWidget);
+        }
+        for (var step = 0; step < 150 && position.pixels > 0; step++) {
+          final before = position.pixels;
+          await tester.drag(
+            find.byType(CustomScrollView),
+            const Offset(0, 500),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          expect(
+            position.pixels,
+            lessThan(before),
+            reason: 'Scroll stopped returning to the first group',
+          );
+        }
+        expect(position.pixels, 0);
+        expect(
+          find.byKey(const ValueKey('badge-card-1')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
+
   for (final (width, columns, scale, platform) in [
     (390.0, 1, 1.0, TargetPlatform.macOS),
     (760.0, 2, 1.0, TargetPlatform.macOS),

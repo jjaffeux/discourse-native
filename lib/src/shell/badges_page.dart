@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:intl/intl.dart';
 
 import '../models/badge.dart';
@@ -95,7 +94,7 @@ class BadgesPage extends StatelessWidget {
           '${_number(catalog.total)} ${catalog.total == 1 ? 'badge' : 'badges'}${catalog.hasPersonalState ? ' · ${_number(catalog.earned)} earned' : ''}',
           style: TextStyle(
             color: Theme.of(context).shell.marker,
-            fontSize: DiscourseTypography.fontDown1,
+            fontSize: DiscourseTypography.base,
           ),
         ),
       ),
@@ -136,30 +135,39 @@ class BadgesPage extends StatelessWidget {
                 : width >= 620
                 ? 2
                 : 1;
-            return SliverMasonryGrid.count(
-              crossAxisCount: columns,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childCount: group.badges.length,
-              itemBuilder: (context, index) {
-                final badge = group.badges[index];
-                return LinkTarget.content(
-                  content: ContentRoute.badges(badge.route, title: badge.name),
-                  siteUrl: siteUrl,
-                  child: BadgeCard(
-                    key: ValueKey('badge-card-${badge.id}'),
-                    badge: badge,
-                    siteUrl: siteUrl,
-                    onTap: () => onOpenBadge(badge),
-                  ),
-                );
-              },
+            return SliverList.separated(
+              itemCount: (group.badges.length / columns).ceil(),
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, row) => Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var column = 0; column < columns; column++) ...[
+                    if (column > 0) const SizedBox(width: 12),
+                    Expanded(
+                      child: row * columns + column < group.badges.length
+                          ? _card(group.badges[row * columns + column])
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ],
+              ),
             );
           },
         ),
       ),
     ],
   ];
+
+  Widget _card(DiscourseBadge badge) => LinkTarget.content(
+    content: ContentRoute.badges(badge.route, title: badge.name),
+    siteUrl: siteUrl,
+    child: BadgeCard(
+      key: ValueKey('badge-card-${badge.id}'),
+      badge: badge,
+      siteUrl: siteUrl,
+      onTap: () => onOpenBadge(badge),
+    ),
+  );
 
   List<Widget> _detail(BuildContext context, DiscourseBadge badge) {
     final theme = Theme.of(context);
@@ -393,7 +401,7 @@ class BadgeCard extends StatelessWidget {
                       siteUrl: siteUrl,
                       compactParagraphs: true,
                       textStyle: TextStyle(
-                        fontSize: DiscourseTypography.fontDown1,
+                        fontSize: DiscourseTypography.base,
                         color: theme.discourse.primaryHigh,
                         height: DiscourseTypography.lineHeightLarge,
                       ),
@@ -414,7 +422,7 @@ class BadgeCard extends StatelessWidget {
                             _awarded(badge.grantCount),
                             style: TextStyle(
                               color: theme.shell.marker,
-                              fontSize: DiscourseTypography.fontDown2,
+                              fontSize: DiscourseTypography.fontDown1,
                             ),
                           ),
                         _BadgeTierLabel(tier: badge.tier),
@@ -493,7 +501,7 @@ class _BadgeTierLabel extends StatelessWidget {
     tier.label,
     style: TextStyle(
       color: _tierColor(context, tier),
-      fontSize: DiscourseTypography.fontDown2,
+      fontSize: DiscourseTypography.fontDown1,
     ),
   );
 }
@@ -568,7 +576,7 @@ class _BadgeRecipient extends StatelessWidget {
                       DateFormat.yMMMd().format(grant.grantedAt!.toLocal()),
                       style: TextStyle(
                         color: Theme.of(context).shell.marker,
-                        fontSize: DiscourseTypography.fontDown2,
+                        fontSize: DiscourseTypography.fontDown1,
                       ),
                     ),
                 ],
