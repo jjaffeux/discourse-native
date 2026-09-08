@@ -73,11 +73,136 @@ final class TestAsset: NSObject, FVPAVAsset {
 
 final class StubPlayerItem: NSObject, FVPAVPlayerItem {
   let asset: FVPAVAsset
-  var videoComposition: AVVideoComposition?
+  var videoComposition: AVVideoComposition? {
+    didSet {
+      videoCompositionUpdateCount += 1
+      videoCompositionUpdatedOnMainThread = Thread.isMainThread
+    }
+  }
+  private(set) var videoCompositionUpdateCount = 0
+  private(set) var videoCompositionUpdatedOnMainThread = false
 
   init(asset: FVPAVAsset = TestAsset()) {
     self.asset = asset
     super.init()
+  }
+}
+
+/// Explicit gates for the two asset requests made during player initialization.
+/// Taking a completion removes it before invocation, matching AVFoundation's one-shot contract.
+final class DeferredAsset: NSObject, FVPAVAsset {
+  let duration = CMTime(value: 2, timescale: 1)
+  private var status: AVKeyValueStatus = .loading
+  private var valuesCompletion: (@Sendable () -> Void)?
+  private var tracksCompletion: (@Sendable ([AVAssetTrack]?, Error?) -> Void)?
+  private(set) var trackLoadCount = 0
+  private(set) var tracksRequestedOnMainThread = false
+
+  func statusOfValue(forKey key: String, error outError: NSErrorPointer) -> AVKeyValueStatus {
+    return status
+  }
+
+  func loadValuesAsynchronously(
+    forKeys keys: [String], completionHandler handler: (@Sendable () -> Void)?
+  ) {
+    #expect(keys == ["tracks"])
+    #expect(valuesCompletion == nil)
+    valuesCompletion = handler
+  }
+
+  @available(macOS 12.0, iOS 15.0, *)
+  func loadTracks(
+    withMediaType mediaType: AVMediaType,
+    completionHandler: @escaping @Sendable ([AVAssetTrack]?, Error?) -> Void
+  ) {
+    #expect(mediaType == .video)
+    #expect(tracksCompletion == nil)
+    trackLoadCount += 1
+    tracksRequestedOnMainThread = Thread.isMainThread
+    tracksCompletion = completionHandler
+  }
+
+  func tracks(withMediaType mediaType: AVMediaType) -> [AVAssetTrack] {
+    Issue.record("Deferred metadata tests require the asynchronous track API")
+    return []
+  }
+
+  func takeValuesCompletion(status: AVKeyValueStatus = .loaded) throws -> @Sendable () -> Void {
+    let completion = try #require(valuesCompletion)
+    valuesCompletion = nil
+    self.status = status
+    return completion
+  }
+
+  func takeTracksCompletion() throws -> @Sendable ([AVAssetTrack]?, Error?) -> Void {
+    let completion = try #require(tracksCompletion)
+    tracksCompletion = nil
+    return completion
+  }
+
+  func finishPendingLoads() {
+    let values = valuesCompletion
+    valuesCompletion = nil
+    values?()
+    let tracks = tracksCompletion
+    tracksCompletion = nil
+    tracks?([], nil)
+  }
+}
+
+/// A local track with controllable transform loading; it never opens a media URL.
+@objcMembers final class DeferredVideoTrack: NSObject, @unchecked Sendable {
+  let transform: CGAffineTransform
+  private var status: AVKeyValueStatus = .loading
+  private var transformCompletion: (@Sendable () -> Void)?
+  private(set) var transformLoadCount = 0
+  private(set) var transformRequestedOnMainThread = false
+
+  init(rotation: Int = 90) {
+    switch rotation {
+    case 90: transform = CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: 0, ty: 0)
+    case 180: transform = CGAffineTransform(a: -1, b: 0, c: 0, d: -1, tx: 0, ty: 0)
+    case 270: transform = CGAffineTransform(a: 0, b: -1, c: 1, d: 0, tx: 0, ty: 0)
+    default: transform = .identity
+    }
+    super.init()
+  }
+
+  // AVAssetTrack has no public initializer. The native pipeline uses Objective-C dispatch, so
+  // this fake supplies its metadata selectors without constructing an AVFoundation track.
+  var assetTrack: AVAssetTrack { unsafeBitCast(self, to: AVAssetTrack.self) }
+  var preferredTransform: CGAffineTransform { transform }
+  var naturalSize: CGSize { CGSize(width: 800, height: 600) }
+  var trackID: CMPersistentTrackID { 1 }
+  var minFrameDuration: CMTime { CMTime(value: 1, timescale: 24) }
+
+  func statusOfValue(forKey key: String, error outError: NSErrorPointer)
+    -> AVKeyValueStatus
+  {
+    return status
+  }
+
+  func loadValuesAsynchronously(
+    forKeys keys: [String], completionHandler handler: (@Sendable () -> Void)?
+  ) {
+    #expect(keys == ["preferredTransform"])
+    #expect(transformCompletion == nil)
+    transformLoadCount += 1
+    transformRequestedOnMainThread = Thread.isMainThread
+    transformCompletion = handler
+  }
+
+  func takeTransformCompletion(status: AVKeyValueStatus = .loaded) throws -> @Sendable () -> Void {
+    let completion = try #require(transformCompletion)
+    transformCompletion = nil
+    self.status = status
+    return completion
+  }
+
+  func finishPendingLoad() {
+    let completion = transformCompletion
+    transformCompletion = nil
+    completion?()
   }
 }
 
@@ -270,6 +395,7 @@ final class StubEventListener: NSObject, FVPVideoEventListener {
   var onInitialized: (() -> Void)?
   private(set) var initializationDuration: Int64 = 0
   private(set) var initializationSize: CGSize = .zero
+  private(set) var disposalCount = 0
 
   init(onInitialized: (() -> Void)? = nil) {
     self.onInitialized = onInitialized
@@ -287,7 +413,9 @@ final class StubEventListener: NSObject, FVPVideoEventListener {
   func videoPlayerDidSetPlaying(_ playing: Bool) {}
   func videoPlayerDidStartBuffering() {}
   func videoPlayerDidUpdateBufferRegions(_ regions: [[NSNumber]]!) {}
-  func videoPlayerWasDisposed() {}
+  func videoPlayerWasDisposed() {
+    disposalCount += 1
+  }
 }
 
 final class StubTexture: NSObject, FlutterTexture {

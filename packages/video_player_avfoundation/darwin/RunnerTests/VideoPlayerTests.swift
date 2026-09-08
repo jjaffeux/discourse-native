@@ -4,8 +4,9 @@
 
 import AVFoundation
 import Testing
-@preconcurrency @testable import video_player_avfoundation
 import video_player_avfoundation_objc
+
+@preconcurrency @testable import video_player_avfoundation
 
 #if os(iOS)
   import Flutter
@@ -767,7 +768,7 @@ private let hlsAudioTestURI =
       let mockAsset = TestAsset(duration: CMTimeMake(value: 1, timescale: 1), tracks: [])
       let item = StubPlayerItem(asset: mockAsset)
 
-      let stubAVFactory = StubFVPAVFactory(player: nil, playerItem: item, pixelBufferSource: nil)
+      let stubAVFactory = StubFVPAVFactory(player: AVPlayer(), playerItem: item)
       let stubViewProvider = StubViewProvider()
       let _ = FVPVideoPlayer(
         playerItem: item, avFactory: stubAVFactory, viewProvider: stubViewProvider)
@@ -777,7 +778,7 @@ private let hlsAudioTestURI =
 
   @Test func videoOutputIsConfiguredWithBT709ColorProperties() throws {
     let item = StubPlayerItem()
-    let stubAVFactory = StubFVPAVFactory(player: nil, playerItem: item, pixelBufferSource: nil)
+    let stubAVFactory = StubFVPAVFactory(player: AVPlayer(), playerItem: item)
     let stubViewProvider = StubViewProvider()
     let _ = FVPVideoPlayer(
       playerItem: item, avFactory: stubAVFactory, viewProvider: stubViewProvider)
@@ -1072,6 +1073,340 @@ private let hlsAudioTestURI =
         #expect(error == nil)
         continuation.resume()
       }
+    }
+  }
+}
+
+/// These tests use only deferred fakes and empty local AVPlayers. Keep them independently
+/// selectable: VideoPlayerTests also contains integration tests that fetch remote media.
+@Suite(
+  .enabled(
+    if: {
+      if #available(iOS 15.0, macOS 12.0, *) { return true }
+      return false
+    }(), "Deferred metadata tests require the asynchronous track API"))
+@MainActor struct VideoPlayerMetadataTests {
+  enum Stage: Int, CaseIterable {
+    case assetKeys, videoTracks, preferredTransform
+  }
+
+  @Test(arguments: Stage.allCases, [false, true])
+  func pendingMetadataDoesNotRetainPlayer(stage: Stage, dispose: Bool) async throws {
+    let asset = DeferredAsset()
+    let track = DeferredVideoTrack()
+    defer {
+      asset.finishPendingLoads()
+      track.finishPendingLoad()
+    }
+    weak var weakPlayer: FVPVideoPlayer?
+    weak var weakItem: StubPlayerItem?
+    try autoreleasepool {
+      let item = StubPlayerItem(asset: asset)
+      let player = makePlayer(item: item)
+      weakPlayer = player
+      weakItem = item
+      try advance(to: stage, asset: asset, track: track)
+      if dispose {
+        var error: FlutterError?
+        player.disposeWithError(&error)
+        #expect(error == nil)
+      }
+    }
+
+    // The requested callback is still stored by the asset/track at this point.
+    #expect(weakPlayer == nil)
+    #expect(weakItem == nil)
+    try completion(for: stage, asset: asset, track: track)()
+    await drainMainQueue()
+    expectNoFollowUpWork(after: stage, asset: asset, track: track)
+  }
+
+  @Test(arguments: Stage.allCases, [false, true])
+  func disposedMetadataDoesNotAdmitWork(stage: Stage, background: Bool) async throws {
+    let asset = DeferredAsset()
+    let track = DeferredVideoTrack()
+    defer {
+      asset.finishPendingLoads()
+      track.finishPendingLoad()
+    }
+    let item = StubPlayerItem(asset: asset)
+    let player = makePlayer(item: item)
+    try advance(to: stage, asset: asset, track: track)
+    var disposalCount = 0
+    player.onDisposed = { disposalCount += 1 }
+    var error: FlutterError?
+    player.disposeWithError(&error)
+    #expect(error == nil)
+    #expect(player.player.currentItem == nil)
+
+    let callback = try completion(for: stage, asset: asset, track: track)
+    if background {
+      completeOnBackgroundQueue(callback)
+    } else {
+      callback()
+    }
+    await drainMainQueue()
+    expectNoFollowUpWork(after: stage, asset: asset, track: track)
+    #expect(item.videoCompositionUpdateCount == 0)
+    player.disposeWithError(&error)
+    #expect(error == nil)
+    #expect(disposalCount == 1)
+  }
+
+  @Test(arguments: Stage.allCases)
+  func queuedMetadataRechecksDisposal(stage: Stage) async throws {
+    let asset = DeferredAsset()
+    let track = DeferredVideoTrack()
+    defer {
+      asset.finishPendingLoads()
+      track.finishPendingLoad()
+    }
+    let item = StubPlayerItem(asset: asset)
+    let player = makePlayer(item: item)
+    try advance(to: stage, asset: asset, track: track)
+
+    // The native callback returns before disposal, but its main-queue work has not run yet.
+    completeOnBackgroundQueue(try completion(for: stage, asset: asset, track: track))
+    var error: FlutterError?
+    player.disposeWithError(&error)
+    #expect(error == nil)
+    await drainMainQueue()
+
+    expectNoFollowUpWork(after: stage, asset: asset, track: track)
+    #expect(item.videoCompositionUpdateCount == 0)
+  }
+
+  @Test(arguments: Stage.allCases)
+  func queuedMetadataDoesNotRetainPlayer(stage: Stage) async throws {
+    let asset = DeferredAsset()
+    let track = DeferredVideoTrack()
+    defer {
+      asset.finishPendingLoads()
+      track.finishPendingLoad()
+    }
+    weak var weakPlayer: FVPVideoPlayer?
+    weak var weakItem: StubPlayerItem?
+    try autoreleasepool {
+      let item = StubPlayerItem(asset: asset)
+      let player = makePlayer(item: item)
+      weakPlayer = player
+      weakItem = item
+      try advance(to: stage, asset: asset, track: track)
+      completeOnBackgroundQueue(try completion(for: stage, asset: asset, track: track))
+      var error: FlutterError?
+      player.disposeWithError(&error)
+      #expect(error == nil)
+    }
+    #expect(weakPlayer == nil)
+    #expect(weakItem == nil)
+    await drainMainQueue()
+    expectNoFollowUpWork(after: stage, asset: asset, track: track)
+  }
+
+  @Test(arguments: [0, 90, 180, 270])
+  func activeMetadataPreservesRotationOnMainThread(rotation: Int) async throws {
+    let asset = DeferredAsset()
+    let track = DeferredVideoTrack(rotation: rotation)
+    let item = StubPlayerItem(asset: asset)
+    let player = makePlayer(item: item)
+    defer {
+      var error: FlutterError?
+      player.disposeWithError(&error)
+    }
+
+    for stage in Stage.allCases {
+      completeOnBackgroundQueue(try completion(for: stage, asset: asset, track: track))
+      await drainMainQueue()
+    }
+    #expect(asset.trackLoadCount == 1)
+    #expect(asset.tracksRequestedOnMainThread)
+    #expect(track.transformLoadCount == 1)
+    #expect(track.transformRequestedOnMainThread)
+    if rotation == 0 {
+      #expect(item.videoComposition == nil)
+      #expect(item.videoCompositionUpdateCount == 0)
+    } else {
+      let composition = try #require(item.videoComposition)
+      #expect(item.videoCompositionUpdateCount == 1)
+      #expect(item.videoCompositionUpdatedOnMainThread)
+      #expect(
+        composition.renderSize
+          == (rotation == 180 ? CGSize(width: 800, height: 600) : CGSize(width: 600, height: 800)))
+      #expect(composition.frameDuration == track.minFrameDuration)
+      #expect(composition.sourceTrackIDForFrameTiming == track.trackID)
+      let instruction = try #require(
+        composition.instructions.first as? AVVideoCompositionInstruction)
+      #expect(instruction.timeRange == CMTimeRange(start: .zero, duration: asset.duration))
+      let layer = try #require(instruction.layerInstructions.first)
+      var transform = CGAffineTransform.identity
+      #expect(layer.getTransformRamp(for: .zero, start: &transform, end: nil, timeRange: nil))
+      let expected: CGAffineTransform
+      switch rotation {
+      case 90: expected = CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: 600, ty: 0)
+      case 180: expected = CGAffineTransform(a: -1, b: 0, c: 0, d: -1, tx: 800, ty: 600)
+      default: expected = CGAffineTransform(a: 0, b: -1, c: 1, d: 0, tx: 0, ty: 800)
+      }
+      for (actual, wanted) in zip(
+        [transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty],
+        [expected.a, expected.b, expected.c, expected.d, expected.tx, expected.ty])
+      {
+        #expect(abs(actual - wanted) < 0.00001)
+      }
+    }
+  }
+
+  @Test(arguments: Stage.allCases, [AVKeyValueStatus.failed, .cancelled])
+  func unsuccessfulMetadataReleasesItem(stage: Stage, status: AVKeyValueStatus) throws {
+    let asset = DeferredAsset()
+    let track = DeferredVideoTrack()
+    weak var weakItem: StubPlayerItem?
+    let player = try autoreleasepool {
+      let item = StubPlayerItem(asset: asset)
+      weakItem = item
+      let player = makePlayer(item: item)
+      try advance(to: stage, asset: asset, track: track)
+      return player
+    }
+    #expect(weakItem != nil)
+    try autoreleasepool {
+      switch stage {
+      case .assetKeys:
+        try asset.takeValuesCompletion(status: status)()
+      case .videoTracks:
+        let error = NSError(
+          domain: NSURLErrorDomain,
+          code: status == .failed ? NSURLErrorCannotDecodeContentData : NSURLErrorCancelled)
+        try asset.takeTracksCompletion()(nil, error)
+      case .preferredTransform:
+        try track.takeTransformCompletion(status: status)()
+      }
+    }
+    #expect(weakItem == nil)
+    #expect(!player.disposed)
+    var error: FlutterError?
+    player.disposeWithError(&error)
+    #expect(error == nil)
+  }
+
+  @Test func emptyMetadataTracksReleaseItem() throws {
+    let asset = DeferredAsset()
+    weak var weakItem: StubPlayerItem?
+    let player = try autoreleasepool {
+      let item = StubPlayerItem(asset: asset)
+      weakItem = item
+      let player = makePlayer(item: item)
+      try asset.takeValuesCompletion()()
+      return player
+    }
+    try autoreleasepool {
+      try asset.takeTracksCompletion()([], nil)
+    }
+    #expect(weakItem == nil)
+    var error: FlutterError?
+    player.disposeWithError(&error)
+    #expect(error == nil)
+  }
+
+  @Test(arguments: [0, 90])
+  func completedMetadataReleasesInputs(rotation: Int) throws {
+    let asset = DeferredAsset()
+    weak var weakItem: StubPlayerItem?
+    weak var weakTrack: DeferredVideoTrack?
+    let player = try autoreleasepool {
+      let item = StubPlayerItem(asset: asset)
+      let track = DeferredVideoTrack(rotation: rotation)
+      weakItem = item
+      weakTrack = track
+      let player = makePlayer(item: item)
+      try advance(to: .preferredTransform, asset: asset, track: track)
+      try track.takeTransformCompletion()()
+      return player
+    }
+    #expect(weakItem == nil)
+    #expect(weakTrack == nil)
+    #expect(!player.disposed)
+    var error: FlutterError?
+    player.disposeWithError(&error)
+    #expect(error == nil)
+  }
+
+  @Test func metadataDisposalRemovesObserversAndNotifiesOnce() throws {
+    let asset = DeferredAsset()
+    let listener = StubEventListener()
+    weak var weakPlayer: FVPVideoPlayer?
+    let avPlayer = try autoreleasepool {
+      let player = makePlayer(item: StubPlayerItem(asset: asset))
+      weakPlayer = player
+      player.eventListener = listener
+      var error: FlutterError?
+      player.disposeWithError(&error)
+      player.disposeWithError(&error)
+      #expect(error == nil)
+      try asset.takeValuesCompletion()()
+      return player.player
+    }
+    #expect(weakPlayer == nil)
+    #expect(listener.disposalCount == 1)
+    #expect(avPlayer.currentItem == nil)
+    #expect(asset.trackLoadCount == 0)
+    // KVO must no longer try to notify the released FVPVideoPlayer.
+    avPlayer.willChangeValue(forKey: "rate")
+    avPlayer.didChangeValue(forKey: "rate")
+  }
+
+  private func makePlayer(item: StubPlayerItem) -> FVPVideoPlayer {
+    let avPlayer = AVPlayer(playerItem: AVPlayerItem(asset: AVMutableComposition()))
+    return FVPVideoPlayer(
+      playerItem: item,
+      avFactory: StubFVPAVFactory(player: avPlayer, playerItem: item),
+      viewProvider: StubViewProvider())
+  }
+
+  private func advance(to stage: Stage, asset: DeferredAsset, track: DeferredVideoTrack) throws {
+    if stage.rawValue >= Stage.videoTracks.rawValue {
+      try asset.takeValuesCompletion()()
+    }
+    if stage == .preferredTransform {
+      try asset.takeTracksCompletion()([track.assetTrack], nil)
+    }
+  }
+
+  private func completion(for stage: Stage, asset: DeferredAsset, track: DeferredVideoTrack) throws
+    -> @Sendable () -> Void
+  {
+    switch stage {
+    case .assetKeys:
+      return try asset.takeValuesCompletion()
+    case .videoTracks:
+      let callback = try asset.takeTracksCompletion()
+      return { callback([track.assetTrack], nil) }
+    case .preferredTransform:
+      return try track.takeTransformCompletion()
+    }
+  }
+
+  private func expectNoFollowUpWork(
+    after stage: Stage, asset: DeferredAsset, track: DeferredVideoTrack
+  ) {
+    #expect(asset.trackLoadCount == (stage == .assetKeys ? 0 : 1))
+    #expect(track.transformLoadCount == (stage == .preferredTransform ? 1 : 0))
+  }
+
+  private func completeOnBackgroundQueue(_ callback: @escaping @Sendable () -> Void) {
+    let finished = DispatchSemaphore(value: 0)
+    DispatchQueue.global().async {
+      #expect(!Thread.isMainThread)
+      callback()
+      finished.signal()
+    }
+    // Hold the main queue until the native callback has returned, so disposal can deterministically
+    // win over queued work. This is a completion gate, not a timing delay.
+    #expect(finished.wait(timeout: .now() + 5) == .success)
+  }
+
+  private func drainMainQueue() async {
+    await withCheckedContinuation { continuation in
+      DispatchQueue.main.async { continuation.resume() }
     }
   }
 }

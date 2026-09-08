@@ -25,6 +25,43 @@ Files:
 
 - `darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/include/video_player_avfoundation_objc/FVPAVFactory.h`
 
+## Initialization metadata lifetime
+
+Pending AVAsset callbacks used to retain `FVPVideoPlayer`, and the tracks and
+transform requests could start after disposal. The player now owns the temporary
+item wrapper and track. Callbacks hold the player weakly, and each stage checks
+disposal on the main queue before starting more work or applying a composition.
+Completion and disposal release the initialization inputs. Rotation composition
+and the existing BT.709 output settings remain covered by native tests.
+
+The pinned factory creates transient wrappers around the actual AVFoundation
+item and asset, so weakening those wrappers alone would lose metadata for active
+players. No `cancelLoading` call is added: it affects all observers of an asset,
+and initialization accepts a caller-provided item. Existing requests may still
+finish, but their callbacks cannot keep a retired player alive or advance its
+metadata pipeline. This addresses retention until completion, without claiming
+an indefinite leak.
+
+Files:
+
+- `darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/FVPVideoPlayer.m`
+- `darwin/RunnerTests/TestClasses.swift`
+- `darwin/RunnerTests/VideoPlayerTests.swift`
+- `tool/test_metadata_lifecycle.sh`
+
+Run the focused native tests on macOS 13 or later with Xcode and the repository's
+pinned Flutter SDK cached locally:
+
+```sh
+bash packages/video_player_avfoundation/tool/test_metadata_lifecycle.sh /path/to/flutter-sdk
+```
+
+The harness builds the plugin and its existing test sources in a temporary Swift
+package, with an explicit allowlist of deferred metadata tests and two offline
+configuration checks. It does not launch an app or run the upstream live-media
+integration tests. The test harness's macOS minimum does not change the plugin's
+iOS 13 / macOS 10.15 deployment targets.
+
 ## Provenance metadata
 
 These files record and validate the fork against the official pub.dev archive.
@@ -42,6 +79,6 @@ From the application repository root, run:
 dart run tool/vendor_provenance_contract.dart
 ```
 
-Remove this fork and both `dependency_overrides` after an upstream release no
-longer emits the Swift-import warning. Then regenerate both lockfiles and run a
-clean macOS build.
+Remove this fork and both `dependency_overrides` after an upstream release
+includes the metadata lifetime fix and no longer emits the Swift-import warning.
+Then regenerate both lockfiles and run a clean macOS build.
