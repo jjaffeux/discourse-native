@@ -42,9 +42,9 @@
   "components": [
     {
       "id": "direction",
-      "status": "planned",
+      "status": "queued",
       "taskId": null,
-      "branch": null,
+      "branch": "codex/ui-direction",
       "dependencies": [],
       "acceptanceCriteria": [],
       "decisions": [],
@@ -53,7 +53,8 @@
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "clientThreadId": "client-new-thread:3635cbd2-890f-40fc-9fa6-b36f824420b0"
     },
     {
       "id": "typography",

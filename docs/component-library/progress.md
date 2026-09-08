@@ -10,7 +10,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 | # | Component | Status | Task | Branch | Dependencies | Merge |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | direction | planned | — | — | — | — |
+| 1 | direction | queued | — | codex/ui-direction | — | — |
 | 2 | typography | planned | — | — | direction | — |
 | 3 | spinner | planned | — | — | — | — |
 | 4 | kbd | planned | — | — | typography | — |
@@ -114,6 +114,10 @@ Status: merged. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/compon
 
 - iOS and Linux devices were not run during the foundation phase. No new native platform dependency was introduced.
 - Baseline Button, Tooltip and Select are explicitly unfinished catalogue implementations; their full reference behavior and migrations belong to their upcoming tasks.
+
+### direction
+
+Status: queued. Task: —. Branch: codex/ui-direction.
 
 ### Final audit
 
