@@ -27,6 +27,13 @@ const _counter = PluginNotificationCounter(
   ),
   wireName: 'test_alerts',
 );
+const _otherCounter = PluginNotificationCounter(
+  id: PluginNotificationCounterId(
+    owner: PluginId('test-plugin'),
+    name: 'other-alerts',
+  ),
+  wireName: 'other_test_alerts',
+);
 
 String _dismissChatConfirmation(int unreadCount) =>
     'Mark $unreadCount chat notifications as read?';
@@ -282,6 +289,7 @@ AccountActivityController _controller(
   SiteLifecycle? lifecycle,
   TotalsLoaded? onTotalsLoaded,
   TotalsChanged? onTotalsChanged,
+  GroupedUnreadAuthorityAdvanced? onGroupedUnreadAuthorityAdvanced,
   Duration minimumRefreshInterval = const Duration(minutes: 5),
   DateTime Function()? clock,
 }) => AccountActivityController(
@@ -290,6 +298,7 @@ AccountActivityController _controller(
   lifecycle: lifecycle ?? SiteLifecycle(),
   onTotalsLoaded: onTotalsLoaded,
   onTotalsChanged: onTotalsChanged,
+  onGroupedUnreadAuthorityAdvanced: onGroupedUnreadAuthorityAdvanced,
   minimumRefreshInterval: minimumRefreshInterval,
   clock: clock,
 );
@@ -893,6 +902,382 @@ void main() {
   });
 
   group('totals refresh lifecycle', () {
+    for (final changesAwayFirst in [false, true]) {
+      test(
+        'a ${changesAwayFirst ? 'returning' : 'repeated'} live snapshot supersedes an older totals response',
+        () async {
+          final gate = Completer<NotificationTotals>();
+          final api = _GatedTotalsApi([gate]);
+          final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+          final loaded = <NotificationTotals>[];
+          final controller = _controller(
+            api,
+            credentials,
+            onTotalsLoaded: (_, totals) => loaded.add(totals),
+          );
+          addTearDown(controller.dispose);
+          controller.restoreTotals(
+            _siteUrl,
+            NotificationTotals(
+              unreadNotifications: 1,
+              unreadPersonalMessages: 2,
+              groupedUnreadNotifications: NotificationTypeCounts.fromWire(
+                const {'2': 1},
+              ),
+            ),
+          );
+          var publications = 0;
+          controller.totalsListenable.addListener(() => publications++);
+
+          final loading = controller.refresh(_connectedInstance());
+          await api.firstStarted.future;
+          if (changesAwayFirst) {
+            controller.applyLiveNotificationState(_siteUrl, const {
+              'all_unread_notifications_count': 7,
+              'new_personal_messages_notifications_count': 4,
+              'grouped_unread_notifications': {'2': 3},
+            });
+          }
+          controller.applyLiveNotificationState(_siteUrl, const {
+            'all_unread_notifications_count': 3,
+            'new_personal_messages_notifications_count': 2,
+            'grouped_unread_notifications': {'2': 1},
+          });
+          expect(publications, changesAwayFirst ? 2 : 0);
+          gate.complete(
+            NotificationTotals(
+              unreadNotifications: 5,
+              unseenReviewables: 9,
+              topicTrackingUnread: 7,
+              username: 'sam',
+              groupedUnreadNotifications: NotificationTypeCounts.fromWire(
+                const {'2': 5},
+              ),
+              pluginCounters: PluginNotificationCounters.single(_counter),
+            ),
+          );
+          final result = (await loading)!;
+
+          expect(result.unreadNotifications, 1);
+          expect(result.unreadPersonalMessages, 2);
+          expect(
+            result.groupedUnreadNotifications.count(
+              CoreNotificationTypes.replied,
+            ),
+            1,
+          );
+          expect(result.unseenReviewables, 9);
+          expect(result.topicTrackingUnread, 7);
+          expect(result.username, 'sam');
+          expect(result.hasPluginCounter(_counter.id), isTrue);
+          expect(controller.totalsFor(_siteUrl), result);
+          expect(loaded, [result]);
+          expect(api._calls, 1);
+        },
+      );
+    }
+
+    for (final sample
+        in <
+          ({
+            String name,
+            void Function(AccountActivityController controller, int count)
+            apply,
+            (int, int, int, int) expected,
+          })
+        >[
+          (
+            name: 'aggregate-only notification',
+            apply: (controller, count) =>
+                controller.applyLiveNotificationState(_siteUrl, {
+                  'all_unread_notifications_count': count + 1,
+                  'new_personal_messages_notifications_count': 'invalid',
+                }),
+            expected: (1, 5, 5, 5),
+          ),
+          (
+            name: 'personal-only notification',
+            apply: (controller, count) =>
+                controller.applyLiveNotificationState(_siteUrl, {
+                  'all_unread_notifications_count': double.infinity,
+                  'new_personal_messages_notifications_count': '$count',
+                }),
+            expected: (5, 1, 5, 5),
+          ),
+          (
+            name: 'reviewable snapshot',
+            apply: (controller, count) => controller.applyReviewableCounts(
+              _siteUrl,
+              {'unseen_reviewable_count': count},
+            ),
+            expected: (5, 5, 1, 5),
+          ),
+          (
+            name: 'current-user grouped snapshot',
+            apply: (controller, count) => controller.applyGroupedUnreadSnapshot(
+              _siteUrl,
+              NotificationTypeCounts.fromWire({'2': count}),
+            ),
+            expected: (5, 5, 5, 1),
+          ),
+        ]) {
+      for (final changesAwayFirst in [false, true]) {
+        test(
+          '${sample.name} ${changesAwayFirst ? 'returning' : 'repeated'} confirmation preserves only its own totals field',
+          () async {
+            final gate = Completer<NotificationTotals>();
+            final api = _GatedTotalsApi([gate]);
+            final controller = _controller(
+              api,
+              FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+            );
+            addTearDown(controller.dispose);
+            controller.restoreTotals(
+              _siteUrl,
+              NotificationTotals(
+                unreadNotifications: 1,
+                unreadPersonalMessages: 1,
+                unseenReviewables: 1,
+                groupedUnreadNotifications: NotificationTypeCounts.fromWire(
+                  const {'2': 1},
+                ),
+              ),
+            );
+
+            final loading = controller.refresh(_connectedInstance());
+            await api.firstStarted.future;
+            if (changesAwayFirst) sample.apply(controller, 2);
+            sample.apply(controller, 1);
+            gate.complete(
+              NotificationTotals(
+                unreadNotifications: 5,
+                unreadPersonalMessages: 5,
+                unseenReviewables: 5,
+                groupedUnreadNotifications: NotificationTypeCounts.fromWire(
+                  const {'2': 5},
+                ),
+              ),
+            );
+            final result = (await loading)!;
+
+            expect((
+              result.unreadNotifications,
+              result.unreadPersonalMessages,
+              result.unseenReviewables,
+              result.groupedUnreadNotifications.count(
+                CoreNotificationTypes.replied,
+              ),
+            ), sample.expected);
+          },
+        );
+      }
+    }
+
+    test(
+      'zero confirmations before the first response retain their authority',
+      () async {
+        final gate = Completer<NotificationTotals>();
+        final api = _GatedTotalsApi([gate]);
+        final controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+        );
+        addTearDown(controller.dispose);
+
+        final loading = controller.refresh(_connectedInstance());
+        await api.firstStarted.future;
+        controller.applyLiveNotificationState(_siteUrl, const {
+          'all_unread_notifications_count': 0,
+          'new_personal_messages_notifications_count': 0,
+        });
+        controller.applyReviewableCounts(_siteUrl, const {
+          'unseen_reviewable_count': 0,
+        });
+        gate.complete(
+          const NotificationTotals(
+            unreadNotifications: 5,
+            unreadPersonalMessages: 5,
+            unseenReviewables: 5,
+            topicTrackingNew: 9,
+          ),
+        );
+        final result = (await loading)!;
+
+        expect(result.coreBadge, 0);
+        expect(result.topicTrackingNew, 9);
+      },
+    );
+
+    test(
+      'missing and malformed events do not supersede any response fields',
+      () async {
+        final gate = Completer<NotificationTotals>();
+        final api = _GatedTotalsApi([gate]);
+        final controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+        );
+        addTearDown(controller.dispose);
+
+        final loading = controller.refresh(_connectedInstance());
+        await api.firstStarted.future;
+        for (final event in <Object?>[
+          null,
+          'not an object',
+          const [],
+          const {},
+          const {'seen_notification_id': 3, 'reviewable_count': 9},
+          {
+            'all_unread_notifications_count': double.nan,
+            'new_personal_messages_notifications_count': 'invalid',
+            'grouped_unread_notifications': const <Object?>[],
+            'unseen_reviewable_count': false,
+          },
+        ]) {
+          controller.applyLiveNotificationState(_siteUrl, event);
+          controller.applyReviewableCounts(_siteUrl, event);
+        }
+        controller.applyGroupedUnreadSnapshot(
+          _siteUrl,
+          NotificationTypeCounts.unavailable,
+        );
+        expect(controller.totalsFor(_siteUrl), isNull);
+        final response = NotificationTotals(
+          unreadNotifications: 5,
+          unreadPersonalMessages: 2,
+          unseenReviewables: 9,
+          groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+            '2': 5,
+          }),
+        );
+        gate.complete(response);
+
+        expect(await loading, response);
+      },
+    );
+
+    for (final changesAwayFirst in [false, true]) {
+      for (final available in [false, true]) {
+        test(
+          'a ${changesAwayFirst ? 'returning' : 'repeated'} plugin update keeps response availability $available and independent counters',
+          () async {
+            final gate = Completer<NotificationTotals>();
+            final api = _GatedTotalsApi([gate]);
+            final controller = _controller(
+              api,
+              FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+            );
+            addTearDown(controller.dispose);
+            controller.restoreTotals(
+              _siteUrl,
+              NotificationTotals(
+                pluginCounters: PluginNotificationCounters.fromLive(
+                  const [_counter, _otherCounter],
+                  {if (!available) 'test_alerts': 2, 'other_test_alerts': 2},
+                ).update(_counter, (_) => 2),
+              ),
+            );
+
+            final loading = controller.refresh(_connectedInstance());
+            await api.firstStarted.future;
+            if (changesAwayFirst) {
+              controller.applyPluginCounter(_siteUrl, _counter, (_) => 3);
+            }
+            controller.applyPluginCounter(_siteUrl, _counter, (_) => 2);
+            gate.complete(
+              NotificationTotals(
+                pluginCounters: PluginNotificationCounters.fromLive(
+                  const [_counter, _otherCounter],
+                  {if (available) 'test_alerts': 5, 'other_test_alerts': 8},
+                ),
+              ),
+            );
+            final result = (await loading)!;
+
+            expect(result.pluginCounter(_counter.id), 2);
+            expect(result.hasPluginCounter(_counter.id), available);
+            expect(result.pluginCounter(_otherCounter.id), 8);
+            expect(result.hasPluginCounter(_otherCounter.id), isTrue);
+          },
+        );
+      }
+    }
+
+    test('a rejected plugin reducer does not supersede the response', () async {
+      final gate = Completer<NotificationTotals>();
+      final api = _GatedTotalsApi([gate]);
+      final controller = _controller(
+        api,
+        FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+      );
+      addTearDown(controller.dispose);
+      controller.restoreTotals(_siteUrl, const NotificationTotals());
+
+      final loading = controller.refresh(_connectedInstance());
+      await api.firstStarted.future;
+      expect(
+        () => controller.applyPluginCounter(
+          _siteUrl,
+          _counter,
+          (_) => throw StateError('invalid update'),
+        ),
+        throwsStateError,
+      );
+      final response = NotificationTotals(
+        pluginCounters: PluginNotificationCounters.single(_counter, count: 5),
+      );
+      gate.complete(response);
+
+      expect(await loading, response);
+    });
+
+    test(
+      'fold updates that return to their original values remain newer than a response',
+      () async {
+        final gate = Completer<NotificationTotals>();
+        final api = _GatedTotalsApi([gate]);
+        final controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+        );
+        addTearDown(controller.dispose);
+        controller.restoreTotals(_siteUrl, const NotificationTotals());
+
+        final loading = controller.refresh(_connectedInstance());
+        await api.firstStarted.future;
+        for (final count in [3, 0]) {
+          controller.applyCounts(
+            _siteUrl,
+            (held) => held.copyWith(
+              unreadNotifications: count,
+              unseenReviewables: count,
+              pluginCounters: PluginNotificationCounters.single(
+                _counter,
+                count: count,
+              ),
+            ),
+          );
+        }
+        gate.complete(
+          NotificationTotals(
+            unreadNotifications: 5,
+            unreadPersonalMessages: 2,
+            unseenReviewables: 5,
+            pluginCounters: PluginNotificationCounters.single(
+              _counter,
+              count: 5,
+            ),
+          ),
+        );
+        final result = (await loading)!;
+
+        expect(result.unreadNotifications, 0);
+        expect(result.unreadPersonalMessages, 2);
+        expect(result.unseenReviewables, 0);
+        expect(result.pluginCounter(_counter.id), 0);
+      },
+    );
+
     test('ordinary overlapping totals refreshes share one request', () async {
       final first = Completer<NotificationTotals>();
       final api = _GatedTotalsApi([first]);
@@ -914,6 +1299,88 @@ void main() {
       expect(api._calls, 1);
       expect(controller.totalsFor(_siteUrl)?.unreadNotifications, 1);
     });
+
+    test(
+      'a queued forced response can supersede earlier live confirmations',
+      () async {
+        final first = Completer<NotificationTotals>();
+        final second = Completer<NotificationTotals>();
+        final api = _GatedTotalsApi([first, second]);
+        final controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+        );
+        addTearDown(controller.dispose);
+
+        final initial = controller.refresh(_connectedInstance());
+        await api.firstStarted.future;
+        controller.applyLiveNotificationState(_siteUrl, const {
+          'all_unread_notifications_count': 0,
+        });
+        final forced = controller.refresh(_connectedInstance(), force: true);
+        first.complete(const NotificationTotals(unreadNotifications: 5));
+        expect((await initial)!.unreadNotifications, 0);
+        await api.secondStarted.future;
+        second.complete(const NotificationTotals(unreadNotifications: 7));
+
+        expect((await forced)!.unreadNotifications, 7);
+        expect(api._calls, 2);
+      },
+    );
+
+    test(
+      'retired totals and authority cannot replace a new account request',
+      () async {
+        final first = Completer<NotificationTotals>();
+        final second = Completer<NotificationTotals>();
+        final api = _GatedTotalsApi([first, second]);
+        final lifecycle = SiteLifecycle();
+        final loaded = <NotificationTotals>[];
+        final controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+          lifecycle: lifecycle,
+          onTotalsLoaded: (_, totals) => loaded.add(totals),
+        );
+        addTearDown(controller.dispose);
+
+        final retired = controller.refresh(_connectedInstance());
+        await api.firstStarted.future;
+        controller.applyLiveNotificationState(_siteUrl, const {
+          'all_unread_notifications_count': 0,
+          'grouped_unread_notifications': <String, int>{},
+        });
+        controller.applyReviewableCounts(_siteUrl, const {
+          'unseen_reviewable_count': 0,
+        });
+        controller.applyPluginCounter(_siteUrl, _counter, (_) => 0);
+        lifecycle.invalidate(_siteUrl);
+        controller.forget(_siteUrl);
+
+        final replacement = controller.refresh(_connectedInstance());
+        await api.secondStarted.future;
+        first.complete(const NotificationTotals(unreadNotifications: 99));
+        expect(await retired, isNull);
+        expect(controller.totalsFor(_siteUrl), isNull);
+        expect(loaded, isEmpty);
+        final joined = controller.refresh(_connectedInstance());
+        final response = NotificationTotals(
+          unreadNotifications: 5,
+          unseenReviewables: 9,
+          groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+            '2': 5,
+          }),
+          pluginCounters: PluginNotificationCounters.single(_counter, count: 5),
+        );
+        second.complete(response);
+
+        expect(await replacement, response);
+        expect(await joined, response);
+        expect(controller.totalsFor(_siteUrl), response);
+        expect(loaded, [response]);
+        expect(api._calls, 2);
+      },
+    );
 
     test(
       'a forced refresh queues one reconciliation behind an active one',
@@ -1060,6 +1527,170 @@ void main() {
   });
 
   group('mark-read reconciliation', () {
+    test(
+      'an accepted equal grouped totals response supersedes an older failed read',
+      () async {
+        final api = _GatedTotalsFailedReadApi(
+          response: const NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.empty,
+          ),
+        );
+        final controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+        );
+        addTearDown(controller.dispose);
+        controller.restoreTotals(
+          _siteUrl,
+          NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '2': 1,
+            }),
+          ),
+        );
+        final connected = _connectedInstance();
+        await controller.loadNotifications(connected);
+        controller.readNotification(connected, _notification);
+        await api.readStarted.future;
+
+        final loading = controller.refresh(connected);
+        await api.totalsStarted.future;
+        api.totalsGate.complete();
+        await loading;
+        api.readGate.complete();
+        await api.readFailed.future;
+        await pumpEventQueue();
+
+        expect(
+          controller.totalsFor(_siteUrl)!.groupedUnreadNotifications,
+          NotificationTypeCounts.empty,
+        );
+        expect(
+          controller.notificationsFor(_siteUrl).notifications.single.isUnread,
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'successful dismissal at zero supersedes an older grouped totals response',
+      () async {
+        final first = Completer<NotificationTotals>();
+        final second = Completer<NotificationTotals>();
+        final api = _GatedTotalsApi([
+          first,
+          second,
+        ], chatNotificationList: const []);
+        final confirmed = Completer<void>();
+        var boundaries = 0;
+        final controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+          onGroupedUnreadAuthorityAdvanced: (_) {
+            if (++boundaries == 2) confirmed.complete();
+          },
+        );
+        addTearDown(controller.dispose);
+        controller.restoreTotals(
+          _siteUrl,
+          const NotificationTotals(
+            groupedUnreadNotifications: NotificationTypeCounts.empty,
+          ),
+        );
+
+        final loading = controller.refresh(_connectedInstance());
+        await api.firstStarted.future;
+        final dismissing = controller.dismissPluginNotifications(
+          _connectedInstance(),
+          _dismissibleChatFeed,
+        );
+        await confirmed.future;
+        first.complete(
+          NotificationTotals(
+            unseenReviewables: 9,
+            groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
+              '29': 5,
+            }),
+          ),
+        );
+        final result = (await loading)!;
+
+        expect(result.groupedUnreadNotifications, NotificationTypeCounts.empty);
+        expect(result.unseenReviewables, 9);
+        await api.secondStarted.future;
+        second.complete(const NotificationTotals(unseenReviewables: 9));
+        await dismissing;
+        expect(controller.totalsFor(_siteUrl), result);
+      },
+    );
+
+    for (final totalsFirst in [false, true]) {
+      test(
+        'an older grouped totals response ${totalsFirst ? 'before' : 'after'} failed read rollback preserves the local count',
+        () async {
+          final api = _GatedTotalsFailedReadApi(
+            response: NotificationTotals(
+              unseenReviewables: 9,
+              groupedUnreadNotifications: NotificationTypeCounts.fromWire(
+                const {'2': 5},
+              ),
+            ),
+          );
+          final controller = _controller(
+            api,
+            FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+          );
+          addTearDown(controller.dispose);
+          final connected = _connectedInstance();
+          controller.restoreTotals(
+            _siteUrl,
+            NotificationTotals(
+              groupedUnreadNotifications: NotificationTypeCounts.fromWire(
+                const {'2': 1},
+              ),
+            ),
+          );
+          await controller.loadNotifications(connected);
+
+          final loading = controller.refresh(connected);
+          await api.totalsStarted.future;
+          controller.readNotification(connected, _notification);
+          await api.readStarted.future;
+          if (totalsFirst) {
+            api.totalsGate.complete();
+            await loading;
+            expect(
+              controller
+                  .totalsFor(_siteUrl)!
+                  .groupedUnreadNotifications
+                  .count(CoreNotificationTypes.replied),
+              0,
+            );
+          }
+          api.readGate.complete();
+          await api.readFailed.future;
+          await pumpEventQueue();
+          if (!totalsFirst) {
+            api.totalsGate.complete();
+            await loading;
+          }
+
+          final result = controller.totalsFor(_siteUrl)!;
+          expect(
+            result.groupedUnreadNotifications.count(
+              CoreNotificationTypes.replied,
+            ),
+            1,
+          );
+          expect(result.unseenReviewables, 9);
+          expect(
+            controller.notificationsFor(_siteUrl).notifications.single.isUnread,
+            isTrue,
+          );
+        },
+      );
+    }
+
     test(
       'typed plugin dismissal marks cached rows and clears declared grouped counts',
       () async {
@@ -1702,7 +2333,7 @@ void main() {
     test(
       'an unavailable first totals response does not suppress failed row rollback',
       () async {
-        final api = _UnavailableTotalsFailedReadApi();
+        final api = _GatedTotalsFailedReadApi();
         final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
         final controller = _controller(api, credentials);
         addTearDown(controller.dispose);
@@ -2562,10 +3193,12 @@ final class _GatedFailedReadApi extends _AccountApi {
   }
 }
 
-final class _UnavailableTotalsFailedReadApi extends _AccountApi {
-  _UnavailableTotalsFailedReadApi()
-    : super(notificationList: const [_notification]);
+final class _GatedTotalsFailedReadApi extends _AccountApi {
+  _GatedTotalsFailedReadApi({
+    this.response = const NotificationTotals(unreadNotifications: 7),
+  }) : super(notificationList: const [_notification]);
 
+  final NotificationTotals response;
   final Completer<void> totalsStarted = Completer<void>();
   final Completer<void> totalsGate = Completer<void>();
   final Completer<void> readStarted = Completer<void>();
@@ -2580,7 +3213,7 @@ final class _UnavailableTotalsFailedReadApi extends _AccountApi {
   }) async {
     totalsStarted.complete();
     await totalsGate.future;
-    return const NotificationTotals(unreadNotifications: 7);
+    return response;
   }
 
   @override
@@ -2686,7 +3319,7 @@ final class _GatedBulkDismissApi extends _AccountApi {
 }
 
 final class _GatedTotalsApi extends _AccountApi {
-  _GatedTotalsApi(this._answers);
+  _GatedTotalsApi(this._answers, {super.chatNotificationList});
 
   final List<Completer<NotificationTotals>> _answers;
   final Completer<void> firstStarted = Completer<void>();

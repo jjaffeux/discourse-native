@@ -3460,10 +3460,7 @@ class ShellController extends FrameSafeNotifier
       final bootstrapState = bootstrap?.currentUserState;
       if (bootstrapState != null) {
         _acceptLiveNotificationState(siteUrl, bootstrapState, lease);
-        _applyCounts(
-          siteUrl,
-          (held) => held.withReviewableCounts(bootstrapState),
-        );
+        accountActivity.applyReviewableCounts(siteUrl, bootstrapState);
       }
 
       final trackingUsername = apiKey == null
@@ -3513,10 +3510,7 @@ class ShellController extends FrameSafeNotifier
           onNotifications: (data) =>
               commit(() => _acceptLiveNotificationState(siteUrl, data, lease)),
           onReviewableCounts: (data) => commit(
-            () => _applyCounts(
-              siteUrl,
-              (held) => held.withReviewableCounts(data),
-            ),
+            () => accountActivity.applyReviewableCounts(siteUrl, data),
           ),
         );
       } catch (error, stackTrace) {
@@ -4047,11 +4041,6 @@ class ShellController extends FrameSafeNotifier
     }
     return accepted ? committedUser : null;
   }
-
-  void _applyCounts(
-    String siteUrl,
-    NotificationTotals Function(NotificationTotals held) fold,
-  ) => accountActivity.applyCounts(siteUrl, fold);
 
   void _applyUserDraftsMessage(String siteUrl, Object? data) {
     if (data is! Map<Object?, Object?>) return;

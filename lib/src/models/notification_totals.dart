@@ -4,6 +4,13 @@ import '../plugin_api/notification_counters.dart';
 import 'json.dart';
 import 'notification_type_counts.dart';
 
+enum NotificationTotalsField {
+  unreadNotifications,
+  unreadPersonalMessages,
+  unseenReviewables,
+  groupedUnreadNotifications,
+}
+
 @immutable
 class NotificationTotals {
   const NotificationTotals({
@@ -152,22 +159,34 @@ class NotificationTotals {
     required NotificationTotals response,
     required NotificationTotals before,
     required NotificationTotals live,
+    Set<NotificationTotalsField> updatedFields = const {},
+    Set<PluginNotificationCounterId> updatedPluginCounters = const {},
   }) => NotificationTotals(
-    unreadNotifications: live.unreadNotifications != before.unreadNotifications
+    unreadNotifications:
+        updatedFields.contains(NotificationTotalsField.unreadNotifications) ||
+            live.unreadNotifications != before.unreadNotifications
         ? live.unreadNotifications
         : response.unreadNotifications,
     unreadPersonalMessages:
-        live.unreadPersonalMessages != before.unreadPersonalMessages
+        updatedFields.contains(
+              NotificationTotalsField.unreadPersonalMessages,
+            ) ||
+            live.unreadPersonalMessages != before.unreadPersonalMessages
         ? live.unreadPersonalMessages
         : response.unreadPersonalMessages,
-    unseenReviewables: live.unseenReviewables != before.unseenReviewables
+    unseenReviewables:
+        updatedFields.contains(NotificationTotalsField.unseenReviewables) ||
+            live.unseenReviewables != before.unseenReviewables
         ? live.unseenReviewables
         : response.unseenReviewables,
     topicTrackingUnread: response.topicTrackingUnread,
     topicTrackingNew: response.topicTrackingNew,
     username: response.username,
     groupedUnreadNotifications:
-        live.groupedUnreadNotifications != before.groupedUnreadNotifications
+        updatedFields.contains(
+              NotificationTotalsField.groupedUnreadNotifications,
+            ) ||
+            live.groupedUnreadNotifications != before.groupedUnreadNotifications
         ? live.groupedUnreadNotifications
         : response.groupedUnreadNotifications.isAvailable
         ? response.groupedUnreadNotifications
@@ -176,6 +195,7 @@ class NotificationTotals {
       response: response.pluginCounters,
       before: before.pluginCounters,
       live: live.pluginCounters,
+      updatedCounters: updatedPluginCounters,
     ),
   );
 

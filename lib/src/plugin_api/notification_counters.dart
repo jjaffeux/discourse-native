@@ -146,6 +146,8 @@ final class PluginNotificationCounters {
   PluginNotificationCounterState? state(PluginNotificationCounterId id) =>
       _states[id];
 
+  Iterable<PluginNotificationCounterId> get ids => _states.keys;
+
   int count(PluginNotificationCounterId id) => _states[id]?.count ?? 0;
 
   bool isAvailable(PluginNotificationCounterId id) =>
@@ -180,12 +182,13 @@ final class PluginNotificationCounters {
     return _from(states, _preservedNamespaces);
   }
 
-  /// Response presence is authoritative. A count changed since [before]
-  /// remains live; otherwise the response wins.
+  /// Response presence is authoritative. Counts updated since [before] remain
+  /// live, including equal confirmations recorded in [updatedCounters].
   static PluginNotificationCounters mergeRefresh({
     required PluginNotificationCounters response,
     required PluginNotificationCounters before,
     required PluginNotificationCounters live,
+    Set<PluginNotificationCounterId> updatedCounters = const {},
   }) {
     final states =
         <PluginNotificationCounterId, PluginNotificationCounterState>{};
@@ -195,7 +198,9 @@ final class PluginNotificationCounters {
       final liveCount = live.count(id);
       states[id] = PluginNotificationCounterState(
         counter: responseState.counter,
-        count: liveCount != beforeCount ? liveCount : responseState.count,
+        count: updatedCounters.contains(id) || liveCount != beforeCount
+            ? liveCount
+            : responseState.count,
         available: responseState.available,
       );
     }
