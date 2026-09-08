@@ -181,7 +181,7 @@
         "iOS and Linux devices were not run; target-platform widget tests do not substitute for device testing. flutter devices listed macOS 26.6.2 (darwin-arm64), Chrome and a wireless iPhone on iOS 26.6; no Linux device was available. The wireless phone was not used or modified. VoiceOver spoken output and authenticated app screens have not been inspected. The earlier macOS visual/keyboard evidence predates the shadcn artwork correction. Refreshed fidelity inspection and the native accessibility crash comparison remain pending.",
         "A temporary-only WidgetsBinding.ensureSemantics diagnostic, added to expose native AX nodes, triggered SIGSEGV in Flutter AccessibilityBridge::CreateRemoveReparentedNodesUpdate while switching Size/customization to the temporary Migration fixtures under Plum/360px/200%/RTL/reduced motion. Raw report preserved in build/component-library/spinner-native/new-spinner-forced-semantics-crash.ips; normal lifecycle repeat of the same transition was stable. The stack alone does not establish root cause. Coordinator requested a bounded pre-migration comparison before review_ready, prepared and successfully built offline as Spinner Baseline.app with base 5fd6658b UserMenuMessage/GifPicker/DButton sources and a bare native-indicator compatibility shim; awaiting the coordinator follow-up slot. Native AX exposed text fields and popup menu labels, not Spinner status nodes; VoiceOver speech remains unverified."
       ],
-      "implementationCommit": "15f1d884821c68e33589c41069fe05fc71405c07",
+      "implementationCommit": "07ee175c9303ebaa86d0a325aba45ce74dbd8322",
       "mergeCommit": null
     },
     {
