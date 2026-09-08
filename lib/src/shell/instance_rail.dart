@@ -59,7 +59,7 @@ class InstanceRail extends StatelessWidget {
                       ),
                     ),
                     SizedBox(
-                      width: 28,
+                      width: 24,
                       child: Divider(
                         height: 1,
                         color: theme.shell.railForeground.withValues(
@@ -123,12 +123,12 @@ class InstanceRail extends StatelessWidget {
 }
 
 const double _railListPadding = 8;
-const double _railItemExtent = 48;
+const double _railItemExtent = 44;
 const double _railControlExtent = 44;
-const double _railVisualSize = 36;
-const double _railAddVisualSize = 38;
-const double _railIconSize = 18;
-const double _railSelectedMarkerHeight = 32;
+const double _railVisualSize = 32;
+const double _railAddVisualSize = 34;
+const double _railIconSize = 16;
+const double _railSelectedMarkerHeight = 28;
 const double _railHoveredMarkerHeight = 16;
 const double _railIdleMarkerHeight = 8;
 const double _railAvatarSize = _railVisualSize;
@@ -418,7 +418,10 @@ class _InstanceRailListState extends State<_InstanceRailList> {
               data: instance.url,
               enabled: _draggedUrl == null || _draggedUrl == instance.url,
               feedback: Transform.translate(
-                offset: const Offset(-18, -48),
+                offset: const Offset(
+                  -_railAvatarSize / 2,
+                  -_railAvatarSize - 12,
+                ),
                 child: feedback,
               ),
               onDragStarted: () => _startDrag(
@@ -444,7 +447,7 @@ class _InstanceRailListState extends State<_InstanceRailList> {
           : 0,
       dragAnchorStrategy: pointerDragAnchorStrategy,
       feedback: Transform.translate(
-        offset: const Offset(-18, -18),
+        offset: const Offset(-_railAvatarSize / 2, -_railAvatarSize / 2),
         child: feedback,
       ),
       onDragStarted: () =>
@@ -894,7 +897,7 @@ class _AggregateRailButtonState extends State<_AggregateRailButton> {
                           ? foreground
                           : foreground.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(
-                        widget.selected || _hovered ? 12 : 18,
+                        widget.selected || _hovered ? 10 : _railVisualSize / 2,
                       ),
                     ),
                     child: DIcon(
@@ -1044,7 +1047,9 @@ class _SettingsButtonState extends State<_SettingsButton> {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: foreground.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(_hovered ? 12 : 18),
+                        borderRadius: BorderRadius.circular(
+                          _hovered ? 10 : _railVisualSize / 2,
+                        ),
                       ),
                       child: DIcon(
                         DIcons.gear,
@@ -1120,7 +1125,9 @@ class _DiagnosticsButton extends StatelessWidget {
                                   alpha: 0.16,
                                 )
                               : Colors.transparent,
-                          borderRadius: BorderRadius.circular(open ? 12 : 18),
+                          borderRadius: BorderRadius.circular(
+                            open ? 10 : _railVisualSize / 2,
+                          ),
                         ),
                         child: DIcon(
                           DIcons.bug,
@@ -1246,12 +1253,14 @@ class _UpdateButton extends StatelessWidget {
                         color: filled
                             ? color.withValues(alpha: 0.14)
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(
+                          _railVisualSize / 2,
+                        ),
                       ),
                       child: updates.status == UpdateStatus.downloading
                           ? SizedBox(
-                              width: 18,
-                              height: 18,
+                              width: _railIconSize,
+                              height: _railIconSize,
                               child: CircularProgressIndicator(
                                 value: updates.progress,
                                 strokeWidth: 2,
@@ -1819,7 +1828,9 @@ class _InstanceAvatar extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(selected ? 12 : 18),
+        borderRadius: BorderRadius.circular(
+          selected ? 10 : _railVisualSize / 2,
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: Center(

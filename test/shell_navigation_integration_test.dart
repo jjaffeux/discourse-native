@@ -1281,13 +1281,13 @@ void _registerShellNavigationTests() {
 
       expect(tester.getSize(add), const Size.square(44));
       expect(tester.widget<InkWell>(add).mouseCursor, SystemMouseCursors.click);
-      expect(tester.getSize(outline), const Size.square(38));
+      expect(tester.getSize(outline), const Size.square(34));
       expect(tester.getCenter(add).dx, tester.getCenter(lastForum).dx);
       expect(
         tester.getCenter(lastForum).dy - tester.getCenter(firstForum).dy,
-        48,
+        44,
       );
-      expect(tester.getCenter(add).dy - tester.getCenter(lastForum).dy, 48);
+      expect(tester.getCenter(add).dy - tester.getCenter(lastForum).dy, 44);
       expect(
         outline,
         paints
@@ -1332,7 +1332,7 @@ void _registerShellNavigationTests() {
 
     final selected = twoSites.first;
     final inactive = twoSites.last;
-    expect(targetHeight(selected), 32);
+    expect(targetHeight(selected), 28);
     expect(targetHeight(inactive), 8);
     expect(marker(inactive).duration, const Duration(milliseconds: 180));
     expect(marker(inactive).curve, Curves.easeOutCubic);
@@ -1362,14 +1362,14 @@ void _registerShellNavigationTests() {
     await tester.pump();
 
     expect(targetHeight(selected), 8);
-    expect(targetHeight(inactive), 32);
+    expect(targetHeight(inactive), 28);
     await tester.pumpAndSettle();
     expect(tester.getSize(indicator(selected)).height, 8);
-    expect(tester.getSize(indicator(inactive)).height, 32);
+    expect(tester.getSize(indicator(inactive)).height, 28);
 
     await gesture.moveTo(Offset.zero);
     await tester.pumpAndSettle();
-    expect(tester.getSize(indicator(inactive)).height, 32);
+    expect(tester.getSize(indicator(inactive)).height, 28);
   });
 
   testWidgets('shows custom sidebar sections and opens their links', (
@@ -2834,14 +2834,14 @@ void _registerShellNavigationTests() {
 
         final indicator = find.byKey(dropIndicator);
         expect(indicator, findsOneWidget);
-        expect(tester.getSize(indicator), const Size(46, 8));
+        expect(tester.getSize(indicator), const Size(38, 8));
         expect(
           tester.getRect(indicator).center.dy,
           closeTo(targetRect.top, 0.1),
         );
         final line = find.byKey(dropIndicatorLine);
         final pin = find.byKey(dropIndicatorPin);
-        expect(tester.getSize(line), const Size(38, 2));
+        expect(tester.getSize(line), const Size(30, 2));
         expect(tester.getSize(pin), const Size.square(8));
         expect(
           tester.getRect(pin).left -

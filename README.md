@@ -2735,7 +2735,8 @@ The integration test exercises platform keychain persistence on a real device.
 
 The app frame follows Discord's shape. The **instance rail** on the far left is
 present at every window size, including phones; everything to its right changes
-with the available width.
+with the available width. The rail is 48px wide, with 32px forum icons inside
+44px click targets.
 
 | Layout     | Width    | Columns                                       |
 | ---------- | -------- | --------------------------------------------- |
