@@ -145,6 +145,85 @@ void main() {
       expect(expanded.dy + 160, 172);
     });
 
+    test('prefers above and falls below when there is not enough room', () {
+      for (final anchorTop in [40.0, 300.0]) {
+        final layout = AnchoredLayout(
+          anchor: Rect.fromLTWH(40, anchorTop, 120, 20),
+          maxWidth: 300,
+          preferAbove: true,
+        );
+        expect(
+          layout.getPositionForChild(
+            const Size(800, 600),
+            const Size(200, 100),
+          ),
+          Offset(40, anchorTop == 40 ? 68 : 192),
+        );
+      }
+    });
+
+    for (final anchorTop in [-300.0, 750.0]) {
+      for (final preferAbove in [false, true]) {
+        for (final keepPreferredPlacement in [false, true]) {
+          test('clamps an offscreen anchor at $anchorTop '
+              '(preferAbove: $preferAbove, '
+              'keepPreferredPlacement: $keepPreferredPlacement)', () {
+            const viewport = Size(800, 480);
+            final layout = AnchoredLayout(
+              anchor: Rect.fromLTWH(40, anchorTop, 120, 20),
+              maxWidth: 300,
+              preferAbove: preferAbove,
+              keepPreferredPlacement: keepPreferredPlacement,
+            );
+            final constraints = layout.getConstraintsForChild(
+              BoxConstraints.tight(viewport),
+            );
+            final childSize = constraints.constrain(const Size(200, 200));
+
+            expect(
+              layout.getPositionForChild(viewport, childSize),
+              Offset(40, anchorTop < 0 ? 12 : 268),
+            );
+            expect(
+              childSize.height,
+              anchorTop < 0 && preferAbove && keepPreferredPlacement ? 0 : 200,
+            );
+          });
+        }
+      }
+    }
+
+    test('keeps constraints and clamp ranges valid in tiny viewports', () {
+      for (final viewport in [
+        Size.zero,
+        const Size(10, 10),
+        const Size(24, 24),
+      ]) {
+        for (final anchorTop in [-300.0, 750.0]) {
+          for (final preferAbove in [false, true]) {
+            for (final keepPreferredPlacement in [false, true]) {
+              final layout = AnchoredLayout(
+                anchor: Rect.fromLTWH(40, anchorTop, 120, 20),
+                maxWidth: 300,
+                preferAbove: preferAbove,
+                keepPreferredPlacement: keepPreferredPlacement,
+              );
+              final constraints = layout.getConstraintsForChild(
+                BoxConstraints.tight(viewport),
+              );
+
+              expect(constraints.isNormalized, isTrue);
+              expect(constraints.biggest, Size.zero);
+              expect(
+                layout.getPositionForChild(viewport, constraints.biggest),
+                const Offset(12, 12),
+              );
+            }
+          }
+        }
+      }
+    });
+
     test('slides along the edge rather than past it', () {
       const layout = AnchoredLayout(
         anchor: Rect.fromLTWH(700, 100, 80, 20),

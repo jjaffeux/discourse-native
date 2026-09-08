@@ -240,4 +240,87 @@ void main() {
 
     expect(tester.getRect(picker), loadingRect);
   });
+
+  testWidgets('keeps an open desktop picker visible after the window shrinks', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 900);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    String? selected;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 60, bottom: 40),
+              child: Builder(
+                builder: (context) => FilledButton(
+                  onPressed: () async {
+                    selected = await showAnchoredPicker<String>(
+                      context: context,
+                      title: 'Picker',
+                      barrierLabel: 'Dismiss picker',
+                      popoverKey: const ValueKey('resized-popover'),
+                      builder: (routeContext) => Column(
+                        children: [
+                          AnchoredPickerOption(
+                            title: const Text('First choice'),
+                            onTap: () =>
+                                Navigator.of(routeContext).pop('first'),
+                          ),
+                          const SizedBox(height: 160),
+                          AnchoredPickerOption(
+                            title: const Text('Last choice'),
+                            onTap: () => Navigator.of(routeContext).pop('last'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final anchor = tester.getRect(find.widgetWithText(FilledButton, 'Open'));
+    expect(anchor.top, greaterThan(480));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final picker = find.byKey(const ValueKey('resized-popover'));
+    final pickerElement = tester.element(picker);
+    expect(tester.getRect(picker).bottom, anchor.top - 4);
+
+    tester.view.physicalSize = const Size(1000, 480);
+    await tester.pumpAndSettle();
+
+    expect(tester.element(picker), same(pickerElement));
+    final bounds = tester.getRect(picker);
+    expect(bounds.left, greaterThanOrEqualTo(10));
+    expect(bounds.right, lessThanOrEqualTo(990));
+    expect(bounds.top, greaterThanOrEqualTo(10));
+    expect(bounds.bottom, lessThanOrEqualTo(470));
+    for (final title in ['First choice', 'Last choice']) {
+      final option = find.widgetWithText(ListTile, title);
+      final optionBounds = tester.getRect(option);
+      expect(optionBounds.top, greaterThanOrEqualTo(bounds.top));
+      expect(optionBounds.bottom, lessThanOrEqualTo(bounds.bottom));
+      expect(option.hitTestable(), findsOneWidget);
+    }
+
+    await tester.tap(find.text('Last choice'));
+    await tester.pumpAndSettle();
+    expect(selected, 'last');
+    expect(picker, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
