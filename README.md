@@ -2242,6 +2242,9 @@ href with `.json` appended to its path, retaining query filters such as
 category's slug path is arbitrarily deep, and a tag with no slug is written
 `/tag/12-tag/12`. Path suffixes such as `/c/x/5/l/top` still fall back to the
 browser; query filters stay part of the native feed and its saved route.
+Slug-only category routes resolve their category ID from the site's category
+data so the category and tag dropdowns show the current selection. Changing
+either dropdown keeps additional query filters such as status and assignment.
 
 ### Mentions and hashtags
 

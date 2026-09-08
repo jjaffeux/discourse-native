@@ -7,6 +7,7 @@ import 'badge_route.dart';
 import 'group_route.dart';
 import 'list_link.dart';
 import 'sidebar.dart';
+import 'topic.dart';
 
 enum TopPeriod {
   all('all', 'All time'),
@@ -361,6 +362,75 @@ class ContentRoute {
 
   bool get isGroup => !isTopic && groupRoute?.isDetail == true;
 
+  ListLink? get _listLink {
+    final uri = Uri.tryParse(feedPath ?? '');
+    if (uri == null || !uri.path.endsWith('.json')) return null;
+    return ListLink.parse(_withoutJson(uri.path));
+  }
+
+  ContentRoute resolveCategoryLink(Iterable<TopicCategory> categories) {
+    final link = _listLink;
+    if (link?.kind != ListKind.category || link!.id != null) return this;
+    final slug = link.slug.toLowerCase();
+    final encodedSlug = Uri.encodeComponent(slug).toLowerCase();
+    final category = categories.where((category) {
+      if (category.parentCategoryId != null) return false;
+      final candidate = category.slug.isEmpty
+          ? '${category.id}-category'
+          : category.slug.toLowerCase();
+      return candidate == slug || candidate == encodedSlug;
+    }).firstOrNull;
+    if (category == null) return this;
+
+    final uri = Uri.parse(feedPath!);
+    final path = Uri(
+      pathSegments: ['', 'c', link.slug, '${category.id}.json'],
+      query: uri.hasQuery ? uri.query : null,
+    );
+    // Keep the feed identity and scroll anchors while its category metadata
+    // becomes available, including when the original request is in flight.
+    return _withFeedPath(
+      path.toString(),
+      color: color ?? Color(category.colorValue),
+    );
+  }
+
+  ContentRoute withTopicListQueryFrom(ContentRoute? source) {
+    final query = {...?Uri.tryParse(source?.feedPath ?? '')?.queryParametersAll}
+      ..removeWhere(
+        (key, _) => const {
+          'category',
+          'tags[]',
+          'match_all_tags',
+          'period',
+          'subset',
+          'page',
+        }.contains(key),
+      );
+    if (query.isEmpty) return this;
+    final uri = Uri.parse(feedPath ?? '/latest.json');
+    final path = uri
+        .replace(queryParameters: {...query, ...uri.queryParametersAll})
+        .toString();
+    return _withFeedPath(path, id: 'topic-list-filter-$path');
+  }
+
+  ContentRoute _withFeedPath(String path, {String? id, Color? color}) =>
+      ContentRoute(
+        id: id ?? this.id,
+        title: title,
+        icon: icon,
+        subtitle: subtitle,
+        color: color ?? this.color,
+        topicId: topicId,
+        slug: slug,
+        postNumber: postNumber,
+        feedPath: path,
+        messageGroupName: messageGroupName,
+        groupRoute: groupRoute,
+        badgeRoute: badgeRoute,
+      );
+
   int? get categoryId {
     final path = feedPath;
     if (path == null) return null;
@@ -375,9 +445,7 @@ class ContentRoute {
       if (categoryIndex < 2) return null;
       return int.tryParse(segments[categoryIndex]);
     }
-    final link = ListLink.parse(
-      uri.path.substring(0, uri.path.length - '.json'.length),
-    );
+    final link = _listLink;
     return link?.kind == ListKind.category ? link!.id : null;
   }
 
@@ -395,9 +463,7 @@ class ContentRoute {
       final last = _withoutJson(segments.last);
       return int.tryParse(last) == null ? last : segments[segments.length - 2];
     }
-    final link = ListLink.parse(
-      uri.path.substring(0, uri.path.length - '.json'.length),
-    );
+    final link = _listLink;
     if (link?.kind != ListKind.tag || link!.slug.isEmpty) return null;
     return link.slug;
   }
@@ -412,6 +478,7 @@ class ContentRoute {
   bool get isTopicListFilter =>
       TopicListMode.fromRoute(this) != null ||
       categoryId != null ||
+      _listLink?.kind == ListKind.category ||
       tagName != null;
 
   /// Ordinary topic feeds that can stay beside an open topic.
@@ -556,10 +623,13 @@ class ContentRoute {
 
   @override
   bool operator ==(Object other) =>
-      other is ContentRoute && other.id == id && other.title == title;
+      other is ContentRoute &&
+      other.id == id &&
+      other.title == title &&
+      other.feedPath == feedPath;
 
   @override
-  int get hashCode => Object.hash(id, title);
+  int get hashCode => Object.hash(id, title, feedPath);
 }
 
 String _withoutJson(String segment) => segment.endsWith('.json')

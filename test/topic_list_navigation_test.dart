@@ -4,6 +4,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:discourse_native/src/models/category_sidebar.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/list_link.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -12,6 +13,7 @@ import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
@@ -55,6 +57,140 @@ const _topWeekTopic = Topic(id: 7, title: 'Top this week', slug: 'top-week');
 const _popularTopic = Topic(id: 8, title: 'Popular topic', slug: 'popular');
 
 void main() {
+  testWidgets('slug category links show working category and tag dropdowns', (
+    tester,
+  ) async {
+    const query = 'status=open&assigned=nobody';
+    const todo = TopicCategory(
+      id: 5,
+      name: 'Todo',
+      slug: 'todo',
+      color: '112233',
+    );
+    const later = TopicCategory(
+      id: 6,
+      name: 'Later',
+      slug: 'later',
+      color: '223344',
+    );
+    final setup = await _controller(
+      config: const SiteConfig(taggingEnabled: true),
+      categoryList: const [todo, later],
+      categorySiteTopTags: const [
+        SidebarTag(id: 4, name: 'urgent', slug: 'urgent'),
+      ],
+      extraFeeds: const {
+        '/c/todo/5.json?$query': [],
+        '/tags/c/todo/5/urgent.json?$query': [],
+        '/tags/c/later/6/urgent.json?$query': [],
+      },
+    );
+    final controller = setup.controller;
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: MainContent(layout: ShellLayout.expanded)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final opened = await openLink(
+      tester.element(find.byType(MainContent)),
+      '/c/todo?$query',
+    );
+    await tester.pumpAndSettle();
+    expect(opened, isTrue);
+    final category = find.byKey(const ValueKey('topic-list-category-filter'));
+    final tags = find.byKey(const ValueKey('topic-list-tag-filter'));
+    expect(category, findsOneWidget);
+    expect(tags, findsOneWidget);
+    expect(
+      find.descendant(of: category, matching: find.text('Todo')),
+      findsOneWidget,
+    );
+
+    await tester.tap(tags);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-list-tag-filter-option', 'urgent'))),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.topicListContent?.categoryId, todo.id);
+    expect(controller.topicListContent?.tagNames, ['urgent']);
+
+    await tester.tap(category);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Later'));
+    await tester.pumpAndSettle();
+    expect(controller.topicListContent?.categoryId, later.id);
+    expect(controller.topicListContent?.tagNames, ['urgent']);
+    expect(setup.api.feedPaths, [
+      '/latest.json',
+      '/c/todo/5.json?$query',
+      '/tags/c/todo/5/urgent.json?$query',
+      '/tags/c/later/6/urgent.json?$query',
+    ]);
+  });
+
+  testWidgets('category loading resolves restored and background slug routes', (
+    tester,
+  ) async {
+    final categories = <TopicCategory>[];
+    const path = '/c/todo.json?status=open&assigned=nobody';
+    final setup = await _controller(
+      categoryList: categories,
+      forumTabsEnabled: true,
+      extraFeeds: const {path: []},
+    );
+    final controller = setup.controller;
+    addTearDown(controller.dispose);
+    await tester.pump();
+    final restored = ContentRoute.fromJson(
+      ContentRoute.list(
+        ListLink.parse('/c/todo?status=open&assigned=nobody')!,
+      ).toJson(),
+    );
+    controller.pushContent(restored);
+    controller.openLinkInNewTab('/c/todo?status=open&assigned=nobody');
+    final tabId = controller.activeTabId;
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: TopicListNavigation(child: SizedBox())),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    categories.add(
+      const TopicCategory(id: 5, name: 'Todo', slug: 'todo', color: '112233'),
+    );
+
+    await controller.loadCategories(
+      controller.currentInstance!.url,
+      force: true,
+    );
+    await tester.pumpAndSettle();
+
+    expect(controller.activeTabId, tabId);
+    for (final tab in controller.tabsForCurrentForum) {
+      expect(tab.currentContent.id, restored.id);
+      expect(tab.currentContent.categoryId, 5);
+    }
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-category-filter')),
+        matching: find.text('Todo'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   for (final stacked in [false, true]) {
     testWidgets(
       'retains hydrated filter controls on unrelated notifications (stacked: $stacked)',
