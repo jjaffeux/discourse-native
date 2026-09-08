@@ -427,6 +427,14 @@ final class VoiceController extends ChangeNotifier {
 
   int? currentUserIdFor(String siteUrl) => _userIdFor(siteUrl);
 
+  /// Captures the account lifetime for a continuation across Voice operations.
+  /// Recheck after awaits and callbacks that can retire or replace the account.
+  bool Function() captureSiteSession(String siteUrl) {
+    final siteSession = _siteSession(siteUrl);
+    final lease = _requests.capture(siteUrl);
+    return () => _isCurrentSiteSession(siteUrl, siteSession) && lease.isCurrent;
+  }
+
   Stream<VoiceNotice> get notices => _notices.stream;
 
   /// The direct call ringing this user right now, if any. Cleared when it
