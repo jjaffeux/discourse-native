@@ -6040,8 +6040,10 @@ class ShellController extends FrameSafeNotifier
       }
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
-      _topicPinWrites.remove(key);
-      if (!isDisposed) _notify();
+      lease.commit(() {
+        _topicPinWrites.remove(key);
+        if (!isDisposed) _notify();
+      });
     }
   }
 
@@ -6108,8 +6110,10 @@ class ShellController extends FrameSafeNotifier
       }
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
-      _topicStatusWrites.remove(key);
-      if (!isDisposed) _notify();
+      lease.commit(() {
+        _topicStatusWrites.remove(key);
+        if (!isDisposed) _notify();
+      });
     }
   }
 
@@ -6178,8 +6182,10 @@ class ShellController extends FrameSafeNotifier
       }
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
-      _topicDeletionWrites.remove(key);
-      if (!isDisposed) _notify();
+      lease.commit(() {
+        _topicDeletionWrites.remove(key);
+        if (!isDisposed) _notify();
+      });
     }
   }
 
