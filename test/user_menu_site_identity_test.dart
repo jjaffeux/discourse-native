@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
+import 'package:discourse_native/src/shell/invite_list.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -21,6 +22,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/invite_fixtures.dart' show invitePage, inviteRow;
 
 const _metaUrl = 'https://meta.discourse.org';
 const _teamUrl = 'https://team.discourse.org';
@@ -29,12 +31,14 @@ const _metaUser = DiscourseUser(
   username: 'meta-user',
   name: 'Meta User',
   hidePresence: false,
+  canInviteToForum: true,
 );
 const _teamUser = DiscourseUser(
   id: 2,
   username: 'team-user',
   name: 'Team User',
   hidePresence: true,
+  canInviteToForum: true,
 );
 
 const _metaNotification = DiscourseNotification.test(
@@ -90,6 +94,48 @@ const _teamBookmark = Bookmark(
 );
 
 void main() {
+  group('invite menu ownership', () {
+    testWidgets(
+      'replaces desktop invites when the selected site changes',
+      (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
+        await tester.tap(find.byKey(UserMenuButton.avatarKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Invites'));
+        await tester.pumpAndSettle();
+        expect(find.text('meta-invite@example.com'), findsOneWidget);
+        final shell = ShellScope.read(
+          tester.element(find.byType(InviteSection)),
+        );
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
+        expect(find.text('meta-invite@example.com'), findsNothing);
+        expect(find.text('team-invite@example.com'), findsOneWidget);
+        expect(fixture.api.inviteSites, [_metaUrl, _teamUrl]);
+      }),
+    );
+
+    testWidgets(
+      'keeps the nested mobile invite panel on its source site',
+      (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+        final launched = _watchBrowser(tester);
+        await _openNestedSection(tester, 'Invites');
+        final shell = ShellScope.read(
+          tester.element(find.byType(InviteSection)),
+        );
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
+        expect(find.text('meta-invite@example.com'), findsOneWidget);
+        expect(find.text('team-invite@example.com'), findsNothing);
+        final manage = find.text('Manage invites in browser');
+        await tester.ensureVisible(manage);
+        await tester.tap(manage);
+        await tester.pumpAndSettle();
+        expect(launched, ['$_metaUrl/u/meta-user/invited/pending']);
+        expect(fixture.api.inviteSites, [_metaUrl]);
+      }),
+    );
+  });
+
   group('menu controls', () {
     testWidgets(
       'expose 44 pixel selected tabs with keyboard actions on pointer platforms',
@@ -680,6 +726,7 @@ final class _SiteMenuApi extends FakeDiscourseApi {
   final List<String> notificationSites = [];
   final List<String> replySites = [];
   final List<String> bookmarkSites = [];
+  final List<String> inviteSites = [];
   final List<String> userActivitySites = [];
   final List<String> userActivityUsers = [];
   final List<({String siteUrl, int id})> readSites = [];
@@ -692,6 +739,32 @@ final class _SiteMenuApi extends FakeDiscourseApi {
     required String apiKey,
     String? clientId,
   }) async => siteUrl == _metaUrl ? _metaUser : _teamUser;
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) async {
+    if (Uri.parse(path).path.endsWith('/invited.json')) {
+      inviteSites.add(siteUrl);
+      return invitePage([
+        inviteRow(
+          1,
+          email: siteUrl == _metaUrl
+              ? 'meta-invite@example.com'
+              : 'team-invite@example.com',
+        ),
+      ]);
+    }
+    return super.pluginGetJson(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
 
   @override
   Future<List<DiscourseNotification>> notifications({

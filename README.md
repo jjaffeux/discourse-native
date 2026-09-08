@@ -317,6 +317,29 @@ clears type 34 from the grouped snapshot, and refreshes the aggregate totals.
 If a newer MessageBus grouped count arrived while the write was in flight, that
 newer value wins instead of being cleared by the older response.
 
+### Invites
+
+The Invites menu tab is available when the connected user has
+`can_invite_to_forum`. It adapts core's `user-invited/show` page to the compact
+menu: Pending, Expired and Redeemed status lists read
+`/u/{username}/invited.json` with `filter`, `search` and `offset`. Counts come
+from the response, and pagination advances by the number of server rows,
+including malformed rows that cannot be displayed. Redeemed rows identify the
+joined user; several users may redeem the same invite link.
+
+The inline creation form generates shareable or email-restricted links and
+can send an invitation email with a custom message. It respects the site's
+email-invite setting, expiry period and staff/member redemption limits.
+Existing invites expose copying, resending and removal according to the
+server's `can_delete_invite` flag. **Manage invites in browser** opens core's
+full page for editing, group/topic restrictions and bulk operations.
+
+The panel owns its controller for the lifetime of its account session. Every
+credential read, request and write completion checks that session before
+continuing. Desktop menus follow the selected site; a nested mobile sheet
+retains the site from which it was opened. No invite links or recipient emails
+are persisted locally.
+
 ### Activity
 
 Activity in the profile menu matches the web app's default `userActivity`

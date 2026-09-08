@@ -15,6 +15,7 @@ import 'avatar_image.dart';
 import 'bookmark_list.dart';
 import 'do_not_disturb_dialog.dart';
 import 'external_link.dart';
+import 'invite_list.dart';
 import 'notification_list.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -75,6 +76,8 @@ class UserMenuSection {
 
   static const String messagesId = 'messages';
 
+  static const String invitesId = 'invites';
+
   static const String otherId = 'other';
 
   static const String profileId = 'profile';
@@ -93,6 +96,7 @@ class UserMenuSection {
   bool get isLikes => id == likesId;
   bool get isBookmarks => id == bookmarksId;
   bool get isMessages => id == messagesId;
+  bool get isInvites => id == invitesId;
   bool get isOther => id == otherId;
   bool get isProfile => id == profileId;
 
@@ -104,6 +108,7 @@ class UserMenuSection {
       !isOther &&
       plugin == null &&
       !isMessages &&
+      !isInvites &&
       !isProfile;
 }
 
@@ -175,12 +180,12 @@ List<UserMenuSection> userMenuSections(
       icon: DIcons.bookmark,
       label: 'Bookmarks',
     ),
-    const UserMenuSection(
-      id: 'invites',
-      icon: DIcons.paperPlane,
-      label: 'Invites',
-      rows: [UserMenuRow(DIcons.paperPlane, 'No pending invites')],
-    ),
+    if (user?.canInviteToForum == true)
+      const UserMenuSection(
+        id: UserMenuSection.invitesId,
+        icon: DIcons.paperPlane,
+        label: 'Invites',
+      ),
     for (final contribution in pluginSections)
       UserMenuSection(
         id: contribution.id.id,
@@ -557,6 +562,8 @@ class _SectionBody extends StatelessWidget {
         LikesSection(siteUrl: siteUrl, onOpened: onDismiss)
       else if (section.isBookmarks && siteUrl != null)
         BookmarkSection(siteUrl: siteUrl, onOpened: onDismiss)
+      else if (section.isInvites && siteUrl != null)
+        InviteSection(siteUrl: siteUrl, onOpened: onDismiss)
       else if (section.isOther && siteUrl != null)
         OtherNotificationsSection(siteUrl: siteUrl, onOpened: onDismiss)
       else

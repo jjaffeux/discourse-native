@@ -199,7 +199,12 @@ Future<ShellController> _pumpUserMenu(
   NotificationTotals totals = const NotificationTotals(),
   List<DiscourseNotification> notificationList = const [],
 }) async {
-  const user = DiscourseUser(id: 7, username: 'reader', name: 'Reader');
+  const user = DiscourseUser(
+    id: 7,
+    username: 'reader',
+    name: 'Reader',
+    canInviteToForum: true,
+  );
   final plugins = PluginInstaller.install(manifest);
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
   final controller = ShellController(
