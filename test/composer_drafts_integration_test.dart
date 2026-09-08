@@ -1158,7 +1158,14 @@ void _registerComposerAndDraftTests() {
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
 
-      await mouse.moveTo(tester.getCenter(find.text('@sam')));
+      await mouse.moveTo(
+        tester.getCenter(
+          find.descendant(
+            of: find.byType(MentionPill),
+            matching: find.text('@sam'),
+          ),
+        ),
+      );
       await tester.pump();
       expect(
         RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
