@@ -96,13 +96,14 @@ class UserActivityPage {
         : limit > maximumItems
         ? maximumItems
         : limit;
-    final rawItems = jsonObjects(
+    // Pagination counts raw server slots, including rows we cannot display.
+    final rawItems = jsonArray(
       json['user_actions'],
     ).take(boundedLimit).toList(growable: false);
     return UserActivityPage(
       rawItemCount: rawItems.length,
       items: List.unmodifiable([
-        for (final entry in rawItems)
+        for (final entry in jsonObjects(rawItems))
           if (UserActivityItem.fromJson(entry, siteUrl) case final item
               when item.isUsable)
             item,

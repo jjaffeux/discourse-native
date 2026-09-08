@@ -380,6 +380,11 @@ void main() {
             (_) async => http.Response(
               jsonEncode({
                 'user_actions': [
+                  null,
+                  'malformed',
+                  <Object?>[],
+                  42,
+                  true,
                   {
                     'action_type': 99,
                     'topic_id': 1,
@@ -406,9 +411,49 @@ void main() {
         );
 
         expect(page.items, isEmpty);
-        expect(page.rawItemCount, 2);
+        expect(page.rawItemCount, 7);
       },
     );
+
+    for (final limit in [1, 3, DiscourseApi.maximumUserActivityPageSize]) {
+      test(
+        'caps raw activity slots before filtering at limit $limit',
+        () async {
+          final api = _accountApi(
+            client: MockClient((request) async {
+              expect(request.url.queryParameters['limit'], '$limit');
+              return http.Response(
+                jsonEncode({
+                  'user_actions': [
+                    null,
+                    for (var id = 1; id <= limit + 1; id++)
+                      {
+                        'action_type': 4,
+                        'topic_id': id,
+                        'post_number': 1,
+                        'title': 'Topic $id',
+                      },
+                  ],
+                }),
+                200,
+              );
+            }),
+          );
+
+          final page = await api.userActivity(
+            siteUrl: 'https://example.com',
+            apiKey: 'k',
+            username: 'sam',
+            limit: limit,
+          );
+
+          expect(page.rawItemCount, limit);
+          expect(page.items.map((item) => item.topicId), [
+            for (var id = 1; id < limit; id++) id,
+          ]);
+        },
+      );
+    }
   });
 
   group('bookmarks', () {
