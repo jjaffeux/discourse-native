@@ -183,13 +183,17 @@ class PollController extends FrameSafeNotifier
     int postId,
     String? apiKey,
     PluginSiteLease lease,
-  ) => _posts.refreshPost(
-    siteUrl: siteUrl,
-    topicId: topicId,
-    postId: postId,
-    apiKey: apiKey,
-    lease: lease,
-  );
+  ) async {
+    // Recovery admits a new request after the original write has completed.
+    if (isDisposed || !lease.isCurrent) return;
+    await _posts.refreshPost(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      postId: postId,
+      apiKey: apiKey,
+      lease: lease,
+    );
+  }
 
   @override
   void pluginCurrentUserRefreshed(String siteUrl) => notifySafely();
