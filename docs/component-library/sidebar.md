@@ -122,5 +122,14 @@ physical-right modal, Escape/outside dismissal, focus restoration, selected
 semantics,30px geometry,live open-route theme changes, removal,all six examples
 at360px RTL200%,and existing styleguide registration/theme-state behavior.
 
-Native comparison and final analysis are recorded separately after inspection.
+Exact implementation checkpoint: `226f463af31246120a7449dcddab9f7f9bbf6249`.
+Final component/example rerun passed8 tests after rail/inset refinement; root
+analysis and all6 touched Dart formatting checks pass. Full-profile analysis
+passed before that local refinement. Native comparison awaits the coordinator
+inspection slot; no CUA interaction or visual-parity claim has been made.
+The sample-only macOS bundle has unique identity org.discourse.sidebarreview0cca,
+passes strict deep ad-hoc signature verification and matches the build kernel
+payload byte-for-byte (SHA256
+`eb6055314193b447907b1e4ecc911f9a3f1a9da655da291850a240fe5d2e8965`).
+Runner files are restored and no real-account app has been launched.
 No iOS/Linux device or spoken VoiceOver verification is implied by widget tests.

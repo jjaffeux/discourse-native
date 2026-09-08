@@ -874,8 +874,8 @@ Status: in_progress. Task: 01a08352-7665-7f90-a637-75478a83ea53. Branch: codex/u
 **verification**
 
 - Root/full flutter pub get --enforce-lockfile passed with lockfiles unchanged. Root/full flutter analyze --no-pub clean.
-- 16 focused Sidebar, examples and existing styleguide tests passed with seed9092026; final rail/inset refinement rerun pending.
-- Isolated sample-data macOS Sidebar Review 0cca builds with org.discourse.sidebarreview0cca. Native inspection slot requested; no CUA used yet.
+- 16 focused Sidebar, examples and existing styleguide tests passed with seed9092026; final rail/inset refinement rerun passed all8 component/example cases. Exact committed source passes root analysis and touched-file format check.
+- Isolated sample-data macOS Sidebar Review 0cca builds with org.discourse.sidebarreview0cca. Deep strict ad-hoc signature passes; built App.framework kernel bytes match bundled payload (SHA256 eb6055314193b447907b1e4ecc911f9a3f1a9da655da291850a240fe5d2e8965). Runner configuration restored. Native inspection slot requested; no CUA used yet.
 
 **limitations**
 
