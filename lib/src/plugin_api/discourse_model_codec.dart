@@ -123,6 +123,10 @@ final class DiscourseModelCodec {
       watchedFirstPostCategoryIds: _categoryIds(
         json['watched_first_post_category_ids'],
       ),
+      mutedCategoryIds: _categoryIds(json['muted_category_ids']),
+      indirectlyMutedCategoryIds: _categoryIds(
+        json['indirectly_muted_category_ids'],
+      ),
       timezone: jsonText(userOption['timezone']),
       hidePresence: userOption['hide_presence'] is bool
           ? userOption['hide_presence'] as bool

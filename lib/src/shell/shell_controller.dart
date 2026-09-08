@@ -67,6 +67,7 @@ import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../models/topic_filter.dart';
 import '../models/topic_link.dart';
+import '../models/topic_tracking_message_filter.dart';
 import '../models/topic_tracking_state.dart';
 import '../models/user_activity.dart';
 import '../models/user_card.dart';
@@ -2447,6 +2448,8 @@ class ShellController extends FrameSafeNotifier
   final Map<String, Future<void>> _categoryRequests = {};
   final Map<String, List<TopicCategory>> _categoriesBySite = {};
   final Map<String, TopicTrackingState> _topicTrackingBySite = {};
+  final Map<String, TopicTrackingMessageFilter> _topicTrackingMessageFilters =
+      {};
   final Set<String> _topicTrackingSnapshotsLoaded = {};
   final Map<String, int> _topicTrackingRevisions = {};
   final Set<String> _topicTrackingLoads = {};
@@ -3665,6 +3668,8 @@ class ShellController extends FrameSafeNotifier
       // The bus is attached before the HTTP request starts. Replaying anything
       // received while it was in flight closes the snapshot/message race; the
       // operations are idempotent when the response already included one.
+      // Admission was decided on arrival, before buffering: a later unmuted
+      // hint must neither admit an earlier event nor expire an accepted one.
       for (final event
           in _topicTrackingPendingEvents[siteUrl] ?? const <Object?>[]) {
         snapshot.applyMessage(event);
@@ -3710,6 +3715,11 @@ class ShellController extends FrameSafeNotifier
     // A message proves the site reachable again. A snapshot whose load failed
     // is fetched before this message is buffered, so the replay covers it.
     _retryTopicTrackingLoad(siteUrl);
+    final filter = _topicTrackingMessageFilters.putIfAbsent(
+      siteUrl,
+      () => TopicTrackingMessageFilter(clock: _clock),
+    );
+    if (!filter.accepts(data, user: _instanceAt(siteUrl)?.user)) return;
     _topicTrackingPendingEvents[siteUrl]?.add(data);
     final tracking = _topicTrackingBySite.putIfAbsent(
       siteUrl,
@@ -3922,6 +3932,7 @@ class ShellController extends FrameSafeNotifier
           groups.forget(siteUrl);
           userDirectory.forget(siteUrl);
           _topicTrackingBySite.remove(siteUrl);
+          _topicTrackingMessageFilters.remove(siteUrl);
           _topicTrackingSnapshotsLoaded.remove(siteUrl);
           _topicTrackingRevisions.remove(siteUrl);
           _topicTrackingLoads.remove(siteUrl);
@@ -12202,6 +12213,7 @@ class ShellController extends FrameSafeNotifier
     final _ = _categoryRequests.remove(siteUrl);
     _categoriesBySite.remove(siteUrl);
     _topicTrackingBySite.remove(siteUrl);
+    _topicTrackingMessageFilters.remove(siteUrl);
     _topicTrackingSnapshotsLoaded.remove(siteUrl);
     _topicTrackingRevisions.remove(siteUrl);
     _topicTrackingLoads.remove(siteUrl);
