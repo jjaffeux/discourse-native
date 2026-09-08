@@ -4,6 +4,71 @@ import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'notification changes patch existing rows without creating read state',
+    () {
+      final tracking = TopicTrackingState.fromJson(const [
+        {
+          'topic_id': 7,
+          'highest_post_number': 100,
+          'last_read_post_number': null,
+          'notification_level': 0,
+          'category_id': 5,
+          'created_in_new_period': true,
+          'tags': [
+            {'id': 9},
+          ],
+        },
+      ]);
+      expect(tracking.newActivityCounts, (newTopics: 0, newReplies: 0));
+      expect(
+        tracking.tagBadge(tagId: 9, unifiedNew: true, showCount: true),
+        SidebarBadge.none,
+      );
+      const event = {
+        'topic_id': 7,
+        'message_type': 'notification_level_change',
+        'payload': {'notification_level': 2},
+      };
+      expect(tracking.applyMessage({...event, 'topic_id': 8}), isFalse);
+      expect(tracking.topics, hasLength(1));
+      expect(tracking.applyMessage(event), isTrue);
+      expect(tracking.applyMessage(event), isFalse);
+      expect(tracking.topics.single.lastReadPostNumber, isNull);
+      expect(tracking.topics.single.highestPostNumber, 100);
+      expect(tracking.topics.single.categoryId, 5);
+      expect(tracking.topics.single.tagIds, {9});
+      expect(tracking.newActivityCounts, (newTopics: 1, newReplies: 0));
+      expect(
+        tracking.tagBadge(tagId: 9, unifiedNew: true, showCount: true),
+        const SidebarBadge.count(1),
+      );
+      tracking.applyMessage(const {'topic_id': 7, 'message_type': 'delete'});
+      tracking.applyMessage({
+        ...event,
+        'payload': {'notification_level': 3},
+      });
+      expect(tracking.topics.single.deleted, isTrue);
+      expect(tracking.newActivityCounts, (newTopics: 0, newReplies: 0));
+    },
+  );
+
+  test('invalid notification levels leave the tracking row unchanged', () {
+    const topic = TrackedTopicState(topicId: 7, notificationLevel: 2);
+    final tracking = TopicTrackingState([topic]);
+    for (final level in <Object?>[null, -1, 4, 1.5, '0', true]) {
+      expect(
+        tracking.applyMessage({
+          'topic_id': 7,
+          'message_type': 'notification_level_change',
+          'payload': {'notification_level': level},
+        }),
+        isFalse,
+      );
+    }
+    expect(tracking.topics.single, same(topic));
+  });
+
   const categories = [
     TopicCategory(id: 1, name: 'Parent', color: '111111'),
     TopicCategory(id: 2, name: 'Child', color: '222222', parentCategoryId: 1),

@@ -186,6 +186,14 @@ final class TopicTrackingState {
     if (topicId == null || topicId <= 0 || type == null) return false;
     final held = _topics[topicId];
     switch (type) {
+      case 'notification_level_change':
+        final level = jsonObject(value['payload'])['notification_level'];
+        if (held == null || level is! int || level < 0 || level > 3) {
+          return false;
+        }
+        if (held.notificationLevel == level) return false;
+        _topics[topicId] = held.copyWith(notificationLevel: level);
+        return true;
       case 'delete':
         if (held == null || held.deleted) return false;
         _topics[topicId] = held.copyWith(deleted: true);
@@ -345,6 +353,7 @@ final class TrackedTopicState {
 
   TrackedTopicState copyWith({
     int? lastReadPostNumber,
+    int? notificationLevel,
     bool? isSeen,
     bool? deleted,
   }) => TrackedTopicState(
@@ -353,7 +362,7 @@ final class TrackedTopicState {
     lastReadPostNumber: lastReadPostNumber ?? this.lastReadPostNumber,
     categoryId: categoryId,
     isCategoryTopic: isCategoryTopic,
-    notificationLevel: notificationLevel,
+    notificationLevel: notificationLevel ?? this.notificationLevel,
     createdInNewPeriod: createdInNewPeriod,
     isSeen: isSeen ?? this.isSeen,
     tagIds: tagIds,
