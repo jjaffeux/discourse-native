@@ -30,6 +30,9 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   final ShellController _shell;
 
   @override
+  Object get controllerIdentity => _shell;
+
+  @override
   final Listenable changes;
 
   DiscourseInstance? _instance(GroupPagesOwner owner) {
@@ -303,9 +306,12 @@ final class ShellGroupPagesPort implements GroupPagesPort {
       _shell.selectGroupRoute(route, feedPath: feedPath);
 
   @override
-  void replaceWithDirectory() => _shell.replaceCurrentContent(
-    ContentRoute.group(const GroupRoute.directory()),
-  );
+  void replaceWithDirectory(GroupPagesOwner owner, String routeId) {
+    if (!isCurrent(owner) || _shell.currentContent?.id != routeId) return;
+    _shell.replaceCurrentContent(
+      ContentRoute.group(const GroupRoute.directory()),
+    );
+  }
 
   @override
   bool handleBack({required bool canReturnToSidebar}) =>

@@ -8,6 +8,11 @@ typedef GroupPagesOwner = ({
 
 typedef GroupPagesChildIdentity = ({GroupPagesOwner owner, String pageId});
 
+/// Identifies one continuous visit to a group route under one controller.
+final class GroupPagesNavigationIdentity {
+  GroupPagesNavigationIdentity._();
+}
+
 final class GroupPagesDirectoryQuery {
   const GroupPagesDirectoryQuery({this.filter = '', this.type});
 
@@ -107,6 +112,9 @@ final class GroupPagesRouteSnapshot {
 }
 
 abstract interface class GroupPagesCoordinatorPort {
+  /// Stable across adapters backed by the same controller.
+  Object get controllerIdentity;
+
   bool isCurrent(GroupPagesOwner owner);
 
   String? usernameFor(GroupPagesOwner owner);
@@ -134,7 +142,7 @@ abstract interface class GroupPagesCoordinatorPort {
 
   void selectRoute(GroupRoute route, {String? feedPath});
 
-  void replaceWithDirectory();
+  void replaceWithDirectory(GroupPagesOwner owner, String routeId);
 
   bool handleBack({required bool canReturnToSidebar});
 }
@@ -148,9 +156,11 @@ final class GroupPagesCoordinator {
   GroupPagesCoordinator();
 
   GroupPagesCoordinatorPort? _port;
+  Object? _controllerIdentity;
   GroupPagesRouteSnapshot? _snapshot;
   GroupPagesPage _page = const GroupPagesPage.none();
   GroupPagesChildIdentity? _childIdentity;
+  GroupPagesNavigationIdentity? _navigationIdentity;
   GroupPagesDirectoryQuery _directoryQuery = const GroupPagesDirectoryQuery();
   GroupPagesMemberQuery _memberQuery = const GroupPagesMemberQuery();
   int _generation = 0;
@@ -161,6 +171,8 @@ final class GroupPagesCoordinator {
 
   GroupPagesChildIdentity? get childIdentity => _childIdentity;
 
+  GroupPagesNavigationIdentity? get navigationIdentity => _navigationIdentity;
+
   GroupPagesDirectoryQuery get directoryQuery => _directoryQuery;
 
   GroupPagesMemberQuery get memberQuery => _memberQuery;
@@ -170,19 +182,30 @@ final class GroupPagesCoordinator {
     final page = _resolve(snapshot);
     final childIdentity = _identityFor(snapshot.owner, page);
     final previousSnapshot = _snapshot;
-    final routeChanged = previousSnapshot?.route != snapshot.route;
+    final routeChanged =
+        previousSnapshot?.routeId != snapshot.routeId ||
+        previousSnapshot?.route != snapshot.route;
     final childChanged = _childIdentity != childIdentity;
     final ownerChanged = previousSnapshot?.owner != snapshot.owner;
+    final controllerIdentity = port.controllerIdentity;
+    final controllerChanged = !identical(
+      _controllerIdentity,
+      controllerIdentity,
+    );
 
     _port = port;
+    _controllerIdentity = controllerIdentity;
     _snapshot = snapshot;
     _page = page;
     _childIdentity = childIdentity;
-    if (routeChanged || childChanged || ownerChanged) {
+    if (routeChanged || childChanged || ownerChanged || controllerChanged) {
+      _navigationIdentity = page.kind == GroupPagesPageKind.detail
+          ? GroupPagesNavigationIdentity._()
+          : null;
       _generation++;
       _requestedLoad = null;
     }
-    if (childChanged || ownerChanged) {
+    if (childChanged || ownerChanged || controllerChanged) {
       _directoryQuery = const GroupPagesDirectoryQuery();
       _memberQuery = const GroupPagesMemberQuery();
     }
@@ -322,14 +345,16 @@ final class GroupPagesCoordinator {
     );
   }
 
-  void showDirectory() {
+  void showDirectory({required GroupPagesNavigationIdentity? from}) {
     final snapshot = _snapshot;
     if (_disposed ||
+        from == null ||
+        !identical(from, _navigationIdentity) ||
         snapshot == null ||
         !(_port?.isCurrent(snapshot.owner) ?? false)) {
       return;
     }
-    _port?.replaceWithDirectory();
+    _port?.replaceWithDirectory(snapshot.owner, snapshot.routeId);
   }
 
   bool _isCurrent(({int generation, GroupRoute? route}) request) {
@@ -346,8 +371,10 @@ final class GroupPagesCoordinator {
     _generation++;
     _requestedLoad = null;
     _port = null;
+    _controllerIdentity = null;
     _snapshot = null;
     _page = const GroupPagesPage.none();
     _childIdentity = null;
+    _navigationIdentity = null;
   }
 }

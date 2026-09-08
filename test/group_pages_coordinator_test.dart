@@ -193,6 +193,88 @@ void main() {
     });
   });
 
+  group('GroupPagesCoordinator directory redirects', () {
+    test('a rebuilt adapter preserves the current visit', () {
+      final port = _Port();
+      final subject = GroupPagesCoordinator();
+      addTearDown(subject.dispose);
+      final route = GroupRoute.detail('staff');
+      subject.bind(port, _groupSnapshot(port.owner, route));
+      final navigation = subject.navigationIdentity;
+      final rebuilt = _Port(controllerIdentity: port.controllerIdentity);
+
+      subject.bind(
+        rebuilt,
+        _groupSnapshot(rebuilt.owner, route, canPopContent: true),
+      );
+      subject.replaceMemberQuery(const GroupPagesMemberQuery(filter: 'sam'));
+      subject.showDirectory(from: navigation);
+
+      expect(rebuilt.directoryReplacements, 1);
+      expect(port.directoryReplacements, 0);
+    });
+
+    test('a changed owner is rejected before the next bind', () {
+      final port = _Port();
+      final subject = GroupPagesCoordinator();
+      addTearDown(subject.dispose);
+      subject.bind(
+        port,
+        _groupSnapshot(port.owner, GroupRoute.detail('staff')),
+      );
+      final navigation = subject.navigationIdentity;
+      port.owner = (
+        siteUrl: port.owner.siteUrl,
+        accountIdentity: 'user:two',
+        tabId: port.owner.tabId,
+      );
+
+      subject.showDirectory(from: navigation);
+
+      expect(port.directoryReplacements, 0);
+    });
+
+    test('only a detail visit can supply a redirect identity', () {
+      final port = _Port();
+      final subject = GroupPagesCoordinator();
+      addTearDown(subject.dispose);
+
+      subject.showDirectory(from: subject.navigationIdentity);
+      subject.bind(
+        port,
+        _groupSnapshot(port.owner, const GroupRoute.directory()),
+      );
+      subject.showDirectory(from: subject.navigationIdentity);
+      subject.bind(
+        port,
+        _groupSnapshot(port.owner, GroupRoute.detail('staff')),
+      );
+      subject.showDirectory(from: null);
+
+      expect(port.directoryReplacements, 0);
+    });
+
+    test('replacing a controller restarts the same route load', () async {
+      final port = _Port()..detailGate = Completer<void>();
+      final subject = GroupPagesCoordinator();
+      addTearDown(subject.dispose);
+      final route = GroupRoute.detail('staff');
+      subject.bind(port, _groupSnapshot(port.owner, route));
+      subject.replaceMemberQuery(const GroupPagesMemberQuery(filter: 'sam'));
+      final load = subject.requestLoad();
+      final replacement = _Port();
+
+      subject.bind(replacement, _groupSnapshot(replacement.owner, route));
+      await subject.requestLoad();
+      port.detailGate!.complete();
+      await load;
+
+      expect(port.loads, ['detail:staff']);
+      expect(replacement.loads, ['detail:staff', 'section:staff:members']);
+      expect(subject.memberQuery, const GroupPagesMemberQuery());
+    });
+  });
+
   group('GroupPagesCoordinator back navigation', () {
     test('derives pop, sidebar, and none intents at the boundary', () {
       final port = _Port();
@@ -250,6 +332,12 @@ GroupPagesRouteSnapshot _groupSnapshot(
 );
 
 final class _Port implements GroupPagesCoordinatorPort {
+  _Port({Object? controllerIdentity})
+    : controllerIdentity = controllerIdentity ?? Object();
+
+  @override
+  final Object controllerIdentity;
+
   GroupPagesOwner owner = (
     siteUrl: 'https://one.example',
     accountIdentity: 'user:one',
@@ -259,6 +347,7 @@ final class _Port implements GroupPagesCoordinatorPort {
   final List<String> loads = [];
   final List<({GroupRoute route, String? feedPath})> selected = [];
   final List<bool> backRequests = [];
+  int directoryReplacements = 0;
 
   @override
   bool isCurrent(GroupPagesOwner value) => value == owner;
@@ -304,7 +393,8 @@ final class _Port implements GroupPagesCoordinatorPort {
   }
 
   @override
-  void replaceWithDirectory() {}
+  void replaceWithDirectory(GroupPagesOwner owner, String routeId) =>
+      directoryReplacements++;
 
   @override
   bool handleBack({required bool canReturnToSidebar}) {

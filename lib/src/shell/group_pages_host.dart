@@ -189,6 +189,7 @@ class _GroupDetailView extends StatelessWidget {
   Widget build(BuildContext context) {
     final owner = coordinator.childIdentity!.owner;
     final route = coordinator.page.route!;
+    final navigationIdentity = coordinator.navigationIdentity;
     return ListenableBuilder(
       listenable: port.changes,
       builder: (context, _) {
@@ -220,7 +221,9 @@ class _GroupDetailView extends StatelessWidget {
               ? null
               : () async {
                   final deleted = await port.deleteGroup(owner, group);
-                  if (deleted) coordinator.showDirectory();
+                  if (deleted) {
+                    coordinator.showDirectory(from: navigationIdentity);
+                  }
                   return deleted;
                 },
           onMemberFilterChanged: (value) {
