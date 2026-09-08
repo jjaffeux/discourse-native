@@ -2817,6 +2817,14 @@ tabs use an inset, rounded tertiary-low hover surface; adjacent dividers
 disappear while hovered. Close icons appear on tab hover or when the close
 action has keyboard focus, with their space reserved so labels do not move.
 
+The tab switcher uses a compact searchable list with each destination's icon,
+two-line titles, and a subtle accent beside the current tab. Its close actions
+stay visible, and closing a tab leaves the menu open. The panel fits its results
+up to 500 points wide and 480 points high, with a pinned search field and a
+scrolling list in smaller windows. Recently closed tabs appear in a collapsed
+section only when history exists; expanding it exposes the same search and
+restore actions.
+
 Workspaces are isolated by forum and account. Switching forums restores that
 workspace's tab list and active tab, and versioned local persistence restores
 route stacks and logical scroll anchors after launch. A composer belongs to

@@ -691,6 +691,10 @@ void main() {
 
       expect(find.text('Open tabs  2'), findsOneWidget);
       expect(find.text('Recently closed  1'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('forum-tabs-switcher-recent-updates-3')),
+        findsNothing,
+      );
       final rowTitle = tester.widget<Text>(
         find.descendant(
           of: find.byKey(const ValueKey('forum-tabs-switcher-open-topic-1')),
@@ -706,9 +710,12 @@ void main() {
             (widget) => widget is DIcon && widget.icon == DIcons.comment,
           ),
         ),
-        findsNothing,
+        findsOneWidget,
       );
 
+      await tester.tap(
+        find.byKey(const ValueKey('forum-tabs-switcher-history')),
+      );
       await tester.enterText(
         find.byKey(const ValueKey('forum-tabs-switcher-search')),
         'updates',
@@ -745,7 +752,7 @@ void main() {
       expect(selected, [second.id]);
     });
 
-    testWidgets('omits a zero count from an empty recently closed section', (
+    testWidgets('hides empty history and sizes the menu to its results', (
       tester,
     ) async {
       await _pumpBar(tester, items: const [first], selectedId: first.id);
@@ -755,10 +762,87 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Recently closed'), findsOneWidget);
-      expect(find.text('Recently closed  0'), findsNothing);
-      expect(find.text('No matching recently closed tabs'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('forum-tabs-switcher-history')),
+        findsNothing,
+      );
+      expect(find.text('No matching recently closed tabs'), findsNothing);
+      final menu = find.byKey(const ValueKey('forum-tabs-switcher-menu'));
+      expect(tester.getSize(menu).height, lessThan(200));
+
+      await tester.enterText(
+        find.byKey(const ValueKey('forum-tabs-switcher-search')),
+        'missing',
+      );
+      await tester.pump();
+
+      expect(find.text('No matching open tabs'), findsOneWidget);
+      expect(tester.getSize(menu).height, lessThan(200));
     });
+
+    for (final theme in [AppTheme.light, AppTheme.dark]) {
+      testWidgets(
+        'wraps titles and keeps close actions separate at 200% text size in ${theme.brightness.name} mode',
+        (tester) async {
+          tester.view
+            ..physicalSize = const Size(320, 540)
+            ..devicePixelRatio = 1;
+          tester.platformDispatcher.textScaleFactorTestValue = 2;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          const longTab = ForumTabItem(
+            id: 'long-topic',
+            title:
+                'SECURITY: Enforce private livestream event chat permissions',
+            icon: DIcons.layerGroup,
+          );
+          final closed = <String>[];
+          final selected = <String>[];
+          await _pumpBar(
+            tester,
+            items: const [longTab, third],
+            selectedId: longTab.id,
+            width: 320,
+            theme: theme,
+            onClose: closed.add,
+            onSelect: selected.add,
+          );
+
+          await tester.tap(
+            find.byKey(const ValueKey('forum-tabs-switcher-surface')),
+          );
+          await tester.pumpAndSettle();
+
+          final menu = find.byKey(const ValueKey('forum-tabs-switcher-menu'));
+          final row = find.byKey(
+            const ValueKey('forum-tabs-switcher-open-long-topic'),
+          );
+          final shortRow = find.byKey(
+            const ValueKey('forum-tabs-switcher-open-updates-3'),
+          );
+          final close = find.descendant(
+            of: row,
+            matching: find.byType(IconButton),
+          );
+          expect(tester.takeException(), isNull);
+          expect(
+            tester.getSize(row).height,
+            greaterThan(tester.getSize(shortRow).height),
+          );
+          expect(tester.getRect(menu).right, lessThanOrEqualTo(320));
+          expect(tester.getRect(menu).bottom, lessThanOrEqualTo(540));
+          expect(tester.getRect(row).contains(tester.getCenter(close)), isTrue);
+
+          await tester.tap(close);
+          await tester.pumpAndSettle();
+
+          expect(closed, [longTab.id]);
+          expect(selected, isEmpty);
+          expect(menu, findsOneWidget);
+        },
+      );
+    }
   });
 
   group('tab adornments', () {
