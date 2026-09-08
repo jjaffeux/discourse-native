@@ -16,7 +16,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 4 | kbd | in_progress | 01a0821b-27cc-7013-affb-99cae203b2a8 | codex/ui-kbd | typography | — |
 | 5 | tooltip | planned | — | — | kbd | — |
 | 6 | button | planned | — | — | spinner, tooltip | — |
-| 7 | separator | review_ready | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | — |
+| 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
 | 8 | label | planned | — | — | typography | — |
 | 9 | badge | planned | — | — | spinner | — |
 | 10 | input | planned | — | — | label | — |
@@ -250,7 +250,7 @@ Status: in_progress. Task: 01a0821b-27cc-7013-affb-99cae203b2a8. Branch: codex/u
 
 ### separator
 
-Status: review_ready. Task: 01a08213-a2e5-7692-a127-f09d2a03094b. Branch: codex/ui-separator.
+Status: merged. Task: 01a08213-a2e5-7692-a127-f09d2a03094b. Branch: codex/ui-separator.
 
 **acceptanceCriteria**
 

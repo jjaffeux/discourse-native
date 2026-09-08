@@ -247,7 +247,7 @@
     },
     {
       "id": "separator",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a08213-a2e5-7692-a127-f09d2a03094b",
       "branch": "codex/ui-separator",
       "dependencies": [],
@@ -316,7 +316,7 @@
         "The native inspection preceded final styleguide implemented metadata and a singular-item/usage-text correction. Those non-behavioral text changes were verified by the final focused example test run and refreshed isolated build without reacquiring desktop focus."
       ],
       "implementationCommit": "0e3bd2092d6a0544a2c78e8968b7034e7e7f4e69",
-      "mergeCommit": null,
+      "mergeCommit": "855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2538/discourse-native",
       "clientThreadId": "client-new-thread:b4596a22-9c59-44df-a4db-02c9bafd1d88",
       "baseCommit": "5fd6658b9fded22bf4b19323257c8ad822dc89eb",
