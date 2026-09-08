@@ -825,6 +825,45 @@ void _registerChatShellTests() {
         expect(sidebarDestination('Bugs'), findsNothing);
       });
 
+      testWidgets('closing the hovered drawer removes its Close tooltip', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9)],
+          messages: {key(9): page(const [])},
+          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+        );
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+
+        final close = find.byKey(ChatDrawerOverlay.closeButtonKey);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer();
+        await mouse.moveTo(tester.getCenter(close));
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        expect(find.text('Close'), findsOneWidget);
+
+        await tester.tap(close);
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
+        expect(find.text('Close', skipOffstage: false), findsNothing);
+
+        await mouse.moveTo(const Offset(5, 5));
+        await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
+        expect(find.text('Close'), findsNothing);
+
+        await mouse.moveTo(tester.getCenter(close));
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        expect(find.text('Close'), findsOneWidget);
+      });
+
       testWidgets(
         'the active drawer channel is selected in the forum sidebar',
         (tester) async {
