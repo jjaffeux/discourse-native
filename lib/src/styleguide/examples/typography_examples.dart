@@ -10,12 +10,13 @@ final typographyExamples = ComponentExamples(
   notes:
       'Frozen 2026-09-08 Typography scope: h1–h4, p, blockquote, table, list, '
       'inline code, lead, large, small, muted and RTL. Import discourse_ui.dart. '
-      'DText uses the existing TextTheme roles, native fonts and inherited scaler; '
-      'it does not implement the newer Typeset system. Heading emphasis/leading '
-      'follow the app, and Flutter wraps naturally instead of CSS text-balance. '
-      'h2 has a token-colored rule; DProse adds explicit block spacing without '
+      'DText reproduces the frozen shadcn sizes, weights, leading and tracking '
+      'using the app’s fonts, palette and inherited scaler. It does not implement '
+      'the newer Typeset system. Plain h1 text balances short multiline headings. '
+      'h2 has a token-colored rule; DProse adds reference spacing without '
       'outer margins. SelectionArea belongs to the document. Span code wraps '
-      'with a rectangular background; standalone code has token radius/padding. '
+      'with a rectangular background; standalone code has themed corners and '
+      'the reference’s 4.8px/3.2px padding. '
       'Code alone uses the existing JetBrains Mono. Native controls own focus, '
       'keyboard and activation. Native Table supplies the table composition; '
       'the later Table entry owns its full component API.',
@@ -55,9 +56,9 @@ final typographyExamples = ComponentExamples(
     StyleguideExample(
       title: 'Reading text: p, Lead, Large, Small and Muted',
       description:
-          'Reading text and compact interface labels share the existing type '
-          'scale. All text wraps and grows at 200%; no fixed line-height boxes. '
-          'Small remains readable with the app’s paired leading.',
+          'Paragraphs use the reference’s 16px text and 28px leading; Small uses '
+          '14px medium text with leading-none. All text wraps and grows at 200%; '
+          'no fixed line-height boxes.',
       states: const ['p', 'Lead', 'Large', 'Small', 'Muted', 'Text scale'],
       code: '''const DProse(children: [
   DText('A thoughtful conversation starts with listening.',
@@ -329,6 +330,81 @@ $_tableSampleCode''',
         ),
       ),
     ),
+    StyleguideExample(
+      title: 'Shadcn reference specimen',
+      description:
+          'The frozen reference text and styles for direct visual '
+          'comparison at 100%. Theme controls substitute the app palette and '
+          'font; size, weight, tracking, leading and spacing match shadcn.',
+      states: const ['Reference fidelity', 'Typography', 'Composition'],
+      code: r'''const SelectionArea(
+  child: DProse(children: [
+    DText('Taxing Laughter: The Joke Tax Chronicles',
+      variant: DTextVariant.h1, textAlign: TextAlign.center),
+    DText('A modal dialog that interrupts the user with important content '
+      'and expects a response.', variant: DTextVariant.lead),
+    DText('The People of the Kingdom', variant: DTextVariant.h2),
+    DText('The king, seeing how much happier his subjects were, realized '
+      'the error of his ways and repealed the joke tax.'),
+    DBlockquote(child: Text('“After all,” he said, “everyone enjoys a good '
+      'joke, so it’s only fair that they should pay for the privilege.”')),
+    DText('The Joke Tax', variant: DTextVariant.h3),
+    DTextList(children: [
+      Text('1st level of puns: 5 gold coins'),
+      Text('2nd level of jokes: 10 gold coins'),
+      Text('3rd level of one-liners: 20 gold coins'),
+    ]),
+    DText('People stopped telling jokes', variant: DTextVariant.h4),
+    DText('@radix-ui/react-alert-dialog', variant: DTextVariant.inlineCode),
+    DText('Are you absolutely sure?', variant: DTextVariant.large),
+    DText('Email address', variant: DTextVariant.small),
+    DText('Enter your email address.', variant: DTextVariant.muted),
+  ]),
+)''',
+      builder: (_) => const SelectionArea(
+        child: DProse(
+          children: [
+            DText(
+              'Taxing Laughter: The Joke Tax Chronicles',
+              variant: DTextVariant.h1,
+              textAlign: TextAlign.center,
+            ),
+            DText(
+              'A modal dialog that interrupts the user with important content '
+              'and expects a response.',
+              variant: DTextVariant.lead,
+            ),
+            DText('The People of the Kingdom', variant: DTextVariant.h2),
+            DText(
+              'The king, seeing how much happier his subjects were, realized '
+              'the error of his ways and repealed the joke tax.',
+            ),
+            DBlockquote(
+              child: Text(
+                '“After all,” he said, “everyone enjoys a good '
+                'joke, so it’s only fair that they should pay for the privilege.”',
+              ),
+            ),
+            DText('The Joke Tax', variant: DTextVariant.h3),
+            DTextList(
+              children: [
+                Text('1st level of puns: 5 gold coins'),
+                Text('2nd level of jokes: 10 gold coins'),
+                Text('3rd level of one-liners: 20 gold coins'),
+              ],
+            ),
+            DText('People stopped telling jokes', variant: DTextVariant.h4),
+            DText(
+              '@radix-ui/react-alert-dialog',
+              variant: DTextVariant.inlineCode,
+            ),
+            DText('Are you absolutely sure?', variant: DTextVariant.large),
+            DText('Email address', variant: DTextVariant.small),
+            DText('Enter your email address.', variant: DTextVariant.muted),
+          ],
+        ),
+      ),
+    ),
   ],
 );
 
@@ -435,11 +511,7 @@ class _TypographyTable extends StatelessWidget {
                     ),
                     child: DText(
                       value,
-                      variant: index == 0
-                          ? DTextVariant.small
-                          : DTextVariant.muted,
-                      style: TextStyle(
-                        color: tokens.foreground,
+                      style: DText.bodyStyleOf(context).copyWith(
                         fontWeight: index == 0
                             ? FontWeight.bold
                             : FontWeight.normal,
@@ -505,11 +577,7 @@ class TypographyTableSample extends StatelessWidget {
                     ),
                     child: DText(
                       value,
-                      variant: index == 0
-                          ? DTextVariant.small
-                          : DTextVariant.muted,
-                      style: TextStyle(
-                        color: tokens.foreground,
+                      style: DText.bodyStyleOf(context).copyWith(
                         fontWeight: index == 0
                             ? FontWeight.bold
                             : FontWeight.normal,

@@ -277,7 +277,7 @@
         "53 Divider/VerticalDivider usages in core shell files now use public DSeparator: list rows and loading-list boundaries, user/preferences/group panes, sheets, pickers and native-menu compositions, topic/date streams, diagnostics, drafts, badges, bookmarks, search, uploads and the instance rail. Horizontal height and vertical width become orientation-independent space; prior 17/24 spacing and specialized colors are preserved.",
         "19 dividing rules migrated in Assign, Chat, Discourse Events, GIFs, Local Dates, Poll and Voice plugins. Existing permission checks, list lazy construction, async ownership and callbacks are unchanged; Chat unread marker keeps its error color and visible New label, Assign keeps its ledger color.",
         "The styleguide pane separator uses DSeparator. Public barrel export and dedicated separator_examples.dart registration added. Existing barrel imports were extended and redundant baseline control imports removed where a new complete barrel import already supplies them.",
-        "Three equivalent container rules migrated: forum tab gaps retain 1\u00d718 geometry and hover/selected visibility, MessageInboxTitle retains its 18px line and 10px margins through space: 21, and instance sidebar section boundaries retain their sliver insets and spacing.",
+        "Three equivalent container rules migrated: forum tab gaps retain 1×18 geometry and hover/selected visibility, MessageInboxTitle retains its 18px line and 10px margins through space: 21, and instance sidebar section boundaries retain their sliver insets and spacing.",
         "Updated the existing anchored picker, topic day separator, group list geometry and forum tab tests to assert public DSeparator boundaries while preserving their behavior assertions. Audited all lib/src/plugins modules, packages (including vendored Dart libraries) and profiles; no additional authored package/profile separators were found."
       ],
       "retainedAlternatives": [
@@ -1351,6 +1351,36 @@
     "nativeInspectionQueue": [
       "01a08213-b4ca-77e1-a2aa-8a490808243e",
       "01a08213-9960-79f1-8d90-9626f24a4b5a"
-    ]
+    ],
+    "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready."
+  },
+  "visualFidelity": {
+    "status": "in_progress",
+    "clarification": "I basically want a copy of shadcn library for our app if it was not clear",
+    "taskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
+    "branch": "codex/ui-shadcn-fidelity",
+    "referenceStyle": "base-nova; frozen original Typography examples",
+    "acceptanceCriteria": [
+      "Match reference geometry, explicit typography metrics, semantic colors, relative radii, borders, artwork, states and motion; idiomatic Flutter interaction owners do not justify a different visual design.",
+      "Recheck merged Direction, Typography and Separator; correct unjustified differences and inspect actual rendered examples before merging corrections.",
+      "Require official registry/source mappings and rendered visual comparison in every current and future component task."
+    ],
+    "decisions": [
+      "Direction owns no intrinsic visual styling. Separator source confirms a one-pixel square-ended border-colored horizontal/vertical rule, matching the implementation.",
+      "Typography corrections restore 800-weight h1, tight heading tracking, 28px paragraph leading, 14px Small leading, reference inline-code padding, list indentation, base text in lists/quotes/tables and heading-specific article gaps.",
+      "Kbd, Spinner, Skeleton and Label tasks received the clarified design specification before merge. Native desktop inspections remain serialized."
+    ],
+    "verification": [
+      "Official frozen Typography Markdown preserved verbatim with original SHA256; Separator registry source captured and hashed with upstream MIT license.",
+      "Initial focused typography, four-palette examples, nonlinear text scaling and adoption checks: 17 passed. Static analysis passed without diagnostics.",
+      "Final impact run covered Typography, all styleguide groups, scaling boundary, adoption guard, Settings, Add-a-site and Poll: 73 passed, one existing styleguide navigation test needed its outer scroll position targeted explicitly after note/preview geometry changed (seed 446229861). The repaired Typography preview test passed (seed 3779910838); no production scrolling behavior changed.",
+      "The final run includes the new original-text specimen and balanced-heading layout check. flutter analyze --no-pub passed with no diagnostics.",
+      "Isolated macOS build completed at /private/tmp/discourse-shadcn-fidelity.4xigijr8/app/build/macos/Build/Products/Debug/Shadcn Fidelity Review.app using real Settings, EmptyState and Poll fixtures with in-memory stores. Native visual inspection is pending the shared desktop slot."
+    ],
+    "limitations": [
+      "Native visual comparison of the corrected typography is pending; no code merge is approved yet. iOS/Linux device inspection and VoiceOver speech were not performed for this follow-up."
+    ],
+    "implementationCommit": null,
+    "mergeCommit": null
   }
 }

@@ -38,6 +38,8 @@ void main() {
   output.writeln('\n## Decisions and evidence\n');
   for (final (name, row) in [
     ('Foundation', foundation),
+    if (progress['visualFidelity'] case final Map<String, dynamic> review)
+      ('shadcn visual fidelity correction', review),
     for (final row in components.where((row) => row['status'] != 'planned'))
       (row['id'] as String, row),
     ('Final audit', progress['finalAudit'] as Map<String, dynamic>),

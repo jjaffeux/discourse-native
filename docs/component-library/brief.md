@@ -1,3 +1,11 @@
+# User clarifications
+On 2026-09-08, the user authorized multiple component tasks in parallel and
+clarified: “I basically want a copy of shadcn library for our app if it was not
+clear.” The Flutter library must reproduce shadcn's visual design and behavior,
+not merely offer similar widgets with Material or Cupertino styling. See
+[visual fidelity](visual-fidelity.md) for the implementation and review standard.
+The original brief follows; these later clarifications take precedence.
+
 I want you to build a complete, reusable Flutter component library for this app, using shadcn/ui’s components as the visual and behavioral reference.
 Implement idiomatic Flutter widgets that reproduce the reference components’ documented capabilities, variants, composition patterns, and interaction quality. The app’s existing theme system and native platform conventions take precedence where a direct copy would conflict. Support the app’s current platforms: iOS, macOS, and Linux.
 Keep this task as the coordinator throughout the project. Work autonomously through the phases below, creating separate Codex tasks for component implementation and the final audit. Commit and merge completed work into local main without asking for routine confirmation.

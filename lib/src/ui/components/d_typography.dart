@@ -2,9 +2,10 @@ import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/material.dart';
 
+import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 
-/// Semantic styles from the frozen Typography reference, using host text roles.
+/// Semantic styles from the frozen shadcn Typography reference.
 enum DTextVariant {
   h1,
   h2,
@@ -28,8 +29,9 @@ enum DTextVariant {
 
 /// Native text with a semantic typography role and optional caller emphasis.
 ///
-/// Uses the current [ThemeData.textTheme] without changing its sizes, leading,
-/// or the inherited text scaler. Headings expose their level to accessibility.
+/// Uses shadcn's sizes, leading, weights and tracking, with the current theme's
+/// font family and colors. The inherited text scaler remains authoritative.
+/// Headings expose their level to accessibility.
 /// h2 includes a bottom rule; inlineCode includes a padded, rounded background.
 /// Other variants have no margins. Use [DProse] or ordinary layout for spacing.
 ///
@@ -73,8 +75,7 @@ class DText extends StatelessWidget {
   final InlineSpan? textSpan;
   final DTextVariant variant;
 
-  /// Merged after the semantic role. Prefer color/emphasis overrides; numeric
-  /// sizes and line heights belong in the host's typography theme.
+  /// Merged after the reference style for an intentional caller customization.
   final TextStyle? style;
   final TextAlign textAlign;
   final bool softWrap;
@@ -87,35 +88,154 @@ class DText extends StatelessWidget {
   /// heading. Null uses h1–h4's level and leaves other variants as ordinary text.
   final int? headingLevel;
 
+  Widget _balanceHeading(BuildContext context, TextStyle style, Widget child) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedWidth || constraints.maxWidth == 0) {
+          return child;
+        }
+        final painter = TextPainter(
+          text: TextSpan(
+            text: data,
+            style: DefaultTextStyle.of(context).style.merge(style),
+          ),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          locale: Localizations.maybeLocaleOf(context),
+        );
+        try {
+          painter.layout(maxWidth: constraints.maxWidth);
+          final lineCount = painter.computeLineMetrics().length;
+          if (lineCount < 2 || lineCount > 6) return child;
+          var lower = constraints.maxWidth / lineCount;
+          var upper = constraints.maxWidth;
+          // Preserve the natural line count while finding a compact measure,
+          // the same principle as CSS text-wrap: balance for short headings.
+          while (upper - lower > 0.25) {
+            final candidate = (lower + upper) / 2;
+            painter.layout(maxWidth: candidate);
+            if (painter.computeLineMetrics().length > lineCount) {
+              lower = candidate;
+            } else {
+              upper = candidate;
+            }
+          }
+          return Align(
+            alignment: switch (textAlign) {
+              TextAlign.center => Alignment.center,
+              TextAlign.end => AlignmentDirectional.centerEnd,
+              TextAlign.left => Alignment.centerLeft,
+              TextAlign.right => Alignment.centerRight,
+              _ => AlignmentDirectional.centerStart,
+            },
+            child: SizedBox(width: upper, child: child),
+          );
+        } finally {
+          painter.dispose();
+        }
+      },
+    );
+  }
+
+  /// The reference's inherited 16px/24px body text for lists, quotes and tables.
+  /// Paragraphs explicitly use the roomier 28px leading from `leading-7`.
+  static TextStyle bodyStyleOf(BuildContext context) =>
+      Theme.of(context).textTheme.bodyLarge!.copyWith(
+        fontSize: DiscourseTypography.base,
+        height: DiscourseTypography.lineHeightBody,
+        fontWeight: FontWeight.normal,
+        letterSpacing: 0,
+        color: DTokens.of(context).foreground,
+      );
+
   /// Resolves an unscaled style for native spans or composed child widgets.
   ///
   /// Inline code spans keep a rectangular background so they can wrap and be
   /// selected within a paragraph. Use [DText] with inlineCode for a standalone
   /// padded, rounded label. Only code opts into the app's bundled monospace;
-  /// all other families, sizes, and heading weights remain theme-owned.
+  /// all other families remain theme-owned. Metrics use the app's unscaled
+  /// Tailwind tokens with the frozen reference's weights, leading and tracking.
   static TextStyle styleOf(BuildContext context, DTextVariant variant) {
     final text = Theme.of(context).textTheme;
     final tokens = DTokens.of(context);
+    TextStyle resolve(
+      TextStyle role,
+      double size,
+      double height, {
+      FontWeight weight = FontWeight.normal,
+      bool tight = false,
+      Color? color,
+    }) => role.copyWith(
+      fontSize: size,
+      height: height,
+      fontWeight: weight,
+      letterSpacing: tight ? size * DiscourseTypography.trackingTight : 0,
+      color: color ?? tokens.foreground,
+    );
     return switch (variant) {
-      DTextVariant.h1 => text.headlineLarge!,
-      DTextVariant.h2 => text.headlineMedium!,
-      DTextVariant.h3 => text.headlineSmall!,
-      DTextVariant.h4 => text.titleLarge!,
-      DTextVariant.paragraph => text.bodyLarge!,
-      DTextVariant.lead => text.titleLarge!.copyWith(
-        fontWeight: FontWeight.normal,
+      DTextVariant.h1 => resolve(
+        text.headlineLarge!,
+        DiscourseTypography.xxxxl,
+        DiscourseTypography.lineHeightDisplayLarge,
+        weight: FontWeight.w800,
+        tight: true,
+      ),
+      DTextVariant.h2 => resolve(
+        text.headlineMedium!,
+        DiscourseTypography.xxxl,
+        DiscourseTypography.lineHeightDisplaySmall,
+        weight: FontWeight.w600,
+        tight: true,
+      ),
+      DTextVariant.h3 => resolve(
+        text.headlineSmall!,
+        DiscourseTypography.xxl,
+        DiscourseTypography.lineHeightHeading,
+        weight: FontWeight.w600,
+        tight: true,
+      ),
+      DTextVariant.h4 => resolve(
+        text.titleLarge!,
+        DiscourseTypography.xl,
+        DiscourseTypography.lineHeightTitle,
+        weight: FontWeight.w600,
+        tight: true,
+      ),
+      DTextVariant.paragraph => resolve(
+        text.bodyLarge!,
+        DiscourseTypography.base,
+        DiscourseTypography.lineHeightProse,
+      ),
+      DTextVariant.lead => resolve(
+        text.titleLarge!,
+        DiscourseTypography.xl,
+        DiscourseTypography.lineHeightTitle,
         color: tokens.mutedForeground,
       ),
-      DTextVariant.large => text.titleMedium!,
-      DTextVariant.small => text.labelLarge!,
-      DTextVariant.muted => text.bodyMedium!.copyWith(
+      DTextVariant.large => resolve(
+        text.titleMedium!,
+        DiscourseTypography.lg,
+        DiscourseTypography.lineHeightLarge,
+        weight: FontWeight.w600,
+      ),
+      DTextVariant.small => resolve(
+        text.labelLarge!,
+        DiscourseTypography.sm,
+        1,
+        weight: FontWeight.w500,
+      ),
+      DTextVariant.muted => resolve(
+        text.bodyMedium!,
+        DiscourseTypography.sm,
+        DiscourseTypography.lineHeightSmall,
         color: tokens.mutedForeground,
       ),
-      DTextVariant.inlineCode => text.bodyMedium!.copyWith(
-        fontFamily: 'JetBrains Mono',
-        fontWeight: FontWeight.w600,
-        backgroundColor: tokens.muted,
-      ),
+      DTextVariant.inlineCode => resolve(
+        text.bodyMedium!,
+        DiscourseTypography.sm,
+        DiscourseTypography.lineHeightSmall,
+        weight: FontWeight.w600,
+      ).copyWith(fontFamily: 'JetBrains Mono', backgroundColor: tokens.muted),
     };
   }
 
@@ -143,6 +263,12 @@ class DText extends StatelessWidget {
           );
 
     final tokens = DTokens.of(context);
+    if (variant == DTextVariant.h1 &&
+        data != null &&
+        softWrap &&
+        maxLines == null) {
+      result = _balanceHeading(context, resolvedStyle, result);
+    }
     if (variant == DTextVariant.h2) {
       result = DecoratedBox(
         decoration: BoxDecoration(
@@ -170,10 +296,7 @@ class DText extends StatelessWidget {
             borderRadius: tokens.borderRadius,
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: DSpacing.xs,
-              vertical: DSpacing.xs / 2,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 4.8, vertical: 3.2),
             child: result,
           ),
         ),
@@ -187,17 +310,20 @@ class DText extends StatelessWidget {
   }
 }
 
-/// A vertical document flow with reading text and explicit inter-block spacing.
+/// A vertical document flow with the reference's inter-block spacing.
 ///
 /// Adds no outer margin or selection owner. Children fill the available width
 /// and grow with their text. The caller supplies bounded width and scrolling,
 /// and may wrap this in its existing [SelectionArea]. Empty prose has no height.
 class DProse extends StatelessWidget {
-  const DProse({super.key, required this.children, this.spacing = DSpacing.xl})
-    : assert(spacing >= 0);
+  const DProse({super.key, required this.children, this.spacing})
+    : assert(spacing == null || spacing >= 0);
 
   final List<Widget> children;
-  final double spacing;
+
+  /// Overrides the default 24px gaps, 40px before h2 and 32px before h3.
+  /// The first block has no leading gap.
+  final double? spacing;
 
   @override
   Widget build(BuildContext context) => DefaultTextStyle.merge(
@@ -205,8 +331,21 @@ class DProse extends StatelessWidget {
     child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: spacing,
-      children: children,
+      children: [
+        for (var index = 0; index < children.length; index++) ...[
+          if (index > 0)
+            SizedBox(
+              height:
+                  spacing ??
+                  switch (children[index]) {
+                    DText(variant: DTextVariant.h2) => 40,
+                    DText(variant: DTextVariant.h3) => 32,
+                    _ => DSpacing.xl,
+                  },
+            ),
+          children[index],
+        ],
+      ],
     ),
   );
 }
@@ -231,10 +370,7 @@ class DBlockquote extends StatelessWidget {
     child: Padding(
       padding: const EdgeInsetsDirectional.only(start: DSpacing.xl),
       child: DefaultTextStyle.merge(
-        style: DText.styleOf(
-          context,
-          DTextVariant.paragraph,
-        ).copyWith(fontStyle: FontStyle.italic),
+        style: DText.bodyStyleOf(context).copyWith(fontStyle: FontStyle.italic),
         child: child,
       ),
     ),
@@ -261,37 +397,40 @@ class DTextList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DefaultTextStyle.merge(
-    style: DText.styleOf(context, DTextVariant.paragraph),
+    style: DText.bodyStyleOf(context),
     child: Semantics(
       role: SemanticsRole.list,
       container: true,
       explicitChildNodes: true,
-      child: Padding(
-        padding: const EdgeInsetsDirectional.only(start: DSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          spacing: DSpacing.sm,
-          children: [
-            for (var index = 0; index < children.length; index++)
-              Semantics(
-                role: SemanticsRole.listItem,
-                container: true,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SelectionContainer.disabled(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        spacing: DSpacing.sm,
+        children: [
+          for (var index = 0; index < children.length; index++)
+            Semantics(
+              role: SemanticsRole.listItem,
+              container: true,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: DSpacing.lg),
+                    child: SelectionContainer.disabled(
                       child: ExcludeSemantics(
                         excluding: !ordered,
-                        child: Text(ordered ? '${start + index}.' : '•'),
+                        child: Text(
+                          ordered ? '${start + index}.' : '•',
+                          textAlign: TextAlign.end,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: DSpacing.sm),
-                    Expanded(child: children[index]),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: DSpacing.sm),
+                  Expanded(child: children[index]),
+                ],
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     ),
   );

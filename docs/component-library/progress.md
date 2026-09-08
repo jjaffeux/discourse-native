@@ -117,6 +117,34 @@ Status: merged. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/compon
 - iOS and Linux devices were not run during the foundation phase. No new native platform dependency was introduced.
 - Baseline Button, Tooltip and Select are explicitly unfinished catalogue implementations; their full reference behavior and migrations belong to their upcoming tasks.
 
+### shadcn visual fidelity correction
+
+Status: in_progress. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/ui-shadcn-fidelity.
+
+**acceptanceCriteria**
+
+- Match reference geometry, explicit typography metrics, semantic colors, relative radii, borders, artwork, states and motion; idiomatic Flutter interaction owners do not justify a different visual design.
+- Recheck merged Direction, Typography and Separator; correct unjustified differences and inspect actual rendered examples before merging corrections.
+- Require official registry/source mappings and rendered visual comparison in every current and future component task.
+
+**decisions**
+
+- Direction owns no intrinsic visual styling. Separator source confirms a one-pixel square-ended border-colored horizontal/vertical rule, matching the implementation.
+- Typography corrections restore 800-weight h1, tight heading tracking, 28px paragraph leading, 14px Small leading, reference inline-code padding, list indentation, base text in lists/quotes/tables and heading-specific article gaps.
+- Kbd, Spinner, Skeleton and Label tasks received the clarified design specification before merge. Native desktop inspections remain serialized.
+
+**verification**
+
+- Official frozen Typography Markdown preserved verbatim with original SHA256; Separator registry source captured and hashed with upstream MIT license.
+- Initial focused typography, four-palette examples, nonlinear text scaling and adoption checks: 17 passed. Static analysis passed without diagnostics.
+- Final impact run covered Typography, all styleguide groups, scaling boundary, adoption guard, Settings, Add-a-site and Poll: 73 passed, one existing styleguide navigation test needed its outer scroll position targeted explicitly after note/preview geometry changed (seed 446229861). The repaired Typography preview test passed (seed 3779910838); no production scrolling behavior changed.
+- The final run includes the new original-text specimen and balanced-heading layout check. flutter analyze --no-pub passed with no diagnostics.
+- Isolated macOS build completed at /private/tmp/discourse-shadcn-fidelity.4xigijr8/app/build/macos/Build/Products/Debug/Shadcn Fidelity Review.app using real Settings, EmptyState and Poll fixtures with in-memory stores. Native visual inspection is pending the shared desktop slot.
+
+**limitations**
+
+- Native visual comparison of the corrected typography is pending; no code merge is approved yet. iOS/Linux device inspection and VoiceOver speech were not performed for this follow-up.
+
 ### direction
 
 Status: merged. Task: 01a0818b-e20a-77d0-bb99-77691899dad7. Branch: codex/ui-direction.
