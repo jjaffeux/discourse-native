@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/composer_geometry_store.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
@@ -70,6 +71,78 @@ void main() {
         before.shift(const Offset(-8, -8)),
       );
     });
+
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+      testWidgets('grip stays centered while resizing on ${platform.name}', (
+        tester,
+      ) async {
+        await _withTargetPlatform(platform, () async {
+          const user = DiscourseUser(id: 1, username: 'sam', whisperer: true);
+          final composer = ComposerController(_replyTarget);
+          final shell = ShellController(
+            instanceStore: FakeInstanceStore([
+              instance('meta.discourse.org').copyWith(user: user),
+            ]),
+            api: FakeDiscourseApi(user: user),
+            authenticator: FakeAuthenticator()
+              ..keys[_replyTarget.siteUrl] = 'api-key',
+            drafts: FakeDraftStore(),
+            trackers: FakeSiteTracker.reset(),
+          );
+          addTearDown(composer.dispose);
+          addTearDown(shell.dispose);
+          await shell.load();
+          await _pumpFloatingPanel(
+            tester,
+            shell,
+            composer,
+            textScaler: const TextScaler.linear(1.5),
+          );
+
+          final grip = find.byKey(const ValueKey('composer-move-control'));
+          final replyOptions = find.byKey(
+            const ValueKey('composer-reply-options'),
+          );
+          for (final width in [900.0, 500.0, 340.0, 320.0, 900.0]) {
+            await tester.binding.setSurfaceSize(Size(width, 650));
+            await tester.pump();
+            if (width == 320) {
+              await tester.tap(replyOptions);
+              await tester.pump();
+              await tester.tap(
+                find.byKey(const ValueKey('composer-toggle-whisper')),
+              );
+              await tester.pump();
+              expect(composer.whisper, isTrue);
+            }
+
+            final frame = tester.getRect(find.byType(ComposerPanel));
+            final gripBounds = tester.getRect(grip);
+            expect(
+              gripBounds.center.dx,
+              closeTo(frame.center.dx, 0.1),
+              reason: 'The grip must remain centered at $width px.',
+            );
+            expect(
+              tester.getRect(replyOptions).right,
+              lessThanOrEqualTo(gripBounds.left),
+            );
+            expect(replyOptions.hitTestable(), findsOneWidget);
+            for (final action in [
+              find.byKey(const ValueKey('composer-options')),
+              find.byKey(const ValueKey('composer-minimize')),
+              find.byTooltip('Close composer'),
+            ]) {
+              expect(action.hitTestable(), findsOneWidget);
+              final bounds = tester.getRect(action);
+              expect(bounds.left, greaterThanOrEqualTo(gripBounds.right));
+              expect(bounds.right, lessThanOrEqualTo(frame.right));
+            }
+            expect(tester.takeException(), isNull);
+          }
+        });
+      });
+    }
 
     testWidgets('Linux formatting hints match their keyboard actions', (
       tester,

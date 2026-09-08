@@ -1227,8 +1227,9 @@ throwing the edit away or overwriting an unfinished reply.
 The floating topic composer can be minimized to its header without closing its
 draft. The minimized bar stays at the bottom of the content pane; restoring it
 returns to the previous position and size with the title and body intact.
-The centered grip and header support dragging; a focused grip also moves with
-arrow keys. Eligible replies have a labeled **Reply / Whisper** menu. Whisper
+The grip stays centered on the composer at every width. The grip and header
+support dragging; a focused grip also moves with arrow keys. Eligible replies
+have a labeled **Reply / Whisper** menu. Whisper
 mode changes the frame and submit button, and replies to existing whispers
 remain locked to that audience. Reply context says **Replying to @username**
 beside the author's avatar, with the topic beneath it, and expands to a cached
