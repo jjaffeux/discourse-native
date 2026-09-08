@@ -279,7 +279,9 @@ Future<void> openPollComposer(
   PollComposerSyntaxPolicy policy, {
   PollComposerBlock? block,
 }) async {
-  if (!editor.isCurrent || (block == null && !policy.canCreate(editor))) {
+  if (!editor.isCurrent ||
+      !editor.isEditing ||
+      (block == null && !policy.canCreate(editor))) {
     return;
   }
 
@@ -308,6 +310,7 @@ Future<void> openPollComposer(
   bool stillCurrent() =>
       context.mounted &&
       editor.isCurrent &&
+      editor.isEditing &&
       editor.value.text == expectedDocument &&
       (block != null || policy.canCreate(editor));
 
@@ -379,7 +382,7 @@ Future<void> removePollComposer(
   PollComposerSyntaxPolicy policy,
   PollComposerBlock block,
 ) async {
-  if (!editor.isCurrent) return;
+  if (!editor.isCurrent || !editor.isEditing) return;
 
   final expectedValue = editor.value;
   final expectedDocument = expectedValue.text;
@@ -393,6 +396,7 @@ Future<void> removePollComposer(
   bool stillCurrent() =>
       context.mounted &&
       editor.isCurrent &&
+      editor.isEditing &&
       editor.value.text == expectedDocument;
 
   if (published) {

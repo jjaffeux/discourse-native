@@ -202,6 +202,63 @@ void main() {
   setUpAll(LocalDateEnvironment.instance.ensureDatabase);
   setUp(() => LocalDateEnvironment.instance.setDeviceTimezone('Etc/UTC'));
 
+  for (final poll in [true, false]) {
+    testWidgets(
+      'an open ${poll ? 'poll' : 'date'} dialog cannot apply during submission',
+      (tester) async {
+        final shell = await _openComposer();
+        addTearDown(shell.dispose);
+        final composer = shell.visibleComposer!;
+        final source = poll
+            ? _source
+            : 'Before [date=2026-08-11 time=09:00:00 timezone=UTC] after';
+        composer.text.value = TextEditingValue(
+          text: source,
+          selection: TextSelection.collapsed(offset: source.length),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: ShellScope(
+              controller: shell,
+              child: Scaffold(body: ComposerPanel(composer: composer)),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          poll
+              ? find.byType(PollComposerPill)
+              : find.byType(LocalDateComposerPill),
+        );
+        await tester.pumpAndSettle();
+        final fieldLabel = poll ? 'Title (optional)' : 'Start date';
+        await tester.enterText(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is TextField &&
+                widget.decoration?.labelText == fieldLabel,
+          ),
+          poll ? 'Late title' : '2026-08-12',
+        );
+        composer.beginSubmit();
+        await tester.pump();
+        await tester.ensureVisible(find.text('Apply'));
+        await tester.pump();
+        await tester.tap(find.text('Apply'));
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(composer.text.text, source);
+        expect(find.textContaining('Nothing was changed.'), findsOneWidget);
+        await tester.ensureVisible(find.text('Cancel'));
+        await tester.pump();
+        await tester.tap(find.text('Cancel'));
+        await tester.pump(const Duration(milliseconds: 500));
+        composer.unresolved();
+        await _closeComposerAfterAssertions(tester, shell);
+      },
+    );
+  }
+
   group('toolbar capability gating', () {
     testWidgets('local-date action and Ctrl+Shift+. follow the site setting', (
       tester,
@@ -272,6 +329,26 @@ void main() {
       );
       await tester.pump();
       expect(enabled.visibleComposer!.text.text, '>');
+
+      enabled.visibleComposer!.beginSubmit();
+      await tester.pump();
+      final action = find
+          .ancestor(
+            of: find.byTooltip(tooltip),
+            matching: find.byType(IconButton),
+          )
+          .first;
+      expect(tester.widget<IconButton>(action).onPressed, isNull);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.period);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(enabled.visibleComposer!.text.text, '>');
+      enabled.visibleComposer!.unresolved();
+      await tester.pump();
+      expect(tester.widget<IconButton>(action).onPressed, isNotNull);
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);

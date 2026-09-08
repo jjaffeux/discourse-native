@@ -355,6 +355,7 @@ final class ComposerLinkSyntaxProjection implements ComposerSyntaxProjection {
 
   @override
   void remove(BuildContext context, ComposerEditorHost editor) {
+    if (!editor.isCurrent || !editor.isEditing) return;
     final expectedValue = editor.value;
     if (!_stillContains(expectedValue.text, block)) return;
     editor.commitText(
@@ -449,6 +450,7 @@ Future<void> showComposerLinkDialog({
   required ComposerEditorHost composer,
   ComposerLinkBlock? link,
 }) async {
+  if (!composer.isCurrent || !composer.isEditing) return;
   final expectedValue = composer.value;
   final capturedSelection = link == null
       ? expectedValue.selection
@@ -470,7 +472,13 @@ Future<void> showComposerLinkDialog({
       initialUrl: link?.url ?? '',
     ),
   );
-  if (draft == null || !selectionIsInBounds) return;
+  if (draft == null ||
+      !selectionIsInBounds ||
+      !context.mounted ||
+      !composer.isCurrent ||
+      !composer.isEditing) {
+    return;
+  }
 
   final current = composer.value;
   final next = composerLinkValue(

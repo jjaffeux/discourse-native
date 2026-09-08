@@ -448,7 +448,9 @@ Future<void> openLocalDateComposer(
   LocalDateComposerSyntaxPolicy policy, {
   LocalDateComposerBlock? block,
 }) async {
-  if (!editor.isCurrent || (block == null && !policy.isEnabled(editor))) {
+  if (!editor.isCurrent ||
+      !editor.isEditing ||
+      (block == null && !policy.isEnabled(editor))) {
     return;
   }
   final expectedValue = editor.value;
@@ -470,6 +472,7 @@ Future<void> openLocalDateComposer(
   bool stillCurrent() =>
       context.mounted &&
       editor.isCurrent &&
+      editor.isEditing &&
       editor.value.text == expectedDocument &&
       (block != null || policy.isEnabled(editor));
 
@@ -535,7 +538,7 @@ void removeLocalDateComposer(
   ComposerEditorHost editor,
   LocalDateComposerBlock block,
 ) {
-  if (!editor.isCurrent) return;
+  if (!editor.isCurrent || !editor.isEditing) return;
   final expectedValue = editor.value;
   final expectedDocument = expectedValue.text;
   final mutation = removeVerifiedLocalDate(
@@ -563,7 +566,7 @@ void insertCurrentLocalDate(
   LocalDateComposerSyntaxPolicy policy, {
   DateTime? now,
 }) {
-  if (!policy.isEnabled(editor)) return;
+  if (!editor.isEditing || !policy.isEnabled(editor)) return;
   final expectedValue = editor.value;
   final environment = policy.environment;
   final timezone = environment.readerTimezone(policy.currentAccountTimezone);

@@ -20,7 +20,11 @@ Future<void> openEmojiPickerForComposer({
   Rect? anchor,
 }) async {
   final siteUrl = composer.target.siteUrl;
-  if (!stillOwns() || !emoji.siteConfigFor(siteUrl).emojiEnabled) return;
+  if (!stillOwns() ||
+      !composer.isEditing ||
+      !emoji.siteConfigFor(siteUrl).emojiEnabled) {
+    return;
+  }
 
   final expectedDocument = composer.text.text;
   final expectedSelection = composer.text.selection;
@@ -42,7 +46,7 @@ Future<void> openEmojiPickerForComposer({
 
     final unchanged =
         stillOwns() &&
-        !composer.isDisposed &&
+        composer.isEditing &&
         composer.text.text == expectedDocument &&
         emoji.siteConfigFor(siteUrl).emojiEnabled;
     if (!unchanged) {
@@ -73,9 +77,9 @@ Future<void> openEmojiPickerForComposer({
           .catchError((_) {}),
     );
   } finally {
-    if (stillOwns() && !composer.isDisposed) {
+    if (stillOwns() && composer.isEditing) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (stillOwns() && !composer.isDisposed) {
+        if (stillOwns() && composer.isEditing) {
           composer.focus.requestFocus();
         }
       });
@@ -92,7 +96,7 @@ Future<void> openEmojiPickerForTopicComposer({
   // An edit's body is filled asynchronously. Inserting into the temporary
   // empty document would either be overwritten by loadedBody or turn a normal
   // load into a stale-document warning.
-  if (composer.loadingBody) return Future<void>.value();
+  if (!composer.isEditing) return Future<void>.value();
 
   final shell = ShellScope.maybeRead(context);
   if (shell == null) return Future<void>.value();

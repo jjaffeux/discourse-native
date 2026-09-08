@@ -166,6 +166,9 @@ abstract interface class ComposerEditorHost {
   bool get isEdit;
   bool get isNewTopic;
   bool get isReply;
+
+  /// Whether this editor currently admits user authoring commands. Loading,
+  /// submitting, checking, closing, discarding and retired editors do not.
   bool get isEditing;
   PluginData get siteSettings;
 
@@ -173,6 +176,8 @@ abstract interface class ComposerEditorHost {
 
   /// Replaces the document only while this remains the current composer and
   /// its complete editing value still equals [expectedValue].
+  /// User actions must also check [isEditing]; submit preparers intentionally
+  /// commit prepared text while authoring is suspended.
   bool commit({
     required TextEditingValue expectedValue,
     required TextEditingValue value,
@@ -180,7 +185,8 @@ abstract interface class ComposerEditorHost {
 
   /// Replaces the document while its text still equals [expectedText]. This
   /// permits modal focus changes to update selection metadata without making
-  /// a verified text replacement stale.
+  /// a verified text replacement stale. User actions must check [isEditing]
+  /// before opening a dialog and again before committing its result.
   bool commitText({
     required String expectedText,
     required TextEditingValue value,

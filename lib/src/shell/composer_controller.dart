@@ -412,7 +412,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   bool get whisper => _whisper;
 
   void setWhisper(bool value) {
-    if (_disposed ||
+    if (!isEditing ||
         _target.createsTopic ||
         _target.isEdit ||
         _target.isPlugin) {
@@ -622,7 +622,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   @override
   bool get isEditing =>
-      _state == ComposerState.editing || _state == ComposerState.unresolved;
+      isCurrent &&
+      !_discarding &&
+      !_closing &&
+      !_loadingBody &&
+      (_state == ComposerState.editing || _state == ComposerState.unresolved);
 
   @override
   PluginData get siteSettings =>
@@ -730,13 +734,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   // Admission only: uploads already owned by this draft must still settle or
   // be cancelled while a close/discard is in progress.
-  bool get canUpload =>
-      !_disposed &&
-      !_discarding &&
-      !_closing &&
-      isEditing &&
-      !_loadingBody &&
-      imageUploader != null;
+  bool get canUpload => isEditing && imageUploader != null;
 
   void addFiles(
     Iterable<ComposerUploadFile> files,
@@ -1200,7 +1198,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   bool get rateLimited => _rateLimited;
 
   void toggleMark(ComposerMark mark) {
-    if (_disposed ||
+    if (!isEditing ||
         selectionTouchesComposerQuote(text.quoteBlocks, text.selection)) {
       return;
     }
@@ -1208,13 +1206,14 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   void toggleSelectedInlineCode() {
+    if (!isEditing) return;
     final selection = text.selection;
     if (!selection.isValid || selection.isCollapsed) return;
     toggleMark(ComposerMark.inlineCode);
   }
 
   void insertText(String insertion) {
-    if (_disposed || insertion.isEmpty) return;
+    if (!isEditing || insertion.isEmpty) return;
     final old = text.value;
     final selection = old.selection.isValid
         ? old.selection
@@ -1228,7 +1227,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   void insertEmoji(String bareCode) {
-    if (_disposed) return;
+    if (!isEditing) return;
     final code = bareCode
         .replaceFirst(RegExp(r'^:'), '')
         .replaceFirst(RegExp(r':$'), '');
@@ -1272,7 +1271,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     required TextEditingValue expectedValue,
     required String markdown,
   }) {
-    if (!isCurrent || text.value != expectedValue || markdown.trim().isEmpty) {
+    if (!isEditing || text.value != expectedValue || markdown.trim().isEmpty) {
       return false;
     }
     _insertBlock(markdown);
@@ -1300,7 +1299,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   void prependBlock(String markdown) {
-    if (_disposed || markdown.trim().isEmpty) return;
+    if (!isEditing || markdown.trim().isEmpty) return;
     text.selection = const TextSelection.collapsed(offset: 0);
     _insertBlock(markdown);
   }
@@ -1457,6 +1456,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     ComposerImageGalleryBlock gallery,
     Iterable<ComposerImageBlock> images,
   ) {
+    if (!isEditing) return;
     final current = _resolveGalleryIdentity(gallery);
     if (current == null) return;
     final requestedImages = images.toList();
@@ -1544,7 +1544,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   void removeQuote(ComposerQuoteBlock quote) => _replaceQuote(quote, '');
 
   void _replaceQuote(ComposerQuoteBlock quote, String replacement) {
-    if (_disposed ||
+    if (!isEditing ||
         quote.start < 0 ||
         quote.end > text.text.length ||
         text.text.substring(quote.start, quote.end) != quote.source) {
@@ -1561,7 +1561,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   void _replaceImage(ComposerImageBlock image, String replacement) {
-    if (_disposed ||
+    if (!isEditing ||
         image.start < 0 ||
         image.end > text.text.length ||
         text.text.substring(image.start, image.end) != image.source) {
@@ -1887,6 +1887,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     String replacement, {
     bool preservePendingTarget = true,
   }) {
+    if (!isEditing) return;
     final current = _currentGallery(gallery);
     if (current == null) return;
     final affectedUploads = _pendingUploadsForGallery(current);
@@ -1924,7 +1925,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   void acceptSuggestion(ComposerSuggestion suggestion) {
-    if (_disposed || suggestion.action != null) return;
+    if (!isEditing || suggestion.action != null) return;
     final open = autocomplete.trigger;
     if (open == null) return;
 

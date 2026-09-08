@@ -153,9 +153,12 @@ class ComposerPanel extends StatelessWidget {
                       composer: composer,
                     ),
                   ),
-              ...PluginScope.of(
+              for (final binding in PluginScope.of(
                 context,
-              ).registry.composerShortcuts(context, composer),
+              ).registry.composerShortcuts(context, composer).entries)
+                binding.key: () {
+                  if (composer.isEditing) binding.value();
+                },
             },
             child: FocusScope(
               canRequestFocus: !composer.discarding,
@@ -214,9 +217,7 @@ class ComposerPanel extends StatelessWidget {
                                     ),
                                     child: TextField(
                                       controller: composer.title,
-                                      readOnly:
-                                          composer.discarding ||
-                                          composer.submitting,
+                                      readOnly: !composer.isEditing,
                                       textInputAction: TextInputAction.next,
                                       style: theme.textTheme.bodyMedium,
                                       decoration: InputDecoration(
@@ -1004,7 +1005,9 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
                                 squareSize: 9,
                               ),
                         trailing: DIcons.chevronDown,
-                        onPressed: () => _pickCategory(context, shell),
+                        onPressed: composer.isEditing
+                            ? () => _pickCategory(context, shell)
+                            : null,
                       ),
                     ),
                   if (state.capabilities.canTagTopics ||
@@ -1023,8 +1026,10 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
                             : 'Choose tags: $tagsLabel',
                         leading: const DIcon(DIcons.tag, size: 14),
                         trailing: DIcons.plus,
-                        onPressed: () =>
-                            _pickTags(context, shell, state.capabilities),
+                        onPressed: composer.isEditing
+                            ? () =>
+                                  _pickTags(context, shell, state.capabilities)
+                            : null,
                       ),
                     ),
                 ],
@@ -1039,7 +1044,9 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
     ShellController shell,
   ) async {
     final anchorContext = _categoryAnchorKey.currentContext;
-    if (_showingCategory || anchorContext == null) return;
+    if (!composer.isEditing || _showingCategory || anchorContext == null) {
+      return;
+    }
     _showingCategory = true;
     try {
       final selected = await showTopicCategoryPicker(
@@ -1056,7 +1063,10 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
           siteUrl: composer.target.siteUrl,
         ),
       );
-      if (!mounted || selected == null || selected == composer.categoryId) {
+      if (!mounted ||
+          !composer.isEditing ||
+          selected == null ||
+          selected == composer.categoryId) {
         return;
       }
       await shell.changeComposerCategory(composer, selected);
@@ -1071,7 +1081,7 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
     TopicComposerCapabilities capabilities,
   ) async {
     final anchorContext = _tagsAnchorKey.currentContext;
-    if (_showingTags || anchorContext == null) return;
+    if (!composer.isEditing || _showingTags || anchorContext == null) return;
     _showingTags = true;
     try {
       final selected = await showTopicTagPicker(
@@ -1081,7 +1091,7 @@ class _TopicTaxonomyState extends State<_TopicTaxonomy> {
         capabilities: capabilities,
         search: (term) => shell.searchComposerTags(composer, term),
       );
-      if (!mounted || selected == null) return;
+      if (!mounted || !composer.isEditing || selected == null) return;
       composer.setTags(selected);
     } finally {
       _showingTags = false;
@@ -1108,7 +1118,7 @@ class _ComposerTaxonomyButton extends StatelessWidget {
   final String tooltip;
   final Widget leading;
   final DIconData trailing;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool outlined;
 
   @override
@@ -1543,9 +1553,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                     // back into a reply that has already been sent.
                     key: ValueKey(widget.composer.fieldGeneration),
                     controller: widget.composer.text,
-                    readOnly:
-                        widget.composer.discarding ||
-                        widget.composer.submitting,
+                    readOnly: !widget.composer.isEditing,
                     scrollController: _scroll,
                     focusNode: widget.composer.focus,
                     autofocus: widget.autofocus,
@@ -1764,6 +1772,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _activatePointerDownPill() {
+    if (!widget.composer.isEditing) {
+      _cancelEditorPointer();
+      return;
+    }
     // `TextField.onTapAlwaysCalled` and the outer Listener can both settle the
     // same pointer sequence. Once the first activation clears its captured
     // position, a second callback must be inert rather than dismissing the
@@ -1829,6 +1841,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       : PluginUiScope.contextFor(context, syntax.kind.owner);
 
   Future<void> _editSyntax(ComposerSyntaxOccurrence syntax) async {
+    if (!widget.composer.isEditing) return;
     final text = widget.composer.text;
     text.keepSyntaxCollapsedForPointerEdit(syntax);
     text.selection = TextSelection.collapsed(
@@ -1838,6 +1851,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       await syntax.projection.edit(_syntaxUiContext(syntax), widget.composer);
     } finally {
       if (mounted &&
+          widget.composer.isEditing &&
           identical(widget.composer.text, text) &&
           _stillContains(text.text, syntax.start, syntax.end, syntax.source)) {
         text.selection = TextSelection.collapsed(
@@ -1864,6 +1878,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
+    if (!widget.composer.isEditing) return KeyEventResult.ignored;
     final keyboard = HardwareKeyboard.instance;
     final isEnter =
         event.logicalKey == LogicalKeyboardKey.enter ||
@@ -2140,6 +2155,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _editPill(Object pill) {
+    if (!widget.composer.isEditing) return;
     switch (pill) {
       case ComposerImageBlock image:
         _media.selectImageForKeyboard(image);
@@ -2152,6 +2168,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _removePill(Object pill) {
+    if (!widget.composer.isEditing) return;
     switch (pill) {
       case ComposerImageBlock image:
         _media.clearKeyboardImageSelection();
@@ -2236,6 +2253,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   Widget _mediaOverlays(BoxConstraints constraints) {
+    if (!widget.composer.isEditing) return const SizedBox.shrink();
     final state = _media.value;
     final imageMenuPosition = _imageMenuPosition(
       constraints,
@@ -2421,12 +2439,14 @@ final class _ComposerSelectionOverlay {
   TextSelection _lastQuoteSelection;
 
   void _attach() {
+    _composer.addListener(sync);
     _composer.text.addListener(sync);
     _composer.focus.addListener(sync);
     scroll.addListener(sync);
   }
 
   void _detach() {
+    _composer.removeListener(sync);
     _composer.text.removeListener(sync);
     _composer.focus.removeListener(sync);
     scroll.removeListener(sync);
@@ -2525,6 +2545,7 @@ final class _ComposerSelectionOverlay {
       _canFormatSelection(selection);
 
   bool _canFormatSelection(TextSelection selection) =>
+      _composer.isEditing &&
       selection.isValid &&
       !selection.isCollapsed &&
       !selectionTouchesComposerQuote(_composer.text.quoteBlocks, selection);
@@ -2637,10 +2658,13 @@ class _SelectionFormattingMenu extends StatelessWidget {
                   (ComposerMark.italic, DIcons.italic, 'Italic'),
                 ])
                   IconButton(
-                    onPressed: () {
-                      composer.toggleMark(mark);
-                      composer.focus.requestFocus();
-                    },
+                    onPressed: composer.isEditing
+                        ? () {
+                            if (!composer.isEditing) return;
+                            composer.toggleMark(mark);
+                            composer.focus.requestFocus();
+                          }
+                        : null,
                     icon: DIcon(icon, size: 18),
                     tooltip: label,
                     constraints: const BoxConstraints.tightFor(
@@ -3096,7 +3120,9 @@ class _Header extends StatelessWidget {
                       child: MenuItemButton(
                         key: const ValueKey('composer-toggle-whisper'),
                         closeOnActivate: false,
-                        onPressed: composer.toggleWhisper,
+                        onPressed: composer.isEditing
+                            ? composer.toggleWhisper
+                            : null,
                         child: SizedBox(
                           width: 300,
                           child: Row(
@@ -3105,7 +3131,9 @@ class _Header extends StatelessWidget {
                               Switch.adaptive(
                                 key: const ValueKey('composer-whisper-switch'),
                                 value: composer.whisper,
-                                onChanged: composer.setWhisper,
+                                onChanged: composer.isEditing
+                                    ? composer.setWhisper
+                                    : null,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -3286,7 +3314,7 @@ class _Toolbar extends StatelessWidget {
             child: Builder(
               builder: (buttonContext) => IconButton(
                 key: const ValueKey('composer-emoji-picker'),
-                onPressed: composer.loadingBody
+                onPressed: !composer.isEditing
                     ? null
                     : () => unawaited(
                         openEmojiPickerForTopicComposer(
@@ -3303,7 +3331,7 @@ class _Toolbar extends StatelessWidget {
           ),
         for (final action in actions)
           IconButton(
-            onPressed: action.onInvoke,
+            onPressed: composer.isEditing ? action.onInvoke : null,
             icon: DIcon(action.icon, size: 18),
             tooltip: action.label,
             visualDensity: VisualDensity.compact,

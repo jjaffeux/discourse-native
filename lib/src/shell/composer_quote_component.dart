@@ -48,7 +48,7 @@ void _removeQuote(
   ComposerEditorHost editor,
   ComposerComponentInstance<ComposerQuoteBlock> component,
 ) {
-  if (!editor.isCurrent) return;
+  if (!editor.isCurrent || !editor.isEditing) return;
   final current = editor.value;
   final range = component.range;
   if (!range.isValid ||
