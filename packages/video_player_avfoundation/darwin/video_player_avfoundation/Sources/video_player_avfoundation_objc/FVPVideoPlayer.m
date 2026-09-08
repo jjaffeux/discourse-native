@@ -73,9 +73,24 @@ static NSDictionary<NSString *, NSValue *> *FVPGetPlayerItemObservations(void) {
   };
 }
 
+// AVFoundation completions may arrive on any queue. Admit metadata work and update the item on
+// the main queue, where the plugin creates and disposes players. Callers capture the player weakly
+// so even a completion queued before disposal cannot extend its lifetime.
+static void FVPDispatchMetadataCompletion(dispatch_block_t completion) {
+  if ([NSThread isMainThread]) {
+    completion();
+  } else {
+    dispatch_async(dispatch_get_main_queue(), completion);
+  }
+}
+
 @implementation FVPVideoPlayer {
   // Whether or not player and player item listeners have ever been registered.
   BOOL _listenersRegistered;
+  // The factory's item/asset wrappers are not retained by AVPlayer. Own the initialization state
+  // here, rather than in AVFoundation callbacks, and release it on completion or disposal.
+  NSObject<FVPAVPlayerItem> *_initializingPlayerItem;
+  AVAssetTrack *_initializingVideoTrack;
 }
 
 - (instancetype)initWithPlayerItem:(NSObject<FVPAVPlayerItem> *)item
@@ -86,61 +101,7 @@ static NSDictionary<NSString *, NSValue *> *FVPGetPlayerItemObservations(void) {
 
   _viewProvider = viewProvider;
 
-  NSObject<FVPAVAsset> *asset = item.asset;
-  void (^assetCompletionHandler)(void) = ^{
-    if ([asset statusOfValueForKey:@"tracks" error:nil] == AVKeyValueStatusLoaded) {
-      void (^processVideoTracks)(NSArray<AVAssetTrack *> *) = ^(NSArray<AVAssetTrack *> *tracks) {
-        if ([tracks count] > 0) {
-          AVAssetTrack *videoTrack = tracks[0];
-          void (^trackCompletionHandler)(void) = ^{
-            if (self->_disposed) return;
-            if ([videoTrack statusOfValueForKey:@"preferredTransform"
-                                          error:nil] == AVKeyValueStatusLoaded) {
-              // Rotate the video by using a videoComposition and the preferredTransform
-              self->_preferredTransform = FVPGetStandardizedTrackTransform(
-                  videoTrack.preferredTransform, videoTrack.naturalSize);
-              // Do not use video composition when it is not needed.
-              if (CGAffineTransformIsIdentity(self->_preferredTransform)) {
-                return;
-              }
-              // Note:
-              // https://developer.apple.com/documentation/avfoundation/avplayeritem/1388818-videocomposition
-              // Video composition can only be used with file-based media and is not supported for
-              // use with media served using HTTP Live Streaming.
-              AVMutableVideoComposition *videoComposition =
-                  [self videoCompositionWithTransform:self->_preferredTransform
-                                                asset:asset
-                                           videoTrack:videoTrack];
-              item.videoComposition = videoComposition;
-            }
-          };
-          [videoTrack loadValuesAsynchronouslyForKeys:@[ @"preferredTransform" ]
-                                    completionHandler:trackCompletionHandler];
-        }
-      };
-
-      // Use the new async API on iOS 15.0+/macOS 12.0+, fall back to deprecated API on older
-      // versions
-      if (@available(iOS 15.0, macOS 12.0, *)) {
-        [asset loadTracksWithMediaType:AVMediaTypeVideo
-                     completionHandler:^(NSArray<AVAssetTrack *> *_Nullable tracks,
-                                         NSError *_Nullable error) {
-                       if (error == nil && tracks != nil) {
-                         processVideoTracks(tracks);
-                       } else if (error != nil) {
-                         NSLog(@"Error loading tracks: %@", error);
-                       }
-                     }];
-      } else {
-        // For older OS versions, use the deprecated API with warning suppression
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        NSArray *tracks = [asset tracksWithMediaType:AVMediaTypeVideo];
-#pragma clang diagnostic pop
-        processVideoTracks(tracks);
-      }
-    }
-  };
+  _initializingPlayerItem = item;
 
   _player = [avFactory playerWithPlayerItem:item];
   _player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
@@ -160,9 +121,83 @@ static NSDictionary<NSString *, NSValue *> *FVPGetPlayerItemObservations(void) {
   };
   _pixelBufferSource = [avFactory videoOutputWithOutputSettings:outputSettings];
 
-  [asset loadValuesAsynchronouslyForKeys:@[ @"tracks" ] completionHandler:assetCompletionHandler];
+  __weak FVPVideoPlayer *weakSelf = self;
+  [item.asset loadValuesAsynchronouslyForKeys:@[ @"tracks" ]
+                          completionHandler:^{
+                            FVPDispatchMetadataCompletion(^{
+                              [weakSelf loadVideoTracks];
+                            });
+                          }];
 
   return self;
+}
+
+- (void)loadVideoTracks {
+  if (_disposed) return;
+  NSObject<FVPAVAsset> *asset = _initializingPlayerItem.asset;
+  if ([asset statusOfValueForKey:@"tracks" error:nil] != AVKeyValueStatusLoaded) {
+    _initializingPlayerItem = nil;
+    return;
+  }
+
+  if (@available(iOS 15.0, macOS 12.0, *)) {
+    __weak FVPVideoPlayer *weakSelf = self;
+    [asset loadTracksWithMediaType:AVMediaTypeVideo
+                completionHandler:^(NSArray<AVAssetTrack *> *_Nullable tracks,
+                                    NSError *_Nullable error) {
+                  FVPDispatchMetadataCompletion(^{
+                    FVPVideoPlayer *strongSelf = weakSelf;
+                    if (!strongSelf || strongSelf->_disposed) return;
+                    if (error != nil) {
+                      NSLog(@"Error loading tracks: %@", error);
+                    }
+                    [strongSelf loadPreferredTransformForVideoTracks:error == nil ? tracks : nil];
+                  });
+                }];
+  } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    [self loadPreferredTransformForVideoTracks:[asset tracksWithMediaType:AVMediaTypeVideo]];
+#pragma clang diagnostic pop
+  }
+}
+
+- (void)loadPreferredTransformForVideoTracks:(NSArray<AVAssetTrack *> *_Nullable)tracks {
+  if (_disposed) return;
+  if (tracks.count == 0) {
+    _initializingPlayerItem = nil;
+    return;
+  }
+  _initializingVideoTrack = tracks[0];
+  __weak FVPVideoPlayer *weakSelf = self;
+  [_initializingVideoTrack loadValuesAsynchronouslyForKeys:@[ @"preferredTransform" ]
+                                       completionHandler:^{
+                                         FVPDispatchMetadataCompletion(^{
+                                           [weakSelf applyPreferredTransform];
+                                         });
+                                       }];
+}
+
+- (void)applyPreferredTransform {
+  if (_disposed) return;
+  NSObject<FVPAVPlayerItem> *item = _initializingPlayerItem;
+  AVAssetTrack *videoTrack = _initializingVideoTrack;
+  _initializingPlayerItem = nil;
+  _initializingVideoTrack = nil;
+  if ([videoTrack statusOfValueForKey:@"preferredTransform" error:nil] == AVKeyValueStatusLoaded) {
+    // Rotate the video by using a videoComposition and the preferredTransform.
+    _preferredTransform =
+        FVPGetStandardizedTrackTransform(videoTrack.preferredTransform, videoTrack.naturalSize);
+    // Do not use video composition when it is not needed.
+    if (CGAffineTransformIsIdentity(_preferredTransform)) {
+      return;
+    }
+    // Video composition can only be used with file-based media, not HTTP Live Streaming.
+    // https://developer.apple.com/documentation/avfoundation/avplayeritem/1388818-videocomposition
+    item.videoComposition = [self videoCompositionWithTransform:_preferredTransform
+                                                         asset:item.asset
+                                                    videoTrack:videoTrack];
+  }
 }
 
 - (void)dealloc {
@@ -179,6 +214,8 @@ static NSDictionary<NSString *, NSValue *> *FVPGetPlayerItemObservations(void) {
     return;
   }
   _disposed = YES;
+  _initializingPlayerItem = nil;
+  _initializingVideoTrack = nil;
 
   if (_listenersRegistered) {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
