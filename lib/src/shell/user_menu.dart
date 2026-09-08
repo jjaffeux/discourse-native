@@ -402,27 +402,41 @@ class _TabRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final profile = sections.firstWhere((section) => section.isProfile);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        children: [
-          for (final section in sections) ...[
-            if (section.isProfile)
-              Divider(
-                color: theme.shell.divider,
-                indent: 10,
-                endIndent: 10,
-                height: 17,
-              ),
-            _TabButton(
-              section: section,
-              selected: section.id == selectedId,
-              onTap: () => onSelect(section.id),
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              children: [
+                for (final section in sections)
+                  if (!section.isProfile)
+                    _TabButton(
+                      section: section,
+                      selected: section.id == selectedId,
+                      onTap: () => onSelect(section.id),
+                    ),
+              ],
             ),
-          ],
-        ],
-      ),
+          ),
+        ),
+        Divider(
+          color: theme.shell.divider,
+          indent: 10,
+          endIndent: 10,
+          height: 17,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _TabButton(
+            section: profile,
+            selected: profile.id == selectedId,
+            onTap: () => onSelect(profile.id),
+          ),
+        ),
+      ],
     );
   }
 }
