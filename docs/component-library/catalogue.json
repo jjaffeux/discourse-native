@@ -1,0 +1,2686 @@
+{
+  "referenceDate": "2026-09-08",
+  "capturedAt": "2026-09-08T14:36:38.371144+00:00",
+  "catalogueUrl": "https://ui.shadcn.com/docs/components",
+  "referenceFamily": "Base UI (the default catalogue links at capture time)",
+  "scopeNote": "The 64 entries in All Components define scope. Toast uses Sonner; Sonner is not a separate catalogue entry. Framework-specific form integration guides and registry utilities are supporting references, not extra catalogue components.",
+  "components": [
+    {
+      "id": "accordion",
+      "name": "Accordion",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/accordion",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/accordion.md",
+      "sha256": "ccd53e3cb2e6d1cd1cc72588b853fdc8aefe08aab3d5cb515d28dfe09dcf149f",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Basic",
+        "Multiple",
+        "Disabled",
+        "Borders",
+        "Card",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {},
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": [
+        "card"
+      ]
+    },
+    {
+      "id": "alert",
+      "name": "Alert",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/alert",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/alert.md",
+      "sha256": "a6d5f832b2384d4544d2d1d0aaa0fe315dd17031a0fb5395451fb09b0925dbf9",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Basic",
+        "Destructive",
+        "Action",
+        "Custom Colors",
+        "RTL",
+        "API Reference",
+        "Alert",
+        "AlertTitle",
+        "AlertDescription",
+        "AlertAction"
+      ],
+      "documentedProps": {
+        "variant": [
+          "default",
+          "destructive",
+          "outline"
+        ],
+        "size": [
+          "xs"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "button"
+      ]
+    },
+    {
+      "id": "alert-dialog",
+      "name": "Alert Dialog",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/alert-dialog",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/alert-dialog.md",
+      "sha256": "ccc9147729b395b1d80ba6c9190ffbd5b556213571f958bb10c111a38b63c2da",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Basic",
+        "Small",
+        "Media",
+        "Small with Media",
+        "Destructive",
+        "RTL",
+        "API Reference",
+        "size"
+      ],
+      "documentedProps": {
+        "variant": [
+          "destructive",
+          "outline"
+        ],
+        "size": [
+          "sm"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react"
+      ],
+      "exampleComponents": [
+        "button"
+      ]
+    },
+    {
+      "id": "aspect-ratio",
+      "name": "Aspect Ratio",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/aspect-ratio",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/aspect-ratio.md",
+      "sha256": "7d0ebab187a210c255515d46b286d99cf55b16879d76075e2490646dbc80cda1",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Square",
+        "Portrait",
+        "RTL",
+        "API Reference",
+        "AspectRatio"
+      ],
+      "documentedProps": {},
+      "referencePackages": [
+        "next",
+        "react"
+      ],
+      "exampleComponents": []
+    },
+    {
+      "id": "attachment",
+      "name": "Attachment",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/attachment",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/attachment.md",
+      "sha256": "47350990437e1b9c623684cbee001101962dcd7fb9328b162ef07adb03774175",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Features",
+        "Image",
+        "States",
+        "Sizes",
+        "Group",
+        "Trigger",
+        "Accessibility",
+        "Label icon-only actions",
+        "Label the trigger",
+        "Keyboard scrolling",
+        "Meaning beyond color",
+        "API Reference",
+        "Attachment",
+        "AttachmentMedia",
+        "AttachmentContent",
+        "AttachmentTitle",
+        "AttachmentDescription",
+        "AttachmentActions",
+        "AttachmentAction",
+        "AttachmentTrigger",
+        "AttachmentGroup"
+      ],
+      "documentedProps": {
+        "variant": [
+          "image"
+        ],
+        "size": [
+          "default",
+          "sm",
+          "xs"
+        ],
+        "orientation": [
+          "vertical"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react"
+      ],
+      "exampleComponents": [
+        "dialog",
+        "spinner"
+      ]
+    },
+    {
+      "id": "avatar",
+      "name": "Avatar",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/avatar",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/avatar.md",
+      "sha256": "921178487423ff56f4de4aa29b09541733b59359ae746fe63a8b765ae8b153d9",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Basic",
+        "Badge",
+        "Badge with Icon",
+        "Avatar Group",
+        "Avatar Group Count",
+        "Avatar Group with Icon",
+        "Sizes",
+        "Dropdown",
+        "RTL",
+        "API Reference",
+        "Avatar",
+        "AvatarImage",
+        "AvatarFallback",
+        "AvatarBadge",
+        "AvatarGroup",
+        "AvatarGroupCount"
+      ],
+      "documentedProps": {
+        "variant": [
+          "destructive",
+          "ghost"
+        ],
+        "size": [
+          "icon",
+          "lg",
+          "sm"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "button",
+        "dropdown-menu"
+      ]
+    },
+    {
+      "id": "badge",
+      "name": "Badge",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/badge",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/badge.md",
+      "sha256": "e174d14915336a823d0926ac774ba56767fd315950ac843dbe58fc36aba507bf",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Variants",
+        "With Icon",
+        "With Spinner",
+        "Link",
+        "Custom Colors",
+        "RTL",
+        "API Reference",
+        "Badge"
+      ],
+      "documentedProps": {
+        "variant": [
+          "default | outline | secondary | destructive",
+          "destructive",
+          "ghost",
+          "outline",
+          "secondary"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "spinner"
+      ]
+    },
+    {
+      "id": "breadcrumb",
+      "name": "Breadcrumb",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/breadcrumb",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/breadcrumb.md",
+      "sha256": "df168dd44f709ddb768995fbab0188c1934b6e95def1ba3726adf4f9302714b7",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Basic",
+        "Custom separator",
+        "Dropdown",
+        "Collapsed",
+        "Link component",
+        "RTL",
+        "API Reference",
+        "Breadcrumb",
+        "BreadcrumbList",
+        "BreadcrumbItem",
+        "BreadcrumbLink",
+        "BreadcrumbPage",
+        "BreadcrumbSeparator",
+        "BreadcrumbEllipsis"
+      ],
+      "documentedProps": {
+        "variant": [
+          "ghost"
+        ],
+        "size": [
+          "icon-sm"
+        ],
+        "align": [
+          "start"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "next"
+      ],
+      "exampleComponents": [
+        "button",
+        "dropdown-menu"
+      ]
+    },
+    {
+      "id": "bubble",
+      "name": "Bubble",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/bubble",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/bubble.md",
+      "sha256": "6863ccd2854a6d590991fc58cb8b5ddcb82fe88d25185100b7bf111021267a82",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Features",
+        "Variants",
+        "Alignment",
+        "Bubble Group",
+        "Links and Buttons",
+        "Reactions",
+        "Show More / Collapsible",
+        "Tooltip",
+        "Popover",
+        "Accessibility",
+        "Labeling Reactions",
+        "Interactive Bubbles",
+        "Meaning Beyond Color",
+        "API Reference",
+        "Bubble",
+        "BubbleContent",
+        "BubbleReactions",
+        "BubbleGroup"
+      ],
+      "documentedProps": {
+        "variant": [
+          "default",
+          "destructive",
+          "ghost",
+          "link",
+          "muted",
+          "outline",
+          "secondary",
+          "tinted"
+        ],
+        "size": [
+          "icon-xs",
+          "xs"
+        ],
+        "side": [
+          "top"
+        ],
+        "align": [
+          "end",
+          "start"
+        ],
+        "type": [
+          "button"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react",
+        "sonner"
+      ],
+      "exampleComponents": [
+        "button",
+        "collapsible",
+        "popover",
+        "tooltip"
+      ]
+    },
+    {
+      "id": "button",
+      "name": "Button",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/button",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/button.md",
+      "sha256": "966cf16702128d2b385b62616ee24bb3b1b3b2ed7eebfc13ce411c90421f8910",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Cursor",
+        "Size",
+        "Default",
+        "Outline",
+        "Secondary",
+        "Ghost",
+        "Destructive",
+        "Link",
+        "Icon",
+        "With Icon",
+        "Rounded",
+        "Spinner",
+        "Button Group",
+        "As Link",
+        "RTL",
+        "API Reference",
+        "Button"
+      ],
+      "documentedProps": {
+        "variant": [
+          "destructive",
+          "ghost",
+          "link",
+          "outline",
+          "secondary"
+        ],
+        "size": [
+          "icon",
+          "icon-lg",
+          "icon-sm",
+          "icon-xs",
+          "lg",
+          "sm",
+          "xs"
+        ],
+        "align": [
+          "end"
+        ]
+      },
+      "referencePackages": [
+        "@tabler/icons-react",
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "button-group",
+        "dropdown-menu",
+        "spinner"
+      ]
+    },
+    {
+      "id": "button-group",
+      "name": "Button Group",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/button-group",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/button-group.md",
+      "sha256": "9118d89c3e715a7e77ec0454be6a276c24d114c8b3099505bb463487e9545eda",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Accessibility",
+        "ButtonGroup vs ToggleGroup",
+        "Orientation",
+        "Size",
+        "Nested",
+        "Separator",
+        "Split",
+        "Input",
+        "Input Group",
+        "Dropdown Menu",
+        "Select",
+        "Popover",
+        "RTL",
+        "API Reference",
+        "ButtonGroup",
+        "ButtonGroupSeparator",
+        "ButtonGroupText"
+      ],
+      "documentedProps": {
+        "variant": [
+          "destructive",
+          "outline",
+          "secondary"
+        ],
+        "size": [
+          "icon",
+          "icon-lg",
+          "icon-sm",
+          "icon-xs",
+          "lg",
+          "sm"
+        ],
+        "orientation": [
+          "vertical"
+        ],
+        "align": [
+          "end",
+          "inline-end",
+          "start"
+        ]
+      },
+      "referencePackages": [
+        "@tabler/icons-react",
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "button",
+        "dropdown-menu",
+        "field",
+        "input",
+        "input-group",
+        "label",
+        "popover",
+        "select",
+        "textarea",
+        "tooltip"
+      ]
+    },
+    {
+      "id": "calendar",
+      "name": "Calendar",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/calendar",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/calendar.md",
+      "sha256": "9268f3aa428b4eb36bfbd957644f9d681beab0d49575f779a2cd2620f81a58b4",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "About",
+        "Date Picker",
+        "Persian / Hijri / Jalali Calendar",
+        "Selected Date (With TimeZone)",
+        "Basic",
+        "Range Calendar",
+        "Month and Year Selector",
+        "Presets",
+        "Date and Time Picker",
+        "Booked dates",
+        "Custom Cell Size",
+        "Week Numbers",
+        "RTL",
+        "API Reference",
+        "Changelog",
+        "RTL Support"
+      ],
+      "documentedProps": {
+        "variant": [
+          "ghost",
+          "outline"
+        ],
+        "size": [
+          "icon",
+          "sm"
+        ],
+        "type": [
+          "time"
+        ]
+      },
+      "referencePackages": [
+        "\n                type=",
+        ">Start Time<",
+        "cn",
+        "date-fns",
+        "lucide-react",
+        "next",
+        "react",
+        "react-day-picker"
+      ],
+      "exampleComponents": [
+        "button",
+        "card",
+        "field",
+        "input-group"
+      ]
+    },
+    {
+      "id": "card",
+      "name": "Card",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/card",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/card.md",
+      "sha256": "718dec761e0ad426b53d4673d206ab6dbfbbff5757f9714b883a04126f75db3e",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Size",
+        "Spacing",
+        "Image",
+        "RTL",
+        "API Reference",
+        "Card",
+        "CardHeader",
+        "CardTitle",
+        "CardDescription",
+        "CardAction",
+        "CardContent",
+        "CardFooter",
+        "Changelog",
+        "Spacing Variable"
+      ],
+      "documentedProps": {
+        "variant": [
+          "link",
+          "outline",
+          "secondary"
+        ],
+        "size": [
+          "sm"
+        ],
+        "type": [
+          "email",
+          "password",
+          "submit"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "badge",
+        "button",
+        "input",
+        "label",
+        "toggle-group"
+      ]
+    },
+    {
+      "id": "carousel",
+      "name": "Carousel",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/carousel",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/carousel.md",
+      "sha256": "98fdaa46f982b7ebf29b3c18f5e848f478244a766a0270f9c520f5e2eaf2fd59",
+      "documentedSections": [
+        "About",
+        "Installation",
+        "Usage",
+        "Composition",
+        "Sizes",
+        "Spacing",
+        "Orientation",
+        "Options",
+        "API",
+        "Events",
+        "Plugins",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "orientation": [
+          "vertical",
+          "vertical | horizontal"
+        ]
+      },
+      "referencePackages": [
+        "embla-carousel-autoplay",
+        "react"
+      ],
+      "exampleComponents": [
+        "card"
+      ]
+    },
+    {
+      "id": "chart",
+      "name": "Chart",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/chart",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/chart.md",
+      "sha256": "c6c51d44c211580548bbce4647965f16458e02c054cb5592aa89405d3b36885d",
+      "documentedSections": [
+        "Component",
+        "Updating to Recharts v3",
+        "Installation",
+        "Your First Chart",
+        "Add a Grid",
+        "Add an Axis",
+        "Add Tooltip",
+        "Add Legend",
+        "Chart Config",
+        "Theming",
+        "CSS Variables",
+        "hex, hsl or oklch",
+        "Using Colors",
+        "Components",
+        "Chart Data",
+        "Tailwind",
+        "Tooltip",
+        "Props",
+        "Colors",
+        "Custom",
+        "Legend",
+        "Colors",
+        "Custom",
+        "Accessibility",
+        "RTL"
+      ],
+      "documentedProps": {},
+      "referencePackages": [
+        "cn",
+        "lucide-react",
+        "react",
+        "recharts"
+      ],
+      "exampleComponents": []
+    },
+    {
+      "id": "checkbox",
+      "name": "Checkbox",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/checkbox",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/checkbox.md",
+      "sha256": "7fc35f61a68fa13939af760acf7655d03441b9b44085183e033dcb80bfb25458",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Checked State",
+        "Invalid State",
+        "Basic",
+        "Description",
+        "Disabled",
+        "Group",
+        "Table",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "label"
+        ],
+        "orientation": [
+          "horizontal"
+        ]
+      },
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": [
+        "field",
+        "label",
+        "table"
+      ]
+    },
+    {
+      "id": "collapsible",
+      "name": "Collapsible",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/collapsible",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/collapsible.md",
+      "sha256": "51c94ec0874f01cd67a62616d74dabb98334f8a31c1db74207f7c86a2402ea6a",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Controlled State",
+        "Basic",
+        "Settings Panel",
+        "File Tree",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "ghost",
+          "link",
+          "outline"
+        ],
+        "size": [
+          "icon",
+          "sm",
+          "xs"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "button",
+        "card",
+        "field",
+        "input",
+        "tabs"
+      ]
+    },
+    {
+      "id": "combobox",
+      "name": "Combobox",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/combobox",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/combobox.md",
+      "sha256": "1999428362ac7386c7770217e5b48e1a44c2b414005f9721ef68b9366e9ef0f2",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Simple",
+        "With chips",
+        "With groups and collection",
+        "Custom Items",
+        "Multiple Selection",
+        "Basic",
+        "Multiple",
+        "Clear Button",
+        "Groups",
+        "Custom Items",
+        "Invalid",
+        "Disabled",
+        "Auto Highlight",
+        "Popup",
+        "Input Group",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline"
+        ],
+        "size": [
+          "xs"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "button",
+        "field",
+        "input-group",
+        "item"
+      ]
+    },
+    {
+      "id": "command",
+      "name": "Command",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/command",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/command.md",
+      "sha256": "1a810090b9cc629efe885d8795365280c2653fdf3e0f5d20f4ac2354b876a4b6",
+      "documentedSections": [
+        "About",
+        "Installation",
+        "Usage",
+        "Composition",
+        "Basic",
+        "Shortcuts",
+        "Groups",
+        "Scrollable",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "button"
+      ]
+    },
+    {
+      "id": "context-menu",
+      "name": "Context Menu",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/context-menu",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/context-menu.md",
+      "sha256": "ec20bd0ef47abb75872c1294d1563f0f279d3da5861177d8f2c588d8eb5f6895",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Basic",
+        "Submenu",
+        "Shortcuts",
+        "Groups",
+        "Icons",
+        "Checkboxes",
+        "Radio",
+        "Destructive",
+        "Sides",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "destructive"
+        ],
+        "side": [
+          "bottom",
+          "inline-end",
+          "left",
+          "right",
+          "top"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": []
+    },
+    {
+      "id": "data-table",
+      "name": "Data Table",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/data-table",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/data-table.md",
+      "sha256": "31d46187a08d79ce41dd8991599ce86ff2d6fba0b99ae4ebff84cfbccce6cff4",
+      "documentedSections": [
+        "Introduction",
+        "Table of Contents",
+        "Installation",
+        "Prerequisites",
+        "Project Structure",
+        "Set up Table Features",
+        "Basic Table",
+        "Column Definitions",
+        "`<DataTable />` component",
+        "Render the table",
+        "Cell Formatting",
+        "Update columns definition",
+        "Row Actions",
+        "Update columns definition",
+        "Pagination",
+        "Pagination is already enabled",
+        "Add pagination controls",
+        "Sorting",
+        "Update `<DataTable>`",
+        "Make header cell sortable",
+        "Filtering",
+        "Update `<DataTable>`",
+        "Visibility",
+        "Update `<DataTable>`",
+        "Row Selection",
+        "Update column definitions",
+        "Update `<DataTable>`",
+        "Show selected rows",
+        "Reusable Components",
+        "Column header",
+        "Pagination",
+        "Column toggle",
+        "RTL"
+      ],
+      "documentedProps": {
+        "variant": [
+          "ghost",
+          "outline"
+        ],
+        "size": [
+          "icon-xs",
+          "sm"
+        ],
+        "align": [
+          "end"
+        ]
+      },
+      "referencePackages": [
+        "@tanstack/react-table",
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "badge",
+        "button",
+        "checkbox",
+        "dropdown-menu",
+        "input",
+        "table"
+      ]
+    },
+    {
+      "id": "date-picker",
+      "name": "Date Picker",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/date-picker",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/date-picker.md",
+      "sha256": "cedb8c5a45c2cc2cede23b564b55c7a7a3c506e5d14f6b413d7758c03a0550c6",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Basic",
+        "Range Picker",
+        "Date of Birth",
+        "Input",
+        "Time Picker",
+        "Natural Language Picker",
+        "RTL"
+      ],
+      "documentedProps": {
+        "variant": [
+          "ghost",
+          "outline"
+        ],
+        "size": [
+          "icon-xs"
+        ],
+        "align": [
+          "end",
+          "inline-end",
+          "start"
+        ],
+        "type": [
+          "time"
+        ]
+      },
+      "referencePackages": [
+        "chrono-node",
+        "cn",
+        "date-fns",
+        "lucide-react",
+        "react",
+        "react-day-picker"
+      ],
+      "exampleComponents": [
+        "button",
+        "calendar",
+        "field",
+        "input",
+        "input-group",
+        "popover"
+      ]
+    },
+    {
+      "id": "dialog",
+      "name": "Dialog",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/dialog",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/dialog.md",
+      "sha256": "c4915883516dc53b58f8aa12a9fddc04fd2bd350c7f6ca842ce737025736bebf",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Custom Close Button",
+        "No Close Button",
+        "Sticky Footer",
+        "Scrollable Content",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline"
+        ],
+        "type": [
+          "button",
+          "submit"
+        ]
+      },
+      "referencePackages": [],
+      "exampleComponents": [
+        "button",
+        "field",
+        "input",
+        "label"
+      ]
+    },
+    {
+      "id": "direction",
+      "name": "Direction",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/direction",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/direction.md",
+      "sha256": "696841f1a8259dfdb07c8b9ecc82181a4b0daf36516ba1a63164542970cfb709",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "useDirection"
+      ],
+      "documentedProps": {
+        "variant": [
+          "link",
+          "outline"
+        ],
+        "type": [
+          "email",
+          "password",
+          "submit"
+        ]
+      },
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": [
+        "button",
+        "card",
+        "input",
+        "label"
+      ]
+    },
+    {
+      "id": "drawer",
+      "name": "Drawer",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/drawer",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/drawer.md",
+      "sha256": "e3fca4a3433436c5eb043a1075f04d064f97add28e4d89872a9a01fe493cc63a",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Custom Sizes",
+        "Styling",
+        "Position",
+        "Swipe Handle",
+        "Nested",
+        "Non Modal",
+        "Snap Points",
+        "Responsive",
+        "Migrating from Vaul",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline",
+          "secondary"
+        ],
+        "orientation": [
+          "horizontal"
+        ],
+        "type": [
+          "email",
+          "submit"
+        ]
+      },
+      "referencePackages": [
+        "cn",
+        "react",
+        "sonner"
+      ],
+      "exampleComponents": [
+        "badge",
+        "button",
+        "dialog",
+        "field",
+        "input",
+        "label",
+        "radio-group"
+      ]
+    },
+    {
+      "id": "dropdown-menu",
+      "name": "Dropdown Menu",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/dropdown-menu",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/dropdown-menu.md",
+      "sha256": "3a8ab9398fa074c3cdf023e31bc9368a3b6bafb0b0f146a326eb2c76808ba7fa",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Basic",
+        "Submenu",
+        "Shortcuts",
+        "Icons",
+        "Checkboxes",
+        "Checkboxes Icons",
+        "Radio Group",
+        "Radio Icons",
+        "Destructive",
+        "Avatar",
+        "Complex",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "destructive",
+          "ghost",
+          "outline"
+        ],
+        "size": [
+          "icon"
+        ],
+        "align": [
+          "end",
+          "start"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "avatar",
+        "button"
+      ]
+    },
+    {
+      "id": "empty",
+      "name": "Empty",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/empty",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/empty.md",
+      "sha256": "052a80cfb1f64c836d1aa39c739da20ab26848f94555cd13f3c6a598267c9d37",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Outline",
+        "Background",
+        "Avatar",
+        "Avatar Group",
+        "InputGroup",
+        "RTL",
+        "API Reference",
+        "Empty",
+        "EmptyHeader",
+        "EmptyMedia",
+        "EmptyTitle",
+        "EmptyDescription",
+        "EmptyContent"
+      ],
+      "documentedProps": {
+        "variant": [
+          "default",
+          "icon",
+          "link",
+          "outline"
+        ],
+        "size": [
+          "sm"
+        ],
+        "align": [
+          "inline-end"
+        ]
+      },
+      "referencePackages": [
+        "@tabler/icons-react",
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "avatar",
+        "button",
+        "input-group",
+        "kbd"
+      ]
+    },
+    {
+      "id": "field",
+      "name": "Field",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/field",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/field.md",
+      "sha256": "1afe174f74b982ec86fad520dab464a16bfe289c2d54fde88241ce3a791112ee",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Field",
+        "FieldGroup",
+        "FieldSet",
+        "Anatomy",
+        "Form",
+        "Input",
+        "Textarea",
+        "Select",
+        "Slider",
+        "Fieldset",
+        "Checkbox",
+        "Radio",
+        "Switch",
+        "Choice Card",
+        "Field Group",
+        "RTL",
+        "Responsive Layout",
+        "Validation and Errors",
+        "Accessibility",
+        "API Reference",
+        "FieldSet",
+        "FieldLegend",
+        "FieldGroup",
+        "Field",
+        "FieldContent",
+        "FieldLabel",
+        "FieldTitle",
+        "FieldDescription",
+        "FieldSeparator",
+        "FieldError"
+      ],
+      "documentedProps": {
+        "variant": [
+          "label",
+          "outline"
+        ],
+        "orientation": [
+          "horizontal",
+          "responsive"
+        ],
+        "type": [
+          "button",
+          "email",
+          "password",
+          "submit",
+          "text"
+        ]
+      },
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": [
+        "button",
+        "checkbox",
+        "input",
+        "radio-group",
+        "select",
+        "slider",
+        "switch",
+        "textarea"
+      ]
+    },
+    {
+      "id": "hover-card",
+      "name": "Hover Card",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/hover-card",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/hover-card.md",
+      "sha256": "8f30193c745aaf270cdf63043ca452cdffb895e8643a86c662ca0804c6022dc8",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Trigger Delays",
+        "Positioning",
+        "Basic",
+        "Sides",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "link",
+          "outline"
+        ],
+        "side": [
+          "top"
+        ],
+        "align": [
+          "start"
+        ]
+      },
+      "referencePackages": [],
+      "exampleComponents": [
+        "avatar",
+        "button"
+      ]
+    },
+    {
+      "id": "input",
+      "name": "Input",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/input",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/input.md",
+      "sha256": "1ea19da544283cee29e704fc9c7e930b55fef45018710427e7243e4be93879f4",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Basic",
+        "Field",
+        "Field Group",
+        "Disabled",
+        "Invalid",
+        "File",
+        "Inline",
+        "Grid",
+        "Required",
+        "Badge",
+        "Input Group",
+        "Button Group",
+        "Form",
+        "RTL"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline",
+          "secondary"
+        ],
+        "orientation": [
+          "horizontal"
+        ],
+        "align": [
+          "inline-end"
+        ],
+        "type": [
+          "button",
+          "email",
+          "file",
+          "password",
+          "reset",
+          "search",
+          "submit",
+          "tel",
+          "text",
+          "url"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "badge",
+        "button",
+        "button-group",
+        "field",
+        "input-group",
+        "select"
+      ]
+    },
+    {
+      "id": "input-group",
+      "name": "Input Group",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/input-group",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/input-group.md",
+      "sha256": "6a1c182773fd4981af63da9ca5b2cb70cd0743f658a728b8fb9f6a6bd2a71a96",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Align",
+        "inline-start",
+        "inline-end",
+        "block-start",
+        "block-end",
+        "Icon",
+        "Text",
+        "Button",
+        "Kbd",
+        "Dropdown",
+        "Spinner",
+        "Textarea",
+        "Custom Input",
+        "RTL",
+        "API Reference",
+        "InputGroup",
+        "InputGroupAddon",
+        "InputGroupButton",
+        "InputGroupInput",
+        "InputGroupTextarea"
+      ],
+      "documentedProps": {
+        "variant": [
+          "default",
+          "ghost",
+          "secondary"
+        ],
+        "size": [
+          "icon-xs",
+          "sm"
+        ],
+        "align": [
+          "block-end",
+          "block-start",
+          "end",
+          "inline-end",
+          "inline-start",
+          "start"
+        ],
+        "type": [
+          "email",
+          "password"
+        ]
+      },
+      "referencePackages": [
+        "@tabler/icons-react",
+        "lucide-react",
+        "react",
+        "react-textarea-autosize"
+      ],
+      "exampleComponents": [
+        "dropdown-menu",
+        "field",
+        "kbd",
+        "popover",
+        "spinner"
+      ]
+    },
+    {
+      "id": "input-otp",
+      "name": "Input OTP",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/input-otp",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/input-otp.md",
+      "sha256": "913027458ed577e6345687c3d42b62f28e2813e1d8b000e1b8b9e52f554b1a6e",
+      "documentedSections": [
+        "About",
+        "Installation",
+        "Usage",
+        "Composition",
+        "Pattern",
+        "Separator",
+        "Disabled",
+        "Controlled",
+        "Invalid",
+        "Four Digits",
+        "Alphanumeric",
+        "Form",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline"
+        ],
+        "size": [
+          "xs"
+        ],
+        "type": [
+          "submit"
+        ]
+      },
+      "referencePackages": [
+        "input-otp",
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "button",
+        "card",
+        "field"
+      ]
+    },
+    {
+      "id": "item",
+      "name": "Item",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/item",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/item.md",
+      "sha256": "c4a69c25199741ad3baea25f07a869e1aebf08cf3274f1a4f2e9da04afbbe0f0",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Item vs Field",
+        "Variant",
+        "Size",
+        "Icon",
+        "Avatar",
+        "Image",
+        "Group",
+        "Header",
+        "Link",
+        "Dropdown",
+        "RTL",
+        "API Reference",
+        "Item",
+        "ItemGroup",
+        "ItemSeparator",
+        "ItemMedia",
+        "ItemContent",
+        "ItemTitle",
+        "ItemDescription",
+        "ItemActions",
+        "ItemHeader",
+        "ItemFooter"
+      ],
+      "documentedProps": {
+        "variant": [
+          "avatar",
+          "ghost",
+          "icon",
+          "image",
+          "muted",
+          "outline"
+        ],
+        "size": [
+          "icon",
+          "icon-sm",
+          "sm",
+          "xs"
+        ],
+        "align": [
+          "end"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "next",
+        "react"
+      ],
+      "exampleComponents": [
+        "avatar",
+        "button",
+        "dropdown-menu"
+      ]
+    },
+    {
+      "id": "kbd",
+      "name": "Kbd",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/kbd",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/kbd.md",
+      "sha256": "3dd0b0dacf86f4b701ae35df3efe453ba1e9995a542e0a4a004a252f5bdd7978",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Group",
+        "Button",
+        "Tooltip",
+        "Input Group",
+        "RTL",
+        "API Reference",
+        "Kbd",
+        "KbdGroup"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline"
+        ],
+        "align": [
+          "inline-end"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "button",
+        "button-group",
+        "input-group",
+        "tooltip"
+      ]
+    },
+    {
+      "id": "label",
+      "name": "Label",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/label",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/label.md",
+      "sha256": "7263b641bac78acd5ec6cfbffefeddda484eaedb1d32b8a73a675b53da0644c2",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Label in Field",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline"
+        ],
+        "orientation": [
+          "horizontal"
+        ],
+        "type": [
+          "button",
+          "submit"
+        ]
+      },
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": [
+        "button",
+        "checkbox",
+        "field",
+        "input",
+        "select",
+        "textarea"
+      ]
+    },
+    {
+      "id": "marker",
+      "name": "Marker",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/marker",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/marker.md",
+      "sha256": "6945086da60adc35853f120678096e8a6e6485dc7b4e9e8eb8e7dfc023a69b90",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Features",
+        "Variants",
+        "Status",
+        "Shimmer",
+        "Separator",
+        "Border",
+        "With Icon",
+        "Links and Buttons",
+        "Accessibility",
+        "Status and Progress",
+        "Labeled Separators",
+        "Bordered Markers",
+        "Decorative Icons",
+        "Interactive Markers",
+        "API Reference",
+        "Marker",
+        "MarkerIcon",
+        "MarkerContent"
+      ],
+      "documentedProps": {
+        "variant": [
+          "border",
+          "separator"
+        ],
+        "type": [
+          "button"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "sonner"
+      ],
+      "exampleComponents": [
+        "spinner"
+      ]
+    },
+    {
+      "id": "menubar",
+      "name": "Menubar",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/menubar",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/menubar.md",
+      "sha256": "8ae4486c307453e61359a37284084facbfbc6495ed0dabdc47ad991a06f734ae",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Checkbox",
+        "Radio",
+        "Submenu",
+        "With Icons",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "destructive"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": []
+    },
+    {
+      "id": "message",
+      "name": "Message",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/message",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/message.md",
+      "sha256": "39047b5f5cef3654f98cd34f60dbdee75f585a03af3ddf35839e113b8e649782",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Features",
+        "Avatar",
+        "Group",
+        "Header and Footer",
+        "Actions",
+        "Attachment",
+        "Accessibility",
+        "Label icon-only actions",
+        "Status updates",
+        "API Reference",
+        "Message",
+        "MessageGroup",
+        "MessageAvatar",
+        "MessageContent",
+        "MessageHeader",
+        "MessageFooter"
+      ],
+      "documentedProps": {
+        "variant": [
+          "ghost",
+          "image",
+          "muted",
+          "secondary"
+        ],
+        "size": [
+          "icon",
+          "icon-sm",
+          "icon-xs"
+        ],
+        "orientation": [
+          "vertical"
+        ],
+        "align": [
+          "end"
+        ],
+        "type": [
+          "button"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react"
+      ],
+      "exampleComponents": [
+        "attachment",
+        "avatar",
+        "bubble",
+        "button",
+        "marker"
+      ]
+    },
+    {
+      "id": "message-scroller",
+      "name": "Message Scroller",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/message-scroller",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/message-scroller.md",
+      "sha256": "fc0e1a7bdc05d81c833e001292419e85e1eb7c16be3942a7468ff2d6c1d2b165",
+      "documentedSections": [
+        "What Makes a Great Streaming Chat Experience",
+        "MessageScroller",
+        "Installation",
+        "Usage",
+        "Composition",
+        "Core Concepts",
+        "Anchoring Turns",
+        "Group Chat",
+        "Keeping Context Visible",
+        "Following the Live Edge",
+        "Opening Saved Threads",
+        "Avoiding a Flash on Reload",
+        "Loading Earlier Messages",
+        "Animating New Messages",
+        "Jumping to Messages",
+        "Tracking the Reader's Position",
+        "Reading Scroll State",
+        "Performance",
+        "Virtualization",
+        "Accessibility",
+        "Unstyled",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "default",
+          "icon",
+          "outline",
+          "secondary",
+          "separator"
+        ],
+        "size": [
+          "icon",
+          "icon-sm"
+        ],
+        "side": [
+          "bottom",
+          "left",
+          "top"
+        ],
+        "align": [
+          "block-end",
+          "center",
+          "end",
+          "start"
+        ],
+        "type": [
+          "button",
+          "submit"
+        ]
+      },
+      "referencePackages": [
+        "@ai-sdk/react",
+        "@tanstack/react-virtual",
+        "lucide-react",
+        "react",
+        "sonner"
+      ],
+      "exampleComponents": [
+        "bubble",
+        "button",
+        "card",
+        "dropdown-menu",
+        "empty",
+        "hover-card",
+        "input-group",
+        "marker",
+        "message",
+        "select",
+        "slider",
+        "tabs",
+        "toggle-group",
+        "tooltip"
+      ]
+    },
+    {
+      "id": "native-select",
+      "name": "Native Select",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/native-select",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/native-select.md",
+      "sha256": "46ba4666fa33e33a336645f213e74416eae3729c03e38ef64e687bffa54cd1a4",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Simple",
+        "With groups",
+        "Groups",
+        "Disabled",
+        "Invalid",
+        "Native Select vs Select",
+        "RTL",
+        "API Reference",
+        "NativeSelect",
+        "NativeSelectOption",
+        "NativeSelectOptGroup"
+      ],
+      "documentedProps": {
+        "variant": [
+          "info"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": []
+    },
+    {
+      "id": "navigation-menu",
+      "name": "Navigation Menu",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/navigation-menu",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/navigation-menu.md",
+      "sha256": "2f4297e419617d26545e1c71dbc5336f6878dd8ab687f71663fe0e2bc2126546",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Link Component",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {},
+      "referencePackages": [
+        "lucide-react",
+        "next",
+        "react"
+      ],
+      "exampleComponents": []
+    },
+    {
+      "id": "pagination",
+      "name": "Pagination",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/pagination",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/pagination.md",
+      "sha256": "bc07e7b5e3df7090f895a93d49a3484e828e8560c17600ab3cbd1cb92313c3f9",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Simple",
+        "Icons Only",
+        "Next.js",
+        "RTL",
+        "Changelog",
+        "RTL Support"
+      ],
+      "documentedProps": {
+        "size": [
+          "default"
+        ],
+        "orientation": [
+          "horizontal"
+        ],
+        "align": [
+          "start"
+        ]
+      },
+      "referencePackages": [
+        "next",
+        "react"
+      ],
+      "exampleComponents": [
+        "field",
+        "select"
+      ]
+    },
+    {
+      "id": "popover",
+      "name": "Popover",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/popover",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/popover.md",
+      "sha256": "833273ce2ef2e83164a1824c0e6151452d4fc5f7d602c4871f9705bdef163587",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Basic",
+        "Align",
+        "With Form",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline"
+        ],
+        "size": [
+          "sm"
+        ],
+        "orientation": [
+          "horizontal"
+        ],
+        "align": [
+          "center",
+          "end",
+          "start"
+        ]
+      },
+      "referencePackages": [],
+      "exampleComponents": [
+        "button",
+        "field",
+        "input",
+        "label"
+      ]
+    },
+    {
+      "id": "progress",
+      "name": "Progress",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/progress",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/progress.md",
+      "sha256": "7e0420446e2f8aef2323fc2de6695d58f4bff55762eca3192d83570b81706ef9",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "With label and value",
+        "Label",
+        "Controlled",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {},
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": [
+        "slider"
+      ]
+    },
+    {
+      "id": "questionnaire",
+      "name": "Questionnaire",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/questionnaire",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/questionnaire.md",
+      "sha256": "174687e701dfa6b70a0583de3bfee8dd2885b4c8fd51a899adfaffd689a9dc7c",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Server Rendering",
+        "Multiple Selection",
+        "Freeform Answer",
+        "Explicit Skip",
+        "Shortcuts",
+        "Custom Validation",
+        "Controlled",
+        "Resume",
+        "Conditional Items",
+        "Navigation State",
+        "Custom Progress",
+        "Animated Items",
+        "Card",
+        "Dialog",
+        "Accessibility",
+        "Unstyled",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline",
+          "secondary"
+        ],
+        "type": [
+          "button",
+          "reset"
+        ]
+      },
+      "referencePackages": [
+        "@shadcn/react",
+        "react",
+        "sonner",
+        "zod"
+      ],
+      "exampleComponents": [
+        "button",
+        "card",
+        "dialog",
+        "native-select"
+      ]
+    },
+    {
+      "id": "radio-group",
+      "name": "Radio Group",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/radio-group",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/radio-group.md",
+      "sha256": "e00939e01c108da6492bdf9a3d9ccf34bbb284e3dce26260dcf44dc4ef4219f6",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Description",
+        "Choice Card",
+        "Fieldset",
+        "Disabled",
+        "Invalid",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "label"
+        ],
+        "orientation": [
+          "horizontal"
+        ]
+      },
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": [
+        "field",
+        "label"
+      ]
+    },
+    {
+      "id": "resizable",
+      "name": "Resizable",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/resizable",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/resizable.md",
+      "sha256": "ddd6135362885cae60899cbcc6aa07dd9807623cf090e036c9506706d0a9bb2b",
+      "documentedSections": [
+        "About",
+        "Installation",
+        "Usage",
+        "Composition",
+        "Vertical",
+        "Handle",
+        "RTL",
+        "API Reference",
+        "Changelog",
+        "2025-02-02 `react-resizable-panels` v4"
+      ],
+      "documentedProps": {
+        "orientation": [
+          "horizontal",
+          "vertical"
+        ]
+      },
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": []
+    },
+    {
+      "id": "scroll-area",
+      "name": "Scroll Area",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/scroll-area",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/scroll-area.md",
+      "sha256": "f40c4a5ed0108ef8a84f5ffdd4ee1b4571f1cd3f2cbc26d88512ffe5c9ba041b",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Horizontal",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "orientation": [
+          "horizontal"
+        ]
+      },
+      "referencePackages": [
+        "next",
+        "react"
+      ],
+      "exampleComponents": [
+        "separator"
+      ]
+    },
+    {
+      "id": "select",
+      "name": "Select",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/select",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/select.md",
+      "sha256": "fc566bd829748e1caec337728e3198a951599be1c4c96f132e20d62266e2d0a9",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Align Item With Trigger",
+        "Groups",
+        "Scrollable",
+        "Disabled",
+        "Invalid",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "orientation": [
+          "horizontal"
+        ]
+      },
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": [
+        "field",
+        "label",
+        "switch"
+      ]
+    },
+    {
+      "id": "separator",
+      "name": "Separator",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/separator",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/separator.md",
+      "sha256": "b0c3b29e2b3852570144159da0ee5681074c1ddb1727d2f720a7b211f1259120",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Vertical",
+        "Menu",
+        "List",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "orientation": [
+          "vertical"
+        ]
+      },
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": []
+    },
+    {
+      "id": "sheet",
+      "name": "Sheet",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/sheet",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/sheet.md",
+      "sha256": "d5b0e4ef28a6fa9de830479fab61e6c8d6b8b05698dc6c109b710c4a0112d9d3",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Side",
+        "No Close Button",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline"
+        ],
+        "type": [
+          "submit"
+        ]
+      },
+      "referencePackages": [],
+      "exampleComponents": [
+        "button",
+        "field",
+        "input",
+        "label"
+      ]
+    },
+    {
+      "id": "sidebar",
+      "name": "Sidebar",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/sidebar",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/sidebar.md",
+      "sha256": "a48b885e4d6f0d8d1cb143ef436b80b90ebcf5e548347d455f6b201dcb637971",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Structure",
+        "SidebarProvider",
+        "Props",
+        "Width",
+        "Keyboard Shortcut",
+        "Sidebar",
+        "Props",
+        "useSidebar",
+        "SidebarHeader",
+        "SidebarFooter",
+        "SidebarContent",
+        "SidebarGroup",
+        "SidebarMenu",
+        "SidebarMenuButton",
+        "SidebarMenuAction",
+        "SidebarMenuSub",
+        "SidebarMenuBadge",
+        "SidebarMenuSkeleton",
+        "SidebarTrigger",
+        "SidebarRail",
+        "Controlled Sidebar",
+        "Theming",
+        "Styling",
+        "RTL",
+        "Changelog",
+        "RTL Support"
+      ],
+      "documentedProps": {
+        "variant": [
+          "inset"
+        ],
+        "size": [
+          "lg",
+          "sm"
+        ],
+        "side": [
+          "right"
+        ],
+        "align": [
+          "end",
+          "start"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "avatar",
+        "collapsible",
+        "dropdown-menu"
+      ]
+    },
+    {
+      "id": "skeleton",
+      "name": "Skeleton",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/skeleton",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/skeleton.md",
+      "sha256": "cab955b03db8fe7a9f4e5bc71be4f72054782d29476b19fb2029f569a880df16",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Avatar",
+        "Card",
+        "Text",
+        "Form",
+        "Table",
+        "RTL"
+      ],
+      "documentedProps": {},
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": [
+        "card"
+      ]
+    },
+    {
+      "id": "slider",
+      "name": "Slider",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/slider",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/slider.md",
+      "sha256": "186c43745f60c9bf51bf6dfcbad7db83dd608afa667a30960312d48b98ae2686",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Range",
+        "Multiple Thumbs",
+        "Vertical",
+        "Controlled",
+        "Disabled",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "orientation": [
+          "vertical"
+        ]
+      },
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": [
+        "label"
+      ]
+    },
+    {
+      "id": "spinner",
+      "name": "Spinner",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/spinner",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/spinner.md",
+      "sha256": "9c7185da74c70d9b9bb7c3b894e14bb62e2a07c264bed76a786ab7f38325d654",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Customization",
+        "Size",
+        "Button",
+        "Badge",
+        "Input Group",
+        "Empty",
+        "RTL"
+      ],
+      "documentedProps": {
+        "variant": [
+          "default",
+          "icon",
+          "muted",
+          "outline",
+          "secondary"
+        ],
+        "size": [
+          "sm"
+        ],
+        "align": [
+          "block-end",
+          "inline-end"
+        ]
+      },
+      "referencePackages": [
+        "cn",
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "badge",
+        "button",
+        "empty",
+        "input-group",
+        "item"
+      ]
+    },
+    {
+      "id": "switch",
+      "name": "Switch",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/switch",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/switch.md",
+      "sha256": "55cd0548461c68b00f0757af2f9617621542da29a000405f05878125782c450c",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Description",
+        "Choice Card",
+        "Disabled",
+        "Invalid",
+        "Size",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "size": [
+          "default",
+          "sm"
+        ],
+        "orientation": [
+          "horizontal"
+        ]
+      },
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": [
+        "field",
+        "label"
+      ]
+    },
+    {
+      "id": "table",
+      "name": "Table",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/table",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/table.md",
+      "sha256": "16bcb89807973003dfc36d98bffe6a83ac3183e95cc9cb017809127c12fadb1d",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Footer",
+        "Actions",
+        "Data Table",
+        "RTL"
+      ],
+      "documentedProps": {
+        "variant": [
+          "destructive",
+          "ghost"
+        ],
+        "size": [
+          "icon"
+        ],
+        "align": [
+          "end"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "button",
+        "dropdown-menu"
+      ]
+    },
+    {
+      "id": "tabs",
+      "name": "Tabs",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/tabs",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/tabs.md",
+      "sha256": "38d09f015f5856ced34f5af2449439611c845e952472c2382f2123d6fef2af0a",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Line",
+        "Vertical",
+        "Disabled",
+        "Icons",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "line"
+        ],
+        "orientation": [
+          "vertical"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "card"
+      ]
+    },
+    {
+      "id": "textarea",
+      "name": "Textarea",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/textarea",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/textarea.md",
+      "sha256": "7f2112811eec73ffe6ddc4f250ab4daad7a9894bd274817dda6e26dec0a03759",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Field",
+        "Disabled",
+        "Invalid",
+        "Button",
+        "RTL"
+      ],
+      "documentedProps": {},
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": [
+        "button",
+        "field"
+      ]
+    },
+    {
+      "id": "toast",
+      "name": "Toast",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/toast",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/toast.md",
+      "sha256": "e1dd1c08ccb082e6ca90fe352e09242cbf81132e37e05db889c67c8e601e1174",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Types",
+        "Action",
+        "Promise",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline"
+        ]
+      },
+      "referencePackages": [],
+      "exampleComponents": [
+        "button"
+      ]
+    },
+    {
+      "id": "toggle",
+      "name": "Toggle",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/toggle",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/toggle.md",
+      "sha256": "df0f3e67987ad00fc40be86458c43a330126f3babfd31134644c7fc0284ec7cc",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Outline",
+        "With Text",
+        "Size",
+        "Disabled",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline"
+        ],
+        "size": [
+          "default",
+          "lg",
+          "sm"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": []
+    },
+    {
+      "id": "toggle-group",
+      "name": "Toggle Group",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/toggle-group",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/toggle-group.md",
+      "sha256": "a24be2fab3d5a4bc103d27c39f046530191c526ff6c970e19919aebcf2cd1702",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Outline",
+        "Size",
+        "Spacing",
+        "Vertical",
+        "Disabled",
+        "Custom",
+        "RTL",
+        "API Reference",
+        "Changelog",
+        "2026-05-17 Default Spacing"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline"
+        ],
+        "size": [
+          "lg",
+          "sm"
+        ],
+        "orientation": [
+          "vertical"
+        ],
+        "type": [
+          "single"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react",
+        "react"
+      ],
+      "exampleComponents": [
+        "field"
+      ]
+    },
+    {
+      "id": "tooltip",
+      "name": "Tooltip",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/tooltip",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/tooltip.md",
+      "sha256": "d800517217309297330af467d7521ee5fdbc407468bde79fb7945000d1db4b1b",
+      "documentedSections": [
+        "Installation",
+        "Usage",
+        "Composition",
+        "Side",
+        "With Keyboard Shortcut",
+        "Disabled Button",
+        "RTL",
+        "API Reference"
+      ],
+      "documentedProps": {
+        "variant": [
+          "outline"
+        ],
+        "size": [
+          "icon-sm"
+        ]
+      },
+      "referencePackages": [
+        "lucide-react"
+      ],
+      "exampleComponents": [
+        "button",
+        "kbd"
+      ]
+    },
+    {
+      "id": "typography",
+      "name": "Typography",
+      "referenceUrl": "https://ui.shadcn.com/docs/components/base/typography",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/base/typography.md",
+      "sha256": "3ff202e83d6c90b2521ec471af07cab3c59314028c51ef8d040b3218ec9a9541",
+      "documentedSections": [
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "p",
+        "blockquote",
+        "table",
+        "list",
+        "Inline code",
+        "Lead",
+        "Large",
+        "Small",
+        "Muted",
+        "RTL"
+      ],
+      "documentedProps": {},
+      "referencePackages": [
+        "react"
+      ],
+      "exampleComponents": []
+    }
+  ]
+}

@@ -1,0 +1,1164 @@
+{
+  "coordinatorTaskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
+  "mainCheckout": "/Users/joffreyjaffeux/Code/discourse-native",
+  "referenceDate": "2026-09-08",
+  "foundation": {
+    "status": "review_ready",
+    "taskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
+    "branch": "codex/component-library-foundation",
+    "baseCommit": "956fd40689256e8e8393129fe023f623810cbf28",
+    "decisions": [
+      "Keep D-prefixed public widgets in discourse_ui.dart; host maps palette into DTokens.",
+      "Existing Button, Tooltip and Select are baseline examples until their sequential tasks replace them.",
+      "Use native Flutter styleguide route and independent preview Navigator; no networking or credentials in examples."
+    ],
+    "migrations": [
+      "Bottom-left InstanceRail footer opens the styleguide; root workspace remains mounted."
+    ],
+    "verification": [
+      "Flutter 3.47.2 / Dart 3.13.2; flutter pub get --enforce-lockfile passed without lockfile changes.",
+      "dart format --output=none --set-exit-if-changed on all foundation Dart files passed.",
+      "flutter analyze --no-pub passed with no diagnostics.",
+      "flutter test test/styleguide test/app_theme_test.dart test/app_settings_page_test.dart test/site_theme_app_test.dart --test-randomize-ordering-seed=random: 50 tests passed, seed 905880268.",
+      "Tests cover catalogue/order accounting, search by documented capability, no-match state, local example state across theme/width changes, reset, 200% text at 320px and 1200px, Escape, bottom-left semantic label and hit target, entry before loading/with no sites, retained draft on return, default/custom tokens, reduced motion and live overlay theme.",
+      "Built and ran macOS standalone styleguide. Fixed native launch-screen dismissal and Material selection/ink ownership discovered during runtime inspection.",
+      "Inspected macOS dark/current and light previews, keyboard selection of Forest site palette, 360px viewport and 200% preview text; exercised example action and visible focus. Used isolated temporary app identity org.discourse.native.styleguide to avoid competing with normal Discourse navigation.",
+      "Observed the styleguide palette button in the actual app rail; route entry/exit and retained workspace were verified through the real InstanceRail in widget tests.",
+      "git diff --check passed."
+    ],
+    "mergeCommit": null,
+    "acceptanceCriteria": [
+      "Freeze every current All Components catalogue entry with reference URLs, documented sections/variants, dependency facts and hashes.",
+      "Provide searchable catalogue and runnable baseline examples with usage, theme, viewport, text-scale, direction, motion and reset controls.",
+      "Expose the styleguide from the bottom-left app rail, including before site load; preserve the mounted workspace on return.",
+      "Verify the theme mapping, interaction and access behavior before the foundation merge."
+    ],
+    "limitations": [
+      "iOS and Linux devices were not run during the foundation phase. No new native platform dependency was introduced.",
+      "Baseline Button, Tooltip and Select are explicitly unfinished catalogue implementations; their full reference behavior and migrations belong to their upcoming tasks."
+    ]
+  },
+  "components": [
+    {
+      "id": "direction",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "typography",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "direction"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "spinner",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "kbd",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "typography"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "tooltip",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "kbd"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "button",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "spinner",
+        "tooltip"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "separator",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "label",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "typography"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "badge",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "spinner"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "input",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "label"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "textarea",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "label"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "checkbox",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "label"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "radio-group",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "label"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "switch",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "label"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "toggle",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "button"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "toggle-group",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "toggle"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "slider",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "label"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "progress",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "label"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "skeleton",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "aspect-ratio",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "avatar",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "card",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "typography"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "empty",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "typography"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "item",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "separator"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "table",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "typography"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "scroll-area",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "separator"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "collapsible",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "accordion",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "collapsible"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "tabs",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "button"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "resizable",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "popover",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "button"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "hover-card",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "popover",
+        "avatar"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "dialog",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "button"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "alert-dialog",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "dialog"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "sheet",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "dialog"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "drawer",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "dialog"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "select",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "popover",
+        "scroll-area"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "native-select",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "label"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "field",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "label",
+        "separator"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "input-group",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "input",
+        "textarea",
+        "button",
+        "kbd",
+        "spinner"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "button-group",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "button",
+        "separator"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "command",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "input",
+        "dialog",
+        "scroll-area"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "combobox",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "input",
+        "popover",
+        "command"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "dropdown-menu",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "popover",
+        "checkbox",
+        "radio-group"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "context-menu",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "dropdown-menu"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "menubar",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "dropdown-menu"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "navigation-menu",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "popover"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "breadcrumb",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "button",
+        "dropdown-menu"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "pagination",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "button",
+        "select"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "calendar",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "button",
+        "select"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "date-picker",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "calendar",
+        "popover",
+        "input"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "carousel",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "button"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "toast",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "button"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "alert",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "typography"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "attachment",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "dialog",
+        "spinner"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "marker",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "spinner"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "bubble",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "button",
+        "collapsible",
+        "popover",
+        "tooltip"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "message",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "attachment",
+        "avatar",
+        "bubble",
+        "marker"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "message-scroller",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "message",
+        "scroll-area"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "chart",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "tooltip"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "data-table",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "table",
+        "pagination",
+        "checkbox",
+        "input",
+        "dropdown-menu"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "sidebar",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "sheet",
+        "tooltip",
+        "collapsible",
+        "input"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "input-otp",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "input",
+        "field"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    },
+    {
+      "id": "questionnaire",
+      "status": "planned",
+      "taskId": null,
+      "branch": null,
+      "dependencies": [
+        "field",
+        "button",
+        "progress",
+        "card",
+        "dialog",
+        "native-select"
+      ],
+      "acceptanceCriteria": [],
+      "decisions": [],
+      "migrations": [],
+      "retainedAlternatives": [],
+      "verification": [],
+      "limitations": [],
+      "implementationCommit": null,
+      "mergeCommit": null
+    }
+  ],
+  "finalAudit": {
+    "status": "planned",
+    "taskId": null,
+    "branch": null,
+    "decisions": [],
+    "verification": [],
+    "mergeCommit": null
+  }
+}
