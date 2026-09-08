@@ -158,7 +158,7 @@
       ],
       "verification": [
         "Flutter 3.47.2 / Dart 3.13.2 verified. Root and profiles/full flutter pub get --enforce-lockfile passed with no lockfile or pin changes.",
-        "dart format --output=none --set-exit-if-changed on all 69 touched/new Dart files passed (0 changes). Final root flutter analyze --no-pub passed (no issues, 3.1s); profiles/full flutter analyze --no-pub passed (no issues, 1.6s). git diff --check passed; no lockfile, Flutter-pin or repository platform-runner changes.",
+        "dart format --output=none --set-exit-if-changed on all 69 touched/new Dart files passed (0 changes). Final root flutter analyze --no-pub passed (no issues, 2.6s); profiles/full flutter analyze --no-pub passed (no issues, 1.6s). git diff --check passed; no lockfile, Flutter-pin or repository platform-runner changes.",
         "flutter test --no-pub test/d_spinner_test.dart test/adaptive_apple_widgets_test.dart test/d_button_test.dart test/styleguide test/emoji_picker_test.dart test/reactions_row_accessibility_test.dart test/user_presence_widget_test.dart --test-randomize-ordering-seed=random --reporter expanded: 86 passed, seed 4000949775.",
         "flutter test --no-pub test/d_spinner_test.dart --plain-name 'an open dialog receives live palette changes without replacing its spinner' --reporter expanded: 1 passed. An already-open dialog retains Spinner state, receives a site-palette update and dismisses via Escape.",
         "Component tests cover iOS/macOS/Linux target-platform adaptation (not device execution), native and custom motion pause/resume/removal, app inactivity, TickerMode, reduced motion with unchanged busy semantics/no numeric value, decorative semantics/input/focus exclusion, 12/16/24/32 sizing and tight constraints, live light/dark/Forest/Plum colors, all 11 DButton variant colors and disabled named-action semantics.",
@@ -168,10 +168,10 @@
         "Final custom-artwork review: explicitly oversized child icons are fitted into the requested diameter. flutter test --no-pub test/d_spinner_test.dart test/styleguide/spinner_examples_test.dart --test-randomize-ordering-seed=random --reporter expanded: 27 passed, seed 33603198, including the open-dialog and oversized-artwork regressions. The isolated macOS build was refreshed successfully after this change."
       ],
       "limitations": [
-        "d_button_adoption_test.dart already fails at task base 5fd6658b because its raw Material-button allowlist omits unchanged styleguide_page.dart (1 button) and direction_examples.dart (2). This task adds no raw Material buttons matched by that check; coordinator informed and baseline source identity verified. Coordinator confirmed the stale baseline allowlist and is correcting explicit counts on main; no need to repeat unaffected passing suites on this isolated branch.",
-        "iOS and Linux devices have not been run; target-platform widget tests do not substitute for device testing. VoiceOver spoken output and authenticated app screens have not been inspected. macOS inspection awaits the coordinator desktop slot."
+        "d_button_adoption_test.dart fails at task base 5fd6658b because its raw Material-button allowlist omits unchanged styleguide_page.dart (1 button) and direction_examples.dart (2). This task adds no raw Material buttons matched by that check; baseline source identity verified. Coordinator corrected this on main in f5549d51 (9 focused tests passed, seed 1006078620, analyzer clean) and will preserve and verify the combined guard at merge; this isolated branch does not merge main.",
+        "iOS and Linux devices were not run; target-platform widget tests do not substitute for device testing. flutter devices listed macOS 26.6.2 (darwin-arm64), Chrome and a wireless iPhone on iOS 26.6; no Linux device was available. The wireless phone was not used or modified. VoiceOver spoken output and authenticated app screens have not been inspected. macOS inspection awaits the coordinator desktop slot."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "15f1d884821c68e33589c41069fe05fc71405c07",
       "mergeCommit": null
     },
     {
