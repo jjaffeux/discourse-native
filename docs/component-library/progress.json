@@ -377,7 +377,7 @@
         "The configured host font/palette/radius intentionally supply the reference theme variables, so glyph widths/colors can differ from Geist/neutral defaults. The composed DButton visual treatment remains its separate baseline catalogue task."
       ],
       "implementationCommit": "d7fa6149a919fc9cf5b790d775e99f886e86c7f3",
-      "mergeCommit": null,
+      "mergeCommit": "f0aee9adc5f0d64adfd9aa5e285830e2a143a1e7",
       "clientThreadId": "client-new-thread:11621b86-f28b-44f3-9231-27de7925eea6",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fbbd/discourse-native",
       "baseCommit": "c00aa3ee5aa057887b73603ff94571f02e609ba6",
