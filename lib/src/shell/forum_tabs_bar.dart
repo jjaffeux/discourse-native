@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart' show DDirection;
 import '../app_shortcuts.dart';
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
@@ -1358,7 +1359,7 @@ class _ForumTabState extends State<_ForumTab> {
           context,
         ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
-      textDirection: Directionality.of(context),
+      textDirection: DDirection.of(context),
       textScaler: MediaQuery.textScalerOf(context),
       maxLines: 1,
     )..layout();
