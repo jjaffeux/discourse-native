@@ -163,9 +163,8 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(
   final codeRanges = knownCodeRanges ?? CodeRanges.of(scanMarkdown(source));
   final blocks = <LocalDateComposerBlock>[];
   var offset = 0;
-  // Cache spans with no closer to avoid rescanning the line per opener.
-  var barrenFrom = -1;
-  var barrenTo = -1;
+  var scannedTo = 0;
+  var closingBrackets = const <int, int>{};
   while (offset < source.length) {
     final opening = source.indexOf('[', offset);
     if (opening == -1) break;
@@ -178,18 +177,13 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(
       offset = opening + 1;
       continue;
     }
-    if (header.contentStart >= barrenFrom && header.contentStart <= barrenTo) {
-      offset = opening + 1;
-      continue;
+    if (opening >= scannedTo) {
+      final line = _closingBrackets(source, opening);
+      scannedTo = line.scannedTo;
+      closingBrackets = line.byOpening;
     }
-    final (:close, :firstQuoteAt, :scannedTo) = _closingBracket(
-      source,
-      header.contentStart,
-    );
+    final close = closingBrackets[opening];
     if (close == null) {
-      // A scan starting inside the first quote has different quote state.
-      barrenFrom = header.contentStart;
-      barrenTo = firstQuoteAt ?? scannedTo;
       offset = opening + 1;
       continue;
     }
@@ -259,38 +253,44 @@ _TagHeader? _tagAt(String source, int opening) {
   return null;
 }
 
-/// Upstream tag regexes do not cross lines. [firstQuoteAt] bounds how much of a
-/// failed scan can safely be cached when a later opener changes quote state.
-({int? close, int? firstQuoteAt, int scannedTo}) _closingBracket(
+/// Upstream tags do not cross lines. A reverse scan shares each suffix's closer
+/// across all five incoming quote states, including starts inside earlier quotes.
+/// This keeps unfinished quoted tags from rescanning the line for every opener.
+({Map<int, int> byOpening, int scannedTo}) _closingBrackets(
   String source,
   int start,
 ) {
-  String? closeQuote;
-  int? firstQuoteAt;
-  var offset = start;
-  for (; offset < source.length; offset++) {
-    final character = source[offset];
-    if (character == '\n') break;
-    if (closeQuote != null) {
-      if (character == closeQuote) closeQuote = null;
-      continue;
-    }
-    closeQuote = switch (character) {
-      '"' => '"',
-      "'" => "'",
-      '“' => '”',
-      '‘' => '’',
-      _ => null,
-    };
-    if (closeQuote != null) {
-      firstQuoteAt ??= offset;
-      continue;
-    }
-    if (character == ']') {
-      return (close: offset, firstQuoteAt: firstQuoteAt, scannedTo: offset);
+  final newline = source.indexOf('\n', start);
+  final scannedTo = newline == -1 ? source.length : newline;
+  final byOpening = <int, int>{};
+  int? unquoted;
+  int? doubleQuoted;
+  int? singleQuoted;
+  int? smartDoubleQuoted;
+  int? smartSingleQuoted;
+  for (var offset = scannedTo - 1; offset >= start; offset--) {
+    switch (source.codeUnitAt(offset)) {
+      case 0x22: // "
+        (unquoted, doubleQuoted) = (doubleQuoted, unquoted);
+      case 0x27: // '
+        (unquoted, singleQuoted) = (singleQuoted, unquoted);
+      case 0x201C: // “
+        unquoted = smartDoubleQuoted;
+      case 0x201D: // ”
+        smartDoubleQuoted = unquoted;
+      case 0x2018: // ‘
+        unquoted = smartSingleQuoted;
+      case 0x2019: // ’
+        smartSingleQuoted = unquoted;
+      case 0x5D: // ]
+        unquoted = offset;
+      case 0x5B: // [
+        // Recognized tag headers contain no quotes or closing brackets, so a
+        // scan from their opening has the same result as from their content.
+        if (unquoted != null) byOpening[offset] = unquoted;
     }
   }
-  return (close: null, firstQuoteAt: firstQuoteAt, scannedTo: offset);
+  return (byOpening: byOpening, scannedTo: scannedTo);
 }
 
 @immutable
