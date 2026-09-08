@@ -317,7 +317,7 @@
         "Native rich-content pointer/wheel access and outer-scroll dismissal were inspected; deliberately overflowing popup-content scrolling and long press/touch gestures were verified in widget tests, not on touch hardware.",
         "The configured host font/palette/radius intentionally supply the reference theme variables, so glyph widths/colors can differ from Geist/neutral defaults. The composed DButton visual treatment remains its separate baseline catalogue task."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "d7fa6149a919fc9cf5b790d775e99f886e86c7f3",
       "mergeCommit": null
     },
     {
