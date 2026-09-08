@@ -66,7 +66,7 @@ void main() {
             key: ValueKey('small'),
             size: DAvatarSize.sm,
             fallback: DAvatarFallback(child: Text('CN')),
-            badge: DAvatarBadge(child: Icon(Icons.add)),
+            badge: DAvatarBadge(icon: AvatarExamplePlusIcon()),
           ),
           DAvatar(
             key: ValueKey('large'),
@@ -129,7 +129,7 @@ void main() {
             .fontSize,
         14,
       );
-      expect(find.byIcon(Icons.add), findsOneWidget);
+      expect(find.byType(AvatarExamplePlusIcon), findsOneWidget);
     },
   );
   testWidgets('standalone count has intrinsic reference bounds in a row', (
@@ -334,7 +334,7 @@ void main() {
         DAvatar(
           size: size,
           fallback: const DAvatarFallback(child: Text('CN')),
-          badge: const DAvatarBadge(child: Icon(Icons.add)),
+          badge: const DAvatarBadge(icon: AvatarExamplePlusIcon()),
         ),
         direction: TextDirection.rtl,
       );
@@ -347,7 +347,7 @@ void main() {
         }),
       );
       expect(
-        find.byIcon(Icons.add),
+        find.byType(AvatarExamplePlusIcon),
         size == DAvatarSize.sm ? findsNothing : findsOneWidget,
       );
       expect(

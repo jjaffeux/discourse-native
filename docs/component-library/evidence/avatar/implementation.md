@@ -6,6 +6,7 @@ Supporting registry: https://ui.shadcn.com/r/styles/base-nova/avatar.json,
 SHA256 `bbcabf0121fb2ff93a8522f8f80b74631e732a31399b1b7991c0b8c3167e2172`.
 Supporting API: https://base-ui.com/react/components/avatar.md,
 SHA256 `5e80eb32fc360bedbdf57fef0965f124bb1442c373ec97d730a839e0d7c06f99`.
+Decoded registry avatar.tsx SHA256: `bff76087ea9af25c6aa5a5306088dc66e62204a126752c38561736acff00717f`.
 Sources retrieved 2026-09-08. Registry/API support the frozen scope; they do not
 add catalogue entries.
 
@@ -41,7 +42,13 @@ Native adaptations are deliberately bounded:
 - ImageProvider resolves once through Flutter's normal stream. There is no DOM,
   SSR, lazy HTML img, or second preloading request; keepMounted is therefore not
   a Flutter prop. The generic library never imports networking or app services.
-- Icons use Flutter's add glyph for the reference plus. Button and Dropdown Menu
+- Reference plus icons use Lucide's exact 24-unit paths, 2-unit round stroke,
+  scaled to 8px in badges and 12/16/20px in counts. The explicit badge icon slot
+  hides arbitrary SVG/widget artwork in small badges; child is reserved for
+  counts. Official source: https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/plus.svg,
+  SHA256 `7f6af73bf1ff6c4bca3f18351c8d1bdec6749c0c2530c4de5da85d520c21df17`.
+  Full ISC/Feather MIT attribution is retained in lucide-LICENSE.txt.
+  Button and Dropdown Menu
   remain pending owners; the functional dropdown uses existing DButton and
   native MenuAnchor/MenuItemButton. Their temporary visuals and focus ownership
   are described directly in the styleguide. These are not Avatar variants.
@@ -55,9 +62,7 @@ Stateful examples retain state when inherited preview configuration changes.
 ## Application audit
 
 Searched every Dart file in core and all bundled plugins for AvatarImage,
-CircleAvatar, ClipOval, ClipRRect, circle decoration, groups and flair. The only
-remaining ClipOval is inside the generic library (none in shell/plugins), and
-there are no CircleAvatar callers.
+CircleAvatar, ClipOval, ClipRRect, circle decoration, groups and flair. No ClipOval remains in shell/plugins, and there are no CircleAvatar callers.
 
 Migrated circular presentation owners in topic rows/header/list/posters/view,
 participants, group membership, user activity/card/menu/summary, composer

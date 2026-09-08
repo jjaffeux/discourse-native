@@ -327,13 +327,19 @@ class DAvatarBadge extends StatelessWidget {
   const DAvatarBadge({
     super.key,
     this.child,
+    this.icon,
     this.semanticLabel,
     this.backgroundColor,
     this.foregroundColor,
     this.dimension,
     this.ringWidth = 2,
-  });
+  }) : assert(child == null || icon == null);
   final Widget? child;
+
+  /// Decorative icon artwork, including SVGs and custom painters. Sized to 8px
+  /// and hidden at sm unless a custom badge dimension is supplied. Use [child]
+  /// for count text; naming belongs to [semanticLabel].
+  final Widget? icon;
   final String? semanticLabel;
   final Color? backgroundColor;
   final Color? foregroundColor;
@@ -364,7 +370,7 @@ class DAvatarBadge extends StatelessWidget {
           ],
         ),
         alignment: Alignment.center,
-        child: size == DAvatarSize.sm && dimension == null && child is Icon
+        child: size == DAvatarSize.sm && dimension == null && icon != null
             ? null
             : DefaultTextStyle(
                 style: TextStyle(
@@ -380,7 +386,12 @@ class DAvatarBadge extends StatelessWidget {
                     size: 8,
                     color: foregroundColor ?? tokens.primaryForeground,
                   ),
-                  child: child ?? const SizedBox.shrink(),
+                  child: icon != null
+                      ? SizedBox.square(
+                          dimension: 8,
+                          child: ExcludeSemantics(child: icon!),
+                        )
+                      : child ?? const SizedBox.shrink(),
                 ),
               ),
       ),

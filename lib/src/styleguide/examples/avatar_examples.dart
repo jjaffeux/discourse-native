@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../styleguide_example.dart';
 
@@ -73,8 +74,11 @@ DAvatar(
       code: '''const DAvatar(
   semanticLabel: 'Pranathi',
   fallback: DAvatarFallback(child: Text('PP')),
-  badge: DAvatarBadge(semanticLabel: 'Add member', child: Icon(Icons.add)),
-)''',
+  badge: DAvatarBadge(semanticLabel: 'Add member', icon: AvatarExamplePlusIcon()),
+)
+
+// AvatarExamplePlusIcon uses the local Lucide SVG helper shown below.
+$_plusUsage''',
       builder: (context) => Wrap(
         spacing: 24,
         runSpacing: 16,
@@ -94,7 +98,7 @@ DAvatar(
               fallback: const DAvatarFallback(child: Text('PP')),
               badge: const DAvatarBadge(
                 semanticLabel: 'Add member',
-                child: Icon(Icons.add),
+                icon: AvatarExamplePlusIcon(),
               ),
             ),
           const DAvatar(
@@ -120,7 +124,10 @@ DAvatar(
   DAvatar(semanticLabel: 'Chris', fallback: DAvatarFallback(child: Text('CN'))),
   DAvatar(semanticLabel: 'Lee', fallback: DAvatarFallback(child: Text('LR'))),
   DAvatarGroupCount(semanticLabel: '3 more members', child: Text('+3')),
-])''',
+  DAvatarGroupCount(semanticLabel: 'More members', child: AvatarExamplePlusIcon()),
+])
+
+$_plusUsage''',
       builder: (_) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -154,7 +161,7 @@ DAvatar(
               ),
               DAvatarGroupCount(
                 semanticLabel: 'More members',
-                child: Icon(Icons.add),
+                child: AvatarExamplePlusIcon(),
               ),
             ],
           ),
@@ -364,3 +371,36 @@ class _AvatarMenuState extends State<_AvatarMenu> {
     ],
   );
 }
+
+/// Exact Lucide plus SVG. ISC/MIT attribution is retained in
+/// docs/component-library/evidence/avatar/lucide-LICENSE.txt.
+class AvatarExamplePlusIcon extends StatelessWidget {
+  const AvatarExamplePlusIcon({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final theme = IconTheme.of(context);
+    return SvgPicture.string(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+      width: theme.size,
+      height: theme.size,
+      colorFilter: ColorFilter.mode(theme.color!, BlendMode.srcIn),
+      excludeFromSemantics: true,
+    );
+  }
+}
+
+const _plusUsage = '''// import 'package:flutter_svg/flutter_svg.dart';
+// Lucide plus: ISC/MIT, Lucide Contributors and Cole Bemis.
+class AvatarExamplePlusIcon extends StatelessWidget {
+  const AvatarExamplePlusIcon({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final theme = IconTheme.of(context);
+    return SvgPicture.string(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+      width: theme.size, height: theme.size,
+      colorFilter: ColorFilter.mode(theme.color!, BlendMode.srcIn),
+      excludeFromSemantics: true,
+    );
+  }
+}''';
