@@ -72,9 +72,14 @@ final class VoiceShellService
     required String siteUrl,
     required String username,
   }) async {
-    final room = await controller.callUser(siteUrl, username);
-    if (!context.mounted) return;
-    await _openAndJoin(context, siteUrl: siteUrl, room: room);
+    final outgoing = await controller.callUser(siteUrl, username);
+    if (outgoing == null || !context.mounted || !outgoing.isCurrent) return;
+    await _openAndJoin(
+      context,
+      siteUrl: outgoing.siteUrl,
+      room: outgoing.room,
+      ifCurrent: () => outgoing.isCurrent,
+    );
   }
 
   /// Answers the ringing call: opens its room page and joins it.
@@ -134,11 +139,13 @@ final class VoiceShellService
     if (ifCurrent?.call() == false) return;
     if (!sameInstance) _host.selectInstance(index);
     if (ifCurrent?.call() == false) return;
-    if (sameInstance && _host.currentContent?.id == route.id) {
+    final currentContent = sameInstance ? _host.currentContent : null;
+    if (ifCurrent?.call() == false) return;
+    if (sameInstance && currentContent?.id == route.id) {
       _host.replaceCurrentContent(route);
       return;
     }
-    if (sameInstance && replaceCurrent && _host.currentContent != null) {
+    if (sameInstance && replaceCurrent && currentContent != null) {
       _host.replaceCurrentContent(route);
       return;
     }

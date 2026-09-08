@@ -19,6 +19,19 @@ import 'voice_signaling.dart';
 
 enum VoiceCallStatus { joining, connected, reconnecting, leaving, failed }
 
+/// A created direct call, still owned by the account that requested it.
+/// UI continuations must recheck [isCurrent] through navigation and privacy
+/// confirmation before joining.
+final class VoiceOutgoingCall {
+  VoiceOutgoingCall._(this.siteUrl, this.room, this._isCurrent);
+
+  final String siteUrl;
+  final VoiceRoom room;
+  final bool Function() _isCurrent;
+
+  bool get isCurrent => _isCurrent();
+}
+
 /// A resolved incoming call, still owned by the account and answer that
 /// requested it. UI continuations must recheck [isCurrent] after awaiting or
 /// invoking navigation callbacks before joining.
@@ -451,15 +464,16 @@ final class VoiceController extends ChangeNotifier {
   /// Starts a direct call to [username] on [siteUrl]. The server answers
   /// with the ephemeral call room, which is held beside the directory so
   /// its roster and signals arrive; the caller then joins it like any room.
+  /// Returns null if the requesting account retires before completion.
   /// Failures surface to the caller: the server explains a refusal (a user
   /// who cannot be called, too many calls) in its own words.
-  Future<VoiceRoom> callUser(String siteUrl, String username) async {
-    final siteSession = _siteSession(siteUrl);
-    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
+  Future<VoiceOutgoingCall?> callUser(String siteUrl, String username) async {
+    final isCurrent = captureSiteSession(siteUrl);
     final credentials = await _requestCredentials(
       siteUrl,
       ifCurrent: isCurrent,
     );
+    if (!isCurrent()) return null;
     if (credentials == null) {
       throw const WriteException(WriteFailure.forbidden);
     }
@@ -472,12 +486,12 @@ final class VoiceController extends ChangeNotifier {
         clientId: credentials.clientId,
       ),
     );
-    if (!isCurrent()) return room;
+    if (!isCurrent()) return null;
     _record('call.direct.started', data: {..._roomDiagnosticData(room)});
     _rememberLinkedRoom(siteUrl, room);
     _syncSubscriptions(siteUrl);
     notifyListeners();
-    return room;
+    return isCurrent() ? VoiceOutgoingCall._(siteUrl, room, isCurrent) : null;
   }
 
   /// Takes the ringing call: the room is resolved (and held) so the caller
