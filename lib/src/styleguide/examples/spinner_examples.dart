@@ -173,7 +173,7 @@ Row(children: [
   const SizedBox(width: 10),
   const Expanded(child: Text('جاري معالجة الدفع...')),
   const SizedBox(width: 10),
-  Flexible(child: Text('١٠٠٫٠٠ دولار', textAlign: TextAlign.end)),
+  Text('١٠٠٫٠٠ دولار', textAlign: TextAlign.end),
 ])''',
       builder: (_) => const _SpinnerPayment(),
     ),
@@ -663,7 +663,7 @@ class _SpinnerInputSurfaceState extends State<_SpinnerInputSurface> {
           decoration: BoxDecoration(
             color: widget.disabled
                 ? tokens.border.withValues(alpha: 0.5)
-                : null,
+                : tokens.background,
             border: Border.all(
               color: widget.invalid || _focused ? ring : tokens.border,
             ),
@@ -733,7 +733,9 @@ class _SpinnerEmptyState extends State<_SpinnerEmpty> {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 384),
             child: Text(
-              'Please wait while we process your request. Do not refresh the page.',
+              _busy
+                  ? 'Please wait while we process your request. Do not refresh the page.'
+                  : 'Your sample data is unchanged. Start a request to try again.',
               textAlign: TextAlign.center,
               style: text.bodySmall!.copyWith(
                 height: 1.625,
@@ -926,35 +928,40 @@ class _SpinnerPayment extends StatelessWidget {
             label: '$title, $amount',
             liveRegion: true,
             excludeSemantics: true,
-            child: Row(
-              children: [
-                const DSpinner(semanticLabel: null),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: MediaQuery.textScalerOf(context).scale(14) <= 14
-                        ? 1
-                        : null,
-                    overflow: MediaQuery.textScalerOf(context).scale(14) <= 14
-                        ? TextOverflow.ellipsis
-                        : null,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelLarge!.copyWith(height: 1.375),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    amount,
-                    textAlign: TextAlign.end,
-                    style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                      fontFeatures: const [FontFeature.tabularFigures()],
+            child: LayoutBuilder(
+              builder: (context, constraints) => Row(
+                children: [
+                  const DSpinner(semanticLabel: null),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: MediaQuery.textScalerOf(context).scale(14) <= 14
+                          ? 1
+                          : null,
+                      overflow: MediaQuery.textScalerOf(context).scale(14) <= 14
+                          ? TextOverflow.ellipsis
+                          : null,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelLarge!.copyWith(height: 1.375),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 10),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth / 2,
+                    ),
+                    child: Text(
+                      amount,
+                      textAlign: TextAlign.end,
+                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

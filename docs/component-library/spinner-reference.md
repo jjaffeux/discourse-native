@@ -38,7 +38,7 @@ fixture is byte-identical to the captured Lucide loader-circle source.
 | Badge: 20px height, pill, 12px text and icon, 4px gap | Local badges use a 32px pill radius, theme primary/secondary/outline roles, 12px/16px label text, 12px DSpinner, 4px gap and 6px/8px directional insets. Height grows with text scaling. |
 | Input Group: 448px maximum width, 16px gaps; 32px single line; 16px inline/block icons | Local bordered groups use a borderless native TextField for editing, 14px text, reference padding and muted status color. The textarea footer holds the 16px Spinner, 8px gap and send action. Initial examples show disabled validation; accepting/rejecting restores editing. |
 | Empty: 24px outer padding; 32px muted media box with 16px spinner; 14px title/description | Local composition uses those dimensions, 16px media-to-title and content gaps, 8px title-to-description gap, relaxed muted description and a small Cancel action. Completion/cancellation/error controls preserve the same example state owner. |
-| Item overview/RTL: max-width 320px, muted/50, 12px horizontal and 10px vertical padding, 10px gaps | Payment example uses these values, a 16px leading Spinner and tabular amount; direction selects English or Arabic and logical positioning. |
+| Item overview/RTL: max-width 320px, muted/50, 12px horizontal and 10px vertical padding, 10px gaps | Payment example uses these values, a 16px leading Spinner and tabular amount at its intrinsic width, capped at half the row for large text; direction selects English or Arabic and logical positioning. |
 | `role=status`, loading label | One native loading-spinner semantic role with a localizable live label; decorative child artwork is excluded. A containing control can own the status through `semanticLabel: null`. |
 
 The companion dimensions were checked against the official
@@ -60,6 +60,7 @@ semantics remain owned by Flutter and DButton.
 
 The independent SVG fixture in `test/fixtures/spinner/loader-circle.svg` is
 rasterized and compared exactly with the rendered DSpinner in the component
-test. Native inspection outcomes and the separate forced-semantics crash
-comparison are recorded in the Spinner progress row. Lucide and Feather
+test. Native inspection outcomes, remaining checks and the bounded forced-semantics
+comparison are recorded in [spinner-native.md](spinner-native.md) and the Spinner
+progress row. Lucide and Feather
 attribution is preserved in [licenses/lucide.txt](../../licenses/lucide.txt).

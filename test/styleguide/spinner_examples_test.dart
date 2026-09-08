@@ -8,6 +8,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'payment amount sits at the inline end without unused flex space',
+    (tester) async {
+      await _pump(tester, 5);
+      final amount = find.text(r'$100.00');
+      final row = find.ancestor(of: amount, matching: find.byType(Row));
+      expect(tester.getRect(amount).right, tester.getRect(row).right);
+    },
+  );
+
   for (final example in spinnerExamples.examples) {
     testWidgets(
       '${example.title} fits narrow RTL with large text and a site palette',
