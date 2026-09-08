@@ -83,6 +83,69 @@ void main() {
       expect(composer.text.text, 'say `hello`');
     });
 
+    test('keeps selected literal ticks intact through repeated Cmd+E', () {
+      open('say a`b now');
+      const selection = TextSelection(baseOffset: 4, extentOffset: 7);
+      composer.text.selection = selection;
+
+      composer.toggleSelectedInlineCode();
+
+      expect(composer.text.text, 'say ``a`b`` now');
+      expect(
+        composer.text.selection,
+        const TextSelection(baseOffset: 6, extentOffset: 9),
+      );
+
+      composer.toggleSelectedInlineCode();
+
+      expect(composer.text.text, 'say a`b now');
+      expect(composer.text.selection, selection);
+    });
+
+    test('keeps boundary padding outside a reversed inline selection', () {
+      open('say `hello now');
+      const selection = TextSelection(baseOffset: 10, extentOffset: 4);
+      composer.text.selection = selection;
+
+      composer.toggleSelectedInlineCode();
+
+      expect(composer.text.text, 'say `` `hello `` now');
+      expect(
+        composer.text.selection,
+        const TextSelection(baseOffset: 13, extentOffset: 7),
+      );
+
+      composer.toggleSelectedInlineCode();
+
+      expect(composer.text.text, 'say `hello now');
+      expect(composer.text.selection, selection);
+    });
+
+    test('unwraps an existing selected multi-backtick span', () {
+      open('say ``` a``b` ``` now');
+      composer.text.selection = const TextSelection(
+        baseOffset: 4,
+        extentOffset: 17,
+      );
+
+      composer.toggleSelectedInlineCode();
+
+      expect(composer.text.text, 'say a``b` now');
+      expect(
+        composer.text.selection,
+        const TextSelection(baseOffset: 4, extentOffset: 9),
+      );
+    });
+
+    test('ignores inline code when the field has no valid selection', () {
+      open('say hello');
+      final original = composer.text.value;
+
+      composer.toggleSelectedInlineCode();
+
+      expect(composer.text.value, original);
+    });
+
     test('leaves a selected quote unchanged', () {
       const quote = '[quote="sam"]\nQuoted words.\n[/quote]';
       open(quote);
@@ -93,6 +156,7 @@ void main() {
 
       composer.toggleMark(ComposerMark.bold);
       composer.toggleMark(ComposerMark.italic);
+      composer.toggleSelectedInlineCode();
 
       expect(composer.text.text, quote);
     });
@@ -112,6 +176,7 @@ void main() {
         extentOffset: quoteStart,
       );
       composer.toggleMark(ComposerMark.italic);
+      composer.toggleSelectedInlineCode();
 
       expect(composer.text.text, source);
     });
