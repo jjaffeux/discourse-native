@@ -1388,7 +1388,7 @@
       "The original Typography live HTML redirects to Typeset; comparison used the preserved original source and an explicitly identified local CSS reconstruction. No automated pixel-exact cross-renderer comparison is claimed.",
       "iOS/Linux devices and VoiceOver speech were not inspected for this follow-up. Normal Flutter semantics and selection behavior remain covered by the focused tests; the styleguide AX tree exposed fewer nodes than the initial app fixtures."
     ],
-    "implementationCommit": null,
+    "implementationCommit": "ffd2cab16b13380fb2f947770fa40d5b5a0e1132",
     "mergeCommit": null,
     "nativeInspectionStatus": "completed"
   }
