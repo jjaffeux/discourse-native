@@ -48,7 +48,11 @@ class DTooltip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!TooltipVisibility.of(context)) return child;
+    // Hidden panes keep their controls mounted but pause tooltip fade-outs.
+    if (!TooltipVisibility.of(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      return child;
+    }
 
     final tooltip = TooltipTheme.of(context);
     final verticalOffset = tooltip.verticalOffset ?? defaultVerticalOffset;
