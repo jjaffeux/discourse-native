@@ -431,6 +431,11 @@ abstract interface class ComposerHeaderPlugin {
   List<Widget> composerHeader(BuildContext context, ComposerEditorHost editor);
 }
 
+/// Adds compact controls beside the composer's submit button.
+abstract interface class ComposerFooterPlugin {
+  List<Widget> composerFooter(BuildContext context, ComposerEditorHost editor);
+}
+
 /// Resolves one exact, namespaced plugin composer target.
 ///
 /// A capability claims a key rather than answering a predicate. This makes a

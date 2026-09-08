@@ -11,7 +11,7 @@ final class AiProofreadingPlugin
         SitePlugin,
         SiteSettingsPlugin<DiscourseAiSettings>,
         CurrentUserPlugin<DiscourseAiCurrentUser>,
-        ComposerHeaderPlugin {
+        ComposerFooterPlugin {
   const AiProofreadingPlugin();
 
   @override
@@ -38,7 +38,7 @@ final class AiProofreadingPlugin
   ) => DiscourseAiCurrentUser.fromWire(json);
 
   @override
-  List<Widget> composerHeader(BuildContext context, ComposerEditorHost editor) {
+  List<Widget> composerFooter(BuildContext context, ComposerEditorHost editor) {
     final controller = PluginUiScope.maybe(
       context,
       aiProofreadingControllerService,

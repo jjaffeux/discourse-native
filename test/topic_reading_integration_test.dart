@@ -108,7 +108,13 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byKey(TopicCreateButton.buttonKey));
       await tester.pumpAndSettle();
 
-      expect(find.text('Create a new topic'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(ComposerPanel),
+          matching: find.text('New topic'),
+        ),
+        findsOneWidget,
+      );
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(find.text('Create topic'), findsOneWidget);
       expect(

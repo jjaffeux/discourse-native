@@ -1182,7 +1182,7 @@ platform gates recorded there.
 
 Composer exit follows core's two-action contract. The header X is **Save and
 close** for reply, topic and message composers, flushing even an incomplete
-draft before disposal. The footer's **Discard** action closes an untouched
+draft before disposal. **Discard** in the header's options menu closes an untouched
 composer directly, but changed content first asks “Do you want to discard your
 post?”; Cancel, Escape and dismissing that dialog all keep the composer and its
 draft. Edits use core's **Cancel edit**, “discard your changes” and **Discard
@@ -1194,6 +1194,13 @@ throwing the edit away or overwriting an unfinished reply.
 The floating topic composer can be minimized to its header without closing its
 draft. The minimized bar stays at the bottom of the content pane; restoring it
 returns to the previous position and size with the title and body intact.
+The centered grip and header support dragging; a focused grip also moves with
+arrow keys. Eligible replies have a labeled **Reply / Whisper** menu. Whisper
+mode changes the frame and submit button, and replies to existing whispers
+remain locked to that audience. Reply context expands to a cached excerpt.
+New topics put the title and body first, with category and tags below the body.
+The footer keeps attachment, emoji and formatting controls visible, groups
+plugin tools under **Insert**, and places **Proofread** beside the submit button.
 
 One invariant carries the whole thing:
 
