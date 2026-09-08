@@ -737,7 +737,7 @@
         "The full styleguide exposes fewer native AX nodes than the temporary harness, so its search/navigation used visible pointer targets; component child semantics and keyboard/focus behavior were inspected in the native harness and automated tests."
       ],
       "implementationCommit": "2f05df5c371702719a73456b34feca939804e09f",
-      "mergeCommit": null,
+      "mergeCommit": "60a3c432c8ba92b9676125b9527776b2d55c5a13",
       "nativeInspectionStatus": "completed",
       "clientThreadId": "client-new-thread:0790670d-ad70-42ed-9a6d-c0b168c98890",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/6b29/discourse-native",
