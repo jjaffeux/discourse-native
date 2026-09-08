@@ -425,7 +425,7 @@ final class _NotificationApi extends FakeDiscourseApi {
   }
 
   @override
-  Future<void> updateCategoryNotificationLevel({
+  Future<List<int>?> updateCategoryNotificationLevel({
     required String siteUrl,
     required String apiKey,
     required int categoryId,
@@ -438,5 +438,6 @@ final class _NotificationApi extends FakeDiscourseApi {
       apiKey: apiKey,
       level: notificationLevel.index,
     ));
+    return const [];
   }
 }

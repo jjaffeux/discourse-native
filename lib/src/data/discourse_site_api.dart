@@ -562,7 +562,7 @@ final class DiscourseSiteApi {
     return List.unmodifiable(byId.values);
   }
 
-  Future<void> updateCategoryNotificationLevel({
+  Future<List<int>?> updateCategoryNotificationLevel({
     required String siteUrl,
     required String apiKey,
     required int categoryId,
@@ -570,7 +570,7 @@ final class DiscourseSiteApi {
     String? clientId,
   }) async {
     _requirePositiveId(categoryId, 'categoryId');
-    await _transport.write(
+    final response = await _transport.write(
       Uri.parse('$siteUrl/category/$categoryId/notifications'),
       siteUrl: siteUrl,
       method: 'POST',
@@ -578,6 +578,12 @@ final class DiscourseSiteApi {
       clientId: clientId,
       body: {'notification_level': notificationLevel.value},
     );
+    final ids = response['indirectly_muted_category_ids'];
+    if (ids is! List) return null;
+    return List.unmodifiable([
+      for (final value in ids)
+        if (jsonIntOrNull(value) case final id? when id > 0) id,
+    ]);
   }
 
   Future<({Map<String, dynamic>? body, bool complete})> _categorySiteMetadata({

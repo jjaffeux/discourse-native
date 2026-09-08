@@ -3407,6 +3407,8 @@ class ShellController extends FrameSafeNotifier
     final groupedUnreadNotificationVersion =
         _groupedUnreadNotificationVersions[siteUrl] ?? 0;
     final draftCountVersion = _draftCountVersions[siteUrl] ?? 0;
+    final categoryPreferenceVersion =
+        _categoryNotificationPreferenceVersions[siteUrl] ?? 0;
     final bootstrap = apiKey == null
         ? null
         : await _messageBusBootstrap(
@@ -3425,6 +3427,7 @@ class ShellController extends FrameSafeNotifier
             hidePresenceVersion,
             groupedUnreadNotificationVersion,
             draftCountVersion,
+            categoryPreferenceVersion,
           );
 
     final userId = apiKey == null
@@ -3470,9 +3473,12 @@ class ShellController extends FrameSafeNotifier
       if (trackingUsername != null &&
           userId != null &&
           bootstrapTracking != null &&
+          (_categoryNotificationPreferenceVersions[siteUrl] ?? 0) ==
+              categoryPreferenceVersion &&
           bootstrap!.hasCompleteTopicTrackingSnapshot(userId)) {
         _replayTopicTrackingEvents(siteUrl, bootstrapTracking);
         _topicTrackingPendingEvents.remove(siteUrl);
+        _topicTrackingRetries.remove(siteUrl);
         _topicTrackingBySite[siteUrl] = bootstrapTracking;
         _topicTrackingSnapshotsLoaded.add(siteUrl);
         _topicTrackingRevisions.update(
@@ -3482,12 +3488,12 @@ class ShellController extends FrameSafeNotifier
         );
         if (currentInstance?.url == siteUrl) _notify();
       }
-      _topicTrackingRetries.remove(siteUrl);
       final shouldLoadTopicTracking =
           trackingUsername != null &&
           !_topicTrackingBySite.containsKey(siteUrl) &&
           _topicTrackingLoads.add(siteUrl);
       if (shouldLoadTopicTracking) {
+        _topicTrackingRetries.remove(siteUrl);
         _topicTrackingPendingEvents.putIfAbsent(siteUrl, () => <Object?>[]);
       }
 
@@ -3666,15 +3672,29 @@ class ShellController extends FrameSafeNotifier
     required String apiKey,
     required String clientId,
     required SiteLease lease,
+    Future<void> Function()? refreshCategoryPreferences,
   }) async {
+    final events = _topicTrackingPendingEvents.putIfAbsent(siteUrl, () => []);
+    bool ownsLoad() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_topicTrackingPendingEvents[siteUrl], events);
     try {
+      if (!ownsLoad()) return;
+      if (refreshCategoryPreferences != null) {
+        await refreshCategoryPreferences();
+        if (!ownsLoad()) return;
+        // These events preceded the authoritative preferences and report.
+        // Pending native topic choices are overlaid when the report lands.
+        events.clear();
+      }
       final snapshot = await api.site.topicTrackingState(
         siteUrl: siteUrl,
         apiKey: apiKey,
         username: username,
         clientId: clientId,
       );
-      if (!lease.isCurrent || isDisposed) return;
+      if (!ownsLoad()) return;
       final currentUsername = _instanceAt(siteUrl)?.user?.username;
       if (currentUsername?.toLowerCase() != username.toLowerCase()) return;
 
@@ -3695,7 +3715,7 @@ class ShellController extends FrameSafeNotifier
         if (currentInstance?.url == siteUrl) _notify();
       });
     } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
+      if (ownsLoad()) {
         _reportOperationalError(
           error,
           stackTrace,
@@ -3710,14 +3730,15 @@ class ShellController extends FrameSafeNotifier
             apiKey: apiKey,
             clientId: clientId,
             lease: lease,
+            refreshCategoryPreferences: refreshCategoryPreferences,
           ),
         );
       }
     } finally {
-      lease.commit(() {
+      if (ownsLoad()) {
         _topicTrackingLoads.remove(siteUrl);
         _topicTrackingPendingEvents.remove(siteUrl);
-      });
+      }
     }
   }
 
@@ -3800,7 +3821,6 @@ class ShellController extends FrameSafeNotifier
     if (retry == null ||
         isDisposed ||
         !retry.lease.isCurrent ||
-        _topicTrackingSnapshotsLoaded.contains(siteUrl) ||
         !_topicTrackingLoads.add(siteUrl)) {
       return;
     }
@@ -3853,6 +3873,8 @@ class ShellController extends FrameSafeNotifier
     final groupedUnreadNotificationVersion =
         _groupedUnreadNotificationVersions[siteUrl] ?? 0;
     final draftCountVersion = _draftCountVersions[siteUrl] ?? 0;
+    final categoryPreferenceVersion =
+        _categoryNotificationPreferenceVersions[siteUrl] ?? 0;
     late final Future<DiscourseUser?> request;
     request =
         _readSessionUser(
@@ -3862,6 +3884,7 @@ class ShellController extends FrameSafeNotifier
           hidePresenceVersion,
           groupedUnreadNotificationVersion,
           draftCountVersion,
+          categoryPreferenceVersion,
         ).whenComplete(() {
           if (identical(_sessionUserRequests[siteUrl], request)) {
             final removed = _sessionUserRequests.remove(siteUrl);
@@ -3879,6 +3902,7 @@ class ShellController extends FrameSafeNotifier
     int hidePresenceVersion,
     int groupedUnreadNotificationVersion,
     int draftCountVersion,
+    int categoryPreferenceVersion,
   ) async {
     if (!lease.isCurrent || _connectingSiteUrl == siteUrl) return null;
 
@@ -3913,6 +3937,7 @@ class ShellController extends FrameSafeNotifier
       hidePresenceVersion,
       groupedUnreadNotificationVersion,
       draftCountVersion,
+      categoryPreferenceVersion,
     );
   }
 
@@ -3923,6 +3948,7 @@ class ShellController extends FrameSafeNotifier
     int hidePresenceVersion,
     int groupedUnreadNotificationVersion,
     int draftCountVersion,
+    int categoryPreferenceVersion,
   ) {
     if (isDisposed || !lease.isCurrent || _connectingSiteUrl == siteUrl) {
       return null;
@@ -3964,6 +3990,18 @@ class ShellController extends FrameSafeNotifier
       }
       if (!accountChanged && !draftCountIsCurrent && previousUser != null) {
         reconciledUser = reconciledUser.withDraftCount(previousUser.draftCount);
+      }
+      if (!accountChanged &&
+          previousUser != null &&
+          (_categoryNotificationPreferenceVersions[siteUrl] ?? 0) !=
+              categoryPreferenceVersion) {
+        reconciledUser = reconciledUser.withCategoryNotificationPreferences(
+          trackedCategoryIds: previousUser.trackedCategoryIds,
+          watchedCategoryIds: previousUser.watchedCategoryIds,
+          watchedFirstPostCategoryIds: previousUser.watchedFirstPostCategoryIds,
+          mutedCategoryIds: previousUser.mutedCategoryIds,
+          indirectlyMutedCategoryIds: previousUser.indirectlyMutedCategoryIds,
+        );
       }
       committedUser = reconciledUser;
       _sessionUsersRefreshed.add(siteUrl);
@@ -4507,6 +4545,8 @@ class ShellController extends FrameSafeNotifier
   final Map<String, _QueuedCategoryNotification> _categoryNotificationWrites =
       {};
   final Map<String, Future<void>> _categoryNotificationTails = {};
+  final Map<String, Future<void>> _categoryNotificationSiteTails = {};
+  final Map<String, int> _categoryNotificationPreferenceVersions = {};
   final Map<String, CategoryNotificationLevel> _categoryNotificationConfirmed =
       {};
   final Set<String> _topicPinWrites = {};
@@ -5961,7 +6001,10 @@ class ShellController extends FrameSafeNotifier
       lease: lifecycle.capture(siteUrl),
     );
     _categoryNotificationWrites[key] = write;
-    final previousTail = _categoryNotificationTails[key] ?? Future.value();
+    // The response includes a site-wide inherited mute list. Serialize category
+    // writes across the account so an older response cannot undo another edit.
+    final previousTail =
+        _categoryNotificationSiteTails[siteUrl] ?? Future.value();
     late final Future<void> tail;
     tail = previousTail
         .catchError((_) {
@@ -5970,12 +6013,16 @@ class ShellController extends FrameSafeNotifier
         })
         .then((_) => _performCategoryNotificationWrite(key, write))
         .whenComplete(() {
+          if (identical(_categoryNotificationSiteTails[siteUrl], tail)) {
+            final _ = _categoryNotificationSiteTails.remove(siteUrl);
+          }
           if (!identical(_categoryNotificationTails[key], tail)) return;
           final _ = _categoryNotificationTails.remove(key);
           _categoryNotificationWrites.remove(key);
           _categoryNotificationConfirmed.remove(key);
         });
     _categoryNotificationTails[key] = tail;
+    _categoryNotificationSiteTails[siteUrl] = tail;
     unawaited(tail);
     // Reentrant selections must append after this write, even when they are
     // made by a listener during optimistic projection.
@@ -6002,6 +6049,9 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
+    late final String apiKey;
+    late final String clientId;
+    final List<int>? indirectlyMuted;
     try {
       final credential = await _credentialForWrite(write.siteUrl);
       if (!isLatest()) {
@@ -6013,25 +6063,20 @@ class ShellController extends FrameSafeNotifier
         write.complete(false);
         return;
       }
-      final clientId = await authenticator.clientId();
+      apiKey = credential.apiKey!;
+      clientId = await authenticator.clientId();
       if (!isLatest()) {
         write.complete(false);
         return;
       }
-      await api.categoryMutations.updateCategoryNotificationLevel(
-        siteUrl: write.siteUrl,
-        apiKey: credential.apiKey!,
-        categoryId: write.categoryId,
-        notificationLevel: write.level,
-        clientId: clientId,
-      );
-      if (!write.lease.isCurrent || isDisposed) {
-        write.complete(false);
-        return;
-      }
-      _categoryNotificationConfirmed[key] = write.level;
-      _projectCategoryNotificationLevel(key, write, write.level);
-      write.complete(true);
+      indirectlyMuted = await api.categoryMutations
+          .updateCategoryNotificationLevel(
+            siteUrl: write.siteUrl,
+            apiKey: apiKey,
+            categoryId: write.categoryId,
+            notificationLevel: write.level,
+            clientId: clientId,
+          );
     } catch (error, stackTrace) {
       if (write.lease.isCurrent && !isDisposed) {
         _reportOperationalError(
@@ -6043,7 +6088,120 @@ class ShellController extends FrameSafeNotifier
         if (isLatest()) _rollbackCategoryNotification(key, write);
       }
       write.complete(false);
+      return;
     }
+
+    if (!write.lease.isCurrent || isDisposed) {
+      write.complete(false);
+      return;
+    }
+    _categoryNotificationConfirmed[key] = write.level;
+    final version =
+        (_categoryNotificationPreferenceVersions[write.siteUrl] ?? 0) + 1;
+    _categoryNotificationPreferenceVersions[write.siteUrl] = version;
+    final user = _instanceAt(write.siteUrl)?.user;
+    if (user != null) {
+      List<int>? membership(List<int>? ids, CategoryNotificationLevel level) =>
+          ids == null
+          ? null
+          : List.unmodifiable({
+              for (final id in ids)
+                if (id != write.categoryId) id,
+              if (write.level == level) write.categoryId,
+            });
+      _commitCategoryNotificationPreferences(
+        write.siteUrl,
+        user.withCategoryNotificationPreferences(
+          trackedCategoryIds: membership(
+            user.trackedCategoryIds,
+            CategoryNotificationLevel.tracking,
+          ),
+          watchedCategoryIds: membership(
+            user.watchedCategoryIds,
+            CategoryNotificationLevel.watching,
+          ),
+          watchedFirstPostCategoryIds: membership(
+            user.watchedFirstPostCategoryIds,
+            CategoryNotificationLevel.watchingFirstPost,
+          ),
+          mutedCategoryIds: membership(
+            user.mutedCategoryIds,
+            CategoryNotificationLevel.muted,
+          ),
+          indirectlyMutedCategoryIds:
+              indirectlyMuted ?? user.indirectlyMutedCategoryIds,
+        ),
+      );
+    }
+    _projectCategoryNotificationLevel(key, write, write.level);
+    // Persistence and refresh failures cannot turn a committed POST into a
+    // failed write, nor delay the next optimistic choice in the write queue.
+    write.complete(true);
+    if (!write.lease.isCurrent || isDisposed) return;
+    final username = _instanceAt(write.siteUrl)?.user?.username;
+    if (username == null) return;
+    _topicTrackingLoads.add(write.siteUrl);
+    _topicTrackingRetries.remove(write.siteUrl);
+    _topicTrackingPendingEvents[write.siteUrl] = <Object?>[];
+    unawaited(
+      _loadTopicTrackingState(
+        siteUrl: write.siteUrl,
+        username: username,
+        apiKey: apiKey,
+        clientId: clientId,
+        lease: write.lease,
+        refreshCategoryPreferences:
+            indirectlyMuted == null ||
+                user?.followedCategoryIds == null ||
+                user?.mutedCategoryIds == null
+            ? () async {
+                final response = await api.site.currentUser(
+                  siteUrl: write.siteUrl,
+                  apiKey: apiKey,
+                  clientId: clientId,
+                );
+                if (!write.lease.isCurrent ||
+                    isDisposed ||
+                    _categoryNotificationPreferenceVersions[write.siteUrl] !=
+                        version) {
+                  return;
+                }
+                final held = _instanceAt(write.siteUrl)?.user;
+                if (held == null ||
+                    !plugins.models.sameCurrentUserAccount(held, response)) {
+                  return;
+                }
+                _commitCategoryNotificationPreferences(write.siteUrl, response);
+              }
+            : null,
+      ),
+    );
+    _notify();
+  }
+
+  void _commitCategoryNotificationPreferences(
+    String siteUrl,
+    DiscourseUser preferences,
+  ) {
+    final instance = _instanceAt(siteUrl);
+    final user = instance?.user;
+    if (instance == null || user == null) return;
+    final updated = user.withCategoryNotificationPreferences(
+      trackedCategoryIds:
+          preferences.trackedCategoryIds ?? user.trackedCategoryIds,
+      watchedCategoryIds:
+          preferences.watchedCategoryIds ?? user.watchedCategoryIds,
+      watchedFirstPostCategoryIds:
+          preferences.watchedFirstPostCategoryIds ??
+          user.watchedFirstPostCategoryIds,
+      mutedCategoryIds: preferences.mutedCategoryIds ?? user.mutedCategoryIds,
+      indirectlyMutedCategoryIds:
+          preferences.indirectlyMutedCategoryIds ??
+          user.indirectlyMutedCategoryIds,
+    );
+    _replaceInstance(instance, instance.copyWith(user: updated));
+    _categorySidebarCache.remove(siteUrl);
+    instanceStore.save(List.of(_instances)).ignore();
   }
 
   void _rollbackCategoryNotification(
@@ -12310,6 +12468,8 @@ class ShellController extends FrameSafeNotifier
     _categoryNotificationTails.removeWhere(
       (key, _) => key.startsWith('$siteUrl^'),
     );
+    final _ = _categoryNotificationSiteTails.remove(siteUrl);
+    _categoryNotificationPreferenceVersions.remove(siteUrl);
     _categoryNotificationConfirmed.removeWhere(
       (key, _) => key.startsWith('$siteUrl^'),
     );
@@ -13541,6 +13701,8 @@ class ShellController extends FrameSafeNotifier
     _categoryNotificationWrites.clear();
     _categoryNotificationTails.clear();
     _categoryNotificationConfirmed.clear();
+    _categoryNotificationSiteTails.clear();
+    _categoryNotificationPreferenceVersions.clear();
     _topicPinWrites.clear();
     _topicStatusWrites.clear();
     _userStatusOverrides.clear();

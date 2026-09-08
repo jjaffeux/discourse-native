@@ -2574,7 +2574,7 @@ void _feedGroups() {
           }),
         );
 
-        await api.updateCategoryNotificationLevel(
+        final indirectlyMuted = await api.updateCategoryNotificationLevel(
           siteUrl: 'https://example.com',
           apiKey: 'key',
           categoryId: 12,
@@ -2587,8 +2587,43 @@ void _feedGroups() {
         expect(sent.headers['User-Api-Key'], 'key');
         expect(sent.headers['User-Api-Client-Id'], 'client');
         expect(jsonDecode(sent.body), {'notification_level': 4});
+        expect(
+          indirectlyMuted,
+          isNull,
+          reason: 'older responses need a current-user refresh',
+        );
       },
     );
+
+    for (final ids in [
+      <Object?>[2, '3', false, null, -1],
+      <Object?>[],
+    ]) {
+      test(
+        'reads authoritative inherited mutes from category writes: $ids',
+        () async {
+          final api = DiscourseApi(
+            client: MockClient(
+              (_) async => http.Response(
+                jsonEncode({
+                  'success': 'OK',
+                  'indirectly_muted_category_ids': ids,
+                }),
+                200,
+              ),
+            ),
+          );
+          final result = await api.updateCategoryNotificationLevel(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            categoryId: 1,
+            notificationLevel: CategoryNotificationLevel.muted,
+          );
+          expect(result, ids.isEmpty ? isEmpty : [2, 3]);
+          expect(() => result!.clear(), throwsUnsupportedError);
+        },
+      );
+    }
 
     test('updates a guardian-approved topic status', () async {
       late http.Request sent;
