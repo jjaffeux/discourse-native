@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/found_user.dart';
+import 'package:discourse_native/src/models/invite.dart';
 import 'package:discourse_native/src/models/list_link.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
@@ -377,6 +378,9 @@ void main() {
       probe('SearchGroupHit', () => SearchGroupHit.fromJson(json, site), json);
       probe('SiteAppearance', () => SiteAppearance.fromJson(json), json);
       probe('SiteConfig', () => SiteConfig.fromJson(json), json);
+      probe('InviteSettings', () => InviteSettings.fromJson(json), json);
+      probe('DiscourseInvite', () => DiscourseInvite.fromJson(json), json);
+      probe('InvitePage', () => InvitePage.fromJson(json), json);
       probe('AssignSettings', () => AssignSettings.fromWire(json), json);
       probe('AssignCurrentUser', () => AssignCurrentUser.fromWire(json), json);
       probe(

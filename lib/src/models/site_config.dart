@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../plugin_api/plugin_data.dart';
+import 'invite.dart';
 import 'json.dart';
 
 @immutable
@@ -41,6 +42,7 @@ class SiteConfig {
     this.illegalContentReportEmail,
     this.suggestWeekendsInDatePickers = true,
     this.fastEditEnabled = true,
+    this.invites = const InviteSettings(),
     this.plugins = PluginData.none,
   });
 
@@ -178,6 +180,7 @@ class SiteConfig {
       suggestWeekendsInDatePickers:
           json['suggest_weekends_in_date_pickers'] != false,
       fastEditEnabled: json['enable_fast_edit'] != false,
+      invites: InviteSettings.fromJson(json),
       plugins: extensions.readSiteSettings(json, siteUrl),
     );
   }
@@ -245,6 +248,7 @@ class SiteConfig {
     illegalContentReportEmail: _nonemptyText(json['illegalContentReportEmail']),
     suggestWeekendsInDatePickers: json['suggestWeekendsInDatePickers'] != false,
     fastEditEnabled: json['fastEditEnabled'] != false,
+    invites: InviteSettings.fromJson(jsonObject(json['invites'])),
     plugins: extensions.readStoredSiteSettings(json),
   );
 
@@ -288,6 +292,7 @@ class SiteConfig {
       'illegalContentReportEmail': illegalContentReportEmail,
       'suggestWeekendsInDatePickers': suggestWeekendsInDatePickers,
       'fastEditEnabled': fastEditEnabled,
+      'invites': invites.toJson(),
       if (pluginJson.isNotEmpty) 'plugins': pluginJson,
     };
   }
@@ -348,6 +353,8 @@ class SiteConfig {
   final bool suggestWeekendsInDatePickers;
 
   final bool fastEditEnabled;
+
+  final InviteSettings invites;
 
   /// Values decoded by the installed feature manifest. Core intentionally
   /// cannot name or interpret anything in this bag.
@@ -437,6 +444,7 @@ class SiteConfig {
     illegalContentReportEmail: illegalContentReportEmail,
     suggestWeekendsInDatePickers: suggestWeekendsInDatePickers,
     fastEditEnabled: fastEditEnabled,
+    invites: invites,
     plugins: value,
   );
 
@@ -485,6 +493,7 @@ class SiteConfig {
       other.illegalContentReportEmail == illegalContentReportEmail &&
       other.suggestWeekendsInDatePickers == suggestWeekendsInDatePickers &&
       other.fastEditEnabled == fastEditEnabled &&
+      other.invites == invites &&
       other.plugins == plugins;
 
   @override
@@ -524,6 +533,7 @@ class SiteConfig {
     illegalContentReportEmail,
     suggestWeekendsInDatePickers,
     fastEditEnabled,
+    invites,
     plugins,
   ]);
 
