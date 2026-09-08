@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../data/site_lifecycle.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
@@ -13,6 +14,7 @@ import 'bookmark_ui.dart';
 import 'choice_menu.dart';
 import 'command_menu.dart';
 import 'post_flag_editor.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_share.dart';
 
@@ -171,16 +173,19 @@ class TopicStatusButton extends StatelessWidget {
 
   void _flag(BuildContext context) {
     final controller = ShellScope.read(context);
-    if (topicFlags.isEmpty ||
+    final current = controller.store.read<TopicDetail>(siteUrl, topic.id);
+    if (current == null ||
         controller.topicFlagWriteInFlight(siteUrl, topic.id)) {
       return;
     }
+    final flags = controller.availableTopicFlagTypes(siteUrl, current);
+    if (flags.isEmpty) return;
     unawaited(
       showTopicFlagEditor(
         context: context,
         siteUrl: siteUrl,
-        topic: topic,
-        flagTypes: topicFlags,
+        topic: current,
+        flagTypes: flags,
       ),
     );
   }
@@ -276,18 +281,29 @@ class TopicStatusButton extends StatelessWidget {
   }
 
   void _selectCommand(BuildContext context, _TopicCommand command) {
+    final controller = ShellScope.read(context);
+    if (_busy(controller)) return;
+    final current = controller.store.read<TopicDetail>(siteUrl, topic.id);
+    if (current == null) return;
+    final allowed = switch (command) {
+      _TopicCommand.flag =>
+        controller.availableTopicFlagTypes(siteUrl, current).isNotEmpty,
+      _TopicCommand.pinned => current.hasPinPreference,
+      _TopicCommand.selectPosts => current.canSelectPosts,
+      _TopicCommand.closed => current.canCloseTopic,
+      _TopicCommand.archived => current.canArchiveTopic,
+      _TopicCommand.visible => current.canToggleTopicVisibility,
+      _TopicCommand.delete => current.canDeleteTopic,
+      _TopicCommand.recover => current.canRecoverTopic,
+    };
+    if (!allowed) return;
     switch (command) {
       case _TopicCommand.flag:
         _flag(context);
       case _TopicCommand.pinned:
         unawaited(_changePin(context));
       case _TopicCommand.selectPosts:
-        final controller = ShellScope.read(context);
-        controller.setTopicPostSelectionEnabled(
-          siteUrl,
-          topic.id,
-          !controller.topicPostSelectionEnabled(siteUrl, topic.id),
-        );
+        controller.setTopicPostSelectionEnabled(siteUrl, topic.id, true);
       case _TopicCommand.closed:
         unawaited(_change(context, TopicStatusProperty.closed, !topic.closed));
       case _TopicCommand.archived:
@@ -305,8 +321,29 @@ class TopicStatusButton extends StatelessWidget {
     }
   }
 
+  bool _busy(ShellController controller) =>
+      controller.topicStatusWriteInFlight(siteUrl, topic.id) ||
+      controller.topicDeletionWriteInFlight(siteUrl, topic.id) ||
+      controller.topicPostSelectionWriteInFlight(siteUrl, topic.id) ||
+      controller.topicPinWriteInFlight(siteUrl, topic.id) ||
+      controller.topicFlagWriteInFlight(siteUrl, topic.id);
+
   @override
   Widget build(BuildContext context) {
+    final controller = ShellScope.identityOf(context);
+    SiteLease? lease;
+    bool ownsController() =>
+        context.mounted &&
+        !controller.accountSessionDisposed &&
+        identical(ShellScope.read(context), controller);
+
+    // The popup retains its options across anchor rebuilds. Each option must
+    // retain the same topic and intent, and the account that opened it.
+    void select(_TopicCommand command) {
+      if (!ownsController() || lease?.isCurrent != true) return;
+      _selectCommand(context, command);
+    }
+
     final hasStatusCommands =
         topic.canCloseTopic ||
         topic.canArchiveTopic ||
@@ -315,15 +352,15 @@ class TopicStatusButton extends StatelessWidget {
     final hasMoreActions = topicFlags.isNotEmpty;
     final options = [
       if (topicFlags.isNotEmpty)
-        const CommandMenuOption(
-          value: _TopicCommand.flag,
+        CommandMenuOption(
+          value: () => select(_TopicCommand.flag),
           label: 'Flag topic',
           icon: DIcons.flag,
-          key: ValueKey('topic-flag-button'),
+          key: const ValueKey('topic-flag-button'),
         ),
       if (topic.hasPinPreference)
         CommandMenuOption(
-          value: _TopicCommand.pinned,
+          value: () => select(_TopicCommand.pinned),
           label: topic.pinned ? 'Unpin topic' : 'Pin topic',
           icon: DIcons.thumbtack,
           key: const ValueKey('topic-pin-button'),
@@ -331,7 +368,7 @@ class TopicStatusButton extends StatelessWidget {
         ),
       if (topic.canSelectPosts)
         CommandMenuOption(
-          value: _TopicCommand.selectPosts,
+          value: () => select(_TopicCommand.selectPosts),
           label: 'Select posts',
           icon: DIcons.list,
           key: const ValueKey('topic-select-posts'),
@@ -339,7 +376,7 @@ class TopicStatusButton extends StatelessWidget {
         ),
       if (topic.canCloseTopic)
         CommandMenuOption(
-          value: _TopicCommand.closed,
+          value: () => select(_TopicCommand.closed),
           label: topic.closed ? 'Open topic' : 'Close topic',
           icon: DIcons.lock,
           key: const ValueKey('topic-status-closed'),
@@ -349,7 +386,7 @@ class TopicStatusButton extends StatelessWidget {
         ),
       if (topic.canArchiveTopic)
         CommandMenuOption(
-          value: _TopicCommand.archived,
+          value: () => select(_TopicCommand.archived),
           label: topic.archived ? 'Unarchive topic' : 'Archive topic',
           icon: topic.archived ? DIcons.folderOpen : DIcons.folder,
           key: const ValueKey('topic-status-archived'),
@@ -360,7 +397,7 @@ class TopicStatusButton extends StatelessWidget {
         ),
       if (topic.canToggleTopicVisibility)
         CommandMenuOption(
-          value: _TopicCommand.visible,
+          value: () => select(_TopicCommand.visible),
           label: topic.visible ? 'Make topic unlisted' : 'Make topic visible',
           icon: topic.visible ? DIcons.farEyeSlash : DIcons.farEye,
           key: const ValueKey('topic-status-visible'),
@@ -372,7 +409,7 @@ class TopicStatusButton extends StatelessWidget {
         ),
       if (topic.canDeleteTopic)
         CommandMenuOption(
-          value: _TopicCommand.delete,
+          value: () => select(_TopicCommand.delete),
           label: 'Delete topic',
           icon: DIcons.trashCan,
           key: const ValueKey('topic-status-delete'),
@@ -381,7 +418,7 @@ class TopicStatusButton extends StatelessWidget {
         ),
       if (topic.canRecoverTopic)
         CommandMenuOption(
-          value: _TopicCommand.recover,
+          value: () => select(_TopicCommand.recover),
           label: 'Recover topic',
           icon: DIcons.arrowRotateLeft,
           key: const ValueKey('topic-status-recover'),
@@ -389,21 +426,22 @@ class TopicStatusButton extends StatelessWidget {
         ),
     ];
     return ShellSelector<bool>(
-      select: (controller) =>
-          controller.topicStatusWriteInFlight(siteUrl, topic.id) ||
-          controller.topicDeletionWriteInFlight(siteUrl, topic.id) ||
-          controller.topicPostSelectionWriteInFlight(siteUrl, topic.id) ||
-          controller.topicPinWriteInFlight(siteUrl, topic.id) ||
-          controller.topicFlagWriteInFlight(siteUrl, topic.id),
-      builder: (context, busy, _) => CommandMenuAnchor<_TopicCommand>(
+      select: _busy,
+      builder: (context, busy, _) => CommandMenuAnchor<VoidCallback>(
         title: 'More topic actions',
         options: options,
         enabled: !busy,
-        onSelected: (command) => _selectCommand(context, command),
+        onSelected: (select) => select(),
         builder: (context, openMenu) => DButton.iconOnly(
           key: const ValueKey('topic-status-button'),
           tooltip: 'More topic actions',
-          onPressed: openMenu,
+          onPressed: openMenu == null
+              ? null
+              : () {
+                  if (!ownsController() || _busy(controller)) return;
+                  lease = controller.lifecycle.capture(siteUrl);
+                  openMenu();
+                },
           loading: busy,
           variant: DButtonVariant.flat,
           size: DButtonSize.small,
