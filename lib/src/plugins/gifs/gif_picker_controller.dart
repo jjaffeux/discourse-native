@@ -17,13 +17,16 @@ final class GifPickerController extends ChangeNotifier {
     required this.fileDetail,
     this.maxResults,
     this.searchDebounce = const Duration(milliseconds: 700),
-  }) : _requests = requests;
+  }) : _requests = requests,
+       _lease = requests.capture(siteUrl);
 
   static const int minimumQueryLength = 3;
 
   final String siteUrl;
   final GifsApi api;
   final PluginRequestHost _requests;
+  // The controller lives for one picker opening, even if its account changes.
+  final PluginSiteLease _lease;
   final String fileDetail;
 
   final int? maxResults;
@@ -61,7 +64,13 @@ final class GifPickerController extends ChangeNotifier {
   bool get isBusy => _loadingCategories || _searching || _loadingMore;
   bool get showingCategories => !hasActiveSearch && _categories.isNotEmpty;
   bool get canLoadMore =>
-      !_searching && !_loadingMore && _nextPosition != null && !_atLimit;
+      _isCurrent &&
+      !_searching &&
+      !_loadingMore &&
+      _nextPosition != null &&
+      !_atLimit;
+
+  bool get _isCurrent => !_disposed && _lease.isCurrent;
 
   bool get _atLimit {
     final limit = maxResults;
@@ -69,17 +78,15 @@ final class GifPickerController extends ChangeNotifier {
   }
 
   Future<void> loadCategories() async {
-    if (_disposed || _loadingCategories) return;
+    if (!_isCurrent || _loadingCategories) return;
     final request = ++_categoryRequest;
-    final lease = _requests.capture(siteUrl);
     _loadingCategories = true;
     _categoriesError = null;
     _notify();
 
     try {
-      final session = await _session(lease);
+      final session = await _session();
       if (!_categoryIsCurrent(request)) return;
-      if (!lease.isCurrent) return;
       if (session == null) {
         _categoriesError = _missingCredentials;
         return;
@@ -89,10 +96,10 @@ final class GifPickerController extends ChangeNotifier {
         apiKey: session.apiKey,
         clientId: session.clientId,
       );
-      if (!_categoryIsCurrent(request) || !lease.isCurrent) return;
+      if (!_categoryIsCurrent(request)) return;
       _categories = List.unmodifiable(categories);
     } catch (error) {
-      if (_categoryIsCurrent(request) && lease.isCurrent) {
+      if (_categoryIsCurrent(request)) {
         _categoriesError = _errorMessage(error);
       }
     } finally {
@@ -104,7 +111,7 @@ final class GifPickerController extends ChangeNotifier {
   }
 
   void updateQuery(String value) {
-    if (_disposed || value == _query) return;
+    if (!_isCurrent || value == _query) return;
     _query = value;
     _debounce?.cancel();
     _debounce = null;
@@ -134,7 +141,7 @@ final class GifPickerController extends ChangeNotifier {
 
   /// Featured server terms bypass the free-text minimum length.
   Future<void> selectCategory(GifCategory category) {
-    if (_disposed) return Future.value();
+    if (!_isCurrent) return Future.value();
     _query = category.searchTerm;
     _debounce?.cancel();
     _debounce = null;
@@ -159,7 +166,7 @@ final class GifPickerController extends ChangeNotifier {
     required int request,
     bool bypassLengthCheck = false,
   }) async {
-    if (_disposed || request != _searchRequest) return;
+    if (!_searchIsCurrent(request)) return;
     if (!bypassLengthCheck && query.length < minimumQueryLength) return;
     // Retries must supersede earlier attempts before listeners can run.
     final pageRequest = ++_searchRequest;
@@ -177,7 +184,7 @@ final class GifPickerController extends ChangeNotifier {
   Future<void> loadMore() async {
     final query = _activeQuery;
     final position = _nextPosition;
-    if (_disposed || query == null || position == null || !canLoadMore) return;
+    if (query == null || position == null || !canLoadMore) return;
     final request = ++_searchRequest;
     _loadingMore = true;
     _searchError = null;
@@ -191,7 +198,7 @@ final class GifPickerController extends ChangeNotifier {
   }
 
   Future<void> retry() {
-    if (_disposed) return Future.value();
+    if (!_isCurrent) return Future.value();
     final query = _activeQuery;
     if (query == null) return loadCategories();
     if (_results.isNotEmpty && _nextPosition != null) return loadMore();
@@ -209,11 +216,9 @@ final class GifPickerController extends ChangeNotifier {
     required bool replace,
   }) async {
     if (!_searchIsCurrent(request)) return;
-    final lease = _requests.capture(siteUrl);
     try {
-      final session = await _session(lease);
+      final session = await _session();
       if (!_searchIsCurrent(request)) return;
-      if (!lease.isCurrent) return;
       if (session == null) {
         _searchError = _missingCredentials;
         return;
@@ -226,7 +231,7 @@ final class GifPickerController extends ChangeNotifier {
         fileDetail: fileDetail,
         position: position,
       );
-      if (!_searchIsCurrent(request) || !lease.isCurrent) return;
+      if (!_searchIsCurrent(request)) return;
 
       final unique = <String, GifResult>{
         if (!replace)
@@ -244,7 +249,7 @@ final class GifPickerController extends ChangeNotifier {
       _nextPosition = page.hasMore && !_atLimit ? page.nextPosition : null;
       _searchError = null;
     } catch (error) {
-      if (_searchIsCurrent(request) && lease.isCurrent) {
+      if (_searchIsCurrent(request)) {
         _searchError = _errorMessage(error);
       }
     } finally {
@@ -256,9 +261,10 @@ final class GifPickerController extends ChangeNotifier {
     }
   }
 
-  Future<_GifSession?> _session(PluginSiteLease lease) async {
+  Future<_GifSession?> _session() async {
+    if (!_isCurrent) return null;
     final credentials = await _requests.credentialsFor(siteUrl);
-    if (_disposed || credentials.apiKey == null || !lease.isCurrent) {
+    if (!_isCurrent || credentials.apiKey == null) {
       return null;
     }
     return _GifSession(
@@ -268,11 +274,11 @@ final class GifPickerController extends ChangeNotifier {
   }
 
   bool _categoryIsCurrent(int request) =>
-      !_disposed && request == _categoryRequest;
-  bool _searchIsCurrent(int request) => !_disposed && request == _searchRequest;
+      _isCurrent && request == _categoryRequest;
+  bool _searchIsCurrent(int request) => _isCurrent && request == _searchRequest;
 
   void _notify() {
-    if (!_disposed) notifyListeners();
+    if (_isCurrent) notifyListeners();
   }
 
   @override

@@ -390,6 +390,175 @@ void main() {
   });
 
   group('request invalidation and disposal', () {
+    for (final phase in [
+      'categories',
+      'category selection',
+      'first page',
+      'load more',
+    ]) {
+      test(
+        'does not read replacement credentials after $phase notifies',
+        () async {
+          final credentials = _CountingCredentials();
+          final lifecycle = SiteLifecycle();
+          final api = FakeDiscourseApi(
+            gifSearchPages: {
+              FakeDiscourseApi.gifSearchKey('go'): GifSearchPage(
+                results: const [_catResult],
+                nextPosition: 'cat-cursor',
+              ),
+            },
+          );
+          final controller = _controller(
+            api,
+            credentials: credentials,
+            lifecycle: lifecycle,
+          );
+          addTearDown(controller.dispose);
+          final isLoadMore = phase == 'load more';
+          if (isLoadMore) await controller.selectCategory(_shortCategory);
+
+          void replaceAccount() {
+            if (phase == 'first page' && !controller.searching) return;
+            controller.removeListener(replaceAccount);
+            lifecycle.invalidate(_siteUrl);
+            credentials.keys[_siteUrl] = 'replacement-key';
+          }
+
+          controller.addListener(replaceAccount);
+          if (phase == 'categories') {
+            await controller.loadCategories();
+          } else if (isLoadMore) {
+            await controller.loadMore();
+          } else {
+            await controller.selectCategory(_shortCategory);
+          }
+
+          expect(credentials.apiKeyReads, isLoadMore ? ['key'] : isEmpty);
+          expect(api.gifCategoryRequests, isEmpty);
+          expect(api.gifSearchRequests, hasLength(isLoadMore ? 1 : 0));
+          expect(controller.error, isNull);
+        },
+      );
+    }
+
+    testWidgets('does not read replacement credentials after the debounce', (
+      tester,
+    ) async {
+      final credentials = _CountingCredentials();
+      final lifecycle = SiteLifecycle();
+      final api = FakeDiscourseApi();
+      final controller = _controller(
+        api,
+        credentials: credentials,
+        lifecycle: lifecycle,
+        searchDebounce: const Duration(milliseconds: 700),
+      );
+      addTearDown(controller.dispose);
+
+      controller.updateQuery('private query');
+      await tester.pump(const Duration(milliseconds: 699));
+      lifecycle.invalidate(_siteUrl);
+      credentials.keys[_siteUrl] = 'replacement-key';
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(credentials.apiKeyReads, isEmpty);
+      expect(api.gifSearchRequests, isEmpty);
+      expect(controller.error, isNull);
+    });
+
+    for (final initialState in ['unstarted', 'categories', 'search']) {
+      testWidgets('a retired $initialState picker cannot start more work', (
+        tester,
+      ) async {
+        final credentials = _CountingCredentials();
+        final lifecycle = SiteLifecycle();
+        final api = FakeDiscourseApi(
+          gifCategoriesBySite: const {
+            _siteUrl: [_shortCategory],
+          },
+          gifSearchPages: {
+            FakeDiscourseApi.gifSearchKey('go'): GifSearchPage(
+              results: const [_catResult],
+              nextPosition: 'cat-cursor',
+            ),
+          },
+        );
+        final controller = _controller(
+          api,
+          credentials: credentials,
+          lifecycle: lifecycle,
+        );
+        addTearDown(controller.dispose);
+        if (initialState == 'categories') await controller.loadCategories();
+        if (initialState == 'search') {
+          await controller.selectCategory(_shortCategory);
+        }
+        final categoryRequests = api.gifCategoryRequests.toList();
+        final searchRequests = api.gifSearchRequests.toList();
+        final credentialReads = credentials.apiKeyReads.toList();
+        lifecycle.invalidate(_siteUrl);
+        credentials.keys[_siteUrl] = 'replacement-key';
+
+        await controller.retry();
+        await controller.loadMore();
+        await controller.loadCategories();
+        await controller.selectCategory(_shortCategory);
+        controller.updateQuery('another private query');
+        await tester.pump();
+
+        expect(credentials.apiKeyReads, credentialReads);
+        expect(api.gifCategoryRequests, categoryRequests);
+        expect(api.gifSearchRequests, searchRequests);
+        expect(controller.error, isNull);
+        expect(controller.canLoadMore, isFalse);
+      });
+    }
+
+    for (final categories in [true, false]) {
+      for (final fails in [true, false]) {
+        testWidgets('ignores a retired ${categories ? 'category' : 'search'} '
+            'response (fails: $fails)', (tester) async {
+          final credentials = _CountingCredentials();
+          final lifecycle = SiteLifecycle();
+          final api = _ControllableGifsApi(holdCategories: true);
+          final controller = _controller(
+            api,
+            credentials: credentials,
+            lifecycle: lifecycle,
+          );
+          addTearDown(controller.dispose);
+
+          final loading = categories
+              ? controller.loadCategories()
+              : controller.selectCategory(_shortCategory);
+          await tester.pump();
+          lifecycle.invalidate(_siteUrl);
+          credentials.keys[_siteUrl] = 'replacement-key';
+          if (categories) {
+            if (fails) {
+              api.categoryResponses.single.completeError(Exception('retired'));
+            } else {
+              api.categoryResponses.single.complete(const [_shortCategory]);
+            }
+          } else if (fails) {
+            api.responses.single.completeError(Exception('retired'));
+          } else {
+            api.responses.single.complete(
+              GifSearchPage(results: const [_catResult], nextPosition: 'stale'),
+            );
+          }
+          await tester.pump();
+          await loading;
+
+          expect(controller.categories, isEmpty);
+          expect(controller.results, isEmpty);
+          expect(controller.error, isNull);
+          expect(controller.canLoadMore, isFalse);
+        });
+      }
+    }
+
     test(
       'does not report missing credentials for an invalidated category lease',
       () async {
@@ -406,7 +575,9 @@ void main() {
         final loading = controller.loadCategories();
         await credentials.started.future;
         lifecycle.invalidate(_siteUrl);
-        credentials.result.complete('old-key');
+        credentials.keys[_siteUrl] = 'replacement-key';
+        lifecycle.capture(_siteUrl);
+        credentials.result.complete('replacement-key');
         await loading;
 
         expect(controller.error, isNull);
@@ -430,7 +601,9 @@ void main() {
         final loading = controller.selectCategory(_shortCategory);
         await credentials.started.future;
         lifecycle.invalidate(_siteUrl);
-        credentials.result.complete('old-key');
+        credentials.keys[_siteUrl] = 'replacement-key';
+        lifecycle.capture(_siteUrl);
+        credentials.result.complete('replacement-key');
         await loading;
 
         expect(controller.hasActiveSearch, isTrue);
@@ -443,9 +616,12 @@ void main() {
       final credentials = _GatedCredentials();
       final api = FakeDiscourseApi();
       final controller = _controller(api, credentials: credentials);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
 
       final loading = controller.loadCategories();
       await credentials.started.future;
+      final beforeDisposal = notifications;
       controller.dispose();
       credentials.result.complete('stale-key');
       await loading;
@@ -453,6 +629,30 @@ void main() {
       expect(credentials.clientIdCalls, 1);
       expect(api.gifCategoryRequests, isEmpty);
       expect(controller.error, isNull);
+      expect(notifications, beforeDisposal);
+    });
+
+    testWidgets('disposal cancels a pending search without notifying', (
+      tester,
+    ) async {
+      final credentials = _CountingCredentials();
+      final api = FakeDiscourseApi();
+      final controller = _controller(
+        api,
+        credentials: credentials,
+        searchDebounce: const Duration(milliseconds: 700),
+      );
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+      controller.updateQuery('cats');
+      final beforeDisposal = notifications;
+
+      controller.dispose();
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(credentials.apiKeyReads, isEmpty);
+      expect(api.gifSearchRequests, isEmpty);
+      expect(notifications, beforeDisposal);
     });
   });
 }
@@ -493,6 +693,10 @@ const _dogResult = GifResult(
 );
 
 final class _ControllableGifsApi implements GifsApi {
+  _ControllableGifsApi({this.holdCategories = false});
+
+  final bool holdCategories;
+  final List<Completer<List<GifCategory>>> categoryResponses = [];
   final List<({String query, String position})> requests = [];
   final List<Completer<GifSearchPage>> responses = [];
 
@@ -501,7 +705,12 @@ final class _ControllableGifsApi implements GifsApi {
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async => const [];
+  }) async {
+    if (!holdCategories) return const [];
+    final response = Completer<List<GifCategory>>();
+    categoryResponses.add(response);
+    return response.future;
+  }
 
   @override
   Future<GifSearchPage> searchGifs({
@@ -598,11 +807,13 @@ final class _GatedCredentials extends FakeApiCredentialReader {
 }
 
 final class _CountingCredentials extends FakeApiCredentialReader {
-  int apiKeyCalls = 0;
+  final List<String?> apiKeyReads = [];
+
+  int get apiKeyCalls => apiKeyReads.length;
 
   @override
   Future<String?> apiKeyFor(String siteUrl) {
-    apiKeyCalls++;
+    apiKeyReads.add(keys[siteUrl]);
     return super.apiKeyFor(siteUrl);
   }
 }
