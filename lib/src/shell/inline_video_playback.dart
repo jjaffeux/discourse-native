@@ -81,6 +81,7 @@ abstract interface class InlineVideoPlaybackSession implements Listenable {
 
   Future<void> play();
 
+  /// Pauses playback and cancels autoplay from any pending initialization.
   Future<void> pause();
 
   Future<void> seekTo(Duration position);
@@ -121,11 +122,24 @@ abstract base class _InlineVideoPlaybackSessionBase extends ChangeNotifier
   InlineVideoPlaybackState _state;
   bool _disposed = false;
   bool _started = false;
+  bool _autoplay = true;
 
   bool get isDisposed => _disposed;
 
   @override
   InlineVideoPlaybackState get state => _state;
+
+  @protected
+  bool get shouldAutoplay => _autoplay;
+
+  @override
+  Future<void> pause() {
+    _autoplay = false;
+    return pausePlayback();
+  }
+
+  @protected
+  Future<void> pausePlayback();
 
   @override
   Future<void> start() async {
@@ -212,7 +226,7 @@ final class _NativeInlineVideoPlaybackSession
     await controller.initialize();
     if (isDisposed || !identical(_controllerLease, lease)) return;
     _publishControllerState(controller);
-    await play();
+    if (shouldAutoplay) await play();
   }
 
   void _playerChanged() {
@@ -262,7 +276,7 @@ final class _NativeInlineVideoPlaybackSession
       _runControl((controller) => controller.play(), 'video.native.controls');
 
   @override
-  Future<void> pause() =>
+  Future<void> pausePlayback() =>
       _runControl((controller) => controller.pause(), 'video.native.controls');
 
   @override
@@ -417,7 +431,7 @@ final class _WebViewInlineVideoPlaybackSession
           if (!_isCurrent(controller) || !_loadingDocument) return;
           _loadingDocument = false;
           _publishReady(isPlaying: false);
-          unawaited(play());
+          if (shouldAutoplay) unawaited(play());
         },
         onWebResourceError: (error) {
           if (error.isForMainFrame == false || !_isCurrent(controller)) return;
@@ -463,7 +477,7 @@ final class _WebViewInlineVideoPlaybackSession
   }
 
   @override
-  Future<void> pause() async {
+  Future<void> pausePlayback() async {
     final controller = _controller;
     if (controller == null || !_isCurrent(controller)) return;
     await _pauseIgnoringErrors(controller);
@@ -516,7 +530,7 @@ final class _UnsupportedInlineVideoPlaybackSession
   }
 
   @override
-  Future<void> pause() async {}
+  Future<void> pausePlayback() async {}
 
   @override
   Future<void> play() async {}

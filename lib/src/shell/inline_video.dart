@@ -460,13 +460,38 @@ class InlineVideoPlaybackSurface extends StatefulWidget {
 class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
     with WidgetsBindingObserver {
   InlineVideoPlaybackSession? _session;
-  bool _fullscreenOpen = false;
+  InlineVideoPlaybackSession? _fullscreenSession;
+  InlineVideoPlaybackSession? _pausingSession;
+  bool _tickerEnabled = true;
+  bool _fullscreenTickerEnabled = false;
+  bool _appResumed = true;
+  bool? _playbackVisible;
+
+  bool get _fullscreenOpen => _fullscreenSession != null;
+
+  bool get _canPlay =>
+      _appResumed &&
+      (_tickerEnabled ||
+          (identical(_fullscreenSession, _session) &&
+              _fullscreenTickerEnabled));
 
   @override
   void initState() {
     super.initState();
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _appResumed = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
-    _replaceSession();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    if (_session == null) {
+      _replaceSession();
+    } else {
+      _syncPlaybackVisibility();
+    }
   }
 
   @override
@@ -485,7 +510,7 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
     final previous = _session;
     _session = null;
     if (previous != null) {
-      previous.removeListener(_sessionChanged);
+      previous.removeListener(_syncPlaybackVisibility);
       _InlineVideoPlaybackCoordinator.release(previous);
       previous.dispose();
     }
@@ -502,16 +527,40 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
       ),
     );
     _session = session;
-    session.addListener(_sessionChanged);
+    _playbackVisible = null;
+    session.addListener(_syncPlaybackVisibility);
+    _syncPlaybackVisibility();
     if (mounted) setState(() {});
     unawaited(session.start());
   }
 
-  void _sessionChanged() {
+  void _syncPlaybackVisibility() {
     final session = _session;
     if (!mounted || session == null) return;
-    if (session.state.isPlaying) {
+    final visible = _canPlay;
+    final changed = _playbackVisible != visible;
+    _playbackVisible = visible;
+    if (!visible) {
+      _InlineVideoPlaybackCoordinator.release(session);
+      if (changed || session.state.isPlaying) unawaited(_pauseHidden(session));
+    } else if (session.state.isPlaying) {
       _InlineVideoPlaybackCoordinator.activate(session, session.pause);
+    }
+  }
+
+  Future<void> _pauseHidden(InlineVideoPlaybackSession session) async {
+    if (identical(_pausingSession, session)) return;
+    _pausingSession = session;
+    try {
+      await session.pause();
+    } on Object {
+      // A replaced platform view may already be detached.
+      return;
+    } finally {
+      if (identical(_pausingSession, session)) _pausingSession = null;
+    }
+    if (mounted && identical(_session, session) && !_canPlay) {
+      _syncPlaybackVisibility();
     }
   }
 
@@ -519,7 +568,8 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
 
   Future<void> _togglePlayback() async {
     final session = _session;
-    if (session == null ||
+    if (!_canPlay ||
+        session == null ||
         session.state.phase != InlineVideoPlaybackPhase.ready) {
       return;
     }
@@ -533,12 +583,16 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
 
   Future<void> _openFullscreen() async {
     final session = _session;
-    if (_fullscreenOpen ||
+    if (!_canPlay ||
+        _fullscreenOpen ||
         session == null ||
         !session.state.supportsFullscreen) {
       return;
     }
-    setState(() => _fullscreenOpen = true);
+    setState(() {
+      _fullscreenSession = session;
+      _fullscreenTickerEnabled = true;
+    });
     try {
       await Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute<void>(
@@ -547,22 +601,39 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
           builder: (context) => _InlineVideoFullscreen(
             data: widget.data,
             session: session,
+            onVisibilityChanged: (visible) {
+              if (!mounted || !identical(_fullscreenSession, session)) return;
+              _fullscreenTickerEnabled = visible;
+              // Inline and fullscreen controls listen from different routes.
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && identical(_fullscreenSession, session)) {
+                  _syncPlaybackVisibility();
+                }
+              });
+            },
             onTogglePlayback: () => unawaited(_togglePlayback()),
             actionsBuilder: widget.actionsBuilder,
           ),
         ),
       );
     } finally {
-      if (mounted) setState(() => _fullscreenOpen = false);
+      if (mounted) {
+        setState(() {
+          _fullscreenSession = null;
+          _fullscreenTickerEnabled = false;
+        });
+        // The source route receives its restored TickerMode during this frame.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _syncPlaybackVisibility();
+        });
+      }
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) {
-      final session = _session;
-      if (session != null) unawaited(session.pause());
-    }
+    _appResumed = state == AppLifecycleState.resumed;
+    _syncPlaybackVisibility();
   }
 
   @override
@@ -629,7 +700,7 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
     final session = _session;
     _session = null;
     if (session != null) {
-      session.removeListener(_sessionChanged);
+      session.removeListener(_syncPlaybackVisibility);
       _InlineVideoPlaybackCoordinator.release(session);
       session.dispose();
     }
@@ -718,18 +789,31 @@ class _PlaybackBuffering extends StatelessWidget {
   );
 }
 
-class _InlineVideoFullscreen extends StatelessWidget {
+class _InlineVideoFullscreen extends StatefulWidget {
   const _InlineVideoFullscreen({
     required this.data,
     required this.session,
     required this.onTogglePlayback,
+    required this.onVisibilityChanged,
     this.actionsBuilder,
   });
 
   final InlineVideoData data;
   final InlineVideoPlaybackSession session;
   final VoidCallback onTogglePlayback;
+  final ValueChanged<bool> onVisibilityChanged;
   final WidgetBuilder? actionsBuilder;
+
+  @override
+  State<_InlineVideoFullscreen> createState() => _InlineVideoFullscreenState();
+}
+
+class _InlineVideoFullscreenState extends State<_InlineVideoFullscreen> {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    widget.onVisibilityChanged(TickerMode.valuesOf(context).enabled);
+  }
 
   @override
   Widget build(BuildContext context) => CallbackShortcuts(
@@ -744,13 +828,13 @@ class _InlineVideoFullscreen extends StatelessWidget {
         backgroundColor: Colors.black,
         body: SafeArea(
           child: _PlaybackStateBuilder(
-            session: session,
+            session: widget.session,
             select: _selectPresentation,
             builder: (context, presentation) {
               final playerBuilder = presentation.playerBuilder;
               if (playerBuilder == null) return const SizedBox.shrink();
               return Semantics(
-                label: 'Full-screen video player: ${data.title}',
+                label: 'Full-screen video player: ${widget.data.title}',
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -760,20 +844,20 @@ class _InlineVideoFullscreen extends StatelessWidget {
                         child: playerBuilder(),
                       ),
                     ),
-                    if (actionsBuilder case final buildActions?)
+                    if (widget.actionsBuilder case final buildActions?)
                       buildActions(context),
                     Positioned(
                       left: 0,
                       right: 0,
                       bottom: 0,
                       child: _PlaybackControls(
-                        session: session,
-                        onTogglePlayback: onTogglePlayback,
-                        onSeek: session.seekTo,
+                        session: widget.session,
+                        onTogglePlayback: widget.onTogglePlayback,
+                        onSeek: widget.session.seekTo,
                         onExitFullscreen: Navigator.of(context).pop,
                       ),
                     ),
-                    _PlaybackBuffering(session: session),
+                    _PlaybackBuffering(session: widget.session),
                   ],
                 ),
               );

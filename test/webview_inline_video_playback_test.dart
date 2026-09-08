@@ -90,6 +90,30 @@ void main() {
     expect(session.state.isPlaying, isFalse);
     expect(session.state.playerBuilder, same(playerBuilder));
   });
+
+  testWidgets('pause during document setup cancels pending autoplay', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    platform.nextGate = (
+      MediaWebViewConfigurationStage.navigation,
+      gate.future,
+    );
+    final session = _session();
+    addTearDown(session.dispose);
+    final starting = session.start();
+    await tester.pump();
+    final controller = platform.controllers.single;
+    await session.pause();
+    gate.complete();
+    await starting;
+    controller.delegate!.onPageFinished!('https://cdn.example/');
+    await tester.pump();
+    expect(session.state.isPlaying, isFalse);
+    expect(controller.scripts, ["document.querySelector('video')?.pause();"]);
+    await session.play();
+    expect(controller.scripts.last, "document.querySelector('video')?.play();");
+  });
 }
 
 InlineVideoPlaybackSession _session() => createInlineVideoPlaybackSession(
