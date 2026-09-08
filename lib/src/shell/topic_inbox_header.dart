@@ -900,12 +900,14 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
       final hasTags = topic.tags.isNotEmpty || topic.canEditTags;
       return LayoutBuilder(
         builder: (context, constraints) {
-          final compressed = constraints.maxWidth < 260;
           final categoryWidth =
               (constraints.maxWidth * (hasSubcategory ? .28 : .42)).clamp(
-                compressed ? 40.0 : 72.0,
+                56.0,
                 200.0,
               );
+          // Reserve room for category artwork, the privacy lock, and saving.
+          // Add the browse button and roomier padding only when each chip fits.
+          final compressed = categoryWidth < 100;
           return Row(
             key: const ValueKey('topic-header-taxonomy'),
             children: [
