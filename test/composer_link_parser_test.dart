@@ -32,6 +32,92 @@ void main() {
       ]);
     });
 
+    test('keeps balanced destination parentheses inside the source range', () {
+      for (final url in const [
+        'https://en.wikipedia.org/wiki/Dart_(programming_language)',
+        'https://example.test/one(two(three)four)(five)?q=(six)',
+        '../relative(one(two)three)/🐱',
+      ]) {
+        final markdown = '[café 🐱]($url)';
+        _expectLinks('😀 Read $markdown) then [next](../next).', [
+          _markdown(markdown, 'café 🐱', url),
+          _markdown('[next](../next)', 'next', '../next'),
+        ]);
+      }
+    });
+
+    test('keeps escaped delimiters literal and preserves editable escapes', () {
+      for (final url in const [
+        r'https://example.test/one\(two\)three',
+        r'https://example.test/one\)two',
+        r'https://example.test/one\(two',
+        r'https://example.test/one(two\)three)',
+        r'https://example.test/one\\(two)',
+        r'https://example.test/one\\\)two',
+        r'https://example.test/one\\',
+      ]) {
+        final markdown = '[link]($url)';
+        _expectLinks('😀 $markdown after', [_markdown(markdown, 'link', url)]);
+      }
+    });
+
+    test(
+      'falls back from unfinished or whitespace-containing destinations',
+      () {
+        for (final source in const [
+          '[link](../one(two)',
+          '[link](../one(two',
+          r'[link](../one\)',
+          r'[link](../one\\(two)',
+          '[link](../one(two three))',
+          r'[link](../one\ space)',
+          '[link](../one(two\nthree))',
+          '[link](../one\\\nthree)',
+        ]) {
+          _expectLinks(source, []);
+        }
+
+        _expectLinks('[broken](https://example.test/one(two) [kept](../ok)', [
+          _linkify('https://example.test/one(two)'),
+          _markdown('[kept](../ok)', 'kept', '../ok'),
+        ]);
+      },
+    );
+
+    test('recovers later links inside unfinished destinations', () {
+      for (final source in const [
+        '[outer](../unfinished([kept](../ok)',
+        '[[[outer](../unfinished [kept](../ok)',
+      ]) {
+        _expectLinks(source, [_markdown('[kept](../ok)', 'kept', '../ok')]);
+      }
+    });
+
+    test('uses the markdown-it limit for destination nesting', () {
+      for (final depth in [32, 33]) {
+        final url = '../${'(' * depth}part${')' * depth}';
+        final markdown = '[link]($url)';
+        _expectLinks(markdown, [
+          if (depth == 32) _markdown(markdown, 'link', url),
+        ]);
+      }
+    });
+
+    test('excludes images and code with nested destinations', () {
+      const source =
+          '![image](https://image.test/one(two(three)).png) '
+          '`[inline](https://inline.test/one(two))`\n'
+          '```\n[fenced](https://fenced.test/one(two))\n```\n'
+          '[visible](https://visible.test/one(two))';
+      _expectLinks(source, [
+        _markdown(
+          '[visible](https://visible.test/one(two))',
+          'visible',
+          'https://visible.test/one(two)',
+        ),
+      ]);
+    });
+
     test('honors configured TLDs and disabling linkification', () {
       const source =
           'example.com example.IT team@EXAMPLE.IT example.invalid '
@@ -173,6 +259,35 @@ void main() {
   });
 
   group('composer link parser scaling', () {
+    final destinationShapes = <String, String Function(int)>{
+      'unfinished labels': (count) =>
+          '${'[' * count}link](../${'part' * count}',
+      'unfinished nested destinations': (count) => '[link](../part' * count,
+      'balanced destination parentheses': (count) =>
+          '[link](../${'(part)' * count})',
+    };
+    for (final shape in destinationShapes.entries) {
+      test('${shape.key} scale with their length', () {
+        final smallSource = shape.value(1024);
+        final largeSource = shape.value(8192);
+        int scan(String source) => parseComposerLinks(
+          source,
+          codeRanges: CodeRanges.none,
+          enableLinkify: false,
+        ).length;
+
+        final expectedCount = shape.key.startsWith('unfinished') ? 0 : 1;
+        expect(scan(smallSource), expectedCount);
+        expect(scan(largeSource), expectedCount);
+
+        final (:small, :large) = measureScaling(
+          () => scan(smallSource),
+          () => scan(largeSource),
+        );
+        expect(large, lessThan(small * 25));
+      });
+    }
+
     // An 8x input separates linear growth from the former ~64x cost, with room
     // for VM and scheduling noise. Keep markdown scanning outside timed work.
     for (final referenceLabel in [false, true]) {
