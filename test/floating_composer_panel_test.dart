@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/composer_geometry_store.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
@@ -15,9 +17,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -85,6 +90,16 @@ void main() {
         await _pumpFloatingPanel(tester, shell, composer);
         final context = find.byKey(const ValueKey('composer-reply-context'));
         final excerpt = find.byKey(const ValueKey('composer-context-excerpt'));
+        expect(find.text('Replying to '), findsOneWidget);
+        expect(find.text('@sam'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('composer-reply-avatar')),
+          findsOneWidget,
+        );
+        expect(
+          tester.getRect(find.byKey(const ValueKey('composer-title'))).top,
+          greaterThan(tester.getRect(find.text('@sam')).bottom),
+        );
         expect(excerpt, findsNothing);
         await tester.tap(context);
         await tester.pump();
@@ -106,6 +121,124 @@ void main() {
         await tester.pump();
         expect(excerpt, findsNothing);
         expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('reply identity and excerpt follow the selected post', (
+      tester,
+    ) async {
+      final composer = ComposerController(_replyTarget);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      final client = MockClient((_) async => http.Response('', 404));
+      addTearDown(client.close);
+      final pipeline = installTestMediaPipeline(client: client);
+      const first = Post(
+        id: 1,
+        postNumber: 1,
+        username: 'sam',
+        avatarUrl: 'https://meta.discourse.org/sam.png',
+        cooked: '<p>The original message.</p>',
+      );
+      const second = Post(
+        id: 4,
+        postNumber: 2,
+        username: 'alex',
+        avatarUrl: 'https://meta.discourse.org/alex.png',
+        cooked: '<p>The selected message.</p>',
+      );
+      await Future.wait([
+        pipeline.avatars.load(first.avatarUrl!),
+        pipeline.avatars.load(second.avatarUrl!),
+      ]);
+      shell.store.putAll(_replyTarget.siteUrl, const [first, second]);
+      shell.store.put(
+        _replyTarget.siteUrl,
+        const TopicDetail(
+          id: 7,
+          title: 'A topic',
+          stream: [1, 4],
+          participants: [
+            TopicParticipant(
+              username: 'alex',
+              avatarUrl: 'https://meta.discourse.org/alex.png',
+            ),
+          ],
+        ),
+      );
+      await _pumpFloatingPanel(tester, shell, composer);
+      final avatar = find.byKey(const ValueKey('composer-reply-avatar'));
+      final context = find.byKey(const ValueKey('composer-reply-context'));
+      expect(tester.widget<AvatarImage>(avatar).url, first.avatarUrl);
+      await tester.tap(context);
+      await tester.pump();
+      expect(find.text('The original message.'), findsOneWidget);
+
+      composer.retarget(replyToPostNumber: 2, replyToUsername: 'alex');
+      await tester.pump();
+      expect(find.text('@alex'), findsOneWidget);
+      expect(find.text('@sam'), findsNothing);
+      expect(tester.widget<AvatarImage>(avatar).url, second.avatarUrl);
+      expect(find.text('The original message.'), findsNothing);
+      await tester.tap(context);
+      await tester.pump();
+      expect(find.text('The selected message.'), findsOneWidget);
+
+      shell.store.remove<Post>(_replyTarget.siteUrl, second.id);
+      await tester.pump();
+      expect(find.text('@alex'), findsOneWidget);
+      expect(tester.widget<AvatarImage>(avatar).url, second.avatarUrl);
+      expect(find.text('The selected message.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'long reply identities fit a narrow composer with larger text',
+      (tester) async {
+        final composer = ComposerController(
+          _replyTarget.replyingTo(2, 'a_very_long_reply_recipient_username'),
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        final semantics = tester.ensureSemantics();
+        try {
+          await _pumpFloatingPanel(
+            tester,
+            shell,
+            composer,
+            size: const Size(320, 650),
+            textScaler: const TextScaler.linear(1.5),
+          );
+
+          final frame = tester.getRect(find.byType(ComposerPanel));
+          final context = tester.getRect(
+            find.byKey(const ValueKey('composer-reply-context')),
+          );
+          final avatar = tester.getRect(
+            find.byKey(const ValueKey('composer-reply-avatar')),
+          );
+          final username = tester.getRect(
+            find.byKey(const ValueKey('composer-reply-username')),
+          );
+          expect(avatar.left, greaterThan(frame.left));
+          expect(avatar.right, lessThan(username.left));
+          expect(username.right, lessThan(frame.right));
+          expect(
+            context.bottom,
+            lessThan(tester.getRect(find.byType(ComposerEditor)).top),
+          );
+          expect(
+            find.bySemanticsLabel(
+              'Replying to @a_very_long_reply_recipient_username, A topic',
+            ),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        } finally {
+          semantics.dispose();
+        }
       },
     );
 
@@ -1013,6 +1146,7 @@ Future<void> _pumpFloatingPanel(
   ShellController shell,
   ComposerController composer, {
   Size size = const Size(900, 650),
+  TextScaler textScaler = TextScaler.noScaling,
   ComposerGeometryStore geometryStore = const ComposerGeometryStore(),
   ValueChanged<Rect?>? onGeometryChanged,
 }) async {
@@ -1021,6 +1155,10 @@ Future<void> _pumpFloatingPanel(
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.dark,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child!,
+      ),
       home: ShellScope(
         controller: shell,
         child: Scaffold(

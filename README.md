@@ -1220,7 +1220,10 @@ returns to the previous position and size with the title and body intact.
 The centered grip and header support dragging; a focused grip also moves with
 arrow keys. Eligible replies have a labeled **Reply / Whisper** menu. Whisper
 mode changes the frame and submit button, and replies to existing whispers
-remain locked to that audience. Reply context expands to a cached excerpt.
+remain locked to that audience. Reply context says **Replying to @username**
+beside the author's avatar, with the topic beneath it, and expands to a cached
+excerpt. Topic replies use the original post's author; post replies use the
+selected post's author.
 New topics and first-post edits put category and tags directly below the title,
 before the body.
 The footer keeps attachment, emoji and formatting controls visible, groups
