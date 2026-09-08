@@ -79,7 +79,11 @@ class AnchoredLayout extends SingleChildLayoutDelegate {
     }
 
     final maxLeft = math.max(margin, size.width - childSize.width - margin);
-    return Offset(target.left.clamp(margin, maxLeft), top);
+    final maxTop = math.max(margin, size.height - childSize.height - margin);
+    return Offset(
+      target.left.clamp(margin, maxLeft),
+      top.clamp(margin, maxTop),
+    );
   }
 
   @override
