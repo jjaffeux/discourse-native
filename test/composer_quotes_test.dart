@@ -138,4 +138,227 @@ void main() {
     );
     expect(formatter.formatEditUpdate(old, removed), removed);
   });
+
+  group('selected quote replacement', () {
+    const formatter = ComposerQuoteInputFormatter();
+    const source = 'Before\n[quote="sam"]\nwords\n[/quote]\nAfter';
+    final quote = parseComposerQuotes(source).single;
+
+    for (final reversed in [false, true]) {
+      for (final (label, replacement) in [
+        ('opening bracket', '['),
+        ('closing delimiter', '[/quote]\n'),
+        ('another quote', '[quote="new"]\nReplacement\n[/quote]\n'),
+        ('empty text', ''),
+      ]) {
+        test('${reversed ? 'reversed' : 'forward'} selection: $label', () {
+          final old = TextEditingValue(
+            text: source,
+            selection: TextSelection(
+              baseOffset: reversed ? quote.end : quote.start,
+              extentOffset: reversed ? quote.start : quote.end,
+              isDirectional: true,
+            ),
+          );
+          final proposed = TextEditingValue(
+            text: source.replaceRange(quote.start, quote.end, replacement),
+            selection: TextSelection.collapsed(
+              offset: quote.start + replacement.length,
+              affinity: TextAffinity.upstream,
+            ),
+          );
+
+          expect(formatter.formatEditUpdate(old, proposed), proposed);
+        });
+      }
+    }
+
+    test('replaces multiple quotes and selected surrounding text', () {
+      const source =
+          'Before\n[quote="sam"]\nFirst\n[/quote]\n\n'
+          'Between\n[quote="pat"]\nSecond\n[/quote]\n\nAfter';
+      final quotes = parseComposerQuotes(source);
+      for (final selection in [
+        TextSelection(
+          baseOffset: quotes.first.start,
+          extentOffset: quotes.last.end,
+        ),
+        const TextSelection(baseOffset: source.length, extentOffset: 0),
+      ]) {
+        final old = TextEditingValue(text: source, selection: selection);
+        final replacement = source
+            .substring(selection.start, selection.end)
+            .replaceFirst('First', 'Changed first')
+            .replaceFirst('Second', 'Changed second');
+        final proposed = TextEditingValue(
+          text: source.replaceRange(
+            selection.start,
+            selection.end,
+            replacement,
+          ),
+          selection: TextSelection.collapsed(
+            offset: selection.start + replacement.length,
+          ),
+        );
+
+        expect(formatter.formatEditUpdate(old, proposed), proposed);
+      }
+    });
+
+    test('rejects partial, collapsed and invalid quote selections', () {
+      final bodyStart = source.indexOf('words');
+      final proposed = TextEditingValue(
+        text: source.replaceFirst('words', 'rewritten'),
+        selection: TextSelection.collapsed(offset: bodyStart + 9),
+      );
+      for (final selection in [
+        TextSelection(baseOffset: bodyStart, extentOffset: bodyStart + 5),
+        TextSelection(baseOffset: quote.start + 1, extentOffset: quote.end),
+        TextSelection(baseOffset: quote.end - 1, extentOffset: quote.start),
+        TextSelection.collapsed(offset: quote.start),
+        TextSelection.collapsed(offset: bodyStart),
+        const TextSelection.collapsed(offset: -1),
+        TextSelection(baseOffset: -1, extentOffset: quote.end),
+        TextSelection(baseOffset: quote.start, extentOffset: source.length + 1),
+        const TextSelection(baseOffset: source.length + 1, extentOffset: 0),
+      ]) {
+        final old = TextEditingValue(text: source, selection: selection);
+
+        expect(
+          formatter.formatEditUpdate(old, proposed),
+          old,
+          reason: '$selection',
+        );
+      }
+    });
+
+    test('a whole quote selection does not authorize edits outside it', () {
+      final old = TextEditingValue(
+        text: source,
+        selection: TextSelection(
+          baseOffset: quote.start,
+          extentOffset: quote.end,
+        ),
+      );
+      for (final text in [
+        source
+            .replaceFirst('words', 'rewritten')
+            .replaceFirst('Before', 'Edit'),
+        source.replaceFirst('words', 'rewritten').replaceFirst('After', 'Edit'),
+      ]) {
+        final proposed = TextEditingValue(
+          text: text,
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+
+        expect(formatter.formatEditUpdate(old, proposed), old);
+      }
+    });
+
+    test('unchanged text outside the selection cannot overlap', () {
+      const source = 'a\n[quote]\nwords\n[/quote]\na\n[\n';
+      final quote = parseComposerQuotes(source).single;
+      final old = TextEditingValue(
+        text: source,
+        selection: TextSelection(
+          baseOffset: quote.start,
+          extentOffset: quote.end,
+        ),
+      );
+      // Both outside fragments match, but the proposal is too short to hold
+      // both of them. Its shared `[` must not authorize a quote body edit.
+      const proposed = TextEditingValue(
+        text: 'a\n[\n',
+        selection: TextSelection.collapsed(offset: 3),
+      );
+
+      expect(formatter.formatEditUpdate(old, proposed), old);
+    });
+
+    test('selecting one quote cannot authorize rewriting another', () {
+      const source =
+          '[quote="sam"]\nFirst\n[/quote]\n\n'
+          '[quote="pat"]\nSecond\n[/quote]';
+      final quote = parseComposerQuotes(source).first;
+      final old = TextEditingValue(
+        text: source,
+        selection: TextSelection(
+          baseOffset: quote.start,
+          extentOffset: quote.end,
+        ),
+      );
+      final proposed = TextEditingValue(
+        text: source.replaceFirst('Second', 'Rewritten'),
+        selection: TextSelection.collapsed(offset: quote.start),
+      );
+
+      expect(formatter.formatEditUpdate(old, proposed), old);
+    });
+
+    test('rejects a replacement that only partly selects another quote', () {
+      const source =
+          '[quote="sam"]\nFirst\n[/quote]\n\n'
+          '[quote="pat"]\nSecond\n[/quote]';
+      final quotes = parseComposerQuotes(source);
+      final selection = TextSelection(
+        baseOffset: quotes.first.start,
+        extentOffset: quotes.last.end - 1,
+      );
+      final old = TextEditingValue(text: source, selection: selection);
+      final proposed = TextEditingValue(
+        text: source.replaceRange(selection.start, selection.end, '['),
+        selection: const TextSelection.collapsed(offset: 1),
+      );
+
+      expect(formatter.formatEditUpdate(old, proposed), old);
+    });
+
+    test('preserves composition when replacing a whole selected quote', () {
+      final old = TextEditingValue(
+        text: source,
+        selection: TextSelection(
+          baseOffset: quote.start,
+          extentOffset: quote.end,
+        ),
+      );
+      final proposed = TextEditingValue(
+        text: source.replaceRange(quote.start, quote.end, '['),
+        selection: TextSelection.collapsed(offset: quote.start + 1),
+        composing: TextRange(start: quote.start, end: quote.start + 1),
+      );
+
+      expect(formatter.formatEditUpdate(old, proposed), proposed);
+    });
+
+    test('composition cannot mutate a hidden quote body', () {
+      final bodyStart = source.indexOf('words');
+      final old = TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: bodyStart + 5),
+        composing: TextRange(start: bodyStart, end: bodyStart + 5),
+      );
+      final proposed = TextEditingValue(
+        text: source.replaceFirst('words', 'rewritten'),
+        selection: TextSelection.collapsed(offset: bodyStart + 9),
+        composing: TextRange(start: bodyStart, end: bodyStart + 9),
+      );
+
+      expect(formatter.formatEditUpdate(old, proposed), old);
+    });
+
+    test('preserves composing edits beside an unselected quote', () {
+      final old = TextEditingValue(
+        text: source,
+        selection: const TextSelection.collapsed(offset: source.length),
+        composing: TextRange(start: quote.end, end: source.length),
+      );
+      final proposed = TextEditingValue(
+        text: '${source}word',
+        selection: const TextSelection.collapsed(offset: source.length + 4),
+        composing: TextRange(start: quote.end, end: source.length + 4),
+      );
+
+      expect(formatter.formatEditUpdate(old, proposed), proposed);
+    });
+  });
 }

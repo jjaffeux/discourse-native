@@ -35,6 +35,100 @@ const _longQuote =
 
 void main() {
   group('quote editing', () {
+    for (final reversed in [false, true]) {
+      for (final (label, replacement) in [
+        ('a bracket', '['),
+        ('another quote', '[quote="new"]\nReplacement quote\n[/quote]\n\n'),
+      ]) {
+        testWidgets(
+          'native input replaces a ${reversed ? 'reversed' : 'forward'} '
+          'quote selection with $label',
+          (tester) async {
+            final composer = ComposerController(_target);
+            final shell = await _shell();
+            addTearDown(composer.dispose);
+            addTearDown(shell.dispose);
+            const source = 'Before\n\n$_quote\n\nAfter';
+            composer.text.text = source;
+
+            await _pumpPanel(tester, shell, composer);
+            await tester.showKeyboard(find.byType(TextField));
+            final quote = composer.text.quoteBlocks.single;
+            final selection = TextSelection(
+              baseOffset: reversed ? quote.end : quote.start,
+              extentOffset: reversed ? quote.start : quote.end,
+              isDirectional: true,
+            );
+            tester.testTextInput.updateEditingValue(
+              composer.text.value.copyWith(selection: selection),
+            );
+            await tester.pump();
+            expect(composer.text.selection, selection);
+            expect(find.byType(ComposerQuotePreview), findsOneWidget);
+
+            final proposed = TextEditingValue(
+              text: source.replaceRange(quote.start, quote.end, replacement),
+              selection: TextSelection.collapsed(
+                offset: quote.start + replacement.length,
+              ),
+            );
+            tester.testTextInput.updateEditingValue(proposed);
+            await tester.pump();
+
+            expect(composer.text.value, proposed);
+            expect(composer.raw, proposed.text);
+            expect(find.text('Régis'), findsNothing);
+            if (label == 'another quote') {
+              expect(find.byType(ComposerQuotePreview), findsOneWidget);
+              expect(find.text('new'), findsOneWidget);
+              expect(find.text('Replacement quote'), findsOneWidget);
+              final newQuote = composer.text.quoteBlocks.single;
+              composer.text.selection = TextSelection.collapsed(
+                offset: newQuote.start + 1,
+              );
+              await tester.pump();
+              expect(
+                composer.text.selection,
+                TextSelection.collapsed(offset: newQuote.start),
+              );
+            } else {
+              expect(find.byType(ComposerQuotePreview), findsNothing);
+            }
+          },
+        );
+      }
+    }
+
+    testWidgets('native input cannot rewrite an unselected quote body', (
+      tester,
+    ) async {
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.text = _quote;
+
+      await _pumpPanel(tester, shell, composer);
+      await tester.showKeyboard(find.byType(TextField));
+      composer.text.selection = const TextSelection.collapsed(offset: 0);
+      await tester.pump();
+      final old = composer.text.value;
+      tester.testTextInput.updateEditingValue(
+        old.copyWith(text: _quote.replaceFirst('You’ll yell', 'Rewritten')),
+      );
+      await tester.pump();
+
+      expect(composer.text.value, old);
+      expect(find.byType(ComposerQuotePreview), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(ComposerQuotePreview),
+          matching: find.textContaining('You’ll yell the story'),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('line-start commands stop at visible quote text', (
       tester,
     ) async {
