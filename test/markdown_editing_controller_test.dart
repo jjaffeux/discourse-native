@@ -40,6 +40,7 @@ void main() {
     String Function(String)? resolveEmoji,
     ComposerPills? pills,
     PluginHashtagPresentationResolver? pluginHashtagPresentation,
+    List<ComposerSyntaxPolicy> syntaxPolicies = const [_FakeSyntaxPolicy()],
     SyntaxHighlightBatcher backgroundSyntaxHighlighterForTesting =
         highlightLinesBatchInBackground,
   }) async {
@@ -48,7 +49,7 @@ void main() {
       resolveEmoji: resolveEmoji,
       pills: pills,
       pluginHashtagPresentation: pluginHashtagPresentation,
-      syntaxPolicies: const [_FakeSyntaxPolicy()],
+      syntaxPolicies: syntaxPolicies,
       backgroundSyntaxHighlighterForTesting:
           backgroundSyntaxHighlighterForTesting,
     );
@@ -305,15 +306,17 @@ void main() {
     );
   });
 
-  testWidgets('moving the caret does not read the source again', (
+  testWidgets('moving the caret reuses the painted span without rescanning', (
     tester,
   ) async {
-    await pumpField(tester, 'say **hello** to @sam');
+    await pumpField(tester, 'say **hello** to @sam\n> **quoted** [[token]]');
     final after = controller.scans;
+    final span = painted(tester);
 
     for (var offset = 0; offset < 8; offset++) {
       controller.selection = TextSelection.collapsed(offset: offset);
       await tester.pump();
+      expect(painted(tester), same(span));
     }
 
     expect(controller.scans, after);
@@ -365,6 +368,163 @@ void main() {
     });
     return found!;
   }
+
+  group('Markdown between projected components', () {
+    TextSpan buildSpan(WidgetTester tester, {bool withComposing = true}) =>
+        controller.buildTextSpan(
+          context: tester.element(find.byType(TextField)),
+          style: const TextStyle(fontSize: 16),
+          withComposing: withComposing,
+        );
+
+    TextStyle sourceStyle(TextSpan span, int offset) =>
+        (span.getSpanForPosition(TextPosition(offset: offset))! as TextSpan)
+            .style!;
+
+    testWidgets(
+      'keeps styles and offsets across adjacent and separated pills',
+      (tester) async {
+        const source =
+            '**before [[one]][[two]] between [[three]] after**\n'
+            '> _first_\n> **second**\n\n## tail';
+        await pumpField(tester, source);
+
+        for (final revealed in [null, '[[one]]', '[[two]]', '[[three]]']) {
+          controller.selection = TextSelection.collapsed(
+            offset: revealed == null
+                ? source.length
+                : source.indexOf(revealed) + 3,
+          );
+          final span = buildSpan(tester);
+          var expected = source.replaceAll('> ', '>\uFFFC');
+          for (final token in ['[[one]]', '[[two]]', '[[three]]']) {
+            if (token != revealed) {
+              expected = expected.replaceFirst(
+                token,
+                '\uFFFC${token.substring(1)}',
+              );
+            }
+          }
+          expect(
+            span.toPlainText(includeSemanticsLabels: false),
+            expected,
+            reason: 'revealed $revealed',
+          );
+          for (final word in ['before', 'between', 'after', 'second']) {
+            expect(
+              sourceStyle(span, source.indexOf(word)).fontWeight,
+              FontWeight.w700,
+              reason: '$word with $revealed revealed',
+            );
+          }
+          expect(
+            sourceStyle(span, source.indexOf('first')).fontStyle,
+            FontStyle.italic,
+          );
+          expect(
+            sourceStyle(span, source.indexOf('tail')).fontSize,
+            DiscourseTypography.headingSize(2),
+          );
+        }
+        expect(controller.text, source);
+      },
+    );
+
+    testWidgets(
+      'empty and overlapping plugin ranges preserve surrounding text',
+      (tester) async {
+        const source = '**abcdefghijklmnopqrstuvwx**';
+        await pumpField(
+          tester,
+          source,
+          syntaxPolicies: const [
+            _FakeSyntaxPolicy(
+              ranges: [
+                TextRange(start: 18, end: 22),
+                TextRange(start: 7, end: 13),
+                TextRange(start: 5, end: 9),
+                TextRange(start: 9, end: 9),
+                TextRange(start: 3, end: 3),
+                TextRange(start: 9, end: 13),
+                TextRange(start: 10, end: 10),
+                TextRange(start: 28, end: 28),
+              ],
+            ),
+          ],
+        );
+
+        final span = buildSpan(tester);
+        final expected = source.codeUnits.toList();
+        for (final offset in [5, 9, 18]) {
+          expected[offset] = 0xFFFC;
+        }
+        expect(
+          span.toPlainText(includeSemanticsLabels: false),
+          String.fromCharCodes(expected),
+        );
+        for (final offset in [2, 3, 4, 13, 14, 17, 22, 25]) {
+          expect(
+            sourceStyle(span, offset).fontWeight,
+            FontWeight.w700,
+            reason: 'source offset $offset',
+          );
+        }
+        expect(controller.text, source);
+      },
+    );
+
+    testWidgets('keeps composition and code styles between projected quotes', (
+      tester,
+    ) async {
+      const source =
+          '> **first**\n> ~~second~~\n'
+          '```dart\nfinal answer = 42;\n> **literal**\n```\n'
+          '> _last_';
+      await pumpField(tester, source);
+      final composingStart = source.indexOf('> ~~');
+      final composingEnd = source.indexOf('second') + 3;
+      controller.value = TextEditingValue(
+        text: source,
+        selection: const TextSelection.collapsed(offset: source.length),
+        composing: TextRange(start: composingStart, end: composingEnd),
+      );
+
+      for (final withComposing in [true, false]) {
+        final span = buildSpan(tester, withComposing: withComposing);
+        var expected = source
+            .replaceFirst('> **first**', '>\uFFFC**first**')
+            .replaceFirst('> _last_', '>\uFFFC_last_');
+        if (!withComposing) {
+          expected = expected.replaceFirst('> ~~', '>\uFFFC~~');
+        }
+        expect(span.toPlainText(includeSemanticsLabels: false), expected);
+        for (var offset = 0; offset < source.length; offset++) {
+          final part = span.getSpanForPosition(TextPosition(offset: offset));
+          if (part is! TextSpan) continue;
+          expect(
+            part.style?.decoration?.contains(TextDecoration.underline) ?? false,
+            withComposing && offset >= composingStart && offset < composingEnd,
+            reason: 'source offset $offset withComposing=$withComposing',
+          );
+        }
+        expect(
+          sourceStyle(
+            span,
+            source.indexOf('second'),
+          ).decoration!.contains(TextDecoration.lineThrough),
+          isTrue,
+        );
+        final keywordStyle = sourceStyle(span, source.indexOf('final'));
+        expect(keywordStyle.fontFamily, monospaceFontFamily);
+        expect(keywordStyle.color, AppTheme.dark.code.keyword);
+        expect(
+          sourceStyle(span, source.indexOf('last')).fontStyle,
+          FontStyle.italic,
+        );
+      }
+      expect(controller.text, source);
+    });
+  });
 
   group('what gets drawn', () {
     testWidgets('bold text is bold and its markers are dimmed', (tester) async {
@@ -1499,7 +1659,9 @@ const _fakeSyntaxKind = ComposerSyntaxKind(
 );
 
 final class _FakeSyntaxPolicy implements ComposerSyntaxPolicy {
-  const _FakeSyntaxPolicy();
+  const _FakeSyntaxPolicy({this.ranges});
+
+  final List<TextRange>? ranges;
 
   @override
   ComposerSyntaxKind get kind => _fakeSyntaxKind;
@@ -1512,8 +1674,12 @@ final class _FakeSyntaxPolicy implements ComposerSyntaxPolicy {
 
   @override
   List<ComposerSyntaxProjection> parse(String source) => [
-    for (final match in RegExp(r'\[\[[^\]\n]+\]\]').allMatches(source))
-      _FakeSyntaxProjection(match.start, match.end, match.group(0)!),
+    if (ranges case final ranges?)
+      for (final range in ranges)
+        _FakeSyntaxProjection(range.start, range.end, range.textInside(source))
+    else
+      for (final match in RegExp(r'\[\[[^\]\n]+\]\]').allMatches(source))
+        _FakeSyntaxProjection(match.start, match.end, match.group(0)!),
   ];
 }
 
@@ -1573,13 +1739,14 @@ final class _FakeSyntaxProjection implements ComposerSyntaxProjection {
 
   @override
   List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) => [
-    WidgetSpan(
-      alignment: PlaceholderAlignment.middle,
-      child: _FakeSyntaxPill(
-        key: context.pillKey,
-        label: source.substring(2, source.length - 2),
+    if (source.isNotEmpty)
+      WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: _FakeSyntaxPill(
+          key: context.pillKey,
+          label: source.substring(2, source.length - 2),
+        ),
       ),
-    ),
     if (source.length > 1)
       TextSpan(
         text: source.substring(1),

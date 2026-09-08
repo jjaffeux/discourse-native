@@ -953,9 +953,13 @@ class MarkdownEditingController extends TextEditingController {
       }
     }
 
+    // Runs and projection gaps advance in source order. Keep a run until its
+    // end so projections can split it without losing the remaining text.
+    var runIndex = 0;
     void appendMarkdown(int start, int end) {
       if (start >= end) return;
-      for (final run in runs) {
+      for (; runIndex < runs.length; runIndex++) {
+        final run = runs[runIndex];
         if (run.end <= start) continue;
         if (run.start >= end) break;
         appendRun(
@@ -967,6 +971,7 @@ class MarkdownEditingController extends TextEditingController {
             run.token,
           ),
         );
+        if (run.end > end) break;
       }
     }
 
