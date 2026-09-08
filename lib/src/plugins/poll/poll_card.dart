@@ -259,6 +259,10 @@ class _PollCardState extends State<PollCard> {
     final restriction = _voteRestriction;
     final unavailableType = !_poll.supportsNativeVoting;
     final disabled = widget.pending || _submitting;
+    final hasVisibleResults = _hasVisibleResults;
+    final percentages = hasVisibleResults && !_isRankedChoice
+        ? calculatePollPercentages(_poll)
+        : null;
 
     return Semantics(
       container: true,
@@ -300,7 +304,7 @@ class _PollCardState extends State<PollCard> {
                   if (_isRankedChoice)
                     _RankedChoiceBody(poll: _poll, siteUrl: widget.siteUrl)
                   else ...[
-                    if (_poll.type == PollType.number && _hasVisibleResults)
+                    if (_poll.type == PollType.number && hasVisibleResults)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Text(
@@ -321,9 +325,7 @@ class _PollCardState extends State<PollCard> {
                             (!_isMultiple ||
                                 _selection.contains(_poll.options[index].id) ||
                                 _selection.length < _multipleMax),
-                        percentage: _hasVisibleResults
-                            ? calculatePollPercentages(_poll)[index]
-                            : null,
+                        percentage: percentages?[index],
                         siteUrl: widget.siteUrl,
                         onTap: _isMultiple
                             ? () => _toggleMultiple(_poll.options[index].id)
@@ -356,7 +358,7 @@ class _PollCardState extends State<PollCard> {
                       ),
                     ),
                   ],
-                  if (!_hasVisibleResults && !_isRankedChoice) ...[
+                  if (!hasVisibleResults && !_isRankedChoice) ...[
                     const SizedBox(height: 10),
                     _Guidance(text: _hiddenResultsMessage),
                   ],
