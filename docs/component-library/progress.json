@@ -693,7 +693,7 @@
         "No iOS/Linux device, VoiceOver speech or physical codec-playback check. The native media fixture mounted real widgets with a fake session; platform-override widget tests are not device checks.",
         "The full styleguide exposes fewer native AX nodes than the temporary harness, so its search/navigation used visible pointer targets; component child semantics and keyboard/focus behavior were inspected in the native harness and automated tests."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "2f05df5c371702719a73456b34feca939804e09f",
       "mergeCommit": null,
       "nativeInspectionStatus": "completed"
     },
