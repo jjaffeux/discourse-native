@@ -436,7 +436,8 @@ abstract interface class CategoryQueriesApi {
 }
 
 abstract interface class CategoryMutationsApi {
-  Future<void> updateCategoryNotificationLevel({
+  /// Returns server-resolved inherited mute preferences when available.
+  Future<List<int>?> updateCategoryNotificationLevel({
     required String siteUrl,
     required String apiKey,
     required int categoryId,

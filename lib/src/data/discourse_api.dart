@@ -877,7 +877,7 @@ class DiscourseApi
   );
 
   @override
-  Future<void> updateCategoryNotificationLevel({
+  Future<List<int>?> updateCategoryNotificationLevel({
     required String siteUrl,
     required String apiKey,
     required int categoryId,

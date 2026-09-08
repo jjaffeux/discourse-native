@@ -1921,7 +1921,7 @@ class FakeDiscourseApi
   }
 
   @override
-  Future<void> updateCategoryNotificationLevel({
+  Future<List<int>?> updateCategoryNotificationLevel({
     required String siteUrl,
     required String apiKey,
     required int categoryId,
@@ -1936,6 +1936,7 @@ class FakeDiscourseApi
     await categoryNotificationGate?.future;
     final failure = writeFailure;
     if (failure != null) throw failure;
+    return const [];
   }
 
   @override

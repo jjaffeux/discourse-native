@@ -408,13 +408,16 @@ final class _NotificationApi extends FakeDiscourseApi {
   }) => _request(notificationLevel.value, apiKey);
 
   @override
-  Future<void> updateCategoryNotificationLevel({
+  Future<List<int>?> updateCategoryNotificationLevel({
     required String siteUrl,
     required String apiKey,
     required int categoryId,
     required CategoryNotificationLevel notificationLevel,
     String? clientId,
-  }) => _request(notificationLevel.value, apiKey);
+  }) async {
+    await _request(notificationLevel.value, apiKey);
+    return const [];
+  }
 }
 
 final class _Authenticator extends FakeAuthenticator {
