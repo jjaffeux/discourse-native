@@ -93,13 +93,29 @@ List<ComposerLinkBlock> parseComposerLinks(
 
     final urlStart = bracket + 2;
     var close = urlStart;
-    while (close < source.length &&
-        source[close] != ')' &&
-        !_isWhitespace(source.codeUnitAt(close))) {
+    var nesting = 0;
+    while (close < source.length) {
+      final unit = source.codeUnitAt(close);
+      if (_isWhitespace(unit)) break;
+      if (unit == 0x5C &&
+          close + 1 < source.length &&
+          !_isWhitespace(source.codeUnitAt(close + 1))) {
+        close += 2;
+        continue;
+      }
+      if (unit == 0x28) {
+        nesting += 1;
+        // Match markdown-it's limit and bound rescans of unfinished nesting.
+        if (nesting > 32) break;
+      } else if (unit == 0x29) {
+        if (nesting == 0) break;
+        nesting -= 1;
+      }
       close += 1;
     }
     if (close == urlStart || close >= source.length || source[close] != ')') {
-      offset = start + 1;
+      // Every opener before this bracket shares the same failed destination.
+      offset = bracket + 1;
       continue;
     }
 

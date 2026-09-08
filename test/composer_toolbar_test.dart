@@ -1,7 +1,7 @@
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_marks.dart';
-import 'package:flutter/widgets.dart' show TextSelection;
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -233,6 +233,44 @@ void main() {
       expect(value, isNull);
       expect(composer.text.text, 'changed');
     });
+  });
+
+  testWidgets('editing a projected Wikipedia link replaces its full source', (
+    tester,
+  ) async {
+    const url = 'https://en.wikipedia.org/wiki/Dart_(programming_language)';
+    const source = 'Read [Dart]($url) now.';
+    open(source);
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: SizedBox())),
+    );
+    final projection = const ComposerLinkSyntaxPolicy().parse(source).single;
+    final editing = projection.edit(
+      tester.element(find.byType(Scaffold)),
+      composer,
+    );
+    await tester.pumpAndSettle();
+    final urlField = find.byKey(const ValueKey('composer-link-url'));
+    expect(tester.widget<TextField>(urlField).controller!.text, url);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('composer-link-anchor')))
+          .controller!
+          .text,
+      'Dart',
+    );
+
+    await tester.enterText(urlField, 'https://dart.dev');
+    await tester.tap(find.byKey(const ValueKey('composer-link-insert')));
+    await tester.pumpAndSettle();
+    await editing;
+
+    const expected = 'Read [Dart](https://dart.dev) now.';
+    expect(composer.raw, expected);
+    expect(
+      composer.text.selection,
+      TextSelection.collapsed(offset: expected.indexOf(' now.')),
+    );
   });
 
   group('parseComposerLinks', () {
