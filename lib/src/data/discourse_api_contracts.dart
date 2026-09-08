@@ -614,14 +614,15 @@ abstract interface class TopicMutationsApi {
     String? clientId,
   });
 
+  /// Omitted taxonomy fields are preserved; an empty [tags] clears tags.
   Future<void> updateTopic({
     required String siteUrl,
     required String apiKey,
     required int topicId,
     required String title,
     required String originalTitle,
-    required Iterable<TopicTag> tags,
-    required Iterable<TopicTag> originalTags,
+    Iterable<TopicTag>? tags,
+    Iterable<TopicTag>? originalTags,
     int? categoryId,
     String? clientId,
   });

@@ -4253,6 +4253,8 @@ void _writeGroups() {
       expect(sent.method, 'PUT');
       expect(sent.url.path, '/t/88.json');
       final body = jsonDecode(sent.body) as Map<String, dynamic>;
+      expect(body['title'], 'Changed');
+      expect(body['original_title'], 'Original');
       expect(body['category_id'], 5);
       expect(body['tags'], [
         {'id': 7, 'name': 'feature'},
@@ -4260,6 +4262,37 @@ void _writeGroups() {
       expect(body['original_tags'], [
         {'id': 6, 'name': 'old'},
       ]);
+    });
+
+    test('keeps explicitly empty tags in metadata writes', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await api.updateTopic(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+        topicId: 88,
+        title: 'Original',
+        originalTitle: 'Original',
+        categoryId: 5,
+        tags: const [],
+        originalTags: const [TopicTag(id: 6, name: 'old')],
+      );
+
+      expect(jsonDecode(sent.body), {
+        'title': 'Original',
+        'original_title': 'Original',
+        'category_id': 5,
+        'tags': <Object?>[],
+        'original_tags': [
+          {'id': 6, 'name': 'old'},
+        ],
+      });
     });
 
     test('uses the dedicated tags-only endpoint', () async {

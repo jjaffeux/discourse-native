@@ -238,8 +238,8 @@ final class _EditApi extends FakeDiscourseApi {
     required int topicId,
     required String title,
     required String originalTitle,
-    required Iterable<TopicTag> tags,
-    required Iterable<TopicTag> originalTags,
+    Iterable<TopicTag>? tags,
+    Iterable<TopicTag>? originalTags,
     int? categoryId,
     String? clientId,
   }) async {
