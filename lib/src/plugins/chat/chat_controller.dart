@@ -1168,7 +1168,10 @@ class ChatController extends FrameSafeNotifier {
       final requestCredentials = await _requests.credentialsFor(siteUrl);
       final apiKey = requestCredentials.apiKey;
       if (!isCurrent()) return null;
-      if (apiKey == null) return 'Reconnect this site to edit the channel.';
+      if (apiKey == null) {
+        restoreThreading();
+        return 'Reconnect this site to edit the channel.';
+      }
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return null;
       final fresh = await api.updateChatChannel(
