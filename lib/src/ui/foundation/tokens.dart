@@ -54,9 +54,6 @@ class DTokens extends ThemeExtension<DTokens> {
   Color get destructiveForeground => colors.onError;
   Color get focusRing => colors.primary;
 
-  /// A visible placeholder on both content and muted loading panels.
-  Color get skeleton =>
-      Color.alphaBlend(foreground.withValues(alpha: 0.16), muted);
   BorderRadius get borderRadius => BorderRadius.circular(radius);
 
   @override
@@ -118,7 +115,9 @@ abstract final class DMotion {
   static const Duration enter = Duration(milliseconds: 140);
   static const Duration exit = Duration(milliseconds: 100);
   static const Duration change = Duration(milliseconds: 180);
-  static const Duration pulse = Duration(milliseconds: 675);
+
+  /// One leg of shadcn's two-second, full-opacity → half-opacity → full pulse.
+  static const Duration pulse = Duration(seconds: 1);
 
   static Duration duration(BuildContext context, Duration preferred) =>
       MediaQuery.disableAnimationsOf(context) ? Duration.zero : preferred;

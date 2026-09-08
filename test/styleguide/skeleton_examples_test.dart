@@ -42,7 +42,7 @@ void main() {
           .first,
     );
     await tester.pumpAndSettle();
-    expect(find.byType(DSkeleton), findsNWidgets(3));
+    expect(find.byType(DSkeleton), findsNWidgets(8));
     expect(tester.takeException(), isNull);
   });
 
@@ -93,6 +93,7 @@ void main() {
       theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
     );
     final width = find.byType(Slider).first;
+    await tester.ensureVisible(width);
     await tester.tap(width);
     await tester.pumpAndSettle();
     final sliderFocus = tester
@@ -112,24 +113,123 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     expect(tester.widget<Slider>(width).value, greaterThan(before));
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Circle'));
     await tester.tap(find.widgetWithText(ChoiceChip, 'Circle'));
     await tester.pumpAndSettle();
     expect(
-      tester.widgetList<DSkeleton>(find.byType(DSkeleton)).first.shape,
+      tester
+          .widget<DSkeleton>(
+            find.byKey(const ValueKey('skeleton-geometry-shape')),
+          )
+          .shape,
       BoxShape.circle,
     );
     await tester.tap(find.widgetWithText(FilterChip, 'Pulse'));
     await tester.pumpAndSettle();
     expect(
-      tester.widgetList<DSkeleton>(find.byType(DSkeleton)).first.animate,
+      tester
+          .widget<DSkeleton>(
+            find.byKey(const ValueKey('skeleton-geometry-shape')),
+          )
+          .animate,
       isFalse,
     );
     await tester.tap(find.widgetWithText(ChoiceChip, 'Pill'));
     await tester.pumpAndSettle();
     expect(
-      tester.widgetList<DSkeleton>(find.byType(DSkeleton)).first.borderRadius,
+      tester
+          .widget<DSkeleton>(
+            find.byKey(const ValueKey('skeleton-geometry-shape')),
+          )
+          .borderRadius,
       BorderRadius.circular(999),
     );
+  });
+
+  testWidgets('frozen examples preserve shadcn dimensions and spacing', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1024, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    List<Rect> shapes() => [
+      for (var i = 0; i < find.byType(DSkeleton).evaluate().length; i++)
+        tester.getRect(find.byType(DSkeleton).at(i)),
+    ];
+
+    await _pump(tester, skeletonExamples.examples[1]);
+    var bounds = shapes();
+    expect(bounds.map((r) => r.size), [
+      const Size(40, 40),
+      const Size(150, 16),
+      const Size(100, 16),
+    ]);
+    expect(bounds[1].left - bounds[0].right, 16);
+    expect(bounds[2].top - bounds[1].bottom, 8);
+
+    await _pump(tester, skeletonExamples.examples[2]);
+    bounds = shapes();
+    final card = tester.getRect(find.byType(DSkeletonRegion));
+    expect(card.size, const Size(320, 246));
+    expect(bounds.map((r) => r.size), [
+      const Size(192, 16),
+      const Size(144, 16),
+      const Size(288, 162),
+    ]);
+    expect(bounds[0].left - card.left, 16);
+    expect(bounds[0].top - card.top, 16);
+    expect(bounds[1].top - bounds[0].bottom, 4);
+    expect(bounds[2].top - bounds[1].bottom, 16);
+    expect(card.bottom - bounds[2].bottom, 16);
+
+    await _pump(tester, skeletonExamples.examples[3]);
+    bounds = shapes();
+    expect(bounds.map((r) => r.size), [
+      const Size(320, 16),
+      const Size(320, 16),
+      const Size(240, 16),
+    ]);
+    expect(bounds[1].top - bounds[0].bottom, 8);
+    expect(bounds[2].top - bounds[1].bottom, 8);
+
+    await _pump(tester, skeletonExamples.examples[4]);
+    bounds = shapes();
+    expect(bounds.map((r) => r.size), [
+      const Size(80, 16),
+      const Size(320, 32),
+      const Size(96, 16),
+      const Size(320, 32),
+      const Size(96, 32),
+    ]);
+    expect(bounds[1].top - bounds[0].bottom, 12);
+    expect(bounds[2].top - bounds[1].bottom, 28);
+    expect(bounds[3].top - bounds[2].bottom, 12);
+    expect(bounds[4].top - bounds[3].bottom, 28);
+
+    await _pump(tester, skeletonExamples.examples[5]);
+    bounds = shapes();
+    expect(bounds, hasLength(15));
+    expect(tester.getSize(find.byType(DSkeletonRegion)), const Size(384, 112));
+    for (var row = 0; row < 5; row++) {
+      final i = row * 3;
+      expect(bounds[i].size, const Size(176, 16));
+      expect(bounds[i + 1].size, const Size(96, 16));
+      expect(bounds[i + 2].size, const Size(80, 16));
+      expect(bounds[i + 1].left - bounds[i].right, 16);
+      expect(bounds[i + 2].left - bounds[i + 1].right, 16);
+      if (row > 0) expect(bounds[i].top - bounds[i - 3].bottom, 8);
+    }
+
+    await _pump(tester, skeletonExamples.examples[6]);
+    bounds = shapes();
+    expect(bounds.map((r) => r.size), [
+      const Size(48, 48),
+      const Size(250, 16),
+      const Size(200, 16),
+    ]);
+    expect(bounds[0].left - bounds[1].right, 16);
+    expect(bounds[2].right, bounds[1].right);
+    expect(bounds[2].top - bounds[1].bottom, 8);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('ready form validates, saves and retains edits across themes', (
@@ -171,6 +271,8 @@ void main() {
     await tester.tap(find.text('Follow'));
     await tester.pumpAndSettle();
     expect(find.text('Following'), findsOneWidget);
+    await tester.binding.setSurfaceSize(const Size(240, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await _pump(tester, skeletonExamples.examples[5]);
     final scroll = find.byWidgetPredicate(
       (widget) =>

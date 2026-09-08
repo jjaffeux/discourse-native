@@ -19,6 +19,7 @@ class DSkeleton extends StatelessWidget {
     this.width,
     this.height,
     this.borderRadius,
+    this.color,
     this.animate = true,
   }) : assert(width == null || width >= 0),
        assert(height == null || height >= 0),
@@ -27,6 +28,7 @@ class DSkeleton extends StatelessWidget {
   const DSkeleton.circle({
     super.key,
     required double diameter,
+    this.color,
     this.animate = true,
   }) : assert(diameter >= 0),
        width = diameter,
@@ -37,7 +39,12 @@ class DSkeleton extends StatelessWidget {
   final double? width;
   final double? height;
 
-  /// Defaults to the live site radius. Directional corners follow Directionality.
+  /// Defaults to the theme's muted surface, matching shadcn's bg-muted.
+  /// Override for a composition placed on that same muted background.
+  final Color? color;
+
+  /// Defaults to shadcn's medium radius (0.8 × the live site radius).
+  /// Directional corners follow Directionality.
   final BorderRadiusGeometry? borderRadius;
   final BoxShape shape;
 
@@ -49,13 +56,12 @@ class DSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final decoration = BoxDecoration(
-      color: tokens.skeleton,
+      color: color ?? tokens.muted,
       shape: shape,
       borderRadius: shape == BoxShape.circle
           ? null
-          : (borderRadius ?? tokens.borderRadius).resolve(
-              Directionality.of(context),
-            ),
+          : (borderRadius ?? BorderRadius.circular(tokens.radius * 0.8))
+                .resolve(Directionality.of(context)),
     );
     final visual = IgnorePointer(
       child: ExcludeSemantics(
@@ -152,10 +158,10 @@ class _SkeletonPulseState extends State<_SkeletonPulse>
   );
   late final _curve = CurvedAnimation(
     parent: _controller,
-    curve: Curves.easeInOut,
-    reverseCurve: Curves.easeInOut,
+    curve: const Cubic(0.4, 0, 0.6, 1),
+    reverseCurve: const Cubic(0.4, 0, 0.6, 1),
   );
-  late final _opacity = Tween<double>(begin: 0.62, end: 1).animate(_curve);
+  late final _opacity = Tween<double>(begin: 1, end: 0.5).animate(_curve);
 
   @override
   void didChangeDependencies() {
@@ -181,7 +187,7 @@ class _SkeletonPulseState extends State<_SkeletonPulse>
     } else {
       _controller
         ..stop()
-        ..value = 1;
+        ..value = 0;
     }
   }
 

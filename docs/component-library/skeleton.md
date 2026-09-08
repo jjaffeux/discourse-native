@@ -15,7 +15,8 @@ Import `package:discourse_native/discourse_ui.dart`.
 | --- | --- |
 | `DSkeleton(width:, height:)` | Rectangular decorative shape. Omitted dimensions fill bounded axes and collapse on unbounded axes. Explicit dimensions obey parent constraints. |
 | `DSkeleton.circle(diameter:)` | Circular placeholder, subject to the parent's constraints. |
-| `borderRadius:` | Any `BorderRadiusGeometry`; directional corners resolve from the current direction. Defaults to the live site's radius. Use a large radius for pills or zero for square corners. |
+| `borderRadius:` | Any `BorderRadiusGeometry`; directional corners resolve from the current direction. Defaults to the live site's base radius × 0.8, matching `rounded-md`. Use a large radius for pills or zero for square corners. |
+| `color:` | Optional local background override; defaults to `DTokens.muted` (`bg-muted`). Used by sidebar shapes because their backdrop is itself muted. |
 | `animate: false` | Static at full opacity. A shape can opt out of an animated region; it cannot override a region's disabled animation. |
 | `DSkeletonRegion(semanticsLabel:, child:)` | Synchronized animation with one caller-localized loading label. All descendant semantics, pointer interaction and keyboard focus are excluded. |
 | Region `liveRegion: false` | Exposes the label without requesting a live announcement. |
@@ -57,29 +58,69 @@ or asynchronous continuations in the component. Place real controls outside
 the region. To scroll a wide skeleton table, place the region **inside** a
 horizontal scroll view, as the Table example demonstrates.
 
-## Native adaptations
+## Reference-to-Flutter visual mapping
 
-The component extends the app's existing shared skeleton rendering owner.
-`DMotion.pulse` retains its 675 ms leg and ease-in-out opacity of 0.62–1.
-A region shares one animation across its shapes; standalone shapes also work.
-Reduced motion and disabled `TickerMode` stop the controller at full opacity;
-live preference changes restart it when appropriate. Removing a region disposes
-its animation, including while scrolling or switching examples.
+The official [base-nova Skeleton registry](https://ui.shadcn.com/r/styles/base-nova/skeleton.json)
+uses `animate-pulse rounded-md bg-muted`. The
+[Card registry](https://ui.shadcn.com/r/styles/base-nova/card.json),
+[theme radius scale](https://ui.shadcn.com/docs/theming#radius-scale) and
+[Tailwind pulse](https://tailwindcss.com/docs/animation) were inspected on
+2026-09-08. These are the design specification; no Material Skeleton/Card
+presentation is substituted.
 
-The fill reads `DTokens.skeleton`, derived by blending the existing foreground
-into the muted surface. Native inspection exposed the old light-theme fill as
-white on white, so retaining `surfaceContainerHighest` would hide placeholders.
-The derived token stays visible on content, floating and muted panels, including
-at the dimmest pulse; it follows site palette changes without hardcoded swatches.
-The default radius now follows the site, while custom radii and circles
-remain available. Light/dark/site changes do not restart the pulse.
-Native directional layout handles RTL; the component does not translate text.
+| Reference | Flutter rendering |
+| --- | --- |
+| `bg-muted` | Live `DTokens.muted`, with no foreground blend. |
+| `rounded-md` / Card `rounded-xl` | Site base radius × 0.8 / × 1.4; explicit geometry overrides remain available. |
+| Pulse | 2-second 1 → 0.5 → 1 opacity cycle, `Cubic(0.4, 0, 0.6, 1)`. `DMotion.pulse` is the 1-second leg. |
+| Demo / RTL | 48px circle; 16px horizontal gap; 250×16 and 200×16 lines separated by 8px. RTL mirrors their reading-start alignment. |
+| Usage | 100×20 pill. |
+| Avatar | 40px circle; 16px gap; 150×16 and 100×16 lines, 8px apart. Total width 206px. |
+| Card | Maximum 320px; 16px padding; 4px header gap; 16px header/content gap; 2/3 and 1/2 title widths; 16:9 cover; 1px foreground/10 outer ring. |
+| Text | Maximum 320px; three 16px-high lines, 8px gaps; final line 75% wide. |
+| Form | Maximum 320px; 80px/96px labels, 16px high; 12px label/input gap; 32px inputs and 96×32 button; 28px group gaps. |
+| Table | Maximum 384px; five 16px-high rows separated by 8px; 16px column gaps; flexible first column and 96px/80px trailing columns. |
 
-The seven styleguide examples cover standalone geometry and motion, avatar,
-card, text, form, table, and RTL. Ready/error/retry transitions use local sample
-state. Ready card actions and the editable, validated form work. Flutter
-primitives provide the card/form/table compositions while those independent
-catalogue components are still planned.
+The current registry's aggregate example file has a square cover, taller form
+controls and three table rows. The frozen documentation remains authoritative
+for example geometry: this task retains its 16:9 cover, 32px controls and five
+rows. The frozen catalogue is unchanged. Example state controls are outside the
+reference compositions. Only the Card example has a card frame; the other
+examples have no added border, padding or raised surface.
+
+## Native adaptations and palette diagnosis
+
+The component extends the existing shared rendering owner and preserves its
+request-independent loading semantics, sizing and disposal. The initial legacy
+675ms/0.62 pulse was superseded by the source-matched cycle above. A region shares
+one animation; standalone shapes also work. Reduced motion and disabled
+`TickerMode` stop at full opacity. Live theme changes retain animation state.
+
+The earlier white-on-white defect was **the wrong color role**: default Light
+`surfaceContainerHighest` is #FFFFFF, equal to the styleguide's floating
+background. Its actual muted token is #F1F3F5. The initial 16% foreground blend
+and decorative contrast threshold were therefore removed, not retained as a
+visual deviation.
+
+| Palette | Muted fill | Content background | Floating background | Half-opacity fill on content |
+| --- | --- | --- | --- | --- |
+| Light | #F1F3F5 | #FFFFFF | #FFFFFF | #F8F9FA |
+| Dark | #1A1C20 | #212429 | #272B32 | #1E2025 |
+| Forest | #EEF6F0 | #F8FCF9 | #FFFFFF | #F3F9F4 |
+| Plum | #2B2030 | #211725 | #302336 | #261C2B |
+
+A temporary Flutter probe measured these live palette values. Skeleton is
+intentionally subtle; a text-contrast threshold is inappropriate. The concrete
+exception is the navigation sidebar: its background equals muted in all four
+palettes. Only those caller-owned shapes set `color: tokens.background`, the
+native equivalent of a background-class override. No shared palette is changed.
+
+Narrow constraints shrink the compositions. The table scrolls only below 256px,
+where its fixed columns would otherwise leave almost no first column. Its scroll
+view stays outside the noninteractive region. Local Ready/Error/Retry samples
+exercise lifecycle and keyboard behavior; these are additional demonstration
+states, not invented reference variants. Input examples use explicit neutral
+borders and external labels, and ordinary actions use public `DButton`.
 
 ## Adoption audit
 

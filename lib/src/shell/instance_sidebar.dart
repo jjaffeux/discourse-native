@@ -915,7 +915,11 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var section = 0; section < 2; section++) ...[
-            const DSkeleton(width: 70, height: 8),
+            DSkeleton(
+              width: 70,
+              height: 8,
+              color: DTokens.of(context).background,
+            ),
             const SizedBox(height: 10),
             for (var row = 0; row < 4; row++)
               SizedBox(
@@ -923,9 +927,17 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
                     _SidebarSpacing.rowHeight(context) + _SidebarSpacing.rowGap,
                 child: Row(
                   children: [
-                    const DSkeleton(width: 14, height: 14),
+                    DSkeleton(
+                      width: 14,
+                      height: 14,
+                      color: DTokens.of(context).background,
+                    ),
                     const SizedBox(width: 10),
-                    DSkeleton(width: row.isEven ? 110 : 85, height: 9),
+                    DSkeleton(
+                      width: row.isEven ? 110 : 85,
+                      height: 9,
+                      color: DTokens.of(context).background,
+                    ),
                   ],
                 ),
               ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/sidebar_section_store.dart';
 import 'package:discourse_native/src/data/topic_sidebar_store.dart';
@@ -157,6 +158,32 @@ void main() {
         find.byKey(const ValueKey('sidebar-loading-skeleton')),
         findsOneWidget,
       );
+      final skeletons = find.descendant(
+        of: find.byKey(const ValueKey('sidebar-loading-skeleton')),
+        matching: find.byType(DSkeleton),
+      );
+      final tokens = DTokens.of(tester.element(skeletons.first));
+      expect(
+        tokens.muted,
+        Theme.of(tester.element(skeletons.first)).shell.sidebar,
+      );
+      expect(tokens.background, isNot(tokens.muted));
+      expect(
+        tester.widgetList<DSkeleton>(skeletons).map((shape) => shape.color),
+        everyElement(tokens.background),
+        reason: 'Only the muted sidebar backdrop needs a local fill override.',
+      );
+      final decoration =
+          tester
+                  .widget<DecoratedBox>(
+                    find.descendant(
+                      of: skeletons.first,
+                      matching: find.byType(DecoratedBox),
+                    ),
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(decoration.color, tokens.background);
 
       api.navigation.complete(
         CategoryLoadResult(
