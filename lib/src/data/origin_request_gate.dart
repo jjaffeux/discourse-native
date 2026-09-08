@@ -87,14 +87,17 @@ final class OriginRequestGate {
     }
 
     final state = _origins.putIfAbsent(origin, _createOriginState);
-    final remaining = state.cooldown.remaining;
-    if (remaining != null &&
-        cooldownPolicy == OriginRequestCooldownPolicy.reject) {
-      pending.reject(
-        OriginRequestGateCooldownException(origin, remaining),
-        StackTrace.current,
-      );
-      return;
+    // Reading an expired cooldown cancels its wake. Wait-policy admissions
+    // leave that read to _drain so a full backlog cannot lose its wake.
+    if (cooldownPolicy == OriginRequestCooldownPolicy.reject) {
+      final remaining = state.cooldown.remaining;
+      if (remaining != null) {
+        pending.reject(
+          OriginRequestGateCooldownException(origin, remaining),
+          StackTrace.current,
+        );
+        return;
+      }
     }
     if (state.waiting >= maxQueuedPerOrigin) {
       pending.reject(
