@@ -290,7 +290,7 @@ Status: in_progress. Task: 01a0821b-27cc-7013-affb-99cae203b2a8. Branch: codex/u
 
 **limitations**
 
-- macOS native inspection is pending the serialized desktop slot; iOS and Linux devices are unavailable on this host. Widget tests with platform overrides are not device tests.
+- macOS native inspection is pending the serialized desktop slot. iOS and Linux were not inspected during this task; a wireless iPhone is detected on the host. Widget tests with platform overrides are not device tests.
 - Default spoken key names and sequence separator are English; callers can override spoken labels and compose localized DKbdGroup content.
 
 ### separator

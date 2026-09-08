@@ -232,7 +232,7 @@
         "Before any native launch, verified the isolated app Info.plist and ad hoc signature both identify org.discourse.kbd.review4bea after correcting Xcode Debug overrides in the temporary copy. The primary application was not launched or modified."
       ],
       "limitations": [
-        "macOS native inspection is pending the serialized desktop slot; iOS and Linux devices are unavailable on this host. Widget tests with platform overrides are not device tests.",
+        "macOS native inspection is pending the serialized desktop slot. iOS and Linux were not inspected during this task; a wireless iPhone is detected on the host. Widget tests with platform overrides are not device tests.",
         "Default spoken key names and sequence separator are English; callers can override spoken labels and compose localized DKbdGroup content."
       ],
       "implementationCommit": "25a7c6cf953d43bd08413c816b6521a00db57757",
