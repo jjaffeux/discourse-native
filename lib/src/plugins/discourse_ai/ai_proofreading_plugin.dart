@@ -58,6 +58,7 @@ class _ProofreadToggle extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) {
+      final theme = Theme.of(context);
       final enabled = controller.isEnabled(composer);
       final interactive = composer.isEditing && !composer.loadingBody;
       return Tooltip(
@@ -82,7 +83,9 @@ class _ProofreadToggle extends StatelessWidget {
                 children: [
                   Text(
                     'Proofread',
-                    style: Theme.of(context).textTheme.labelMedium,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(width: 4),
                   ExcludeSemantics(

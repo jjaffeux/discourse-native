@@ -80,7 +80,9 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
               '@$username',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           const Padding(
@@ -95,7 +97,7 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
             siteUrl: target.siteUrl,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
+            style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),

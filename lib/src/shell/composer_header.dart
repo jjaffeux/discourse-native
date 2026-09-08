@@ -164,7 +164,7 @@ class ComposerHeader extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelLarge,
+                    style: theme.textTheme.labelMedium,
                   ),
                 ),
               ],
@@ -320,10 +320,13 @@ class _ComposerGrip extends StatelessWidget {
                       : Colors.transparent,
                 ),
               ),
-              child: Icon(
-                Icons.drag_indicator,
-                size: 20,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              child: RotatedBox(
+                quarterTurns: 1,
+                child: Icon(
+                  Icons.drag_indicator,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
