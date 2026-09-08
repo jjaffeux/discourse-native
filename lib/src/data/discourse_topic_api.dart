@@ -57,19 +57,33 @@ final class DiscourseTopicApi {
     return _models.topic(body, siteUrl);
   }
 
-  Future<void> recordTopicRead({
+  Future<void> recordTopicReads({
     required String siteUrl,
     required String apiKey,
     required int topicId,
-    required int postNumber,
+    required List<int> postNumbers,
     int milliseconds = 500,
     String? clientId,
   }) async {
     _requirePositiveId(topicId, 'topicId');
-    _requirePositiveId(postNumber, 'postNumber');
+    if (postNumbers.isEmpty ||
+        postNumbers.length > TopicReadsApi.maximumPostsPerRequest) {
+      throw RangeError.range(
+        postNumbers.length,
+        1,
+        TopicReadsApi.maximumPostsPerRequest,
+        'postNumbers.length',
+      );
+    }
+    for (final postNumber in postNumbers) {
+      _requirePositiveId(postNumber, 'postNumber');
+    }
     if (milliseconds <= 0) {
       throw RangeError.value(milliseconds, 'milliseconds', 'Must be positive.');
     }
+    final timings = {
+      for (final postNumber in postNumbers) '$postNumber': milliseconds,
+    };
     await _write(
       Uri.parse('$siteUrl/topics/timings.json'),
       siteUrl: siteUrl,
@@ -78,8 +92,8 @@ final class DiscourseTopicApi {
       clientId: clientId,
       body: {
         'topic_id': topicId,
-        'topic_time': milliseconds,
-        'timings': {'$postNumber': milliseconds},
+        'topic_time': milliseconds * timings.length,
+        'timings': timings,
       },
     );
   }

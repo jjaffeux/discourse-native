@@ -463,7 +463,6 @@ class DiscourseApi
     clientId: clientId,
   );
 
-  @override
   Future<void> recordTopicRead({
     required String siteUrl,
     required String apiKey,
@@ -471,11 +470,28 @@ class DiscourseApi
     required int postNumber,
     int milliseconds = 500,
     String? clientId,
-  }) async => _topic.recordTopicRead(
+  }) async => recordTopicReads(
     siteUrl: siteUrl,
     apiKey: apiKey,
     topicId: topicId,
-    postNumber: postNumber,
+    postNumbers: [postNumber],
+    milliseconds: milliseconds,
+    clientId: clientId,
+  );
+
+  @override
+  Future<void> recordTopicReads({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required List<int> postNumbers,
+    int milliseconds = 500,
+    String? clientId,
+  }) async => _topic.recordTopicReads(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    postNumbers: postNumbers,
     milliseconds: milliseconds,
     clientId: clientId,
   );
