@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
@@ -275,7 +276,18 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   void _hideHoverForScroll() {
     _hoverSuppressed = true;
     _moreActionsOpen = false;
-    if (_hovered) setState(() => _hovered = false);
+    if (!_hovered) return;
+    _hovered = false;
+
+    // New viewport dimensions can start a scroll activity during layout.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+      return;
+    }
+    setState(() {});
   }
 
   void _pointerEntered() {

@@ -955,6 +955,75 @@ void main() {
       expect(replies, [same(message)]);
     });
 
+    testWidgets(
+      'layout-triggered scrolling hides actions until the pointer moves again',
+      (tester) async {
+        final controller = await _controller(_message(null));
+        addTearDown(controller.dispose);
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        final viewportHeight = ValueNotifier<double>(300);
+        addTearDown(viewportHeight.dispose);
+
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: PluginUiScope.own(
+              chatPluginId,
+              MaterialApp(
+                theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+                home: Scaffold(
+                  body: ValueListenableBuilder<double>(
+                    valueListenable: viewportHeight,
+                    builder: (context, height, _) => SizedBox(
+                      height: height,
+                      child: ListView(
+                        controller: scroll,
+                        physics: const BouncingScrollPhysics(),
+                        children: const [
+                          ChatMessageTile(
+                            key: _messageTileKey,
+                            siteUrl: _siteUrl,
+                            messageId: 7,
+                            chained: false,
+                          ),
+                          SizedBox(height: 600),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(find.byKey(_messageTileKey)));
+        await tester.pump();
+        expect(find.byTooltip('More message actions'), findsOneWidget);
+
+        // An idle overshoot starts its bounce while the viewport lays out its
+        // new dimensions, before any scroll pixels are reported to listeners.
+        scroll.position.correctPixels(-20);
+        viewportHeight.value = 320;
+        await tester.pump();
+
+        expect(scroll.position.isScrollingNotifier.value, isTrue);
+        expect(tester.takeException(), isNull);
+        await tester.pump();
+        expect(find.byTooltip('More message actions'), findsNothing);
+
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('More message actions'), findsNothing);
+        await mouse.moveBy(const Offset(0, 1));
+        await tester.pump();
+        expect(find.byTooltip('More message actions'), findsOneWidget);
+      },
+    );
+
     testWidgets('hover matches core primary and secondary message actions', (
       tester,
     ) async {
