@@ -42,7 +42,7 @@
   "components": [
     {
       "id": "direction",
-      "status": "review_ready",
+      "status": "merged",
       "taskId": "01a0818b-e20a-77d0-bb99-77691899dad7",
       "branch": "codex/ui-direction",
       "dependencies": [],
@@ -86,7 +86,8 @@
         "CUA inspected the nested example at 360px/200% Forest: Arabic RTL outer section, wrapping fixed LTR URL, inherited LTR lookup, and resumed RTL sibling. In Plum at 360px/100%, inspected the RTL native menu, visible arrow-key focus, Enter selection, restored trigger focus, and Escape dismissal while keeping the styleguide open.",
         "git diff --check passed; catalogue snapshot, native runners, pubspecs and lockfiles are unchanged.",
         "Rebuilt the final committed native examples and confirmed Direction is marked implemented and its live editor renders in the running catalogue.",
-        "Coordinator final review of branch HEAD 1642d8d7bb6c8b5786ed9b5ba348d9bf9e6fbe40 accepted the provider API, three examples, one preview provider plus 12 app lookups, focused regression evidence and completed macOS inspection. No remaining implementation issue was identified. Merge reconciliation affects only progress metadata."
+        "Coordinator final review of branch HEAD 1642d8d7bb6c8b5786ed9b5ba348d9bf9e6fbe40 accepted the provider API, three examples, one preview provider plus 12 app lookups, focused regression evidence and completed macOS inspection. No remaining implementation issue was identified. Merge reconciliation affects only progress metadata.",
+        "After merging from the repository main checkout, git diff confirmed all non-progress files exactly match reviewed branch HEAD 1642d8d7bb6c8b5786ed9b5ba348d9bf9e6fbe40; the main worktree is clean. The merge preserves both parents and adds no code change beyond the verified component branch."
       ],
       "limitations": [
         "Native device inspection was macOS only. iOS/Linux device behavior and VoiceOver speech were not run; screen-reader direction semantics and native keyboard behavior are covered by widget tests.",
@@ -95,7 +96,7 @@
         "The initial isolated build needed temporary signing adjustments; a long CUA approval wait and synthesized command-key attempts required app relaunch/reselection before successful native checks. Those tooling interruptions did not require production code changes."
       ],
       "implementationCommit": "d41d2c92fcf7221289f1e6e96d96c71deecfa91b",
-      "mergeCommit": null,
+      "mergeCommit": "e69458861e83f3989e2f06dd177805c572740a5a",
       "clientThreadId": "client-new-thread:3635cbd2-890f-40fc-9fa6-b36f824420b0",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/7cf5/discourse-native"
     },

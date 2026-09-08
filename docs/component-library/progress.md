@@ -10,7 +10,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 | # | Component | Status | Task | Branch | Dependencies | Merge |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | direction | review_ready | 01a0818b-e20a-77d0-bb99-77691899dad7 | codex/ui-direction | — | — |
+| 1 | direction | merged | 01a0818b-e20a-77d0-bb99-77691899dad7 | codex/ui-direction | — | e69458861e83f3989e2f06dd177805c572740a5a |
 | 2 | typography | planned | — | — | direction | — |
 | 3 | spinner | planned | — | — | — | — |
 | 4 | kbd | planned | — | — | typography | — |
@@ -117,7 +117,7 @@ Status: merged. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/compon
 
 ### direction
 
-Status: review_ready. Task: 01a0818b-e20a-77d0-bb99-77691899dad7. Branch: codex/ui-direction.
+Status: merged. Task: 01a0818b-e20a-77d0-bb99-77691899dad7. Branch: codex/ui-direction.
 
 **acceptanceCriteria**
 
@@ -165,6 +165,7 @@ Status: review_ready. Task: 01a0818b-e20a-77d0-bb99-77691899dad7. Branch: codex/
 - git diff --check passed; catalogue snapshot, native runners, pubspecs and lockfiles are unchanged.
 - Rebuilt the final committed native examples and confirmed Direction is marked implemented and its live editor renders in the running catalogue.
 - Coordinator final review of branch HEAD 1642d8d7bb6c8b5786ed9b5ba348d9bf9e6fbe40 accepted the provider API, three examples, one preview provider plus 12 app lookups, focused regression evidence and completed macOS inspection. No remaining implementation issue was identified. Merge reconciliation affects only progress metadata.
+- After merging from the repository main checkout, git diff confirmed all non-progress files exactly match reviewed branch HEAD 1642d8d7bb6c8b5786ed9b5ba348d9bf9e6fbe40; the main worktree is clean. The merge preserves both parents and adds no code change beyond the verified component branch.
 
 **limitations**
 
