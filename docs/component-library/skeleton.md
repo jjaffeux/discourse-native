@@ -68,6 +68,15 @@ uses `animate-pulse rounded-md bg-muted`. The
 2026-09-08. These are the design specification; no Material Skeleton/Card
 presentation is substituted.
 
+Source hashes were verified on 2026-09-08. The TSX hashes cover the registry's
+decoded `files[].content` encoded as UTF-8, preserving whitespace and the final
+newline. The JSON hashes cover the complete downloaded response bytes.
+
+| Official source | TSX content SHA256 | Registry JSON SHA256 |
+| --- | --- | --- |
+| [Skeleton](https://ui.shadcn.com/r/styles/base-nova/skeleton.json), `registry/base-nova/ui/skeleton.tsx` | `4c2af7fa9c645358a0fb188779deab6f0b981733b62befc25e18aaebea1350dc` | `85692a09912f518ffd64c540dfcf098fe748a807baf288c107cf8126496cf886` |
+| [Card](https://ui.shadcn.com/r/styles/base-nova/card.json), `registry/base-nova/ui/card.tsx` | `645c3d73e387a99f1492220cc619453b0c7f5454134ee3cd548be7a80f7eccde` | `e73e3fe00ab2e14c4db1dccb1ff5c67041a94c0926ac3216c1dc6dd6dee9d7e0` |
+
 | Reference | Flutter rendering |
 | --- | --- |
 | `bg-muted` | Live `DTokens.muted`, with no foreground blend. |
