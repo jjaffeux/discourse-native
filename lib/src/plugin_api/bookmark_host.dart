@@ -16,6 +16,15 @@ final class BookmarkSiteContext {
   final bool suggestWeekendsInDatePickers;
 }
 
+/// Opening ownership for a bookmark UI flow, including its nested dialogs.
+/// This exposes neither credentials nor authority over another target type.
+abstract interface class BookmarkSession {
+  bool get isCurrent;
+
+  /// The reader context captured when this session was opened.
+  BookmarkSiteContext get siteContext;
+}
+
 final class BookmarkWriteResult {
   const BookmarkWriteResult.saved([this.bookmark])
     : message = null,
@@ -40,6 +49,8 @@ final class BookmarkWriteResult {
 /// one of these only after binding its registered target, so it cannot turn a
 /// Chat-message affordance into an arbitrary post/topic bookmark write.
 abstract interface class BookmarkTargetHost {
+  BookmarkSession captureSession(String siteUrl);
+
   BookmarkSiteContext siteContextFor(String siteUrl);
 
   bool bookmarkWriteInFlight({
@@ -109,6 +120,8 @@ abstract interface class BookmarkHost {
 /// contract deliberately has no `topicId` parameter. Core's topic-aware host
 /// remains a separate interface rather than asking plugins to pass a sentinel.
 abstract interface class PluginBookmarkHost {
+  BookmarkSession captureSession(String siteUrl);
+
   BookmarkSiteContext siteContextFor(String siteUrl);
 
   bool bookmarkWriteInFlight({required String siteUrl, required int targetId});

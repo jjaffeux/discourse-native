@@ -24,7 +24,7 @@ final class _QuickMenuResult {
 }
 
 abstract interface class _BookmarkUiHost {
-  BookmarkSiteContext siteContextFor(String siteUrl);
+  BookmarkSession get session;
 
   Future<BookmarkWriteResult> createBookmark({
     required String siteUrl,
@@ -51,14 +51,13 @@ abstract interface class _BookmarkUiHost {
 }
 
 final class _CoreBookmarkUiHost implements _BookmarkUiHost {
-  const _CoreBookmarkUiHost(this._host, this._topicId);
+  const _CoreBookmarkUiHost(this._host, this._topicId, this.session);
 
   final BookmarkTargetHost _host;
   final int _topicId;
 
   @override
-  BookmarkSiteContext siteContextFor(String siteUrl) =>
-      _host.siteContextFor(siteUrl);
+  final BookmarkSession session;
 
   @override
   Future<BookmarkWriteResult> createBookmark({
@@ -108,13 +107,12 @@ final class _CoreBookmarkUiHost implements _BookmarkUiHost {
 }
 
 final class _PluginBookmarkUiHost implements _BookmarkUiHost {
-  const _PluginBookmarkUiHost(this._host);
+  const _PluginBookmarkUiHost(this._host, this.session);
 
   final PluginBookmarkHost _host;
 
   @override
-  BookmarkSiteContext siteContextFor(String siteUrl) =>
-      _host.siteContextFor(siteUrl);
+  final BookmarkSession session;
 
   @override
   Future<BookmarkWriteResult> createBookmark({
@@ -158,7 +156,8 @@ Future<void> showPostBookmarkMenu({
   required Post post,
 }) async {
   final actions = controller.bookmarkTarget(BookmarkTargetType.post);
-  final uiActions = _CoreBookmarkUiHost(actions, topicId);
+  final session = actions.captureSession(siteUrl);
+  final uiActions = _CoreBookmarkUiHost(actions, topicId, session);
   final result = await showShellSheet<_QuickMenuResult>(
     context: context,
     title: post.bookmark == null ? 'Bookmark post' : 'Post bookmark',
@@ -170,12 +169,11 @@ Future<void> showPostBookmarkMenu({
       initialBookmark: post.bookmark,
     ),
   );
-  if (result == null || !context.mounted) return;
-  await showBookmarkEditor(
+  if (result == null || !context.mounted || !_canAct(context, session)) return;
+  await _showBookmarkEditor(
     context: context,
-    controller: actions,
+    controller: uiActions,
     siteUrl: siteUrl,
-    topicId: topicId,
     bookmark: result.bookmark,
     cooked: post.cooked,
   );
@@ -191,7 +189,8 @@ Future<void> showPluginBookmarkMenu({
   required String createTitle,
   required String existingTitle,
 }) async {
-  final uiActions = _PluginBookmarkUiHost(controller);
+  final session = controller.captureSession(siteUrl);
+  final uiActions = _PluginBookmarkUiHost(controller, session);
   final result = await showShellSheet<_QuickMenuResult>(
     context: context,
     title: bookmark == null ? createTitle : existingTitle,
@@ -203,7 +202,7 @@ Future<void> showPluginBookmarkMenu({
       initialBookmark: bookmark,
     ),
   );
-  if (result == null || !context.mounted) return;
+  if (result == null || !context.mounted || !_canAct(context, session)) return;
   await _showBookmarkEditor(
     context: context,
     controller: uiActions,
@@ -221,24 +220,28 @@ Future<void> showTopicBookmarkMenu({
 }) async {
   final topicActions = controller.bookmarkTarget(BookmarkTargetType.topic);
   final postActions = controller.bookmarkTarget(BookmarkTargetType.post);
+  final session = topicActions.captureSession(siteUrl);
+  final topicUiActions = _CoreBookmarkUiHost(topicActions, topic.id, session);
+  final postUiActions = _CoreBookmarkUiHost(postActions, topic.id, session);
   if (topic.postBookmarks.isEmpty) {
     final result = await showShellSheet<_QuickMenuResult>(
       context: context,
       title: topic.topicBookmark == null ? 'Bookmark topic' : 'Topic bookmark',
       dialogOnDesktop: true,
       builder: (_) => _BookmarkQuickSheet(
-        controller: _CoreBookmarkUiHost(topicActions, topic.id),
+        controller: topicUiActions,
         siteUrl: siteUrl,
         targetId: topic.id,
         initialBookmark: topic.topicBookmark,
       ),
     );
-    if (result == null || !context.mounted) return;
-    await showBookmarkEditor(
+    if (result == null || !context.mounted || !_canAct(context, session)) {
+      return;
+    }
+    await _showBookmarkEditor(
       context: context,
-      controller: topicActions,
+      controller: topicUiActions,
       siteUrl: siteUrl,
-      topicId: topic.id,
       bookmark: result.bookmark,
     );
     return;
@@ -249,12 +252,12 @@ Future<void> showTopicBookmarkMenu({
     title: 'Topic bookmarks',
     dialogOnDesktop: true,
     builder: (_) => _TopicBookmarksSheet(
-      controller: controller,
+      session: session,
       siteUrl: siteUrl,
       topicId: topic.id,
     ),
   );
-  if (result == null || !context.mounted) return;
+  if (result == null || !context.mounted || !_canAct(context, session)) return;
   switch (result.kind) {
     case _TopicBookmarksActionKind.jump:
       controller.openTopicPost(
@@ -272,18 +275,17 @@ Future<void> showTopicBookmarkMenu({
             : 'Topic bookmark',
         dialogOnDesktop: true,
         builder: (_) => _BookmarkQuickSheet(
-          controller: _CoreBookmarkUiHost(topicActions, topic.id),
+          controller: topicUiActions,
           siteUrl: siteUrl,
           targetId: topic.id,
           initialBookmark: current.topicBookmark,
         ),
       );
-      if (quick != null && context.mounted) {
-        await showBookmarkEditor(
+      if (quick != null && context.mounted && _canAct(context, session)) {
+        await _showBookmarkEditor(
           context: context,
-          controller: topicActions,
+          controller: topicUiActions,
           siteUrl: siteUrl,
-          topicId: topic.id,
           bookmark: quick.bookmark,
         );
       }
@@ -294,13 +296,12 @@ Future<void> showTopicBookmarkMenu({
       final post = bookmark.bookmarkableId == null
           ? null
           : controller.store.read<Post>(siteUrl, bookmark.bookmarkableId!);
-      await showBookmarkEditor(
+      await _showBookmarkEditor(
         context: context,
         controller: targetType == BookmarkTargetType.post
-            ? postActions
-            : topicActions,
+            ? postUiActions
+            : topicUiActions,
         siteUrl: siteUrl,
-        topicId: topic.id,
         bookmark: bookmark,
         cooked: post?.cooked,
       );
@@ -317,6 +318,7 @@ Future<void> showTopicBookmarkMenu({
           )) {
         return;
       }
+      if (!context.mounted || !_canAct(context, session)) return;
       final write =
           await (targetType == BookmarkTargetType.post
                   ? postActions
@@ -326,7 +328,9 @@ Future<void> showTopicBookmarkMenu({
                 topicId: topic.id,
                 bookmark: bookmark,
               );
-      if (context.mounted) _showWriteMessage(context, write);
+      if (context.mounted && _canAct(context, session)) {
+        _showWriteMessage(context, write);
+      }
     case _TopicBookmarksActionKind.clearAll:
       if (!await _confirm(
         context,
@@ -336,11 +340,14 @@ Future<void> showTopicBookmarkMenu({
       )) {
         return;
       }
+      if (!context.mounted || !_canAct(context, session)) return;
       final write = await controller.deleteAllTopicBookmarks(
         siteUrl: siteUrl,
         topicId: topic.id,
       );
-      if (context.mounted) _showWriteMessage(context, write);
+      if (context.mounted && _canAct(context, session)) {
+        _showWriteMessage(context, write);
+      }
   }
 }
 
@@ -354,7 +361,11 @@ Future<void> showBookmarkEditor({
   DateTime Function()? now,
 }) => _showBookmarkEditor(
   context: context,
-  controller: _CoreBookmarkUiHost(controller, topicId),
+  controller: _CoreBookmarkUiHost(
+    controller,
+    topicId,
+    controller.captureSession(siteUrl),
+  ),
   siteUrl: siteUrl,
   bookmark: bookmark,
   cooked: cooked,
@@ -399,6 +410,9 @@ class _BookmarkQuickSheet extends StatefulWidget {
 }
 
 class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
+  bool get _canUseSession =>
+      mounted && _canAct(context, widget.controller.session);
+
   Bookmark? _bookmark;
   String? _error;
   bool _busy = false;
@@ -411,6 +425,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
   }
 
   Future<void> _create() async {
+    if (!widget.controller.session.isCurrent) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -420,14 +435,16 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
       targetId: widget.targetId,
     );
     if (!mounted) return;
+    setState(() => _busy = false);
+    if (!_canUseSession) return;
     setState(() {
-      _busy = false;
       _bookmark = result.bookmark;
       _error = result.message;
     });
   }
 
   Future<void> _setReminder(DateTime reminder) async {
+    if (!_canUseSession) return;
     final bookmark = _bookmark;
     if (bookmark == null) return;
     setState(() {
@@ -442,17 +459,19 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
       autoDeletePreference: bookmark.autoDeletePreference,
     );
     if (!mounted) return;
+    setState(() => _busy = false);
+    if (!_canUseSession) return;
     if (result.saved) {
       Navigator.of(context).pop();
       return;
     }
     setState(() {
-      _busy = false;
       _error = result.message;
     });
   }
 
   Future<void> _clearReminder() async {
+    if (!_canUseSession) return;
     final bookmark = _bookmark;
     if (bookmark == null) return;
     setState(() => _busy = true);
@@ -461,17 +480,19 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
       bookmark: bookmark,
     );
     if (!mounted) return;
+    setState(() => _busy = false);
+    if (!_canUseSession) return;
     if (result.saved) {
       Navigator.of(context).pop();
       return;
     }
     setState(() {
-      _busy = false;
       _error = result.message;
     });
   }
 
   Future<void> _delete() async {
+    if (!_canUseSession) return;
     final bookmark = _bookmark;
     if (bookmark == null) return;
     if (bookmark.reminderAt != null &&
@@ -483,25 +504,32 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
         )) {
       return;
     }
+    if (!_canUseSession) return;
     setState(() => _busy = true);
     final result = await widget.controller.deleteBookmark(
       siteUrl: widget.siteUrl,
       bookmark: bookmark,
     );
     if (!mounted) return;
+    setState(() => _busy = false);
+    if (!_canUseSession) return;
     if (result.saved) {
       Navigator.of(context).pop();
       return;
     }
     setState(() {
-      _busy = false;
       _error = result.message;
     });
   }
 
+  void _edit(Bookmark bookmark) {
+    if (!_canUseSession) return;
+    Navigator.of(context).pop(_QuickMenuResult.edit(bookmark));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final siteContext = widget.controller.siteContextFor(widget.siteUrl);
+    final siteContext = widget.controller.session.siteContext;
     final environment = TimezoneEnvironment.instance;
     final zoneName = environment.readerTimezone(siteContext.timezone);
     final location = environment.location(zoneName)!;
@@ -547,11 +575,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
             leading: const DIcon(DIcons.pencil),
             title: const Text('More options'),
             enabled: !_busy,
-            onTap: _busy
-                ? null
-                : () => Navigator.of(
-                    context,
-                  ).pop(_QuickMenuResult.edit(bookmark)),
+            onTap: _busy ? null : () => _edit(bookmark),
           ),
         ] else ...[
           ListTile(
@@ -559,11 +583,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
             leading: const DIcon(DIcons.pencil),
             title: const Text('Edit bookmark'),
             enabled: !_busy,
-            onTap: _busy
-                ? null
-                : () => Navigator.of(
-                    context,
-                  ).pop(_QuickMenuResult.edit(bookmark)),
+            onTap: _busy ? null : () => _edit(bookmark),
           ),
           if (bookmark.reminderAt != null)
             ListTile(
@@ -612,6 +632,9 @@ class _BookmarkEditor extends StatefulWidget {
 }
 
 class _BookmarkEditorState extends State<_BookmarkEditor> {
+  bool get _canUseSession =>
+      mounted && _canAct(context, widget.controller.session);
+
   late final TextEditingController _name;
   final TextEditingController _relative = TextEditingController(text: '1');
   late BookmarkAutoDeletePreference _preference;
@@ -641,8 +664,9 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
   }
 
   Future<void> _loadSuggestions() async {
+    if (!widget.controller.session.isCurrent) return;
     final registry = PluginScope.of(context).registry;
-    final siteContext = widget.controller.siteContextFor(widget.siteUrl);
+    final siteContext = widget.controller.session.siteContext;
     final username = siteContext.username;
     final last = username == null
         ? null
@@ -653,7 +677,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
             widget.cooked!,
             accountTimezone: siteContext.timezone,
           );
-    if (!mounted) return;
+    if (!_canUseSession) return;
     setState(() {
       _lastCustom = last?.isAfter(widget.now()) == true ? last : null;
       _postDate = postDate;
@@ -661,8 +685,9 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
   }
 
   Future<void> _pickCustom() async {
+    if (!_canUseSession) return;
     final environment = TimezoneEnvironment.instance;
-    final siteContext = widget.controller.siteContextFor(widget.siteUrl);
+    final siteContext = widget.controller.session.siteContext;
     final zoneName = environment.readerTimezone(siteContext.timezone);
     final location = environment.location(zoneName)!;
     final now = widget.now();
@@ -688,7 +713,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
       lastDate: lastDate,
       currentDate: firstDate,
     );
-    if (date == null || !mounted) return;
+    if (date == null || !mounted || !_canUseSession) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(
@@ -696,7 +721,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
         minute: wallInitial.minute,
       ),
     );
-    if (time == null || !mounted) return;
+    if (time == null || !mounted || !_canUseSession) return;
     final instant = BookmarkReminderCalculator.resolveWallTime(
       location: location,
       date: date,
@@ -733,6 +758,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
   }
 
   Future<void> _save() async {
+    if (!_canUseSession) return;
     final now = widget.now().toUtc();
     final reminder = _reminder?.toUtc();
     if (reminder != null && !reminder.isAfter(now)) {
@@ -766,19 +792,20 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
       autoDeletePreference: _preference,
     );
     if (!mounted) return;
+    setState(() => _busy = false);
+    if (!_canUseSession) return;
     if (result.saved) {
       Navigator.of(context).pop();
       return;
     }
     setState(() {
-      _busy = false;
       _error = result.message;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final siteContext = widget.controller.siteContextFor(widget.siteUrl);
+    final siteContext = widget.controller.session.siteContext;
     final environment = TimezoneEnvironment.instance;
     final zoneName = environment.readerTimezone(siteContext.timezone);
     final location = environment.location(zoneName)!;
@@ -962,20 +989,26 @@ final class _TopicBookmarksAction {
 
 class _TopicBookmarksSheet extends StatelessWidget {
   const _TopicBookmarksSheet({
-    required this.controller,
+    required this.session,
     required this.siteUrl,
     required this.topicId,
   });
 
-  final BookmarkHost controller;
+  final BookmarkSession session;
   final String siteUrl;
   final int topicId;
+
+  void _choose(BuildContext context, _TopicBookmarksAction action) {
+    if (!context.mounted || !_canAct(context, session)) return;
+    Navigator.of(context).pop(action);
+  }
 
   @override
   Widget build(
     BuildContext context,
   ) => ShellSelector<({TopicDetail? topic, String busyTargets})>(
     select: (shell) {
+      if (!session.isCurrent) return (topic: null, busyTargets: '');
       final topic = shell.store.read<TopicDetail>(siteUrl, topicId);
       final busy = <String>[];
       if (topic != null) {
@@ -1007,9 +1040,7 @@ class _TopicBookmarksSheet extends StatelessWidget {
       if (topic == null) {
         return const Text('This topic is no longer available.');
       }
-      final siteContext = controller
-          .bookmarkTarget(BookmarkTargetType.topic)
-          .siteContextFor(siteUrl);
+      final siteContext = session.siteContext;
       final zoneName = TimezoneEnvironment.instance.readerTimezone(
         siteContext.timezone,
       );
@@ -1034,7 +1065,8 @@ class _TopicBookmarksSheet extends StatelessWidget {
             enabled: !topicBusy,
             onTap: topicBusy
                 ? null
-                : () => Navigator.of(context).pop(
+                : () => _choose(
+                    context,
                     const _TopicBookmarksAction(
                       _TopicBookmarksActionKind.topic,
                     ),
@@ -1060,7 +1092,8 @@ class _TopicBookmarksSheet extends StatelessWidget {
                           .split(',')
                           .contains('${bookmark.bookmarkableId}')
                   ? null
-                  : () => Navigator.of(context).pop(
+                  : () => _choose(
+                      context,
                       _TopicBookmarksAction(
                         _TopicBookmarksActionKind.jump,
                         postNumber: bookmark.postNumber,
@@ -1086,7 +1119,8 @@ class _TopicBookmarksSheet extends StatelessWidget {
                     child: Text('Delete'),
                   ),
                 ],
-                onSelected: (kind) => Navigator.of(context).pop(
+                onSelected: (kind) => _choose(
+                  context,
                   _TopicBookmarksAction(
                     kind,
                     bookmark: bookmark,
@@ -1103,7 +1137,8 @@ class _TopicBookmarksSheet extends StatelessWidget {
               label: const Text('Delete all bookmarks'),
               onPressed: snapshot.busyTargets.isNotEmpty
                   ? null
-                  : () => Navigator.of(context).pop(
+                  : () => _choose(
+                      context,
                       const _TopicBookmarksAction(
                         _TopicBookmarksActionKind.clearAll,
                       ),
@@ -1132,6 +1167,13 @@ Widget? _bookmarkContext(
   if (lines.isEmpty) return null;
   return Text(lines.join('\n'), maxLines: 3, overflow: TextOverflow.ellipsis);
 }
+
+// Account ownership survives ordinary navigation within the shell, but a
+// delayed dialog result must only act while its own route is on top.
+bool _canAct(BuildContext context, BookmarkSession session) =>
+    context.mounted &&
+    session.isCurrent &&
+    ModalRoute.of(context)?.isCurrent == true;
 
 Future<bool> _confirm(
   BuildContext context, {
