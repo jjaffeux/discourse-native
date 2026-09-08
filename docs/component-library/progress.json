@@ -102,9 +102,9 @@
     },
     {
       "id": "typography",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a081e5-0bef-70a1-9ae3-7717028403e0",
+      "branch": "codex/ui-typography",
       "dependencies": [
         "direction"
       ],
@@ -115,7 +115,10 @@
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "clientThreadId": "client-new-thread:bc7d5eb7-2b13-40ee-b1d5-03729b31fb40",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9a2b/discourse-native",
+      "baseCommit": "d40bd8e08f7cece238e1e2502e93d592807c037b"
     },
     {
       "id": "spinner",

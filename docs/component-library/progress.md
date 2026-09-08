@@ -11,7 +11,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | # | Component | Status | Task | Branch | Dependencies | Merge |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | direction | merged | 01a0818b-e20a-77d0-bb99-77691899dad7 | codex/ui-direction | — | e69458861e83f3989e2f06dd177805c572740a5a |
-| 2 | typography | planned | — | — | direction | — |
+| 2 | typography | in_progress | 01a081e5-0bef-70a1-9ae3-7717028403e0 | codex/ui-typography | direction | — |
 | 3 | spinner | planned | — | — | — | — |
 | 4 | kbd | planned | — | — | typography | — |
 | 5 | tooltip | planned | — | — | kbd | — |
@@ -173,6 +173,10 @@ Status: merged. Task: 01a0818b-e20a-77d0-bb99-77691899dad7. Branch: codex/ui-dir
 - Authenticated core and Chat screens were not exercised in a live signed-in session. Their migrated geometry, resizing, toolbar, measurement and state behaviors were verified by the focused downstream tests listed above.
 - Live direction and custom-theme changes while a menu is already open were verified in widget tests. Manual native preview-setting clicks follow normal outside-click dismissal, so the native menu was inspected after selecting its palette/direction.
 - The initial isolated build needed temporary signing adjustments; a long CUA approval wait and synthesized command-key attempts required app relaunch/reselection before successful native checks. Those tooling interruptions did not require production code changes.
+
+### typography
+
+Status: in_progress. Task: 01a081e5-0bef-70a1-9ae3-7717028403e0. Branch: codex/ui-typography.
 
 ### Final audit
 
