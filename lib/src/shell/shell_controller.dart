@@ -13925,6 +13925,21 @@ final class _ShellScopedPluginBookmarkHostFactory
   }
 }
 
+final class _ShellBookmarkSession implements BookmarkSession {
+  _ShellBookmarkSession(this._shell, String siteUrl)
+    : _lease = _shell.lifecycle.capture(siteUrl),
+      siteContext = _shell.bookmarkSiteContextFor(siteUrl);
+
+  final ShellController _shell;
+  final SiteLease _lease;
+
+  @override
+  final BookmarkSiteContext siteContext;
+
+  @override
+  bool get isCurrent => !_shell.accountSessionDisposed && _lease.isCurrent;
+}
+
 final class _ShellCoreBookmarkTargetHost implements BookmarkTargetHost {
   _ShellCoreBookmarkTargetHost(this._shell, this._targetType);
 
@@ -13942,6 +13957,10 @@ final class _ShellCoreBookmarkTargetHost implements BookmarkTargetHost {
   BookmarkWriteResult _foreignBookmark() => BookmarkWriteResult.refused(
     'This bookmark does not belong to ${_targetType.refreshLabel}.',
   );
+
+  @override
+  BookmarkSession captureSession(String siteUrl) =>
+      _ShellBookmarkSession(_shell, siteUrl);
 
   @override
   BookmarkSiteContext siteContextFor(String siteUrl) =>
@@ -14072,6 +14091,10 @@ final class _ShellPluginBookmarkTargetHost implements PluginBookmarkHost {
   BookmarkWriteResult _foreignBookmark() => BookmarkWriteResult.refused(
     'This bookmark does not belong to ${_targetType.refreshLabel}.',
   );
+
+  @override
+  BookmarkSession captureSession(String siteUrl) =>
+      _ShellBookmarkSession(_shell, siteUrl);
 
   @override
   BookmarkSiteContext siteContextFor(String siteUrl) =>
