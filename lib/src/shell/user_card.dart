@@ -149,16 +149,22 @@ class _UserCardPopup extends StatelessWidget {
   final Rect? anchor;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<ShellController>(
-    select: (controller) => controller,
-    builder: (context, controller, _) => _ControllerUserCardPopup(
-      key: ObjectKey(controller),
-      controller: controller,
-      username: username,
-      siteUrl: siteUrl,
-      anchor: anchor,
-    ),
-  );
+  Widget build(BuildContext context) =>
+      ShellSelector<({ShellController controller, Object session})>(
+        select: (controller) => (
+          controller: controller,
+          session: controller.lifecycle.capture(siteUrl).session,
+        ),
+        builder: (context, owner, _) => _ControllerUserCardPopup(
+          // Account changes clear the card cache without replacing the
+          // controller, so the popup must load again for the new session.
+          key: ValueKey(owner),
+          controller: owner.controller,
+          username: username,
+          siteUrl: siteUrl,
+          anchor: anchor,
+        ),
+      );
 }
 
 class _ControllerUserCardPopup extends StatefulWidget {
