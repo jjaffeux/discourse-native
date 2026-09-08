@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -128,9 +129,10 @@ Post _post({
 }
 
 Future<({ShellController shell, FakeSiteTracker tracker})> _loadShell(
-  FakeDiscourseApi api,
-) async {
-  final authenticator = FakeAuthenticator();
+  FakeDiscourseApi api, {
+  FakeAuthenticator? authenticator,
+}) async {
+  authenticator ??= FakeAuthenticator();
   authenticator.keys[_site] = 'api-key';
   final shell = ShellController(
     plugins: installedPlugins,
@@ -550,6 +552,149 @@ void main() {
         );
       },
     );
+  });
+
+  group('poll recovery admission', () {
+    for (final remove in [false, true]) {
+      final action = remove ? 'removal' : 'vote';
+      for (final failure in [
+        (
+          name: 'unreachable',
+          error: const WriteException(WriteFailure.unreachable),
+        ),
+        (name: 'unexpected', error: StateError('Poll response failed')),
+      ]) {
+        for (final change in [
+          'disconnect',
+          'account replacement',
+          'shell disposal',
+          'poll disposal',
+          'no account change',
+        ]) {
+          test('${failure.name} $action recovery after $change', () async {
+            final initialPoll = _poll();
+            final initial = _post(poll: initialPoll);
+            final reconciled = _post(
+              poll: _poll(selected: remove ? const [] : const ['b']),
+              cooked: '<p>Reconciled</p>',
+            );
+            final gate = Completer<void>();
+            final api = _api(
+              initial: initial,
+              pollGate: gate,
+              voteResponses: {
+                FakeDiscourseApi.pollVoteKey(11, 'poll'): _answer(initialPoll),
+              },
+              removalResponses: {
+                FakeDiscourseApi.pollVoteKey(11, 'poll'): _answer(initialPoll),
+              },
+              postsById: {11: reconciled},
+            );
+            final authenticator = FakeAuthenticator(
+              credentials: const UserApiCredentials(
+                key: 'replacement-key',
+                apiVersion: 4,
+                push: false,
+              ),
+            );
+            final (:shell, tracker: _) = await _loadShell(
+              api,
+              authenticator: authenticator,
+            );
+            var disposed = false;
+            addTearDown(() {
+              if (!disposed) shell.dispose();
+            });
+            addTearDown(() {
+              if (!gate.isCompleted) gate.complete();
+            });
+            final lease = shell.lifecycle.capture(_site);
+            final writing = remove
+                ? _removePollVote(shell, initial, initialPoll)
+                : _castPollVote(shell, initial, initialPoll, const ['b']);
+            await _waitFor(
+              () => remove
+                  ? api.pollVotesRemoved.isNotEmpty
+                  : api.pollVotes.isNotEmpty,
+              description: 'the admitted poll $action request',
+            );
+            expect(api.pollVotes, hasLength(remove ? 0 : 1));
+            expect(api.pollVotesRemoved, hasLength(remove ? 1 : 0));
+            expect(shell.pluginPostWriteInFlight(_site, 11), isTrue);
+            expect(authenticator.keys[_site], 'api-key');
+
+            switch (change) {
+              case 'disconnect':
+                expect(await shell.disconnectInstance(_site), isTrue);
+                expect(shell.currentInstance?.isConnected, isFalse);
+                expect(authenticator.disconnected, [_site]);
+                expect(lease.isCurrent, isFalse);
+              case 'account replacement':
+                await shell.connectCurrentInstance();
+                expect(shell.currentInstance?.isConnected, isTrue);
+                expect(authenticator.keys[_site], 'replacement-key');
+                expect(lease.isCurrent, isFalse);
+              case 'shell disposal':
+                shell.dispose();
+                disposed = true;
+                expect(lease.isCurrent, isFalse);
+              case 'poll disposal':
+                await shell.pluginSession.close();
+                expect(lease.isCurrent, isTrue);
+              case 'no account change':
+                expect(lease.isCurrent, isTrue);
+            }
+            await pumpEventQueue();
+            expect(api.postFetches, isEmpty);
+            final held = shell.store.read<Post>(_site, 11);
+
+            gate.completeError(failure.error);
+            final result = await writing;
+            await pumpEventQueue();
+
+            expect(result.message, isNull);
+            expect(result.reconciled, isTrue);
+            if (change == 'no account change') {
+              expect(api.postFetches, [
+                [11],
+              ]);
+              expect(shell.store.read<Post>(_site, 11), same(reconciled));
+              expect(shell.pluginPostWriteInFlight(_site, 11), isFalse);
+            } else {
+              expect(api.postFetches, isEmpty);
+              expect(shell.store.read<Post>(_site, 11), same(held));
+            }
+          });
+        }
+      }
+    }
+  });
+
+  group('shared post refresh admission', () {
+    for (final change in ['disconnect', 'shell disposal']) {
+      test('rejects a retained refresh after $change', () async {
+        final api = _api(initial: _post(poll: _poll()));
+        final (:shell, tracker: _) = await _loadShell(api);
+        var disposed = false;
+        addTearDown(() {
+          if (!disposed) shell.dispose();
+        });
+        final lease = shell.lifecycle.capture(_site);
+        if (change == 'disconnect') {
+          expect(await shell.disconnectInstance(_site), isTrue);
+        } else {
+          shell.dispose();
+          disposed = true;
+        }
+        expect(lease.isCurrent, isFalse);
+        await pumpEventQueue();
+        expect(api.postFetches, isEmpty);
+
+        await shell.refreshPluginPost(_site, 7, 11, 'api-key', lease);
+
+        expect(api.postFetches, isEmpty);
+      });
+    }
   });
 
   group('poll write ordering', () {

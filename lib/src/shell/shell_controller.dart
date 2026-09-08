@@ -10131,6 +10131,7 @@ class ShellController extends FrameSafeNotifier
     String? apiKey,
     SiteLease lease,
   ) async {
+    if (isDisposed || !lease.isCurrent) return;
     List<Post> fetched;
     try {
       fetched = await api.topicContent.posts(
