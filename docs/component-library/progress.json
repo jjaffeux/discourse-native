@@ -209,7 +209,7 @@
       "clientThreadId": "client-new-thread:f13877da-2928-498d-90ac-fd4f2c12be97",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4bea/discourse-native",
       "baseCommit": "bd21f7cbe93b5c3aa6636c73e52fc511827ec084",
-      "nativeInspectionStatus": "in_progress"
+      "nativeInspectionStatus": "completed"
     },
     {
       "id": "tooltip",
@@ -1347,9 +1347,8 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": "01a0821b-27cc-7013-affb-99cae203b2a8",
+    "nativeInspectionTaskId": "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
     "nativeInspectionQueue": [
-      "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
       "01a08213-b4ca-77e1-a2aa-8a490808243e",
       "01a08213-9960-79f1-8d90-9626f24a4b5a",
       "01a0825a-9fe1-7700-878c-f448801c0851"
@@ -1384,6 +1383,6 @@
     ],
     "implementationCommit": "9fa7b99575d64610f63974b0a9f8061d9c3b2eff",
     "mergeCommit": null,
-    "nativeInspectionStatus": "queued"
+    "nativeInspectionStatus": "in_progress"
   }
 }
