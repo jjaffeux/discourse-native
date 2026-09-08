@@ -4,7 +4,7 @@ Generated from [progress.json](progress.json). Read the [brief](brief.md), [conv
 
 Coordinator task: `01a0816f-d4e0-7f93-9d6b-baeaf6961181`. Reference: 2026-09-08.
 
-Foundation: **review_ready** on `codex/component-library-foundation`. Merge: —.
+Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d3323f9b7619bdead025fd76a57be402a97.
 
 ## Sequential implementation
 
@@ -79,7 +79,7 @@ Foundation: **review_ready** on `codex/component-library-foundation`. Merge: —
 
 ### Foundation
 
-Status: review_ready. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/component-library-foundation.
+Status: merged. Task: 01a0816f-d4e0-7f93-9d6b-baeaf6961181. Branch: codex/component-library-foundation.
 
 **acceptanceCriteria**
 
