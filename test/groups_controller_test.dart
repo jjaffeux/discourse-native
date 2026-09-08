@@ -506,6 +506,134 @@ void main() {
     },
   );
 
+  for (final mentions in [false, true]) {
+    final kind = mentions ? 'mentions' : 'posts';
+    test(
+      '$kind continues after a full raw page with a non-object slot',
+      () async {
+        final transport = _ControlledGroupTransport()
+          ..objects.addAll([
+            _completed({
+              'posts': [
+                for (var id = 1; id <= 20; id++)
+                  if (id == 10)
+                    null
+                  else
+                    {
+                      'id': id,
+                      'topic_id': id,
+                      'created_at': DateTime.utc(
+                        2026,
+                        9,
+                        1,
+                        12,
+                        0,
+                        20 - id,
+                      ).toIso8601String(),
+                    },
+              ],
+            }),
+            _completed({
+              'posts': [
+                {
+                  'id': 21,
+                  'topic_id': 21,
+                  'created_at': '2026-08-31T12:00:00Z',
+                },
+                {
+                  'id': 22,
+                  'topic_id': 22,
+                  'created_at': '2026-08-30T12:00:00Z',
+                },
+              ],
+            }),
+          ]);
+        final controller = _controller(transport);
+        addTearDown(controller.dispose);
+
+        await controller.loadActivity(_instance, 'support', mentions: mentions);
+        final first = controller.activityState(
+          _site,
+          'support',
+          mentions: mentions,
+        );
+        expect(first.error, isNull);
+        expect(first.posts, hasLength(19));
+        expect(first.hasMore, isTrue);
+        expect(transport.gets.single.path, '/groups/support/$kind.json');
+
+        await controller.loadActivity(
+          _instance,
+          'support',
+          mentions: mentions,
+          more: true,
+        );
+        final state = controller.activityState(
+          _site,
+          'support',
+          mentions: mentions,
+        );
+        expect(state.error, isNull);
+        expect(state.posts.map((post) => post.id), [
+          for (var id = 1; id <= 22; id++)
+            if (id != 10) id,
+        ]);
+        expect(state.hasMore, isFalse);
+        expect(transport.gets, hasLength(2));
+        final request = Uri.parse(transport.gets.last.path);
+        expect(request.path, '/groups/support/$kind.json');
+        expect(request.queryParameters, {'before': '2026-09-01T12:00:00.000Z'});
+
+        await controller.loadActivity(
+          _instance,
+          'support',
+          mentions: mentions,
+          more: true,
+        );
+        expect(transport.gets, hasLength(2));
+      },
+    );
+
+    test('$kind stops when a mixed page has no final timestamp', () async {
+      final transport = _ControlledGroupTransport()
+        ..objects.add(
+          _completed({
+            'posts': [
+              for (var id = 1; id <= 20; id++)
+                if (id == 10)
+                  null
+                else
+                  {
+                    'id': id,
+                    'topic_id': id,
+                    if (id < 20) 'created_at': '2026-09-01T12:00:00Z',
+                  },
+            ],
+          }),
+        );
+      final controller = _controller(transport);
+      addTearDown(controller.dispose);
+
+      await controller.loadActivity(_instance, 'support', mentions: mentions);
+      final state = controller.activityState(
+        _site,
+        'support',
+        mentions: mentions,
+      );
+      expect(state.error, isNull);
+      expect(state.posts, hasLength(19));
+      expect(state.hasMore, isFalse);
+
+      await controller.loadActivity(
+        _instance,
+        'support',
+        mentions: mentions,
+        more: true,
+      );
+      expect(transport.gets, hasLength(1));
+    });
+  }
+
   test('group state snapshots defensively own every exposed list', () {
     final groups = [const Group(id: 1, name: 'alpha')];
     final typeFilters = ['public'];
