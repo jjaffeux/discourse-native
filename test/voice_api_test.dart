@@ -80,6 +80,67 @@ void main() {
         path: '/voice/rooms/conf-room-1.json',
       );
     });
+
+    test(
+      'reads rooms and the directory when one timestamp is invalid',
+      () async {
+        final payload = <String, dynamic>{
+          ...fixture('room'),
+          'public': true,
+          'active_participants': [
+            {'id': 1, 'username': 'sam', 'hand_raised_at': 1e308},
+            {'id': 2, 'username': 'lee', 'hand_raised_at': 1786204801.5},
+          ],
+        };
+        final (:api, :transport) = _apiWithResponses({
+          'GET /voice/rooms.json': {
+            ...fixture('directory'),
+            'rooms': [payload],
+          },
+          'GET /voice/rooms/conf-room-1.json': {'room': payload},
+        });
+
+        final directory = await api.rooms(siteUrl: _siteUrl, apiKey: _apiKey);
+        final room = await api.room(
+          siteUrl: _siteUrl,
+          slug: 'conf-room-1',
+          apiKey: _apiKey,
+        );
+
+        expect(directory.canCreateRoom, isTrue);
+        expect(directory.messageBusLastId, 144);
+        for (final snapshot in [directory.rooms.single, room]) {
+          expect(
+            (snapshot.id, snapshot.slug, snapshot.isPublic),
+            (7, 'conf-room-1', true),
+          );
+          expect(
+            snapshot.participants.map(
+              (user) => (user.id, user.username, user.handRaisedAt),
+            ),
+            [
+              (2, 'lee', DateTime.utc(2026, 8, 8, 16, 0, 1, 500)),
+              (1, 'sam', null),
+            ],
+          );
+          expect(
+            snapshot.recording!.startedAt,
+            DateTime.utc(2026, 8, 8, 16, 0, 0, 250),
+          );
+        }
+        expect(transport.requests, hasLength(2));
+        _expectRequest(
+          transport.requests[0],
+          method: 'GET',
+          path: '/voice/rooms.json',
+        );
+        _expectRequest(
+          transport.requests[1],
+          method: 'GET',
+          path: '/voice/rooms/conf-room-1.json',
+        );
+      },
+    );
   });
 
   group('participant session', () {
