@@ -25,3 +25,16 @@ Extract shared code as recurring needs become clear during component implementat
 After every component has been implemented, integrated into the styleguide, reviewed for application adoption, verified, and merged, create one final separate Codex task to audit the complete library and its app integrations.
 That task should identify and implement improvements to duplicated code, shared primitives, API consistency, composition, theming, accessibility, styleguide coverage, and missed migration opportunities. Remove obsolete code and update documentation and examples as needed. Verify the affected behavior, review the resulting changes, and merge them into main.
 Finish with a concise report of the completed catalogue, application migrations, verification performed, intentional deviations, and any unresolved limitations. Do not mark the overall goal complete while required implementation, verification, or merges remain unfinished.
+
+
+## Workflow amendment — 2026-09-08
+
+The user subsequently authorized multiple component Codex tasks at the same time.
+Independent components now run concurrently in isolated worktrees, each created
+from the latest local main with its dependencies already merged. The coordinator
+keeps up to four implementation tasks active, reviews and merges one result at
+a time from the main checkout, and reconciles shared files and progress metadata.
+Native UI inspections are also serialized because they share desktop focus;
+builds, analysis and widget tests can run concurrently. This replaces the
+original requirement to keep component implementation sequential. All other
+scope, quality, migration, verification and final-audit requirements remain.

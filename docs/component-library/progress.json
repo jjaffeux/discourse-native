@@ -1209,5 +1209,13 @@
     "decisions": [],
     "verification": [],
     "mergeCommit": null
+  },
+  "workflow": {
+    "updatedAt": "2026-09-08",
+    "authorization": "User requested multiple components and Codex sessions at a time.",
+    "maxConcurrentComponentTasks": 4,
+    "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
+    "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
+    "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently."
   }
 }

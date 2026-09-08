@@ -36,4 +36,13 @@ focused on its assigned component and necessary shared/downstream changes.
 
 Do not create other implementation tasks, merge, push, publish or mark the
 whole project complete. The coordinator reviews and merges from the main
-checkout, records the merge SHA, and starts the next component sequentially.
+checkout and records the merge SHA. The user now authorizes concurrent
+independent component tasks (up to four), each based on latest main at dispatch
+with dependencies already merged. The coordinator serializes reviews and merges.
+Edit only your assigned progress row and preserve unrelated component work.
+
+Builds and automated checks can run concurrently. Before native CUA inspection,
+notify the coordinator that code/checks are ready and request the shared desktop
+inspection slot. Wait for that slot while continuing independent work, then
+report completion or any blocking permission request so the slot can be released.
+This is task scheduling; it does not require routine user confirmation.

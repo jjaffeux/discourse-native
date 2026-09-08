@@ -93,9 +93,19 @@ Inspect the running styleguide and changed app surfaces in representative
 palettes and viewport sizes. Report exactly which platforms and interactions
 were run; widget tests with target-platform overrides are not device testing.
 
-Component implementation and merges are sequential. Each component gets a
-separate Codex task and isolated worktree from latest local main. Implementers
-commit on `codex/ui-<component>` and report to the coordinator; they do not merge.
+The user authorized concurrent component tasks on 2026-09-08. Keep up to four
+independent implementation tasks active. Each component gets a separate Codex
+task and isolated worktree from latest local main, with its implementation
+dependencies already merged. Implementers commit on `codex/ui-<component>`
+and report to the coordinator; they do not merge. Reviews and merges remain
+serialized. Reconcile shared exports, example registrations, app migrations and
+progress metadata against previously merged components during coordinator review.
+
+Builds, analysis and widget tests can run concurrently. Native UI inspections
+share desktop focus: after preparing code and checks, notify the coordinator
+that native inspection is ready and wait for an inspection slot before using
+CUA. Continue other independent work while waiting. Release the slot by reporting
+inspection completion or a blocking permission request to the coordinator.
 The coordinator reviews, fixes or requests fixes, then merges with `--no-ff`
 **from `/Users/joffreyjaffeux/Code/discourse-native` on main**. Preserve unrelated
 changes. Never merge main into a component branch as the final project merge.
@@ -106,8 +116,10 @@ Record decisions, migrations and retained alternatives, verification commands
 and outcomes, limitations, implementation commit, then merge commit. Regenerate
 `progress.md` with `dart run tool/render_component_progress.dart` and commit each
 update. A merge SHA must be recorded in a follow-up commit because a commit
-cannot embed its own final SHA. Begin the next task only after local main
-contains both the implementation and progress update.
+cannot embed its own final SHA. Start a dependent task only after local main
+contains its dependencies and their progress updates; independent tasks may
+start while other components are still in progress. Each implementer edits only
+its assigned progress row; the coordinator preserves all other rows on merge.
 
 After all 64 component rows are merged, create a final separate audit task to
 improve shared code, API consistency, composition, themes, accessibility,
