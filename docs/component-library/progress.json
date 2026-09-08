@@ -189,8 +189,8 @@
       "clientThreadId": "client-new-thread:96389418-9fde-4b24-a7dc-7e3fb7a06b2c",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2515/discourse-native",
       "baseCommit": "5fd6658b9fded22bf4b19323257c8ad822dc89eb",
-      "nativeInspectionStatus": "in_progress",
-      "nativeInspectionFollowUp": "Run the prepared untouched-baseline forced-semantics crash comparison, followed by final source-matched Spinner examples and real UserMenuMessage/GifPicker local-data fixtures."
+      "nativeInspectionStatus": "follow_up_queued",
+      "nativeInspectionFollowUp": "Full SVG examples and actual core/GIF loading/error/retry/completion fixtures passed native checks. Untouched baseline reproduced the forced-semantics accessibility crash. Three final sample corrections still require visual reinspection after a separate keyboard-event-loop incident on the rebuilt isolated app; its cause remains unassigned. Both Spinner apps are closed."
     },
     {
       "id": "kbd",
@@ -388,7 +388,7 @@
       "clientThreadId": "client-new-thread:aa7ba342-617f-4551-a3ef-9565a8335114",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/e53a/discourse-native",
       "baseCommit": "31bbde65b59b47c34a03791c696fa24f2d59ad5e",
-      "nativeInspectionStatus": "queued"
+      "nativeInspectionStatus": "in_progress"
     },
     {
       "id": "badge",
@@ -1461,11 +1461,11 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": "01a08213-9960-79f1-8d90-9626f24a4b5a",
+    "nativeInspectionTaskId": "01a0825a-9fe1-7700-878c-f448801c0851",
     "nativeInspectionQueue": [
-      "01a0825a-9fe1-7700-878c-f448801c0851",
       "01a082a9-b9d4-79f0-8a0d-cc48e700cc67",
-      "01a0829c-ba0d-7282-a010-7e26f190dd4f"
+      "01a0829c-ba0d-7282-a010-7e26f190dd4f",
+      "01a08213-9960-79f1-8d90-9626f24a4b5a"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready."
   },
