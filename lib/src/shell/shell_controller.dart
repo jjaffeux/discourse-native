@@ -6616,7 +6616,10 @@ class ShellController extends FrameSafeNotifier
         ),
       ),
       pluginStateReader: readPluginState,
-      isCurrentComposer: () => _ownsComposer(composer),
+      // Plugin surfaces own and dispose their composers; only topic composers
+      // are registered in the shell's per-tab map.
+      isCurrentComposer: () =>
+          !isDisposed && (target.isPlugin || _ownsComposer(composer)),
       imageUploader: !(target.policy?.uploadsEnabled ?? true)
           ? null
           : (file, {required onProgress, required abortTrigger}) =>
