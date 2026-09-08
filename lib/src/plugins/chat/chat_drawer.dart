@@ -1046,36 +1046,42 @@ class ChatDrawerChannelsView extends StatelessWidget {
             Padding(
               key: const ValueKey('chat-drawer-list-heading'),
               padding: const EdgeInsets.fromLTRB(16, 10, 12, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            switch (kind) {
-                              ChatDrawerChannelListKind.channels => 'Channels',
-                              ChatDrawerChannelListKind.starred => 'Starred',
-                              ChatDrawerChannelListKind.directMessages =>
-                                'Direct messages',
-                            },
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w600),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.textScalerOf(context).scale(36),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              switch (kind) {
+                                ChatDrawerChannelListKind.channels =>
+                                  'Channels',
+                                ChatDrawerChannelListKind.starred => 'Starred',
+                                ChatDrawerChannelListKind.directMessages =>
+                                  'Direct messages',
+                              },
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${channels.length}',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: colors.onSurfaceVariant),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Text(
+                            '${channels.length}',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: colors.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  if (action != null) ...[const SizedBox(width: 8), action],
-                ],
+                    if (action != null) ...[const SizedBox(width: 8), action],
+                  ],
+                ),
               ),
             ),
             Expanded(
