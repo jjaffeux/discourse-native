@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
-import '../../discourse_ui.dart';
 import '../app_shortcuts.dart';
 import '../data/topic_recommendations_tab_store.dart';
 import '../data/topic_sidebar_store.dart';

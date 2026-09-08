@@ -1,7 +1,7 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../discourse_ui.dart';
 import '../models/badge.dart';
 import '../models/badge_route.dart';
 import '../models/content_route.dart';

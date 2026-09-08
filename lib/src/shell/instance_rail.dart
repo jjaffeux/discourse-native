@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart';
 import '../app_shortcuts.dart';
 import '../diagnostics/diagnostics_scope.dart';
 import '../models/discourse_instance.dart';
@@ -1668,9 +1668,12 @@ class _RailTooltipCallout extends StatelessWidget {
           ),
           if (shortcutKey case final shortcutKey?) ...[
             const SizedBox(width: 12),
-            IntrinsicHeight(
-              child: DefaultTextStyle(
-                style: const TextStyle(color: Color(0xFFF3F3F4)),
+            Flexible(
+              child: DKbdTheme(
+                foregroundColor: const Color(0xFFF3F3F4),
+                backgroundColor: const Color(0xFFF3F3F4).withValues(
+                  alpha: theme.brightness == Brightness.dark ? 0.10 : 0.20,
+                ),
                 child: DShortcutKeycaps(
                   shortcut: DShortcut(
                     primaryShortcutForPlatform(theme.platform, shortcutKey),

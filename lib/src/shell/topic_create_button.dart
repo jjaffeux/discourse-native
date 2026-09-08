@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../discourse_ui.dart';
 import '../app_shortcuts.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_draft.dart';

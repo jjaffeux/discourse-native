@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -11,6 +12,69 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.example';
 
 void main() {
+  testWidgets(
+    'search hints use keycaps, stay outside input state and fit scaled narrow layouts',
+    (tester) async {
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore(),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updater: FakeUpdater(),
+        updateStore: FakeUpdateStore(),
+      );
+      controller.search.selectSite(_siteUrl);
+      addTearDown(controller.dispose);
+      for (final width in [220.0, 360.0, 600.0]) {
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: MediaQuery(
+                  data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(width: width, child: const ForumSearch()),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        final hint = find.byType(DShortcutKeycaps);
+        if (width >= 280) {
+          expect(hint, findsOneWidget);
+          final caps = tester.widget<DShortcutKeycaps>(hint);
+          expect(caps.shortcut[0].trigger, LogicalKeyboardKey.keyF);
+          expect(caps.shortcut[0].control, isTrue);
+          expect(caps.listenToKeyboard, isFalse);
+        } else {
+          expect(hint, findsNothing);
+        }
+        expect(tester.takeException(), isNull);
+      }
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'community');
+      await tester.pump();
+      expect(controller.search.query, 'community');
+      expect(find.byType(DShortcutKeycaps), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('forum-search-clear')));
+      await tester.pump();
+      expect(controller.search.query, isEmpty);
+      expect(find.byType(DShortcutKeycaps), findsOneWidget);
+      expect(
+        tester
+            .widget<EditableText>(find.byKey(ForumSearch.inputKey))
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+    },
+  );
+
   testWidgets('clear search is a compact 44-pixel keyboard target', (
     tester,
   ) async {

@@ -1,8 +1,8 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart';
 import '../app_shortcuts.dart';
 import 'shell_sheet.dart';
 
@@ -91,20 +91,25 @@ class _ShortcutRow extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 8),
     child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: Text(label)),
+        Expanded(flex: 3, child: Text(label)),
         const SizedBox(width: 16),
-        for (var i = 0; i < shortcuts.length; i++) ...[
-          if (i > 0)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 6),
-              child: Text('or'),
-            ),
-          if (shortcuts[i] case final SingleActivator shortcut)
-            DShortcutKeycaps(shortcut: DShortcut(shortcut))
-          else if (shortcuts[i] case final CharacterActivator shortcut)
-            Text(shortcut.character),
-        ],
+        Flexible(
+          flex: 2,
+          child: DKbdGroup(
+            spacing: DSpacing.sm,
+            children: [
+              for (var i = 0; i < shortcuts.length; i++) ...[
+                if (i > 0) const Text('or'),
+                if (shortcuts[i] case final SingleActivator shortcut)
+                  DShortcutKeycaps(shortcut: DShortcut(shortcut))
+                else if (shortcuts[i] case final CharacterActivator shortcut)
+                  DKbd(shortcut.character),
+              ],
+            ],
+          ),
+        ),
       ],
     ),
   );

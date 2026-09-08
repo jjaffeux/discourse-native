@@ -763,9 +763,13 @@ class ComposerToolbarContribution {
     required this.icon,
     required this.label,
     required this.onInvoke,
+    this.shortcut,
   });
 
   final DIconData icon;
   final String label;
   final VoidCallback onInvoke;
+
+  /// Native menu hint only; the plugin retains ownership of shortcut dispatch.
+  final MenuSerializableShortcut? shortcut;
 }

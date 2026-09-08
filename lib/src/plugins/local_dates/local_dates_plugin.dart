@@ -250,9 +250,17 @@ class LocalDatesPlugin
     return [
       ComposerToolbarContribution(
         icon: DIcons.farClock,
-        label: defaultTargetPlatform == TargetPlatform.macOS
-            ? 'Insert date/time  ⌘⇧.'
-            : 'Insert date/time  Ctrl Shift .',
+        label: 'Insert date/time',
+        shortcut: SingleActivator(
+          LogicalKeyboardKey.period,
+          shift: true,
+          meta:
+              defaultTargetPlatform == TargetPlatform.macOS ||
+              defaultTargetPlatform == TargetPlatform.iOS,
+          control:
+              defaultTargetPlatform != TargetPlatform.macOS &&
+              defaultTargetPlatform != TargetPlatform.iOS,
+        ),
         onInvoke: () =>
             unawaited(openLocalDateComposer(context, editor, policy)),
       ),

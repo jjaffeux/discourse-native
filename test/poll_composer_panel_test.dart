@@ -265,7 +265,7 @@ void main() {
     testWidgets('local-date action and Ctrl+Shift+. follow the site setting', (
       tester,
     ) async {
-      const tooltip = 'Insert date/time  Ctrl Shift .';
+      const tooltip = 'Insert date/time';
       final disabled = await _openComposer();
       addTearDown(disabled.dispose);
       await tester.pumpWidget(
@@ -308,6 +308,14 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('composer-insert')));
       await tester.pump();
       expect(find.text(tooltip), findsOneWidget);
+      final menuItem = tester.widget<MenuItemButton>(
+        find.widgetWithText(MenuItemButton, tooltip),
+      );
+      final shortcut = menuItem.shortcut! as SingleActivator;
+      expect(shortcut.trigger, LogicalKeyboardKey.period);
+      expect(shortcut.control, isTrue);
+      expect(shortcut.shift, isTrue);
+      expect(shortcut.meta, isFalse);
 
       await tester.tap(find.byType(TextField).last);
       await tester.pump();
