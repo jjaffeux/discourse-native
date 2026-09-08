@@ -15,7 +15,6 @@ import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
-import 'loading_skeleton.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'topic_title.dart';
@@ -426,7 +425,8 @@ class _ActivityLoadingSkeleton extends StatelessWidget {
   const _ActivityLoadingSkeleton();
 
   @override
-  Widget build(BuildContext context) => LoadingSkeleton(
+  Widget build(BuildContext context) => DSkeletonRegion(
+    expand: true,
     semanticsLabel: 'Loading activity',
     child: ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
@@ -442,7 +442,7 @@ class _ActivityLoadingSkeleton extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const LoadingSkeletonBlock.circle(diameter: 44),
+                  const DSkeleton.circle(diameter: 44),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -450,19 +450,19 @@ class _ActivityLoadingSkeleton extends StatelessWidget {
                       children: [
                         FractionallySizedBox(
                           widthFactor: index.isEven ? 0.52 : 0.68,
-                          child: const LoadingSkeletonBlock(height: 12),
+                          child: const DSkeleton(height: 12),
                         ),
                         const SizedBox(height: 9),
-                        const LoadingSkeletonBlock(width: 110, height: 8),
+                        const DSkeleton(width: 110, height: 8),
                         const SizedBox(height: 18),
                         const FractionallySizedBox(
                           widthFactor: 0.88,
-                          child: LoadingSkeletonBlock(height: 10),
+                          child: DSkeleton(height: 10),
                         ),
                         const SizedBox(height: 8),
                         const FractionallySizedBox(
                           widthFactor: 0.61,
-                          child: LoadingSkeletonBlock(height: 10),
+                          child: DSkeleton(height: 10),
                         ),
                       ],
                     ),

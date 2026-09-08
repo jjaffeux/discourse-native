@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart';
 import '../data/site_lifecycle.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_summary.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
@@ -14,7 +14,6 @@ import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'external_link.dart';
 import 'inline_action.dart';
-import 'loading_skeleton.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -1067,7 +1066,8 @@ class _SummaryLoadingSkeleton extends StatelessWidget {
   const _SummaryLoadingSkeleton({super.key});
 
   @override
-  Widget build(BuildContext context) => LoadingSkeleton(
+  Widget build(BuildContext context) => DSkeletonRegion(
+    expand: true,
     semanticsLabel: 'Loading summary',
     child: ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(16, 18, 16, 36),
@@ -1079,14 +1079,14 @@ class _SummaryLoadingSkeleton extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const LoadingSkeletonBlock(width: 70, height: 11),
+                const DSkeleton(width: 70, height: 11),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
                   children: [
                     for (var index = 0; index < 8; index++)
-                      const LoadingSkeletonBlock(
+                      const DSkeleton(
                         width: 116,
                         height: 62,
                         borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -1094,22 +1094,22 @@ class _SummaryLoadingSkeleton extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 30),
-                const LoadingSkeletonBlock(width: 110, height: 11),
+                const DSkeleton(width: 110, height: 11),
                 const SizedBox(height: 12),
                 for (final width in [0.72, 0.9, 0.61]) ...[
                   FractionallySizedBox(
                     widthFactor: width,
-                    child: const LoadingSkeletonBlock(height: 44),
+                    child: const DSkeleton(height: 44),
                   ),
                   const SizedBox(height: 8),
                 ],
                 const SizedBox(height: 22),
-                const LoadingSkeletonBlock(width: 90, height: 11),
+                const DSkeleton(width: 90, height: 11),
                 const SizedBox(height: 12),
                 for (final width in [0.86, 0.66]) ...[
                   FractionallySizedBox(
                     widthFactor: width,
-                    child: const LoadingSkeletonBlock(height: 52),
+                    child: const DSkeleton(height: 52),
                   ),
                   const SizedBox(height: 8),
                 ],

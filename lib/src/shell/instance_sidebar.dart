@@ -17,7 +17,6 @@ import 'emoji.dart';
 import 'external_link.dart';
 import 'forum_search.dart';
 import 'instance_actions.dart';
-import 'loading_skeleton.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';
@@ -906,7 +905,8 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
   const _SidebarLoadingSkeleton();
 
   @override
-  Widget build(BuildContext context) => LoadingSkeleton(
+  Widget build(BuildContext context) => DSkeletonRegion(
+    expand: true,
     key: const ValueKey('sidebar-loading-skeleton'),
     semanticsLabel: 'Loading navigation',
     child: Padding(
@@ -915,7 +915,11 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var section = 0; section < 2; section++) ...[
-            const LoadingSkeletonBlock(width: 70, height: 8),
+            DSkeleton(
+              width: 70,
+              height: 8,
+              color: DTokens.of(context).background,
+            ),
             const SizedBox(height: 10),
             for (var row = 0; row < 4; row++)
               SizedBox(
@@ -923,11 +927,16 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
                     _SidebarSpacing.rowHeight(context) + _SidebarSpacing.rowGap,
                 child: Row(
                   children: [
-                    const LoadingSkeletonBlock(width: 14, height: 14),
+                    DSkeleton(
+                      width: 14,
+                      height: 14,
+                      color: DTokens.of(context).background,
+                    ),
                     const SizedBox(width: 10),
-                    LoadingSkeletonBlock(
+                    DSkeleton(
                       width: row.isEven ? 110 : 85,
                       height: 9,
+                      color: DTokens.of(context).background,
                     ),
                   ],
                 ),

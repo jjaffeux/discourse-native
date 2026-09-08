@@ -15,7 +15,6 @@ import 'adaptive_dialog_action.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'external_link.dart';
-import 'loading_skeleton.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -188,7 +187,8 @@ class _DraftListLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LoadingSkeleton(
+    return DSkeletonRegion(
+      expand: true,
       semanticsLabel: 'Loading drafts',
       child: ContentReadingLane(
         basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -285,7 +285,7 @@ class _DraftSkeletonRow extends StatelessWidget {
                   children: [
                     _DraftSkeletonLine(widthFactor: titleWidth, height: 11),
                     const SizedBox(height: 8),
-                    const LoadingSkeletonBlock(width: 112, height: 8),
+                    const DSkeleton(width: 112, height: 8),
                     const SizedBox(height: 18),
                     for (
                       var index = 0;
@@ -303,13 +303,13 @@ class _DraftSkeletonRow extends StatelessWidget {
                 ),
               ),
               SizedBox(width: compact ? 8 : 16),
-              const LoadingSkeletonBlock(
+              const DSkeleton(
                 width: 44,
                 height: 44,
                 borderRadius: BorderRadius.all(Radius.circular(6)),
               ),
               SizedBox(width: compact ? 6 : 10),
-              const LoadingSkeletonBlock(
+              const DSkeleton(
                 width: 44,
                 height: 44,
                 borderRadius: BorderRadius.all(Radius.circular(6)),
@@ -342,7 +342,7 @@ class _DraftSkeletonLine extends StatelessWidget {
     alignment: AlignmentDirectional.centerStart,
     child: FractionallySizedBox(
       widthFactor: widthFactor,
-      child: LoadingSkeletonBlock(height: height),
+      child: DSkeleton(height: height),
     ),
   );
 }

@@ -30,7 +30,6 @@ import 'inline_action.dart';
 import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';
 import 'list_navigation_tab.dart';
-import 'loading_skeleton.dart';
 import 'open_link.dart';
 import 'post_actions.dart';
 import 'post_footer.dart';
@@ -2558,7 +2557,8 @@ class _TopicLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final divider = Theme.of(context).shell.divider;
 
-    return LoadingSkeleton(
+    return DSkeletonRegion(
+      expand: true,
       semanticsLabel: 'Loading topic',
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -2625,18 +2625,18 @@ class _TopicPostSkeleton extends StatelessWidget {
         children: [
           Row(
             children: [
-              const LoadingSkeletonBlock.circle(diameter: 32),
+              const DSkeleton.circle(diameter: 32),
               const SizedBox(width: 10),
               Expanded(
                 child: Align(
                   alignment: AlignmentDirectional.centerStart,
                   child: FractionallySizedBox(
                     widthFactor: nameWidthFactor,
-                    child: const LoadingSkeletonBlock(height: 10),
+                    child: const DSkeleton(height: 10),
                   ),
                 ),
               ),
-              const LoadingSkeletonBlock(width: 36, height: 7),
+              const DSkeleton(width: 36, height: 7),
             ],
           ),
           Padding(
@@ -2648,7 +2648,7 @@ class _TopicPostSkeleton extends StatelessWidget {
                     alignment: AlignmentDirectional.centerStart,
                     child: FractionallySizedBox(
                       widthFactor: lineWidths[index],
-                      child: const LoadingSkeletonBlock(height: 9),
+                      child: const DSkeleton(height: 9),
                     ),
                   ),
                   if (index < lineWidths.length - 1) const SizedBox(height: 8),
@@ -2659,11 +2659,11 @@ class _TopicPostSkeleton extends StatelessWidget {
           if (showFooter)
             const Row(
               children: [
-                LoadingSkeletonBlock.circle(diameter: 14),
+                DSkeleton.circle(diameter: 14),
                 SizedBox(width: 12),
-                LoadingSkeletonBlock.circle(diameter: 14),
+                DSkeleton.circle(diameter: 14),
                 SizedBox(width: 12),
-                LoadingSkeletonBlock(width: 42, height: 7),
+                DSkeleton(width: 42, height: 7),
               ],
             ),
         ],
@@ -3363,7 +3363,8 @@ class _MoreTopicsLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final divider = Theme.of(context).shell.divider;
 
-    return LoadingSkeleton(
+    return DSkeletonRegion(
+      expand: true,
       key: const ValueKey('topic-recommendations-loading-skeleton'),
       semanticsLabel: 'Loading more topics',
       child: Column(
@@ -3376,7 +3377,7 @@ class _MoreTopicsLoadingSkeleton extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(16, 20, 16, 16),
               child: Align(
                 alignment: AlignmentDirectional.centerStart,
-                child: LoadingSkeletonBlock(width: 72, height: 10),
+                child: DSkeleton(width: 72, height: 10),
               ),
             ),
           ),
@@ -3413,12 +3414,12 @@ class _MoreTopicsSkeletonRow extends StatelessWidget {
           children: [
             FractionallySizedBox(
               widthFactor: titleWidth,
-              child: const LoadingSkeletonBlock(height: 11),
+              child: const DSkeleton(height: 11),
             ),
             const SizedBox(height: 8),
             FractionallySizedBox(
               widthFactor: metadataWidth,
-              child: const LoadingSkeletonBlock(height: 8),
+              child: const DSkeleton(height: 8),
             ),
           ],
         ),
@@ -4793,7 +4794,8 @@ class _TopicPaginationSkeleton extends StatelessWidget {
   final double lineWidthFactor;
 
   @override
-  Widget build(BuildContext context) => LoadingSkeleton(
+  Widget build(BuildContext context) => DSkeletonRegion(
+    expand: true,
     semanticsLabel: semanticsLabel,
     child: _TopicPostSkeleton(
       nameWidthFactor: nameWidthFactor,
