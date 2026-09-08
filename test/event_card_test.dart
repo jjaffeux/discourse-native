@@ -39,6 +39,41 @@ void main() {
     ),
   );
 
+  for (final (username, initial) in [
+    ('sam', 'S'),
+    ('𐐨ser', '𐐀'),
+    ('मित्र', 'मि'),
+  ]) {
+    testWidgets(
+      'creator and invitee avatar initials keep the first grapheme of $username',
+      (tester) async {
+        final user = {'id': 1, 'username': username, 'name': 'Event creator'};
+        await pump(
+          tester,
+          PostEvent.decode(
+            eventJson(
+              overrides: {
+                'creator': user,
+                'sample_invitees': [
+                  {'user': user},
+                ],
+              },
+            ),
+          )!,
+        );
+
+        expect(tester.takeException(), isNull);
+        final avatars = find.byTooltip(username);
+        expect(avatars, findsNWidgets(2));
+        expect(
+          find.descendant(of: avatars, matching: find.text(initial)),
+          findsNWidgets(2),
+        );
+        expect(find.text('Event creator'), findsOneWidget);
+      },
+    );
+  }
+
   testWidgets(
     'private recurring card matches the key screenshot features at narrow and wide widths',
     (tester) async {
