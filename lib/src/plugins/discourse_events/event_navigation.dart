@@ -4,6 +4,7 @@ import '../../plugin_api/plugin_manifest.dart';
 import '../../plugin_api/shell_extensions.dart';
 import '../../shell/external_link.dart';
 import '../../shell/site_url.dart';
+import 'event_calendar_data.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
 import 'event_notifications.dart';
@@ -25,7 +26,12 @@ final class EventNavigation implements PluginLinkHandler {
 
   void openEvent(String site, PostEvent event) {
     if (event.topicId case final topicId?) {
-      host.openTopicPost(siteUrl: site, topicId: topicId, postNumber: 1);
+      host.openTopicPost(
+        siteUrl: site,
+        topicId: topicId,
+        postNumber:
+            eventInt(eventObject(event.fields['post'])?['post_number']) ?? 1,
+      );
     }
   }
 
@@ -44,14 +50,32 @@ final class EventNavigation implements PluginLinkHandler {
     );
   }
 
-  void openDirectory({bool mine = false}) {
+  void openDirectory({
+    bool mine = false,
+    EventCalendarPage? page,
+    bool replace = false,
+  }) {
     final route = ContentRoute(
-      id: mine ? 'events-mine' : 'events-upcoming',
+      id: page?.routeId(mine) ?? (mine ? 'events-mine' : 'events-upcoming'),
       title: mine ? 'My events' : 'Upcoming events',
       icon: EventIcons.calendar,
     );
     if (host.currentContent?.id == route.id) return;
-    host.pushContent(route);
+    if (replace) {
+      host.replaceCurrentContent(route);
+    } else {
+      host.pushContent(route);
+    }
+  }
+
+  void rememberDirectory({
+    required bool mine,
+    required EventCalendarPage page,
+  }) {
+    if (EventCalendarPage.readRoute(host.currentContent?.id ?? '') == null) {
+      return;
+    }
+    openDirectory(mine: mine, page: page, replace: true);
   }
 
   @override
@@ -65,15 +89,17 @@ final class EventNavigation implements PluginLinkHandler {
     if (index < 0) return false;
     final site = host.sites[index];
     final path = site.pathWithin(target);
-    // Dated calendar URLs retain their exact web behavior until a native
-    // calendar grid supports that view; only the two directory roots are ours.
-    if (path != '/upcoming-events' && path != '/upcoming-events/mine') {
-      return false;
-    }
+    if (path == null || !path.startsWith('/upcoming-events')) return false;
+    final route = EventCalendarPage.readRoute(
+      path.startsWith('/upcoming-events/mine')
+          ? path.replaceFirst('/upcoming-events/mine', 'events-mine')
+          : path.replaceFirst('/upcoming-events', 'events-upcoming'),
+    );
+    if (route == null) return false;
     if (!controller.settings(site.url).enabled) return false;
-    if (path!.endsWith('/mine') && !site.isConnected) return false;
+    if (route.mine && !site.isConnected) return false;
     if (host.currentSite?.url != site.url) host.selectInstance(index);
-    openDirectory(mine: path.endsWith('/mine'));
+    openDirectory(mine: route.mine, page: route.page);
     return true;
   }
 }

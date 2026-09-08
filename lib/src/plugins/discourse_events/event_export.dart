@@ -57,7 +57,6 @@ Future<String> eventCalendar(
       queryParameters: {
         'post_id': ?eventId?.toString(),
         'attending_user': ?username,
-        if (mine) 'include_interested': 'true',
       },
     ).toString(),
     apiKey: credentials.apiKey,

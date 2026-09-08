@@ -34,7 +34,7 @@ void main() {
       await eventCalendar(ports.controller, eventSite, mine: true);
       expect(
         transport.path,
-        '/discourse-post-event/events.ics?attending_user=lee&include_interested=true',
+        '/discourse-post-event/events.ics?attending_user=lee',
       );
       expect(transport.path, isNot(contains('key')));
     },

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import '../../plugin_api/preserved_json.dart';
@@ -266,6 +268,9 @@ final class EventSettings {
     this.buttons = const ['going', 'interested', 'not_going'],
     this.displayTopicDate = true,
     this.customFields = const [],
+    this.calendarView = EventCalendarView.month,
+    this.calendarDisplay = 'auto',
+    this.calendarColors = const [],
   });
   factory EventSettings.decode(Map<String, Object?> json) => EventSettings(
     enabled:
@@ -283,12 +288,26 @@ final class EventSettings {
     customFields: _settingList(
       json['discourse_post_event_allowed_custom_fields'],
     ),
+    calendarView:
+        EventCalendarView.parse(
+          json['calendar_upcoming_events_default_view'],
+        ) ??
+        EventCalendarView.month,
+    calendarDisplay: switch (json['calendar_event_display']) {
+      'block' => 'block',
+      'list-item' => 'list-item',
+      _ => 'auto',
+    },
+    calendarColors: _calendarColors(json['map_events_to_color']),
   );
   final bool enabled;
   final bool showUpcomingEvents;
   final List<String> buttons;
   final bool displayTopicDate;
   final List<String> customFields;
+  final EventCalendarView calendarView;
+  final String calendarDisplay;
+  final List<Map<String, Object?>> calendarColors;
   @override
   bool operator ==(Object other) =>
       other is EventSettings &&
@@ -296,7 +315,10 @@ final class EventSettings {
       showUpcomingEvents == other.showUpcomingEvents &&
       displayTopicDate == other.displayTopicDate &&
       listEquals(buttons, other.buttons) &&
-      listEquals(customFields, other.customFields);
+      listEquals(customFields, other.customFields) &&
+      calendarView == other.calendarView &&
+      calendarDisplay == other.calendarDisplay &&
+      deepJsonEquals(calendarColors, other.calendarColors);
   @override
   int get hashCode => Object.hash(
     enabled,
@@ -304,6 +326,9 @@ final class EventSettings {
     displayTopicDate,
     Object.hashAll(buttons),
     Object.hashAll(customFields),
+    calendarView,
+    calendarDisplay,
+    deepJsonHash(calendarColors),
   );
 }
 
@@ -357,7 +382,42 @@ final class EventSettingsCodec
     'event_participation_buttons': value.buttons,
     'display_post_event_date_on_topic_title': value.displayTopicDate,
     'discourse_post_event_allowed_custom_fields': value.customFields,
+    'calendar_upcoming_events_default_view': value.calendarView.name,
+    'calendar_event_display': value.calendarDisplay,
+    'map_events_to_color': jsonEncode(value.calendarColors),
   };
+}
+
+enum EventCalendarView {
+  day('Day'),
+  week('Week'),
+  month('Month'),
+  year('Year');
+
+  const EventCalendarView(this.label);
+  final String label;
+
+  static EventCalendarView? parse(Object? value) => switch (value) {
+    'day' || 'agendaDay' || 'timeGridDay' => day,
+    'week' || 'agendaWeek' || 'timeGridWeek' => week,
+    'month' || 'dayGridMonth' => month,
+    'year' || 'listNextYear' || 'listYear' => year,
+    _ => null,
+  };
+}
+
+List<Map<String, Object?>> _calendarColors(Object? value) {
+  if (value is String) {
+    try {
+      value = jsonDecode(value);
+    } on FormatException {
+      return const [];
+    }
+  }
+  return List.unmodifiable([
+    if (value is List)
+      for (final entry in value) ?eventObject(entry),
+  ]);
 }
 
 final class EventUserCodec

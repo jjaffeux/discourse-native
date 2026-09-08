@@ -7,7 +7,6 @@ import 'package:discourse_native/src/plugins/discourse_events/event_card.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_directory.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_navigation.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -81,18 +80,25 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      VoidCallback? export(WidgetTester tester) => view == _View.card
-          ? tester.widget<EventCard>(find.byType(EventCard)).onExport
-          : tester
-                .widget<DButton>(
-                  find.byWidgetPredicate(
-                    (widget) =>
-                        widget is DButton &&
-                        widget.label is Text &&
-                        (widget.label as Text).data == 'Export calendar',
-                  ),
-                )
-                .onPressed;
+      VoidCallback? export(WidgetTester tester) {
+        if (view == _View.card) {
+          return tester.widget<EventCard>(find.byType(EventCard)).onExport;
+        }
+        final finder = find.byWidgetPredicate(
+          (widget) =>
+              widget is PopupMenuButton && widget.tooltip == 'Calendar actions',
+        );
+        final menu = tester.widget<PopupMenuButton<VoidCallback>>(finder);
+        final item = menu
+            .itemBuilder(tester.element(finder))
+            .whereType<PopupMenuItem<VoidCallback>>()
+            .firstWhere(
+              (item) =>
+                  item.child is Text &&
+                  ((item.child as Text).data ?? '').startsWith('Export'),
+            );
+        return item.enabled ? item.value : null;
+      }
 
       void replace(String change) {
         switch (change) {
@@ -357,7 +363,7 @@ final class _CalendarTransport extends RecordingPluginTransport
       };
     }
     for (final mine in [false, true]) {
-      responders['GET /discourse-post-event/events.json?include_details=true&include_ongoing=true&order=asc&limit=200${mine ? '&attending_user=lee&include_interested=true' : ''}&search&after=2026-09-08T08%3A00%3A00.000Z'] =
+      responders['GET /discourse-post-event/events.json?include_ongoing=true&order=asc&limit=200${mine ? '&attending_user=lee' : ''}&after=2026-08-30T22%3A00%3A00.000Z&before=2026-10-04T22%3A00%3A00.000Z'] =
           (_) => {'events': <Object?>[]};
     }
   }

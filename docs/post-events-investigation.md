@@ -90,14 +90,16 @@ means a persisted invitee ID. JSON suffixes are supported by the request specs.
 The JSON index does not supply a default `after` bound to Finder. Its fallback
 to `Time.current` only controls recurring occurrence expansion; non-recurring
 occurrences retain their original dates. Upcoming / My Events must request
-an ISO timestamp for the current time with `include_ongoing=true` so completed
-non-recurring events cannot fill the ascending query's first 200 rows. Finder
-retains events whose end is at or after that bound. Although `2e9dc47bd88`
+ISO `after` and `before` bounds for the calendar's visible dates, with
+`include_ongoing=true`, so unrelated non-recurring events cannot fill the
+ascending query's first 200 rows. Finder retains events whose end is at or
+after the lower bound. Although `2e9dc47bd88`
 accepts `after=now`, its parent controller calls `String#to_datetime` when
 expanding each event and fails on that value for nonempty lists. The web
 calendar and list use explicit ISO timestamps, which native follows for
-compatibility. Explicit historical API ranges and the ICS snapshot's server
-defaults remain separate.
+compatibility. The native calendar requests the basic serializer, expands the
+server's occurrences, and uses quarters for the year view to stay within the
+per-series occurrence cap. The ICS snapshot's server defaults remain separate.
 See [the index](/Users/joffreyjaffeux/Code/pr-discourse/plugins/discourse-events/app/controllers/discourse_events/events_controller.rb:9),
 [date filtering](/Users/joffreyjaffeux/Code/pr-discourse/plugins/discourse-events/lib/discourse_events/events/finder.rb:139),
 and [occurrence expansion](/Users/joffreyjaffeux/Code/pr-discourse/plugins/discourse-events/app/services/discourse_events/events/action/expand_occurrences.rb:24).

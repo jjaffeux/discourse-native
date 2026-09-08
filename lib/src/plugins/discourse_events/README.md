@@ -13,13 +13,13 @@ plugins. Unknown/missing event data leaves a readable cooked fallback.
 
 When events are enabled, `sidebar_show_upcoming_events` controls the Upcoming
 events link in the main Community sidebar section, before More. It opens the
-native event directory for both anonymous and connected readers; connected
+native events calendar for both anonymous and connected readers; connected
 readers can switch to My events from there. The setting survives restarts and
 defaults to the server's `true` when absent from older cached settings.
 
-The event menu links to the web for bulk invitations and reports. Upcoming-event
-calendar grids and provider-specific livestream/Zoom interfaces also retain web
-entry points. Category calendars and group timezones are separate server
+The event menu links to the web for bulk invitations and reports;
+provider-specific livestream/Zoom interfaces retain web entry points.
+Category calendars and group timezones are separate server
 features and are outside this module's scope.
 
 ## Topic calendars
@@ -120,20 +120,35 @@ offset-free wall times require the declared event timezone. The host supplies
 the reader's account/device timezone without allowing the plugin to mutate the
 shared environment. Closed/expired/capacity state comes from the server.
 
-Upcoming and My Events send the current time as a UTC ISO `after` timestamp
-with `include_ongoing=true`, including when searching. This matches the web
-client and works with older controllers that accept `now` in Finder but fail
-to parse it when expanding nonempty results. The server applies the date bound
-before the 200-event query limit, retaining ongoing events while excluding
-finished non-recurring events. Explicit API date ranges remain available for
-historical queries.
+Upcoming and My Events use Kalender for a full-page month grid, timed week/day
+views, and a year agenda (matching core's `listYear`). All/My, previous/next,
+Today, and Day/Week/Month/Year stay in the toolbar. Dense months scroll
+vertically; crowded day dialogs include every occurrence. Selecting an event
+opens its owning topic post, where the existing event card supplies details and
+RSVP. Search, refresh, export, and the dated web link are in Calendar actions.
 
-The directory expands the server's occurrence list and caps the view at 200
-occurrences. Future cards do not borrow current attendance or offer occurrence
-specific RSVP. Calendar export downloads the authenticated server ICS snapshot
+The calendar honors the site's default view, first weekday, event display mode,
+and tag/category color overrides, falling back to the category's color. Timed
+instants render in the reader's account/device timezone; `show_local_time`
+floats at the supplied wall time as it does in FullCalendar. All-day end dates
+are inclusive on the server and exclusive local midnights in Kalender, including
+across DST. Dated `/upcoming-events[/mine]/:view/:year/:month/:day` links open
+natively, including core's legacy view aliases. Switching All/My preserves the
+view and date, and navigation remembers them for topic back navigation.
+
+Requests use explicit UTC ISO `after` and `before` bounds for the displayed
+period, including month spillover days, with `include_ongoing=true`. This also
+works with older controllers that fail to expand `after=now`. Like core's
+calendar, the view uses the basic event serializer and My events requests the
+reader's going attendance. Server-expanded occurrences are authoritative; no
+recurrence rule is regenerated locally, and no global 200-occurrence UI cap
+hides later events. Year requests run in quarters so the server's per-series
+limit retains daily occurrences throughout the year. Server event-query limits
+still apply. Late requests are discarded after date, filter, site, or account
+changes. Future occurrences never borrow current attendance authority. Calendar export downloads the authenticated server ICS snapshot
 and shares/saves a file; it never exports an API-key-bearing URL. Server feed
 windows and occurrence limits still apply. An export belongs to the initiating
-event or directory view and account through the fetch and native save dialog.
+event or calendar view and account through the fetch and native save dialog.
 Replacing that owner silently retires the export; ownership is checked before
 starting a file write or publishing an error. A share already handed to the OS
 cannot be recalled.
@@ -157,3 +172,11 @@ unloaded replies.
 Discourse `2e9dc47bd88`. The generic markup drift runner discovers this catalog.
 The companion investigation in `docs/post-events-investigation.md` records the
 server contracts, permission behavior, and current server inconsistencies.
+
+`event_calendar*_test.dart` and `event_directory_test.dart` cover calendar
+placement, multiday bars, floating times and DST, dense months, responsive
+navigation, year occurrence completeness, date-range requests, stale reads,
+settings, and dated routes. The upcoming calendar contract was checked against
+core's `upcoming-events-calendar.gjs`, `format-event-for-calendar.js`,
+`calendar-view-helper.js`, BasicEventSerializer, and ExpandOccurrences at
+Discourse `2e9dc47bd88`.

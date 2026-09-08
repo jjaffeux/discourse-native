@@ -40,6 +40,8 @@ final class EventApi {
     String? attendingUser,
     String? search,
     bool upcoming = false,
+    bool includeDetails = true,
+    bool includeInterested = true,
     DateTime? after,
     DateTime? before,
   }) async {
@@ -47,12 +49,13 @@ final class EventApi {
     final path = Uri(
       path: '/discourse-post-event/events.json',
       queryParameters: {
-        'include_details': 'true',
+        if (includeDetails) 'include_details': 'true',
         'include_ongoing': 'true',
         'order': 'asc',
         'limit': '200',
         'attending_user': ?attendingUser,
-        if (attendingUser != null) 'include_interested': 'true',
+        if (attendingUser != null && includeInterested)
+          'include_interested': 'true',
         'search': ?search,
         'after': ?startsAfter?.toUtc().toIso8601String(),
         'before': ?before?.toUtc().toIso8601String(),

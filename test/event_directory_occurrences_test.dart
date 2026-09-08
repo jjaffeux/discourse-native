@@ -160,16 +160,16 @@ void main() {
 
     final rows = eventDirectoryOccurrences(events, zones);
 
-    expect(rows, hasLength(200));
+    expect(rows, hasLength(count));
     expect(rows.first.startsAt, start.toIso8601String());
     expect(
       rows.last.startsAt,
-      start.add(const Duration(minutes: 199)).toIso8601String(),
+      start.add(const Duration(minutes: count - 1)).toIso8601String(),
     );
     expect(locationCalls, lessThanOrEqualTo(count * 2));
   });
 
-  test('200 series yield the globally earliest 200 distinct occurrences', () {
+  test('dense calendars retain all distinct server occurrences beyond 200', () {
     const count = 200;
     final start = DateTime.utc(2026, 9, 8);
     final events = [
@@ -192,14 +192,16 @@ void main() {
 
     final rows = eventDirectoryOccurrences(events, ports.zones);
 
-    expect(rows, hasLength(count));
-    expect(rows.map((row) => row.id), [for (var id = 1; id <= count; id++) id]);
-    expect(rows.map((row) => row.startsAt), [
+    expect(rows, hasLength(count * count ~/ 2));
+    expect(rows.take(count).map((row) => row.id), [
+      for (var id = 1; id <= count; id++) id,
+    ]);
+    expect(rows.take(count).map((row) => row.startsAt), [
       for (var minute = 0; minute < count; minute++)
         start.add(Duration(minutes: minute)).toIso8601String(),
     ]);
     expect(rows.every((row) => !row.fields.containsKey('occurrences')), isTrue);
-    expect(rows.map((row) => row.title), [
+    expect(rows.take(count).map((row) => row.title), [
       for (var id = 1; id <= count; id++) 'Series $id',
     ]);
   });

@@ -16,6 +16,7 @@ const _intentionalMaterialButtons = <String, int>{
   'lib/src/plugins/chat/chat_channel_view.dart': 2, // Dense selection strips.
   // Kalender's zero-padding day headers and compact overflow rows.
   'lib/src/plugins/discourse_events/topic_calendar.dart': 2,
+  'lib/src/plugins/discourse_events/event_calendar.dart': 2,
   // Datacenter disclosure headers match the compact alert rows (28px on desktop).
   'lib/src/plugins/prometheus_alert_receiver/alert_tables.dart': 1,
   'lib/src/shell/composer_panel.dart': 2, // Submit and taxonomy controls.

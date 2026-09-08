@@ -139,8 +139,23 @@ void main() {
         await navigation.openPluginUrl(
           '$eventSite/upcoming-events/month/2026/9/1',
         ),
+        isTrue,
+      );
+      expect(host.currentContent!.id, 'events-upcoming/month/2026/9/1');
+      expect(
+        await navigation.openPluginUrl(
+          '$eventSite/upcoming-events/mine/agendaWeek/2026/9/8',
+        ),
+        isTrue,
+      );
+      expect(host.currentContent!.id, 'events-mine/week/2026/9/8');
+      expect(
+        await navigation.openPluginUrl(
+          '$eventSite/upcoming-events/month/2026/2/30',
+        ),
         isFalse,
       );
+      expect(host.currentContent!.id, 'events-mine/week/2026/9/8');
     },
   );
 
