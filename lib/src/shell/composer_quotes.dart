@@ -207,7 +207,22 @@ class ComposerQuoteInputFormatter extends TextInputFormatter {
             newValue.text.codeUnitAt(newValue.text.length - suffix - 1)) {
       suffix++;
     }
-    final replacedEnd = oldValue.text.length - suffix;
+    var replacedEnd = oldValue.text.length - suffix;
+
+    // Shared delimiters can make a whole-selection replacement look like an
+    // interior edit. Trust the selection only when the unchanged text on both
+    // sides still fits, without overlap, in the proposed value.
+    final selection = oldValue.selection;
+    if (selection.isValid &&
+        !selection.isCollapsed &&
+        selection.end <= oldValue.text.length &&
+        newValue.text.length >=
+            oldValue.text.length - (selection.end - selection.start) &&
+        newValue.text.startsWith(oldValue.text.substring(0, selection.start)) &&
+        newValue.text.endsWith(oldValue.text.substring(selection.end))) {
+      prefix = selection.start;
+      replacedEnd = selection.end;
+    }
 
     for (final block in blocks) {
       if (prefix == replacedEnd) {
