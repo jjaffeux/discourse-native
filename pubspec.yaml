@@ -18,7 +18,7 @@ dependencies:
 
   http: ^1.6.0
   # Read the existing VM CPU sample buffer when exporting a scroll capture.
-  vm_service: ^15.2.0
+  vm_service: ^15.3.0
   intl: ^0.20.2
   timezone: ^0.11.1
   # Kalender's pre-1.0 minor releases can change its API. Upgrade deliberately
@@ -27,32 +27,32 @@ dependencies:
   flutter_timezone: ^5.1.0
   relative_time: ^5.0.0
   shared_preferences: ^2.5.5
-  flutter_web_auth_2: ^5.0.3
+  flutter_web_auth_2: ^5.1.0
   # Depend on the Darwin implementation directly. The umbrella
   # flutter_secure_storage package auto-registers libsecret on Linux even when
   # the app never calls it; Linux uses our mode-0600 XDG file store instead.
-  flutter_secure_storage_darwin: ^0.3.2
+  flutter_secure_storage_darwin: ^0.4.1
   ffi: ^2.2.0
   basic_utils: ^5.8.2
   url_launcher: ^6.3.2
   # Native files dragged from Finder/the Linux desktop into the composer.
   # Kept at this boundary: the upload and composer layers consume a small
   # app-owned file abstraction rather than depending on plugin types.
-  desktop_drop: ^0.7.1
+  desktop_drop: ^0.8.4
   # Flutter's clipboard API exposes text only. This keeps native screenshot
   # bytes behind the same app-owned upload boundary as drops and the picker.
   pasteboard: ^0.5.0
   pointycastle: ^4.0.0
   flutter_svg: ^2.3.0
-  flutter_widget_from_html_core: ^0.17.2
+  flutter_widget_from_html_core: ^0.17.3
   # The YouTube player stays behind our own surface and only exists after the
   # user presses play. This is pinned because every supported platform crosses
   # a native ABI; upgrades need playback and scrolling smoke tests on each one.
-  webview_all: 1.3.10
+  webview_all: 1.4.1
   # Direct imports configure inline/autoplay policy before the native WebView
   # is created. Keep these in lockstep with the umbrella package.
-  webview_all_linux: 1.3.10
-  webview_all_wkwebview: 1.3.10
+  webview_all_linux: 1.4.1
+  webview_all_wkwebview: 1.4.1
   # Uploaded videos use Flutter's standard controller API on its supported
   # native platforms. Linux keeps the existing WebKitGTK media surface because
   # Flutter does not publish a Linux backend; this also keeps the Swift Package
@@ -60,7 +60,7 @@ dependencies:
   video_player: ^2.14.0
   # Used directly to read onebox markup out of cooked posts; also the DOM
   # flutter_widget_from_html_core hands to its custom builders.
-  html: ^0.15.6
+  html: ^0.15.7
   # Parses the generated color-definition stylesheet as CSS rather than with
   # regular expressions. `html` already uses it for selectors; it is direct
   # here because site appearance reads its syntax tree itself.
@@ -97,19 +97,20 @@ dependencies:
   # Native media transports for the always-bundled Voice plugin.
   # Both expose native ABIs and must be upgraded together after exercising Mesh
   # and LiveKit rooms on every supported platform.
-  flutter_webrtc: 1.6.0
-  livekit_client: 2.10.0
+  flutter_webrtc: 1.6.2
+  livekit_client: 2.12.0
   # Voice diagnostics bridges the SDK-specific logging APIs into the app's
   # redacted diagnostics stream.
-  logger: ^2.7.0
+  logger: ^2.8.0
   logging: ^1.3.0
   # Core and Voice exports use the platform share sheet.
-  share_plus: ^12.0.2
+  share_plus: ^13.3.0
   file_selector: ^1.1.0
 
 dependency_overrides:
-  # Version 1.6.0 lacks the iOS required-reason privacy manifest. Keep every
-  # consumer, including livekit_client, on the reviewed local copy.
+  # Keep every consumer, including livekit_client, on the reviewed local copy
+  # with the iOS privacy manifest, track lifecycle, and awaited logging fixes.
+  # See packages/discourse_voice/third_party/flutter_webrtc/PATCHES.md.
   flutter_webrtc:
     path: packages/discourse_voice/third_party/flutter_webrtc
   # The current AVFoundation implementation exposes an Apple type that is
@@ -131,14 +132,14 @@ dev_dependencies:
     sdk: flutter
 
   # Exercise native WebView ownership through the real platform boundary.
-  webview_platform_interface: 1.3.10
+  webview_platform_interface: 1.4.1
 
   # Exercise native playback notifications and platform-view rebuilds.
   video_player_platform_interface: 6.9.0
 
   # Gate native calendar export continuations without opening platform UI.
   file_selector_platform_interface: 2.7.0
-  share_plus_platform_interface: 6.1.0
+  share_plus_platform_interface: 7.2.0
 
   flutter_lints: ^6.0.0
 flutter:

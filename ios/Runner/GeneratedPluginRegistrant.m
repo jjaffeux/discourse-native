@@ -96,8 +96,8 @@
 @import video_player_avfoundation;
 #endif
 
-#if __has_include(<webview_all_wkwebview/WebViewFlutterPlugin.h>)
-#import <webview_all_wkwebview/WebViewFlutterPlugin.h>
+#if __has_include(<webview_all_wkwebview/WebviewAllWKWebViewPlugin.h>)
+#import <webview_all_wkwebview/WebviewAllWKWebViewPlugin.h>
 #else
 @import webview_all_wkwebview;
 #endif
@@ -120,7 +120,7 @@
   [SharedPreferencesPlugin registerWithRegistrar:[registry registrarForPlugin:@"SharedPreferencesPlugin"]];
   [URLLauncherPlugin registerWithRegistrar:[registry registrarForPlugin:@"URLLauncherPlugin"]];
   [VideoPlayerPlugin registerWithRegistrar:[registry registrarForPlugin:@"VideoPlayerPlugin"]];
-  [WebViewFlutterPlugin registerWithRegistrar:[registry registrarForPlugin:@"WebViewFlutterPlugin"]];
+  [WebviewAllWKWebViewPlugin registerWithRegistrar:[registry registrarForPlugin:@"WebviewAllWKWebViewPlugin"]];
 }
 
 @end

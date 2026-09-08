@@ -15,7 +15,7 @@ void main() {
     );
     expect(contract.name, 'Voice flutter_webrtc');
     expect(contract.package, 'flutter_webrtc');
-    expect(contract.version, '1.6.0');
+    expect(contract.version, '1.6.2');
     expect(
       contract.catalog,
       'packages/discourse_voice/tool/vendor_contract.json',
@@ -38,7 +38,7 @@ void main() {
       videoPlayerContract.name,
       'Discourse Native video_player_avfoundation',
     );
-    expect(videoPlayerContract.version, '2.11.1');
+    expect(videoPlayerContract.version, '2.12.0');
     expect(
       videoPlayerContract.catalog,
       'packages/video_player_avfoundation/tool/vendor_contract.json',
