@@ -73,7 +73,7 @@ Native AX exposed text fields and popup menu labels, not Spinner status nodes.
 Widget semantics tests pass; native spoken VoiceOver output is unverified.
 No iOS or Linux device execution was performed.
 
-## Final example corrections and remaining inspection
+## Final example corrections
 
 Native inspection found three local sample details to correct: an error shadow
 showing through the transparent input interior; unused payment-row flex space
@@ -84,8 +84,9 @@ empty description now follows busy versus finished state.
 
 All 13 focused example tests pass (seed `2614942230`), including the new payment
 end-alignment regression, and root analysis is clean. The refreshed isolated
-build succeeded and matches the final example source. Native reinspection of
-these three corrections remains pending.
+build succeeded and matches the final example source.
+
+## Relaunch keyboard incident
 
 On the first relaunch for those corrections, after typing the Spinner search
 and opening the Theme menu, the preview stopped responding to selection and
@@ -101,4 +102,34 @@ The sample is preserved at
 SHA-256 `7fc2c30a768983cea7dd552c4f042f98fae0b80c8c4d6fcd0e2a0020ef8887fd`.
 The app quit through its own native menu. A subsequent global CUA snapshot
 confirmed both Spinner bundle identifiers absent, and the slot was released to
-the coordinator for Label. Neither app will reopen without a follow-up grant.
+the coordinator for Label. The app stayed closed until the coordinator granted
+the bounded reinspection below.
+
+## Final bounded reinspection
+
+After the follow-up slot grant, the already rebuilt, source-matched Spinner
+Fidelity app passed the three remaining corrections using pointer-only
+navigation:
+
+- Light input rejection: the red error ring stayed outside the white textarea
+  interior, and the validation error remained readable below the field.
+- Light empty state: both Cancel request and Complete request replaced the
+  waiting description with "Your sample data is unchanged. Start a request to
+  try again." The appropriate canceled/completed title and Start request action
+  were visible.
+- Light payment row: at Fit/100%/LTR the full "Processing payment..." title and
+  amount were visible, with the amount at the inline end. At 360px/200%/RTL the
+  amount occupied the left inline end, the spinner the right logical start,
+  and the Arabic title wrapped without overflow.
+
+No crash or unresponsive episode occurred during this bounded pass. Pointer-only
+success does not establish a cause or fix for the earlier keyboard event loop.
+The preceding full SVG examples and actual core/GIF fixture evidence remains
+valid; neither the baseline diagnostic nor those complete sequences was repeated.
+
+Only the isolated Spinner app was quit through its native menu. A subsequent
+global `cua.getState()` snapshot confirmed all three Spinner bundle identifiers
+absent, and the desktop slot was released to the coordinator for Avatar.
+Implementation and native correction verification are complete; device and
+VoiceOver limitations above, and the unassigned keyboard incident, remain
+explicit.
