@@ -17,7 +17,9 @@ focused on its assigned component and necessary shared/downstream changes.
    layouts, live light/dark/site themes and open overlays, reduced motion,
    dismissal, scrolling and lifecycle races as applicable.
 4. Add comprehensive runnable styleguide examples and accurate usage code.
-   Use self-contained data and the public library. Mark the group implemented
+   Use self-contained data and the public library, including DButton for ordinary
+   example actions. Preserve wrapping when composing rich button labels.
+   Mark the group implemented
    only after verification; document all intentional reference differences.
 5. Search core and every bundled plugin for adoption opportunities. Migrate
    appropriate callers while retaining permissions, asynchronous ownership,
@@ -25,7 +27,9 @@ focused on its assigned component and necessary shared/downstream changes.
    migration and any deliberately retained alternative with a reason.
 6. Format, analyze, run focused meaningful tests for the component, migrations
    and affected shared code. Inspect the running styleguide and affected app
-   screens at relevant widths and representative themes. Clearly distinguish
+   screens at relevant widths and representative themes. Temporary local-data
+   fixtures may mount the actual migrated app widgets for this inspection;
+   record which real surfaces were exercised. Clearly distinguish
    tests, macOS inspection and unavailable iOS/Linux device checks. Fix failures
    introduced by your change; full-suite testing is not required.
 7. Update your row in `progress.json` with acceptance, decisions, migrations,

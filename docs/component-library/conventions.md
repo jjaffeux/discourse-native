@@ -70,7 +70,10 @@ scrolling, removal during callbacks, and async completion ownership.
 - Add runnable `StyleguideExample` entries for all variants, states, composition
   patterns, and meaningful edges. Include accurate usage code, interaction
   instructions, and intentional native adaptations. Examples import the actual
-  public library and keep all sample state local. Break complex examples into
+  public library and keep all sample state local. Ordinary example actions use
+  the available DButton. Its baseline label defaults to one line, so rich labels
+  must explicitly retain wrapping. Keep any native-button exception specific
+  and justified under the existing adoption guard. Break complex examples into
   their own StatefulWidgets rather than crowding a registration expression.
 - Theme, viewport width, text scale, direction, and reduced-motion controls
   operate on a preview Navigator without changing the real app's settings.
@@ -90,7 +93,10 @@ meaningful focused interaction/regression tests, including downstream consumers
 when shared primitives change. Run affected compatibility-package checks as
 needed. Do not update unrelated lockfiles or the Flutter pin (3.47.2).
 Inspect the running styleguide and changed app surfaces in representative
-palettes and viewport sizes. Report exactly which platforms and interactions
+palettes and viewport sizes. Temporary local-data fixtures that mount the real
+production widgets can exercise migrated loading, empty, error and ready states
+without changing account data. Record the actual surfaces inspected alongside
+the styleguide examples. Report exactly which platforms and interactions
 were run; widget tests with target-platform overrides are not device testing.
 
 The user authorized concurrent component tasks on 2026-09-08. Keep up to four
