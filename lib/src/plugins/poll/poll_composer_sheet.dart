@@ -2,11 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../discourse_ui.dart';
 import '../../shell/adaptive_dialog_action.dart';
-import '../../shell/select.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_button.dart';
 import 'poll_composer_editor.dart';
 import 'poll_composer_parser.dart';
 
@@ -88,7 +87,7 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
                 ],
               ),
             ),
-            Divider(color: Theme.of(dialogContext).shell.divider, height: 1),
+            DSeparator(color: Theme.of(dialogContext).shell.divider, space: 1),
             Flexible(
               child: SingleChildScrollView(child: editor(dialogContext)),
             ),

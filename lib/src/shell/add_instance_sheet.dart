@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart';
 import '../data/discourse_api.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'shell_controller.dart';
@@ -59,7 +59,7 @@ Future<void> showAddInstanceSheet(BuildContext context) {
                 ],
               ),
             ),
-            Divider(color: Theme.of(dialogContext).shell.divider, height: 1),
+            DSeparator(color: Theme.of(dialogContext).shell.divider, space: 1),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: form,

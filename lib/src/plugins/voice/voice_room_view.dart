@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 
-import '../../theme/d_button.dart';
+import '../../../discourse_ui.dart';
 import 'voice_controller.dart';
 import 'voice_diagnostics.dart';
 import 'voice_icons.dart';
@@ -2055,7 +2055,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
               ],
             ),
           ),
-          const Divider(),
+          const DSeparator(),
           Row(
             children: [
               Expanded(

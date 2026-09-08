@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderBox, RenderEditable;
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart' show DDirection;
+import '../../discourse_ui.dart' show DDirection, DSeparator;
 import '../data/composer_geometry_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/composer_upload.dart';
@@ -3476,7 +3476,7 @@ class ComposerUploadQueue extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 2),
         itemCount: composer.uploads.length,
         separatorBuilder: (_, _) =>
-            Divider(height: 1, color: theme.colorScheme.outlineVariant),
+            DSeparator(space: 1, color: theme.colorScheme.outlineVariant),
         itemBuilder: (context, index) {
           final upload = composer.uploads[index];
           final failed = upload.status == ComposerUploadStatus.failed;

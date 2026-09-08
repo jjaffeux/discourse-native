@@ -2,11 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../discourse_ui.dart';
 import '../../shell/platform.dart';
-import '../../shell/select.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_button.dart';
 import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_environment.dart';
@@ -75,7 +74,7 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
                 ],
               ),
             ),
-            Divider(color: Theme.of(dialogContext).shell.divider, height: 1),
+            DSeparator(color: Theme.of(dialogContext).shell.divider, space: 1),
             Flexible(
               child: SingleChildScrollView(child: editor(dialogContext)),
             ),

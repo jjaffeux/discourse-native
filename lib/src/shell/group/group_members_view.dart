@@ -198,7 +198,7 @@ class _MembersSectionState extends State<_MembersSection> {
               padding: lane.padding,
               itemCount: page.members.length + extra + 1,
               separatorBuilder: (_, _) => desktop
-                  ? Divider(height: 1, color: Theme.of(context).shell.divider)
+                  ? DSeparator(space: 1, color: Theme.of(context).shell.divider)
                   : const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 if (index == 0) {

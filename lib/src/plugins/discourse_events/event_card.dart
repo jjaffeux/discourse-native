@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:intl/intl.dart';
 
+import '../../../discourse_ui.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/cooked_html.dart';
 import '../../shell/open_link.dart';
 import '../../shell/site_image.dart';
 import '../../shell/site_url.dart';
-import '../../theme/d_button.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
 import 'event_export.dart';
@@ -339,7 +339,7 @@ class EventCard extends StatelessWidget {
                 onPressed: onConnect,
               ),
             if (onRespond != null && event.canRespond) ...[
-              const Divider(height: 24),
+              const DSeparator(space: 24),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,

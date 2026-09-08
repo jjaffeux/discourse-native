@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../discourse_ui.dart';
 import '../../models/user_status.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/user_status.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
@@ -96,7 +96,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: lane.padding,
             itemCount: threads.length + (hasFooter ? 1 : 0),
-            separatorBuilder: (_, _) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const DSeparator(space: 1),
             itemBuilder: (context, index) {
               if (index < threads.length) {
                 return ChatThreadListRow(

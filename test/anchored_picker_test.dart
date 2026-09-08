@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show DSeparator;
 import 'package:discourse_native/src/shell/anchored_layout.dart';
 import 'package:discourse_native/src/shell/anchored_picker.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -146,7 +147,7 @@ void main() {
     final query = tester.widget<TextField>(find.byKey(const ValueKey('query')));
     expect(query.enabled, isFalse);
     expect(query.autofocus, isFalse);
-    expect(find.byType(Divider), findsNWidgets(2));
+    expect(find.byType(DSeparator), findsNWidgets(2));
     expect(find.byKey(const ValueKey('note')), findsOneWidget);
   });
 

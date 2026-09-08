@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart';
 import '../foundation/calendar_day.dart';
 import '../theme/app_theme.dart';
 
@@ -118,7 +119,7 @@ class _StreamDaySeparatorState extends State<StreamDaySeparator> {
           if (!widget.floating && widget.showDivider)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Divider(height: 1, color: theme.shell.divider),
+              child: DSeparator(space: 1, color: theme.shell.divider),
             ),
           date,
         ],

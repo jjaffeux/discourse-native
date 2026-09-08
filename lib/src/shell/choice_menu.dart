@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -325,7 +326,7 @@ class _ChoiceMenuSurface<T> extends StatelessWidget {
                   ),
                 ),
               ),
-              Divider(height: 1, color: divider),
+              DSeparator(space: 1, color: divider),
             ],
             Flexible(
               child: SingleChildScrollView(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart' show DSeparator;
 import '../theme/app_theme.dart';
 import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
@@ -45,10 +46,10 @@ class MessageInboxTitle extends StatelessWidget {
               ),
             ),
           ),
-          Container(
-            width: 1,
-            height: 18,
-            margin: const EdgeInsets.symmetric(horizontal: 10),
+          DSeparator(
+            orientation: Axis.vertical,
+            length: 18,
+            space: 21,
             color: theme.shell.divider,
           ),
           Flexible(

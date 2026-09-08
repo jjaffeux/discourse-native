@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart';
 import '../app_shortcuts.dart';
 import '../diagnostics/diagnostics_scope.dart';
 import '../models/discourse_instance.dart';
@@ -13,10 +14,8 @@ import '../models/site_appearance.dart';
 import '../styleguide/styleguide_page.dart';
 import '../theme/app_theme.dart';
 import '../theme/color_contrast.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_tooltip.dart';
 import 'adaptive_activity_indicator.dart';
 import 'add_instance_sheet.dart';
 import 'app_settings_page.dart';
@@ -62,8 +61,8 @@ class InstanceRail extends StatelessWidget {
                     ),
                     SizedBox(
                       width: 24,
-                      child: Divider(
-                        height: 1,
+                      child: DSeparator(
+                        space: 1,
                         color: theme.shell.railForeground.withValues(
                           alpha: 0.18,
                         ),

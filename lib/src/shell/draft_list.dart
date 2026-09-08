@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart';
 import '../data/site_lifecycle.dart';
 import '../models/discourse_instance.dart';
 import '../models/draft_feed.dart';
 import '../models/topic.dart';
 import '../models/user_draft.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
@@ -223,7 +223,7 @@ class _DraftListLoadingSkeleton extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             for (var index = 0; index < rowCount; index++) ...[
-                              if (index > 0) const Divider(height: 1),
+                              if (index > 0) const DSeparator(space: 1),
                               _rowAt(index),
                             ],
                           ],
@@ -436,7 +436,7 @@ class _Drafts extends StatelessWidget {
                                 ),
                                 onRemove: () => onRemove(draft),
                               ),
-                              const Divider(height: 1),
+                              const DSeparator(space: 1),
                             ],
                           ),
                         ),

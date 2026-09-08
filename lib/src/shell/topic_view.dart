@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../../discourse_ui.dart';
 import '../app_shortcuts.dart';
 import '../data/topic_recommendations_tab_store.dart';
 import '../data/topic_sidebar_store.dart';
@@ -20,10 +21,8 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_tooltip.dart';
 import 'avatar_image.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
@@ -1992,7 +1991,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             if (dayByPostIndex.containsKey(nextPostIndex)) {
               return const SizedBox.shrink();
             }
-            return Divider(height: 1, color: theme.shell.divider);
+            return DSeparator(space: 1, color: theme.shell.divider);
           },
           itemBuilder: (context, index) {
             if (showHeader && index == 0) {
@@ -2580,12 +2579,12 @@ class _TopicLoadingSkeleton extends StatelessWidget {
                       nameWidthFactor: 0.3,
                       lineWidths: [0.92, 0.72, 0.48],
                     ),
-                    Divider(height: 1, color: divider),
+                    DSeparator(space: 1, color: divider),
                     const _TopicPostSkeleton(
                       nameWidthFactor: 0.22,
                       lineWidths: [0.72, 0.92, 0.3],
                     ),
-                    Divider(height: 1, color: divider),
+                    DSeparator(space: 1, color: divider),
                     const Opacity(
                       opacity: 0.72,
                       child: _TopicPostSkeleton(
@@ -2594,7 +2593,7 @@ class _TopicLoadingSkeleton extends StatelessWidget {
                         showFooter: false,
                       ),
                     ),
-                    Divider(height: 1, color: divider),
+                    DSeparator(space: 1, color: divider),
                   ],
                 ],
               ),
@@ -3382,7 +3381,7 @@ class _MoreTopicsLoadingSkeleton extends StatelessWidget {
             ),
           ),
           for (var index = 0; index < _rowCount; index++) ...[
-            if (index > 0) Divider(height: 1, color: divider),
+            if (index > 0) DSeparator(space: 1, color: divider),
             _MoreTopicsSkeletonRow(index: index),
           ],
         ],
@@ -3535,8 +3534,8 @@ class _MoreTopics extends StatelessWidget {
                 titleStyle: theme.textTheme.titleSmall,
               ),
             if (index < selection.topics.length - 1)
-              Divider(
-                height: 1,
+              DSeparator(
+                space: 1,
                 indent: inbox ? 16 : 0,
                 endIndent: inbox ? 16 : 0,
                 color: theme.shell.divider,
@@ -4240,7 +4239,7 @@ class _PostInboundLinks extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Divider(height: 1, color: theme.shell.divider),
+          DSeparator(space: 1, color: theme.shell.divider),
           const SizedBox(height: 10),
           for (final link in displayed)
             InlineAction.link(

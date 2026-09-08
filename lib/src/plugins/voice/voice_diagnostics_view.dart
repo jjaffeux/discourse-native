@@ -4,7 +4,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../theme/d_button.dart';
+import '../../../discourse_ui.dart';
 import 'voice_report_exporter.dart';
 
 const int voiceDiagnosticsClipboardByteLimit = 10 * 1024 * 1024;
@@ -108,7 +108,7 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
               onExport: _busy ? null : _exportReport,
               onClear: _busy || state.enabled ? null : _confirmClear,
             ),
-            Divider(height: 1, color: Theme.of(context).shell.divider),
+            DSeparator(space: 1, color: Theme.of(context).shell.divider),
             if (selected == null)
               Expanded(child: _buildTimeline(events))
             else

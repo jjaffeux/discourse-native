@@ -5,6 +5,7 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../../discourse_ui.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/anchored_layout.dart';
 import '../../shell/platform.dart';
@@ -402,7 +403,7 @@ class _LocalDatePreviewBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var index = 0; index < previews.length; index++) ...[
-          if (index > 0) Divider(height: 17, color: theme.shell.divider),
+          if (index > 0) DSeparator(space: 17, color: theme.shell.divider),
           _PreviewRow(
             preview: previews[index],
             rangeEnd: rangeEnd,

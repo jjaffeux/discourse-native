@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart';
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
@@ -208,7 +208,7 @@ class _InstanceActionsState extends State<InstanceActions> {
           child: const Text('Move down'),
         ),
       if (widget.onMoveUp != null || widget.onMoveDown != null)
-        const Divider(height: 1),
+        const DSeparator(space: 1),
       MenuItemButton(
         leadingIcon: const DIcon(DIcons.trashCan, size: 18),
         style: MenuItemButton.styleFrom(

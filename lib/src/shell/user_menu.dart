@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
 import '../models/notification_totals.dart';
@@ -349,8 +350,9 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
                         },
                       ),
                     ),
-                    VerticalDivider(
-                      width: 1,
+                    DSeparator(
+                      orientation: Axis.vertical,
+                      space: 1,
                       thickness: 1,
                       color: _userMenuBorderColor(theme),
                     ),
@@ -508,7 +510,11 @@ class _TabRailState extends State<_TabRail> {
               ),
             ),
           ),
-          Divider(color: _userMenuBorderColor(theme), height: 1, thickness: 1),
+          DSeparator(
+            color: _userMenuBorderColor(theme),
+            space: 1,
+            thickness: 1,
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: _TabButton(
@@ -718,7 +724,7 @@ class _SectionBody extends StatelessWidget {
                   : null,
             ),
       if (section.isProfile) ...[
-        Divider(color: theme.shell.divider, height: 17),
+        DSeparator(color: theme.shell.divider, space: 17),
         _DisconnectTile(host: host, onTap: onDisconnect),
       ],
     ];

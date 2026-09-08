@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../../discourse_ui.dart';
 import '../app_shortcuts.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
@@ -10,7 +11,6 @@ import '../models/topic_feed.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_activity_indicator.dart';
@@ -517,8 +517,8 @@ class _TopicListViewState extends State<TopicListView> {
                     itemCount:
                         feed.topicIds.length +
                         (feed.loadingMore || feed.pageError ? 1 : 0),
-                    separatorBuilder: (context, _) => Divider(
-                      height: 1,
+                    separatorBuilder: (context, _) => DSeparator(
+                      space: 1,
                       indent: widget.inbox ? 16 : 0,
                       endIndent: widget.inbox ? 16 : 0,
                       color: Theme.of(context).shell.divider,
@@ -720,7 +720,7 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   for (var index = 0; index < rowCount; index++) ...[
-                    if (index > 0) Divider(height: 1, color: divider),
+                    if (index > 0) DSeparator(space: 1, color: divider),
                     _rowAt(index),
                   ],
                 ],

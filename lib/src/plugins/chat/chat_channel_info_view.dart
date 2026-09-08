@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../discourse_ui.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/user_card.dart';
 import '../../shell/user_status.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
@@ -674,7 +674,7 @@ class _InfoSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           for (var index = 0; index < children.length; index++) ...[
-            if (index > 0) Divider(height: 1, color: theme.dividerColor),
+            if (index > 0) DSeparator(space: 1, color: theme.dividerColor),
             children[index],
           ],
         ],

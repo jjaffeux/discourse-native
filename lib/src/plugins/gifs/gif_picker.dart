@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../discourse_ui.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../shell/image_decode.dart';
 import '../../shell/shell_sheet.dart';
-import '../../theme/d_button.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'gif.dart';
@@ -63,7 +63,7 @@ Future<GifResult?> showGifPicker({
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _DialogHeader(onClose: () => Navigator.of(dialogContext).pop()),
-              const Divider(height: 1),
+              const DSeparator(space: 1),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),

@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show DSeparator;
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/found_user.dart';
@@ -133,7 +134,7 @@ void main() {
             width,
           );
           if (width >= 760) {
-            final divider = tester.getRect(find.byType(Divider).first);
+            final divider = tester.getRect(find.byType(DSeparator).first);
             expect(divider.left, left);
             expect(divider.width, contentWidth);
           }

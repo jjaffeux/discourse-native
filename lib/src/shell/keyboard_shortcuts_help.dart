@@ -2,8 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart';
 import '../app_shortcuts.dart';
-import '../theme/d_tooltip.dart';
 import 'shell_sheet.dart';
 
 Future<void> showKeyboardShortcuts(BuildContext context) async {
@@ -33,7 +33,7 @@ Future<void> showKeyboardShortcuts(BuildContext context) async {
                     shortcut,
               ],
             ),
-          const Divider(),
+          const DSeparator(),
           _ShortcutRow(
             label: 'Back in current tab',
             shortcuts: [contentBackShortcutForPlatform(defaultTargetPlatform)],

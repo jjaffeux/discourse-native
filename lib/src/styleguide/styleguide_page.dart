@@ -156,7 +156,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                       ),
                     ),
                   ),
-                  VerticalDivider(color: tokens.border),
+                  DSeparator(orientation: Axis.vertical, color: tokens.border),
                   Expanded(child: _detail()),
                 ],
               );

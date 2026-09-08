@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart';
 import '../models/search_results.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
@@ -542,7 +543,7 @@ class _SearchInitialOptions extends StatelessWidget {
             ),
           ),
           if (search.recentSearches.isNotEmpty) ...[
-            const Divider(height: 1),
+            const DSeparator(space: 1),
             Padding(
               padding: const EdgeInsets.only(left: 12, right: 4, top: 4),
               child: Row(
@@ -814,14 +815,14 @@ class _SearchResultSections extends StatelessWidget {
                 onTap: search.showTopics,
               ),
             ),
-            const Divider(height: 1),
+            const DSeparator(space: 1),
           ],
           for (
             var sectionIndex = 0;
             sectionIndex < search.sections.length;
             sectionIndex++
           ) ...[
-            if (sectionIndex > 0) const Divider(height: 1),
+            if (sectionIndex > 0) const DSeparator(space: 1),
             for (final result in search.sections[sectionIndex].results)
               Builder(
                 builder: (context) {
@@ -844,7 +845,7 @@ class _SearchResultSections extends StatelessWidget {
               ),
           ],
           if (search.hasMoreTopics) ...[
-            const Divider(height: 1),
+            const DSeparator(space: 1),
             _RevealWhenSelected(
               selected: search.moreActionSelected,
               child: _MoreSearchResultsAction(

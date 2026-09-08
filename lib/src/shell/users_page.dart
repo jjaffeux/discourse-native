@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart' show DDirection;
+import '../../discourse_ui.dart' show DDirection, DSeparator;
 import '../data/user_directory_column_width_store.dart';
 import '../models/user_directory.dart';
 import '../theme/app_theme.dart';
@@ -567,7 +567,7 @@ class _UsersPageState extends State<UsersPage> {
                   shrinkWrap: true,
                   children: [
                     for (var index = 0; index < draft.length; index++) ...[
-                      if (index > 0) const Divider(height: 1),
+                      if (index > 0) const DSeparator(space: 1),
                       CheckboxListTile(
                         key: ValueKey('users-manage-column-${draft[index].id}'),
                         value: draft[index].enabled,

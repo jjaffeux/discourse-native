@@ -89,8 +89,9 @@ class _ManageSection extends StatelessWidget {
                     onSelect: select,
                   ),
                 ),
-                VerticalDivider(
-                  width: 1,
+                DSeparator(
+                  orientation: Axis.vertical,
+                  space: 1,
                   color: Theme.of(context).shell.divider,
                 ),
                 Expanded(child: content),
@@ -579,7 +580,7 @@ class _GroupLogs extends StatelessWidget {
           key: const PageStorageKey('group-logs-scroll'),
           padding: lane.padding,
           itemCount: page!.logs.length + (!page!.allLoaded ? 1 : 0),
-          separatorBuilder: (_, _) => const Divider(height: 1),
+          separatorBuilder: (_, _) => const DSeparator(space: 1),
           itemBuilder: (context, index) {
             if (index == page!.logs.length) {
               return _LoadMoreRow(loading: loadingMore, onPressed: onLoadMore);

@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_ui.dart' show DSeparator;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -158,11 +159,11 @@ void main() {
     expect(openingDate, findsOneWidget);
     expect(nextDate, findsOneWidget);
     expect(
-      find.descendant(of: openingDate, matching: find.byType(Divider)),
+      find.descendant(of: openingDate, matching: find.byType(DSeparator)),
       findsNothing,
     );
     expect(
-      find.descendant(of: nextDate, matching: find.byType(Divider)),
+      find.descendant(of: nextDate, matching: find.byType(DSeparator)),
       findsOneWidget,
     );
   });
@@ -484,7 +485,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(ValueKey(('topic-day', targetDay))),
-        matching: find.byType(Divider),
+        matching: find.byType(DSeparator),
       ),
       findsOneWidget,
     );

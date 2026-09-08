@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart' show DDirection;
+import '../../discourse_ui.dart' show DDirection, DSeparator;
 import '../app_shortcuts.dart';
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
@@ -188,10 +188,11 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
 
     return ValueListenableBuilder<String?>(
       valueListenable: _hoveredTab,
-      builder: (context, hoveredId, _) => Container(
+      builder: (context, hoveredId, _) => DSeparator(
         key: ValueKey('forum-tab-divider-${left.id}'),
-        width: _tabGap,
-        height: _inactiveTabDividerHeight,
+        orientation: Axis.vertical,
+        thickness: _tabGap,
+        length: _inactiveTabDividerHeight,
         color: hoveredId == left.id || hoveredId == right.id
             ? Colors.transparent
             : dividerColor,
@@ -532,7 +533,7 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
                           ),
                         if (widget.recentlyClosedItems.isNotEmpty) ...[
                           const SizedBox(height: 10),
-                          Divider(height: 1, color: theme.shell.divider),
+                          DSeparator(space: 1, color: theme.shell.divider),
                           _TabSwitcherHistoryToggle(
                             count: closedItems.length,
                             expanded: _historyExpanded,

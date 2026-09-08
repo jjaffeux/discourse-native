@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart' show DSeparator;
 import '../data/sidebar_section_store.dart';
 import '../models/content_route.dart';
 import '../models/group_route.dart';
@@ -1029,11 +1030,9 @@ class _SectionState extends State<_Section> {
       slivers: [
         if (!widget.first && sectionPadding > 0) ...[
           SliverToBoxAdapter(
-            child: Container(
-              height: 1,
-              margin: const EdgeInsets.symmetric(
-                horizontal: _SidebarSpacing.wrapperHorizontalPadding,
-              ),
+            child: DSeparator(
+              indent: _SidebarSpacing.wrapperHorizontalPadding,
+              endIndent: _SidebarSpacing.wrapperHorizontalPadding,
               color: Theme.of(context).shell.divider,
             ),
           ),

@@ -2,18 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../discourse_ui.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
 import 'preferences_controller.dart';
-import 'select.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 
@@ -169,8 +168,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
                   onSelected: _selectSection,
                 ),
               ),
-              VerticalDivider(
-                width: 1,
+              DSeparator(
+                orientation: Axis.vertical,
+                space: 1,
                 thickness: 1,
                 color: Theme.of(context).shell.divider,
               ),

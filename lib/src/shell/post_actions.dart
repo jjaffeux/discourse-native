@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../discourse_ui.dart';
 import '../models/bookmark.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
@@ -899,7 +899,7 @@ class _PostActionsMenu extends StatelessWidget {
                       !overflowActions
                           .take(index)
                           .any((candidate) => candidate.destructive))
-                    const Divider(height: 1),
+                    const DSeparator(space: 1),
                   Builder(
                     builder: (buttonContext) => MenuItemButton(
                       onPressed: action.enabled

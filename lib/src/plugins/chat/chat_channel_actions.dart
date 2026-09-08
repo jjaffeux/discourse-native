@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../discourse_ui.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
@@ -129,7 +130,7 @@ class _DesktopChannelMenu extends StatelessWidget {
                     : null,
                 child: Text(_notificationLabel(action)),
               ),
-            const Divider(height: 1),
+            const DSeparator(space: 1),
             MenuItemButton(
               key: ValueKey('chat-channel-mute-${channel.id}'),
               onPressed: notificationBusy
@@ -389,7 +390,7 @@ class _NotificationActionsSheet extends StatelessWidget {
             title: Text(_notificationLabel(action)),
             onTap: () => Navigator.of(context).pop(action),
           ),
-        const Divider(height: 1),
+        const DSeparator(space: 1),
         ListTile(
           key: ValueKey('chat-channel-mute-${channel.id}'),
           leading: DIcon(
