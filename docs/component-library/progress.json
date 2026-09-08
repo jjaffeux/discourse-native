@@ -38,7 +38,7 @@
     ],
     "limitations": [
       "iOS and Linux devices were not run during the foundation phase. No new native platform dependency was introduced.",
-      "Baseline Button, Tooltip and Select are explicitly unfinished catalogue implementations; their full reference behavior and migrations belong to their upcoming tasks."
+      "Button and Select remain baseline catalogue implementations awaiting their own tasks. Tooltip is now fully implemented, adopted, verified and merged."
     ],
     "implementationCommit": "9c96f53c"
   },
@@ -312,19 +312,71 @@
     },
     {
       "id": "tooltip",
-      "status": "in_progress",
+      "status": "merged",
       "taskId": "01a0829c-ba0d-7282-a010-7e26f190dd4f",
       "branch": "codex/ui-tooltip",
       "dependencies": [
         "kbd"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
-      "limitations": [],
-      "implementationCommit": null,
+      "acceptanceCriteria": [
+        "Reproduce frozen shadcn base-nova Usage, Composition, four physical and two logical sides, RTL, disabled Button wrapper and shortcut examples using DKbd; record frozen Markdown and official registry hashes plus measured visual mapping.",
+        "Provide generic public DTooltip with child/content composition, controlled open state, imperative controller, provider delay/skip coordination, per-trigger delay, alignment and offsets, keyboard focus, hoverable content, pointer dismissal, Escape and native long press without stealing control actions or shortcut bindings.",
+        "Use nearest live overlay with foreground/background tokens, 12/16 regular text, 12px horizontal and 6px vertical padding, 6px content gap, 320px maximum width, relative rounded-md radius, no border or shadow, and 10px rotated rounded arrow; support collision flip/shift, clipped viewports, scrolling/removal and reduced motion.",
+        "Preserve semantics, disabled-trigger composition, focus ownership and hidden-pane suppression; test large text, narrow overlays, live light/dark/site palette changes while open and lifecycle/controller races.",
+        "Replace the obsolete theme Tooltip owner, migrate appropriate core and every bundled-plugin tooltip with existing permissions/actions intact, audit richer rail hints and retained framework alternatives, and verify affected DButton, Kbd, rail and app consumers.",
+        "Add comprehensive runnable public-library styleguide examples with accurate code; format/analyze, run focused component/migration/downstream tests, then compare native macOS styleguide and actual app-widget fixtures to source/reference during the granted desktop slot. Record platform limits and stable implementation SHA before review_ready."
+      ],
+      "decisions": [
+        "Implementation starts from c00aa3ee5aa057887b73603ff94571f02e609ba6. Button outline/icon-sm in the docs describe the composed Button, not Tooltip variants.",
+        "Native long press is retained as a documented app extension to Base UI touch-disabled tooltips. Tooltips remain supplementary labels; action and keyboard shortcut ownership stays in callers.",
+        "Frozen Tooltip page and official base-nova registry are archived with SHA256 hashes. docs/component-library/tooltip-visual-mapping.md records computed browser measurements, source mapping, native adaptations and comparison conditions; catalogue scope is unchanged.",
+        "DTooltip owns one OverlayPortal with native Focus, pointer routing and gesture recognizers. Its RawTooltip subtype preserves Flutter find.byTooltip inspection compatibility without instantiating another RawTooltip. The public barrel exports the new owner; no app service enters the generic component.",
+        "Typed API covers physical/logical sides, alignment/offsets, arrow, collision padding/flip/shift, controlled/defaultOpen, change reasons/completion, borrowed controller and trigger IDs, provider timing, cursor tracking, focusable disabled wrappers, hoverable popups and native touch modes. Dart content/trigger composition replaces web portal/payload/render functions.",
+        "The body uses inverted live DTokens, host sans 12/16 regular type, 12x6 insets, 6px content gap, 320px maximum width, radius x0.8, no border/shadow and a 10px rounded rotated arrow. Entry fades/scales/slides over 150ms; exit fades/scales. Reduced motion is instant. DKbd presentation uses the existing shared component and bindings remain caller-owned.",
+        "A small clipped trigger does not constrain its popup: ancestor clips only determine anchor visibility, while the nearest overlay defines collisions. This fixes a reproduced zero-width rail/avatar popup. Pointerdown inside rich content permits scrolling; Escape dismisses the hint without dismissing its parent route.",
+        "Borrowed-controller replacement synchronizes an already-open trigger after the frame. Detachment/removal notifies listening widgets after the locked build/disposal phase; the component never disposes its borrowed handle.",
+        "Eleven public-library examples cover every frozen composition first, then alignment, provider timing, controlled live hints, imperative multiple triggers, rich/narrow content, cursor tracking and disabled hints. Save uses the official Lucide artwork with its ISC notice; Arabic labels match the reference. Button stays explicitly baseline until its own task.",
+        "Native inspection completed in the exclusive coordinator slot. It exposed and corrected a controlled-demo hover/click pinning race and a rail fallback-monogram clipping regression at 200%; both were rechecked natively. The styleguide group is now implemented, with its composed Button still explicitly baseline."
+      ],
+      "migrations": [
+        "See docs/component-library/tooltip-migrations.md for the per-file audit and all 105 original native tooltip message expressions. Replaced direct Tooltip constructors across core and bundled plugins and routed every owned IconButton/PopupMenuButton tooltip through DTooltip while retaining native controls, callbacks, state, keys, permissions and menus.",
+        "Removed lib/src/theme/d_tooltip.dart and updated the public barrel and DButton dependency to lib/src/ui/components/d_tooltip.dart. Existing DButton/action tooltip callers automatically use the new owner without changing their API or dispatch.",
+        "Replaced InstanceRail private RawTooltip renderer, transition, custom shape, hard-coded swatches and shadow with a thin DTooltip content adapter preserving app avatar/title, logical side, timing and primary shortcuts.",
+        "Migrated account access, forum/tab/topic/status hints, search/filter clears, composer and gallery controls, diagnostics/media/lightbox, and sheet/choice controls; bundled Chat, Voice, Assign, Events, AI, GIFs, Local Dates, Poll, Reactions and alert tables use the shared component.",
+        "Native control wrappers use labelTrigger to merge the accessible name with the original control action/state. Removed redundant lightbox icon naming and updated focused tests to inspect the actual retained control rather than Material Tooltip internals."
+      ],
+      "retainedAlternatives": [
+        "Framework-private text-selection/picker hints retain their native owner. AppTheme TooltipTheme fallback uses the same inverted palette/basic geometry; every exposed nonempty app IconButton/PopupMenuButton property was migrated.",
+        "Vendored video-player and WebRTC example apps are third-party package demonstrations, not core/bundled-plugin application UI, and remain unmodified.",
+        "Existing DButton and action-adapter tooltip parameters already compose shared DTooltip. Essential instructions remain inline, and app networking/permission/avatar data remains outside generic UI."
+      ],
+      "verification": [
+        "Flutter 3.47.2 / Dart 3.13.2. flutter pub get --enforce-lockfile passed; pubspec, lockfile and Flutter pin are unchanged.",
+        "Hidden-browser official light/dark renders at 1280x720 CSS px / DPR2 / 100% text: Add to library body 97.492x28px, 12/16 type, 12x6 padding, 4px trigger gap, radius 8px, no border/shadow; Save Changes S body 122.547x32px with 20px keycap, 6px gap and 6px trailing inset. Host palette/font/radius supply corresponding theme variables.",
+        "flutter test --no-pub test/ui_tooltip_test.dart test/d_tooltip_test.dart test/d_button_test.dart test/styleguide test/app_theme_test.dart test/forum_tabs_integration_test.dart test/site_theme_app_test.dart test/composer_selection_toolbar_accessibility_test.dart test/voice_call_widget_test.dart test/d_button_adoption_test.dart --test-randomize-ordering-seed=random: 185 passed, seed 338221338 (build/tooltip-focused-final.log).",
+        "A focused 22-file app/plugin migration run passed 333 with three accessible-name expectation failures; gallery/search expectations were corrected and duplicate lightbox icon naming removed. flutter test --no-pub test/composer_upload_panel_test.dart test/forum_search_clear_accessibility_test.dart test/lightbox_test.dart --test-randomize-ordering-seed=random then passed all 82, seed 3282548594 (build/tooltip-migration-followup.log). The other migration files passed in build/tooltip-migration-tests.log, seed 901138905.",
+        "flutter test --no-pub test/ui_tooltip_test.dart test/shell_navigation_integration_test.dart test/chat_navigation_test.dart test/content_navigation_controls_test.dart test/forum_tabs_bar_test.dart test/native_inline_video_playback_test.dart --test-randomize-ordering-seed=random: 226 passed, seed 98425898 (build/tooltip-final-owners.log).",
+        "The coordinator controller-swap issue was reproduced by a failing focused regression (build/tooltip-controller-swap-repro.log). After fixing it, flutter test --no-pub test/ui_tooltip_test.dart test/styleguide/tooltip_examples_test.dart test/d_tooltip_test.dart --test-randomize-ordering-seed=random passed 42, including uncontrolled replacement/listener/removal and controlled already-open attachment (build/tooltip-controller-final.log), seed 1354908790.",
+        "Component and styleguide matrices cover exact metrics, physical/logical placement, directional alignment, focus/action/longpress/tap behavior, semantics, group warm timing, popup travel and scrolling, hidden panes, controller lifecycle, nested clipped anchors, live light/dark/Forest/Plum, 240/360/900px previews, both directions, 200% text and reduced motion.",
+        "flutter analyze --no-pub reports no issues after the final controller fix. Touched Dart files are formatted and git diff --check passes. Read-only migration audit finds no direct Tooltip/RawTooltip constructors and no nonempty native IconButton/PopupMenuButton tooltip values in lib; old theme/d_tooltip imports are absent. The full compatibility profile also passed flutter pub get --enforce-lockfile and flutter analyze --no-pub; root/full lockfiles are unchanged (build/tooltip-full-profile.log).",
+        "Isolated macOS app Tooltip Fidelity Review, bundle org.discourse.native.styleguide.tooltip.review, built with flutter build macos --debug --no-pub --target=lib/tooltip_inspection_main.dart under /private/tmp/discourse-tooltip-review/app. Component/examples/actual-fixture widget source bytes were verified against the worktree; runner/signing/fakes remain outside the branch.",
+        "Native CUA inspected all eleven examples at 900/360 logical preview widths, 100/200% text, LTR/RTL and motion/reduced motion. All four sides/arrow attachments, start offsets, disabled-wrapper Tab access, S action/keycap/SVG, provider wait and neighbor change, imperative selection/close, cursor tracking and disabled-hint action passed. The pinned popup stayed open through live Light/Dark/Forest/Plum, wrapped/flipped inside the narrow preview, and accepted Escape.",
+        "The native controlled-demo race was fixed by leaving pin/unpin to the button; onOpenChange handles Escape/lifecycle/disabled dismissal. flutter test --no-pub test/styleguide/tooltip_examples_test.dart passed all 7 including actual mouse hover/click/double-toggle sequencing (build/tooltip-native-demo-fix.log), then native pin/theme/Escape were rechecked.",
+        "Actual InstanceRail, UserMenuButton, TopicProgressButton and VoiceCallWidget were inspected with in-memory services. Sign-in/topic/mute hints used their original controls; topic action incremented the local counter. Rail popup escaped its clipped trigger and rendered avatar/title/Command shortcut. Restored the fallback monogram FittedBox after a native 200% clipping observation; focused rail tooltip regression passed and final 360px/200% Light/Dark recheck showed both TR letters (build/tooltip-native-rail-fix.log).",
+        "The real InstanceRail opened the actual ComponentStyleguidePage. Its live Tooltip preview, usage, scoped overlay, Escape and offscreen dismissal while outer-scrolling were inspected; route close preserved accepted local actions. Rich popup content accepted pointer/wheel access without dismissing. The fixture viewport metadata mismatch was corrected; compact account controls also passed through actual native window resizing.",
+        "Quit only the isolated Tooltip app, then confirmed tooltipReviewRunning:false in global CUA inventory. Released the desktop slot to the coordinator before docs/commits. No app-specific query reopened it; no real account action, media session, SDK or system accessibility setting was changed.",
+        "Final post-native run: flutter test --no-pub test/ui_tooltip_test.dart test/d_tooltip_test.dart test/styleguide test/d_button_adoption_test.dart --test-randomize-ordering-seed=random passed all 95, seed 108318862 (build/tooltip-post-native-final.log). Final flutter analyze --no-pub is clean, all 95 touched Dart files pass dart format --output=none --set-exit-if-changed, and git diff --check passes.",
+        "Coordinator reviewed clean final Tooltip HEAD 786b6ef7177ac08374ef0822e0e3556f3c8e19d7, exact reference source mapping, controller replacement and overlay lifecycle fixes, eleven complete examples, all 105 implicit hint adoptions and native evidence. Reconciled each conflicting loading control individually: preserved all 14 Spinner owners, three InlineVideo Aspect Ratio owners and three Chat Skeleton owners in those five overlapping files while adding every reviewed Tooltip wrapper. Preserved prior library components, Label forms and the rail monogram fitting correction.",
+        "Coordinator combined-main verification: the focused component/styleguide/theme, shell, media, composer, Chat, Voice, Poll, Local Dates and Events run passed 866 cases with one stale shell-test finder (seed 2401219401). That test incorrectly searched for an indeterminate Spinner to reopen the retained determinate update-progress control; it now uses its named Tooltip control. All 103 shell-navigation cases then passed, seed 1648058206. Logs: /private/tmp/component-tooltip-integration-tests.log and /private/tmp/component-tooltip-shell-followup-tests.log. All 95 touched Dart files are formatted; final root analysis is clean (5.5s); git diff --check passes. Auditing all changed source files found no loss of previous Spinner, Skeleton, Aspect Ratio or Label owners. Generic Tooltip and its example source are byte-identical to the native-inspected branch."
+      ],
+      "limitations": [
+        "iOS/Linux devices and VoiceOver speech were not run. Automated platform overrides and widget semantics assertions do not constitute device/speech testing.",
+        "CUA AX transiently classified the actual styleguide preview Hover/Added nodes as checkboxes after outer scrolling. The visible UI and component semantics assertions were correct; the native/CUA classification cause was not diagnosed and no forced-semantics instrumentation was used. Recorded for coordinator review rather than claimed native speech parity.",
+        "Authenticated app/plugin sessions were not opened. Native inspection used actual widgets with in-memory services; other migrations and Voice action wiring are covered by focused owner tests. The fake Voice port does not display a native mute-state change.",
+        "Native rich-content pointer/wheel access and outer-scroll dismissal were inspected; deliberately overflowing popup-content scrolling and long press/touch gestures were verified in widget tests, not on touch hardware.",
+        "The configured host font/palette/radius intentionally supply the reference theme variables, so glyph widths/colors can differ from Geist/neutral defaults. The composed DButton visual treatment remains its separate baseline catalogue task."
+      ],
+      "implementationCommit": "d7fa6149a919fc9cf5b790d775e99f886e86c7f3",
       "mergeCommit": null,
       "clientThreadId": "client-new-thread:11621b86-f28b-44f3-9231-27de7925eea6",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fbbd/discourse-native",

@@ -227,8 +227,9 @@ void main() {
   );
 }
 
-Finder _button(String tooltip) => find.byWidgetPredicate(
-  (widget) => widget is IconButton && widget.tooltip == tooltip,
+Finder _button(String tooltip) => find.descendant(
+  of: find.byTooltip(tooltip),
+  matching: find.byType(IconButton),
 );
 
 PluginRegistry _localDates() {

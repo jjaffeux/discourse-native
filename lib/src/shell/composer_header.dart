@@ -1,10 +1,10 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'composer_controller.dart';
@@ -191,31 +191,47 @@ class ComposerHeader extends StatelessWidget {
               ),
             ),
           ],
-          builder: (context, menu, _) => IconButton(
-            key: const ValueKey('composer-options'),
-            onPressed: menu.isOpen ? menu.close : menu.open,
-            icon: const DIcon(DIcons.ellipsis, size: 16),
-            tooltip: 'Composer options',
+          builder: (context, menu, _) => DTooltip(
+            message: 'Composer options',
+            labelTrigger: true,
+            child: IconButton(
+              key: const ValueKey('composer-options'),
+              onPressed: menu.isOpen ? menu.close : menu.open,
+              icon: const DIcon(DIcons.ellipsis, size: 16),
+              tooltip: '',
+            ),
           ),
         ),
       if (onRestore case final restore?)
-        IconButton(
-          key: const ValueKey('composer-restore'),
-          onPressed: restore,
-          icon: const DIcon(DIcons.expand, size: 16),
-          tooltip: 'Restore composer',
+        DTooltip(
+          message: 'Restore composer',
+          labelTrigger: true,
+          child: IconButton(
+            key: const ValueKey('composer-restore'),
+            onPressed: restore,
+            icon: const DIcon(DIcons.expand, size: 16),
+            tooltip: '',
+          ),
         )
       else if (onMinimize case final minimize?)
-        IconButton(
-          key: const ValueKey('composer-minimize'),
-          onPressed: minimize,
-          icon: const Icon(Icons.remove, size: 18),
-          tooltip: 'Minimize composer',
+        DTooltip(
+          message: 'Minimize composer',
+          labelTrigger: true,
+          child: IconButton(
+            key: const ValueKey('composer-minimize'),
+            onPressed: minimize,
+            icon: const Icon(Icons.remove, size: 18),
+            tooltip: '',
+          ),
         ),
-      IconButton(
-        onPressed: onClose,
-        icon: const DIcon(DIcons.xmark, size: 16),
-        tooltip: closeTooltip,
+      DTooltip(
+        message: closeTooltip,
+        labelTrigger: true,
+        child: IconButton(
+          onPressed: onClose,
+          icon: const DIcon(DIcons.xmark, size: 16),
+          tooltip: '',
+        ),
       ),
     ];
     final grip = onMove == null
@@ -300,7 +316,7 @@ class _ComposerGrip extends StatelessWidget {
           _move(const Offset(0, 8)),
     },
     child: Focus(
-      child: Tooltip(
+      child: DTooltip(
         message: 'Drag composer',
         child: Semantics(
           label: 'Move composer',

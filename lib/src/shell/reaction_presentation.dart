@@ -71,7 +71,7 @@ class _ReactionPickerButtonState extends State<ReactionPickerButton> {
           button: true,
           enabled: enabled,
           label: 'Add reaction',
-          child: Tooltip(
+          child: DTooltip(
             message: 'Add reaction',
             excludeFromSemantics: true,
             child: SizedBox.square(

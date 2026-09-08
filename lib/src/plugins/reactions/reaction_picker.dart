@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/post.dart';
@@ -480,10 +481,14 @@ class ReactionGrid extends StatelessWidget {
         if (more != null)
           SizedBox.square(
             dimension: cell,
-            child: IconButton(
-              tooltip: 'More emojis',
-              onPressed: enabled ? more : null,
-              icon: const DIcon(DIcons.farFaceSmile, size: 24),
+            child: DTooltip(
+              message: 'More emojis',
+              labelTrigger: true,
+              child: IconButton(
+                tooltip: '',
+                onPressed: enabled ? more : null,
+                icon: const DIcon(DIcons.farFaceSmile, size: 24),
+              ),
             ),
           ),
       ],

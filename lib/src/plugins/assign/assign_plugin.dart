@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../../discourse_ui.dart';
 import '../../models/json.dart';
 import '../../models/post.dart';
 import '../../models/topic.dart';
@@ -865,7 +865,7 @@ class _TopicAssignmentPropertyRow extends StatelessWidget {
             const SizedBox(width: 9),
             Expanded(
               child: openTarget != null
-                  ? Tooltip(
+                  ? DTooltip(
                       message: 'Open $targetLabel',
                       child: InlineAction.link(
                         key: postTargetKey,

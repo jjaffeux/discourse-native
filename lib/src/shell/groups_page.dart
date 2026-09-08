@@ -316,19 +316,23 @@ class _DirectoryControls extends StatelessWidget {
           ),
           suffixIcon: value.text.isEmpty
               ? null
-              : IconButton(
-                  tooltip: 'Clear search',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 42),
-                  iconSize: 16,
-                  style: IconButton.styleFrom(
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              : DTooltip(
+                  message: 'Clear search',
+                  labelTrigger: true,
+                  child: IconButton(
+                    tooltip: '',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 42),
+                    iconSize: 16,
+                    style: IconButton.styleFrom(
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () {
+                      searchController.clear();
+                      onSearchSubmitted('');
+                    },
+                    icon: const DIcon(DIcons.xmark, size: 16),
                   ),
-                  onPressed: () {
-                    searchController.clear();
-                    onSearchSubmitted('');
-                  },
-                  icon: const DIcon(DIcons.xmark, size: 16),
                 ),
           suffixIconConstraints: const BoxConstraints(
             minWidth: 42,

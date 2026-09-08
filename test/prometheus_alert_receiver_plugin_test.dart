@@ -186,8 +186,9 @@ void main() {
         },
       );
       final shell = await _open(tester, plugins, api);
-      final quoteButton = find.byWidgetPredicate(
-        (widget) => widget is IconButton && widget.tooltip == 'Quote Alert',
+      final quoteButton = find.descendant(
+        of: find.byTooltip('Quote Alert'),
+        matching: find.byType(IconButton),
       );
       await tester.ensureVisible(quoteButton);
       await tester.tap(quoteButton);
@@ -240,8 +241,9 @@ void main() {
       });
       await tester.pumpAndSettle();
       expect(
-        find.byWidgetPredicate(
-          (widget) => widget is IconButton && widget.tooltip == 'Quote Alert',
+        find.descendant(
+          of: find.byTooltip('Quote Alert'),
+          matching: find.byType(IconButton),
         ),
         findsNothing,
       );

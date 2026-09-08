@@ -67,10 +67,14 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
                       headingLevel: 1,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    icon: const Icon(Icons.close),
-                    tooltip: 'Close',
+                  DTooltip(
+                    message: 'Close',
+                    labelTrigger: true,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      icon: const Icon(Icons.close),
+                      tooltip: '',
+                    ),
                   ),
                 ],
               ),
@@ -342,15 +346,19 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    IconButton.filledTonal(
-                      onPressed: _previewCandidate == null
-                          ? null
-                          : () => setState(() {
-                              _previewTimezones.add(_previewCandidate!);
-                              _previewCandidate = null;
-                            }),
-                      icon: const Icon(Icons.add),
-                      tooltip: 'Add timezone',
+                    DTooltip(
+                      message: 'Add timezone',
+                      labelTrigger: true,
+                      child: IconButton.filledTonal(
+                        onPressed: _previewCandidate == null
+                            ? null
+                            : () => setState(() {
+                                _previewTimezones.add(_previewCandidate!);
+                                _previewCandidate = null;
+                              }),
+                        icon: const Icon(Icons.add),
+                        tooltip: '',
+                      ),
                     ),
                   ],
                 ),
@@ -397,10 +405,14 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
               decoration: InputDecoration(labelText: '$label date'),
             ),
           ),
-          IconButton(
-            onPressed: () => unawaited(_pickDate(date)),
-            icon: const Icon(Icons.calendar_month),
-            tooltip: 'Choose $label date',
+          DTooltip(
+            message: 'Choose $label date',
+            labelTrigger: true,
+            child: IconButton(
+              onPressed: () => unawaited(_pickDate(date)),
+              icon: const Icon(Icons.calendar_month),
+              tooltip: '',
+            ),
           ),
         ],
       ),
@@ -425,10 +437,14 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                 ),
               ),
             ),
-            IconButton(
-              onPressed: () => unawaited(_pickTime(time)),
-              icon: const Icon(Icons.schedule),
-              tooltip: 'Choose $label time',
+            DTooltip(
+              message: 'Choose $label time',
+              labelTrigger: true,
+              child: IconButton(
+                onPressed: () => unawaited(_pickTime(time)),
+                icon: const Icon(Icons.schedule),
+                tooltip: '',
+              ),
             ),
           ],
         ),

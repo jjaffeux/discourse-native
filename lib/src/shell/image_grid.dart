@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
@@ -562,19 +563,23 @@ class _Nav extends StatelessWidget {
       label: label,
       onTap: onTap,
       child: ExcludeSemantics(
-        child: IconButton(
-          onPressed: onTap,
-          tooltip: label,
-          iconSize: 14,
-          constraints: const BoxConstraints.tightFor(
-            width: ImageGridCarousel.controlTargetSize,
-            height: ImageGridCarousel.controlTargetSize,
-          ),
-          padding: EdgeInsets.zero,
-          icon: DIcon(
-            icon,
-            size: 14,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+        child: DTooltip(
+          message: label,
+          labelTrigger: true,
+          child: IconButton(
+            onPressed: onTap,
+            tooltip: '',
+            iconSize: 14,
+            constraints: const BoxConstraints.tightFor(
+              width: ImageGridCarousel.controlTargetSize,
+              height: ImageGridCarousel.controlTargetSize,
+            ),
+            padding: EdgeInsets.zero,
+            icon: DIcon(
+              icon,
+              size: 14,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ),
@@ -690,7 +695,7 @@ class _DotButtonState extends State<_DotButton> {
       label: label,
       onTap: widget.onTap,
       child: ExcludeSemantics(
-        child: Tooltip(
+        child: DTooltip(
           message: label,
           excludeFromSemantics: true,
           child: InkWell(

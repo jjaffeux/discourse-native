@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
@@ -13,7 +14,6 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
-import 'package:discourse_native/src/theme/d_button.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -594,11 +594,11 @@ void main() {
       );
       expect(
         tester
-            .widget<Tooltip>(
+            .widget<DTooltip>(
               find
                   .ancestor(
                     of: find.byKey(const ValueKey('topic-filter-token-0')),
-                    matching: find.byType(Tooltip),
+                    matching: find.byType(DTooltip),
                   )
                   .first,
             )

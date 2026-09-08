@@ -71,7 +71,7 @@ class PostRevisionIndicator extends StatelessWidget {
     return Semantics(
       label: count == 1 ? '1 edit' : '$count edits',
       excludeSemantics: true,
-      child: Tooltip(
+      child: DTooltip(
         message: tooltip,
         child: Padding(
           key: ValueKey('post-revision-indicator-${post.id}'),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart' show kTouchSlop;
@@ -9,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderBox, RenderEditable;
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart';
 import '../data/composer_geometry_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/composer_upload.dart';
@@ -1154,7 +1154,7 @@ class _ComposerTaxonomyButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Tooltip(
+    return DTooltip(
       message: tooltip,
       child: TextButton(
         onPressed: onPressed,
@@ -2710,25 +2710,29 @@ class _SelectionFormattingMenu extends StatelessWidget {
                   (ComposerMark.bold, DIcons.bold, 'Bold'),
                   (ComposerMark.italic, DIcons.italic, 'Italic'),
                 ])
-                  IconButton(
-                    onPressed: composer.isEditing
-                        ? () {
-                            if (!composer.isEditing) return;
-                            composer.toggleMark(mark);
-                            composer.focus.requestFocus();
-                          }
-                        : null,
-                    icon: DIcon(icon, size: 18),
-                    tooltip: label,
-                    constraints: const BoxConstraints.tightFor(
-                      width: 44,
-                      height: 44,
+                  DTooltip(
+                    message: label,
+                    labelTrigger: true,
+                    child: IconButton(
+                      onPressed: composer.isEditing
+                          ? () {
+                              if (!composer.isEditing) return;
+                              composer.toggleMark(mark);
+                              composer.focus.requestFocus();
+                            }
+                          : null,
+                      icon: DIcon(icon, size: 18),
+                      tooltip: '',
+                      constraints: const BoxConstraints.tightFor(
+                        width: 44,
+                        height: 44,
+                      ),
+                      style: const ButtonStyle(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.standard,
+                      ),
+                      color: theme.colorScheme.onSurface,
                     ),
-                    style: const ButtonStyle(
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.standard,
-                    ),
-                    color: theme.colorScheme.onSurface,
                   ),
               ],
             ),
@@ -2785,51 +2789,67 @@ class _ImageComposerMenu extends StatelessWidget {
                 Row(
                   children: [
                     if (gallery == null) ...[
-                      IconButton(
-                        onPressed: scaleIndex > 0
-                            ? () => onScale(scales[scaleIndex - 1])
-                            : null,
-                        icon: const Icon(Icons.zoom_out, size: 18),
-                        tooltip: 'Decrease image size',
-                        visualDensity: VisualDensity.compact,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 44,
-                          height: 44,
+                      DTooltip(
+                        message: 'Decrease image size',
+                        labelTrigger: true,
+                        child: IconButton(
+                          onPressed: scaleIndex > 0
+                              ? () => onScale(scales[scaleIndex - 1])
+                              : null,
+                          icon: const Icon(Icons.zoom_out, size: 18),
+                          tooltip: '',
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 44,
+                            height: 44,
+                          ),
                         ),
                       ),
                       Text('$scale%', style: theme.textTheme.labelMedium),
-                      IconButton(
-                        onPressed: scaleIndex < scales.length - 1
-                            ? () => onScale(scales[scaleIndex + 1])
-                            : null,
-                        icon: const Icon(Icons.zoom_in, size: 18),
-                        tooltip: 'Increase image size',
-                        visualDensity: VisualDensity.compact,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 44,
-                          height: 44,
+                      DTooltip(
+                        message: 'Increase image size',
+                        labelTrigger: true,
+                        child: IconButton(
+                          onPressed: scaleIndex < scales.length - 1
+                              ? () => onScale(scales[scaleIndex + 1])
+                              : null,
+                          icon: const Icon(Icons.zoom_in, size: 18),
+                          tooltip: '',
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 44,
+                            height: 44,
+                          ),
                         ),
                       ),
                     ] else
-                      IconButton(
-                        onPressed: onMoveOutsideGallery,
-                        icon: const Icon(Icons.grid_off_outlined, size: 18),
-                        tooltip: 'Move image outside gallery',
+                      DTooltip(
+                        message: 'Move image outside gallery',
+                        labelTrigger: true,
+                        child: IconButton(
+                          onPressed: onMoveOutsideGallery,
+                          icon: const Icon(Icons.grid_off_outlined, size: 18),
+                          tooltip: '',
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 44,
+                            height: 44,
+                          ),
+                        ),
+                      ),
+                    const Spacer(),
+                    DTooltip(
+                      message: 'Delete image',
+                      labelTrigger: true,
+                      child: IconButton(
+                        onPressed: onDelete,
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        tooltip: '',
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints.tightFor(
                           width: 44,
                           height: 44,
                         ),
-                      ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: onDelete,
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      tooltip: 'Delete image',
-                      visualDensity: VisualDensity.compact,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 44,
-                        height: 44,
                       ),
                     ),
                   ],
@@ -2848,15 +2868,19 @@ class _ImageComposerMenu extends StatelessWidget {
                         width: 44,
                         height: 44,
                       ),
-                      suffixIcon: IconButton(
-                        onPressed: onSaveAlt,
-                        tooltip: 'Save alt text',
-                        icon: const Icon(Icons.check, size: 16),
-                        constraints: const BoxConstraints.tightFor(
-                          width: 44,
-                          height: 44,
+                      suffixIcon: DTooltip(
+                        message: 'Save alt text',
+                        labelTrigger: true,
+                        child: IconButton(
+                          onPressed: onSaveAlt,
+                          tooltip: '',
+                          icon: const Icon(Icons.check, size: 16),
+                          constraints: const BoxConstraints.tightFor(
+                            width: 44,
+                            height: 44,
+                          ),
+                          padding: EdgeInsets.zero,
                         ),
-                        padding: EdgeInsets.zero,
                       ),
                     ),
                   ),
@@ -2920,98 +2944,118 @@ class _GalleryComposerMenu extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    IconButton(
-                      isSelected: gallery.mode == ComposerGalleryMode.grid,
-                      onPressed: () => onMode(ComposerGalleryMode.grid),
-                      icon: const Icon(Icons.grid_view_outlined, size: 18),
-                      selectedIcon: const Icon(Icons.grid_view, size: 18),
-                      tooltip: 'Grid gallery mode',
-                      constraints: const BoxConstraints.tightFor(
-                        width: _ComposerEditorState._galleryMenuButtonExtent,
-                        height: _ComposerEditorState._galleryMenuButtonExtent,
-                      ),
-                      style: const ButtonStyle(
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.standard,
-                      ),
-                    ),
-                    IconButton(
-                      isSelected: gallery.mode == ComposerGalleryMode.carousel,
-                      onPressed: () => onMode(ComposerGalleryMode.carousel),
-                      icon: const Icon(Icons.view_carousel_outlined, size: 18),
-                      selectedIcon: const Icon(Icons.view_carousel, size: 18),
-                      tooltip: 'Carousel gallery mode',
-                      constraints: const BoxConstraints.tightFor(
-                        width: _ComposerEditorState._galleryMenuButtonExtent,
-                        height: _ComposerEditorState._galleryMenuButtonExtent,
-                      ),
-                      style: const ButtonStyle(
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.standard,
-                      ),
-                    ),
-                    PopupMenuButton<_GalleryAddChoice>(
-                      enabled: !pickingImages,
-                      tooltip: 'Add images to gallery',
-                      padding: EdgeInsets.zero,
-                      style: const ButtonStyle(
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.standard,
-                        fixedSize: WidgetStatePropertyAll(
-                          Size.square(
-                            _ComposerEditorState._galleryMenuButtonExtent,
-                          ),
+                    DTooltip(
+                      message: 'Grid gallery mode',
+                      labelTrigger: true,
+                      child: IconButton(
+                        isSelected: gallery.mode == ComposerGalleryMode.grid,
+                        onPressed: () => onMode(ComposerGalleryMode.grid),
+                        icon: const Icon(Icons.grid_view_outlined, size: 18),
+                        selectedIcon: const Icon(Icons.grid_view, size: 18),
+                        tooltip: '',
+                        constraints: const BoxConstraints.tightFor(
+                          width: _ComposerEditorState._galleryMenuButtonExtent,
+                          height: _ComposerEditorState._galleryMenuButtonExtent,
+                        ),
+                        style: const ButtonStyle(
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.standard,
                         ),
                       ),
-                      icon: pickingImages
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: DSpinner(),
-                            )
-                          : const Icon(
-                              Icons.add_photo_alternate_outlined,
-                              size: 18,
+                    ),
+                    DTooltip(
+                      message: 'Carousel gallery mode',
+                      labelTrigger: true,
+                      child: IconButton(
+                        isSelected:
+                            gallery.mode == ComposerGalleryMode.carousel,
+                        onPressed: () => onMode(ComposerGalleryMode.carousel),
+                        icon: const Icon(
+                          Icons.view_carousel_outlined,
+                          size: 18,
+                        ),
+                        selectedIcon: const Icon(Icons.view_carousel, size: 18),
+                        tooltip: '',
+                        constraints: const BoxConstraints.tightFor(
+                          width: _ComposerEditorState._galleryMenuButtonExtent,
+                          height: _ComposerEditorState._galleryMenuButtonExtent,
+                        ),
+                        style: const ButtonStyle(
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.standard,
+                        ),
+                      ),
+                    ),
+                    DTooltip(
+                      message: 'Add images to gallery',
+                      labelTrigger: true,
+                      child: PopupMenuButton<_GalleryAddChoice>(
+                        enabled: !pickingImages,
+                        tooltip: '',
+                        padding: EdgeInsets.zero,
+                        style: const ButtonStyle(
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.standard,
+                          fixedSize: WidgetStatePropertyAll(
+                            Size.square(
+                              _ComposerEditorState._galleryMenuButtonExtent,
                             ),
-                      onSelected: (choice) {
-                        switch (choice) {
-                          case _GalleryAddChoice.upload:
-                            onUploadImages();
-                          case _GalleryAddChoice.existing:
-                            onAddExistingImages();
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: _GalleryAddChoice.upload,
-                          enabled: canUpload,
-                          child: const ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(Icons.upload_outlined),
-                            title: Text('Upload new images'),
                           ),
                         ),
-                        PopupMenuItem(
-                          value: _GalleryAddChoice.existing,
-                          enabled: hasStandaloneImages,
-                          child: const ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(Icons.photo_library_outlined),
-                            title: Text('Add existing draft images'),
+                        icon: pickingImages
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: DSpinner(),
+                              )
+                            : const Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 18,
+                              ),
+                        onSelected: (choice) {
+                          switch (choice) {
+                            case _GalleryAddChoice.upload:
+                              onUploadImages();
+                            case _GalleryAddChoice.existing:
+                              onAddExistingImages();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: _GalleryAddChoice.upload,
+                            enabled: canUpload,
+                            child: const ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(Icons.upload_outlined),
+                              title: Text('Upload new images'),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    IconButton(
-                      onPressed: onUnwrap,
-                      icon: const Icon(Icons.grid_off_outlined, size: 18),
-                      tooltip: 'Remove gallery, keep images',
-                      constraints: const BoxConstraints.tightFor(
-                        width: _ComposerEditorState._galleryMenuButtonExtent,
-                        height: _ComposerEditorState._galleryMenuButtonExtent,
+                          PopupMenuItem(
+                            value: _GalleryAddChoice.existing,
+                            enabled: hasStandaloneImages,
+                            child: const ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(Icons.photo_library_outlined),
+                              title: Text('Add existing draft images'),
+                            ),
+                          ),
+                        ],
                       ),
-                      style: const ButtonStyle(
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.standard,
+                    ),
+                    DTooltip(
+                      message: 'Remove gallery, keep images',
+                      labelTrigger: true,
+                      child: IconButton(
+                        onPressed: onUnwrap,
+                        icon: const Icon(Icons.grid_off_outlined, size: 18),
+                        tooltip: '',
+                        constraints: const BoxConstraints.tightFor(
+                          width: _ComposerEditorState._galleryMenuButtonExtent,
+                          height: _ComposerEditorState._galleryMenuButtonExtent,
+                        ),
+                        style: const ButtonStyle(
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.standard,
+                        ),
                       ),
                     ),
                   ],
@@ -3131,20 +3175,24 @@ class _Toolbar extends StatelessWidget {
         if (emojiEnabled)
           EmojiPickerAnchor(
             child: Builder(
-              builder: (buttonContext) => IconButton(
-                key: const ValueKey('composer-emoji-picker'),
-                onPressed: !composer.isEditing
-                    ? null
-                    : () => unawaited(
-                        openEmojiPickerForTopicComposer(
-                          context: buttonContext,
-                          composer: composer,
+              builder: (buttonContext) => DTooltip(
+                message: 'Add emoji',
+                labelTrigger: true,
+                child: IconButton(
+                  key: const ValueKey('composer-emoji-picker'),
+                  onPressed: !composer.isEditing
+                      ? null
+                      : () => unawaited(
+                          openEmojiPickerForTopicComposer(
+                            context: buttonContext,
+                            composer: composer,
+                          ),
                         ),
-                      ),
-                icon: const DIcon(DIcons.discourseEmojis, size: 18),
-                tooltip: 'Add emoji',
-                visualDensity: VisualDensity.compact,
-                color: theme.colorScheme.onSurfaceVariant,
+                  icon: const DIcon(DIcons.discourseEmojis, size: 18),
+                  tooltip: '',
+                  visualDensity: VisualDensity.compact,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -3187,20 +3235,24 @@ class _Toolbar extends StatelessWidget {
               child: const Text('Link'),
             ),
           ],
-          builder: (context, menu, _) => IconButton(
-            key: const ValueKey('composer-formatting'),
-            onPressed: composer.isEditing
-                ? (menu.isOpen ? menu.close : menu.open)
-                : null,
-            icon: Text(
-              'Aa',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+          builder: (context, menu, _) => DTooltip(
+            message: 'Formatting',
+            labelTrigger: true,
+            child: IconButton(
+              key: const ValueKey('composer-formatting'),
+              onPressed: composer.isEditing
+                  ? (menu.isOpen ? menu.close : menu.open)
+                  : null,
+              icon: Text(
+                'Aa',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
+              tooltip: '',
+              visualDensity: VisualDensity.compact,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            tooltip: 'Formatting',
-            visualDensity: VisualDensity.compact,
-            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
         if (actions.isNotEmpty)
@@ -3214,15 +3266,19 @@ class _Toolbar extends StatelessWidget {
                   child: Text(action.label),
                 ),
             ],
-            builder: (context, menu, _) => IconButton(
-              key: const ValueKey('composer-insert'),
-              onPressed: composer.isEditing
-                  ? (menu.isOpen ? menu.close : menu.open)
-                  : null,
-              icon: const DIcon(DIcons.circlePlus, size: 18),
-              tooltip: 'Insert',
-              visualDensity: VisualDensity.compact,
-              color: theme.colorScheme.onSurfaceVariant,
+            builder: (context, menu, _) => DTooltip(
+              message: 'Insert',
+              labelTrigger: true,
+              child: IconButton(
+                key: const ValueKey('composer-insert'),
+                onPressed: composer.isEditing
+                    ? (menu.isOpen ? menu.close : menu.open)
+                    : null,
+                icon: const DIcon(DIcons.circlePlus, size: 18),
+                tooltip: '',
+                visualDensity: VisualDensity.compact,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
       ],
@@ -3364,17 +3420,21 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
         ),
       ),
       alignment: pointsRight ? Alignment.centerRight : Alignment.centerLeft,
-      child: IconButton(
-        onPressed: onPressed,
-        icon: DIcon(
-          pointsRight ? DIcons.chevronRight : DIcons.chevronLeft,
-          size: 13,
-        ),
-        tooltip: forward
+      child: DTooltip(
+        message: forward
             ? 'Show more composer tools'
             : 'Show previous composer tools',
-        visualDensity: VisualDensity.compact,
-        color: theme.colorScheme.onSurfaceVariant,
+        labelTrigger: true,
+        child: IconButton(
+          onPressed: onPressed,
+          icon: DIcon(
+            pointsRight ? DIcons.chevronRight : DIcons.chevronLeft,
+            size: 13,
+          ),
+          tooltip: '',
+          visualDensity: VisualDensity.compact,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }
@@ -3440,15 +3500,19 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return IconButton(
-      key: const ValueKey('composer-upload'),
-      onPressed: !widget.composer.canUpload || _picking
-          ? null
-          : () => unawaited(_pick()),
-      icon: const DIcon(DIcons.paperclip, size: 18),
-      tooltip: 'Upload images',
-      visualDensity: VisualDensity.compact,
-      color: theme.colorScheme.onSurfaceVariant,
+    return DTooltip(
+      message: 'Upload images',
+      labelTrigger: true,
+      child: IconButton(
+        key: const ValueKey('composer-upload'),
+        onPressed: !widget.composer.canUpload || _picking
+            ? null
+            : () => unawaited(_pick()),
+        icon: const DIcon(DIcons.paperclip, size: 18),
+        tooltip: '',
+        visualDensity: VisualDensity.compact,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
     );
   }
 }
@@ -3519,7 +3583,7 @@ class ComposerUploadQueue extends StatelessWidget {
                         style: theme.textTheme.labelMedium,
                       ),
                       if (failed)
-                        Tooltip(
+                        DTooltip(
                           message:
                               upload.error ?? "Couldn't upload this image.",
                           child: Text(
@@ -3543,26 +3607,38 @@ class ComposerUploadQueue extends StatelessWidget {
                   ),
                 ),
                 if (failed) ...[
-                  IconButton(
-                    onPressed: composer.canUpload
-                        ? () => composer.retryUpload(upload.id)
-                        : null,
-                    icon: const Icon(Icons.refresh, size: 17),
-                    tooltip: 'Retry upload',
-                    visualDensity: VisualDensity.compact,
+                  DTooltip(
+                    message: 'Retry upload',
+                    labelTrigger: true,
+                    child: IconButton(
+                      onPressed: composer.canUpload
+                          ? () => composer.retryUpload(upload.id)
+                          : null,
+                      icon: const Icon(Icons.refresh, size: 17),
+                      tooltip: '',
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
-                  IconButton(
-                    onPressed: () => composer.removeUpload(upload.id),
-                    icon: const Icon(Icons.close, size: 17),
-                    tooltip: 'Remove upload',
-                    visualDensity: VisualDensity.compact,
+                  DTooltip(
+                    message: 'Remove upload',
+                    labelTrigger: true,
+                    child: IconButton(
+                      onPressed: () => composer.removeUpload(upload.id),
+                      icon: const Icon(Icons.close, size: 17),
+                      tooltip: '',
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
                 ] else if (completed) ...[
-                  IconButton(
-                    onPressed: () => composer.removeUpload(upload.id),
-                    icon: const Icon(Icons.close, size: 17),
-                    tooltip: 'Remove upload',
-                    visualDensity: VisualDensity.compact,
+                  DTooltip(
+                    message: 'Remove upload',
+                    labelTrigger: true,
+                    child: IconButton(
+                      onPressed: () => composer.removeUpload(upload.id),
+                      icon: const Icon(Icons.close, size: 17),
+                      tooltip: '',
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
                 ] else ...[
                   SizedBox(
@@ -3573,11 +3649,15 @@ class ComposerUploadQueue extends StatelessWidget {
                       style: theme.textTheme.labelSmall,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => composer.cancelUpload(upload.id),
-                    icon: const Icon(Icons.close, size: 17),
-                    tooltip: 'Cancel upload',
-                    visualDensity: VisualDensity.compact,
+                  DTooltip(
+                    message: 'Cancel upload',
+                    labelTrigger: true,
+                    child: IconButton(
+                      onPressed: () => composer.cancelUpload(upload.id),
+                      icon: const Icon(Icons.close, size: 17),
+                      tooltip: '',
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
                 ],
                 const SizedBox(width: 2),
@@ -3705,7 +3785,7 @@ class _Footer extends StatelessWidget {
                   padding: const EdgeInsetsDirectional.only(end: 8),
                   child: control,
                 ),
-              Tooltip(
+              DTooltip(
                 message: compact ? label : '',
                 excludeFromSemantics: true,
                 child: FilledButton(

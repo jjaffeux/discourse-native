@@ -708,16 +708,20 @@ class _AssignedQueryControls extends StatelessWidget {
         ),
       ),
     );
-    final direction = IconButton(
-      tooltip: query.ascending ? 'Descending' : 'Ascending',
-      onPressed: () => onQueryChanged(
-        AssignedGroupTopicQuery(
-          order: query.order,
-          ascending: !query.ascending,
-          search: query.search,
+    final direction = DTooltip(
+      message: query.ascending ? 'Descending' : 'Ascending',
+      labelTrigger: true,
+      child: IconButton(
+        tooltip: '',
+        onPressed: () => onQueryChanged(
+          AssignedGroupTopicQuery(
+            order: query.order,
+            ascending: !query.ascending,
+            search: query.search,
+          ),
         ),
+        icon: Icon(query.ascending ? Icons.arrow_upward : Icons.arrow_downward),
       ),
-      icon: Icon(query.ascending ? Icons.arrow_upward : Icons.arrow_downward),
     );
 
     return FocusTraversalGroup(

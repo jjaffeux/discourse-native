@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:html/dom.dart' as dom;
-
-import '../../discourse_ui.dart';
 
 import '../data/api_credentials.dart';
 import '../data/http_transport.dart';
@@ -234,21 +233,27 @@ class _InlineVideoState extends State<InlineVideo> {
       bottom: 8,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final download = IconButton.filled(
-            key: const ValueKey('inline-video-download'),
-            tooltip: downloading ? 'Downloading video…' : 'Download video',
-            onPressed: downloading ? null : () => unawaited(_download(context)),
-            style: IconButton.styleFrom(
-              backgroundColor: const Color(0xBB000000),
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: const Color(0xBB000000),
+          final download = DTooltip(
+            message: downloading ? 'Downloading video…' : 'Download video',
+            labelTrigger: true,
+            child: IconButton.filled(
+              key: const ValueKey('inline-video-download'),
+              tooltip: '',
+              onPressed: downloading
+                  ? null
+                  : () => unawaited(_download(context)),
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xBB000000),
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xBB000000),
+              ),
+              icon: downloading
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: DSpinner(color: Colors.white),
+                    )
+                  : const DIcon(DIcons.download, size: 18, color: Colors.white),
             ),
-            icon: downloading
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: DSpinner(color: Colors.white),
-                  )
-                : const DIcon(DIcons.download, size: 18, color: Colors.white),
           );
           final open = _OpenVideoButton(data: widget.data);
           if (constraints.maxWidth < 100) {
@@ -912,12 +917,16 @@ class _PlaybackControls extends StatelessWidget {
             _PlaybackStateBuilder(
               session: session,
               select: (state) => state.isPlaying,
-              builder: (context, isPlaying) => IconButton(
-                tooltip: isPlaying ? 'Pause' : 'Play',
-                color: Colors.white,
-                onPressed: onTogglePlayback,
-                icon: Icon(
-                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              builder: (context, isPlaying) => DTooltip(
+                message: isPlaying ? 'Pause' : 'Play',
+                labelTrigger: true,
+                child: IconButton(
+                  tooltip: '',
+                  color: Colors.white,
+                  onPressed: onTogglePlayback,
+                  icon: Icon(
+                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  ),
                 ),
               ),
             ),
@@ -925,20 +934,32 @@ class _PlaybackControls extends StatelessWidget {
               child: _PlaybackTimeline(session: session, onSeek: onSeek),
             ),
             if (onExitFullscreen case final exit?)
-              IconButton(
-                key: const ValueKey('inline-video-fullscreen-close'),
-                tooltip: 'Exit full screen',
-                color: Colors.white,
-                onPressed: exit,
-                icon: const Icon(Icons.fullscreen_exit_rounded),
+              DTooltip(
+                message: 'Exit full screen',
+                labelTrigger: true,
+                child: IconButton(
+                  key: const ValueKey('inline-video-fullscreen-close'),
+                  tooltip: '',
+                  color: Colors.white,
+                  onPressed: exit,
+                  icon: const Icon(Icons.fullscreen_exit_rounded),
+                ),
               )
             else if (onEnterFullscreen != null && controls.supportsFullscreen)
-              IconButton(
-                key: const ValueKey('inline-video-fullscreen'),
-                tooltip: 'Enter full screen',
-                color: Colors.white,
-                onPressed: onEnterFullscreen,
-                icon: const DIcon(DIcons.expand, size: 18, color: Colors.white),
+              DTooltip(
+                message: 'Enter full screen',
+                labelTrigger: true,
+                child: IconButton(
+                  key: const ValueKey('inline-video-fullscreen'),
+                  tooltip: '',
+                  color: Colors.white,
+                  onPressed: onEnterFullscreen,
+                  icon: const DIcon(
+                    DIcons.expand,
+                    size: 18,
+                    color: Colors.white,
+                  ),
+                ),
               )
             else
               const SizedBox(width: 12),
@@ -1076,7 +1097,7 @@ class _OpenVideoButton extends StatelessWidget {
       label: label,
       onTap: open,
       child: ExcludeSemantics(
-        child: Tooltip(
+        child: DTooltip(
           message: 'Open video',
           child: IconButton.filled(
             onPressed: open,

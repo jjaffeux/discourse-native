@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
-import '../../../discourse_ui.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_dialog_action.dart';
 import '../../shell/content_reading_lane.dart';
@@ -1747,13 +1747,17 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
               ),
-              IconButton(
-                key: const ValueKey('chat-quote-selection'),
-                tooltip: 'Quote selected messages',
-                onPressed: count == 0 || busy ? null : _quote,
-                icon: _quoting
-                    ? const SizedBox.square(dimension: 18, child: DSpinner())
-                    : const DIcon(DIcons.quoteLeft, size: 18),
+              DTooltip(
+                message: 'Quote selected messages',
+                labelTrigger: true,
+                child: IconButton(
+                  key: const ValueKey('chat-quote-selection'),
+                  tooltip: '',
+                  onPressed: count == 0 || busy ? null : _quote,
+                  icon: _quoting
+                      ? const SizedBox.square(dimension: 18, child: DSpinner())
+                      : const DIcon(DIcons.quoteLeft, size: 18),
+                ),
               ),
               FilledButton.icon(
                 key: const ValueKey('chat-copy-selection'),
@@ -1765,32 +1769,47 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
               ),
               const SizedBox(width: 4),
               if (offersMove)
-                IconButton(
-                  key: const ValueKey('chat-move-selection'),
-                  tooltip: 'Move selected messages to another channel',
-                  onPressed: canMove && !busy
-                      ? () => _move(moveDestinations)
-                      : null,
-                  icon: _moving
-                      ? const SizedBox.square(dimension: 18, child: DSpinner())
-                      : const DIcon(DIcons.rightFromBracket, size: 18),
+                DTooltip(
+                  message: 'Move selected messages to another channel',
+                  labelTrigger: true,
+                  child: IconButton(
+                    key: const ValueKey('chat-move-selection'),
+                    tooltip: '',
+                    onPressed: canMove && !busy
+                        ? () => _move(moveDestinations)
+                        : null,
+                    icon: _moving
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: DSpinner(),
+                          )
+                        : const DIcon(DIcons.rightFromBracket, size: 18),
+                  ),
                 ),
-              IconButton(
-                key: const ValueKey('chat-delete-selection'),
-                tooltip: count > ChatController.maximumBulkDeleteMessages
+              DTooltip(
+                message: count > ChatController.maximumBulkDeleteMessages
                     ? 'Select no more than '
                           '${ChatController.maximumBulkDeleteMessages} messages'
                     : 'Delete selected messages',
-                onPressed: canDelete && !busy ? _delete : null,
-                icon: _deleting
-                    ? const SizedBox.square(dimension: 18, child: DSpinner())
-                    : const DIcon(DIcons.trashCan, size: 18),
+                labelTrigger: true,
+                child: IconButton(
+                  key: const ValueKey('chat-delete-selection'),
+                  tooltip: '',
+                  onPressed: canDelete && !busy ? _delete : null,
+                  icon: _deleting
+                      ? const SizedBox.square(dimension: 18, child: DSpinner())
+                      : const DIcon(DIcons.trashCan, size: 18),
+                ),
               ),
-              IconButton(
-                key: const ValueKey('chat-cancel-selection'),
-                tooltip: 'Cancel selection',
-                onPressed: busy ? null : widget.onCancel,
-                icon: const DIcon(DIcons.xmark, size: 18),
+              DTooltip(
+                message: 'Cancel selection',
+                labelTrigger: true,
+                child: IconButton(
+                  key: const ValueKey('chat-cancel-selection'),
+                  tooltip: '',
+                  onPressed: busy ? null : widget.onCancel,
+                  icon: const DIcon(DIcons.xmark, size: 18),
+                ),
               ),
             ],
           ),
@@ -1840,7 +1859,7 @@ class _JumpToPresent extends StatelessWidget {
       container: true,
       button: true,
       label: label,
-      child: Tooltip(
+      child: DTooltip(
         message: label,
         excludeFromSemantics: true,
         child: Material(

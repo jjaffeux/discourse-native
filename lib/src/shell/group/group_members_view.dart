@@ -424,7 +424,7 @@ class _MemberSortHeader extends StatelessWidget {
     value: selected
         ? (ascending ? 'Sorted ascending' : 'Sorted descending')
         : null,
-    child: Tooltip(
+    child: DTooltip(
       message: 'Sort by $label',
       child: InkWell(
         onTap: onPressed,
@@ -672,7 +672,7 @@ class _MemberRelativeDate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (value == null) return const Text('—');
-    return Tooltip(
+    return DTooltip(
       message: _dateTimeText(context, value!),
       child: Text(
         relativeTime(value!),

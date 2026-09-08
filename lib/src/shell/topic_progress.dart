@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import 'shell_controller.dart';
 import 'shell_sheet.dart';
 
@@ -23,7 +23,7 @@ class TopicProgressButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final boundedPosition = position.clamp(1, total);
-    return Tooltip(
+    return DTooltip(
       message: 'Topic progress',
       child: Semantics(
         button: true,

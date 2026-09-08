@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
@@ -230,7 +231,7 @@ class TopicInboxRow extends StatelessWidget {
                               ],
                               if (topic.tags.length > 2) ...[
                                 const SizedBox(width: 5),
-                                Tooltip(
+                                DTooltip(
                                   message: topic.tags
                                       .skip(2)
                                       .map((tag) => '# ${tag.name}')
@@ -260,7 +261,7 @@ class TopicInboxRow extends StatelessWidget {
                                 if (topic.lastPosterUsername
                                     case final username?
                                     when topic.excerpt == null) ...[
-                                  Tooltip(
+                                  DTooltip(
                                     message: '@$username',
                                     child: ClipOval(
                                       child: AvatarImage(

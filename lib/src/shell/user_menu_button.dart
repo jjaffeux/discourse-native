@@ -187,7 +187,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               button: !connecting,
               enabled: !connecting,
               label: semanticLabel,
-              child: Tooltip(
+              child: DTooltip(
                 message: tooltip,
                 excludeFromSemantics: true,
                 child: Material(
@@ -243,22 +243,30 @@ class _SignedOutAccountActions extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton.filled(
-            key: UserMenuButton.signUpKey,
-            onPressed: connecting ? null : onSignUp,
-            tooltip: 'Sign up',
-            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
-            icon: const DIcon(DIcons.userPlus, size: 16),
+          DTooltip(
+            message: 'Sign up',
+            labelTrigger: true,
+            child: IconButton.filled(
+              key: UserMenuButton.signUpKey,
+              onPressed: connecting ? null : onSignUp,
+              tooltip: '',
+              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+              icon: const DIcon(DIcons.userPlus, size: 16),
+            ),
           ),
           const SizedBox(width: 4),
-          IconButton.filled(
-            key: UserMenuButton.signInKey,
-            onPressed: connecting ? null : onSignIn,
-            tooltip: connecting ? 'Signing in…' : 'Sign in',
-            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
-            icon: connecting
-                ? const SizedBox.square(dimension: 16, child: DSpinner())
-                : const DIcon(DIcons.user, size: 16),
+          DTooltip(
+            message: connecting ? 'Signing in…' : 'Sign in',
+            labelTrigger: true,
+            child: IconButton.filled(
+              key: UserMenuButton.signInKey,
+              onPressed: connecting ? null : onSignIn,
+              tooltip: '',
+              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+              icon: connecting
+                  ? const SizedBox.square(dimension: 16, child: DSpinner())
+                  : const DIcon(DIcons.user, size: 16),
+            ),
           ),
         ],
       );

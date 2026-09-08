@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart'
     show Factory, TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/gestures.dart'
@@ -18,7 +19,6 @@ import 'package:webview_all/webview_all.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/uri_path.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -657,7 +657,7 @@ class _YoutubePoster extends StatelessWidget {
             label: openLabel,
             onTap: openOnYoutube,
             child: ExcludeSemantics(
-              child: Tooltip(
+              child: DTooltip(
                 message: 'Open on YouTube',
                 child: IconButton.filled(
                   onPressed: openOnYoutube,

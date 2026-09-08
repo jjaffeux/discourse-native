@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -19,7 +20,7 @@ class TopicUnreadBadge extends StatelessWidget {
       container: true,
       label: label,
       excludeSemantics: true,
-      child: Tooltip(
+      child: DTooltip(
         message: label,
         excludeFromSemantics: true,
         child: Container(
@@ -50,7 +51,7 @@ class TopicStateDot extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     container: true,
     label: label,
-    child: Tooltip(
+    child: DTooltip(
       message: label,
       excludeFromSemantics: true,
       child: Container(

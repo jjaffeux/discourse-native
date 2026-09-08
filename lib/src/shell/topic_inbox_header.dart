@@ -443,7 +443,7 @@ class _CompactTopicHeaderTitle extends StatelessWidget {
   final VoidCallback? onEdit;
 
   @override
-  Widget build(BuildContext context) => Tooltip(
+  Widget build(BuildContext context) => DTooltip(
     message: header.title,
     child: Semantics(
       button: onEdit != null,
@@ -747,7 +747,7 @@ class _TopicActivitySummary extends StatelessWidget {
                   for (var i = 0; i < participants.length; i++)
                     Positioned(
                       left: i * 15,
-                      child: Tooltip(
+                      child: DTooltip(
                         message: participants[i].displayName,
                         child: ClipOval(
                           child: AvatarImage(
@@ -1082,7 +1082,7 @@ class _CategoryChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Flexible(
-            child: Tooltip(
+            child: DTooltip(
               message: edit == null ? label : editLabel,
               child: InkWell(
                 onTap: edit,
@@ -1143,7 +1143,7 @@ class _CategoryChip extends StatelessWidget {
               url: '/c/${category!.id}',
               title: category!.name,
               siteUrl: siteUrl,
-              child: Tooltip(
+              child: DTooltip(
                 message: 'Browse ${category!.name}',
                 child: InkWell(
                   key: ValueKey('topic-header-browse-category-${category!.id}'),

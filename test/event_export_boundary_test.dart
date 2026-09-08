@@ -84,9 +84,11 @@ void main() {
         if (view == _View.card) {
           return tester.widget<EventCard>(find.byType(EventCard)).onExport;
         }
-        final finder = find.byWidgetPredicate(
-          (widget) =>
-              widget is PopupMenuButton && widget.tooltip == 'Calendar actions',
+        final finder = find.descendant(
+          of: find.byTooltip('Calendar actions'),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is PopupMenuButton,
+          ),
         );
         final menu = tester.widget<PopupMenuButton<VoidCallback>>(finder);
         final item = menu

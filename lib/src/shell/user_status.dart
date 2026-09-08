@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_status.dart';
@@ -132,7 +133,7 @@ class _ExpiringUserStatusState extends State<_ExpiringUserStatus> {
       alt: status.description,
       style: widget.style,
     );
-    Widget content = Tooltip(
+    Widget content = DTooltip(
       message: tooltip,
       child: Semantics(
         label: tooltip,

@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../discourse_ui.dart' show DDirection;
 import '../models/badge_route.dart';
 import '../models/bookmark.dart';
 import '../models/category_feed.dart';
@@ -13,7 +13,6 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_button.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
@@ -908,7 +907,7 @@ class _TopicListHeadingTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget title(String name) => Tooltip(
+    Widget title(String name) => DTooltip(
       message: name,
       child: Text(
         name,

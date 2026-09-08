@@ -117,7 +117,7 @@ void main() {
       expect(
         tester.getSemantics(clear),
         isSemantics(
-          tooltip: 'Clear search',
+          label: 'Clear search',
           isButton: true,
           hasEnabledState: true,
           isEnabled: true,

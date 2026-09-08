@@ -386,35 +386,45 @@ class _ForumSearchState extends State<ForumSearch> {
                           ),
                         ),
                       if (showClear)
-                        IconButton(
-                          key: const ValueKey('forum-search-clear'),
-                          tooltip: 'Clear search',
-                          onPressed: () {
-                            search.clearQuery();
-                            _focus.requestFocus();
-                            search.activateField(_field);
-                          },
-                          constraints: const BoxConstraints.tightFor(
-                            width: 44,
-                            height: 44,
+                        DTooltip(
+                          message: 'Clear search',
+                          labelTrigger: true,
+                          child: IconButton(
+                            key: const ValueKey('forum-search-clear'),
+                            tooltip: '',
+                            onPressed: () {
+                              search.clearQuery();
+                              _focus.requestFocus();
+                              search.activateField(_field);
+                            },
+                            constraints: const BoxConstraints.tightFor(
+                              width: 44,
+                              height: 44,
+                            ),
+                            style: const ButtonStyle(
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            padding: EdgeInsets.zero,
+                            icon: const DIcon(DIcons.xmark, size: 14),
                           ),
-                          style: const ButtonStyle(
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          padding: EdgeInsets.zero,
-                          icon: const DIcon(DIcons.xmark, size: 14),
                         ),
                       if (showAdvanced)
-                        IconButton(
-                          key: const ValueKey('forum-search-advanced'),
-                          tooltip: 'Advanced search',
-                          onPressed: () => _openFullSearch(expanded: true),
-                          constraints: const BoxConstraints.tightFor(width: 44),
-                          style: const ButtonStyle(
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        DTooltip(
+                          message: 'Advanced search',
+                          labelTrigger: true,
+                          child: IconButton(
+                            key: const ValueKey('forum-search-advanced'),
+                            tooltip: '',
+                            onPressed: () => _openFullSearch(expanded: true),
+                            constraints: const BoxConstraints.tightFor(
+                              width: 44,
+                            ),
+                            style: const ButtonStyle(
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            padding: EdgeInsets.zero,
+                            icon: const DIcon(DIcons.filter, size: 14),
                           ),
-                          padding: EdgeInsets.zero,
-                          icon: const DIcon(DIcons.filter, size: 14),
                         ),
                     ],
                   ),
@@ -561,16 +571,20 @@ class _SearchInitialOptions extends StatelessWidget {
                       ),
                     ),
                   ),
-                  IconButton(
-                    key: const ValueKey('forum-search-clear-recent'),
-                    tooltip: 'Clear recent searches',
-                    onPressed: search.resetRecentSearches,
-                    constraints: const BoxConstraints.tightFor(
-                      width: 40,
-                      height: 40,
+                  DTooltip(
+                    message: 'Clear recent searches',
+                    labelTrigger: true,
+                    child: IconButton(
+                      key: const ValueKey('forum-search-clear-recent'),
+                      tooltip: '',
+                      onPressed: search.resetRecentSearches,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 40,
+                        height: 40,
+                      ),
+                      padding: EdgeInsets.zero,
+                      icon: const DIcon(DIcons.xmark, size: 13),
                     ),
-                    padding: EdgeInsets.zero,
-                    icon: const DIcon(DIcons.xmark, size: 13),
                   ),
                 ],
               ),

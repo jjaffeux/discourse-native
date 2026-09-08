@@ -263,21 +263,18 @@ void main() {
       ),
     );
 
-    final tooltip = find.byType(RawTooltip);
+    final tooltip = find.byType(DTooltip);
     expect(
-      tester.widget<RawTooltip>(tooltip).semanticsTooltip,
-      'Reply to this topic, Shift + R',
+      tester.widget<DTooltip>(tooltip).semanticsTooltip,
+      'Reply to this topic',
     );
 
-    tester.state<RawTooltipState>(tooltip).ensureTooltipVisible();
+    tester.state<DTooltipState>(tooltip).ensureTooltipVisible();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
 
     final message = find.text('Reply to this topic');
-    expect(
-      DefaultTextStyle.of(tester.element(message)).style.fontSize,
-      AppTheme.dark.textTheme.bodyMedium?.fontSize,
-    );
+    expect(DefaultTextStyle.of(tester.element(message)).style.fontSize, 12);
     expect(find.byType(DKbd), findsNWidgets(2));
     expect(find.text('⇧'), findsOneWidget);
     expect(find.text('R'), findsOneWidget);
@@ -326,8 +323,8 @@ void main() {
       ),
     );
 
-    final tooltip = find.byType(RawTooltip);
-    tester.state<RawTooltipState>(tooltip).ensureTooltipVisible();
+    final tooltip = find.byType(DTooltip);
+    tester.state<DTooltipState>(tooltip).ensureTooltipVisible();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
 

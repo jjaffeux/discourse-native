@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -336,7 +337,7 @@ class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
             Positioned(
               top: 0,
               right: 0,
-              child: Tooltip(
+              child: DTooltip(
                 message: 'Remove quote',
                 child: SizedBox(
                   key: removeKey,

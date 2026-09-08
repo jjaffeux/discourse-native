@@ -1,6 +1,6 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../discourse_ui.dart';
 import '../foundation/calendar_day.dart';
 import '../theme/app_theme.dart';
 
@@ -95,7 +95,7 @@ class _StreamDaySeparatorState extends State<StreamDaySeparator> {
         label: actionLabel,
         onTap: onTap,
         excludeSemantics: true,
-        child: Tooltip(
+        child: DTooltip(
           message: actionLabel,
           excludeFromSemantics: true,
           child: Material(

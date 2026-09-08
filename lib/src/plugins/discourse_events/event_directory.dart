@@ -1,12 +1,12 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../plugin_api/timezone_host.dart';
 import '../../shell/external_link.dart';
 import '../../shell/site_url.dart';
-import '../../theme/d_button.dart';
 import 'event_calendar.dart';
 import 'event_calendar_data.dart';
 import 'event_controller.dart';
@@ -404,29 +404,33 @@ class _EventDirectoryState extends State<EventDirectory> {
         _action(action);
       }
     };
-    return PopupMenuButton<VoidCallback>(
-      tooltip: 'Calendar actions',
-      onSelected: (callback) => callback(),
-      itemBuilder: (_) => [
-        PopupMenuItem(
-          value: guarded(_CalendarAction.refresh),
-          child: const Text('Refresh'),
-        ),
-        CheckedPopupMenuItem(
-          value: guarded(_CalendarAction.search),
-          checked: _searchVisible,
-          child: const Text('Search events'),
-        ),
-        PopupMenuItem(
-          value: guarded(_CalendarAction.export),
-          enabled: !_exporting,
-          child: Text(_exporting ? 'Exporting calendar…' : 'Export calendar'),
-        ),
-        PopupMenuItem(
-          value: guarded(_CalendarAction.web),
-          child: const Text('Open web calendar'),
-        ),
-      ],
+    return DTooltip(
+      message: 'Calendar actions',
+      labelTrigger: true,
+      child: PopupMenuButton<VoidCallback>(
+        tooltip: '',
+        onSelected: (callback) => callback(),
+        itemBuilder: (_) => [
+          PopupMenuItem(
+            value: guarded(_CalendarAction.refresh),
+            child: const Text('Refresh'),
+          ),
+          CheckedPopupMenuItem(
+            value: guarded(_CalendarAction.search),
+            checked: _searchVisible,
+            child: const Text('Search events'),
+          ),
+          PopupMenuItem(
+            value: guarded(_CalendarAction.export),
+            enabled: !_exporting,
+            child: Text(_exporting ? 'Exporting calendar…' : 'Export calendar'),
+          ),
+          PopupMenuItem(
+            value: guarded(_CalendarAction.web),
+            child: const Text('Open web calendar'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -462,10 +466,14 @@ class _EventDirectoryState extends State<EventDirectory> {
               onSubmitted: (_) => _load(),
               decoration: InputDecoration(
                 labelText: 'Search events',
-                suffixIcon: IconButton(
-                  tooltip: 'Search events',
-                  onPressed: _load,
-                  icon: const Icon(Icons.search),
+                suffixIcon: DTooltip(
+                  message: 'Search events',
+                  labelTrigger: true,
+                  child: IconButton(
+                    tooltip: '',
+                    onPressed: _load,
+                    icon: const Icon(Icons.search),
+                  ),
                 ),
               ),
             ),

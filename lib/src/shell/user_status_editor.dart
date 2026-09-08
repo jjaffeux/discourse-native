@@ -262,7 +262,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Tooltip(
+                  DTooltip(
                     message: 'Choose status emoji',
                     child: IconButton.outlined(
                       onPressed: _busy ? null : _pickEmoji,

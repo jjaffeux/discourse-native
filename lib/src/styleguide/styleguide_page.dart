@@ -80,13 +80,17 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
           automaticallyImplyLeading: false,
           title: const Text('Component library'),
           actions: [
-            IconButton(
-              key: const ValueKey('styleguide-close'),
-              tooltip: 'Close styleguide',
-              onPressed:
-                  widget.onClose ??
-                  () => unawaited(Navigator.of(context).maybePop()),
-              icon: const Icon(Icons.close),
+            DTooltip(
+              message: 'Close styleguide',
+              labelTrigger: true,
+              child: IconButton(
+                key: const ValueKey('styleguide-close'),
+                tooltip: '',
+                onPressed:
+                    widget.onClose ??
+                    () => unawaited(Navigator.of(context).maybePop()),
+                icon: const Icon(Icons.close),
+              ),
             ),
             const SizedBox(width: DSpacing.sm),
           ],
@@ -175,10 +179,14 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       prefixIcon: const Icon(Icons.search),
       suffixIcon: _search.text.isEmpty
           ? null
-          : IconButton(
-              tooltip: 'Clear search',
-              onPressed: () => setState(_search.clear),
-              icon: const Icon(Icons.close),
+          : DTooltip(
+              message: 'Clear search',
+              labelTrigger: true,
+              child: IconButton(
+                tooltip: '',
+                onPressed: () => setState(_search.clear),
+                icon: const Icon(Icons.close),
+              ),
             ),
       border: const OutlineInputBorder(),
     ),

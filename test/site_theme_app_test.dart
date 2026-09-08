@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -572,7 +573,7 @@ ThemeData _activeTheme(WidgetTester tester) =>
 
 Finder _railItem({required String host}) => find.descendant(
   of: find.byKey(ValueKey<String>('https://$host')),
-  matching: find.byType(RawTooltip),
+  matching: find.byType(DTooltip),
 );
 
 SiteAppearance _appearanceWithSuccess(Color success) {

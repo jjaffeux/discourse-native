@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
@@ -50,38 +49,6 @@ final baselineButtonExamples = ComponentExamples(
   onPressed: () => setState(() => count++),
 )''',
       builder: (_) => const _ButtonPreview(),
-    ),
-  ],
-);
-
-final baselineTooltipExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
-  notes:
-      'Existing tooltip and shortcut keycaps. The Tooltip task will '
-      'extend positioning, focus, and complete reference coverage.',
-  examples: [
-    StyleguideExample(
-      title: 'Tooltip with keyboard shortcut',
-      description:
-          'Hover or long press the control. Change the preview '
-          'theme while the tooltip is visible.',
-      states: const ['Hover', 'Long press', 'Shortcut', 'Live overlay theme'],
-      code: '''DTooltip(
-  message: 'Save changes',
-  shortcut: const DShortcut(
-    SingleActivator(LogicalKeyboardKey.keyS, control: true),
-  ),
-  child: DButton(label: const Text('Save'), onPressed: save),
-)''',
-      builder: (_) => Center(
-        child: DTooltip(
-          message: 'Save changes',
-          shortcut: const DShortcut(
-            SingleActivator(LogicalKeyboardKey.keyS, control: true),
-          ),
-          child: DButton(label: const Text('Save'), onPressed: () {}),
-        ),
-      ),
     ),
   ],
 );

@@ -198,7 +198,7 @@ class TopicCategoryValue extends StatelessWidget {
         );
       } else {
         final message = navigationTooltip ?? 'Open category $label';
-        value = Tooltip(
+        value = DTooltip(
           message: message,
           child: InlineAction.link(
             key: actionKey,
@@ -222,7 +222,7 @@ class TopicCategoryValue extends StatelessWidget {
         );
       }
     } else if (onTap case final onTap?) {
-      value = Tooltip(
+      value = DTooltip(
         message: tooltip,
         child: InlineAction(
           key: actionKey,
@@ -282,7 +282,7 @@ class _TopicCategoryNavigationLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Tooltip(
+    return DTooltip(
       message: tooltip,
       child: InlineAction.link(
         key: actionKey,
@@ -494,7 +494,7 @@ class _TopicTagPill extends StatelessWidget {
             ),
           )
         : pill;
-    return Tooltip(message: tooltip, child: action);
+    return DTooltip(message: tooltip, child: action);
   }
 }
 
@@ -514,7 +514,7 @@ class _TopicTaxonomyEditButton extends StatelessWidget {
   final double dimension;
 
   @override
-  Widget build(BuildContext context) => Tooltip(
+  Widget build(BuildContext context) => DTooltip(
     message: tooltip,
     child: InlineAction(
       key: actionKey,
@@ -557,7 +557,7 @@ class _EditableEmptyTopicTags extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Padding(
         padding: const EdgeInsets.only(top: 3),
-        child: Tooltip(
+        child: DTooltip(
           message: saving ? 'Saving topic tags' : 'Add tag',
           child: Material(
             color: theme.colorScheme.surfaceContainerHigh,
@@ -616,7 +616,7 @@ class _TopicTagsAddButton extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Tooltip(
+  Widget build(BuildContext context) => DTooltip(
     message: 'Add tag',
     child: Material(
       type: MaterialType.transparency,

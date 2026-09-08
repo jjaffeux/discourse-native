@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../ui/components/d_kbd.dart';
 import '../ui/components/d_spinner.dart';
-import 'd_tooltip.dart';
+import '../ui/components/d_tooltip.dart';
 import 'discourse_typography.dart';
 
 enum DButtonVariant {

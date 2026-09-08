@@ -491,7 +491,7 @@ class _RecordingBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final startedBy = recording.startedByUsername;
-    return Tooltip(
+    return DTooltip(
       message: startedBy == null
           ? 'This call is being recorded'
           : 'Recording started by @$startedBy',
@@ -704,76 +704,80 @@ class _ParticipantTileState extends State<_ParticipantTile> {
               if (canAdjustLocally)
                 Align(
                   alignment: Alignment.topRight,
-                  child: PopupMenuButton<String>(
-                    tooltip: 'Participant actions',
-                    popUpAnimationStyle: discoursePopupMenuAnimationStyle(
-                      context,
-                    ),
-                    onSelected: (action) async {
-                      if (action == 'kick') {
-                        await controller.kick(participant.id);
-                      }
-                      if (action == 'dismiss') {
-                        await controller.requestToSpeak(
-                          userId: participant.id,
-                          raised: false,
-                        );
-                      }
-                      if (action == 'role' && stageRoleChange != null) {
-                        await controller.setParticipantRole(
-                          participant.id,
-                          stageRoleChange,
-                        );
-                      }
-                      if (action == 'volume' && context.mounted) {
-                        await _showParticipantVolume(
-                          context,
-                          controller,
-                          participant.id,
-                        );
-                      }
-                      if (action == 'flag' && context.mounted) {
-                        await _showParticipantFlag(
-                          context,
-                          controller,
-                          participant,
-                          controllerResolver: controllerResolver,
-                        );
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'volume',
-                        child: Text('Local volume'),
+                  child: DTooltip(
+                    message: 'Participant actions',
+                    labelTrigger: true,
+                    child: PopupMenuButton<String>(
+                      tooltip: '',
+                      popUpAnimationStyle: discoursePopupMenuAnimationStyle(
+                        context,
                       ),
-                      const PopupMenuItem(
-                        value: 'flag',
-                        child: Text('Notify moderators'),
-                      ),
-                      if (stageRoleChange case final role?)
-                        PopupMenuItem(
-                          value: 'role',
-                          child: Text(
-                            role == VoiceRole.speaker
-                                ? 'Make speaker'
-                                : 'Move to listeners',
+                      onSelected: (action) async {
+                        if (action == 'kick') {
+                          await controller.kick(participant.id);
+                        }
+                        if (action == 'dismiss') {
+                          await controller.requestToSpeak(
+                            userId: participant.id,
+                            raised: false,
+                          );
+                        }
+                        if (action == 'role' && stageRoleChange != null) {
+                          await controller.setParticipantRole(
+                            participant.id,
+                            stageRoleChange,
+                          );
+                        }
+                        if (action == 'volume' && context.mounted) {
+                          await _showParticipantVolume(
+                            context,
+                            controller,
+                            participant.id,
+                          );
+                        }
+                        if (action == 'flag' && context.mounted) {
+                          await _showParticipantFlag(
+                            context,
+                            controller,
+                            participant,
+                            controllerResolver: controllerResolver,
+                          );
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'volume',
+                          child: Text('Local volume'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'flag',
+                          child: Text('Notify moderators'),
+                        ),
+                        if (stageRoleChange case final role?)
+                          PopupMenuItem(
+                            value: 'role',
+                            child: Text(
+                              role == VoiceRole.speaker
+                                  ? 'Make speaker'
+                                  : 'Move to listeners',
+                            ),
                           ),
-                        ),
-                      if (canManage && participant.handRaisedAt != null)
-                        const PopupMenuItem(
-                          value: 'dismiss',
-                          child: Text('Dismiss raised hand'),
-                        ),
-                      if (canKick)
-                        const PopupMenuItem(
-                          value: 'kick',
-                          child: Text('Remove from room'),
-                        ),
-                    ],
-                    icon: const DIcon(
-                      DIcons.ellipsis,
-                      size: 16,
-                      color: Colors.white,
+                        if (canManage && participant.handRaisedAt != null)
+                          const PopupMenuItem(
+                            value: 'dismiss',
+                            child: Text('Dismiss raised hand'),
+                          ),
+                        if (canKick)
+                          const PopupMenuItem(
+                            value: 'kick',
+                            child: Text('Remove from room'),
+                          ),
+                      ],
+                      icon: const DIcon(
+                        DIcons.ellipsis,
+                        size: 16,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -968,11 +972,15 @@ class _Control extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => IconButton.filledTonal(
-    tooltip: label,
-    isSelected: selected,
-    onPressed: onPressed,
-    icon: DIcon(icon, size: 19),
+  Widget build(BuildContext context) => DTooltip(
+    message: label,
+    labelTrigger: true,
+    child: IconButton.filledTonal(
+      tooltip: '',
+      isSelected: selected,
+      onPressed: onPressed,
+      icon: DIcon(icon, size: 19),
+    ),
   );
 }
 
@@ -1819,10 +1827,14 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
                     headingLevel: 1,
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Close',
-                  onPressed: () => Navigator.pop(context),
-                  icon: const DIcon(DIcons.xmark, size: 18),
+                DTooltip(
+                  message: 'Close',
+                  labelTrigger: true,
+                  child: IconButton(
+                    tooltip: '',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const DIcon(DIcons.xmark, size: 18),
+                  ),
                 ),
               ],
             ),
@@ -1883,18 +1895,22 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
                     ),
                   ),
                 ),
-                IconButton.filled(
-                  tooltip: 'Send message',
-                  onPressed: () async {
-                    final text = _composer.text;
-                    _composer.clear();
-                    await widget.controller.sendChatMessage(
-                      widget.siteUrl,
-                      widget.roomId,
-                      text,
-                    );
-                  },
-                  icon: const DIcon(DIcons.paperPlane, size: 18),
+                DTooltip(
+                  message: 'Send message',
+                  labelTrigger: true,
+                  child: IconButton.filled(
+                    tooltip: '',
+                    onPressed: () async {
+                      final text = _composer.text;
+                      _composer.clear();
+                      await widget.controller.sendChatMessage(
+                        widget.siteUrl,
+                        widget.roomId,
+                        text,
+                      );
+                    },
+                    icon: const DIcon(DIcons.paperPlane, size: 18),
+                  ),
                 ),
               ],
             ),
@@ -2031,25 +2047,33 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        PopupMenuButton<VoiceRole>(
-                          tooltip: 'Change role',
-                          popUpAnimationStyle: discoursePopupMenuAnimationStyle(
-                            context,
+                        DTooltip(
+                          message: 'Change role',
+                          labelTrigger: true,
+                          child: PopupMenuButton<VoiceRole>(
+                            tooltip: '',
+                            popUpAnimationStyle:
+                                discoursePopupMenuAnimationStyle(context),
+                            onSelected: (role) =>
+                                _updateMember(membership, role),
+                            itemBuilder: (context) => [
+                              for (final role in VoiceRole.values)
+                                PopupMenuItem(
+                                  value: role,
+                                  child: Text(role.name),
+                                ),
+                            ],
                           ),
-                          onSelected: (role) => _updateMember(membership, role),
-                          itemBuilder: (context) => [
-                            for (final role in VoiceRole.values)
-                              PopupMenuItem(
-                                value: role,
-                                child: Text(role.name),
-                              ),
-                          ],
                         ),
                         if (membership.userId != widget.room.creatorId)
-                          IconButton(
-                            tooltip: 'Remove member',
-                            onPressed: () => _removeMember(membership),
-                            icon: const DIcon(DIcons.trashCan, size: 17),
+                          DTooltip(
+                            message: 'Remove member',
+                            labelTrigger: true,
+                            child: IconButton(
+                              tooltip: '',
+                              onPressed: () => _removeMember(membership),
+                              icon: const DIcon(DIcons.trashCan, size: 17),
+                            ),
                           ),
                       ],
                     ),
@@ -2077,10 +2101,14 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                     DropdownMenuItem(value: role, child: Text(role.name)),
                 ],
               ),
-              IconButton.filledTonal(
-                tooltip: 'Add member',
-                onPressed: _addMember,
-                icon: const DIcon(DIcons.userPlus, size: 17),
+              DTooltip(
+                message: 'Add member',
+                labelTrigger: true,
+                child: IconButton.filledTonal(
+                  tooltip: '',
+                  onPressed: _addMember,
+                  icon: const DIcon(DIcons.userPlus, size: 17),
+                ),
               ),
             ],
           ),

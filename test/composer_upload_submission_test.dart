@@ -365,8 +365,9 @@ ComposerUploadFile _file(String name) => ComposerUploadFile(
   openRead: () => Stream.value([1, 2, 3]),
 );
 
-Finder _iconButton(String tooltip) => find.byWidgetPredicate(
-  (widget) => widget is IconButton && widget.tooltip == tooltip,
+Finder _iconButton(String tooltip) => find.descendant(
+  of: find.byTooltip(tooltip),
+  matching: find.byType(IconButton),
 );
 
 const _site = 'https://meta.discourse.org';

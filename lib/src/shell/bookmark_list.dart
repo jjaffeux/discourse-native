@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/bookmark.dart';
@@ -207,10 +208,10 @@ class BookmarkRow extends StatelessWidget {
 
     final name = bookmark.name;
     if (name == null) return row;
-    return Tooltip(
+    return DTooltip(
       message: name,
       excludeFromSemantics: true,
-      waitDuration: const Duration(milliseconds: 400),
+      hoverDelay: const Duration(milliseconds: 400),
       child: row,
     );
   }

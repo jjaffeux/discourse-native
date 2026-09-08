@@ -1226,7 +1226,7 @@ class _SectionHeaderState extends State<_SectionHeader> {
           if (section.onAction case final action?)
             _SectionAction(section: section, action: action, style: iconStyle),
           if (toggle != null)
-            Tooltip(
+            DTooltip(
               message:
                   '${widget.collapsed ? 'Expand' : 'Collapse'} ${section.title}',
               child: Semantics(
@@ -1569,18 +1569,22 @@ class _DestinationTileState extends State<_DestinationTile> {
                   ),
                 ),
               if (destination.onSecondaryTap case final action?)
-                IconButton(
-                  constraints: BoxConstraints.tightFor(
-                    width: _SidebarSpacing.prefixWidth,
-                    height: widget.rowHeight,
-                  ),
-                  padding: EdgeInsets.zero,
-                  tooltip: 'Open ${destination.label}',
-                  onPressed: action,
-                  icon: DIcon(
-                    destination.trailingIcon ?? DIcons.chevronRight,
-                    size: 14,
-                    color: foreground,
+                DTooltip(
+                  message: 'Open ${destination.label}',
+                  labelTrigger: true,
+                  child: IconButton(
+                    constraints: BoxConstraints.tightFor(
+                      width: _SidebarSpacing.prefixWidth,
+                      height: widget.rowHeight,
+                    ),
+                    padding: EdgeInsets.zero,
+                    tooltip: '',
+                    onPressed: action,
+                    icon: DIcon(
+                      destination.trailingIcon ?? DIcons.chevronRight,
+                      size: 14,
+                      color: foreground,
+                    ),
                   ),
                 ),
               if (badge.isVisible && !badge.dot)

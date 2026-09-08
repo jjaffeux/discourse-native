@@ -181,10 +181,14 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
                       prefixIcon: const DIcon(DIcons.magnifyingGlass, size: 17),
                       suffixIcon: _query.text.isEmpty
                           ? null
-                          : IconButton(
-                              onPressed: _clear,
-                              icon: const DIcon(DIcons.xmark, size: 15),
-                              tooltip: 'Clear search',
+                          : DTooltip(
+                              message: 'Clear search',
+                              labelTrigger: true,
+                              child: IconButton(
+                                onPressed: _clear,
+                                icon: const DIcon(DIcons.xmark, size: 15),
+                                tooltip: '',
+                              ),
                             ),
                       border: const OutlineInputBorder(),
                       isDense: true,
@@ -199,22 +203,32 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
                   const SizedBox(width: 10),
                   Text('${state.selectedIndex + 1} / ${state.hits.length}'),
                   if (state.hits.length > 1) ...[
-                    IconButton(
-                      onPressed: () => _search.selectPrevious(
-                        widget.siteUrl,
-                        widget.channelId,
+                    DTooltip(
+                      message: 'Previous result',
+                      labelTrigger: true,
+                      child: IconButton(
+                        onPressed: () => _search.selectPrevious(
+                          widget.siteUrl,
+                          widget.channelId,
+                        ),
+                        icon: const RotatedBox(
+                          quarterTurns: 2,
+                          child: DIcon(DIcons.chevronDown, size: 16),
+                        ),
+                        tooltip: '',
                       ),
-                      icon: const RotatedBox(
-                        quarterTurns: 2,
-                        child: DIcon(DIcons.chevronDown, size: 16),
-                      ),
-                      tooltip: 'Previous result',
                     ),
-                    IconButton(
-                      onPressed: () =>
-                          _search.selectNext(widget.siteUrl, widget.channelId),
-                      icon: const DIcon(DIcons.chevronDown, size: 16),
-                      tooltip: 'Next result',
+                    DTooltip(
+                      message: 'Next result',
+                      labelTrigger: true,
+                      child: IconButton(
+                        onPressed: () => _search.selectNext(
+                          widget.siteUrl,
+                          widget.channelId,
+                        ),
+                        icon: const DIcon(DIcons.chevronDown, size: 16),
+                        tooltip: '',
+                      ),
                     ),
                   ],
                 ],

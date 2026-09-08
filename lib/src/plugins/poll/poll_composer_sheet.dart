@@ -80,10 +80,14 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
                       headingLevel: 1,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    icon: const Icon(Icons.close),
-                    tooltip: 'Close',
+                  DTooltip(
+                    message: 'Close',
+                    labelTrigger: true,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      icon: const Icon(Icons.close),
+                      tooltip: '',
+                    ),
                   ),
                 ],
               ),
@@ -334,22 +338,34 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
                   decoration: InputDecoration(labelText: 'Option ${index + 1}'),
                 ),
               ),
-              IconButton(
-                onPressed: index == 0 ? null : () => _moveOption(index, -1),
-                icon: const Icon(Icons.arrow_upward),
-                tooltip: 'Move option up',
+              DTooltip(
+                message: 'Move option up',
+                labelTrigger: true,
+                child: IconButton(
+                  onPressed: index == 0 ? null : () => _moveOption(index, -1),
+                  icon: const Icon(Icons.arrow_upward),
+                  tooltip: '',
+                ),
               ),
-              IconButton(
-                onPressed: index == _options.length - 1
-                    ? null
-                    : () => _moveOption(index, 1),
-                icon: const Icon(Icons.arrow_downward),
-                tooltip: 'Move option down',
+              DTooltip(
+                message: 'Move option down',
+                labelTrigger: true,
+                child: IconButton(
+                  onPressed: index == _options.length - 1
+                      ? null
+                      : () => _moveOption(index, 1),
+                  icon: const Icon(Icons.arrow_downward),
+                  tooltip: '',
+                ),
               ),
-              IconButton(
-                onPressed: () => _removeOption(index),
-                icon: const Icon(Icons.remove_circle_outline),
-                tooltip: 'Remove option',
+              DTooltip(
+                message: 'Remove option',
+                labelTrigger: true,
+                child: IconButton(
+                  onPressed: () => _removeOption(index),
+                  icon: const Icon(Icons.remove_circle_outline),
+                  tooltip: '',
+                ),
               ),
             ],
           ),

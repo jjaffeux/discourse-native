@@ -104,8 +104,9 @@ PhotoViewControllerBase<PhotoViewControllerValue> photoControllerAt(
 Finder fullImageAt(int index) =>
     find.descendant(of: photoViewAt(index), matching: find.byType(SiteImage));
 
-Finder galleryButton(String tooltip) => find.byWidgetPredicate(
-  (widget) => widget is IconButton && widget.tooltip == tooltip,
+Finder galleryButton(String tooltip) => find.descendant(
+  of: find.byTooltip(tooltip),
+  matching: find.byType(IconButton),
 );
 
 IconButton galleryButtonWidget(WidgetTester tester, String tooltip) =>

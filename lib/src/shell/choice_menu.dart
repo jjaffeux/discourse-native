@@ -478,16 +478,20 @@ class _FilterableChoiceRowsState<T> extends State<_FilterableChoiceRows<T>> {
                 ),
                 suffixIcon: _query.isEmpty
                     ? null
-                    : IconButton(
-                        key: const ValueKey('choice-menu-filter-clear'),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 42),
-                        style: IconButton.styleFrom(
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    : DTooltip(
+                        message: 'Clear filter',
+                        labelTrigger: true,
+                        child: IconButton(
+                          key: const ValueKey('choice-menu-filter-clear'),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 42),
+                          style: IconButton.styleFrom(
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: _clearFilter,
+                          icon: const DIcon(DIcons.xmark, size: 16),
+                          tooltip: '',
                         ),
-                        onPressed: _clearFilter,
-                        icon: const DIcon(DIcons.xmark, size: 16),
-                        tooltip: 'Clear filter',
                       ),
                 suffixIconConstraints: const BoxConstraints(
                   minWidth: 42,
