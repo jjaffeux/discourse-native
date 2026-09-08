@@ -374,6 +374,43 @@ void main() {
         expect(activeComposer.target.draftKey, 'chat_9');
       });
 
+      test(
+        'Chat composers admit authoring until their owner disposes them',
+        () {
+          final composerHost = shell.pluginSession.require(
+            chatComposerHostService,
+          );
+          const request = ComposerTargetRequest(
+            kind: ChatPlugin.messageComposerTarget,
+            siteUrl: _site,
+            title: 'Support',
+            data: {ChatPlugin.composerChannelId: 9},
+          );
+          final drawerComposer = composerHost.buildComposer(request)!;
+          final fullPageComposer = composerHost.buildComposer(request)!;
+          addTearDown(() {
+            if (!drawerComposer.isDisposed) drawerComposer.dispose();
+            fullPageComposer.dispose();
+          });
+
+          expect(shell.visibleComposer, isNull);
+          drawerComposer.insertText('drawer draft');
+          fullPageComposer.insertText('full-page draft');
+          expect(drawerComposer.raw, 'drawer draft');
+          expect(fullPageComposer.raw, 'full-page draft');
+          expect(drawerComposer.isCurrent, isTrue);
+          expect(fullPageComposer.isCurrent, isTrue);
+
+          drawerComposer.dispose();
+          drawerComposer.insertText('late text');
+          fullPageComposer.insertText(' continues');
+          expect(drawerComposer.isEditing, isFalse);
+          expect(drawerComposer.raw, 'drawer draft');
+          expect(fullPageComposer.isEditing, isTrue);
+          expect(fullPageComposer.raw, 'full-page draft continues');
+        },
+      );
+
       test('rejects foreign and undeclared notification feeds', () async {
         final notificationHost = shell.pluginSession.require(
           chatNotificationHostService,
