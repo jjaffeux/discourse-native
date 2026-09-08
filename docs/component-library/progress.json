@@ -902,7 +902,7 @@
         "Button and Dropdown Menu examples use their available temporary controls pending owning catalogue tasks; domain flair/presence and non-avatar media retain documented ownership."
       ],
       "implementationCommit": "4c7783272937f3db8fb523389f97c75ac4bdefd7",
-      "mergeCommit": null,
+      "mergeCommit": "5c78eb9d5c9db5f37ac7eaf8deab2233944dcbd0",
       "clientThreadId": "client-new-thread:e0bb64b3-4828-4026-85b8-af933a41a275",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/32e1/discourse-native",
       "baseCommit": "f10bbbc9879d55551d4aaef5d17d51871778e105",
