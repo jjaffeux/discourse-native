@@ -592,6 +592,7 @@ final class _CommonFields {
     if (id is! String ||
         sessionId is! String ||
         sequence is! int ||
+        sequence < 0 ||
         timestampUtc == null ||
         updatedAtUtc == null ||
         severity == null ||
