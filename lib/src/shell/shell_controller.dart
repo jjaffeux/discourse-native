@@ -3197,8 +3197,17 @@ class ShellController extends FrameSafeNotifier
     final messageBusLastId = store
         .read<TopicDetail>(siteUrl, topicId)
         ?.messageBusLastId;
+    final lease = lifecycle.capture(siteUrl);
 
     tracker.watchTopic(topicId, channels, (channel, data) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_trackers[siteUrl], tracker)) {
+        return;
+      }
+      if (channel == coreChannel) {
+        _applyTopicNotificationMessage(siteUrl, topicId, data, lease);
+      }
       if (channel == coreChannel && _coreTopicMessageRefreshesStream(data)) {
         final route = currentContent;
         if (route?.topicId == topicId) {
@@ -3462,6 +3471,8 @@ class ShellController extends FrameSafeNotifier
           userId != null &&
           bootstrapTracking != null &&
           bootstrap!.hasCompleteTopicTrackingSnapshot(userId)) {
+        _replayTopicTrackingEvents(siteUrl, bootstrapTracking);
+        _topicTrackingPendingEvents.remove(siteUrl);
         _topicTrackingBySite[siteUrl] = bootstrapTracking;
         _topicTrackingSnapshotsLoaded.add(siteUrl);
         _topicTrackingRevisions.update(
@@ -3477,7 +3488,7 @@ class ShellController extends FrameSafeNotifier
           !_topicTrackingBySite.containsKey(siteUrl) &&
           _topicTrackingLoads.add(siteUrl);
       if (shouldLoadTopicTracking) {
-        _topicTrackingPendingEvents[siteUrl] = <Object?>[];
+        _topicTrackingPendingEvents.putIfAbsent(siteUrl, () => <Object?>[]);
       }
 
       final SiteTracker tracker;
@@ -3672,10 +3683,7 @@ class ShellController extends FrameSafeNotifier
       // operations are idempotent when the response already included one.
       // Admission was decided on arrival, before buffering: a later unmuted
       // hint must neither admit an earlier event nor expire an accepted one.
-      for (final event
-          in _topicTrackingPendingEvents[siteUrl] ?? const <Object?>[]) {
-        snapshot.applyMessage(event);
-      }
+      _replayTopicTrackingEvents(siteUrl, snapshot);
       lease.commit(() {
         _topicTrackingBySite[siteUrl] = snapshot;
         _topicTrackingSnapshotsLoaded.add(siteUrl);
@@ -3713,6 +3721,25 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
+  void _replayTopicTrackingEvents(String siteUrl, TopicTrackingState snapshot) {
+    for (final event
+        in _topicTrackingPendingEvents[siteUrl] ?? const <Object?>[]) {
+      snapshot.applyMessage(event);
+    }
+    for (final write in _topicNotificationWrites.values) {
+      if (write.siteUrl == siteUrl &&
+          !write.result.isCompleted &&
+          _isLatestTopicNotification(
+            _topicKey(siteUrl, write.topicId),
+            write,
+          )) {
+        snapshot.applyMessage(
+          _topicNotificationTrackingMessage(write.topicId, write.level),
+        );
+      }
+    }
+  }
+
   void _applyTopicTrackingMessage(String siteUrl, Object? data) {
     // A message proves the site reachable again. A snapshot whose load failed
     // is fetched before this message is buffered, so the replay covers it.
@@ -3727,7 +3754,21 @@ class ShellController extends FrameSafeNotifier
       siteUrl,
       TopicTrackingState.new,
     );
-    if (tracking.applyMessage(data) && currentInstance?.url == siteUrl) {
+    var changed = tracking.applyMessage(data);
+    // Read/highest updates still apply during a write, but their older level
+    // must not replace the latest optimistic selection.
+    final topicId = data is Map ? jsonIntOrNull(data['topic_id']) : null;
+    final write = _topicNotificationWrites[_topicKey(siteUrl, topicId ?? 0)];
+    if (write != null &&
+        !write.result.isCompleted &&
+        _isLatestTopicNotification(_topicKey(siteUrl, write.topicId), write)) {
+      changed =
+          tracking.applyMessage(
+            _topicNotificationTrackingMessage(write.topicId, write.level),
+          ) ||
+          changed;
+    }
+    if (changed && currentInstance?.url == siteUrl) {
       _topicTrackingRevisions.update(
         siteUrl,
         (value) => value + 1,
@@ -5823,12 +5864,76 @@ class ShellController extends FrameSafeNotifier
     TopicNotificationLevel level,
   ) {
     if (!_isLatestTopicNotification(key, write)) return;
-    store.update<TopicDetail>(
+    _setTopicNotificationLevel(
       write.siteUrl,
       write.topicId,
+      level,
+      write.lease,
+    );
+  }
+
+  void _applyTopicNotificationMessage(
+    String siteUrl,
+    int topicId,
+    Object? data,
+    SiteLease lease,
+  ) {
+    if (data is! Map) return;
+    final value = data['notification_level_change'];
+    if (value is! int || value < 0 || value > 3) return;
+    final level = TopicNotificationLevel.fromJson(value);
+    final key = _topicKey(siteUrl, topicId);
+    final write = _topicNotificationWrites[key];
+    if (write != null &&
+        !write.result.isCompleted &&
+        _isLatestTopicNotification(key, write)) {
+      // This may be an echo of an earlier serialized write. Keep the newest
+      // choice visible, but use the server level if that choice is rejected.
+      _topicNotificationConfirmed[key] = level;
+      _projectTopicNotificationLevel(key, write, write.level);
+    } else {
+      _setTopicNotificationLevel(siteUrl, topicId, level, lease);
+    }
+  }
+
+  static Map<String, Object?> _topicNotificationTrackingMessage(
+    int topicId,
+    TopicNotificationLevel level,
+  ) => {
+    'topic_id': topicId,
+    'message_type': 'notification_level_change',
+    'payload': {'notification_level': level.value},
+  };
+
+  void _setTopicNotificationLevel(
+    String siteUrl,
+    int topicId,
+    TopicNotificationLevel level,
+    SiteLease lease,
+  ) {
+    if (!lease.isCurrent || isDisposed) return;
+    final message = _topicNotificationTrackingMessage(topicId, level);
+    if (_topicTrackingPendingEvents.containsKey(siteUrl) ||
+        !_topicTrackingSnapshotsLoaded.contains(siteUrl)) {
+      (_topicTrackingPendingEvents[siteUrl] ??= <Object?>[]).add(message);
+    }
+    // Patch the current row, never a captured snapshot or a made-up read
+    // position. Do this before publishing to reentrant store listeners.
+    if (_topicTrackingBySite[siteUrl]?.applyMessage(message) == true) {
+      _topicTrackingRevisions.update(
+        siteUrl,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    store.update<TopicDetail>(
+      siteUrl,
+      topicId,
       (topic) => topic.withNotificationLevel(level),
     );
-    if (write.lease.isCurrent && !isDisposed) _notify();
+    if (lease.isCurrent && !isDisposed && currentInstance?.url == siteUrl) {
+      _notify();
+    }
   }
 
   Future<bool> updateCategoryNotificationLevel(
