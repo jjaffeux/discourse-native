@@ -10,6 +10,22 @@ The registry's `Loader2Icon` resolves to the exact `loader-circle` path visible
 in the documentation's rendered SVG. The customization section uses Lucide
 [LoaderIcon](https://github.com/lucide-icons/lucide/blob/main/icons/loader.svg).
 
+SHA-256 fingerprints below identify the exact source bytes captured on
+2026-09-08, including the registry JSON formatting. The checked-in SVG test
+fixture is byte-identical to the captured Lucide loader-circle source.
+
+| Captured source | SHA-256 |
+| --- | --- |
+| [Spinner registry](https://ui.shadcn.com/r/styles/base-nova/spinner.json) | `d949d0b91ff34620eecf2bb359536fd3e6942b518dc0a396b77fd02a90661b61` |
+| [Lucide loader-circle](https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/loader-circle.svg) | `043021bb903919668804bdb6fee0342072e4ffea5f03fbd857774c440179ad3b` |
+| [Lucide LoaderIcon](https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/loader.svg) | `54b6eeae749a70379df86e6360670a838d0f98f00d5a887d50bd76ca62cbf0d4` |
+| [Tailwind animation source](https://raw.githubusercontent.com/tailwindlabs/tailwindcss/main/packages/tailwindcss/theme.css) | `443d7af364200f8ec8352dc78e39485a118a1840d498c97967bf0ae402b39167` |
+| [Button registry](https://ui.shadcn.com/r/styles/base-nova/button.json) | `9ba7e870178813f0552b818a913a2792fb500c779e36395740b4973e3025d427` |
+| [Badge registry](https://ui.shadcn.com/r/styles/base-nova/badge.json) | `ccc20021cdcbf0fb23c0d4d28f1da4adde8e51ba59f4b11dd2722ed97a5ee3a4` |
+| [Input-Group registry](https://ui.shadcn.com/r/styles/base-nova/input-group.json) | `acf9c5497a6c844dee87fbd4afefb6cd8be9ce50d050d14d58a340d955e517a1` |
+| [Empty registry](https://ui.shadcn.com/r/styles/base-nova/empty.json) | `e89ffe0fc2969956f6e1d601bd3f00b068600ac08e31590f65344e79ff242230` |
+| [Item registry](https://ui.shadcn.com/r/styles/base-nova/item.json) | `eb7167bffffb69a5e808fec2a80923fbf80f594d2f942efa2da1a605fdfd87b7` |
+
 | Reference | Flutter mapping |
 | --- | --- |
 | `size-4` | `DSpinner()` occupies a 16×16 logical-pixel box. Sizes 12, 16, 24 and 32 reproduce `size-3/4/6/8`; callers can supply any positive size. |
