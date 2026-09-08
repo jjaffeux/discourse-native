@@ -655,6 +655,9 @@ the **More** menu. A secondary link is promoted to a selected row immediately
 above More while its route is active; that includes every nested group route,
 even when a group link was opened over another sidebar destination.
 
+Staff accounts also have an **Admin** link in More. It opens the forum's
+`/admin` page in the default browser, preserving the forum's subfolder prefix.
+
 Core parses only the built-in group namespace: Members, Activity
 (Posts/Topics/Mentions), Requests, Messages (Inbox/Archive), Permissions, and
 Manage (Profile/Membership/Interaction/Email/Categories/Tags/Logs). Optional
