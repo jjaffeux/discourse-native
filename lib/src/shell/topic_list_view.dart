@@ -2094,35 +2094,22 @@ class _Posters extends StatelessWidget {
     final shown = avatars.take(3).toList();
     if (shown.isEmpty) return const SizedBox.shrink();
 
-    return SizedBox(
-      width: 24.0 + (shown.length - 1) * 16,
-      height: 24,
-      child: Stack(
-        children: [
-          for (var i = 0; i < shown.length; i++)
-            Positioned(
-              left: i * 16,
-              child: ClipOval(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: AvatarImage(
-                    url: shown[i],
-                    size: 24,
-                    fallback: ColoredBox(
-                      color: Theme.of(context).shell.floating,
-                      child: DIcon(
-                        DIcons.user,
-                        size: 13,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
+    return DAvatarGroup(
+      size: DAvatarSize.sm,
+      children: [
+        for (final url in shown)
+          DAvatar(
+            size: DAvatarSize.sm,
+            decorative: true,
+            child: AvatarImage(
+              url: url,
+              size: 24,
+              fallback: const DAvatarFallback(
+                child: DIcon(DIcons.user, size: 13),
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }

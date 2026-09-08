@@ -446,7 +446,7 @@ class _RingingTile extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ClipOval(
+            DAvatar.frame(
               child: SizedBox.square(
                 dimension: 56,
                 child: AvatarImage(
@@ -653,7 +653,7 @@ class _ParticipantTileState extends State<_ParticipantTile> {
                 VoiceVideoSurface(track: videoTrack)
               else
                 Center(
-                  child: ClipOval(
+                  child: DAvatar.frame(
                     child: SizedBox.square(
                       dimension: 72,
                       child: AvatarImage(
@@ -1259,7 +1259,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                 for (final suggestion in suggestions)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: ClipOval(
+                    leading: DAvatar.frame(
                       child: SizedBox.square(
                         dimension: 36,
                         child: AvatarImage(

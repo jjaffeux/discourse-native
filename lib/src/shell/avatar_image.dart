@@ -79,7 +79,10 @@ class _AvatarImageState extends State<AvatarImage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      SizedBox.square(dimension: widget.size, child: _buildImage(context));
+
+  Widget _buildImage(BuildContext context) {
     final bytes = _bytes;
     final url = widget.url;
     if (!_resolved || bytes == null || url == null) return widget.fallback;

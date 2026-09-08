@@ -540,12 +540,11 @@ class _MemberIdentity extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        ClipOval(
+        DAvatar.frame(
           child: AvatarImage(
             url: member.avatarUrl,
             size: 42,
-            fallback: CircleAvatar(
-              radius: 21,
+            fallback: DAvatarFallback(
               child: Text(
                 member.username.characters.firstOrNull?.toUpperCase() ?? '?',
               ),
@@ -857,12 +856,11 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
                   key: ValueKey('add-user-${user.username}'),
                   contentPadding: EdgeInsets.zero,
                   value: controller.selectedUsernames.contains(user.username),
-                  secondary: ClipOval(
+                  secondary: DAvatar.frame(
                     child: AvatarImage(
                       url: user.avatarUrl,
                       size: 36,
-                      fallback: CircleAvatar(
-                        radius: 18,
+                      fallback: DAvatarFallback(
                         child: Text(
                           user.username.characters.firstOrNull?.toUpperCase() ??
                               '?',

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+
 import 'package:flutter/material.dart';
 
 import '../models/found_user.dart';
@@ -184,7 +186,7 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
                                 'topic-change-owner-user-${user.username}',
                               ),
                               value: user,
-                              secondary: ClipOval(
+                              secondary: DAvatar.frame(
                                 child: SizedBox.square(
                                   dimension: 32,
                                   child: AvatarImage(

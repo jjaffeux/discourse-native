@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart' show DDirection, DSeparator;
+import '../../discourse_ui.dart' show DAvatar, DDirection, DSeparator;
 import '../data/user_directory_column_width_store.dart';
 import '../models/user_directory.dart';
 import '../theme/app_theme.dart';
@@ -2048,7 +2048,7 @@ class _IdentityRow extends StatelessWidget {
               siteUrl: siteUrl.isEmpty ? null : siteUrl,
               child: Row(
                 children: [
-                  ClipRRect(
+                  DAvatar.frame(
                     key: ValueKey('user-avatar-${item.user.username}'),
                     borderRadius: Theme.of(context).avatars.borderRadiusFor(32),
                     child: AvatarImage(

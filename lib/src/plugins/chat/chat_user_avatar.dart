@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
 import 'package:flutter/material.dart';
 
 import '../../models/user_flair.dart';
@@ -120,7 +121,7 @@ Widget _avatar({
   required String? url,
   required double size,
   required Widget fallback,
-}) => ClipOval(
+}) => DAvatar.frame(
   child: SizedBox.square(
     dimension: size,
     child: AvatarImage(url: url, size: size, fallback: fallback),

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -493,7 +495,7 @@ class _CardIdentity extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipOval(
+        DAvatar.frame(
           child: SizedBox.square(
             dimension: avatarSize,
             child: AvatarImage(

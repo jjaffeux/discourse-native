@@ -267,7 +267,7 @@ class _Author extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (avatarUrl case final avatar?) ...[
-          ClipOval(
+          DAvatar.frame(
             child: SizedBox.square(
               dimension: 20,
               child: AvatarImage(

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+
 import 'package:flutter/material.dart';
 
 import '../plugin_api/reaction_presentation.dart';
@@ -532,7 +534,7 @@ class _ReactorRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            ClipOval(
+            DAvatar.frame(
               child: SizedBox(
                 width: 24,
                 height: 24,

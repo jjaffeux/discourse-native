@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
@@ -262,7 +263,7 @@ class TopicInboxRow extends StatelessWidget {
                                     when topic.excerpt == null) ...[
                                   Tooltip(
                                     message: '@$username',
-                                    child: ClipOval(
+                                    child: DAvatar.frame(
                                       child: AvatarImage(
                                         url: topic.lastPosterAvatarUrl,
                                         size: 20,
@@ -280,7 +281,7 @@ class TopicInboxRow extends StatelessWidget {
                                   ))
                                     Padding(
                                       padding: const EdgeInsets.only(right: 2),
-                                      child: ClipOval(
+                                      child: DAvatar.frame(
                                         child: AvatarImage(
                                           url: avatar,
                                           size: 20,

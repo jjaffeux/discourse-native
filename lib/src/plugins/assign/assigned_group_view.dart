@@ -636,7 +636,7 @@ class _AssignedPersonAvatar extends StatelessWidget {
         child: DIcon(option.icon ?? DIcons.user, size: 16, color: color),
       ),
     );
-    return ClipOval(
+    return DAvatar.frame(
       child: SizedBox.square(
         dimension: size,
         child: switch (option.member) {

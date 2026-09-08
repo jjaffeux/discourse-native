@@ -1494,7 +1494,7 @@ class UserMenuAvatar extends StatelessWidget {
       ),
     );
 
-    return ClipOval(
+    return DAvatar.frame(
       child: SizedBox(
         width: size,
         height: size,

@@ -679,7 +679,7 @@ class _SummaryUserRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(
             children: [
-              ClipOval(
+              DAvatar.frame(
                 child: SizedBox.square(
                   dimension: 36,
                   child: AvatarImage(

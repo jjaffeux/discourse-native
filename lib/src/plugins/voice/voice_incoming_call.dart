@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
 import 'package:flutter/material.dart';
 
 import '../../theme/d_button.dart';
@@ -72,7 +73,7 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      ClipOval(
+                      DAvatar.frame(
                         child: SizedBox.square(
                           dimension: 44,
                           child: AvatarImage(

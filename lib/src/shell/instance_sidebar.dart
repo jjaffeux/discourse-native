@@ -727,7 +727,7 @@ class _ForumIdentityHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
             children: [
-              ClipRRect(
+              DAvatar.frame(
                 key: const ValueKey('forum-identity-logo'),
                 borderRadius: BorderRadius.circular(6),
                 child: SizedBox.square(
@@ -1399,7 +1399,7 @@ class _DestinationTileState extends State<_DestinationTile> {
     }
 
     if (destination.avatarUrl case final url?) {
-      return ClipOval(
+      return DAvatar.frame(
         child: SizedBox(
           width: artSize,
           height: artSize,

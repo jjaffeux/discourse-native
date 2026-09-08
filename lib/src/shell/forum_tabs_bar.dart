@@ -878,7 +878,7 @@ Widget? _tabPrefix(
   }
 
   if (item.avatarUrl case final url?) {
-    return ClipOval(
+    return DAvatar.frame(
       child: SizedBox.square(
         dimension: size + 1,
         child: AvatarImage(

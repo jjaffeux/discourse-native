@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -138,7 +139,7 @@ class _Header extends StatelessWidget {
     final row = Row(
       children: [
         if (data.avatarUrl != null) ...[
-          ClipOval(
+          DAvatar.frame(
             child: SizedBox(
               width: QuoteBlock._avatarSize,
               height: QuoteBlock._avatarSize,

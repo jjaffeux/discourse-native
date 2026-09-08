@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+
 import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
@@ -500,7 +502,7 @@ class _UserAvatar extends StatelessWidget {
   final ChatDirectMessageUser user;
 
   @override
-  Widget build(BuildContext context) => ClipOval(
+  Widget build(BuildContext context) => DAvatar.frame(
     child: SizedBox.square(
       dimension: 36,
       child: AvatarImage(

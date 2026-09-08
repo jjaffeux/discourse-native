@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
@@ -110,7 +112,7 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
         final title = Row(
           children: [
             if (username != null)
-              ClipOval(
+              DAvatar.frame(
                 child: SizedBox.square(
                   dimension: 28,
                   child: AvatarImage(

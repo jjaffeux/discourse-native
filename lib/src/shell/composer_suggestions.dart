@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -280,7 +281,7 @@ class _SuggestionRow extends StatelessWidget {
                       size: 20,
                       alt: '',
                     ),
-                    ArtAvatar(:final url) => ClipOval(
+                    ArtAvatar(:final url) => DAvatar.frame(
                       child: AvatarImage(
                         url: url,
                         size: 22,

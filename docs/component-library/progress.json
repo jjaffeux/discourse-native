@@ -705,15 +705,39 @@
     },
     {
       "id": "avatar",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a082d2-4434-73b1-8ab4-88c9b2ba9b66",
+      "branch": "codex/ui-avatar",
       "dependencies": [],
-      "acceptanceCriteria": [],
-      "decisions": [],
-      "migrations": [],
-      "retainedAlternatives": [],
-      "verification": [],
+      "acceptanceCriteria": [
+        "Public DAvatar, DAvatarImage, DAvatarFallback, DAvatarBadge, DAvatarGroup and DAvatarGroupCount reproduce base-nova metrics at sm/default/lg and accept ordinary Flutter composition.",
+        "Image absence/loading/error/ready and source replacement preserve fallback and accessible identity without stale image flashes; optional fallback delay and status callback have lifecycle tests.",
+        "Dot/icon/count badges and overlapping groups support RTL, narrow constraints, 200% text, live light/dark/site palettes and decorative semantics without taking interaction focus.",
+        "All frozen documentation sections have self-contained runnable examples and correct public API snippets; Button/Dropdown ownership stays explicit and state survives preview changes.",
+        "Audit core and every bundled plugin; migrate appropriate avatar visual owners while retaining MediaPipeline, AvatarLoader, stale guards, raster/SVG decode reporting and domain flair/presence ownership.",
+        "Focused seeded component, styleguide, adapter and downstream regressions plus analysis pass; isolated macOS app compares reference and real migrated fixtures after exclusive desktop grant."
+      ],
+      "decisions": [
+        "Reference hashes, exact CSS-to-Flutter metrics, native adaptations and complete adoption audit are recorded in docs/component-library/evidence/avatar/implementation.md.",
+        "Six public generic components retain app-independent presentation. ImageProvider stream ownership handles loading/error/ready and stale frames; AvatarImage remains the application networking/decoding adapter.",
+        "Default groups preserve per-avatar sizes/dimensions and infer count size; explicit group size propagates badge/fallback metrics consistently. Standalone counts retain intrinsic 32px geometry.",
+        "Above-100% text scaling reserves larger enum-sized boxes to fit initials and avoid ready/fallback geometry shifts; fixed app frames and explicit dimensions retain layout contracts. Narrow groups wrap."
+      ],
+      "migrations": [
+        "Core topic/post/group/user/composer/quote/reaction/search identities; Chat, Voice, Assign and Events avatar owners now use DAvatar.frame. Four CircleAvatar fallbacks removed.",
+        "Rounded forum/rail/sidebar/directory/GitHub identity clips use public presentation with preserved domain radius. Topic poster overlap uses DAvatarGroup.",
+        "AvatarImage reserves requested dimensions for every loading/ready/error state; cache, asynchronous pipeline guards, SVG/raster decode and reporting remain app-owned."
+      ],
+      "retainedAlternatives": [
+        "Domain online rings, flair, unread/count/recording indicators and UserStatus emoji retain their distinct meaning and geometry; underlying identities migrate.",
+        "Video/camera/media/onebox thumbnails, shell/card clips and category swatches are not avatars. Adjacent 20px inbox posters retain their non-overlapping layout.",
+        "Existing fallback text, custom colors and DiscourseAvatarTheme radius values remain application presentation inputs; Button/Dropdown temporary controls remain their pending owners."
+      ],
+      "verification": [
+        "flutter pub get --enforce-lockfile passed on root with no lock changes.",
+        "flutter analyze --no-pub passed (no issues).",
+        "250 focused tests passed with --no-pub --test-randomize-ordering-seed=9082026 across 17 Avatar/example/decode/chat/group/rail/search/media/Voice/Assign/Events/accessibility suites. Exact commands recorded in native-review.md at completion."
+      ],
       "limitations": [],
       "implementationCommit": null,
       "mergeCommit": null

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+
 import 'package:flutter/material.dart';
 
 import '../foundation/frame_safe_notifier.dart';
@@ -749,7 +751,7 @@ class _TopicActivitySummary extends StatelessWidget {
                       left: i * 15,
                       child: Tooltip(
                         message: participants[i].displayName,
-                        child: ClipOval(
+                        child: DAvatar.frame(
                           child: AvatarImage(
                             url: participants[i].avatarUrl,
                             size: 20,
