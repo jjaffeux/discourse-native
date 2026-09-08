@@ -139,9 +139,11 @@ class ComposerHeader extends StatelessWidget {
                       color: color,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: TextStyle(color: theme.colorScheme.onSurface),
+                    Flexible(
+                      child: Text(
+                        label,
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                      ),
                     ),
                     const SizedBox(width: 6),
                     const DIcon(DIcons.chevronDown, size: 10),
@@ -233,33 +235,29 @@ class ComposerHeader extends StatelessWidget {
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final trailing = Row(
-                mainAxisSize: MainAxisSize.min,
-                children: controls,
-              );
-              return Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: heading,
+          child: Row(
+            children: [
+              Expanded(
+                child: Align(alignment: Alignment.centerLeft, child: heading),
+              ),
+              ?grip,
+              if (grip != null)
+                // Equal side widths keep the grip centered as controls change.
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final control in controls)
+                          Flexible(child: control),
+                      ],
                     ),
                   ),
-                  ?grip,
-                  if (constraints.maxWidth >= 520)
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: trailing,
-                      ),
-                    )
-                  else
-                    trailing,
-                ],
-              );
-            },
+                )
+              else
+                Row(mainAxisSize: MainAxisSize.min, children: controls),
+            ],
           ),
         ),
       ),
