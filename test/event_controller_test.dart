@@ -23,7 +23,7 @@ void main() {
   for (final mine in [false, true]) {
     for (final search in [null, 'planning & review']) {
       test(
-        '${mine ? 'my' : 'upcoming'} events ${search == null ? 'without search' : 'with search'} request server now before the result limit',
+        '${mine ? 'my' : 'upcoming'} events ${search == null ? 'without search' : 'with search'} request an ISO date bound before the result limit',
         () async {
           final path = Uri(
             path: '/discourse-post-event/events.json',
@@ -35,7 +35,7 @@ void main() {
               if (mine) 'attending_user': 'lee',
               if (mine) 'include_interested': 'true',
               'search': ?search,
-              'after': 'now',
+              'after': '2026-09-08T08:00:00.000Z',
             },
           ).toString();
           ports.transport.responses['GET $path'] = {

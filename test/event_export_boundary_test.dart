@@ -357,7 +357,7 @@ final class _CalendarTransport extends RecordingPluginTransport
       };
     }
     for (final mine in [false, true]) {
-      responders['GET /discourse-post-event/events.json?include_details=true&include_ongoing=true&order=asc&limit=200${mine ? '&attending_user=lee&include_interested=true' : ''}&search&after=now'] =
+      responders['GET /discourse-post-event/events.json?include_details=true&include_ongoing=true&order=asc&limit=200${mine ? '&attending_user=lee&include_interested=true' : ''}&search&after=2026-09-08T08%3A00%3A00.000Z'] =
           (_) => {'events': <Object?>[]};
     }
   }

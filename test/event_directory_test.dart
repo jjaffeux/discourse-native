@@ -10,7 +10,7 @@ import 'support/event_fixtures.dart';
 
 void main() {
   const read =
-      'GET /discourse-post-event/events.json?include_details=true&include_ongoing=true&order=asc&limit=200&search&after=now';
+      'GET /discourse-post-event/events.json?include_details=true&include_ongoing=true&order=asc&limit=200&search&after=2026-09-08T08%3A00%3A00.000Z';
   late EventTestPorts ports;
   late Map<String, dynamic> current;
   setUp(() {

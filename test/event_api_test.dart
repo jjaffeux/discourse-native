@@ -139,11 +139,14 @@ void main() {
         <String, String>{},
       ),
       (
-        'upcoming requests use server now and retain an upper bound',
+        'upcoming requests use an ISO timestamp and retain an upper bound',
         true,
         null,
         DateTime.parse('2100-02-01T12:00:00+02:00'),
-        {'after': 'now', 'before': '2100-02-01T10:00:00.000Z'},
+        {
+          'after': '2026-09-08T08:00:00.000Z',
+          'before': '2100-02-01T10:00:00.000Z',
+        },
       ),
       (
         'historical ranges retain both UTC bounds',
@@ -197,7 +200,7 @@ void main() {
           },
         );
 
-        final result = await EventApi(transport).list(
+        final result = await EventApi(transport, clock: eventTestNow).list(
           eventSite,
           credentials,
           upcoming: upcoming,

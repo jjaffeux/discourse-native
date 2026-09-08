@@ -120,10 +120,13 @@ offset-free wall times require the declared event timezone. The host supplies
 the reader's account/device timezone without allowing the plugin to mutate the
 shared environment. Closed/expired/capacity state comes from the server.
 
-Upcoming and My Events request `after=now` with `include_ongoing=true`, including
-when searching. The server applies its current time before the 200-event query
-limit, retaining ongoing events while excluding finished non-recurring events.
-Explicit API date ranges remain available for historical queries.
+Upcoming and My Events send the current time as a UTC ISO `after` timestamp
+with `include_ongoing=true`, including when searching. This matches the web
+client and works with older controllers that accept `now` in Finder but fail
+to parse it when expanding nonempty results. The server applies the date bound
+before the 200-event query limit, retaining ongoing events while excluding
+finished non-recurring events. Explicit API date ranges remain available for
+historical queries.
 
 The directory expands the server's occurrence list and caps the view at 200
 occurrences. Future cards do not borrow current attendance or offer occurrence
