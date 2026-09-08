@@ -5452,7 +5452,7 @@ class ShellController extends FrameSafeNotifier
           bookmarkVersionAtDispatch: bookmarkVersion,
         );
         if (currentInstance?.url == instance.url) {
-          _retitle(topicId, fetched.detail.title);
+          _retitle(instance.url, topicId, fetched.detail.title);
         }
         if (requestedPostNumber == null &&
             currentInstance?.url == instance.url &&
@@ -5508,10 +5508,8 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  void _retitle(int topicId, String title) {
+  void _retitle(String siteUrl, int topicId, String title) {
     if (title.isEmpty) return;
-    final siteUrl = currentInstance?.url;
-    if (siteUrl == null) return;
     _rewriteTopicRoutes(siteUrl, topicId, (route) {
       if (route.title == title) return route;
       return ContentRoute.topic(
@@ -7510,9 +7508,6 @@ class ShellController extends FrameSafeNotifier
         topicId: topicId,
         title: nextTitle,
         originalTitle: detail.title,
-        categoryId: detail.categoryId,
-        tags: detail.tags,
-        originalTags: detail.tags,
       );
     } on WriteException catch (error) {
       return error.message;
@@ -7535,7 +7530,7 @@ class ShellController extends FrameSafeNotifier
         topicId,
         (topic) => topic.copyWith(title: nextTitle),
       );
-      _updateTopicRouteMetadata(siteUrl, topicId, nextTitle, detail.categoryId);
+      _retitle(siteUrl, topicId, nextTitle);
       _notify();
     });
     return null;

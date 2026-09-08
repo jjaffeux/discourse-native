@@ -292,8 +292,8 @@ final class DiscourseTopicApi {
     required int topicId,
     required String title,
     required String originalTitle,
-    required Iterable<TopicTag> tags,
-    required Iterable<TopicTag> originalTags,
+    Iterable<TopicTag>? tags,
+    Iterable<TopicTag>? originalTags,
     int? categoryId,
     String? clientId,
   }) async {
@@ -308,9 +308,9 @@ final class DiscourseTopicApi {
       body: {
         'title': title,
         'category_id': categoryId,
-        'tags': tags.map((tag) => tag.toJson()).toList(),
+        'tags': tags?.map((tag) => tag.toJson()).toList(),
         'original_title': originalTitle,
-        'original_tags': originalTags.map((tag) => tag.toJson()).toList(),
+        'original_tags': originalTags?.map((tag) => tag.toJson()).toList(),
       },
     );
   }

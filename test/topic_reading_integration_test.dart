@@ -2574,13 +2574,12 @@ void _registerTopicReadingTests() {
             'topicId': 7,
             'title': 'Renamed topic',
             'originalTitle': 'A real topic',
-            'categoryId': 5,
-            'tags': tags,
-            'originalTags': tags,
           },
         ]);
         final shell = ShellScope.read(tester.element(find.byType(TopicView)));
         expect(shell.currentTopic?.title, 'Renamed topic');
+        expect(shell.currentTopic?.categoryId, 5);
+        expect(shell.currentTopic?.tags, tags);
         expect(shell.currentContent?.title, 'Renamed topic');
         expect(find.byType(ComposerPanel), findsNothing);
         textField = tester.widget<TextField>(field);

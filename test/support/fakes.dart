@@ -2310,8 +2310,8 @@ class FakeDiscourseApi
     required int topicId,
     required String title,
     required String originalTitle,
-    required Iterable<TopicTag> tags,
-    required Iterable<TopicTag> originalTags,
+    Iterable<TopicTag>? tags,
+    Iterable<TopicTag>? originalTags,
     int? categoryId,
     String? clientId,
   }) async {
@@ -2319,9 +2319,9 @@ class FakeDiscourseApi
       'topicId': topicId,
       'title': title,
       'originalTitle': originalTitle,
-      'categoryId': categoryId,
-      'tags': tags.toList(),
-      'originalTags': originalTags.toList(),
+      'categoryId': ?categoryId,
+      'tags': ?tags?.toList(),
+      'originalTags': ?originalTags?.toList(),
     });
     final failure = writeFailure;
     if (failure != null) throw failure;
