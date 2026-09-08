@@ -699,7 +699,7 @@ class ChatPlugin
       headerLeadingBuilder: contentHeaderLeading,
       headerTitleTrailingBuilder: contentHeaderTitleTrailing,
       headerTitleActionBuilder: contentHeaderTitleAction,
-      showFooterForRoute: (route) => const {
+      showNavigationForRoute: (route) => const {
         channelsRouteId,
         starredRouteId,
         directMessagesRouteId,

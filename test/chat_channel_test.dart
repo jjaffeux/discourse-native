@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -172,6 +173,63 @@ ChatChannel channelFrom(Map<String, dynamic> json) =>
     ChatChannel.fromJson(json, site);
 
 void main() {
+  test('keeps the last-message excerpt across channel changes', () {
+    final channel = ChatChannel.fromJson({
+      ...categoryChannel(),
+      'last_message': const {
+        'id': 41,
+        'created_at': '2026-09-08T10:00:00Z',
+        'excerpt': '<p>Ready &amp; reviewed</p>',
+      },
+    }, site);
+    expect(channel.lastMessagePreview, 'Ready & reviewed');
+    expect(channel.withStarred(true).lastMessagePreview, 'Ready & reviewed');
+    expect(
+      channel.withLastViewedAt(DateTime.utc(2026, 9, 8)).lastMessagePreview,
+      'Ready & reviewed',
+    );
+    expect(channel.withLastMessagePreview('Edited'), isNot(channel));
+    expect(channel.withLastMessagePreview(null).lastMessagePreview, isNull);
+    final refresh = ChatChannelRefresh(publicIds: [9], directIds: []);
+    final edited = channel.withLastMessagePreview('Edited during refresh');
+    refresh.recordChange(channel, edited);
+    expect(
+      refresh
+          .reconcile(
+            ChatChannels(public: [channel]),
+            public: [edited],
+            direct: [],
+          )
+          .public
+          .single
+          .lastMessagePreview,
+      'Edited during refresh',
+    );
+    expect(
+      channel
+          .withNewMessage(
+            42,
+            DateTime.utc(2026, 9, 8, 11),
+            markRead: false,
+            incrementUnread: true,
+            preview: 'Next message',
+          )
+          .lastMessagePreview,
+      'Next message',
+    );
+    expect(
+      channel
+          .withNewMessage(
+            43,
+            DateTime.utc(2026, 9, 8, 12),
+            markRead: false,
+            incrementUnread: true,
+          )
+          .lastMessagePreview,
+      isNull,
+    );
+  });
+
   group('reading a channel', () {
     test(
       'takes the title the site computed rather than naming anyone again',

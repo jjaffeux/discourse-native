@@ -152,7 +152,9 @@ void _registerChatShellTests() {
       bool threadingEnabled = false,
       int watchedThreads = 0,
       Map<int, DateTime> unreadThreadOverview = const {},
+      int? lastMessageId,
       DateTime? lastMessageAt,
+      String? lastMessagePreview,
     }) => ChatChannel(
       id: id,
       title: title,
@@ -182,7 +184,9 @@ void _registerChatShellTests() {
       ),
       threadingEnabled: threadingEnabled,
       unreadThreadOverview: unreadThreadOverview,
+      lastMessageId: lastMessageId,
       lastMessageAt: lastMessageAt,
+      lastMessagePreview: lastMessagePreview,
     );
 
     ChatChannel dm(
@@ -195,6 +199,7 @@ void _registerChatShellTests() {
       bool starred = false,
       int? lastMessageId,
       DateTime? lastMessageAt,
+      String? lastMessagePreview,
     }) => ChatChannel(
       id: id,
       title: title,
@@ -216,6 +221,7 @@ void _registerChatShellTests() {
       ),
       lastMessageId: lastMessageId,
       lastMessageAt: lastMessageAt,
+      lastMessagePreview: lastMessagePreview,
     );
 
     ChatMessage msg(
@@ -550,6 +556,225 @@ void _registerChatShellTests() {
       );
 
       testWidgets(
+        'inbox navigation sits above previews and search stays in the header',
+        (tester) async {
+          await pumpChat(
+            tester,
+            public: [
+              channel(
+                9,
+                title: 'code-review',
+                starred: true,
+                unread: 3,
+                lastMessageId: 41,
+                lastMessageAt: DateTime.now().subtract(
+                  const Duration(hours: 1),
+                ),
+                lastMessagePreview: 'Ready for another review.',
+              ),
+            ],
+            direct: [
+              dm(12, lastMessagePreview: 'Thanks for the update.', unread: 2),
+            ],
+            config: chatConfig(searchEnabled: true),
+            user: chatUser(canDirectMessage: true),
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+
+          final header = find.byKey(ChatDrawerOverlay.headerKey);
+          final navigation = find.byKey(ChatDrawerNavigation.navigationKey);
+          final heading = find.byKey(
+            const ValueKey('chat-drawer-list-heading'),
+          );
+          final row = find.byKey(const ValueKey('chat-drawer-channel-9'));
+          expect(
+            find.descendant(of: header, matching: find.text('Chat')),
+            findsOneWidget,
+          );
+          expect(
+            tester.getBottomLeft(navigation).dy,
+            lessThanOrEqualTo(tester.getTopLeft(heading).dy),
+          );
+          expect(
+            find.descendant(
+              of: row,
+              matching: find.text('Ready for another review.'),
+            ),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: row, matching: find.dIcon(DIcons.star)),
+            findsNothing,
+          );
+          final time = find.byKey(const ValueKey('chat-drawer-time-9'));
+          final preview = find.byKey(const ValueKey('chat-drawer-preview-9'));
+          expect(
+            tester.getTopLeft(time).dy,
+            lessThan(tester.getTopLeft(preview).dy),
+          );
+          expect(
+            tester.getTopLeft(time).dx,
+            greaterThan(tester.getTopLeft(preview).dx),
+          );
+
+          final dms = find.byKey(
+            const ValueKey('chat-drawer-navigation-chat-direct-messages'),
+          );
+          await tester.tap(dms);
+          await tester.pumpAndSettle();
+          expect(find.text('Thanks for the update.'), findsOneWidget);
+          expect(
+            tester.widget<DButton>(dms).variant,
+            DButtonVariant.transparentPrimary,
+          );
+          expect(
+            find.descendant(
+              of: heading,
+              matching: find.text('Direct messages'),
+            ),
+            findsOneWidget,
+          );
+
+          await tester.tap(find.byKey(ChatDrawerOverlay.searchButtonKey));
+          await tester.pumpAndSettle();
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          expect(
+            shell.pluginSession
+                .require(chatShellService)
+                .drawerCurrentContent
+                ?.id,
+            ChatPlugin.searchRouteId,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+
+      testWidgets(
+        'inbox handles long names and large text at the minimum drawer width',
+        (tester) async {
+          SharedPreferences.setMockInitialValues({});
+          addTearDown(() => SharedPreferences.setMockInitialValues({}));
+          await const ChatDrawerPreferencesStore().writeDrawerSize(
+            width: 250,
+            height: 530,
+          );
+          await pumpChat(
+            tester,
+            public: [
+              channel(
+                9,
+                title: 'customer-projects-managers-with-a-long-name',
+                starred: true,
+                readRestricted: true,
+                mentions: 100,
+                lastMessageAt: DateTime.now().subtract(
+                  const Duration(days: 19),
+                ),
+                lastMessagePreview:
+                    'A long preview that should stay on one line.',
+              ),
+            ],
+            direct: [dm(12)],
+            hasThreads: true,
+            config: chatConfig(searchEnabled: true),
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          await shell.appSettings.setTextScale(AppTextScale.percent200);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          expect(
+            find.byKey(const ValueKey('chat-drawer-preview-9')),
+            findsOneWidget,
+          );
+          expect(find.byKey(ChatDrawerOverlay.searchButtonKey), findsOneWidget);
+        },
+      );
+
+      testWidgets(
+        'inbox previews follow incoming messages, edits, and deletion',
+        (tester) async {
+          await pumpChat(
+            tester,
+            public: [
+              channel(
+                9,
+                lastMessageId: 41,
+                lastMessagePreview: 'Earlier message',
+              ),
+            ],
+            messages: {
+              key(9): page([msg(42, cooked: '<p>Incoming message</p>')]),
+            },
+            preferredDisplayMode: ChatPreferredDisplayMode.drawer,
+          );
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          final chatShell = shell.pluginSession.require(chatShellService);
+          final tracker = FakeSiteTracker.built.singleWhere(
+            (tracker) => tracker.siteUrl == site,
+          );
+          tracker.deliverPluginMessage('/chat/9/new-messages', {
+            'type': 'channel',
+            'channel_id': 9,
+            'message': {
+              'id': 42,
+              'chat_channel_id': 9,
+              'created_at': '2026-09-08T10:00:00Z',
+              'excerpt': '<p>Incoming message</p>',
+              'cooked': '<p>Incoming message</p>',
+              'user': {'id': 2, 'username': 'sam'},
+            },
+          });
+          await tester.pumpAndSettle();
+          expect(find.text('Incoming message'), findsOneWidget);
+
+          await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+          await tester.pumpAndSettle();
+          tracker.deliverPluginMessage('/chat/9', {
+            'type': 'edit',
+            'chat_message': {
+              'id': 42,
+              'chat_channel_id': 9,
+              'created_at': '2026-09-08T10:00:00Z',
+              'message': 'Edited message',
+              'cooked': '<p>Edited message</p>',
+              'user': {'id': 2, 'username': 'sam'},
+            },
+          });
+          await tester.pumpAndSettle();
+          chatShell.openChannels();
+          await tester.pumpAndSettle();
+          expect(find.text('Edited message'), findsOneWidget);
+
+          await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
+          await tester.pumpAndSettle();
+          tracker.deliverPluginMessage('/chat/9', {
+            'type': 'delete',
+            'deleted_id': 42,
+            'latest_not_deleted_message_id': 41,
+          });
+          await tester.pumpAndSettle();
+          chatShell.openChannels();
+          await tester.pumpAndSettle();
+          expect(find.text('Message deleted'), findsOneWidget);
+          expect(find.text('Edited message'), findsNothing);
+        },
+      );
+
+      testWidgets(
         'keeps list headers free of channel actions and stars channel titles',
         (tester) async {
           await pumpChat(
@@ -584,7 +809,7 @@ void _registerChatShellTests() {
           );
           expect(
             find.descendant(
-              of: find.byKey(ChatDrawerFooter.footerKey),
+              of: find.byKey(ChatDrawerNavigation.navigationKey),
               matching: find.byTooltip('My threads'),
             ),
             findsOneWidget,
@@ -1612,7 +1837,7 @@ void _registerChatShellTests() {
       });
 
       testWidgets(
-        'footer exposes empty capable routes and leaves an emptied Starred list',
+        'navigation exposes empty capable routes and leaves an emptied Starred list',
         (tester) async {
           await pumpChat(
             tester,
@@ -1629,7 +1854,10 @@ void _registerChatShellTests() {
           await tester.tap(shortcut);
           await tester.pumpAndSettle();
           expect(chatShell.drawerCurrentContent?.id, ChatPlugin.starredRouteId);
-          expect(find.byKey(ChatDrawerFooter.footerKey), findsOneWidget);
+          expect(
+            find.byKey(ChatDrawerNavigation.navigationKey),
+            findsOneWidget,
+          );
           expect(find.byTooltip('DMs'), findsOneWidget);
 
           expect(await shell.chat.updateChannelStarred(site, 9, false), isNull);
@@ -1643,7 +1871,7 @@ void _registerChatShellTests() {
 
           await tester.tap(
             find.descendant(
-              of: find.byKey(ChatDrawerFooter.footerKey),
+              of: find.byKey(ChatDrawerNavigation.navigationKey),
               matching: find.byTooltip('DMs'),
             ),
           );
@@ -1653,11 +1881,14 @@ void _registerChatShellTests() {
             ChatPlugin.directMessagesRouteId,
           );
           expect(find.text('You have no direct messages yet.'), findsOneWidget);
-          expect(find.byKey(ChatDrawerFooter.footerKey), findsOneWidget);
+          expect(
+            find.byKey(ChatDrawerNavigation.navigationKey),
+            findsOneWidget,
+          );
 
           await tester.tap(
             find.descendant(
-              of: find.byKey(ChatDrawerFooter.footerKey),
+              of: find.byKey(ChatDrawerNavigation.navigationKey),
               matching: find.byTooltip('Channels'),
             ),
           );
@@ -1668,7 +1899,7 @@ void _registerChatShellTests() {
           expect(chatShell.drawerActive, isTrue);
           expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
           expect(find.byType(ChatChannelView), findsOneWidget);
-          expect(find.byKey(ChatDrawerFooter.footerKey), findsNothing);
+          expect(find.byKey(ChatDrawerNavigation.navigationKey), findsNothing);
         },
       );
 

@@ -12,6 +12,7 @@ import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/live_channels.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
+import 'chat_message_summary.dart';
 import 'chat_plugin_data.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
@@ -1453,6 +1454,7 @@ final class ChatLiveSyncCoordinator {
     var updated = held.withNewMessage(
       messageId,
       createdAt,
+      preview: chatMessageSummaryFromJson(payload),
       markRead: markRead,
       incrementUnread: incrementUnread,
       threadId: threadId,

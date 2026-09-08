@@ -210,7 +210,8 @@ final class _ChannelChanges {
         before.tracking != after.tracking ||
         !mapEquals(before.unreadThreadOverview, after.unreadThreadOverview) ||
         before.lastMessageId != after.lastMessageId ||
-        before.lastMessageAt != after.lastMessageAt) {
+        before.lastMessageAt != after.lastMessageAt ||
+        before.lastMessagePreview != after.lastMessagePreview) {
       _activity = after;
     }
   }
@@ -279,6 +280,7 @@ final class _ChannelChanges {
       unreadThreadOverview: activity.unreadThreadOverview,
       lastMessageId: activity.lastMessageId,
       lastMessageAt: activity.lastMessageAt,
+      lastMessagePreview: activity.lastMessagePreview,
       messageBus: snapshot.messageBus,
     );
   }
