@@ -29,10 +29,13 @@ final class DiagnosticsPersistenceState {
 }
 
 final class _DecodedDiagnosticsFile {
-  const _DecodedDiagnosticsFile({required this.journal, required this.evicted});
+  const _DecodedDiagnosticsFile({
+    required this.journal,
+    required this.needsCompaction,
+  });
 
   final DiagnosticsJournalSnapshot journal;
-  final bool evicted;
+  final bool needsCompaction;
 }
 
 abstract interface class DiagnosticsPersistence {
@@ -196,10 +199,10 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
       decoded.journal,
       sizeOf: diagnosticEventSerializedBytes,
     );
-    var evicted = decoded.evicted;
-    evicted |= _journal.retain(nowUtc: nowUtc).evicted;
+    var needsCompaction = decoded.needsCompaction;
+    needsCompaction |= _journal.retain(nowUtc: nowUtc).evicted;
     if (compactIfNeeded &&
-        (evicted || await file.length() > diagnosticsRetentionBytes)) {
+        (needsCompaction || await file.length() > diagnosticsRetentionBytes)) {
       await _compactNow(nowUtc, reloadFromDisk: false);
     }
   }
@@ -372,7 +375,7 @@ Future<_DecodedDiagnosticsFile> _decodeDiagnosticsFile(
     isUtc: true,
   );
   final journal = DiagnosticsJournal(sizeOf: diagnosticEventSerializedBytes);
-  var evicted = false;
+  var needsCompaction = false;
 
   await for (final line in _boundedJsonLines(File(path))) {
     if (line.trim().isEmpty) continue;
@@ -390,11 +393,13 @@ Future<_DecodedDiagnosticsFile> _decodeDiagnosticsFile(
             // Fold duplicate lifecycle records first, then enforce a limit as
             // soon as this record crosses one. Even a crash-grown file stays
             // bounded by the retained budget plus the record being decoded.
-            evicted |= journal.retain(nowUtc: nowUtc).evicted;
+            needsCompaction |= journal.retain(nowUtc: nowUtc).evicted;
           }
         case 'lastSeen':
           final sequence = decoded['sequence'];
-          if (sequence is int) journal.setLastSeenSequence(sequence);
+          if (sequence is int && sequence >= 0) {
+            journal.setLastSeenSequence(sequence);
+          }
       }
     } on FormatException {
       // A crash can leave one incomplete line; healthy lines still load.
@@ -402,9 +407,42 @@ Future<_DecodedDiagnosticsFile> _decodeDiagnosticsFile(
       // Version-compatible but malformed records are ignored individually.
     }
   }
-  evicted |= journal.retain(nowUtc: nowUtc).evicted;
+  needsCompaction |= journal.retain(nowUtc: nowUtc).evicted;
+  needsCompaction |= _rebaseExcessiveSequences(journal);
 
-  return _DecodedDiagnosticsFile(journal: journal.snapshot(), evicted: evicted);
+  return _DecodedDiagnosticsFile(
+    journal: journal.snapshot(),
+    needsCompaction: needsCompaction,
+  );
+}
+
+bool _rebaseExcessiveSequences(DiagnosticsJournal journal) {
+  // A 53-bit watermark leaves ample native 64-bit headroom for startup rebasing
+  // and subsequent events, while ordinary counters stay unchanged. Retention
+  // bounds the renumbered history to at most diagnosticsRetentionCount values.
+  const maximumUnrebasedSequence = 0x1fffffffffffff;
+  if (journal.maximumSequence <= maximumUnrebasedSequence) return false;
+
+  final events = List<DiagnosticEvent>.of(journal.events);
+  final lastSeenSequence = journal.lastSeenSequence;
+  journal.clear();
+  var sequence = 0;
+  var rebasedLastSeenSequence = 0;
+  int? previousSequence;
+  for (final event in events) {
+    if (event.sequence != previousSequence) {
+      sequence += 1;
+      previousSequence = event.sequence;
+    }
+    journal.put(
+      DiagnosticEvent.fromJson({...event.toJson(), 'sequence': sequence})!,
+    );
+    if (event.sequence <= lastSeenSequence) {
+      rebasedLastSeenSequence = sequence;
+    }
+  }
+  journal.setLastSeenSequence(rebasedLastSeenSequence);
+  return true;
 }
 
 final class MemoryDiagnosticsPersistence implements DiagnosticsPersistence {

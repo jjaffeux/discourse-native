@@ -79,6 +79,74 @@ void main() {
       expect(reloaded.events.map((event) => event.id), ['first']);
     });
 
+    for (final record in ['lastSeen', 'event']) {
+      test(
+        'ignores a negative $record sequence beside healthy lines',
+        () async {
+          await _writeJournalRecords(file, [
+            {'record': 'event', 'event': _error('first', 0, now).toJson()},
+            {'record': 'lastSeen', 'sequence': 0},
+            if (record == 'lastSeen')
+              {'record': record, 'sequence': -1}
+            else
+              {'record': record, 'event': _error('first', -1, now).toJson()},
+            {'record': 'event', 'event': _error('second', 1, now).toJson()},
+          ]);
+
+          final reloaded = await FileDiagnosticsPersistence(
+            file,
+          ).load(nowUtc: now);
+
+          expect(reloaded.events.map((event) => event.id), ['first', 'second']);
+          expect(reloaded.events.map((event) => event.sequence), [0, 1]);
+          expect(reloaded.lastSeenSequence, 0);
+        },
+      );
+    }
+
+    test(
+      'rebases excessive sequences with ties and the seen boundary intact',
+      () async {
+        const highSequence = 0x7ffffffffffffffd;
+        await _writeJournalRecords(file, [
+          {'record': 'event', 'event': _error('low', 12, now).toJson()},
+          {'record': 'event', 'event': _error('b', highSequence, now).toJson()},
+          {'record': 'event', 'event': _error('a', highSequence, now).toJson()},
+          {'record': 'lastSeen', 'sequence': highSequence + 1},
+          {
+            'record': 'event',
+            'event': _error('unseen', highSequence + 2, now).toJson(),
+          },
+        ]);
+
+        final persistence = FileDiagnosticsPersistence(file);
+        final reloaded = await persistence.load(nowUtc: now);
+        await persistence.close();
+
+        expect(reloaded.events.map((event) => event.id), [
+          'low',
+          'a',
+          'b',
+          'unseen',
+        ]);
+        expect(reloaded.events.map((event) => event.sequence), [1, 2, 2, 3]);
+        expect(reloaded.lastSeenSequence, 2);
+        for (final event in reloaded.events) {
+          expect(
+            reloaded.serializedEventBytes[event.id],
+            diagnosticEventSerializedBytes(event),
+          );
+        }
+        expect(await file.readAsString(), isNot(contains('$highSequence')));
+        final again = await FileDiagnosticsPersistence(file).load(nowUtc: now);
+        expect(
+          again.events.map((event) => event.toJson()),
+          reloaded.events.map((event) => event.toJson()),
+        );
+        expect(again.lastSeenSequence, reloaded.lastSeenSequence);
+      },
+    );
+
     test('keeps a subsequent event separate from an unterminated tail', () async {
       final persistence = FileDiagnosticsPersistence(file);
       await persistence.appendEvents([_error('first', 1, now)], nowUtc: now);
@@ -473,6 +541,189 @@ void main() {
   });
 
   group('controller restart recovery', () {
+    test(
+      'keeps new events that cross the rebase watermark on restart',
+      () async {
+        const sequence = 0x1fffffffffffff;
+        await _writeJournalRecords(file, [
+          {
+            'record': 'event',
+            'event': _error('retained', sequence, now).toJson(),
+          },
+          {'record': 'lastSeen', 'sequence': sequence},
+        ]);
+        final first = await DiagnosticsController.create(
+          persistence: FileDiagnosticsPersistence(file),
+          clock: () => now,
+          sessionId: 'before-rebase',
+        );
+        addTearDown(first.close);
+        expect(first.events.first.sequence, sequence);
+        first.reportError(StateError('across watermark'), StackTrace.empty);
+        expect(first.events.last.sequence, greaterThan(sequence));
+        expect(first.unseenErrorCountListenable.value, 1);
+        await first.close();
+
+        final second = await DiagnosticsController.create(
+          persistence: FileDiagnosticsPersistence(file),
+          clock: () => now,
+          sessionId: 'after-rebase',
+        );
+        addTearDown(second.close);
+        expect(
+          second.events.whereType<ErrorDiagnosticEvent>().map(
+            (event) => event.message,
+          ),
+          ['failure', 'Bad state: across watermark'],
+        );
+        expect(second.unseenErrorCountListenable.value, 1);
+        second.reportError(StateError('after watermark'), StackTrace.empty);
+        expect(
+          (second.events.last as ErrorDiagnosticEvent).message,
+          'Bad state: after watermark',
+        );
+        expect(second.unseenErrorCountListenable.value, 2);
+      },
+    );
+
+    test(
+      'rebases an excessive seen marker after all history expires',
+      () async {
+        await _writeJournalRecords(file, [
+          {
+            'record': 'event',
+            'event': _error(
+              'expired',
+              1,
+              now.subtract(diagnosticsRetentionAge),
+            ).toJson(),
+          },
+          {'record': 'lastSeen', 'sequence': 0x7fffffffffffffff},
+        ]);
+        final controller = await DiagnosticsController.create(
+          persistence: FileDiagnosticsPersistence(file),
+          clock: () => now,
+          sessionId: 'after-expiry',
+        );
+        addTearDown(controller.close);
+        controller.reportError(StateError('after expiry'), StackTrace.empty);
+        await controller.flush();
+
+        expect(
+          controller.events.any((event) => event.id == 'expired'),
+          isFalse,
+        );
+        expect(controller.events.every((event) => event.sequence > 0), isTrue);
+        expect(controller.unseenErrorCountListenable.value, 1);
+        expect(await file.readAsString(), isNot(contains('expired')));
+      },
+    );
+
+    for (final record in ['lastSeen', 'event']) {
+      test('recovers an excessive $record sequence across restarts', () async {
+        const excessiveSequence = 0x7fffffffffffffff;
+        await _writeJournalRecords(file, [
+          {
+            'record': 'event',
+            'event': _error('healthy-before', 10, now).toJson(),
+          },
+          {'record': 'lastSeen', 'sequence': 10},
+          if (record == 'lastSeen')
+            {'record': record, 'sequence': excessiveSequence}
+          else
+            {
+              'record': record,
+              'event': _error('excessive', excessiveSequence, now).toJson(),
+            },
+          {
+            'record': 'event',
+            'event': _error('healthy-after', 20, now).toJson(),
+          },
+          {
+            'record': 'event',
+            'event': _request(
+              id: 'prior-pending',
+              sequence: 15,
+              at: now,
+              state: DiagnosticHttpState.pending,
+            ).toJson(),
+          },
+        ]);
+
+        final controller = DiagnosticsController.start(
+          persistence: FileDiagnosticsPersistence(file),
+          clock: () => now,
+          sessionId: 'recovering-session',
+        );
+        addTearDown(controller.close);
+        controller.reportError(StateError('startup error'), StackTrace.empty);
+        await controller.flush();
+
+        final historyIds = [
+          'healthy-before',
+          'healthy-after',
+          if (record == 'event') 'excessive',
+          'prior-pending',
+        ];
+        final startup = controller.events
+            .whereType<ErrorDiagnosticEvent>()
+            .singleWhere(
+              (event) => event.message == 'Bad state: startup error',
+            );
+        expect(startup.sequence, greaterThan(0));
+        expect(controller.events.last.id, startup.id);
+        expect(
+          controller.events.take(historyIds.length).map((event) => event.id),
+          historyIds,
+        );
+        expect(controller.events.every((event) => event.sequence > 0), isTrue);
+        expect(
+          controller.events.whereType<HttpDiagnosticEvent>().single.state,
+          DiagnosticHttpState.interrupted,
+        );
+        expect(
+          controller.unseenErrorCountListenable.value,
+          record == 'lastSeen' ? 1 : 3,
+        );
+
+        controller.markSeen();
+        await controller.flush();
+        expect(controller.unseenErrorCountListenable.value, 0);
+        controller.reportError(StateError('new error'), StackTrace.empty);
+        await controller.flush();
+        final newest = controller.events.last as ErrorDiagnosticEvent;
+        expect(newest.message, 'Bad state: new error');
+        expect(newest.sequence, greaterThan(startup.sequence));
+        expect(controller.unseenErrorCountListenable.value, 1);
+        await controller.close();
+
+        final restarted = await DiagnosticsController.create(
+          persistence: FileDiagnosticsPersistence(file),
+          clock: () => now,
+          sessionId: 'restarted-session',
+        );
+        addTearDown(restarted.close);
+        expect(
+          restarted.events.take(historyIds.length).map((event) => event.id),
+          historyIds,
+        );
+        expect(restarted.unseenErrorCountListenable.value, 1);
+        restarted.markSeen();
+        restarted.reportError(StateError('after restart'), StackTrace.empty);
+        await restarted.flush();
+        expect(restarted.events.last.sequence, greaterThan(newest.sequence));
+        expect(restarted.unseenErrorCountListenable.value, 1);
+
+        await restarted.clear();
+        expect(restarted.events, isEmpty);
+        expect(restarted.unseenErrorCountListenable.value, 0);
+        restarted.reportError(StateError('after clear'), StackTrace.empty);
+        await restarted.flush();
+        expect(restarted.events.single.sequence, greaterThan(newest.sequence));
+        expect(restarted.unseenErrorCountListenable.value, 1);
+      });
+    }
+
     test('marks prior pending requests as interrupted', () async {
       final firstPersistence = FileDiagnosticsPersistence(file);
       final first = await DiagnosticsController.create(
@@ -510,6 +761,21 @@ void main() {
       await second.close();
     });
   });
+}
+
+Future<void> _writeJournalRecords(
+  File file,
+  List<Map<String, Object?>> records,
+) async {
+  await file.parent.create(recursive: true);
+  final lines = [
+    for (final record in records)
+      jsonEncode({
+        'version': FileDiagnosticsPersistence.formatVersion,
+        ...record,
+      }),
+  ];
+  await file.writeAsString('${lines.join('\n')}\n');
 }
 
 ErrorDiagnosticEvent _error(
