@@ -68,11 +68,17 @@ void main() {
     });
 
     test('appends at the end when there is no selection at all', () {
-      final result = toggleMarkdownMark(
-        const TextEditingValue(text: 'say'),
-        '**',
-      );
-      expect(result.text, 'say****');
+      for (final marker in ['**', '*']) {
+        final result = toggleMarkdownMark(
+          const TextEditingValue(text: 'say'),
+          marker,
+        );
+        expect(result.text, 'say$marker$marker');
+        expect(
+          result.selection,
+          TextSelection.collapsed(offset: 3 + marker.length),
+        );
+      }
     });
 
     test('is its own inverse', () {
@@ -82,6 +88,97 @@ void main() {
         expect(showSelection(toggleMarkdownMark(once, marker)), start);
       }
     });
+
+    for (final marker in ['**', '*']) {
+      group('$marker emphasis', () {
+        for (final (leading, trailing) in [
+          (' ', ''),
+          ('', ' '),
+          ('  ', '  '),
+          ('\t', ''),
+          ('', '\t'),
+          ('\t', '\t'),
+          ('\n', ''),
+          ('', '\n'),
+          ('\r\n', '\r\n'),
+          (' \t\n', '\n\t '),
+        ]) {
+          test(
+            'keeps boundary ${jsonEncode([leading, trailing])} outside toggles',
+            () {
+              final original = selected('say [${leading}hello$trailing] there');
+
+              final once = toggleMarkdownMark(original, marker);
+
+              expect(
+                showSelection(once),
+                'say $leading$marker[hello]$marker$trailing there',
+              );
+              expect(
+                showSelection(toggleMarkdownMark(once, marker)),
+                'say $leading[hello]$trailing there',
+              );
+            },
+          );
+        }
+
+        test('preserves whitespace inside the selected prose', () {
+          expectToggle(
+            'say [\nhello \tworld🙂\n] there',
+            marker,
+            'say \n$marker[hello \tworld🙂]$marker\n there',
+          );
+        });
+
+        test('unwraps selected markers with whitespace around them', () {
+          expectToggle(
+            'say [ \t${marker}hello$marker\n] there',
+            marker,
+            'say  \t[hello]\n there',
+          );
+        });
+
+        test(
+          'still unwraps markers immediately around selected whitespace',
+          () {
+            expectToggle(
+              'say $marker[ \thello\n]$marker there',
+              marker,
+              'say [ \thello\n] there',
+            );
+          },
+        );
+
+        test('uses an empty span before an all-whitespace selection', () {
+          final once = toggleMarkdownMark(
+            selected('say [ \t\n] there'),
+            marker,
+          );
+
+          expect(showSelection(once), 'say $marker[]$marker \t\n there');
+          expect(
+            showSelection(toggleMarkdownMark(once, marker)),
+            'say [] \t\n there',
+          );
+        });
+
+        test(
+          'keeps the caret between empty markers through repeated toggles',
+          () {
+            for (final source in ['[]', 'say [] there']) {
+              final original = selected(source);
+              final once = toggleMarkdownMark(original, marker);
+
+              expect(
+                showSelection(once),
+                source.replaceFirst('[]', '$marker[]$marker'),
+              );
+              expect(toggleMarkdownMark(once, marker), original);
+            }
+          },
+        );
+      });
+    }
 
     group('inline code', () {
       final literalCases = <String, String>{
@@ -255,7 +352,8 @@ void main() {
         // Whether a run of asterisks is already wrapped is genuinely
         // ambiguous, and unwrapping one leaves a selection that is no longer
         // what was toggled — so the inverse is claimed only where the
-        // selection and the characters against it are prose.
+        // selection and the characters against it are prose. Boundary
+        // whitespace stays in the document but outside the returned selection.
         final edges = text.substring(
           start == 0 ? 0 : start - 1,
           end == text.length ? end : end + 1,
@@ -263,8 +361,21 @@ void main() {
         if (edges.contains('*')) continue;
         final back = toggleMarkdownMark(next, marker);
         expect(back.text, text, reason: 'not its own inverse: $where');
-        expect(back.selection.start, start, reason: 'selection: $where');
-        expect(back.selection.end, end, reason: 'selection: $where');
+        expect(
+          back.selection.start,
+          inInclusiveRange(start, end),
+          reason: 'selection: $where',
+        );
+        expect(
+          back.selection.end,
+          inInclusiveRange(start, end),
+          reason: 'selection: $where',
+        );
+        expect(
+          back.selection.textInside(text),
+          text.substring(start, end).trim(),
+          reason: 'selected prose: $where',
+        );
         inverses++;
       }
 

@@ -20,8 +20,16 @@ TextEditingValue toggleMarkdownMark(TextEditingValue value, String marker) {
     return _toggleInlineCode(text, selection);
   }
 
-  final start = selection.start;
-  final end = selection.end;
+  var start = selection.start;
+  var end = selection.end;
+  if ((marker == '**' || marker == '*') &&
+      !(_endsWithMark(text.substring(0, start), marker) &&
+          _startsWithMark(text.substring(end), marker))) {
+    // Emphasis cannot open or close against whitespace. Keep it outside new
+    // markers, while still allowing existing surrounding markers to unwrap.
+    end = start + text.substring(start, end).trimRight().length;
+    start = end - text.substring(start, end).trimLeft().length;
+  }
   final selected = text.substring(start, end);
   final before = text.substring(0, start);
   final after = text.substring(end);
