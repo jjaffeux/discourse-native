@@ -223,6 +223,11 @@ List<UserMenuSection> userMenuSections(
   ];
 }
 
+Color _userMenuBorderColor(ThemeData theme) => Color.alphaBlend(
+  theme.colorScheme.onSurface.withValues(alpha: 0.12),
+  theme.shell.floating,
+);
+
 class UserMenuPanel extends StatefulWidget {
   const UserMenuPanel({super.key, required this.onDismiss});
 
@@ -302,7 +307,10 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
               color: theme.shell.floating,
               elevation: 8,
               shadowColor: Colors.black.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: _userMenuBorderColor(theme)),
+              ),
               clipBehavior: Clip.antiAlias,
               child: SizedBox(
                 width: UserMenuPanel.width,
@@ -336,7 +344,11 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
                         },
                       ),
                     ),
-                    VerticalDivider(width: 1, color: theme.shell.divider),
+                    VerticalDivider(
+                      width: 1,
+                      thickness: 1,
+                      color: _userMenuBorderColor(theme),
+                    ),
                     SizedBox(
                       width: UserMenuPanel.railWidth,
                       child: _TabRail(
@@ -404,39 +416,40 @@ class _TabRail extends StatelessWidget {
     final theme = Theme.of(context);
     final profile = sections.firstWhere((section) => section.isProfile);
 
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              children: [
-                for (final section in sections)
-                  if (!section.isProfile)
-                    _TabButton(
-                      section: section,
-                      selected: section.id == selectedId,
-                      onTap: () => onSelect(section.id),
-                    ),
-              ],
+    return Material(
+      color: Color.alphaBlend(
+        theme.colorScheme.onSurface.withValues(alpha: 0.04),
+        theme.shell.floating,
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                children: [
+                  for (final section in sections)
+                    if (!section.isProfile)
+                      _TabButton(
+                        section: section,
+                        selected: section.id == selectedId,
+                        onTap: () => onSelect(section.id),
+                      ),
+                ],
+              ),
             ),
           ),
-        ),
-        Divider(
-          color: theme.shell.divider,
-          indent: 10,
-          endIndent: 10,
-          height: 17,
-        ),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _TabButton(
-            section: profile,
-            selected: profile.id == selectedId,
-            onTap: () => onSelect(profile.id),
+          Divider(color: _userMenuBorderColor(theme), height: 1, thickness: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: _TabButton(
+              section: profile,
+              selected: profile.id == selectedId,
+              onTap: () => onSelect(profile.id),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -474,7 +487,7 @@ class _TabButton extends StatelessWidget {
               height: 44,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: selected ? theme.shell.hover : null,
+                color: selected ? theme.shell.selected : null,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Stack(
@@ -483,8 +496,8 @@ class _TabButton extends StatelessWidget {
                   DIcon(
                     section.icon,
                     size: 20,
-                    color: selected
-                        ? theme.colorScheme.onSurface
+                    color: selected || section.isProfile
+                        ? theme.colorScheme.primary
                         : theme.colorScheme.onSurfaceVariant,
                   ),
                   if (section.badge > 0)
@@ -740,7 +753,7 @@ class _SectionHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: theme.shell.divider)),
+        border: Border(bottom: BorderSide(color: _userMenuBorderColor(theme))),
       ),
       child: Row(
         children: [
