@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_marks.dart';
@@ -37,17 +39,67 @@ void main() {
       expect(composer.text.text, 'say **hello**');
     });
 
-    test('composes multiple marks around the same selection', () {
-      open('say hello');
+    for (final mark in [ComposerMark.bold, ComposerMark.italic]) {
+      for (final (leading, trailing) in [
+        (' ', ''),
+        ('', ' '),
+        (' ', ' '),
+        ('\t', '\t'),
+        ('\n', '\n'),
+      ]) {
+        test('${mark.name} leaves boundary ${jsonEncode([leading, trailing])} '
+            'outside repeated toggles', () {
+          final source = 'say ${leading}hello$trailing now';
+          open(source);
+          composer.text.selection = TextSelection(
+            baseOffset: 4,
+            extentOffset: source.length - 4,
+          );
+
+          composer.toggleMark(mark);
+
+          expect(
+            composer.text.text,
+            'say $leading${mark.marker}hello${mark.marker}$trailing now',
+          );
+          final contentStart = 4 + leading.length + mark.marker.length;
+          expect(
+            composer.text.selection,
+            TextSelection(
+              baseOffset: contentStart,
+              extentOffset: contentStart + 5,
+            ),
+          );
+
+          composer.toggleMark(mark);
+
+          expect(composer.text.text, source);
+          expect(
+            composer.text.selection,
+            TextSelection(
+              baseOffset: 4 + leading.length,
+              extentOffset: 9 + leading.length,
+            ),
+          );
+        });
+      }
+    }
+
+    test('composes multiple marks inside selected boundary whitespace', () {
+      open('say \thello \nnow');
       composer.text.selection = const TextSelection(
         baseOffset: 4,
-        extentOffset: 9,
+        extentOffset: 12,
       );
 
       composer.toggleMark(ComposerMark.bold);
       composer.toggleMark(ComposerMark.italic);
 
-      expect(composer.text.text, 'say ***hello***');
+      expect(composer.text.text, 'say \t***hello*** \nnow');
+      expect(
+        composer.text.selection,
+        const TextSelection(baseOffset: 8, extentOffset: 13),
+      );
     });
 
     test('removes an existing mark when toggled again', () {
