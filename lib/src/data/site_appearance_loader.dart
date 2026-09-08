@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/site_appearance.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
+import 'json_decode.dart';
 import 'site_appearance_parser.dart';
 
 /// Appearance never blocks reading a site. Callers absorb this exception and
@@ -185,11 +186,19 @@ final class SiteAppearanceLoader {
     }
 
     final document = await documentLoad;
-    final themeStylesheetUrls = discoverSiteThemeStylesheets(
-      document.source,
+    final themeDocument = (
+      source: document.source,
       documentUrl: document.url,
       themeId: selection.themeId,
     );
+    final themeStylesheetUrls =
+        document.source.length < _backgroundAppearanceParseThreshold
+        ? _discoverThemeStylesheets(themeDocument)
+        : await compute(
+            _discoverThemeStylesheets,
+            themeDocument,
+            debugLabel: 'Discourse appearance HTML',
+          );
     for (final url in themeStylesheetUrls) {
       _requireSafeStylesheetUrl(document.url, url);
     }
@@ -208,36 +217,43 @@ final class SiteAppearanceLoader {
         uniqueUrls.elementAt(index): loaded[index].source,
     };
 
-    ResolvedSitePalette parse(int schemeId) {
-      final url = stylesheetUrls[schemeId]!;
-      return _parseStylesheets([
-        sources[url]!,
-        for (final url in themeStylesheetUrls) sources[url]!,
-      ], url);
-    }
-
-    final ResolvedSitePalette base;
-    final ResolvedSitePalette? alternate;
-    try {
-      base = parse(selection.baseSchemeId);
-      alternate = selection.alternateSchemeId == null
+    final themeSources = [for (final url in themeStylesheetUrls) sources[url]!];
+    final baseUrl = stylesheetUrls[selection.baseSchemeId]!;
+    final alternateUrl = stylesheetUrls[selection.alternateSchemeId];
+    final appearanceSources = (
+      base: [sources[baseUrl]!, ...themeSources],
+      baseUrl: baseUrl,
+      alternate: alternateUrl == null
           ? null
-          : parse(selection.alternateSchemeId!);
+          : [sources[alternateUrl]!, ...themeSources],
+      alternateUrl: alternateUrl,
+      mode: selection.mode,
+    );
+    // Count the work, including the parent theme again for an alternate
+    // palette. Both cascades run in one short-lived worker, in the same order
+    // as inline parsing; no per-stylesheet or per-palette fan-out is needed.
+    final parseLength = [
+      ...appearanceSources.base,
+      ...?appearanceSources.alternate,
+    ].fold<int>(0, (length, source) => length + source.length);
+    try {
+      if (parseLength < _backgroundAppearanceParseThreshold) {
+        return _parseAppearance(appearanceSources);
+      }
+      return await compute(
+        _parseAppearance,
+        appearanceSources,
+        debugLabel: 'Discourse appearance CSS',
+      );
     } on SiteAppearanceLoadException {
       rethrow;
     } on Object catch (error) {
       throw SiteAppearanceLoadException(
         SiteAppearanceLoadFailure.malformed,
-        url: stylesheetUrls[selection.baseSchemeId]!,
+        url: baseUrl,
         detail: error,
       );
     }
-
-    return SiteAppearance(
-      base: base,
-      alternate: alternate,
-      mode: selection.mode,
-    );
   }
 
   String? _newStylesheetHref(Object? value) {
@@ -260,15 +276,6 @@ final class SiteAppearanceLoader {
     }
   }
 
-  ResolvedSitePalette _parseStylesheets(Iterable<String> sources, Uri url) {
-    final palette = parseSiteAppearanceStylesheets(sources);
-    if (palette != null) return palette;
-    throw SiteAppearanceLoadException(
-      SiteAppearanceLoadFailure.malformed,
-      url: url,
-    );
-  }
-
   Future<_LoadedJson> _loadJson(
     Uri url, {
     required Map<String, String> headers,
@@ -281,7 +288,9 @@ final class SiteAppearanceLoader {
       redirectOrigin: redirectOrigin,
     );
     try {
-      return (url: loaded.url, value: jsonDecode(loaded.source));
+      // Keep package:http's charset handling (including its legacy fallbacks)
+      // in _loadText; only JSON syntax decoding crosses the shared boundary.
+      return (url: loaded.url, value: await decodeJsonResponse(loaded.source));
     } on Object catch (error) {
       throw SiteAppearanceLoadException(
         SiteAppearanceLoadFailure.malformed,
@@ -422,3 +431,44 @@ final class SiteAppearanceLoader {
 
 typedef _LoadedText = ({Uri url, String source});
 typedef _LoadedJson = ({Uri url, Object? value});
+
+// Synthetic test-VM measurements put a ~38 KB CSS pair at several ms of
+// synchronous work. Keep smaller documents/cascades cheap while moving heavier
+// parsing off the native UI isolate. This is a work cutoff, not a frame budget.
+const _backgroundAppearanceParseThreshold = 32 * 1024;
+
+typedef _ThemeDocument = ({String source, Uri documentUrl, int themeId});
+typedef _AppearanceSources = ({
+  List<String> base,
+  Uri baseUrl,
+  List<String>? alternate,
+  Uri? alternateUrl,
+  SiteAppearanceMode mode,
+});
+
+// Top-level callbacks keep the loader, HTTP client and coordinator out of the
+// transferred graph. Only strings, URIs and the mode go in; immutable palettes
+// (including Color values) or a source-attributed exception come back.
+List<Uri> _discoverThemeStylesheets(_ThemeDocument document) =>
+    discoverSiteThemeStylesheets(
+      document.source,
+      documentUrl: document.documentUrl,
+      themeId: document.themeId,
+    );
+
+SiteAppearance _parseAppearance(_AppearanceSources sources) => SiteAppearance(
+  base: _parseStylesheets(sources.base, sources.baseUrl),
+  alternate: sources.alternate == null
+      ? null
+      : _parseStylesheets(sources.alternate!, sources.alternateUrl!),
+  mode: sources.mode,
+);
+
+ResolvedSitePalette _parseStylesheets(Iterable<String> sources, Uri url) {
+  final palette = parseSiteAppearanceStylesheets(sources);
+  if (palette != null) return palette;
+  throw SiteAppearanceLoadException(
+    SiteAppearanceLoadFailure.malformed,
+    url: url,
+  );
+}
