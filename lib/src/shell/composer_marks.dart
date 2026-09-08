@@ -172,14 +172,9 @@ bool _isWrapped(String text, String marker) {
 
 bool _endsWithMark(String before, String marker) =>
     before.endsWith(marker) &&
-    !_continuesRun(
-      before
-          .substring(0, before.length - marker.length)
-          .split('')
-          .reversed
-          .join(),
-      marker,
-    );
+    (marker.length != 1 ||
+        before.length < 2 ||
+        before[before.length - 2] != marker);
 
 bool _startsWithMark(String after, String marker) =>
     after.startsWith(marker) &&
