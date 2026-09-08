@@ -283,7 +283,8 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
           const SizedBox(height: DSpacing.sm),
           Align(
             alignment: AlignmentDirectional.centerStart,
-            child: TextButton.icon(
+            child: DButton(
+              variant: DButtonVariant.flat,
               onPressed: () => setState(() => _reset++),
               icon: const Icon(Icons.refresh),
               label: const Text('Reset example'),

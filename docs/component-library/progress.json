@@ -10,7 +10,8 @@
     "decisions": [
       "Keep D-prefixed public widgets in discourse_ui.dart; host maps palette into DTokens.",
       "Existing Button, Tooltip and Select are baseline examples until their sequential tasks replace them.",
-      "Use native Flutter styleguide route and independent preview Navigator; no networking or credentials in examples."
+      "Use native Flutter styleguide route and independent preview Navigator; no networking or credentials in examples.",
+      "Coordinator follow-up: the styleguide Reset action now uses public DButton. The ordinary-action adoption guard retains explicit per-file exceptions for the native Direction menu and Typography rich-text focus examples, including their displayed usage snippets; no general app-action exemption was added."
     ],
     "migrations": [
       "Bottom-left InstanceRail footer opens the styleguide; root workspace remains mounted."
@@ -24,7 +25,8 @@
       "Built and ran macOS standalone styleguide. Fixed native launch-screen dismissal and Material selection/ink ownership discovered during runtime inspection.",
       "Inspected macOS dark/current and light previews, keyboard selection of Forest site palette, 360px viewport and 200% preview text; exercised example action and visible focus. Used isolated temporary app identity org.discourse.native.styleguide to avoid competing with normal Discourse navigation.",
       "Observed the styleguide palette button in the actual app rail; route entry/exit and retained workspace were verified through the real InstanceRail in widget tests.",
-      "git diff --check passed."
+      "git diff --check passed.",
+      "After Spinner exposed the stale baseline guard, coordinator ran flutter test --no-pub test/d_button_adoption_test.dart test/styleguide/styleguide_page_test.dart --test-randomize-ordering-seed=random: 9 passed, seed 1006078620, including actual Direction/Typography state preservation and reset. Touched files are formatted, flutter analyze --no-pub and git diff --check pass. Logs: /private/tmp/component-button-adoption-fix.log and /private/tmp/component-button-adoption-fix-analysis.log."
     ],
     "mergeCommit": "1b130d3323f9b7619bdead025fd76a57be402a97",
     "acceptanceCriteria": [
