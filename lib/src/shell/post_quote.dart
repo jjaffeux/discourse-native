@@ -364,8 +364,11 @@ class _CookedSelectionSource {
         active = next;
       }
       if (code == null) {
-        // A literal prose tick must not pair with a generated code delimiter.
-        if (hasCode && character.value == '`') out.write(r'\');
+        // Escape literal prose backslashes so they survive Markdown parsing
+        // without escaping generated delimiters or canceling prose tick escapes.
+        if (hasCode && (character.value == r'\' || character.value == '`')) {
+          out.write(r'\');
+        }
         out.write(character.value);
         continue;
       }
