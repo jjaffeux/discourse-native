@@ -190,7 +190,7 @@
       "clientThreadId": "client-new-thread:96389418-9fde-4b24-a7dc-7e3fb7a06b2c",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/2515/discourse-native",
       "baseCommit": "5fd6658b9fded22bf4b19323257c8ad822dc89eb",
-      "nativeInspectionStatus": "follow_up_queued",
+      "nativeInspectionStatus": "in_progress",
       "nativeInspectionFollowUp": "Full SVG examples and actual core/GIF loading/error/retry/completion fixtures passed native checks. Untouched baseline reproduced the forced-semantics accessibility crash. Three final sample corrections still require visual reinspection after a separate keyboard-event-loop incident on the rebuilt isolated app; its cause remains unassigned. Both Spinner apps are closed."
     },
     {
@@ -273,7 +273,7 @@
       "clientThreadId": "client-new-thread:11621b86-f28b-44f3-9231-27de7925eea6",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/fbbd/discourse-native",
       "baseCommit": "c00aa3ee5aa057887b73603ff94571f02e609ba6",
-      "nativeInspectionStatus": "in_progress"
+      "nativeInspectionStatus": "completed"
     },
     {
       "id": "button",
@@ -1549,9 +1549,8 @@
     "dependencyPolicy": "Start only when implementation dependencies are merged; use latest main at dispatch.",
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
-    "nativeInspectionTaskId": "01a0829c-ba0d-7282-a010-7e26f190dd4f",
+    "nativeInspectionTaskId": "01a08213-9960-79f1-8d90-9626f24a4b5a",
     "nativeInspectionQueue": [
-      "01a08213-9960-79f1-8d90-9626f24a4b5a",
       "01a082d2-4434-73b1-8ab4-88c9b2ba9b66"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready."
