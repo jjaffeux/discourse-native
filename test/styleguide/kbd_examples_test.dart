@@ -96,6 +96,7 @@ void main() {
           matching: find.byType(DKbd),
         );
         for (final palette in [
+          StyleguideTheme.light,
           StyleguideTheme.dark,
           StyleguideTheme.forest,
           StyleguideTheme.plum,
@@ -110,8 +111,17 @@ void main() {
           );
           expect(
             (surface.decoration! as BoxDecoration).color,
-            theme.value.extension<DTokens>()!.muted,
+            theme.value.tooltipTheme.textStyle!.color!.withValues(
+              alpha: theme.value.brightness == Brightness.dark ? 0.10 : 0.20,
+            ),
           );
+          final label = tester.widget<AnimatedDefaultTextStyle>(
+            find.descendant(
+              of: hint,
+              matching: find.byType(AnimatedDefaultTextStyle),
+            ),
+          );
+          expect(label.style.color, theme.value.tooltipTheme.textStyle!.color);
         }
         await mouse.moveTo(Offset.zero);
         await tester.pump(const Duration(seconds: 1));

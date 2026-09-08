@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/keyboard_shortcuts_help.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,7 +18,7 @@ void main() {
         addTearDown(focus.dispose);
         await tester.pumpWidget(
           MaterialApp(
-            theme: AppTheme.dark,
+            theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(
                 context,
@@ -49,8 +50,16 @@ void main() {
         expect(find.byType(DShortcutKeycaps), findsWidgets);
         expect(find.widgetWithText(DKbd, '?'), findsOneWidget);
         expect(tester.takeException(), isNull);
-        await tester.dragFrom(Offset(width / 2, 600), const Offset(0, -400));
+        final firstRow = find.text('Next topic in the list');
+        final beforeScroll = tester.getTopLeft(firstRow).dy;
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: Offset(width / 2, 400),
+            scrollDelta: const Offset(0, 600),
+          ),
+        );
         await tester.pumpAndSettle();
+        expect(tester.getTopLeft(firstRow).dy, lessThan(beforeScroll - 50));
         expect(tester.takeException(), isNull);
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();

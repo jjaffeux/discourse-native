@@ -3,13 +3,13 @@ import 'dart:ui' show ViewFocusEvent, ViewFocusState;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
-import 'd_typography.dart';
 
 /// A keyboard hint, with no tap target, focus node, or shortcut binding.
 ///
-/// Text uses the host's small label role and code font, with intrinsic height
-/// and the inherited text scaler. Symbols have spoken defaults; override
+/// Text uses the host's sans-serif family and the reference's 12/16 metrics,
+/// with intrinsic height and the inherited text scaler. Symbols have spoken defaults; override
 /// [semanticLabel] for localization or a longer explanation. Compose custom
 /// icons with [DKbd.child], keeping the surrounding control as the action owner.
 class DKbd extends StatelessWidget {
@@ -36,66 +36,104 @@ class DKbd extends StatelessWidget {
   /// Optional presentation feedback. This never dispatches a shortcut.
   final bool highlighted;
 
-  /// Optional text emphasis; sizes and leading normally remain theme-owned.
+  /// Optional explicit text customization, merged after the reference metrics.
   final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final contextual = DKbdTheme.maybeOf(context);
     final textStyle = Theme.of(context).textTheme.labelSmall!
         .copyWith(
-          fontFamily: DText.styleOf(
-            context,
-            DTextVariant.inlineCode,
-          ).fontFamily,
-          color: highlighted ? tokens.primaryForeground : tokens.foreground,
-          fontWeight: highlighted ? FontWeight.w800 : FontWeight.w600,
-          decoration: highlighted ? TextDecoration.underline : null,
+          fontSize: DiscourseTypography.xs,
+          height: DiscourseTypography.lineHeightCaption,
+          letterSpacing: 0,
+          wordSpacing: 0,
+          fontStyle: FontStyle.normal,
+          color: highlighted
+              ? tokens.primaryForeground
+              : contextual?.foregroundColor ?? tokens.mutedForeground,
+          fontWeight: highlighted ? FontWeight.w600 : FontWeight.w500,
+          decoration: highlighted
+              ? TextDecoration.underline
+              : TextDecoration.none,
         )
         .merge(style);
     final duration = DMotion.duration(context, DMotion.exit);
-    return Semantics(
-      label: semanticLabel ?? _spokenLabel(label!),
-      excludeSemantics: true,
-      child: AnimatedContainer(
-        duration: duration,
-        curve: Curves.easeOut,
-        constraints: const BoxConstraints(
-          minWidth: DSpacing.xl,
-          minHeight: DSpacing.xl,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: DSpacing.xs * 1.5,
-          vertical: DSpacing.xs / 2,
-        ),
-        decoration: BoxDecoration(
-          color: highlighted ? tokens.primary : tokens.muted,
-          border: Border.all(
-            color: highlighted ? tokens.primary : tokens.border,
-          ),
-          borderRadius: tokens.borderRadius,
-        ),
-        child: Center(
-          widthFactor: 1,
-          heightFactor: 1,
-          child: AnimatedDefaultTextStyle(
+    return SelectionContainer.disabled(
+      child: IgnorePointer(
+        child: Semantics(
+          label: semanticLabel ?? _spokenLabel(label!),
+          excludeSemantics: true,
+          child: AnimatedContainer(
             duration: duration,
             curve: Curves.easeOut,
-            style: textStyle,
-            textAlign: TextAlign.center,
-            child: IconTheme.merge(
-              data: IconThemeData(
-                color: textStyle.color,
-                size: textStyle.fontSize,
-                applyTextScaling: true,
+            constraints: const BoxConstraints(
+              minWidth: DSpacing.xs * 5,
+              minHeight: DSpacing.xs * 5,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
+            decoration: BoxDecoration(
+              color: highlighted
+                  ? tokens.primary
+                  : contextual?.backgroundColor ?? tokens.muted,
+              borderRadius: BorderRadius.circular(tokens.radius * 0.6),
+            ),
+            child: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: AnimatedDefaultTextStyle(
+                duration: duration,
+                curve: Curves.easeOut,
+                style: textStyle,
+                textAlign: TextAlign.center,
+                child: IconTheme.merge(
+                  data: IconThemeData(
+                    color: textStyle.color,
+                    size: textStyle.fontSize,
+                    applyTextScaling: true,
+                  ),
+                  child: child ?? Text(label!),
+                ),
               ),
-              child: child ?? Text(label!),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+/// Contextual keycap colors, corresponding to the reference's tooltip scope.
+///
+/// Ordinary keycaps use muted theme tokens. Tooltip owners supply their live
+/// foreground and translucent tint here, so custom site tooltip surfaces keep
+/// readable keycaps. Geometry and typography remain owned by [DKbd].
+class DKbdTheme extends InheritedTheme {
+  const DKbdTheme({
+    super.key,
+    required this.foregroundColor,
+    required this.backgroundColor,
+    required super.child,
+  });
+
+  final Color foregroundColor;
+  final Color backgroundColor;
+
+  static DKbdTheme? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DKbdTheme>();
+
+  @override
+  bool updateShouldNotify(DKbdTheme oldWidget) =>
+      foregroundColor != oldWidget.foregroundColor ||
+      backgroundColor != oldWidget.backgroundColor;
+
+  @override
+  Widget wrap(BuildContext context, Widget child) => DKbdTheme(
+    foregroundColor: foregroundColor,
+    backgroundColor: backgroundColor,
+    child: child,
+  );
 }
 
 /// A directional, wrapping flow of keycaps and optional separators or text.

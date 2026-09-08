@@ -197,7 +197,7 @@ void main() {
       expect(shortcut.trigger, LogicalKeyboardKey.digit3);
       expect(shortcut.meta, isTrue);
       expect(shortcut.control, isFalse);
-      expect(tester.getSize(keycaps).height, 24);
+      expect(tester.getSize(keycaps).height, 20);
       expect(tester.getSize(callout).height, lessThanOrEqualTo(64));
     }),
   );

@@ -5,12 +5,12 @@ import 'package:flutter/services.dart';
 import '../styleguide_example.dart';
 
 final kbdExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   notes:
       'DKbd displays a hint; existing controls and Shortcuts own actions. '
       'DKbdGroup wraps and inherits direction. Native labels use Apple modifier '
       'symbols on macOS/iOS and words on Linux. Spoken labels can be localized. '
-      'Text uses the host small-label role and code font, grows with text scale, '
+      'Text uses the host sans-serif family with reference 12/16 metrics, grows with text scale, '
       'and uses live site tokens. Highlight feedback is optional and respects '
       'reduced motion. The reference className customization maps to Flutter '
       'child, style and layout composition. Outline is a Button demo variant '
@@ -21,24 +21,29 @@ final kbdExamples = ComponentExamples(
     StyleguideExample(
       title: 'Keys, symbols and custom content',
       description:
+          'The first two rows reproduce the reference key groups. '
           'Text and symbols receive spoken labels. Custom icon content requires '
           'a label. Keycaps never add a focus stop or a touch action. Highlight '
           'uses weight and underline as well as color.',
       states: const ['Default', 'Highlighted', 'Icons', 'Semantics'],
       code: _keysCode,
-      builder: (_) => const DKbdGroup(
-        spacing: DSpacing.sm,
+      builder: (_) => const Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          DKbd('⌘'),
-          DKbd('⇧'),
-          DKbd('⌥'),
-          DKbd('⌃'),
-          DKbd('Esc'),
-          DKbd('↑'),
-          DKbd('B', highlighted: true),
-          DKbd.child(
-            semanticLabel: 'Brightness up',
-            child: Icon(Icons.brightness_high_outlined),
+          DKbdGroup(children: [DKbd('⌘'), DKbd('⇧'), DKbd('⌥'), DKbd('⌃')]),
+          SizedBox(height: DSpacing.lg),
+          DKbdGroup(children: [DKbd('Ctrl'), Text('+'), DKbd('B')]),
+          SizedBox(height: DSpacing.lg),
+          DKbdGroup(
+            children: [
+              DKbd('Esc'),
+              DKbd('↑'),
+              DKbd('B', highlighted: true),
+              DKbd.child(
+                semanticLabel: 'Brightness up',
+                child: Icon(Icons.brightness_high_outlined),
+              ),
+            ],
           ),
         ],
       ),
@@ -313,13 +318,18 @@ class _KbdInputSampleState extends State<KbdInputSample> {
   }
 }
 
-const _keysCode = '''const DKbdGroup(
-  spacing: DSpacing.sm,
+const _keysCode = '''const Column(
+  mainAxisSize: MainAxisSize.min,
   children: [
-    DKbd('⌘'), DKbd('⇧'), DKbd('⌥'), DKbd('⌃'), DKbd('Esc'), DKbd('↑'),
-    DKbd('B', highlighted: true),
-    DKbd.child(semanticLabel: 'Brightness up',
-      child: Icon(Icons.brightness_high_outlined)),
+    DKbdGroup(children: [DKbd('⌘'), DKbd('⇧'), DKbd('⌥'), DKbd('⌃')]),
+    SizedBox(height: DSpacing.lg),
+    DKbdGroup(children: [DKbd('Ctrl'), Text('+'), DKbd('B')]),
+    SizedBox(height: DSpacing.lg),
+    DKbdGroup(children: [
+      DKbd('Esc'), DKbd('↑'), DKbd('B', highlighted: true),
+      DKbd.child(semanticLabel: 'Brightness up',
+        child: Icon(Icons.brightness_high_outlined)),
+    ]),
   ],
 )''';
 

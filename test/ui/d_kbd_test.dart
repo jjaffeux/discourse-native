@@ -55,6 +55,70 @@ void main() {
     },
   );
 
+  testWidgets('reference geometry, type and colors follow the active palette', (
+    tester,
+  ) async {
+    for (final palette in [
+      StyleguideTheme.light,
+      StyleguideTheme.dark,
+      StyleguideTheme.forest,
+      StyleguideTheme.plum,
+    ]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: palette.resolve(AppTheme.light),
+          home: const Scaffold(
+            body: Center(
+              child: DKbdGroup(
+                children: [
+                  DKbd('K'),
+                  DKbd.child(
+                    semanticLabel: 'Brightness up',
+                    child: Icon(Icons.brightness_high),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final caps = find.byType(DKbd);
+      final context = tester.element(caps.first);
+      final tokens = DTokens.of(context);
+      final surface = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: caps.first,
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      final decoration = surface.decoration! as BoxDecoration;
+      final style = DefaultTextStyle.of(tester.element(find.text('K'))).style;
+      expect(tester.getSize(caps.first), const Size(20, 20));
+      expect(tester.getSize(caps.last), const Size(20, 20));
+      expect(
+        tester.getTopLeft(caps.last).dx - tester.getTopRight(caps.first).dx,
+        4,
+      );
+      expect(surface.padding, const EdgeInsets.symmetric(horizontal: 4));
+      expect(decoration.border, isNull);
+      expect(decoration.color, tokens.muted);
+      expect(
+        decoration.borderRadius,
+        BorderRadius.circular(tokens.radius * .6),
+      );
+      expect(style.color, tokens.mutedForeground);
+      expect(
+        style.fontFamily,
+        Theme.of(context).textTheme.labelSmall!.fontFamily,
+      );
+      expect(style.fontSize, 12);
+      expect(style.height, 16 / 12);
+      expect(style.fontWeight, FontWeight.w500);
+      expect(tester.getSize(find.byType(Icon)), const Size(12, 12));
+    }
+  });
+
   testWidgets('symbols and custom icons are spoken without button semantics', (
     tester,
   ) async {
@@ -77,11 +141,11 @@ void main() {
       expect(find.bySemanticsLabel('Arrow Up'), findsOneWidget);
       expect(find.bySemanticsLabel('Brightness up'), findsOneWidget);
       expect(
-        tester.getSemantics(find.byType(DKbd).first),
+        tester.getSemantics(find.bySemanticsLabel('Command')),
         isSemantics(label: 'Command'),
       );
       final focus = FocusManager.instance.primaryFocus;
-      await tester.tap(find.byType(DKbd).first);
+      await tester.tapAt(tester.getCenter(find.byType(DKbd).first));
       await tester.pump();
       expect(FocusManager.instance.primaryFocus, focus);
     } finally {
@@ -203,69 +267,79 @@ void main() {
     },
   );
 
-  testWidgets('theme typography, site radius and reduced motion remain live', (
-    tester,
-  ) async {
-    final theme = ValueNotifier(AppTheme.light);
-    addTearDown(theme.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ValueListenableBuilder(
-          valueListenable: theme,
-          builder: (_, value, child) => Theme(data: value, child: child!),
-          child: const MediaQuery(
-            data: MediaQueryData(
-              disableAnimations: true,
-              textScaler: TextScaler.linear(2),
+  testWidgets(
+    'theme fonts stay live without replacing reference text metrics',
+    (tester) async {
+      final theme = ValueNotifier(AppTheme.light);
+      addTearDown(theme.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ValueListenableBuilder(
+            valueListenable: theme,
+            builder: (_, value, child) => Theme(data: value, child: child!),
+            child: const MediaQuery(
+              data: MediaQueryData(
+                disableAnimations: true,
+                textScaler: TextScaler.linear(2),
+              ),
+              child: Center(child: DKbd('K', highlighted: true)),
             ),
-            child: Center(child: DKbd('K', highlighted: true)),
           ),
         ),
-      ),
-    );
-    for (final palette in [
-      StyleguideTheme.light,
-      StyleguideTheme.dark,
-      StyleguideTheme.forest,
-      StyleguideTheme.plum,
-    ]) {
-      theme.value = palette
-          .resolve(AppTheme.light)
-          .copyWith(
-            textTheme: AppTheme.light.textTheme.copyWith(
-              labelSmall: const TextStyle(fontSize: 17, height: 1.7),
-            ),
-          );
-      await tester.pump();
-      final context = tester.element(find.byType(DKbd));
-      final tokens = DTokens.of(context);
-      final surface = tester.widget<AnimatedContainer>(
-        find.descendant(
-          of: find.byType(DKbd),
-          matching: find.byType(AnimatedContainer),
-        ),
       );
-      final style = tester
-          .widget<AnimatedDefaultTextStyle>(
-            find.descendant(
-              of: find.byType(DKbd),
-              matching: find.byType(AnimatedDefaultTextStyle),
-            ),
-          )
-          .style;
-      expect((surface.decoration! as BoxDecoration).color, tokens.primary);
-      expect(
-        (surface.decoration! as BoxDecoration).borderRadius,
-        tokens.borderRadius,
-      );
-      expect(surface.duration, Duration.zero);
-      expect(style.fontSize, 17);
-      expect(style.height, 1.7);
-      expect(style.color, tokens.primaryForeground);
-      expect(style.decoration, TextDecoration.underline);
-      expect(tester.getSize(find.byType(DKbd)).height, greaterThan(55));
-    }
-  });
+      for (final palette in [
+        StyleguideTheme.light,
+        StyleguideTheme.dark,
+        StyleguideTheme.forest,
+        StyleguideTheme.plum,
+      ]) {
+        theme.value = palette
+            .resolve(AppTheme.light)
+            .copyWith(
+              textTheme: AppTheme.light.textTheme.copyWith(
+                labelSmall: TextStyle(
+                  fontFamily: palette.name,
+                  fontSize: 17,
+                  height: 1.7,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 3,
+                ),
+              ),
+            );
+        await tester.pump();
+        final context = tester.element(find.byType(DKbd));
+        final tokens = DTokens.of(context);
+        final surface = tester.widget<AnimatedContainer>(
+          find.descendant(
+            of: find.byType(DKbd),
+            matching: find.byType(AnimatedContainer),
+          ),
+        );
+        final style = tester
+            .widget<AnimatedDefaultTextStyle>(
+              find.descendant(
+                of: find.byType(DKbd),
+                matching: find.byType(AnimatedDefaultTextStyle),
+              ),
+            )
+            .style;
+        expect((surface.decoration! as BoxDecoration).color, tokens.primary);
+        expect(
+          (surface.decoration! as BoxDecoration).borderRadius,
+          BorderRadius.circular(tokens.radius * 0.6),
+        );
+        expect(surface.duration, Duration.zero);
+        expect(style.fontFamily, palette.name);
+        expect(style.fontSize, 12);
+        expect(style.height, 16 / 12);
+        expect(style.letterSpacing, 0);
+        expect(style.fontWeight, FontWeight.w600);
+        expect(style.color, tokens.primaryForeground);
+        expect(style.decoration, TextDecoration.underline);
+        expect(tester.getSize(find.byType(DKbd)).height, 32);
+      }
+    },
+  );
 
   testWidgets(
     'sequence feedback survives equivalent rebuilds and resets on wrong keys or completion',

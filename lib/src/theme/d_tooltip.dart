@@ -106,7 +106,18 @@ class _TooltipSurface extends StatelessWidget {
             children: [
               Text(message),
               if (shortcut case final shortcut?)
-                DShortcutKeycaps(shortcut: shortcut),
+                DKbdTheme(
+                  foregroundColor:
+                      textStyle?.color ?? theme.colorScheme.onInverseSurface,
+                  backgroundColor:
+                      (textStyle?.color ?? theme.colorScheme.onInverseSurface)
+                          .withValues(
+                            alpha: theme.brightness == Brightness.dark
+                                ? 0.10
+                                : 0.20,
+                          ),
+                  child: DShortcutKeycaps(shortcut: shortcut),
+                ),
             ],
           ),
         ),
