@@ -27,6 +27,38 @@ void main() {
     expect(find.text('Supplementary preview'), findsNothing);
   });
 
+  testWidgets('pressing the trigger cancels a pending preview', (tester) async {
+    var presses = 0;
+    await tester.pumpWidget(
+      _app(
+        DHoverCard(
+          trigger: DHoverCardTrigger(
+            builder: (context, state) => TextButton(
+              focusNode: state.focusNode,
+              onPressed: () => presses += 1,
+              child: const Text('Pending destination'),
+            ),
+          ),
+          content: const DHoverCardContent(child: Text('Stale preview')),
+        ),
+      ),
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('Pending destination')));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await mouse.down(tester.getCenter(find.text('Pending destination')));
+    await mouse.up();
+    await tester.pump();
+    expect(presses, 1);
+
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.text('Stale preview'), findsNothing);
+  });
+
   testWidgets('pointer may cross the side gap and hover the content', (
     tester,
   ) async {
