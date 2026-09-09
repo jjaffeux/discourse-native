@@ -1,4 +1,4 @@
-import 'dart:ui' show CheckedState;
+import 'dart:ui' show CheckedState, SemanticsRole;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
@@ -127,16 +127,19 @@ void main() {
   });
 
   testWidgets(
-    'arrow navigation preserves native editor focus and Return selects',
+    'IME composition suppresses command keys until native editing commits',
     (tester) async {
+      final controller = DCommandController<String>();
       final focus = FocusNode();
       final editing = TextEditingController();
       final selected = <String>[];
+      addTearDown(controller.dispose);
       addTearDown(focus.dispose);
       addTearDown(editing.dispose);
       await tester.pumpWidget(
         _host(
           _command(
+            controller: controller,
             loop: true,
             inputFocus: focus,
             editingController: editing,
@@ -153,15 +156,52 @@ void main() {
       );
       await tester.pump();
       expect(focus.hasFocus, isTrue);
+      final initialHighlight = controller.value;
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
       expect(focus.hasFocus, isTrue);
       expect(editing.value.composing, const TextRange(start: 0, end: 1));
+      expect(controller.value, initialHighlight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(selected, isEmpty);
+
+      editing.value = editing.value.copyWith(composing: TextRange.empty);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(controller.value, isNot(initialHighlight));
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
       expect(selected, hasLength(1));
       expect(find.text(selected.single), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'selection and composing-only edits do not report query changes',
+    (tester) async {
+      final editing = TextEditingController();
+      final queries = <String>[];
+      addTearDown(editing.dispose);
+      await tester.pumpWidget(
+        _host(
+          _command(editingController: editing, onQueryChanged: queries.add),
+        ),
+      );
+      await tester.pump();
+      editing.text = 'calendar';
+      await tester.pump();
+      queries.clear();
+
+      editing.selection = const TextSelection.collapsed(offset: 2);
+      editing.value = editing.value.copyWith(
+        composing: const TextRange(start: 0, end: 2),
+      );
+      await tester.pump();
+
+      expect(queries, isEmpty);
     },
   );
 
@@ -194,6 +234,73 @@ void main() {
     await tester.pump();
     expect(controller.value, 'Calendar');
     expect(focus.hasFocus, isTrue);
+  });
+
+  testWidgets('Home, End, Meta-arrow, and Alt-arrow navigate like cmdk', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>();
+    final focus = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(focus.dispose);
+    await tester.pumpWidget(
+      _host(_command(controller: controller, inputFocus: focus)),
+    );
+    await tester.pump();
+    focus.requestFocus();
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pump();
+    expect(controller.value, 'Settings');
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pump();
+    expect(controller.value, 'Calendar');
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+    expect(controller.value, 'Settings');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+    await tester.pump();
+    expect(controller.value, 'Calendar');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+    await tester.pump();
+    expect(controller.value, 'Profile');
+  });
+
+  testWidgets('separators hide while filtering unless alwaysRender is set', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(_command()));
+    await tester.pump();
+    expect(find.byType(Divider), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'profile');
+    await tester.pump();
+    expect(find.byType(Divider), findsNothing);
+
+    await tester.pumpWidget(
+      _host(
+        const DCommand<String>(
+          initialQuery: 'profile',
+          child: DCommandList<String>(
+            children: [
+              DCommandItem(value: 'Profile', child: Text('Profile')),
+              DCommandSeparator<String>(alwaysRender: true),
+              DCommandItem(value: 'Profiles', child: Text('Profiles')),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(Divider), findsOneWidget);
   });
 
   testWidgets('keyboard movement scrolls the highlight into view', (
@@ -540,6 +647,39 @@ void main() {
     expect(find.text('No results found.'), findsNothing);
   });
 
+  testWidgets('custom filters receive trimmed values and keyword aliases', (
+    tester,
+  ) async {
+    String? value;
+    List<String>? keywords;
+    await tester.pumpWidget(
+      _host(
+        DCommand<String>(
+          initialQuery: 'needle',
+          filter: (candidate, query, aliases) {
+            value = candidate;
+            keywords = aliases;
+            return 1;
+          },
+          child: const DCommandList<String>(
+            children: [
+              DCommandItem(
+                value: 'item',
+                searchValue: '  Search value  ',
+                keywords: [' alias ', 'second  '],
+                child: Text('Item'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(value, 'Search value');
+    expect(keywords, ['alias', 'second']);
+  });
+
   testWidgets('loading, scrolling, borrowed resources and RTL remain live', (
     tester,
   ) async {
@@ -571,6 +711,37 @@ void main() {
     editing.dispose();
     focus.dispose();
     scroll.dispose();
+  });
+
+  testWidgets('loading state exposes an accessible label and progress', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        const DCommand<String>(
+          loading: true,
+          child: DCommandList<String>(
+            children: [
+              DCommandLoading(
+                progress: 42,
+                semanticLabel: 'Fetching commands',
+                child: Text('Please wait'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final semantics = tester.getSemantics(
+      find.bySemanticsLabel('Fetching commands'),
+    );
+    expect(semantics.label, 'Fetching commands');
+    expect(semantics.role, SemanticsRole.progressBar);
+    expect(semantics.value, '42');
+    expect(semantics.minValue, '0');
+    expect(semantics.maxValue, '100');
   });
 
   testWidgets(
