@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "fcc26238982fb062a84b4f964995d7026e547af7",
+  "integratedMain": "79a09d87",
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/d14a/discourse-native/build/macos/Build/Products/Debug/ItemReviewD14aFinal.app",
+  "bundleName": "ItemReviewD14aFinal",
+  "bundleId": "org.discourse.itemreviewd14afinal",
+  "urlScheme": "discourse-item-review-d14a-final",
+  "kernelSha256": "b792631873ef9e75576a154432c7f7e6eb9c6d0d9915843c2f945fa2d4675013",
+  "kernelCopiesEqual": true,
+  "sourceEquality": true,
+  "pinsEquality": true,
+  "signedEntitlements": [
+    "com.apple.security.cs.allow-jit",
+    "com.apple.security.cs.allow-unsigned-executable-memory",
+    "com.apple.security.cs.disable-library-validation",
+    "com.apple.security.get-task-allow",
+    "com.apple.security.network.client",
+    "com.apple.security.network.server"
+  ],
+  "strictDeepVerification": true,
+  "nativeInspection": [
+    "Actual TagDirectoryRow and AssignmentDetailRow production widgets rendered in the local fixture.",
+    "Both assignment notes retained all three lines at 200% text in RTL/dark mode with no ellipsis.",
+    "The second assignment row remained independently actionable and reported Edit assignment 2."
+  ]
+}

@@ -1,4 +1,27 @@
-# Item integrated native review bundle — awaiting_slot
+# Item native review bundles
+
+## Corrected independent-review bundle
+
+The independent reviewer rebuilt after the native-observed large-text overflow
+fix at source `fcc26238982fb062a84b4f964995d7026e547af7`:
+
+`/Users/joffreyjaffeux/.codex/worktrees/d14a/discourse-native/build/macos/Build/Products/Debug/ItemReviewD14aFinal.app`
+
+Actual Info.plist identity: `ItemReviewD14aFinal`, bundle identifier
+`org.discourse.itemreviewd14afinal`, URL scheme
+`discourse-item-review-d14a-final`. Build and copied App.framework kernels both
+have SHA256 `b792631873ef9e75576a154432c7f7e6eb9c6d0d9915843c2f945fa2d4675013`.
+Runner overrides were restored; source and dependency pins equal the recorded
+source. A deep strict ad-hoc signature passed with only the debug/JIT and network
+entitlements listed below.
+
+The serialized native pass confirmed both real AssignmentDetailRow notes remain
+fully visible at 200% text in RTL/dark mode, without ellipsis, and that the second
+row still dispatches `Edit assignment 2`. See
+`reference/item/review-build.json` for compact provenance. The earlier integrated
+bundle is retained below as historical pre-fix evidence.
+
+## Earlier integrated bundle
 
 Current executable source: `68402409ccc314b6e9b624cf1d86b16531ccdcc4`.
 Pinned main: `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7`, integrated through

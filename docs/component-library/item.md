@@ -1,12 +1,15 @@
-# Item implementation and pending visual review
+# Item implementation and independent review
 
 Task `01a084bf-dd8a-7c13-86dd-63f2e60d20cd`, branch `codex/ui-item`,
 initial base `402fe578`; integrated pinned main
 `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7` in merge `1462873c`.
 All 17 merged component owners, coordinator Group/Sidebar/Topic Inbox fixes and
 every non-Item progress row are preserved. Only Item progress metadata belongs to this task.
-The cross-thread messaging tool was not exposed; coordinator handoff is recorded
-here and in the final task response. No desktop/browser slot has been granted.
+Independent reviewer task `01a08558-aec4-7591-ac85-682a1eae4290` merged the
+implementation branch with history, compared the frozen reference in a live
+browser, inspected the exact-source macOS fixture, and fixed the only observed
+Item defect. Final acceptance remains gated only on replacing the explicitly
+temporary menu composition after Dropdown Menu is accepted into `main`.
 
 ## Source evidence
 
@@ -25,9 +28,9 @@ Retrieved 2026-09-09 using HTTPS reads, without browser or application control:
 
 ## CSS-to-Flutter mapping
 
-All units below are logical pixels at 16px rem and 100% text scaling. These
-are source-derived metrics with widget geometry assertions, **not an actual
-browser/native rendered comparison**.
+All units below are logical pixels at 16px rem and 100% text scaling. The
+reviewer confirmed these source-derived metrics against the live official Base
+UI page and the native fixture.
 
 | Source | Flutter |
 | --- | --- |
@@ -94,7 +97,7 @@ Dropdown Menu remains unmerged. Its example is explicitly a temporary
 MenuAnchor/MenuItemButton composition with passive xs Items and explicit padding,
 not an implementation of the Dropdown Menu catalogue row. The owner must replace
 that wrapper during serialized integration. Item does not import other worktrees.
-The styleguide status stays baseline until native/reference review passes.
+The styleguide status stays baseline until that final dependency reconciliation.
 
 ## Application adoption and audit
 
@@ -150,12 +153,19 @@ Native fixture entrypoint: `lib/item_review_main.dart`. It starts with the actua
 TagDirectoryRow and AssignmentDetailRow production widgets, using local records,
 including multi-line notes, user/group assignees and permission changes. It links
 to the real full styleguide and supplies theme, RTL and text-scale controls.
-No forced semantics, CUA, app launch or browser tab manipulation was performed.
+The independent reviewer exercised tag navigation, assignment editing and the
+permission-disabled text state. In dark mode with RTL and 200% text, the initial
+bundle exposed ellipsized assignment notes despite relaxed line limits. Commit
+`fcc26238982fb062a84b4f964995d7026e547af7` makes unclamped title/description
+overflow clip while preserving ellipsis for explicit clamps. The rebuilt
+exact-source fixture then showed every line of both real assignment notes and
+retained their edit actions.
 
-Build provenance is recorded in `item-build.md` after the isolated build.
-Status remains **in_progress / awaiting_slot** until the coordinator grants
-serialized reference rendering and native styleguide/production-fixture review.
-No VoiceOver, iOS/Linux device, authenticated screen or pixel-parity claim is made.
+The corrected focused run passed 35 Item/styleguide/migration tests with seed
+9092026. Root and full-profile `flutter analyze --no-pub`, formatting and
+`git diff --check` pass. Build provenance is recorded in `item-build.md` and
+`reference/item/review-build.json`. No VoiceOver, iOS/Linux device,
+authenticated screen or pixel-parity claim is made.
 
 ## Pinned-main integration preparation
 
@@ -166,8 +176,7 @@ passes the existing independent row/secondary-action checks; the added composed
 Checkbox regression checks pointer and Space isolation. The final Input retains
 Form save/reset and edits through large-text RTL reflow.
 
-No CUA, browser, native launch, admin-policy verification retry or workaround
-was used. The Mac is locked and browser access separately denied. Rebuild
-provenance and explicit restricted-free ad-hoc entitlement readback are recorded
-in item-build.md. Actual reference/native review and Dropdown Menu composition
-remain required; this task stays in_progress / awaiting_slot.
+The earlier source-owner limitation above is historical. The independent review
+subsequently completed browser/native inspection through the repository's
+serialized desktop lease, without an admin-policy retry or workaround. Dropdown
+Menu composition remains the sole acceptance dependency.
