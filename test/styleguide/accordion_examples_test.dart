@@ -111,9 +111,17 @@ void main() {
         tester.widget<EditableText>(find.byType(EditableText)).controller.text,
         'Edited draft',
       );
+      await tester.tap(find.text('Security review'));
+      await tester.pumpAndSettle();
+      expect(find.text('Open: profile, security'), findsOneWidget);
       await tester.tap(find.text('Remove security'));
       await tester.pumpAndSettle();
       expect(find.text('Security review'), findsNothing);
+      expect(find.text('Open: profile'), findsOneWidget);
+      await tester.tap(find.text('Add security'));
+      await tester.pumpAndSettle();
+      expect(find.text('Security review'), findsOneWidget);
+      expect(find.textContaining('Review recent sessions'), findsNothing);
     },
   );
 }

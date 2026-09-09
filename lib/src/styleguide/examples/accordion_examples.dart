@@ -222,7 +222,12 @@ class _ControlledExampleState extends State<_ControlledExample> {
             DButton(
               size: DButtonSize.small,
               variant: DButtonVariant.outline,
-              onPressed: () => setState(() => _showSecurity = !_showSecurity),
+              onPressed: () => setState(() {
+                _showSecurity = !_showSecurity;
+                if (!_showSecurity) {
+                  _values.remove('security');
+                }
+              }),
               label: Text(_showSecurity ? 'Remove security' : 'Add security'),
             ),
             DButton(
