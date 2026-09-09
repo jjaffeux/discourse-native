@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../models/sidebar_tag.dart';
 import '../models/tag_directory_feed.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
@@ -96,7 +95,7 @@ class _TagsPageState extends State<TagsPage> {
                 tagIndex--;
               }
               final tag = feed.tags[tagIndex];
-              return _TagRow(
+              return TagDirectoryRow(
                 tag: tag,
                 onTap: () => ShellScope.read(context).openTag(tag),
               );
@@ -108,8 +107,8 @@ class _TagsPageState extends State<TagsPage> {
   );
 }
 
-class _TagRow extends StatelessWidget {
-  const _TagRow({required this.tag, required this.onTap});
+class TagDirectoryRow extends StatelessWidget {
+  const TagDirectoryRow({super.key, required this.tag, required this.onTap});
 
   final SidebarTag tag;
   final VoidCallback onTap;
@@ -123,72 +122,43 @@ class _TagRow extends StatelessWidget {
         '${tag.count} '
         '${tag.count == 1 ? countNoun : '${countNoun}s'}';
 
-    return Semantics(
-      button: true,
-      label: '${tag.name}, $countLabel',
-      child: Material(
-        key: ValueKey('tag-directory-tag-${tag.id}'),
-        color: theme.shell.panel,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(7),
-          side: BorderSide(color: theme.shell.divider),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  DIcon(
-                    DIcons.tag,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          tag.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (description != null) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    '${tag.count}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    return DItem(
+      key: ValueKey('tag-directory-tag-${tag.id}'),
+      variant: DItemVariant.outline,
+      link: true,
+      onPressed: onTap,
+      children: [
+        DItemMedia(
+          variant: DItemMediaVariant.icon,
+          child: DIcon(
+            DIcons.tag,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-      ),
+        DItemContent(
+          children: [
+            DItemTitle(child: Text(tag.name)),
+            if (description != null) DItemDescription(child: Text(description)),
+          ],
+        ),
+        DItemContent(
+          children: [
+            DItemDescription(
+              child: Semantics(
+                label: countLabel,
+                excludeSemantics: true,
+                child: Text(
+                  '${tag.count}',
+                  style: const TextStyle(
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

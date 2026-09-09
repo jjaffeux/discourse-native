@@ -1,0 +1,45 @@
+{
+  "sourceCommit": "68402409ccc314b6e9b624cf1d86b16531ccdcc4",
+  "integratedMain": "e612ad7b47413fa890b35ae3b55a6f6d37b08cf7",
+  "identityOverrideHashes": {
+    "macos/Runner/Configs/AppInfo.xcconfig": "2d482c6972fb2d68e2b7f2bbd1c08609b7f48a56a0125c297d6991b9889acf28",
+    "macos/Runner/Info.plist": "4364f3756c0050e32bb34f812e90faddfd407c955763ec5769775fc0fd0dd0cf",
+    "macos/Runner.xcodeproj/project.pbxproj": "56a9c12ee3c164a9c0285a532e358c55bda54d1bca0ec7343378a5d29ea5cda5",
+    "macos/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme": "ca10cb8696dc07dd2ef05df9fec18fb576324bbfe3eca9b579577d1ede6e17b6"
+  },
+  "bundlePath": "/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app",
+  "bundleName": "ItemReview82f4Integrated",
+  "bundleId": "org.discourse.itemreview82f4integrated",
+  "urlScheme": "discourse-item-review-82f4-integrated",
+  "kernelSha256": "cf0a1efc46876ee29e0fc93fcee132e6b14977e82d0f1dd725c472b55df48122",
+  "kernelCopiesEqual": true,
+  "sourceEquality": true,
+  "pinsEquality": true,
+  "signedEntitlements": {
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.cs.allow-unsigned-executable-memory": true,
+    "com.apple.security.cs.disable-library-validation": true,
+    "com.apple.security.get-task-allow": true,
+    "com.apple.security.network.client": true,
+    "com.apple.security.network.server": true
+  },
+  "strictDeepVerification": "--prepared:/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app/Contents/MacOS/__preview.dylib\n--validated:/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app/Contents/MacOS/__preview.dylib\n--prepared:/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app/Contents/Frameworks/App.framework/Versions/Current/.\n--prepared:/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app/Contents/Frameworks/objective_c.framework/Versions/Current/.\n--prepared:/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app/Contents/MacOS/ItemReview82f4Integrated.debug.dylib\n--validated:/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app/Contents/MacOS/ItemReview82f4Integrated.debug.dylib\n--validated:/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app/Contents/Frameworks/objective_c.framework/Versions/Current/.\n--prepared:/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.\n--validated:/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app/Contents/Frameworks/WebRTC.framework/Versions/Current/.\n--prepared:/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.\n--validated:/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/.\n--validated:/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app/Contents/Frameworks/App.framework/Versions/Current/.\n/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app: valid on disk\n/Users/joffreyjaffeux/.codex/worktrees/82f4/discourse-native/build/macos/Build/Products/Debug/ItemReview82f4Integrated.app: satisfies its Designated Requirement\n",
+  "inspection": "awaiting_slot; no native/browser/CUA access or policy retry",
+  "signedComponentEntitlements": {
+    ".": {
+      "com.apple.security.cs.allow-jit": true,
+      "com.apple.security.cs.allow-unsigned-executable-memory": true,
+      "com.apple.security.cs.disable-library-validation": true,
+      "com.apple.security.get-task-allow": true,
+      "com.apple.security.network.client": true,
+      "com.apple.security.network.server": true
+    },
+    "Contents/Frameworks/App.framework": {},
+    "Contents/Frameworks/FlutterMacOS.framework": {},
+    "Contents/Frameworks/WebRTC.framework": {},
+    "Contents/Frameworks/objective_c.framework": {},
+    "Contents/MacOS/ItemReview82f4Integrated.debug.dylib": {},
+    "Contents/MacOS/__preview.dylib": {}
+  },
+  "embeddedProvisioningProfile": false
+}

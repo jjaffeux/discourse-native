@@ -586,7 +586,6 @@ class AssignmentDetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final subtitle = <String>[
       if (assignment.assignee.isGroup)
         'Group @${assignment.assignee.groupName}'
@@ -602,30 +601,39 @@ class AssignmentDetailRow extends StatelessWidget {
       if (onTap != null) 'Edit assignment',
     ].join('. ');
 
-    return Semantics(
-      container: true,
-      button: onTap != null,
-      label: label,
-      onTap: onTap,
-      child: ExcludeSemantics(
-        child: Material(
-          color: theme.shell.mention.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(10),
-          child: ListTile(
-            dense: true,
-            leading: AssignmentAssigneeAvatar(
+    return DItem(
+      variant: DItemVariant.muted,
+      onPressed: onTap,
+      semanticLabel: label,
+      children: [
+        DItemMedia(
+          variant: DItemMediaVariant.avatar,
+          child: ExcludeSemantics(
+            child: AssignmentAssigneeAvatar(
               assignee: assignment.assignee,
               size: 34,
             ),
-            title: Text(
-              '$targetLabel assigned to ${assignment.assignee.displayName}',
-            ),
-            subtitle: Text(subtitle.join('\n')),
-            trailing: onTap == null ? null : const DIcon(DIcons.pencil),
-            onTap: onTap,
           ),
         ),
-      ),
+        DItemContent(
+          children: [
+            DItemTitle(
+              maxLines: null,
+              child: ExcludeSemantics(
+                child: Text(
+                  '$targetLabel assigned to ${assignment.assignee.displayName}',
+                ),
+              ),
+            ),
+            DItemDescription(
+              maxLines: null,
+              child: ExcludeSemantics(child: Text(subtitle.join('\n'))),
+            ),
+          ],
+        ),
+        if (onTap != null)
+          const DItemActions(children: [DIcon(DIcons.pencil, size: 16)]),
+      ],
     );
   }
 }

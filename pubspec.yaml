@@ -146,6 +146,22 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - packages/discourse_native/src/styleguide/assets/item/badge-check.svg
+    - packages/discourse_native/src/styleguide/assets/item/chevron-down.svg
+    - packages/discourse_native/src/styleguide/assets/item/chevron-right.svg
+    - packages/discourse_native/src/styleguide/assets/item/evilrabbit.png
+    - packages/discourse_native/src/styleguide/assets/item/external-link.svg
+    - packages/discourse_native/src/styleguide/assets/item/inbox.svg
+    - packages/discourse_native/src/styleguide/assets/item/maxleiter.png
+    - packages/discourse_native/src/styleguide/assets/item/model-lg.jpg
+    - packages/discourse_native/src/styleguide/assets/item/model-mini.jpg
+    - packages/discourse_native/src/styleguide/assets/item/model-sm.jpg
+    - packages/discourse_native/src/styleguide/assets/item/plus.svg
+    - packages/discourse_native/src/styleguide/assets/item/shadcn.png
+    - packages/discourse_native/src/styleguide/assets/item/shield-alert.svg
+    - packages/discourse_native/src/styleguide/assets/item/song-0.svg
+    - packages/discourse_native/src/styleguide/assets/item/song-1.svg
+    - packages/discourse_native/src/styleguide/assets/item/song-2.svg
     - packages/discourse_native/src/styleguide/assets/scroll_area/ornella.jpg
     - packages/discourse_native/src/styleguide/assets/scroll_area/tom.jpg
     - packages/discourse_native/src/styleguide/assets/scroll_area/vladimir.jpg

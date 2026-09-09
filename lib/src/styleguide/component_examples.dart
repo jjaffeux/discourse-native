@@ -19,6 +19,7 @@ import 'examples/field_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/hover_card_examples.dart';
 import 'examples/input_examples.dart';
+import 'examples/item_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
@@ -56,6 +57,7 @@ final componentExamples = <String, ComponentExamples>{
   'input': inputExamples,
   'radio-group': radioGroupExamples,
   'checkbox': checkboxExamples,
+  'item': itemExamples,
   'empty': emptyExamples,
   'card': cardExamples,
   'carousel': carouselExamples,
