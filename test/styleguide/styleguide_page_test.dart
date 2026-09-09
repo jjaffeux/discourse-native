@@ -668,22 +668,25 @@ void main() {
         matching: find.byType(DSidebarProvider),
       );
       expect(tester.state<DSidebarProviderState>(provider).isMobile, false);
-      final inbox = find.descendant(of: preview, matching: find.text('Inbox'));
-      await tester.tap(inbox);
+      final history = find.descendant(
+        of: preview,
+        matching: find.text('History'),
+      );
+      await tester.tap(history);
       await tester.pump();
-      expect(find.text('Inbox selected'), findsOneWidget);
+      expect(find.text('History selected'), findsOneWidget);
 
       await _choose(tester, 'Viewport width', '360 px');
       expect(tester.state<DSidebarProviderState>(provider).isMobile, true);
-      expect(inbox, findsNothing);
+      expect(history, findsNothing);
       await tester.tap(
         find.descendant(of: preview, matching: find.byType(DSidebarTrigger)),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Inbox'), findsOneWidget);
-      await tester.tap(find.text('Home'));
+      expect(find.text('History'), findsOneWidget);
+      await tester.tap(find.text('Starred'));
       await tester.pumpAndSettle();
-      expect(find.text('Home selected'), findsOneWidget);
+      expect(find.text('Starred selected'), findsOneWidget);
       expect(tester.state<DSidebarProviderState>(provider).openMobile, false);
       expect(tester.takeException(), isNull);
     },
