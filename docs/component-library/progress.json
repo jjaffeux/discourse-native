@@ -2569,12 +2569,12 @@
         "Verify focused component/consumer regressions and root/full analysis; create an independent reviewer to finish remaining real-owner compositions, rendered/native acceptance and local main merge."
       ],
       "decisions": [
-        "Button and Separator dependencies are merged.",
-        "Field, Input Group, Dropdown Menu, Select and Popover compositions must reconcile with their final owners; track outstanding compositions and coordinate directly, without duplicating components or reducing the frozen examples.",
+        "Button, Separator, Field, Input Group, Dropdown Menu, Select and Popover are accepted on main. Candidate preparation uses main 68cedc52, with final reconciliation still required.",
         "DButtonGroup is a passive semantic/layout boundary for independent controls. It owns no selection, roving focus or toolbar shortcuts; each child retains its callback, state, focus and native role.",
-        "A narrowly scoped DJoinedControlScope is installed per direct child. DButton and DInput consume only joined-edge geometry; nested groups replace the scope and overlays receive no broad Theme or radius override.",
-        "DButtonGroupExpanded is the explicit finite-width Flutter flex adaptation for the reference input:flex-1 selector. The styleguide remains baseline until the reviewer replaces four dependency-aware fixtures with final owning components.",
-        "Independent reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 owns remaining review, fixes, required final compositions, rendered/native acceptance and the final local main merge directly. The implementation handoff 97554adac80cf4a702408966add2702f3bc313e0 is source evidence, not acceptance."
+        "DJoinedControlScope changes only joined radii and the painted leading seam. DInputGroup consumes it at its outer surface and resets it around its editor/addons; detached Popover content also resets it.",
+        "Normal Flex layout measures controls without intrinsic queries and stretches separators to their cross-axis extent. Passive text shrink-wraps, fixing the 600px-versus-32px regression while supporting LayoutBuilder-based Select.",
+        "All Button Group compositions use final public APIs. Select's Back/Range/Next example now uses DButtonGroup with horizontal reachability. Input Group's button-actions example retains its editor/focus/state ownership.",
+        "Replacement reviewer 01a085f4-2a6b-7c82-9dc3-c9b14d76b355 preserves recovered handoff 97554ada and implementation history, and owns remaining native acceptance and the authorized local-main merge."
       ],
       "migrations": [
         "ContentNavigationControls now uses a labeled DButtonGroup for Back, Forward and Refresh while preserving keys, shortcuts, enabled guards, refresh lifecycle and shell callbacks."
@@ -2586,16 +2586,16 @@
         "Inline-video alternative link actions remain wrapping links, and composer controls remain overflow-aware toolbars pending their dedicated component owners."
       ],
       "verification": [
-        "Frozen Markdown downloaded and SHA-256 verified exactly as 9118d89c3e715a7e77ec0454be6a276c24d114c8b3099505bb463487e9545eda. Base registry source and all twelve linked Base examples were inspected; source mapping and concrete acceptance criteria are recorded in docs/component-library/button-group-reference.md.",
-        "Before current-main integration, 109 randomized focused Button Group, Button, Input, Separator, styleguide and production navigation tests passed (seed 3806760654); after merging main 27ddc513, 33 direct component/styleguide/consumer tests passed (random seed recorded in /private/tmp/button-group-post-main-tests.log).",
-        "Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed before and after current-main integration with no issues. dart format covered lib/test and git diff --check passed.",
-        "flutter build macos --debug --no-pub succeeded at build/macos/Build/Products/Debug/Discourse.app. This is build/kernel evidence only; the app was not launched and no browser/native/VoiceOver inspection is claimed.",
-        "Created the persisted reviewer task `Review and merge Button Group` (`01a0859e-170c-7821-b0fd-9ff24a9bfaac`) in isolated worktree `/Users/joffreyjaffeux/.codex/worktrees/bgrp/discourse-native` on `codex/review-button-group`; it owns dependency reconciliation, remaining rendered/native review, fixes, verification and the final local-main merge."
+        "Recovery verified archive and resolved DInput hashes; ordinary git writes succeeded at 94fe7a77. See evidence/button-group/recovery.md.",
+        "Frozen Markdown SHA-256 9118d89c3e715a7e77ec0454be6a276c24d114c8b3099505bb463487e9545eda and twelve linked Base sources were inspected. Official rendered light/dark, Dropdown Menu/Select dismissal and focus were reviewed; see evidence/button-group/browser-reference.md.",
+        "Final-owner integration previously passed 112 focused tests. After main reconciliation and sizing/composition fixes: 56 Button Group/Select/styleguide tests, 22 direct/navigation tests, 21 direct/Input Group tests and 34 Popover/Dropdown Menu tests passed with seed 826145. Batches overlap.",
+        "Root analysis and profiles/full enforced-lockfile resolution plus analysis passed without diagnostics; lockfiles unchanged. Final main overlap verification remains required.",
+        "Source 52bbbc175ef076a0fffbb7dc5294d0c0f9455235 built successfully for the offline native fixture. /private/tmp/ButtonGroupReview-52bbbc17.app has a unique identity, verified signature/restricted entitlements, and matching source/copy kernel SHA-256 02834a404d77b84aa27782d3c6e7fe5706dcf1e1957cabf59d48f48dd1e40483. Native interaction awaits the desktop lease."
       ],
       "limitations": [
-        "The styleguide has complete accounted sections, but Input Group, library Dropdown Menu, rich Select and Popover use explicitly labeled local handoff fixtures because those final owners are still pending or in review. Native Select is not substituted. The new Button Group reviewer owns coordinating their final replacements.",
-        "No shared desktop lease was available during source implementation. Official rendered-page comparison, native macOS interaction/visual inspection, VoiceOver, iOS and Linux device checks remain for the new reviewer.",
-        "DInput joined-edge painting was source- and widget-tested after replacing its uniform BoxDecoration with an equivalent animated custom decoration, but requires rendered pixel comparison in final review."
+        "Native inspection of rebuilt source 52bbbc17 remains required before acceptance. Earlier approved attempts were blocked by the locked Mac. The old queue entry was withdrawn during the sizing correction and rejoined after rebuilding.",
+        "VoiceOver speech and iOS/Linux device inspection have not been performed. Automated semantics/platform tests do not replace those checks.",
+        "Official browser comparison is qualitative because Geist and native host-font rasterization differ; source hashes and geometry assertions record the exact contract."
       ],
       "implementationCommit": "6ef8c3fe883cc0d0d2e6456341e59def884fab4d",
       "mergeCommit": null,
@@ -2615,6 +2615,15 @@
         "replacementTaskId": "01a085f4-2a6b-7c82-9dc3-c9b14d76b355",
         "gitWriteVerificationCommit": "94fe7a776dd8377ef0aac3c01c6bf9a0e378653e",
         "verification": "Replacement verified archive and resolved DInput hashes, then ordinary git add and git commit succeeded in its fresh app-created worktree. Source resolution and all remaining acceptance stay with the replacement reviewer."
+      },
+      "reviewSourceCommit": "52bbbc175ef076a0fffbb7dc5294d0c0f9455235",
+      "browserReview": {
+        "status": "completed",
+        "evidence": "docs/component-library/evidence/button-group/browser-reference.md"
+      },
+      "nativeReview": {
+        "status": "awaiting_slot",
+        "evidence": "docs/component-library/evidence/button-group/native-preparation.json"
       }
     },
     {
