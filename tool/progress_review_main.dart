@@ -1,16 +1,12 @@
 // Offline review mounts production surfaces. No updater or network is created.
-import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
 import 'package:discourse_native/src/models/badge.dart';
 import 'package:discourse_native/src/models/badge_route.dart';
-import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_card.dart';
 import 'package:discourse_native/src/shell/badges_controller.dart';
 import 'package:discourse_native/src/shell/badges_page.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/update_sheet.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
@@ -30,57 +26,6 @@ class ProgressReviewApp extends StatefulWidget {
 }
 
 class _ProgressReviewAppState extends State<ProgressReviewApp> {
-  late final ComposerController composer;
-  final uploadGate = Completer<ComposerUploadResult>();
-  void Function(double)? uploadProgress;
-  @override
-  void initState() {
-    super.initState();
-    composer = ComposerController(
-      const ComposerTarget(
-        siteUrl: 'https://offline.invalid',
-        topicId: 7,
-        slug: 'local',
-        topicTitle: 'Local draft',
-      ),
-      canUploadFile: (_) => true,
-      imageUploader: (file, {required onProgress, required abortTrigger}) {
-        uploadProgress = onProgress;
-        onProgress(.25);
-        return Future.any([
-          uploadGate.future,
-          abortTrigger.then<ComposerUploadResult>(
-            (_) =>
-                throw const ComposerUploadException('Local upload cancelled'),
-          ),
-        ]);
-      },
-    );
-    composer.addFiles([
-      ComposerUploadFile(
-        name: 'local-notes.txt',
-        length: () async => 3,
-        openRead: () => Stream.value([1, 2, 3]),
-      ),
-    ], 0);
-  }
-
-  @override
-  void dispose() {
-    if (!uploadGate.isCompleted) {
-      uploadGate.complete(
-        const ComposerUploadResult(
-          id: 1,
-          originalFilename: 'local-notes.txt',
-          shortUrl: 'upload://local',
-          url: 'https://offline.invalid/local',
-        ),
-      );
-    }
-    composer.dispose();
-    super.dispose();
-  }
-
   int palette = 0;
   bool rtl = false;
   bool large = false;
@@ -148,16 +93,6 @@ class _ProgressReviewAppState extends State<ProgressReviewApp> {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 24),
-                const Text('Actual composer upload queue — in-memory upload'),
-                ListenableBuilder(
-                  listenable: composer,
-                  builder: (_, _) => ComposerUploadQueue(composer: composer),
-                ),
-                DButton(
-                  label: const Text('Advance local upload'),
-                  onPressed: () => uploadProgress?.call(.75),
                 ),
                 const SizedBox(height: 24),
                 const Text('Actual update download surface — read-only sample'),
