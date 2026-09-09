@@ -1,8 +1,10 @@
 import 'examples/accordion_examples.dart';
 import 'examples/alert_examples.dart';
 import 'examples/aspect_ratio_examples.dart';
+import 'examples/attachment_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
+import 'examples/bubble_examples.dart';
 import 'examples/button_examples.dart';
 import 'examples/card_examples.dart';
 import 'examples/carousel_examples.dart';
@@ -19,6 +21,7 @@ import 'examples/input_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
+import 'examples/message_examples.dart';
 import 'examples/native_select_examples.dart';
 import 'examples/popover_examples.dart';
 import 'examples/progress_examples.dart';
@@ -59,10 +62,12 @@ final componentExamples = <String, ComponentExamples>{
   'resizable': resizableExamples,
   'foundations': foundationExamples,
   'aspect-ratio': aspectRatioExamples,
+  'attachment': attachmentExamples,
   'avatar': avatarExamples,
   'badge': badgeExamples,
-  'direction': directionExamples,
+  'bubble': bubbleExamples,
   'dialog': dialogExamples,
+  'direction': directionExamples,
   'typography': typographyExamples,
   'scroll-area': scrollAreaExamples,
   'separator': separatorExamples,
@@ -72,6 +77,7 @@ final componentExamples = <String, ComponentExamples>{
   'field': fieldExamples,
   'progress': progressExamples,
   'marker': markerExamples,
+  'message': messageExamples,
   'popover': popoverExamples,
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,
