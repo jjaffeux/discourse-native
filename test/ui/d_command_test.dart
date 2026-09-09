@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -25,6 +27,7 @@ Widget _command({
   bool shouldFilter = true,
   bool loop = false,
   bool loading = false,
+  bool disablePointerSelection = false,
   TextEditingController? editingController,
   FocusNode? inputFocus,
   ScrollController? scrollController,
@@ -39,6 +42,7 @@ Widget _command({
   shouldFilter: shouldFilter,
   loop: loop,
   loading: loading,
+  disablePointerSelection: disablePointerSelection,
   child: Column(
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -391,6 +395,61 @@ void main() {
       DefaultTextStyle.of(tester.element(find.text('⌘B'))).style.color,
       tokens.mutedForeground,
     );
+  });
+
+  testWidgets('pointer highlighting can be disabled', (tester) async {
+    final controller = DCommandController<String>(initialValue: 'Calendar');
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _host(_command(controller: controller, disablePointerSelection: true)),
+    );
+    await tester.pump();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('Profile')));
+    await tester.pump();
+
+    expect(controller.value, 'Calendar');
+    await mouse.removePointer();
+  });
+
+  testWidgets('checked state is semantic and touch rows are 48 pixels', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        Theme(
+          data: ThemeData(platform: TargetPlatform.iOS),
+          child: const DCommand<String>(
+            child: DCommandList<String>(
+              children: [
+                DCommandItem(
+                  value: 'Settings',
+                  checked: true,
+                  child: Text('Settings'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final checkedSemantics = find.ancestor(
+      of: find.text('Settings'),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Semantics && widget.properties.checked == true,
+      ),
+    );
+    expect(checkedSemantics, findsOneWidget);
+    final data = tester.getSemantics(checkedSemantics).getSemanticsData();
+    expect(data.hasFlag(SemanticsFlag.isChecked), isTrue);
+    final touchRows = find.byWidgetPredicate(
+      (widget) => widget is SizedBox && widget.height == DSpacing.touchTarget,
+    );
+    expect(touchRows, findsOneWidget);
+    expect(tester.getSize(touchRows).height, DSpacing.touchTarget);
   });
 
   testWidgets('Return activates an individually focused row', (tester) async {
