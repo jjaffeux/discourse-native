@@ -1286,9 +1286,9 @@
     },
     {
       "id": "empty",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
+      "branch": "codex/ui-empty",
       "dependencies": [
         "typography"
       ],
@@ -1299,7 +1299,9 @@
       "verification": [],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "clientThreadId": "client-new-thread:330d4db7-b0df-4b68-9fdc-9a7b94c9c4b0",
+      "worktree": "/Users/joffreyjaffeux/.codex/worktrees/aaf9/discourse-native"
     },
     {
       "id": "item",
@@ -2231,7 +2233,8 @@
       "01a08400-ced8-7f22-a1aa-4955c7d28383",
       "01a083f3-9a01-7c71-9931-3674b85e81b3",
       "01a0842f-af4f-7341-95c2-06a97f4ff0c4",
-      "01a08437-208f-7332-b373-192eaada5844"
+      "01a08437-208f-7332-b373-192eaada5844",
+      "01a0843e-76da-7911-ac98-49bd6dba8384"
     ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
@@ -2308,6 +2311,14 @@
           "branch": "codex/ui-chart",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/eab4/discourse-native",
           "status": "browser_and_source_review"
+        },
+        {
+          "component": "empty",
+          "taskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
+          "branch": "codex/ui-empty",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/aaf9/discourse-native",
+          "baseCommit": "926da948",
+          "status": "implementation"
         }
       ],
       "nativeReadyTasks": [
@@ -2593,9 +2604,13 @@
       ]
     },
     "diagnosticsLogTextScale": {
-      "status": "in_progress",
+      "status": "automated_checks_passed_native_bundle_preparation",
       "branch": "codex/component-fidelity-follow-up",
-      "problem": "Scroll Area actual production export at360px/200% exposed the pre-existing diagnostics fixed70px row clipping metadata by14px. Coordinator owns row sizing and regression independently of Scroll Area scrollbar migration."
+      "problem": "Scroll Area actual production export at360px/200% exposed the pre-existing diagnostics fixed70px row clipping metadata by14px. Coordinator owns row sizing and regression independently of Scroll Area scrollbar migration.",
+      "verification": [
+        "31 Diagnostics panel/acceptance tests passed seed909515, including the reproduced narrow200% row overflow and detail navigation. Root/full analysis clean.",
+        "Review fixture extends tool/title_review_main.dart with the actual DiagnosticsPanel and memory-only sample events. No native launch."
+      ]
     }
   }
 }
