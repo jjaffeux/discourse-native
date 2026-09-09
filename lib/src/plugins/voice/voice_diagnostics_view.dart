@@ -179,7 +179,7 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
                   hasEvents: events.isNotEmpty,
                   recording: widget.readState().enabled,
                 )
-              : Scrollbar(
+              : DScrollBar(
                   controller: _timeline,
                   child: ListView.builder(
                     key: const ValueKey('voice-diagnostics-timeline'),
