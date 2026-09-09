@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
@@ -11,7 +12,6 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -626,7 +626,7 @@ void main() {
       final dropdown = tester.widget<DNativeSelect<String>>(
         find.byKey(const Key('assignment-status')),
       );
-      expect(dropdown.initialValue, 'Waiting on legacy review');
+      expect(dropdown.value, 'Waiting on legacy review');
       expect(
         dropdown.entries.whereType<DNativeSelectOption<String>>().map(
           (item) => item.value,

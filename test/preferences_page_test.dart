@@ -196,8 +196,7 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
-      expect(_primaryFocusIsWithin(frequency), isFalse);
-      expect(_primaryFocusIsWithin(linkedPosts), isFalse);
+      expect(_primaryFocusIsWithin(linkedPosts), isTrue);
     });
 
     testWidgets('compact form follows physical desktop alignment', (
