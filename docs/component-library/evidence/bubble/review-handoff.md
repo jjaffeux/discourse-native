@@ -8,11 +8,12 @@ the new task owns all review, fixes, verification and final local-main merge.
 
 - Implementation task: `01a085d9-7909-7fd0-b1b8-30a76c6ab2af`
 - Branch: `codex/ui-bubble`
-- Exact source/evidence commit: `3fc2f85be46d9fac37b645e70871e621a2cdcf96`
+- Exact reconciled source/evidence commit: `0dc71a5b8d282410587e36387a27cd48b50567da`
 - Component implementation commit: `78c60d0cd7cf87d34c46524fff95336b43e261cd`
-- Prepared Popover merge: `db64a64a`, integrating exact unaccepted review pin
-  `d99562f0f6973c9dc3f566eea02d9b00c6de4f7b`
-- Source base/current main at handoff: `5a26e5713719988f69930a7f02b3373b530d050a`
+- Current-main reconciliation merge: `0dc71a5b`, integrating main
+  `9ad0e87ca7141c4f57ad8bb1d4cbb6101aaf0c1c`
+- Accepted Popover merge: `dc6ab75fe99f2af8b401bae60285fdbe65e8012a`
+- Accepted Toast merge: `d454c8f62fb4ab8718b3a32b2743556f2f78609d`
 - Mapping/audit: `docs/component-library/bubble.md`
 - Durable row/evidence: `docs/component-library/progress.json`
 
@@ -30,11 +31,12 @@ the Bubble evidence before acting.
 - Root and `profiles/full` `flutter pub get --enforce-lockfile` passed without
   lockfile or dependency-pin changes.
 - Root and `profiles/full` `flutter analyze --no-pub` passed with no issues.
-- 84 focused Bubble, Bubble examples, complete styleguide-page, Collapsible,
-  Tooltip and prepared Popover tests passed with seed `6863`.
+- After current-main reconciliation, 94 focused Bubble, Bubble examples,
+  complete styleguide-page, Collapsible, Tooltip, accepted Popover and Toast
+  tests passed with seed `6864`. Final DPopover source has no diff from main.
 - `flutter build macos --debug --no-pub -t lib/styleguide_main.dart` passed.
   Kernel SHA256:
-  `f88587be60d68500ce239860fcc82d391e37739efe363537df9631fa65675799`.
+  `eb6f2dbe1c0cb694eb50f16d69418b4d274a753033bab46628437d6d5ca3c207`.
   Deep strict signature verification passed. This was the ordinary existing
   development build, not an isolated bundle; it was not launched.
 - `dart format` and `git diff --check` passed. No full suite was run or required.
@@ -45,19 +47,15 @@ the Bubble evidence before acting.
    examples and app audit. Preserve all other component owners and progress
    rows. Bubble examples intentionally remain `ComponentStatus.planned` until
    rendered/native acceptance.
-2. Popover reviewer is `01a08558-ae1e-7843-8cff-7221a399ea5c` on
-   `codex/review-popover`. Bubble source preparation used its tested pin only.
-   **Wait for Popover's accepted local-main merge**, integrate accepted current
-   main, reconcile the API/overlap and rerun affected checks. Never allow the
-   unaccepted parent to reach main through Bubble.
-3. Toast reviewer is `01a08592-b1eb-7ad2-bebb-3ddea00f2702`. The frozen
-   link/button and reaction demos use Sonner for action feedback. After accepted
-   Toast lands, complete the final Bubble/DToast styleguide composition rather
-   than retaining local feedback as the final reference or creating a notifier.
-4. Attachment implementation is `01a085d4-9afd-7082-8081-f8b1f8f66287`.
+2. Popover and Toast are accepted on the reconciled main revision. Bubble's
+   Popover source is byte-identical to accepted main, and its link/button and
+   reaction examples now compose DToast for action/success/error feedback.
+   Preserve those final shared owners; do not resurrect the prepared pins or a
+   duplicate notifier.
+3. Attachment implementation is `01a085d4-9afd-7082-8081-f8b1f8f66287`.
    Preserve its separate media/upload/action boundary. Coordinate Message
    dependents after Bubble merges.
-5. Under the shared desktop FIFO lease, compare the official rendered
+4. Under the shared desktop FIFO lease, compare the official rendered
    base-nova reference with the actual Flutter styleguide at matching width and
    state. Inspect every variant, content padding/radius/type, 80%/ghost widths,
    alignments, group gap, reaction geometry/top-bottom/start-end, static and
@@ -67,13 +65,13 @@ the Bubble evidence before acting.
    selected semantics and touch-target behavior. Build/use an exact-source,
    uniquely identified local-data macOS fixture if needed. Record only checks
    actually performed; no iOS/Linux/VoiceOver claim without evidence.
-6. Re-audit `ChatMessageTile`, chat/topic `ReactionPill`, Voice room chat,
+5. Re-audit `ChatMessageTile`, chat/topic `ReactionPill`, Voice room chat,
    quotes and post actions. Current evidence retains them because Message,
    Message Scroller, Attachment, CookedHtml, selection, virtualization,
    permissions and async reactor/domain ownership would be changed by a partial
    migration. Adopt only a genuinely safe surface and preserve all callbacks,
    guards and semantics; otherwise keep the specific retained reasons.
-7. Integrate latest main in the review worktree and rerun checks proportional
+6. Integrate latest main in the review worktree and rerun checks proportional
    to real changes. Set the Bubble styleguide status implemented only after
    acceptance. Update only Bubble and explicit dependency follow-ups in
    progress, commit, then acquire the separate `main` lease. Confirm the shared
