@@ -28,7 +28,7 @@
     "cleanup": "Closed only the created reference tab; quit the isolated review app through its own menu and verified it absent from running apps. Released desktop token 724fbe0045394cb08d2b20dde0ee6673 before implementation work."
   },
   "postFix": {
-    "status": "waiting_for_shared_desktop_recovery",
+    "status": "accepted",
     "desktopBlocker": "The coordinator reported the Mac locked again during the next reviewers' CUA passes and is coordinating one unlock request. Scroller did not acquire another lease or attempt a workaround; its own waiting request was cancelled before pausing. Resume with the prepared exact-source bundle after ordinary CUA recovery.",
     "sourceCommit": "378611767d74cef68f2ef4d94fbe00bd9d015ffb",
     "libTree": "c68d0122d717ed9012268a5914a89cdcd1df1c7b",
@@ -36,6 +36,8 @@
     "kernelSha256": "1af321e76edcd3100f78e4ff02e12469663611cf933f3bfe3403a05f92939445",
     "verification": "154 combined focused checks passed on reconciled main with seed 4022656358; root/full analysis and macOS debug build passed. Isolated bundle signature passed deep/strict verification; its kernel hash equals the build. Production runner settings are unchanged.",
     "acceptedParents": "Message bf86d92e26feee925739f3d7ee90f26ee05721d7 and Scroll Area 655be577246f1f247e1e71199d32add8366deffc are ancestors. Message tile and reaction presentation are source-equivalent to the first inspected bundle.",
+    "nativeRecheck": "2026-09-09 after confirmed ordinary CUA recovery: row 20 retained exactly the same visual position through both ten-row history batches at normal width/light theme and at 360px/200% text/dark theme. The second batch correctly disabled the exhausted history action. Rechecked accepted Dropdown Menu tool selection and the Select Fade preset with Input Group/composer rendering at narrow large text. Screenshots and AX are retained inline in the task.",
+    "cleanup": "Quit the corrected bundle through its own menu. An old helper binding had briefly relaunched the earlier owned bundle before the recheck; no check used it, and it remained on its initial screen. Selected that exact old path and quit it too. Verified no app with the isolated Scroller bundle id remained. Released desktop token 2f0955935df74f79b36f6d7e008bf77b.",
     "change": "A prepended held row evicted from the virtualizer cache is first remounted by stable index, then restored to its measured viewport offset.",
     "regressions": [
       "The actual Load history example failed before the fix and preserves row 20 across two ten-row prepends after it.",

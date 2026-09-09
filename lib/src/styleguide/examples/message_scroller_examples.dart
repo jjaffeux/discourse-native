@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final messageScrollerExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description:
       'Reader-intent-aware message timelines with stable anchors, commands, live following and scalable virtualization.',
   notes:
