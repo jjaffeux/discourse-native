@@ -34,6 +34,21 @@ do not add it around a public control that already owns those semantics. The
 responsive custom-error example deliberately retains one native
 FormField/TextField because DInput has no custom error builder.
 
+## Radio final-composition intrinsic sizing correction — 2026-09-09
+
+The Field owner approved the bounded shared change carried by Radio review
+source `28418a2d`: fixed horizontal/vertical DField orientations build their
+existing Flex directly, supporting IntrinsicWidth. Only responsive orientation
+uses LayoutBuilder. DFieldGroup's group-width contract and DFieldSet's generic
+spacing remain unchanged. New horizontal/vertical intrinsic tests and the
+existing responsive editing, focus and Form-reset regression pass.
+
+Radio's frozen 2px legend/description header is explicitly composed with
+DFieldContent, not a change to generic FieldSet sibling spacing. Original Field
+acceptance and owner pins remain intact. See
+[Radio final-composition evidence](evidence/radio-group/final-compositions/README.md)
+for the follow-up's acceptance status.
+
 ## Historical implementation record
 
 The remaining sections preserve the original implementation and staged

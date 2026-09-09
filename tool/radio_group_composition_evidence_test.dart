@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'radio_group_review_main.dart' as fixture;
 
 const output = 'docs/component-library/evidence/radio-group/final-compositions';
 ThemeData neutral(bool dark) {
@@ -48,7 +47,7 @@ ThemeData neutral(bool dark) {
 
 void main() {
   testWidgets(
-    'export font-loaded Radio source and production fixtures',
+    'export font-loaded Radio compositions',
     (tester) async {
       Directory(output).createSync(recursive: true);
       await tester.runAsync(() async {
@@ -234,73 +233,6 @@ void main() {
           rtl: true,
         );
       }
-      tester.view.physicalSize = const Size(760, 1100);
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        const MethodChannel('org.discourse.native/window'),
-        (_) async => null,
-      );
-      await fixture.main();
-      await tester.pumpAndSettle();
-      await save('fixture-flags-poll', find.byType(RepaintBoundary).first);
-      await tester.tap(find.text('Light / Dark'));
-      await tester.tap(find.text('100 / 200%'));
-      tester.view.physicalSize = const Size(760, 1800);
-      await tester.pumpAndSettle();
-      await save(
-        'fixture-flags-poll-dark200',
-        find.byType(RepaintBoundary).first,
-      );
-      await tester.tap(find.text('Light / Dark'));
-      await tester.tap(find.text('100 / 200%'));
-      tester.view.physicalSize = const Size(760, 1100);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Change owner'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const ValueKey('topic-change-owner-search')),
-        'review',
-      );
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pumpAndSettle();
-      await save(
-        'fixture-owner',
-        find
-            .byElementPredicate(
-              (e) =>
-                  e.widget is RepaintBoundary &&
-                  e.renderObject is RenderRepaintBoundary &&
-                  (e.renderObject! as RenderRepaintBoundary).size ==
-                      const Size(760, 1100),
-            )
-            .last,
-      );
-      await tester.tap(find.text('Alex Example'));
-      await tester.pump();
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Move posts'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Existing topic'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const ValueKey('topic-move-posts-search')),
-        'review',
-      );
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pumpAndSettle();
-      await save(
-        'fixture-move',
-        find
-            .byElementPredicate(
-              (e) =>
-                  e.widget is RepaintBoundary &&
-                  e.renderObject is RenderRepaintBoundary &&
-                  (e.renderObject! as RenderRepaintBoundary).size ==
-                      const Size(760, 1100),
-            )
-            .last,
-      );
-      await tester.pumpWidget(const SizedBox());
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     skip:
