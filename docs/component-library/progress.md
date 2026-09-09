@@ -1590,7 +1590,8 @@ Status: in_progress. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/u
 
 **verification**
 
-- 107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity tests passed. Root and full-profile enforced-lockfile resolution completed. Native build evidence pending.
+- 107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity checks passed (three component tests repeated). Root and full-profile enforced-lockfile resolution and static analysis passed; 18 touched Dart files formatted; git diff --check clean. Pins/locks unchanged.
+- Unique local macOS debug bundle Alert Review 38df / org.discourse.alertreview38df / discourse-alert-review-38df built from implementation commit with zero lib/fixture diff. Source app.dill and both copied kernels SHA256 e543ad77e1bf1c877db0a3c43c55a9e1e124fe239d725d8b6a38ee9f8a275a99. Deep strict ad-hoc signature verification passed; temporary runner settings restored. Exact paths in evidence/alert/build.json.
 
 **limitations**
 

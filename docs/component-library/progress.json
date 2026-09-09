@@ -2010,12 +2010,13 @@
         "Page-scale states owned by Empty; historical cooked post notices, chat deleted/read runs, recording/diagnostic indicators, specialized tables, field validation, media errors and Toast/Dialog content retained with specific audit rationale in alert.md."
       ],
       "verification": [
-        "107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity tests passed. Root and full-profile enforced-lockfile resolution completed. Native build evidence pending."
+        "107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity checks passed (three component tests repeated). Root and full-profile enforced-lockfile resolution and static analysis passed; 18 touched Dart files formatted; git diff --check clean. Pins/locks unchanged.",
+        "Unique local macOS debug bundle Alert Review 38df / org.discourse.alertreview38df / discourse-alert-review-38df built from implementation commit with zero lib/fixture diff. Source app.dill and both copied kernels SHA256 e543ad77e1bf1c877db0a3c43c55a9e1e124fe239d725d8b6a38ee9f8a275a99. Deep strict ad-hoc signature verification passed; temporary runner settings restored. Exact paths in evidence/alert/build.json."
       ],
       "limitations": [
         "awaiting_slot: Mac locked; no browser/native access authorized. Rendered comparison, native styleguide and changed production-surface inspection remain required; no VoiceOver/device/pixel-parity claim."
       ],
-      "implementationCommit": null,
+      "implementationCommit": "5f0418cc6a90faaa88c3df6adee1df232bff081c",
       "mergeCommit": null
     },
     {

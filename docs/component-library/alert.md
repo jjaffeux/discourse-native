@@ -109,3 +109,25 @@ Status stays in_progress / awaiting_slot. No native app/browser has been launche
 or inspected by this task; no pixel-parity or VoiceOver claim. Coordinator must
 compare official rendered examples and inspect changed production surfaces
 before review_ready/merge. Build identity and source evidence follows separately.
+
+## Isolated build checkpoint
+
+Source commit: `5f0418cc6a90faaa88c3df6adee1df232bff081c`. Root and full-profile
+analysis passed with no issues. All 18 touched Dart files passed formatting;
+`git diff --check` passed. There were no library/fixture differences from this
+commit at build verification. Evidence-only follow-up commits do not alter code.
+
+Built with `flutter build macos --debug --no-pub -t tool/alert_review_main.dart`
+using temporary runner settings for product `Alert Review 38df`, bundle identifier
+`org.discourse.alertreview38df`, URL scheme `discourse-alert-review-38df`.
+Initial profile signing failed for the deliberately unique identifier. The local
+build then disabled Xcode signing and applied an ad-hoc signature with sandbox,
+JIT and loopback client/server entitlements; no provisioning or remote account
+changes occurred. All temporary runner edits were restored byte-for-byte.
+
+`codesign --verify --deep --strict --verbose=2` passed. The source `app.dill`,
+build framework kernel and bundle-copied kernel all have SHA256
+`e543ad77e1bf1c877db0a3c43c55a9e1e124fe239d725d8b6a38ee9f8a275a99`.
+Exact paths and identity assertions are in `evidence/alert/build.json`.
+The bundle resides only under this isolated checkout's build directory. It has
+not been launched. Native review is pending, and this source is not merge-ready.
