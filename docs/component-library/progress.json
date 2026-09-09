@@ -2540,15 +2540,25 @@
     },
     {
       "id": "calendar",
-      "status": "planned",
-      "taskId": null,
-      "branch": null,
+      "status": "in_progress",
+      "taskId": "01a085fd-5d83-79c3-b598-bd3ffc5b366e",
+      "branch": "codex/ui-calendar",
       "dependencies": [
         "button",
         "select"
       ],
-      "acceptanceCriteria": [],
-      "decisions": [],
+      "acceptanceCriteria": [
+        "Match the frozen Base UI/base-nova Calendar anatomy and documented Basic, Range, Month/Year Selector, Presets, Date and Time, Booked dates, Custom Cell Size, Week Numbers and RTL compositions with source-exact geometry and state mapping.",
+        "Provide typed single, multiple and range ownership with controlled, initial and controller APIs; controlled displayed month; disabled, hidden, booked and outside dates; bounds, range constraints, Gregorian boundary correctness and explicit date-only versus instant/timezone conversion.",
+        "Implement focus entry/reveal, day/week/month/year keyboard navigation, pointer/touch selection, logical RTL, localization, first weekday, week numbers, semantics, narrow/200% text and live theme/font/radius behavior without adopting Material calendar artwork.",
+        "Expose a functional calendar-system seam and documented Persian/Hijri/Jalali guidance matching the official engine-substitution responsibility; keep later Date Picker overlay/input composition out of Calendar.",
+        "Audit actual core/plugin scheduling and date UI, migrate suitable presentation while retaining server timestamps, bookings and business constraints in adapters; add real production-widget regressions and truthful isolated fixture evidence.",
+        "Run focused widget/adoption tests, formatting, root and profiles/full analysis and build checks, then create an independent Calendar reviewer to own official-browser/native acceptance, fixes, dependency reconciliation and local main merge."
+      ],
+      "decisions": [
+        "Frozen Calendar Markdown SHA256 9268f3aa428b4eb36bfbd957644f9d681beab0d49575f779a2cd2620f81a58b4 reproduced on 2026-09-09. The separately fetched current base-nova registry SHA256 is cc9ff16599d1664cec2d6a91ba82d0927953d8eedd51a7d56bba48a6522c28eb; exact mapping will be recorded in calendar.md.",
+        "Prepared against Select implementation commit 423d81eeaf9bdda9412fa2068d4f8132fbfb53de plus source handoff correction 69e5ec663e92bb61fa734ee43b6c3e738e96961e from codex/ui-select, reviewer 01a085e1-1106-7ba1-a30c-15a8a7a5bd22. Select public API was confirmed stable, but this is source preparation only; Calendar review must reconcile the accepted Select revision on current main and may not carry an unaccepted parent through."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
