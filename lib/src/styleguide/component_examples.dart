@@ -5,6 +5,7 @@ import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
 import 'examples/bubble_examples.dart';
 import 'examples/button_examples.dart';
+import 'examples/button_group_examples.dart';
 import 'examples/card_examples.dart';
 import 'examples/carousel_examples.dart';
 import 'examples/chart_examples.dart';
@@ -96,6 +97,7 @@ final componentExamples = <String, ComponentExamples>{
   'toggle': toggleExamples,
   'toast': toastExamples,
   'button': buttonExamples,
+  'button-group': buttonGroupExamples,
   'tooltip': tooltipExamples,
   'select': selectExamples,
 };
