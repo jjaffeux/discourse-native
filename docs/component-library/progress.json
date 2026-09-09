@@ -2095,16 +2095,17 @@
         "Run meaningful focused component/consumer regressions, formatting and root/full-profile analysis; prepare exact-source fixtures and create a NEW independent reviewer for remaining actual reference/native acceptance, fixes and final local main merge after parent acceptance."
       ],
       "decisions": [
-        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives."
+        "User requested queuing every remaining unimplemented component on 2026-09-09. This sole implementation owner begins reference/API/app audit now and coordinates directly with parent owners for committed tested APIs; no coordinator admission gate and no substitute final primitives.",
+        "Verified independent reviewer Review and merge Sheet (01a0862f-b27f-76d2-a441-8a77594aedc8) owns remaining fixes, required final compositions, actual browser/native acceptance and the final local main merge. This committed source handoff does not establish acceptance."
       ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
       "limitations": [],
-      "implementationCommit": null,
+      "implementationCommit": "b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a",
       "mergeCommit": null,
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4177/discourse-native",
-      "queueStage": "reference_and_dependency_preparation",
+      "queueStage": "independent_review",
       "implementationBrief": "Implement the complete Sheet anatomy and side/dismissal API, including top/bottom/left/right or logical sides, No Close Button and RTL examples. Reuse accepted Dialog route/session/focus/dismissal ownership and live caller-scoped theme. Match shadcn size, border, close-button, header/footer and motion rather than inheriting a Material bottom-sheet appearance. Preserve controlled/local/controller lifecycle, nested overlays, typed results, outside/Escape/back policies, focus entry/restoration, safe areas, keyboard insets and scroll/narrow/scaled behavior. Audit actual core/plugin side and bottom panels, and coordinate adoption ownership with the separately queued Drawer task so neither overwrites the other's callers. Drawer owns its gesture/snap semantics; Sheet remains its documented component. Add focused route/focus/dismissal/live-theme/adoption regressions.",
       "dispatchReference": {
         "url": "https://ui.shadcn.com/docs/components/base/sheet",
@@ -2122,7 +2123,18 @@
           "implementationCommit": "b75bee83e15f75692e8391502e5640124f83b9ed",
           "mergeCommit": "6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3"
         }
-      ]
+      ],
+      "reviewTaskId": "01a0862f-b27f-76d2-a441-8a77594aedc8",
+      "reviewBranch": "codex/review-sheet",
+      "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/9bc6/discourse-native",
+      "reviewHandoffCommit": "88e3e8c2d753cfb7acea1244c179062815a0e2d0",
+      "reviewStatus": "in_progress",
+      "implementationHandoffVerification": {
+        "focusedTests": "Source record reports35 Sheet/Dialog/styleguide tests passing with seed3270835119, plus two actual Voice room chat loading/send/close regressions.",
+        "analysis": "Root and profiles/full analysis clean with touched Dart formatted.",
+        "sharedCode": "Reviewer verified the shared route extraction matches the isolated two-file foundation commit and imports no Drawer widget, gesture or migration code.",
+        "native": "Source-exact local-data macOS fixture built and isolated signature/kernel identity recorded; it has not been launched or inspected. Reviewer owns first official browser/native acceptance and all remaining fixes."
+      }
     },
     {
       "id": "drawer",
@@ -3825,7 +3837,7 @@
     "mergeCommit": null
   },
   "workflow": {
-    "updatedAt": "2026-09-09T12:40:23+00:00",
+    "updatedAt": "2026-09-09T12:46:12+00:00",
     "authorization": "User requests one new Codex review-and-merge task for every pending item, and a fresh reviewer task for every future component implementation. Reviewers own fixes, verification and local main merge directly.",
     "maxConcurrentComponentTasks": 18,
     "dependencyPolicy": "Create tasks from latest main. Prefer accepted merged dependencies; isolated source preparation may pin a committed, tested parent review branch with recorded evidence. A dependent reviewer must integrate and verify all accepted parent main merges before its final local merge; prepared source does not waive acceptance.",
@@ -3961,14 +3973,6 @@
           "status": "implementation"
         },
         {
-          "component": "sheet",
-          "taskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
-          "branch": "codex/ui-sheet",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/4177/discourse-native",
-          "status": "implementation",
-          "phase": "reference_and_dependency_preparation"
-        },
-        {
           "component": "input-otp",
           "taskId": "01a08606-ca44-78f3-98f2-d147200278ef",
           "branch": "codex/ui-input-otp",
@@ -4095,6 +4099,16 @@
           "implementationTaskId": "01a08606-5dd4-7b80-b330-d7ebfff967f9",
           "implementationBranch": "codex/ui-menubar",
           "headCommit": "10b63f75edad20793fd83e5b2c8e15504e602a9a"
+        },
+        {
+          "component": "sheet",
+          "taskId": "01a0862f-b27f-76d2-a441-8a77594aedc8",
+          "branch": "codex/review-sheet",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9bc6/discourse-native",
+          "status": "independent_review",
+          "implementationTaskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
+          "implementationBranch": "codex/ui-sheet",
+          "headCommit": "88e3e8c2d753cfb7acea1244c179062815a0e2d0"
         }
       ],
       "nativeReadyTasks": []
@@ -4487,6 +4501,18 @@
           "implementationTaskId": "01a08606-5dd4-7b80-b330-d7ebfff967f9",
           "implementationBranch": "codex/ui-menubar",
           "implementationCommit": "3aef780c8aa4ad042d464c1c6cdf9c419e996c58",
+          "status": "in_progress"
+        },
+        {
+          "component": "sheet",
+          "title": "Review and merge Sheet",
+          "taskId": "01a0862f-b27f-76d2-a441-8a77594aedc8",
+          "hostId": "local",
+          "branch": "codex/review-sheet",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/9bc6/discourse-native",
+          "implementationTaskId": "01a08606-5dcc-7381-bbbb-719367c8f574",
+          "implementationBranch": "codex/ui-sheet",
+          "implementationCommit": "b007d3bd55d9bad6ed2e20b1a07fbec8b0eeda8a",
           "status": "in_progress"
         }
       ],
