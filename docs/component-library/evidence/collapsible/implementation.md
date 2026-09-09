@@ -199,7 +199,7 @@ Linux devices, VoiceOver and authenticated app sessions were not run.
 Latest-main reconciliation preserved the merged DSwitchTile in Local Dates and
 DScrollBar in AlertTables while retaining DCollapsible as the sole disclosure
 owner. Focused overlap tests and root/full analysis passed. Field's reviewer
-confirmed DInput's visible label is the correct current boundary. Tabs is now
-implemented separately and its reviewer (`01a08581-d666-7f81-b039-f9caae6c45c2`)
-owns the explicit follow-up replacing the temporary Explorer/Outline DButtons
-with DTabs.controlled after Collapsible merges.
+confirmed DInput's visible label is the correct current boundary. The Tabs
+reviewer (`01a08581-d666-7f81-b039-f9caae6c45c2`) completed the explicit
+post-merge follow-up: Explorer/Outline now use `DTabs.controlled`, while the
+nested tree and disclosure state remain owned by Collapsible.
