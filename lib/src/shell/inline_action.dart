@@ -11,6 +11,7 @@ class InlineAction extends StatelessWidget {
     this.semanticLabel,
     this.excludeChildSemantics = false,
     this.borderRadius = const BorderRadius.all(Radius.circular(2)),
+    this.focusNode,
   }) : _isLink = false;
 
   const InlineAction.link({
@@ -21,6 +22,7 @@ class InlineAction extends StatelessWidget {
     this.semanticLabel,
     this.excludeChildSemantics = false,
     this.borderRadius = const BorderRadius.all(Radius.circular(2)),
+    this.focusNode,
   }) : _isLink = true;
 
   final VoidCallback onTap;
@@ -29,6 +31,7 @@ class InlineAction extends StatelessWidget {
   final String? semanticLabel;
   final bool excludeChildSemantics;
   final BorderRadius borderRadius;
+  final FocusNode? focusNode;
   final bool _isLink;
 
   @override
@@ -44,6 +47,7 @@ class InlineAction extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
+          focusNode: focusNode,
           onTap: onTap,
           onHover: onHover,
           mouseCursor: SystemMouseCursors.click,
