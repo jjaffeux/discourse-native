@@ -230,10 +230,10 @@ void main() {
                       semanticLabel: 'Message',
                       hintText: 'Send a message...',
                     ),
-                    DInputGroupAddon(
+                    const DInputGroupAddon(
                       alignment: DInputGroupAddonAlignment.inlineEnd,
                       child: DInputGroupButton.icon(
-                        icon: const Icon(Icons.graphic_eq),
+                        icon: Icon(Icons.graphic_eq),
                         tooltip: 'Enable voice mode',
                         onPressed: () => voiceToggles++,
                       ),
