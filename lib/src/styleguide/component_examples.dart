@@ -31,6 +31,7 @@ import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/marker_examples.dart';
 import 'examples/native_select_examples.dart';
+import 'examples/navigation_menu_examples.dart';
 import 'examples/pagination_examples.dart';
 import 'examples/popover_examples.dart';
 import 'examples/progress_examples.dart';
@@ -98,6 +99,7 @@ final componentExamples = <String, ComponentExamples>{
   'native-select': nativeSelectExamples,
   'pagination': paginationExamples,
   'field': fieldExamples,
+  'navigation-menu': navigationMenuExamples,
   'progress': progressExamples,
   'questionnaire': questionnaireExamples,
   'marker': markerExamples,
