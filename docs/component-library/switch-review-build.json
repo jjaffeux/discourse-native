@@ -1,15 +1,15 @@
 {
-  "sourceCommit": "41ac9023ab4c30de27f386d22d3e4a833170d88b",
+  "sourceCommit": "c637efb393b9bec314cae0c85edca7ae241bf472",
   "trackedSourceEquality": "git diff --exit-code sourceCommit -- lib test tool passed; git status clean after build",
-  "sourceFilesHash": "690f8101555a0cc2c6fd7d3b99156312d2aa8c7637ba2430a6f443d9ffd0fbf7",
+  "sourceFilesHash": "341804feac291e3af41cb8c7e8aff9c95d93a671cb5125a3c8d5b240c3bc8c44",
   "builtBundle": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native/build/macos/Build/Products/Debug/Discourse.app",
-  "isolatedBundle": "/private/tmp/discourse-switch-review-41ac9023/Discourse Switch Review 41ac9023.app",
-  "kernelSHA256": "f38fcf8e1c62d6f708ae2fae2d5e8af18ecbe869964cb49beed17931d2fde589",
+  "isolatedBundle": "/private/tmp/discourse-switch-review-c637efb3/Discourse Switch Review c637efb3.app",
+  "kernelSHA256": "d4dfbbf790b2cbabee6780474a496f94dcb6ea3f938a4c103bbb5c741bb21fe5",
   "kernelEquality": true,
-  "bundleIdentifier": "org.discourse.switch-review-41ac9023",
-  "urlScheme": "discourse-switch-review-41ac9023",
+  "bundleIdentifier": "org.discourse.switch-review-c637efb3",
+  "urlScheme": "discourse-switch-review-c637efb3",
   "signatureVerification": "codesign --verify --deep --strict --verbose=2 passed; ad-hoc signature",
-  "entitlementsAdaptation": "isolated copy removes APS entitlement; workspace runner files unchanged",
-  "buildLog": "/private/tmp/switch-exterior-review-build.log",
+  "entitlementsAdaptation": "Isolated copy omits APS/team/application identifiers; codesign entitlements read-back equals intended debug entitlements. Workspace runner unchanged.",
+  "buildLog": "/private/tmp/switch-integrated-review-build.log",
   "nativeInspectionStatus": "awaiting_slot"
 }

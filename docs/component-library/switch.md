@@ -109,14 +109,14 @@ suites run now. No iOS/Linux device or spoken VoiceOver verification is claimed.
 
 ## Isolated macOS bundle
 
-Source commit: `41ac9023ab4c30de27f386d22d3e4a833170d88b`.
+Source commit: `c637efb393b9bec314cae0c85edca7ae241bf472`.
 Build: `flutter build macos --debug --no-pub -t tool/switch_review_main.dart`.
-Bundle: `/private/tmp/discourse-switch-review-41ac9023/Discourse Switch Review 41ac9023.app`.
+Bundle: `/private/tmp/discourse-switch-review-c637efb3/Discourse Switch Review c637efb3.app`.
 The original worktree build and isolated bundle have the same kernel SHA256:
-`f38fcf8e1c62d6f708ae2fae2d5e8af18ecbe869964cb49beed17931d2fde589`.
+`d4dfbbf790b2cbabee6780474a496f94dcb6ea3f938a4c103bbb5c741bb21fe5`.
 
-The copy has bundle ID `org.discourse.switch-review-41ac9023` and URL scheme
-`discourse-switch-review-41ac9023`; `codesign --verify --deep --strict --verbose=2`
+The copy has bundle ID `org.discourse.switch-review-c637efb3` and URL scheme
+`discourse-switch-review-c637efb3`; `codesign --verify --deep --strict --verbose=2`
 passed after ad-hoc signing. Only the isolated copy removes the APS entitlement.
 Workspace runner configuration and the user's main-checkout app were preserved.
 The full trace, source equality and source hash are recorded in
@@ -205,3 +205,8 @@ Poll/Group checks after the narrowly scoped adapter/Size spacing adjustment.
 Logs: /private/tmp/switch-exterior-final-tests.log and
 /private/tmp/switch-exterior-adapter-tests.log. Root/full analysis was rerun
 following removal of the temporary export test. Native status stays awaiting_slot.
+
+
+## Pinned-main integration
+
+Merged pinned main `7df72ef294826616e8ba24c31c6129d8e9041fec` into the Switch branch. Final Button/Input ownership and exports are preserved; all non-Switch progress rows exactly match pinned main. Resolved the obsolete Chat import and selected final Button examples alongside Switch. Existing merged app adapters/finders passed 267 focused integration tests, seed782313. Root/full analysis clean. No unchanged reference/export work repeated and no CUA/browser/native apps accessed. Refreshed exact-source review bundle has unique identifiers, verified signature and entitlement read-back with restricted APS/team/application identifiers absent. Native review remains awaiting_slot.
