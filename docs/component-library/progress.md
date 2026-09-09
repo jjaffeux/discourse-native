@@ -25,14 +25,14 @@ Branch preparation does not mark a component merged or visually verified.
 | empty | Integration checks | 403d8888 |
 | item | Integration checks | c74fea70 |
 | table | Reference and native review | b3107cab |
-| scroll-area | Native review | 5f4e0133 |
+| scroll-area | Integration checks | 5f4e0133 |
 | collapsible | Reference and native review | 684faacd |
 | resizable | Reference and native review | a7e26a93 |
 | popover | Control composition, reference and native review | cb7f9e2e |
 | dialog | Reference and native review | 715ab477 |
 | native-select | Native review | 986eb063 |
 | field | Control composition, reference and native review | 09869a67 |
-| alert | Integration checks | 58c6b5e2 |
+| alert | Reference and native review | 38002135 |
 | marker | Reference and native review | c797918b |
 | chart | Native review | c782a940 |
 
@@ -1929,6 +1929,7 @@ Status: in_progress. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/u
 
 - Four-part passive DAlert owner with exact base-nova source metrics, two actual variants, live tokens, multiplied destructive alpha, measured action reflow and platform live-region opt-out. Source/artwork hashes and geometry in docs/component-library/alert.md.
 - Reference examples include basic/demo/destructive/action/custom colors/Arabic RTL and rich/static composition. DButton remains baseline; Alert examples remain baseline until rendered/native gate.
+- Integrated pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; retained every non-Alert progress row and merged owner. Final DButton extraSmall replaces temporary small example action; inline adapters retain callbacks and coordinator Group/Sidebar/Topic Inbox fixes.
 
 **migrations**
 
@@ -1942,10 +1943,11 @@ Status: in_progress. Task: 01a08454-55a6-7681-8da9-bec8b23899a4. Branch: codex/u
 
 - 107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity checks passed (three component tests repeated). Root and full-profile enforced-lockfile resolution and static analysis passed; 18 touched Dart files formatted; git diff --check clean. Pins/locks unchanged.
 - Unique local macOS debug bundle Alert Review 38df / org.discourse.alertreview38df / discourse-alert-review-38df built from implementation commit with zero lib/fixture diff. Source app.dill and both copied kernels SHA256 e543ad77e1bf1c877db0a3c43c55a9e1e124fe239d725d8b6a38ee9f8a275a99. Deep strict ad-hoc signature verification passed; temporary runner settings restored. Exact paths in evidence/alert/build.json.
+- Integration: 129 focused component and migrated adapter tests passed; 2 styleguide tests then passed including explicit final extraSmall Button toggle behavior. Root/full-profile analysis passed. Unique Alert Integration Review 38df bundle built from 1efab06c; app.dill/framework/copied kernels all SHA256 43527a2e8cdda4ec7f3e8ed7079ac9ecab5bef98560d03cd866bbbbfcff2ddb8. Restricted-free local debug/JIT/network signed readback and deep strict signature verification passed. Exact source/path/entitlements in evidence/alert/integration-build.json.
 
 **limitations**
 
-- awaiting_slot: Mac locked; no browser/native access authorized. Rendered comparison, native styleguide and changed production-surface inspection remain required; no VoiceOver/device/pixel-parity claim.
+- awaiting_slot: native review blocked by locked Mac; browser verification separately denied by admin policy. No CUA/browser/native launch, policy retry or workaround. Rendered comparison and changed production native inspection still required.
 
 ### marker
 

@@ -2239,7 +2239,8 @@
       ],
       "decisions": [
         "Four-part passive DAlert owner with exact base-nova source metrics, two actual variants, live tokens, multiplied destructive alpha, measured action reflow and platform live-region opt-out. Source/artwork hashes and geometry in docs/component-library/alert.md.",
-        "Reference examples include basic/demo/destructive/action/custom colors/Arabic RTL and rich/static composition. DButton remains baseline; Alert examples remain baseline until rendered/native gate."
+        "Reference examples include basic/demo/destructive/action/custom colors/Arabic RTL and rich/static composition. DButton remains baseline; Alert examples remain baseline until rendered/native gate.",
+        "Integrated pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7; retained every non-Alert progress row and merged owner. Final DButton extraSmall replaces temporary small example action; inline adapters retain callbacks and coordinator Group/Sidebar/Topic Inbox fixes."
       ],
       "migrations": [
         "Inline errors: topic feed, categories, tags, groups/group, aggregate, activity pagination, draft refresh, revision history, GIF paging. Composer tag removal notice retains dismissal and controller lifetime."
@@ -2249,12 +2250,13 @@
       ],
       "verification": [
         "107 focused component/styleguide/core/plugin tests passed; 42 additional component/draft/activity checks passed (three component tests repeated). Root and full-profile enforced-lockfile resolution and static analysis passed; 18 touched Dart files formatted; git diff --check clean. Pins/locks unchanged.",
-        "Unique local macOS debug bundle Alert Review 38df / org.discourse.alertreview38df / discourse-alert-review-38df built from implementation commit with zero lib/fixture diff. Source app.dill and both copied kernels SHA256 e543ad77e1bf1c877db0a3c43c55a9e1e124fe239d725d8b6a38ee9f8a275a99. Deep strict ad-hoc signature verification passed; temporary runner settings restored. Exact paths in evidence/alert/build.json."
+        "Unique local macOS debug bundle Alert Review 38df / org.discourse.alertreview38df / discourse-alert-review-38df built from implementation commit with zero lib/fixture diff. Source app.dill and both copied kernels SHA256 e543ad77e1bf1c877db0a3c43c55a9e1e124fe239d725d8b6a38ee9f8a275a99. Deep strict ad-hoc signature verification passed; temporary runner settings restored. Exact paths in evidence/alert/build.json.",
+        "Integration: 129 focused component and migrated adapter tests passed; 2 styleguide tests then passed including explicit final extraSmall Button toggle behavior. Root/full-profile analysis passed. Unique Alert Integration Review 38df bundle built from 1efab06c; app.dill/framework/copied kernels all SHA256 43527a2e8cdda4ec7f3e8ed7079ac9ecab5bef98560d03cd866bbbbfcff2ddb8. Restricted-free local debug/JIT/network signed readback and deep strict signature verification passed. Exact source/path/entitlements in evidence/alert/integration-build.json."
       ],
       "limitations": [
-        "awaiting_slot: Mac locked; no browser/native access authorized. Rendered comparison, native styleguide and changed production-surface inspection remain required; no VoiceOver/device/pixel-parity claim."
+        "awaiting_slot: native review blocked by locked Mac; browser verification separately denied by admin policy. No CUA/browser/native launch, policy retry or workaround. Rendered comparison and changed production native inspection still required."
       ],
-      "implementationCommit": "5f0418cc6a90faaa88c3df6adee1df232bff081c",
+      "implementationCommit": "1efab06cb3b99177278ed941db63ec37f07ce849",
       "mergeCommit": null
     },
     {
@@ -2616,14 +2618,6 @@
       "nextComponents": [],
       "activeTasks": [
         {
-          "component": "alert",
-          "taskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
-          "branch": "codex/ui-alert",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native",
-          "status": "main_integration_preparation",
-          "headCommit": "58c6b5e2c1630941c83a50642dee8cda09898de5"
-        },
-        {
           "component": "empty",
           "taskId": "01a0843e-76da-7911-ac98-49bd6dba8384",
           "branch": "codex/ui-empty",
@@ -2646,17 +2640,17 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/ad16/discourse-native",
           "headCommit": "901f1227",
           "status": "main_integration_preparation"
-        }
-      ],
-      "nativeReadyTasks": [
+        },
         {
           "component": "scroll-area",
           "taskId": "01a083e1-420b-7711-b8e8-f268576dcc3b",
           "branch": "codex/ui-scroll-area",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d422/discourse-native",
           "headCommit": "5f4e013333459e32b22215101f0273af41e1d0f6",
-          "status": "awaiting_native_review"
-        },
+          "status": "main_integration_preparation"
+        }
+      ],
+      "nativeReadyTasks": [
         {
           "component": "table",
           "taskId": "01a0844a-0669-7780-92e8-33cc4314f64a",
@@ -2755,6 +2749,14 @@
           "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
           "status": "awaiting_browser_native_and_control_reconciliation",
           "headCommit": "cb7f9e2e474529b1ac2559f1226d47590202e23f"
+        },
+        {
+          "component": "alert",
+          "taskId": "01a08454-55a6-7681-8da9-bec8b23899a4",
+          "branch": "codex/ui-alert",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/38df/discourse-native",
+          "status": "awaiting_browser_and_native_review",
+          "headCommit": "38002135f93007ea04bc19873bd8bdf2e379f346"
         }
       ]
     },
