@@ -1,5 +1,32 @@
 # Marker native review queue
 
+## Current integration build (supersedes the earlier bundle)
+
+Merged pinned main `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7` into Marker.
+Executable source/merge commit: `ba156a2ce378787c25fdd4a8910fbf86390c4a8a`.
+All non-Marker progress rows match pinned main, and all17 merged component
+owners plus coordinator Group/Sidebar/Topic Inbox fixes are preserved.
+Only Marker and its existing StreamDaySeparator adoption differ under
+component/shell/plugin source paths. Static dates remain non-live; status is
+opt-in. Narrow large-text separator wrapping remains covered.
+
+- Current bundle: `/tmp/marker-review-3d0a-ba156a2c/build/macos/Build/Products/Debug/Marker Review ba156a2c.app`.
+- Bundle ID: `org.discourse.markerreview.ba156a2c`; scheme: `discourse-marker-review-ba156a2c`.
+- Git archive of the exact source commit; all1350 tracked lib/packages/pubspec/pin files byte-identical.
+- Three-way compiler app.dill / built framework / copied bundle kernel SHA256: `a290d26bba0b82caefbc0645fd42c0e1725b3ac54a550bd44139e4f29279bc83`.
+- Explicit temporary debug/JIT entitlements contain exactly `com.apple.security.cs.allow-jit`, `com.apple.security.cs.allow-unsigned-executable-memory`, and `com.apple.security.cs.disable-library-validation`, all true. Signed readback via `codesign -d --entitlements :-` parsed and matched this exact dictionary; no restricted entitlement or production identity remains.
+- Ad-hoc signing and `codesign --verify --deep --strict --verbose=2` passed (valid on disk; satisfies Designated Requirement).
+- Source and signature report: `/tmp/marker-ba156a2c-provenance.json`; build/sign logs: `/tmp/marker-ba156a2c-build.log`, `/tmp/marker-ba156a2c-sign.log`.
+- Root/full enforced-lockfile resolution and static analysis passed; no production runner/pin/lockfile changes. Touched formatting and diff check passed.
+- Same focused command below passed116 tests, seed2335286571 (`/tmp/marker-integration-tests.log`). Additional static-versus-live assertion passed all13 Marker tests, seed2483898728 (`/tmp/marker-integration-static-tests.log`).
+
+Still **awaiting_slot**, **in_progress**, and not mergeable. Mac locked and
+browser access separately denied by admin policy; no CUA, browser navigation,
+native launch, retry or workaround attempted. Required reference/native review
+remains outstanding. The checklist below applies to this new bundle.
+
+## Earlier build evidence (historical)
+
 Status: **awaiting_slot**, component remains **in_progress**. No browser/native
 focus has been used. Mac was locked throughout implementation; neither this
 build nor widget tests establish native accessibility or visual parity.
