@@ -4,6 +4,20 @@ Status: source verified; native review pending. This correction is committed on
 `codex/fix-title-tooltip-escape` at `c5d37bd18148337f3a6be894c27c44af920f0e2c`.
 It has not been merged into main.
 
+The current review bundle is
+`/private/tmp/DiscourseComponentFidelityB104-6a99b2d2.app`, built at
+`6a99b2d29cf15f404db598894557fbd7e75649fc` on
+`codex/component-fidelity-follow-up`. It includes this unchanged title fix and
+the floating Sidebar `rounded-lg` correction. Inspect title editing, the final
+styleguide preview scrollbar, and the floating Sidebar in this one fixture.
+Its unique identifier is `org.discourse.native.component-fidelity.b104`, scheme
+`discourse-component-fidelity-b104`, and kernel SHA256
+`db4f29d8e34dbf63f7862f17b96bd959c948dd208a67d0e7d8db99de053ce7e1`.
+Tracked source equality, original/copied kernel equality and deep strict
+signature verification pass. Provenance is
+`/private/tmp/component-fidelity-native-provenance.json`. The following original
+bundle evidence is retained as history; it is superseded for native review.
+
 The existing compact-topic-title Escape test failed after the Tooltip migration:
 the duplicate value hint consumed Escape before the editor could cancel. The
 editor now disables that supplementary hint while focused or saving. Its visible
