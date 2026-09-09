@@ -22,7 +22,8 @@ The Base Nova source defines:
 - Block addons switch the group from fixed `32px` height to auto height and column layout.
 - Addons: `py-1.5`, `gap-2`, `text-sm font-medium text-muted-foreground`, `select-none`.
 - Inline addon inset: start/end `8px`; group adjusts the adjacent input side to `6px`.
-- Block addon inset: horizontal `10px`, top/bottom `8px` and `4px` depending on edge.
+- Block addon inset: horizontal `10px`, `8px` at the outer edge and the
+  shared `6px` addon padding at the inner edge.
 - Buttons: default `ghost`, `xs` height `24px`, icon-xs `24px`, icon-sm `32px`, radius `host radius - 3px`.
 - Inputs and textareas reuse the base Input/Textarea owners with border, background, shadow and ring suppressed inside the group.
 
