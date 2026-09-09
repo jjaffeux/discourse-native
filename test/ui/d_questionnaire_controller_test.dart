@@ -94,7 +94,7 @@ void main() {
           initialState: DQuestionnaireSavedState(
             currentItemId: 'scope',
             answers: {
-              'scope': DQuestionnaireAnswer.fixed(['disabled']),
+              'scope': DQuestionnaireAnswer.fixed(const ['disabled']),
             },
           ),
         );
@@ -186,40 +186,43 @@ void main() {
   });
 
   group('resume and validation lifecycle', () {
-    test('saved state round-trips and reset restores the resumed draft', () {
-      final saved = DQuestionnaireSavedState(
-        currentItemId: 'two',
-        answers: {
-          'one': DQuestionnaireAnswer.fixed(['a']),
-          'two': DQuestionnaireAnswer.freeform('Saved note'),
-          'three': const DQuestionnaireAnswer.skipped(),
-        },
-        visitedItemIds: const {'one', 'two'},
-      );
-      final json = saved.toJson();
-      final restored = DQuestionnaireSavedState.fromJson(json);
-      final controller = DQuestionnaireController(
-        items: [
-          item('one'),
-          item(
-            'two',
-            input: const DQuestionnaireInputConfiguration(label: 'Note'),
-          ),
-          item('three', required: false),
-        ],
-        initialState: restored,
-      );
+    test(
+      'saved state round-trips and reset restores the resumed draft',
+      () async {
+        final saved = DQuestionnaireSavedState(
+          currentItemId: 'two',
+          answers: {
+            'one': DQuestionnaireAnswer.fixed(const ['a']),
+            'two': DQuestionnaireAnswer.freeform('Saved note'),
+            'three': const DQuestionnaireAnswer.skipped(),
+          },
+          visitedItemIds: const {'one', 'two'},
+        );
+        final json = saved.toJson();
+        final restored = DQuestionnaireSavedState.fromJson(json);
+        final controller = DQuestionnaireController(
+          items: [
+            item('one'),
+            item(
+              'two',
+              input: const DQuestionnaireInputConfiguration(label: 'Note'),
+            ),
+            item('three', required: false),
+          ],
+          initialState: restored,
+        );
 
-      controller.setFreeform('two', 'Changed');
-      controller.goTo('three');
-      controller.reset();
+        controller.setFreeform('two', 'Changed');
+        await controller.goTo('three');
+        controller.reset();
 
-      expect(controller.currentItemId, 'two');
-      expect(controller.answerFor('one').valueAs<String>(), 'a');
-      expect(controller.answerFor('two').freeform, 'Saved note');
-      expect(controller.answerFor('three').isSkipped, isTrue);
-      expect(controller.visitedItemIds, containsAll(['one', 'two']));
-    });
+        expect(controller.currentItemId, 'two');
+        expect(controller.answerFor('one').valueAs<String>(), 'a');
+        expect(controller.answerFor('two').freeform, 'Saved note');
+        expect(controller.answerFor('three').isSkipped, isTrue);
+        expect(controller.visitedItemIds, containsAll(['one', 'two']));
+      },
+    );
 
     test(
       'input initial value is an answer and resets without host storage',

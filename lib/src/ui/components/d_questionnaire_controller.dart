@@ -411,7 +411,7 @@ class DQuestionnaireController extends ChangeNotifier {
     _items = List.unmodifiable(items);
     final changed = _normalizeCurrent(markVisited: true);
     _validationGeneration++;
-    if (changed || hasListeners) notifyListeners();
+    if (changed) notifyListeners();
   }
 
   void setControlledItem(String itemId) {

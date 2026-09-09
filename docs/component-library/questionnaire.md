@@ -108,7 +108,10 @@ Therefore there is no production migration in this component change. The nine
 interactive styleguide examples use the real public owners for the documented
 basic, multiple, freeform, skip, shortcut, validation, controlled, resume,
 conditional, navigation, custom-progress, animation, Card, Dialog and unstyled
-compositions.
+compositions. `tool/questionnaire_review_main.dart` mounts those same public
+examples with local data and explicit theme, RTL, 200%-text, reduced-motion and
+216px-width controls; it is the source-exact macOS review target, not a substitute
+for a production adopter that does not exist.
 
 ## Verification handoff
 

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
+import 'd_field.dart';
 import 'd_input.dart';
 import 'd_questionnaire_controller.dart';
 
@@ -560,35 +561,44 @@ class DQuestionnaireItemView extends StatelessWidget {
                   shortcut: _shortcut(index),
                 ),
               if (item.input case final input?)
-                Semantics(
-                  container: true,
-                  label: input.label,
-                  textField: true,
-                  child: DInput(
-                    controller: textController,
-                    focusNode: inputFocusNode,
-                    hintText: input.placeholder,
-                    enabled: input.enabled,
-                    invalid: error != null,
-                    isRequired: item.required,
-                    keyboardType: switch (input.type) {
-                      DQuestionnaireInputType.email =>
-                        TextInputType.emailAddress,
-                      DQuestionnaireInputType.phone => TextInputType.phone,
-                      DQuestionnaireInputType.url => TextInputType.url,
-                      DQuestionnaireInputType.number => TextInputType.number,
-                      DQuestionnaireInputType.date ||
-                      DQuestionnaireInputType.dateTime ||
-                      DQuestionnaireInputType.month ||
-                      DQuestionnaireInputType.time ||
-                      DQuestionnaireInputType.week => TextInputType.datetime,
-                      _ => TextInputType.text,
-                    },
-                    obscureText: input.type == DQuestionnaireInputType.password,
-                    textInputAction: TextInputAction.done,
-                    onChanged: (value) =>
-                        controller.setFreeform(item.id, value),
-                  ),
+                DField(
+                  invalid: error != null,
+                  enabled: input.enabled,
+                  children: [
+                    DFieldControl(
+                      label: input.label,
+                      required: item.required,
+                      errors: [error],
+                      child: DInput(
+                        controller: textController,
+                        focusNode: inputFocusNode,
+                        hintText: input.placeholder,
+                        enabled: input.enabled,
+                        invalid: error != null,
+                        isRequired: item.required,
+                        keyboardType: switch (input.type) {
+                          DQuestionnaireInputType.email =>
+                            TextInputType.emailAddress,
+                          DQuestionnaireInputType.phone => TextInputType.phone,
+                          DQuestionnaireInputType.url => TextInputType.url,
+                          DQuestionnaireInputType.number =>
+                            TextInputType.number,
+                          DQuestionnaireInputType.date ||
+                          DQuestionnaireInputType.dateTime ||
+                          DQuestionnaireInputType.month ||
+                          DQuestionnaireInputType.time ||
+                          DQuestionnaireInputType.week =>
+                            TextInputType.datetime,
+                          _ => TextInputType.text,
+                        },
+                        obscureText:
+                            input.type == DQuestionnaireInputType.password,
+                        textInputAction: TextInputAction.done,
+                        onChanged: (value) =>
+                            controller.setFreeform(item.id, value),
+                      ),
+                    ),
+                  ],
                 ),
             ],
           ),
