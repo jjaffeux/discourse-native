@@ -18,6 +18,25 @@ Widget host(Widget child, {double scale = 1, ThemeData? theme}) => MaterialApp(
   ),
 );
 void main() {
+  testWidgets('semanticLabel names the editor without a visible label', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      host(
+        DInput(semanticLabel: 'Search commands', hintText: 'Type a command'),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Search commands'), findsNothing);
+    final editor = tester.getSemantics(find.byType(EditableText));
+    expect(editor.label.split('\n').first, 'Search commands');
+    expect(editor.label, contains('Type a command'));
+    expect(editor.getSemanticsData().flagsCollection.isTextField, isTrue);
+    handle.dispose();
+  });
+
   testWidgets('a lone sidebar search cannot turn its page into a text field', (
     tester,
   ) async {

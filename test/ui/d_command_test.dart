@@ -1,8 +1,9 @@
+import 'dart:ui' show Tristate;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -346,7 +347,7 @@ void main() {
     );
     expect(inputSemantics, findsOneWidget);
     final inputData = tester.getSemantics(inputSemantics).getSemanticsData();
-    expect(inputData.hasFlag(SemanticsFlag.isTextField), isTrue);
+    expect(inputData.flagsCollection.isTextField, isTrue);
     expect(find.bySemanticsLabel('Open your profile'), findsOneWidget);
   });
 
@@ -453,7 +454,7 @@ void main() {
     );
     expect(checkedSemantics, findsOneWidget);
     final data = tester.getSemantics(checkedSemantics).getSemanticsData();
-    expect(data.hasFlag(SemanticsFlag.isChecked), isTrue);
+    expect(data.flagsCollection.isChecked, Tristate.isTrue);
     final touchRows = find.byWidgetPredicate(
       (widget) => widget is SizedBox && widget.height == DSpacing.touchTarget,
     );
