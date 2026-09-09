@@ -39,7 +39,7 @@ void main() {
   });
 
   testWidgets(
-    'semantic table contains ordered rows, headers and selected cells',
+    'semantic table contains ordered rows, headers and row selection',
     (tester) async {
       final handle = tester.ensureSemantics();
 
@@ -91,11 +91,13 @@ void main() {
         ).where((n) => n.role == SemanticsRole.columnHeader).length,
         2,
       );
+      expect(rows[0].flagsCollection.isSelected, Tristate.none);
+      expect(rows[1].flagsCollection.isSelected, Tristate.isTrue);
       expect(
         _nodes(
           rows[1],
-        ).where((n) => n.flagsCollection.isSelected == Tristate.isTrue).length,
-        2,
+        ).skip(1).where((n) => n.flagsCollection.isSelected == Tristate.isTrue),
+        isEmpty,
       );
       expect(tester.takeException(), isNull);
       handle.dispose();

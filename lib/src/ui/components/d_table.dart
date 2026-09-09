@@ -125,7 +125,6 @@ class _DTableState extends State<DTable> {
                                 ? SemanticsRole.columnHeader
                                 : SemanticsRole.cell,
                             header: rows[r].cells[c] is DTableHead,
-                            selected: rows[r].selected ? true : null,
                             child: MouseRegion(
                               onEnter: (_) => setState(() => _hovered = r),
                               onExit: (_) {
@@ -495,16 +494,15 @@ class _RenderTable extends RenderBox
     for (var r = 0; r < groups.length; r++) {
       final top = r == 0 ? 0.0 : _rowEnds[r - 1];
       final row = _semanticRows.putIfAbsent(r, () => SemanticsNode());
+      final rowConfig = SemanticsConfiguration()
+        ..role = SemanticsRole.row
+        ..indexInParent = r;
+      if (spec.rows[r].selected) rowConfig.isSelected = true;
       // Identity transforms keep cell coordinates in table space. A row's
       // non-zero local rect bounds precisely its cells without moving them.
       row
         ..rect = Rect.fromLTWH(0, top, size.width, _rowEnds[r] - top)
-        ..updateWith(
-          config: SemanticsConfiguration()
-            ..role = SemanticsRole.row
-            ..indexInParent = r,
-          childrenInInversePaintOrder: groups[r],
-        );
+        ..updateWith(config: rowConfig, childrenInInversePaintOrder: groups[r]);
       rows.add(row);
     }
     _semanticRows.removeWhere((r, _) => r >= groups.length);
