@@ -622,7 +622,8 @@
         "Isolated macOS debug build succeeded; bundle org.discourse.native.badge.bebb9 / Badge Review BEBB9. Deep strict ad-hoc signature verification passes. Complete relevant Dart source matches the checkout; kernel and source-manifest hashes recorded in badge-native.md.",
         "Coordinator-granted browser-only comparison completed; theme restored, own tab closed and slot released. No native app launched while Mac locked. Evidence and exact export harness in evidence/badge/.",
         "Exact final test command: flutter test --no-pub test/d_badge_test.dart test/badge_migrations_test.dart test/styleguide/badge_examples_test.dart test/styleguide/spinner_examples_test.dart test/groups_page_test.dart test/group_page_test.dart test/user_card_test.dart test/user_card_target_accessibility_test.dart test/user_card_account_lifecycle_test.dart test/user_menu_message_accessibility_test.dart test/plugin_user_menu_widget_test.dart test/chat_drawer_test.dart test/chat_shell_integration_test.dart test/topic_list_view_lifecycle_test.dart --test-randomize-ordering-seed=792026 --reporter expanded. All 254 pass.",
-        "Browser corrections pass 39 focused tests, seed 792027, and widget-renderer export test. Radius source scale and bundled SVG paths verified against live computed styles."
+        "Browser corrections pass 39 focused tests, seed 792027, and widget-renderer export test. Radius source scale and bundled SVG paths verified against live computed styles.",
+        "Coordinator inspected actual dark reference variants versus matching neutral Flutter exports and the real Groups/Chat migration montage at Plum/RTL/200%. Compact geometry and distinct variants agree; montage scroll clipping is fixture viewport clipping, not a full native screen/overlay verification. Native checks remain queued."
       ],
       "limitations": [
         "Native rendered comparison remains required before review_ready; Mac remains locked. Browser reference versus macOS-targeted widget-renderer comparison is complete.",
@@ -2300,7 +2301,7 @@
     "pendingSourceReviews": {
       "radio-group": {
         "taskId": "01a083ce-313b-7da0-aa51-3687fd556604",
-        "issue": "Read-only API review resolved. Remaining visual source review: use actual input token with multiplicative alpha; audit referenced choice-card padding/border/background and proportional radius against Field composition, currently uses arbitrary radius+4/padding16/full primary border. Complete during browser comparison.",
+        "issue": "Read-only API review resolved. Remaining visual source review: use actual input token with multiplicative alpha; audit referenced choice-card padding/border/background and proportional radius against Field composition, currently uses arbitrary radius+4/padding16/full primary border. Complete during browser comparison. During browser review independently check actual choice-card focus rings: Switch live CSS currently paints both card and switch rings despite the apparent source suppression utility; do not assume Radio is identical without inspection.",
         "status": "in_progress"
       },
       "slider": {
@@ -2325,7 +2326,7 @@
       },
       "input": {
         "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
-        "issue": "Source border-input/bg-input must use tokens.colors.outlineVariant and multiply its existing alpha for .3/.5/.8 modifiers. Current Input uses tokens.border and replaces alpha. Combine with the already recorded Button file-trigger integration after Button merge.",
+        "issue": "Source border-input/bg-input must use tokens.colors.outlineVariant and multiply its existing alpha for .3/.5/.8 modifiers. Current Input uses tokens.border and replaces alpha. Combine with the already recorded Button file-trigger integration after Button merge. Also audit disabled DFileInput: _InputSurface applies opacity .5 and its child Row adds another .5, with the disabled Button dimming again. Ensure one effective reference disabled treatment instead of unintentionally compounding opacity; retain real Button ownership and disabled semantics.",
         "status": "queued_for_free_execution_slot"
       },
       "checkbox": {

@@ -750,6 +750,7 @@ Status: in_progress. Task: 01a083ac-c98c-7fe0-878d-54ee3bcbebb9. Branch: codex/u
 - Coordinator-granted browser-only comparison completed; theme restored, own tab closed and slot released. No native app launched while Mac locked. Evidence and exact export harness in evidence/badge/.
 - Exact final test command: flutter test --no-pub test/d_badge_test.dart test/badge_migrations_test.dart test/styleguide/badge_examples_test.dart test/styleguide/spinner_examples_test.dart test/groups_page_test.dart test/group_page_test.dart test/user_card_test.dart test/user_card_target_accessibility_test.dart test/user_card_account_lifecycle_test.dart test/user_menu_message_accessibility_test.dart test/plugin_user_menu_widget_test.dart test/chat_drawer_test.dart test/chat_shell_integration_test.dart test/topic_list_view_lifecycle_test.dart --test-randomize-ordering-seed=792026 --reporter expanded. All 254 pass.
 - Browser corrections pass 39 focused tests, seed 792027, and widget-renderer export test. Radius source scale and bundled SVG paths verified against live computed styles.
+- Coordinator inspected actual dark reference variants versus matching neutral Flutter exports and the real Groups/Chat migration montage at Plum/RTL/200%. Compact geometry and distinct variants agree; montage scroll clipping is fixture viewport clipping, not a full native screen/overlay verification. Native checks remain queued.
 
 **limitations**
 
