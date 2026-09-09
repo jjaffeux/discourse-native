@@ -154,6 +154,91 @@ void main() {
     expect(side.height, 600);
   });
 
+  testWidgets('swipe handles follow the direction-specific edge and order', (
+    tester,
+  ) async {
+    final cases =
+        <(DDrawerSwipeDirection, bool Function(Rect handle, Rect title))>[
+          (
+            DDrawerSwipeDirection.down,
+            (handle, title) => handle.bottom <= title.top,
+          ),
+          (
+            DDrawerSwipeDirection.up,
+            (handle, title) => handle.top >= title.bottom,
+          ),
+          (
+            DDrawerSwipeDirection.right,
+            (handle, title) => handle.right <= title.left,
+          ),
+          (
+            DDrawerSwipeDirection.left,
+            (handle, title) => handle.left >= title.right,
+          ),
+        ];
+
+    for (final (direction, isCorrectlyOrdered) in cases) {
+      await tester.pumpWidget(
+        _host(_drawer<void>(open: true, direction: direction)),
+      );
+      await tester.pumpAndSettle();
+      final handle = tester.getRect(find.byType(DDrawerSwipeHandle));
+      final visual = tester.getRect(
+        find.descendant(
+          of: find.byType(DDrawerSwipeHandle),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is SizedBox &&
+                ((widget.width == 96 && widget.height == 4) ||
+                    (widget.width == 4 && widget.height == 96)),
+          ),
+        ),
+      );
+      final title = tester.getRect(find.text('Example drawer'));
+
+      expect(isCorrectlyOrdered(handle, title), isTrue, reason: '$direction');
+      switch (direction) {
+        case DDrawerSwipeDirection.down:
+          expect(visual.bottom, handle.bottom);
+        case DDrawerSwipeDirection.up:
+          expect(visual.top, handle.top);
+        case DDrawerSwipeDirection.right:
+          expect(visual.right, handle.right);
+        case DDrawerSwipeDirection.left:
+          expect(visual.left, handle.left);
+        case DDrawerSwipeDirection.start || DDrawerSwipeDirection.end:
+          fail('Logical directions are resolved before layout.');
+      }
+    }
+  });
+
+  testWidgets('vertical header centers below md and start-aligns at md', (
+    tester,
+  ) async {
+    TextAlign headerTextAlign() => tester
+        .widgetList<DefaultTextStyle>(
+          find.descendant(
+            of: find.byType(DDrawerHeader),
+            matching: find.byType(DefaultTextStyle),
+          ),
+        )
+        .map((style) => style.textAlign)
+        .whereType<TextAlign>()
+        .single;
+
+    await tester.pumpWidget(
+      _host(_drawer<void>(open: true), size: const Size(767, 600)),
+    );
+    await tester.pumpAndSettle();
+    expect(headerTextAlign(), TextAlign.center);
+
+    await tester.pumpWidget(
+      _host(_drawer<void>(open: true), size: const Size(768, 600)),
+    );
+    await tester.pumpAndSettle();
+    expect(headerTextAlign(), TextAlign.start);
+  });
+
   testWidgets('logical start follows RTL', (tester) async {
     await tester.pumpWidget(
       _host(
