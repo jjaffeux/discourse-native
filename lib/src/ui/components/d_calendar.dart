@@ -84,7 +84,7 @@ class DCalendarRange {
   final DCalendarDate? to;
 
   bool contains(DCalendarDate date) =>
-      !date.isBefore(from) && (to == null || !date.isAfter(to!));
+      to == null ? date == from : !date.isBefore(from) && !date.isAfter(to!);
 
   int? get lengthInDays => to == null
       ? null
@@ -249,6 +249,17 @@ class DCalendarController extends ChangeNotifier {
 
   void focusDate(DCalendarDate date) {
     _focusedDate = date;
+    notifyListeners();
+  }
+
+  /// Clears the current selection while preserving its selection mode.
+  void clear() {
+    _selection = switch (_selection) {
+      DCalendarSingleSelection() => const DCalendarSingleSelection(null),
+      DCalendarMultipleSelection() => DCalendarMultipleSelection(const []),
+      DCalendarRangeSelection() => const DCalendarRangeSelection(null),
+      null => null,
+    };
     notifyListeners();
   }
 
@@ -526,17 +537,20 @@ class _DCalendarState extends State<DCalendar> {
         widget.initialDisplayedMonth ??
         _controller.displayedMonth ??
         _selectionAnchor(_selection!) ??
-        widget.today ??
-        DCalendarDate.fromDateTime(DateTime.now());
-    _month = DCalendarDate(anchor.year, anchor.month, 1);
-    _focusedDate = _controller.focusedDate ?? _selectionAnchor(_selection!);
+        _todayDate;
+    _month = _clampDisplayedMonth(_monthStart(anchor));
+    final requestedFocus = _controller.focusedDate;
+    _focusedDate = requestedFocus ?? _selectionAnchor(_selection!);
+    if (_focusedDate == null || !_isFocusableAndVisible(_focusedDate!)) {
+      _focusedDate = _firstFocusableVisible();
+    }
     _ensurePages();
     _controller._sync(
       selection: _selection,
       displayedMonth: _month,
       focusedDate: _focusedDate,
     );
-    if (_focusedDate != null) {
+    if (_focusedDate != null && (requestedFocus != null || widget.autofocus)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _moveFocus(_focusedDate!);
       });
@@ -572,12 +586,25 @@ class _DCalendarState extends State<DCalendar> {
       _controller.removeListener(_controllerChanged);
       if (_ownsController) _controller.dispose();
       _attachController(widget.controller);
+      if (widget.selection == null && _controller.selection != null) {
+        _selection = _controller.selection;
+      }
+      if (widget.displayedMonth == null && _controller.displayedMonth != null) {
+        _setMonth(_controller.displayedMonth!, notify: false);
+      }
+      if (_controller.focusedDate != null) {
+        _focusedDate = _controller.focusedDate;
+      }
     }
     if (oldWidget.focusNode != widget.focusNode) {
       if (_ownsRootFocus) _rootFocus.dispose();
       _attachFocus(widget.focusNode);
     }
     if (oldWidget.numberOfMonths != widget.numberOfMonths) _ensurePages();
+    if (oldWidget.mode != widget.mode && widget.selection == null) {
+      _selection = _emptySelection;
+      _controller._sync(selection: _selection);
+    }
     if (widget.selection != null) {
       _selection = widget.selection;
       _controller._sync(selection: widget.selection);
@@ -621,7 +648,7 @@ class _DCalendarState extends State<DCalendar> {
       _setMonth(nextMonth);
     }
     final nextFocus = _controller.focusedDate;
-    if (nextFocus != null) {
+    if (nextFocus != null && nextFocus != _focusedDate) {
       _moveFocus(nextFocus);
     }
     setState(() {});
@@ -635,9 +662,38 @@ class _DCalendarState extends State<DCalendar> {
         DCalendarRangeSelection(:final range) => range?.from,
       };
 
-  bool _outsideBounds(DCalendarDate date) =>
-      (widget.startMonth != null && date.isBefore(widget.startMonth!)) ||
-      (widget.endMonth != null && date.isAfter(widget.endMonth!));
+  DCalendarDate _monthStart(DCalendarDate date) =>
+      DCalendarDate(date.year, date.month, 1);
+
+  DCalendarDate get _todayDate {
+    if (widget.today case final today?) return today;
+    final now = widget.location == null
+        ? DateTime.now()
+        : tz.TZDateTime.now(widget.location!);
+    return DCalendarDate.fromDateTime(now);
+  }
+
+  DCalendarDate _clampDisplayedMonth(DCalendarDate candidate) {
+    var result = _monthStart(candidate);
+    if (widget.startMonth case final start?) {
+      final first = _monthStart(start);
+      if (result.isBefore(first)) result = first;
+    }
+    if (widget.endMonth case final end?) {
+      final lastBase = _monthStart(end).addMonths(1 - widget.numberOfMonths);
+      if (result.isAfter(lastBase)) result = lastBase;
+    }
+    return result;
+  }
+
+  bool _outsideBounds(DCalendarDate date) {
+    final month = _monthStart(date);
+    return (widget.startMonth != null &&
+            month.isBefore(_monthStart(widget.startMonth!))) ||
+        (widget.endMonth != null &&
+            month.isAfter(_monthStart(widget.endMonth!)));
+  }
+
   bool _isDisabled(DCalendarDate date) =>
       _outsideBounds(date) || (widget.disabled?.call(date) ?? false);
   bool _isHidden(DCalendarDate date) => widget.hidden?.call(date) ?? false;
@@ -653,9 +709,32 @@ class _DCalendarState extends State<DCalendar> {
   }
 
   bool _canShow(DCalendarDate month) {
-    final end = DCalendarDate(month.year, month.month + 1, 1).addDays(-1);
-    return !(widget.startMonth != null && end.isBefore(widget.startMonth!)) &&
-        !(widget.endMonth != null && month.isAfter(widget.endMonth!));
+    final candidate = _monthStart(month);
+    final lastCandidate = candidate.addMonths(widget.numberOfMonths - 1);
+    return !(widget.startMonth != null &&
+            candidate.isBefore(_monthStart(widget.startMonth!))) &&
+        !(widget.endMonth != null &&
+            lastCandidate.isAfter(_monthStart(widget.endMonth!)));
+  }
+
+  bool _isVisible(DCalendarDate date) =>
+      !date.isBefore(_month) &&
+      date.isBefore(_month.addMonths(widget.numberOfMonths));
+
+  bool _isFocusableAndVisible(DCalendarDate date) =>
+      _isVisible(date) && !_isDisabled(date) && !_isHidden(date);
+
+  DCalendarDate? _firstFocusableVisible() {
+    final today = _todayDate;
+    if (_isFocusableAndVisible(today)) return today;
+    for (
+      var date = _month;
+      date.isBefore(_month.addMonths(widget.numberOfMonths));
+      date = date.addDays(1)
+    ) {
+      if (!_isDisabled(date) && !_isHidden(date)) return date;
+    }
+    return null;
   }
 
   void _syncPages(DCalendarDate base) {
@@ -712,10 +791,12 @@ class _DCalendarState extends State<DCalendar> {
     DCalendarDate date,
   ) {
     final range = current is DCalendarRangeSelection ? current.range : null;
-    if (range == null || range.to != null || date.isBefore(range.from)) {
+    if (range == null || range.to != null) {
       return DCalendarRangeSelection(DCalendarRange(from: date));
     }
-    final candidate = DCalendarRange(from: range.from, to: date);
+    final candidate = date.isBefore(range.from)
+        ? DCalendarRange(from: date, to: range.from)
+        : DCalendarRange(from: range.from, to: date);
     final length = candidate.lengthInDays!;
     if (widget.minRangeDays != null && length < widget.minRangeDays!) {
       return DCalendarRangeSelection(range);
@@ -725,8 +806,8 @@ class _DCalendarState extends State<DCalendar> {
     }
     if (widget.excludeDisabledInRange) {
       for (
-        var cursor = range.from;
-        !cursor.isAfter(date);
+        var cursor = candidate.from;
+        !cursor.isAfter(candidate.to!);
         cursor = cursor.addDays(1)
       ) {
         if (_isDisabled(cursor)) return DCalendarRangeSelection(range);
@@ -802,7 +883,16 @@ class _DCalendarState extends State<DCalendar> {
       label: widget.semanticLabel ?? widget.labels.calendar,
       child: Focus(
         focusNode: _rootFocus,
-        autofocus: widget.autofocus,
+        skipTraversal: true,
+        onFocusChange: (focused) {
+          if (focused && _rootFocus.hasPrimaryFocus) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && _focusedDate != null) {
+                _moveFocus(_focusedDate!);
+              }
+            });
+          }
+        },
         child: LayoutBuilder(
           builder: (context, constraints) {
             final cell = _effectiveCellSize(context, constraints.maxWidth);
@@ -951,10 +1041,12 @@ class _DCalendarState extends State<DCalendar> {
   }
 
   DateTimeRange get _displayRange => DateTimeRange(
-    start: (widget.startMonth ?? DCalendarDate(1900, 1, 1)).dateTimeUtc,
-    end: (widget.endMonth ?? DCalendarDate(2200, 12, 31))
-        .addDays(1)
-        .dateTimeUtc,
+    start: _monthStart(
+      widget.startMonth ?? DCalendarDate(1900, 1, 1),
+    ).dateTimeUtc,
+    end: _monthStart(
+      widget.endMonth ?? DCalendarDate(2200, 12, 1),
+    ).addMonths(1).dateTimeUtc,
   );
 
   DateTime _externalDate(DCalendarDate date) => widget.location == null
@@ -1002,19 +1094,31 @@ class _DCalendarState extends State<DCalendar> {
         monthDayCellBuilder: (context, details) =>
             _dayBackground(context, month, details, cell),
         weekNumberWidth: (_) => cell,
-        weekNumberBuilder: (context, range) => SizedBox(
-          width: cell,
-          height: cell,
-          child: Center(
-            child: Text(
-              '${widget.weekNumberBuilder?.call(DCalendarDate.fromDateTime(range.start)) ?? _isoWeek(DCalendarDate.fromDateTime(range.start))}',
-              style: TextStyle(
-                fontSize: DiscourseTypography.base * .8,
-                color: DTokens.of(context).mutedForeground,
+        weekNumberBuilder: (context, range) {
+          final number =
+              widget.weekNumberBuilder?.call(
+                DCalendarDate.fromDateTime(range.start),
+              ) ??
+              _isoWeek(DCalendarDate.fromDateTime(range.start));
+          return Semantics(
+            container: true,
+            label: '${widget.labels.week} $number',
+            excludeSemantics: true,
+            child: SizedBox(
+              width: cell,
+              height: cell,
+              child: Center(
+                child: Text(
+                  '$number',
+                  style: TextStyle(
+                    fontSize: DiscourseTypography.base * .8,
+                    color: DTokens.of(context).mutedForeground,
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     ),
   );
@@ -1128,7 +1232,11 @@ class _DCalendarState extends State<DCalendar> {
     double cell,
   ) {
     final date = DCalendarDate.fromDateTime(packageDetails.date);
-    final details = _details(month, date, packageDetails.isToday);
+    final details = _details(
+      month,
+      date,
+      widget.today == null ? packageDetails.isToday : date == widget.today,
+    );
     if (details.hidden || (details.outside && !widget.showOutsideDays)) {
       return const SizedBox.shrink();
     }
@@ -1181,11 +1289,7 @@ class _DCalendarState extends State<DCalendar> {
     double cell,
   ) {
     final date = DCalendarDate.fromDateTime(rawDate);
-    final details = _details(
-      month,
-      date,
-      date == (widget.today ?? DCalendarDate.fromDateTime(DateTime.now())),
-    );
+    final details = _details(month, date, date == _todayDate);
     if (details.hidden || (details.outside && !widget.showOutsideDays)) {
       return SizedBox(height: cell);
     }
@@ -1194,6 +1298,8 @@ class _DCalendarState extends State<DCalendar> {
       key,
       () => FocusNode(debugLabel: 'DCalendar $date'),
     );
+    focusNode.skipTraversal =
+        details.outside || details.disabled || date != _focusedDate;
     final locale = (widget.locale ?? Localizations.localeOf(context))
         .toLanguageTag();
     final defaultChild = Text(

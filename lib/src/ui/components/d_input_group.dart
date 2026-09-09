@@ -436,7 +436,6 @@ class DInputGroupButton extends StatelessWidget {
 class DInputGroupInput extends DInput {
   DInputGroupInput({
     super.key,
-    super.editorKey,
     super.controller,
     super.value,
     super.initialValue,

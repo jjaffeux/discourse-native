@@ -169,7 +169,7 @@ class _ChatChannelSearchBarState extends State<ChatChannelSearchBar> {
                   child: DInputGroup(
                     children: [
                       DInputGroupInput(
-                        editorKey: const ValueKey('chat-channel-search-field'),
+                        key: const ValueKey('chat-channel-search-field'),
                         controller: _query,
                         autofocus: true,
                         semanticLabel: 'Search this channel',

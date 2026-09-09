@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -77,7 +79,7 @@ void main() {
           .getSemantics(find.bySemanticsLabel('Tuesday, September 8, 2026'))
           .flagsCollection
           .isSelected,
-      isTrue,
+      Tristate.isTrue,
     );
     await tester.tap(find.bySemanticsLabel('Thursday, September 10, 2026'));
     await tester.pump();
@@ -98,6 +100,14 @@ void main() {
         ),
       );
       await tester.tap(find.bySemanticsLabel('Tuesday, September 8, 2026'));
+      await tester.pump();
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel('Thursday, September 10, 2026'))
+            .flagsCollection
+            .isSelected,
+        Tristate.isFalse,
+      );
       await tester.tap(find.bySemanticsLabel('Wednesday, September 9, 2026'));
       await tester.pump();
       expect((multiple! as DCalendarMultipleSelection).dates, [
@@ -116,6 +126,14 @@ void main() {
         ),
       );
       await tester.tap(find.bySemanticsLabel('Tuesday, September 8, 2026'));
+      await tester.pump();
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel('Thursday, September 10, 2026'))
+            .flagsCollection
+            .isSelected,
+        Tristate.isFalse,
+      );
       await tester.tap(find.bySemanticsLabel('Wednesday, September 9, 2026'));
       await tester.tap(find.bySemanticsLabel('Friday, September 11, 2026'));
       await tester.pump();
@@ -123,6 +141,17 @@ void main() {
         (range! as DCalendarRangeSelection).range,
         DCalendarRange(
           from: DCalendarDate(2026, 9, 8),
+          to: DCalendarDate(2026, 9, 11),
+        ),
+      );
+
+      await tester.tap(find.bySemanticsLabel('Friday, September 11, 2026'));
+      await tester.tap(find.bySemanticsLabel('Monday, September 7, 2026'));
+      await tester.pump();
+      expect(
+        (range! as DCalendarRangeSelection).range,
+        DCalendarRange(
+          from: DCalendarDate(2026, 9, 7),
           to: DCalendarDate(2026, 9, 11),
         ),
       );
@@ -149,6 +178,130 @@ void main() {
     await tester.pumpAndSettle();
     expect(changes.last, DCalendarSingleSelection(DCalendarDate(2026, 9, 12)));
     expect(find.text('October 2026'), findsOneWidget);
+  });
+
+  testWidgets('controller clears selection and replacement adopts new state', (
+    tester,
+  ) async {
+    final first = DCalendarController(
+      selection: DCalendarSingleSelection(DCalendarDate(2026, 9, 8)),
+      displayedMonth: september,
+    );
+    final second = DCalendarController(
+      selection: DCalendarSingleSelection(DCalendarDate(2026, 10, 12)),
+      displayedMonth: DCalendarDate(2026, 10, 1),
+    );
+    late StateSetter rebuild;
+    var controller = first;
+    await pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          rebuild = setState;
+          return DCalendar(controller: controller);
+        },
+      ),
+    );
+
+    first.clear();
+    await tester.pump();
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Tuesday, September 8, 2026'))
+          .flagsCollection
+          .isSelected,
+      Tristate.isFalse,
+    );
+
+    rebuild(() => controller = second);
+    await tester.pumpAndSettle();
+    expect(find.text('October 2026'), findsOneWidget);
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Monday, October 12, 2026'))
+          .flagsCollection
+          .isSelected,
+      Tristate.isTrue,
+    );
+  });
+
+  testWidgets(
+    'keyboard traversal enters one roving day and week numbers are named',
+    (tester) async {
+      final before = FocusNode(debugLabel: 'Before calendar');
+      final after = FocusNode(debugLabel: 'After calendar');
+      addTearDown(before.dispose);
+      addTearDown(after.dispose);
+      await pump(
+        tester,
+        Column(
+          children: [
+            TextButton(
+              focusNode: before,
+              autofocus: true,
+              onPressed: () {},
+              child: const Text('Before calendar'),
+            ),
+            DCalendar(
+              initialDisplayedMonth: september,
+              initialSelection: DCalendarSingleSelection(
+                DCalendarDate(2026, 9, 8),
+              ),
+              showWeekNumbers: true,
+              firstWeekday: DateTime.monday,
+            ),
+            TextButton(
+              focusNode: after,
+              onPressed: () {},
+              child: const Text('After calendar'),
+            ),
+          ],
+        ),
+      );
+
+      expect(FocusManager.instance.primaryFocus, before);
+      // Previous and next month controls precede the single roving grid cell.
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        contains('2026-09-08'),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      expect(FocusManager.instance.primaryFocus, after);
+      expect(find.bySemanticsLabel(RegExp(r'^Week \d+$')), findsWidgets);
+    },
+  );
+
+  testWidgets('start and end month bounds include their complete months', (
+    tester,
+  ) async {
+    DCalendarSelection? selection;
+    await pump(
+      tester,
+      DCalendar(
+        displayedMonth: september,
+        startMonth: DCalendarDate(2026, 9, 20),
+        endMonth: DCalendarDate(2026, 9, 1),
+        onSelectionChanged: (value, _) => selection = value,
+      ),
+    );
+
+    await tester.tap(find.bySemanticsLabel('Tuesday, September 1, 2026'));
+    await tester.pump();
+    expect(
+      (selection! as DCalendarSingleSelection).date,
+      DCalendarDate(2026, 9, 1),
+    );
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Wednesday, September 30, 2026'))
+          .flagsCollection
+          .isEnabled,
+      Tristate.isTrue,
+    );
   });
 
   testWidgets('keyboard navigates days, months, years and logical RTL', (
