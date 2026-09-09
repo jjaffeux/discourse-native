@@ -64,7 +64,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 24 | item | in_progress | 01a084bf-dd8a-7c13-86dd-63f2e60d20cd | codex/ui-item | separator, avatar, button | — |
 | 25 | table | in_progress | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | — |
 | 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
-| 27 | collapsible | in_progress | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | — |
+| 27 | collapsible | review_ready | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | — |
 | 28 | accordion | planned | — | — | collapsible | — |
 | 29 | tabs | in_progress | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | — |
 | 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
@@ -1700,7 +1700,7 @@ Status: merged. Task: 01a083e1-420b-7711-b8e8-f268576dcc3b. Branch: codex/ui-scr
 
 ### collapsible
 
-Status: in_progress. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/ui-collapsible.
+Status: review_ready. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/ui-collapsible.
 
 **acceptanceCriteria**
 
@@ -1716,6 +1716,8 @@ Status: in_progress. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/u
 - Public DCollapsible/Trigger/Content expose composition, controlled/default state, disabled focusable triggers, passive state builder, borrowed focus nodes and explicit retained/lazy content with optional reduced-motion-aware height animation. Browser hiddenUntilFound maps to host-controlled open for search, not an inert native prop.
 - Actual order, Basic, Settings, nested File Tree, RTL and lifecycle/Form examples use merged Card and available DButton/StyleguideAction/native editing. Input/Field/Tabs remain pending and exact dependent button/editor visuals are explicitly identified for reconciliation.
 - Integration refresh: merged pinned main e612ad7b47413fa890b35ae3b55a6f6d37b08cf7 preserving all other progress rows and coordinator fixes. Examples use final DInput and DButton; trigger remains the sole disclosure interaction owner. Field/Tabs still unmerged.
+- Independent native review found and fixed an oversized semantics boundary: DCollapsibleTrigger is now an explicit semantic container, keeping enclosing cards, fields and sibling controls outside its button role.
+- Latest-main reconciliation preserves DSwitchTile in Local Dates and DScrollBar in AlertTables while DCollapsible remains the only disclosure owner. Field remains a documented DInput-owned label boundary; Tabs reviewer 01a08581-d666-7f81-b039-f9caae6c45c2 owns the explicit File Tree DTabs.controlled follow-up.
 
 **migrations**
 
@@ -1735,11 +1737,18 @@ Status: in_progress. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/u
 - 61 focused tests passed: test/ui/d_collapsible_test.dart, test/styleguide/collapsible_examples_test.dart, test/collapsible_editor_migration_test.dart, test/collapsible_review_fixture_test.dart, test/event_composer_test.dart, test/plugins/local_dates/local_date_composer_sheet_lifecycle_test.dart, test/plugins/local_dates/local_date_composer_component_test.dart, test/alert_tables_test.dart, test/prometheus_alert_receiver_plugin_test.dart, test/styleguide/styleguide_page_test.dart.
 - Isolated Collapsible Review 3c15 macOS debug app built from e05de6002a37f1dfbc7483a29f921086dffb0d3d; restored source equality and deep strict ad-hoc signature verification passed. Embedded/built kernel SHA256 57c4799f2342c03b9638bccf126114ce1f70ecc2dfcea46f9a2a472e850955f2. Exact path/identity/temporary signing adaptations: docs/component-library/evidence/collapsible/native-build.json. No launch.
 - Integration: 47 focused tests and root/full analysis passed. Source 39159f39becd55a320da35aab967aaaad2ef6d6f built as Collapsible Integrated 3c15.app. Embedded/built kernel SHA256 0c06245b0af44db0d0cb2220cc4e98ad6b00cbbc3b300a497e3d7696fd1054c1; source equality, restricted-free signed debug/JIT readback and strict deep signature passed. Exact identity/path/evidence in native-build.json. No launch.
+- Independent reviewer reran 63 focused component, example, migration, fixture and styleguide tests after the semantics correction; all passed. Root and profiles/full flutter analyze --no-pub passed with no issues; touched formatting and git diff --check passed.
+- Approved browser inspection covered the official rendered Base UI dark Order disclosure and the documented Basic, Settings, File Tree and RTL compositions. Controlled collapsed/expanded state and two revealed detail rows matched the frozen source geometry and state treatment closely.
+- Native macOS inspection covered light/dark Order, keyboard activation, Settings, Events More options, Local Dates Display options and 32-row AlertTables groups. The initial Settings tree exposed the merged button semantics defect; the rebuilt fix confirmed a passive card, one bounded trigger and four independent text fields, with hidden descendants added only on expansion.
+- Latest-main overlap verification preserved merged DSwitchTile and DScrollBar child owners; 32 focused overlap tests plus root/full analysis passed. Final isolated Collapsible Final c91e.app rebuilt successfully with kernel SHA256 390c06fa872ff7a43f04cdb1fc59de7cce8472df097857b858e56612048a2ddc, restored runner equality and strict deep ad-hoc signature verification.
+- Final source/adoption/evidence review found no remaining Collapsible-owned issue. Full suite was not run under the user's focused-verification policy.
 
 **limitations**
 
-- Browser/native review remains required and forbidden in this locked/admin-policy-denied session. No CUA, browser navigation, native launch or workaround performed.
-- Field/Tabs composition remains explicit; disclosure button skins are passive builders, not nested DButtons.
+- No iOS or Linux device run and no spoken VoiceOver claim. Target-platform widget coverage is not device testing.
+- Native production inspection used actual Events, Local Dates and AlertTables widgets with fixed local data; no authenticated live account or network session was opened.
+- Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette mapping, interaction and native semantics were compared directly.
+- The File Tree keeps its temporary two-DButton Explorer/Outline selector until the separately reviewed Tabs owner performs the recorded DTabs.controlled adoption; Collapsible does not duplicate that owner.
 
 ### tabs
 
