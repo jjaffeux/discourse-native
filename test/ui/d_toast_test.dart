@@ -145,6 +145,21 @@ void main() {
     expect(find.text('Event created.'), findsNothing);
 
     controller.add(
+      DToastOptions(
+        duration: null,
+        contentBuilder: (context, toast) => const Text('Custom content'),
+      ),
+    );
+    await tester.pump();
+    final customContext = tester.element(find.text('Custom content'));
+    expect(
+      DefaultTextStyle.of(customContext).style.color,
+      DTokens.of(customContext).foreground,
+    );
+    controller.closeAll();
+    await tester.pump();
+
+    controller.add(
       const DToastOptions(description: 'Closable', duration: null),
     );
     await tester.pump();

@@ -669,85 +669,94 @@ class _DToastCardState extends State<_DToastCard> {
               ),
             )
           : null,
-      child:
-          options.contentBuilder?.call(context, widget.entry) ??
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (options.type != DToastType.standard) ...[
-                  _DToastStatusIcon(type: options.type),
-                  const SizedBox(width: 12),
-                ],
-                Flexible(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (options.title != null)
-                        Text(
-                          options.title!,
-                          style: textTheme.bodyMedium?.copyWith(
-                            fontSize: DiscourseTypography.sm,
-                            height: DiscourseTypography.lineHeightSmall,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0,
+      child: options.contentBuilder != null
+          ? DefaultTextStyle.merge(
+              style: (textTheme.bodyMedium ?? const TextStyle()).copyWith(
+                color: tokens.foreground,
+              ),
+              child: IconTheme.merge(
+                data: IconThemeData(color: tokens.foreground),
+                child: options.contentBuilder!(context, widget.entry),
+              ),
+            )
+          : Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (options.type != DToastType.standard) ...[
+                    _DToastStatusIcon(type: options.type),
+                    const SizedBox(width: 12),
+                  ],
+                  Flexible(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (options.title != null)
+                          Text(
+                            options.title!,
+                            style: textTheme.bodyMedium?.copyWith(
+                              fontSize: DiscourseTypography.sm,
+                              height: DiscourseTypography.lineHeightSmall,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0,
+                            ),
                           ),
-                        ),
-                      if (options.title != null && options.description != null)
-                        const SizedBox(height: 4),
-                      if (options.description != null)
-                        Text(
-                          options.description!,
-                          style: textTheme.bodyMedium?.copyWith(
-                            fontSize: DiscourseTypography.sm,
-                            height: DiscourseTypography.lineHeightSmall,
-                            fontWeight: FontWeight.normal,
-                            letterSpacing: 0,
-                            color: tokens.mutedForeground,
+                        if (options.title != null &&
+                            options.description != null)
+                          const SizedBox(height: 4),
+                        if (options.description != null)
+                          Text(
+                            options.description!,
+                            style: textTheme.bodyMedium?.copyWith(
+                              fontSize: DiscourseTypography.sm,
+                              height: DiscourseTypography.lineHeightSmall,
+                              fontWeight: FontWeight.normal,
+                              letterSpacing: 0,
+                              color: tokens.mutedForeground,
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-                if (options.action case final action?) ...[
-                  const SizedBox(width: 12),
-                  DButton(
-                    label: Text(action.label),
-                    semanticLabel: action.semanticLabel,
-                    variant: DButtonVariant.outline,
-                    size: DButtonSize.small,
-                    onPressed: action.onPressed == null
-                        ? null
-                        : () {
-                            action.onPressed!();
-                            if (action.dismissOnPressed) {
-                              widget.controller.close(
-                                widget.entry.id,
-                                reason: DToastCloseReason.action,
-                              );
-                            }
-                          },
-                  ),
-                ],
-                if (options.showClose) ...[
-                  const SizedBox(width: 4),
-                  DButton.iconOnly(
-                    icon: const Icon(Icons.close, size: 16),
-                    tooltip: 'Close toast',
-                    semanticLabel: 'Close notification',
-                    variant: DButtonVariant.ghost,
-                    size: DButtonSize.extraSmall,
-                    onPressed: () => widget.controller.close(
-                      widget.entry.id,
-                      reason: DToastCloseReason.closeButton,
+                      ],
                     ),
                   ),
+                  if (options.action case final action?) ...[
+                    const SizedBox(width: 12),
+                    DButton(
+                      label: Text(action.label),
+                      semanticLabel: action.semanticLabel,
+                      variant: DButtonVariant.outline,
+                      size: DButtonSize.small,
+                      onPressed: action.onPressed == null
+                          ? null
+                          : () {
+                              action.onPressed!();
+                              if (action.dismissOnPressed) {
+                                widget.controller.close(
+                                  widget.entry.id,
+                                  reason: DToastCloseReason.action,
+                                );
+                              }
+                            },
+                    ),
+                  ],
+                  if (options.showClose) ...[
+                    const SizedBox(width: 4),
+                    DButton.iconOnly(
+                      icon: const Icon(Icons.close, size: 16),
+                      tooltip: 'Close toast',
+                      semanticLabel: 'Close notification',
+                      variant: DButtonVariant.ghost,
+                      size: DButtonSize.extraSmall,
+                      onPressed: () => widget.controller.close(
+                        widget.entry.id,
+                        reason: DToastCloseReason.closeButton,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
     );
     return Semantics(
       liveRegion: true,
