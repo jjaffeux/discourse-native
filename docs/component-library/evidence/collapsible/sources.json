@@ -1,0 +1,77 @@
+[
+  {
+    "url": "https://ui.shadcn.com/docs/components/base/collapsible.md",
+    "file": "collapsible.md",
+    "sha256": "51c94ec0874f01cd67a62616d74dabb98334f8a31c1db74207f7c86a2402ea6a"
+  },
+  {
+    "url": "https://ui.shadcn.com/r/styles/base-nova/collapsible.json",
+    "file": "collapsible.json",
+    "sha256": "74f78cd88a30185243847968977cf1de9ffbf576547f2ec1f14b5ef55505b90d"
+  },
+  {
+    "url": "https://base-ui.com/react/components/collapsible.md",
+    "file": "base-ui.md",
+    "sha256": "0463bff7bcff793c1a31a60219bf10e9e509e05263e929deffc4b7217ef7af5a"
+  },
+  {
+    "url": "https://ui.shadcn.com/r/styles/base-nova/button.json",
+    "file": "button.json",
+    "sha256": "9ba7e870178813f0552b818a913a2792fb500c779e36395740b4973e3025d427"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/mui/base-ui/master/packages/react/src/collapsible/root/CollapsibleRoot.tsx",
+    "file": "CollapsibleRoot.tsx",
+    "sha256": "0cef031a852397b79afa67943e1370996bfa5ec20766d7a07a2d4e71674d173e"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/mui/base-ui/master/packages/react/src/collapsible/trigger/CollapsibleTrigger.tsx",
+    "file": "CollapsibleTrigger.tsx",
+    "sha256": "ce9afedaca5278236cd9aeac7cee408f510d75e32a78ec759e1cb2da76e3a634"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/mui/base-ui/master/packages/react/src/collapsible/panel/CollapsiblePanel.tsx",
+    "file": "CollapsiblePanel.tsx",
+    "sha256": "b2694e75cd711224adc1e586cc36efa6832354657d0979c00a28a9bb4d8bef79"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/folder.svg",
+    "file": "folder.svg",
+    "sha256": "f0d92b94b797a8ab7d4c4ae33c3236c47f64068351b4e14bdb5014ee42898a39"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/file.svg",
+    "file": "file.svg",
+    "sha256": "499039795d7412d67664ff79d2eb6b7412e746b24c18c8fd8aba383c24ddada0"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/maximize.svg",
+    "file": "maximize.svg",
+    "sha256": "1f790856b0de805ab62e871609f1990b89d227d472022e57a11fde015aad4826"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/minimize.svg",
+    "file": "minimize.svg",
+    "sha256": "7daa304bc3dccac1f100304e66a41139662cc6c0ba3eba67480d97466a9ce02b"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chevrons-up-down.svg",
+    "file": "chevrons-up-down.svg",
+    "sha256": "edc561e007cfab9b6b45301a8cb02711fd7c901e53e30ee29c5491b74dbe6bcc"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chevron-right.svg",
+    "file": "chevron-right.svg",
+    "sha256": "2758143d7b2434e4aa7307dfd34405c87909ff4052f21b5f3f40d45224b4f19b"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chevron-down.svg",
+    "file": "chevron-down.svg",
+    "sha256": "66ea878e72ed3488bb3b464c39dfdccee8d1f78e560dccea40e5e12da0e87e87"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chevron-up.svg",
+    "file": "chevron-up.svg",
+    "sha256": "d09f13fcbef3c493ead7e4663b5ee91804fec38d5edb5e7cc3acfbd547641cf4"
+  }
+]

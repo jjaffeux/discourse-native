@@ -1,0 +1,33 @@
+{
+  "sourceCommit": "39159f39becd55a320da35aab967aaaad2ef6d6f",
+  "sourceEquality": "git diff --exit-code HEAD -- lib tool macos pubspec.lock profiles/full/pubspec.lock .fvmrc passed after restoring temporary runner identity edits",
+  "command": "flutter build macos --debug --no-pub -t tool/collapsible_review_main.dart",
+  "app": "/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native/build/macos/Build/Products/Debug/Collapsible Integrated 3c15.app",
+  "bundleIdentifier": "org.discourse.collapsibleintegrated3c15",
+  "name": "Collapsible Integrated 3c15",
+  "urlTypes": [
+    {
+      "CFBundleURLName": "org.discourse.collapsibleintegrated3c15",
+      "CFBundleURLSchemes": [
+        "discourse-collapsible-integrated-3c15"
+      ]
+    }
+  ],
+  "embeddedKernel": "/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native/build/macos/Build/Products/Debug/Collapsible Integrated 3c15.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin",
+  "kernelSha256": "0c06245b0af44db0d0cb2220cc4e98ad6b00cbbc3b300a497e3d7696fd1054c1",
+  "matchingBuiltKernels": [
+    "/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native/build/macos/Build/Products/Debug/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin"
+  ],
+  "signatureCommand": "codesign --verify --deep --strict /Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native/build/macos/Build/Products/Debug/Collapsible Integrated 3c15.app",
+  "signatureExitCode": 0,
+  "signatureOutput": "",
+  "signedEntitlements": {
+    "com.apple.security.cs.allow-jit": true,
+    "com.apple.security.cs.allow-unsigned-executable-memory": true,
+    "com.apple.security.get-task-allow": true
+  },
+  "entitlementReadback": "Signed readback contains only allow-jit, allow-unsigned-executable-memory and Xcode-added debug get-task-allow, all true. Initial exact two-key assertion exposed the debug addition; the reviewed three-key debug/JIT allowlist passed without rebuilding or launching. No restricted entitlements.",
+  "signing": "Local ad-hoc; production runner files restored byte-for-byte",
+  "nativeInspection": "Not launched; locked Mac and admin-policy browser denial; no attempt or workaround",
+  "signatureDetails": "Executable=/Users/joffreyjaffeux/.codex/worktrees/3c15/discourse-native/build/macos/Build/Products/Debug/Collapsible Integrated 3c15.app/Contents/MacOS/Collapsible Integrated 3c15\nIdentifier=org.discourse.collapsibleintegrated3c15\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=448 flags=0x2(adhoc) hashes=3+7 location=embedded\nVersionPlatform=1\nVersionMin=786432\nVersionSDK=1705216\nHash type=sha256 size=32\nCandidateCDHash sha256=2c3ab9f440d7e65f7a64c315c2f768396a6b7149\nCandidateCDHashFull sha256=2c3ab9f440d7e65f7a64c315c2f768396a6b71493a80a3285d1c44fb2571bafc\nHash choices=sha256\nCMSDigest=2c3ab9f440d7e65f7a64c315c2f768396a6b71493a80a3285d1c44fb2571bafc\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=16384\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=2c3ab9f440d7e65f7a64c315c2f768396a6b7149\nSignature=adhoc\nInfo.plist entries=30\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=34\nInternal requirements count=0 size=12\n"
+}
