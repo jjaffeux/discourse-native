@@ -106,6 +106,61 @@ void main() {
     expect(find.text('Andy'), findsOneWidget);
   });
 
+  testWidgets('Home and End stay within an open command menu', (tester) async {
+    await tester.pumpWidget(const _TestApp(child: _BasicMenubar()));
+
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pump();
+
+    expect(FocusManager.instance.primaryFocus?.debugLabel, contains('Print'));
+    expect(find.text('New Tab'), findsOneWidget);
+    expect(find.text('Andy'), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, contains('New Tab'));
+  });
+
+  testWidgets('vertical open menus retain command arrow navigation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const _TestApp(
+        child: DMenubar(
+          orientation: Axis.vertical,
+          children: [
+            DMenubarMenu(
+              trigger: DMenubarTrigger(child: Text('File')),
+              content: DMenubarContent(
+                children: [
+                  DMenubarItem(onPressed: _noop, child: Text('New')),
+                  DMenubarItem(onPressed: _noop, child: Text('Open')),
+                ],
+              ),
+            ),
+            DMenubarMenu(
+              trigger: DMenubarTrigger(child: Text('Edit')),
+              content: DMenubarContent(
+                children: [DMenubarItem(child: Text('Undo'))],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+
+    expect(FocusManager.instance.primaryFocus?.debugLabel, contains('Open'));
+    expect(find.text('New'), findsOneWidget);
+    expect(find.text('Undo'), findsNothing);
+  });
+
   testWidgets('checkbox and radio state remain open and update', (
     tester,
   ) async {
@@ -202,6 +257,83 @@ void main() {
           .isEnabled,
       Tristate.isFalse,
     );
+  });
+
+  testWidgets('re-enabled roots restore a keyboard entry point', (
+    tester,
+  ) async {
+    const menu = DMenubar(
+      disabled: true,
+      children: [
+        DMenubarMenu(
+          trigger: DMenubarTrigger(child: Text('File')),
+          content: DMenubarContent(
+            children: [DMenubarItem(child: Text('New Tab'))],
+          ),
+        ),
+      ],
+    );
+    await tester.pumpWidget(const _TestApp(child: menu));
+    await tester.pumpWidget(
+      const _TestApp(
+        child: DMenubar(
+          children: [
+            DMenubarMenu(
+              trigger: DMenubarTrigger(child: Text('File')),
+              content: DMenubarContent(
+                children: [DMenubarItem(child: Text('New Tab'))],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Menubar trigger');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Tab'), findsOneWidget);
+  });
+
+  testWidgets('a newly enabled menu becomes the roving focus entry point', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const _TestApp(
+        child: DMenubar(
+          children: [
+            DMenubarMenu(
+              enabled: false,
+              trigger: DMenubarTrigger(child: Text('File')),
+              content: DMenubarContent(
+                children: [DMenubarItem(child: Text('New Tab'))],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpWidget(
+      const _TestApp(
+        child: DMenubar(
+          children: [
+            DMenubarMenu(
+              trigger: DMenubarTrigger(child: Text('File')),
+              content: DMenubarContent(
+                children: [DMenubarItem(child: Text('New Tab'))],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Menubar trigger');
   });
 
   testWidgets(
@@ -337,6 +469,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
+
+void _noop() {}
 
 class _TestApp extends StatelessWidget {
   const _TestApp({
