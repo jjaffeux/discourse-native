@@ -116,3 +116,19 @@ Existing host adaptations remain: configured palette/font/radius, focus color,
 native font underline placement (Flutter has no independent text underline-offset
 property), and sRGB state-color interpolation instead of CSS OKLCH mixing.
 The last two are explicitly visible limitations, not claims of exact parity.
+
+## Source and pending native bundle
+
+Compared implementation: `6db474b8c16529a28d77a168d9ac9dc4fb885647`. The final byte-verified macOS
+fixture build is `/private/tmp/DiscourseButtonReview-3a88-v3.app`, with identifier
+`org.discourse.native.button-review.3a88.v3`, display **Discourse Button Review
+V3** and isolated `discourse-button-review-3a88-v3` scheme. Deep strict ad-hoc
+signature verification passes. It has not been launched. This V3 bundle
+supersedes V1/V2 for the pending native slot.
+
+Pre-build Dart manifest `/private/tmp/button-build-source-v3.json` SHA256:
+`145eddf402173926d65751052a418cf4b9994c67641f5a6a0c06503e4ac8209b`.
+Kernel SHA256:
+`9e8e0376cc234c8be9299212620d118ca2a27b7b7ce3737b432318d8eb20ba9d`.
+Build log: `/private/tmp/button-review-v3-build.log`.
+All preserved comparison artifacts have hashes in `evidence/button/sha256.json`.

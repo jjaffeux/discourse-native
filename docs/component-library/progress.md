@@ -566,6 +566,7 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - Corrected source byte-verified and rebuilt in /private/tmp/DiscourseButtonReview-3a88-v2.app (unique org.discourse.native.button-review.3a88.v2 ID/scheme); deep strict signature passes. Kernel SHA256 b229b90dee48bcda90cefc31e8a9f4ee398673f7400a8da4b9f3566ede5fbc26. V2 supersedes the earlier unlaunched review bundle.
 - Actual CUA Chrome reference comparison completed at1270x847 and360x700 against exact current Flutter widget-test exports, including six variants, all sizes/icons/loading, settled hover/focus and Arabic RTL. Evidence/metrics/harness in docs/component-library/evidence/button; detailed findings in button-rendered-comparison.md. Browser viewport reset, original dark theme restored and tab closed.
 - After rendered-comparison fixes,218 Button/styleguide/adoption/PollCard/UserSummary tests passed;11 final focused tests passed after Arabic example; root/full-profile analysis and font-loaded export harness pass.
+- Compared implementation 6db474b8c16529a28d77a168d9ac9dc4fb885647 rebuilt and source-byte-verified in unlaunched /private/tmp/DiscourseButtonReview-3a88-v3.app; unique V3 ID/scheme and deep strict signature pass. Kernel SHA256 9e8e0376cc234c8be9299212620d118ca2a27b7b7ce3737b432318d8eb20ba9d. V3 supersedes earlier native review bundles.
 
 **limitations**
 
