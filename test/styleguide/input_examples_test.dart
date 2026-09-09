@@ -59,6 +59,55 @@ void main() {
     });
   }
   testWidgets(
+    'form edits and reset baseline survive grid reflow and live palette changes',
+    (tester) async {
+      double width = 600;
+      ThemeData theme = AppTheme.light;
+      late StateSetter update;
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return MaterialApp(
+              theme: theme,
+              home: Scaffold(
+                body: Center(
+                  child: SizedBox(
+                    width: width,
+                    child: const SingleChildScrollView(
+                      child: InputFormExample(),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+      await tester.enterText(find.byType(TextField).first, 'Keep my edit');
+      final controller = tester
+          .widget<TextField>(find.byType(TextField).first)
+          .controller;
+      update(() {
+        width = 300;
+        theme = AppTheme.dark;
+      });
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller,
+        same(controller),
+      );
+      expect(controller!.text, 'Keep my edit');
+      update(() => width = 600);
+      await tester.pumpAndSettle();
+      expect(controller.text, 'Keep my edit');
+      await tester.tap(find.text('Reset'));
+      await tester.pump();
+      expect(controller.text, isEmpty);
+    },
+  );
+
+  testWidgets(
     'example validates required fields then saves and resets independent local values',
     (tester) async {
       await tester.pumpWidget(

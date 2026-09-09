@@ -186,3 +186,20 @@ link editing, app validation/stale-session behavior, Sidebar and documentation
 navigation. Logs: `/tmp/input-final-focused.log`, `/tmp/input-final-unit.log`.
 Root and full-profile final analysis logs:
 `/tmp/input-final-analysis.log`, `/tmp/input-final-full-analysis.log`.
+
+### File target and responsive form refinement
+
+The file surface is now a centered background behind the Button and file name.
+At desktop scale 100% it remains 32px; at 200% it grows to 48px. Touch permits the
+Button's full 48px target without a tight height constraint or clipping. The
+file label explicitly keeps 14/20px medium text and zero padding. Once Button
+is integrated, select its 24px `DButtonSize.extraSmall` instead of this base's
+`small`; do not use its default 12/16px file-label metrics.
+
+Form example fields use stable FormField keys across grid/stack reparenting.
+Changing width and palette preserves their controller identity, edit and mount
+reset baseline. All 20 Input and example tests pass after these refinements
+(seed `928374611`), as do root/full-profile analysis and the native fixture
+rebuild. Logs: `/tmp/input-final-refinements.log`,
+`/tmp/input-refinements-analysis.log`, `/tmp/input-refinements-full-analysis.log`,
+`/tmp/input-refinements-native-build.log`.

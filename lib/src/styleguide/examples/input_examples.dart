@@ -137,6 +137,8 @@ class InputFormExample extends StatefulWidget {
 
 class _InputFormExampleState extends State<InputFormExample> {
   final _form = GlobalKey<FormState>();
+  final _nameField = GlobalKey<FormFieldState<String>>();
+  final _emailField = GlobalKey<FormFieldState<String>>();
   String _name = '', _email = '', _result = '';
   @override
   Widget build(BuildContext context) => Form(
@@ -148,6 +150,7 @@ class _InputFormExampleState extends State<InputFormExample> {
           builder: (context, constraints) {
             final fields = [
               DInput(
+                key: _nameField,
                 labelText: 'Name *',
                 isRequired: true,
                 hintText: 'Jordan Lee',
@@ -156,6 +159,7 @@ class _InputFormExampleState extends State<InputFormExample> {
                 onSaved: (v) => _name = v!,
               ),
               DInput(
+                key: _emailField,
                 labelText: 'Email *',
                 isRequired: true,
                 hintText: 'name@example.com',

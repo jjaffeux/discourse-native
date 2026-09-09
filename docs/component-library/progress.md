@@ -668,6 +668,7 @@ Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/u
 - One DInput FormField/TextField owner handles native editing and lifecycle. Controller/value/initialValue modes are exclusive; reset preserves the mount snapshot like pinned TextFormField and synchronizes visible text/Form state.
 - Desktop uses 14/20px typography; touch uses 16/24px and a transparent 48px target. File selection composes a 24px Button visual in a 32px input and host-owned asynchronous picker callback.
 - Simple prefix/suffix slots support app search/status controls; no new shared primitive or full Field/Input Group/Textarea/OTP renderer is introduced.
+- File selector foreground and compact surface are laid out separately: desktop field remains 32px, touch Button keeps an unclipped 48px target. Explicit 14/20 medium file label and zero padding survive Button integration; coordinator must select the completed extraSmall enum after Button merges.
 
 **migrations**
 
@@ -688,6 +689,7 @@ Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/u
 - Coverage includes all seven actual examples at 320px/200% RTL in Light/Dark/Forest/Plum, editing/IME/controller/reset/form/file regressions, real app async ownership and validation, Sidebar/navigation, Voice and Chat/link editing.
 - flutter build macos --debug --no-pub -t tool/input_review_main.dart passed. Fixture mounts real Add a Site and Poll editor against local fake data plus actual Input samples and the full styleguide.
 - Isolated native bundle /private/tmp/DiscourseInputReview-01a083ad.app built from implementation source ae4aa4a8. CFBundleIdentifier org.discourse.native.input.01a083ad and unique discourse-input-review-01a083ad scheme; codesign --verify --deep --strict passes. Source-build and isolated-copy kernels both SHA256 f9d9ddb13dba95a076d165d84db1eafcbfd3215232bb161782ad53b17e647089. Bundle is prepared but has not been launched.
+- Final file-target and responsive-form refinements: all 20 Input/component-example tests passed with seed 928374611; root/full-profile analysis and isolated macOS rebuild passed. Live grid-to-stack/palette changes preserve field identity, edited text and reset baseline. Logs: /tmp/input-final-refinements.log, /tmp/input-refinements-analysis.log, /tmp/input-refinements-full-analysis.log, /tmp/input-refinements-native-build.log.
 
 **limitations**
 

@@ -485,64 +485,97 @@ class _DFileInputState extends FormFieldState<List<String>> {
     input.onChanged?.call(value ?? const []);
   }
 
-  Widget _build() => Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Focus(
-        canRequestFocus: false,
-        skipTraversal: true,
-        includeSemantics: false,
-        onFocusChange: (focused) => setState(() => _focused = focused),
-        child: _InputSurface(
-          enabled: input.enabled,
-          invalid: hasError || _pickerError != null,
-          focused: _focused,
-          verticalPadding: 3,
-          child: Row(
+  Widget _build() {
+    final t = DTokens.of(context);
+    final touch = switch (Theme.of(context).platform) {
+      TargetPlatform.iOS || TargetPlatform.android => true,
+      _ => false,
+    };
+    final lineHeight =
+        MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
+        20 /
+        14;
+    final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
+      fontSize: DiscourseTypography.sm,
+      height: 20 / 14,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 0,
+      color: t.foreground,
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Focus(
+          canRequestFocus: false,
+          skipTraversal: true,
+          includeSemantics: false,
+          onFocusChange: (focused) => setState(() => _focused = focused),
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Flexible(
-                child: SizedBox(
-                  height: (MediaQuery.textScalerOf(context).scale(14) * 20 / 14)
-                      .clamp(24, double.infinity),
-                  child: DButton(
-                    onPressed: input.enabled && !_busy ? _pick : null,
-                    variant: DButtonVariant.transparent,
-                    size: DButtonSize.small,
-                    padding: EdgeInsets.zero,
-                    label: Text(_busy ? 'Choosing…' : input.label, maxLines: 1),
-                  ),
-                ),
+              _InputSurface(
+                enabled: input.enabled,
+                invalid: hasError || _pickerError != null,
+                focused: _focused,
+                verticalPadding: 3,
+                child: SizedBox(width: double.infinity, height: lineHeight),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  value?.isNotEmpty == true
-                      ? value!.join(', ')
-                      : input.emptyLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontSize: 14,
-                    height: 20 / 14,
-                    color: DTokens.of(context).foreground,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 11),
+                child: Opacity(
+                  opacity: input.enabled ? 1 : .5,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: touch ? DSpacing.touchTarget : 24,
+                          ),
+                          child: DButton(
+                            onPressed: input.enabled && !_busy ? _pick : null,
+                            variant: DButtonVariant.transparent,
+                            size: DButtonSize.small,
+                            padding: EdgeInsets.zero,
+                            label: Text(
+                              _busy ? 'Choosing…' : input.label,
+                              maxLines: 1,
+                              style: style.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          value?.isNotEmpty == true
+                              ? value!.join(', ')
+                              : input.emptyLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: style,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
         ),
-      ),
-      if (errorText != null || _pickerError != null) ...[
-        const SizedBox(height: 8),
-        Semantics(
-          liveRegion: true,
-          child: Text(
-            errorText ?? _pickerError!,
-            style: TextStyle(color: DTokens.of(context).destructive),
+        if (errorText != null || _pickerError != null) ...[
+          const SizedBox(height: 8),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              errorText ?? _pickerError!,
+              style: style.copyWith(color: t.destructive),
+            ),
           ),
-        ),
+        ],
       ],
-    ],
-  );
+    );
+  }
 }
