@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_calendar.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_calendar_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
@@ -91,6 +92,8 @@ void main() {
         ),
       ]);
       expect(find.byType(kalender.KalenderView), findsOneWidget);
+      expect(find.byType(DKalenderTheme), findsOneWidget);
+      expect(find.byType(DCalendarDayButton), findsWidgets);
       expect(find.text('September 2026'), findsOneWidget);
       expect(find.text('MON'), findsOneWidget);
       final call = find.textContaining('Morning call', findRichText: true);

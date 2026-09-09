@@ -525,78 +525,81 @@ final class _TopicCalendarState extends State<TopicCalendar> {
             ),
           ),
     );
-    return SizedBox(
-      // An embedded post must give Kalender a bounded viewport. Reserve an
-      // overflow row and scale event heights with the reader's text size.
-      height: _view == _CalendarView.month
-          ? 36 + weeks * (44 + rowHeight * (lanes + 1) + 2)
-          : 580 + (rowHeight - 28) * lanes,
-      child: kalender.KalenderView(
-        eventsController: _events,
-        calendarController: _calendar,
-        viewConfiguration: _configuration,
-        locale: Localizations.localeOf(context),
-        location: _location,
-        components: kalender.CalendarComponents(
-          monthComponents: kalender.MonthComponents(
-            headerComponents: kalender.MonthHeaderComponents(
-              weekDayHeaderBuilder: (context, date) => SizedBox(
-                height: 36,
-                child: Center(
-                  child: Text(
-                    DateFormat.E(_locale).format(date),
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                    style: Theme.of(context).textTheme.labelSmall,
+    return DKalenderTheme(
+      compactMonthLayout: false,
+      child: SizedBox(
+        // An embedded post must give Kalender a bounded viewport. Reserve an
+        // overflow row and scale event heights with the reader's text size.
+        height: _view == _CalendarView.month
+            ? 36 + weeks * (44 + rowHeight * (lanes + 1) + 2)
+            : 580 + (rowHeight - 28) * lanes,
+        child: kalender.KalenderView(
+          eventsController: _events,
+          calendarController: _calendar,
+          viewConfiguration: _configuration,
+          locale: Localizations.localeOf(context),
+          location: _location,
+          components: kalender.CalendarComponents(
+            monthComponents: kalender.MonthComponents(
+              headerComponents: kalender.MonthHeaderComponents(
+                weekDayHeaderBuilder: (context, date) => SizedBox(
+                  height: 36,
+                  child: Center(
+                    child: Text(
+                      DateFormat.E(_locale).format(date),
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
                   ),
                 ),
               ),
-            ),
-            bodyComponents: kalender.MonthBodyComponents(
-              monthGridBuilder: (context, rows) => kalender.MonthGrid(
-                numberOfRows: rows,
-                style: kalender.MonthGridStyle(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                  thickness: 1,
+              bodyComponents: kalender.MonthBodyComponents(
+                monthGridBuilder: (context, rows) => kalender.MonthGrid(
+                  numberOfRows: rows,
+                  style: kalender.MonthGridStyle(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    thickness: 1,
+                  ),
                 ),
+                monthDayHeaderBuilder: _dayHeader,
+                monthDayCellBuilder: (context, details) => ColoredBox(
+                  color: details.isToday
+                      ? Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer.withValues(alpha: 0.35)
+                      : Colors.transparent,
+                ),
+                overlayBuilders: overlays,
               ),
-              monthDayHeaderBuilder: _dayHeader,
-              monthDayCellBuilder: (context, details) => ColoredBox(
-                color: details.isToday
-                    ? Theme.of(
-                        context,
-                      ).colorScheme.primaryContainer.withValues(alpha: 0.35)
-                    : Colors.transparent,
+            ),
+            multiDayComponents: kalender.MultiDayComponents(
+              headerComponents: kalender.MultiDayHeaderComponents(
+                overlayBuilders: overlays,
               ),
-              overlayBuilders: overlays,
             ),
           ),
-          multiDayComponents: kalender.MultiDayComponents(
-            headerComponents: kalender.MultiDayHeaderComponents(
-              overlayBuilders: overlays,
+          header: kalender.CalendarHeader(
+            interaction: _interaction,
+            multiDayTileComponents: tiles,
+            multiDayHeaderConfiguration: kalender.MultiDayHeaderConfiguration(
+              maximumNumberOfVerticalEvents: lanes,
+              tileHeight: rowHeight,
             ),
           ),
-        ),
-        header: kalender.CalendarHeader(
-          interaction: _interaction,
-          multiDayTileComponents: tiles,
-          multiDayHeaderConfiguration: kalender.MultiDayHeaderConfiguration(
-            maximumNumberOfVerticalEvents: lanes,
-            tileHeight: rowHeight,
-          ),
-        ),
-        body: kalender.CalendarBody(
-          interaction: _interaction,
-          monthTileComponents: tiles,
-          multiDayTileComponents: tiles,
-          scheduleTileComponents: kalender.ScheduleTileComponents(
-            tileBuilder: (context, event, range) => SizedBox(
-              height: rowHeight + 8,
-              child: _tile(context, event, range),
+          body: kalender.CalendarBody(
+            interaction: _interaction,
+            monthTileComponents: tiles,
+            multiDayTileComponents: tiles,
+            scheduleTileComponents: kalender.ScheduleTileComponents(
+              tileBuilder: (context, event, range) => SizedBox(
+                height: rowHeight + 8,
+                child: _tile(context, event, range),
+              ),
             ),
-          ),
-          monthBodyConfiguration: kalender.MonthBodyConfiguration(
-            tileHeight: rowHeight,
+            monthBodyConfiguration: kalender.MonthBodyConfiguration(
+              tileHeight: rowHeight,
+            ),
           ),
         ),
       ),

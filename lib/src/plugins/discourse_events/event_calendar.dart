@@ -372,110 +372,121 @@ final class _EventCalendarState extends State<EventCalendar> {
         emptyDay: kalender.EmptyDayBehavior.hide,
       ),
     );
-    return kalender.KalenderView(
-      eventsController: _events,
-      calendarController: _calendar,
-      viewConfiguration: _configuration,
-      location: widget.location,
-      locale: Localizations.localeOf(context),
-      callbacks: kalender.CalendarCallbacks(onPageChanged: _pageChanged),
-      components: kalender.CalendarComponents(
-        monthComponents: kalender.MonthComponents(
-          headerComponents: kalender.MonthHeaderComponents(
-            weekDayHeaderBuilder: (context, date) => SizedBox(
-              height: 32,
-              child: Center(
-                child: Text(
-                  DateFormat.E(_locale).format(date).toUpperCase(),
-                  maxLines: 1,
-                  style: Theme.of(context).textTheme.labelSmall,
+    return DKalenderTheme(
+      compactMonthLayout: false,
+      child: kalender.KalenderView(
+        eventsController: _events,
+        calendarController: _calendar,
+        viewConfiguration: _configuration,
+        location: widget.location,
+        locale: Localizations.localeOf(context),
+        callbacks: kalender.CalendarCallbacks(onPageChanged: _pageChanged),
+        components: kalender.CalendarComponents(
+          monthComponents: kalender.MonthComponents(
+            headerComponents: kalender.MonthHeaderComponents(
+              weekDayHeaderBuilder: (context, date) => SizedBox(
+                height: 32,
+                child: Center(
+                  child: Text(
+                    DateFormat.E(_locale).format(date).toUpperCase(),
+                    maxLines: 1,
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
                 ),
               ),
             ),
-          ),
-          bodyComponents: kalender.MonthBodyComponents(
-            monthGridBuilder: (context, rows) => kalender.MonthGrid(
-              numberOfRows: rows,
-              style: kalender.MonthGridStyle(
-                color: Theme.of(context).colorScheme.outlineVariant,
-                thickness: 1,
+            bodyComponents: kalender.MonthBodyComponents(
+              monthGridBuilder: (context, rows) => kalender.MonthGrid(
+                numberOfRows: rows,
+                style: kalender.MonthGridStyle(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  thickness: 1,
+                ),
               ),
+              monthDayHeaderBuilder: _dayHeader,
+              monthDayCellBuilder: (context, details) => ColoredBox(
+                color: details.isToday
+                    ? Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer.withValues(alpha: 0.3)
+                    : Colors.transparent,
+              ),
+              overlayBuilders: overlays,
             ),
-            monthDayHeaderBuilder: _dayHeader,
-            monthDayCellBuilder: (context, details) => ColoredBox(
-              color: details.isToday
-                  ? Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer.withValues(alpha: 0.3)
-                  : Colors.transparent,
+          ),
+          multiDayComponents: kalender.MultiDayComponents(
+            headerComponents: kalender.MultiDayHeaderComponents(
+              overlayBuilders: overlays,
             ),
-            overlayBuilders: overlays,
           ),
         ),
-        multiDayComponents: kalender.MultiDayComponents(
-          headerComponents: kalender.MultiDayHeaderComponents(
-            overlayBuilders: overlays,
+        header: kalender.CalendarHeader(
+          interaction: _interaction,
+          multiDayTileComponents: tiles,
+          multiDayHeaderConfiguration: kalender.MultiDayHeaderConfiguration(
+            maximumNumberOfVerticalEvents: 4,
+            tileHeight: rowHeight,
           ),
         ),
-      ),
-      header: kalender.CalendarHeader(
-        interaction: _interaction,
-        multiDayTileComponents: tiles,
-        multiDayHeaderConfiguration: kalender.MultiDayHeaderConfiguration(
-          maximumNumberOfVerticalEvents: 4,
-          tileHeight: rowHeight,
-        ),
-      ),
-      body: _view != EventCalendarView.month
-          ? body
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                var most = 0;
-                for (
-                  var date = _days.start;
-                  date.isBefore(_days.end);
-                  date = date.add(const Duration(days: 1))
-                ) {
-                  most = math.max(
-                    most,
-                    widget.events.where((event) => event.includes(date)).length,
+        body: _view != EventCalendarView.month
+            ? body
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  var most = 0;
+                  for (
+                    var date = _days.start;
+                    date.isBefore(_days.end);
+                    date = date.add(const Duration(days: 1))
+                  ) {
+                    most = math.max(
+                      most,
+                      widget.events
+                          .where((event) => event.includes(date))
+                          .length,
+                    );
+                  }
+                  // Dense months scroll vertically like core. Reserve an overflow row
+                  // for unusually crowded days; its dialog includes every occurrence.
+                  final lanes = most.clamp(3, 20);
+                  final weeks = _days.duration.inDays ~/ 7;
+                  final height = math.max(
+                    constraints.maxHeight,
+                    weeks * (36 + (lanes + 1) * rowHeight),
                   );
-                }
-                // Dense months scroll vertically like core. Reserve an overflow row
-                // for unusually crowded days; its dialog includes every occurrence.
-                final lanes = most.clamp(3, 20);
-                final weeks = _days.duration.inDays ~/ 7;
-                final height = math.max(
-                  constraints.maxHeight,
-                  weeks * (36 + (lanes + 1) * rowHeight),
-                );
-                return DScrollBar(
-                  controller: _monthScroll,
-                  child: SingleChildScrollView(
+                  return DScrollBar(
                     controller: _monthScroll,
-                    child: SizedBox(height: height, child: body),
-                  ),
-                );
-              },
-            ),
+                    child: SingleChildScrollView(
+                      controller: _monthScroll,
+                      child: SizedBox(height: height, child: body),
+                    ),
+                  );
+                },
+              ),
+      ),
     );
   }
 
   Widget _dayHeader(BuildContext context, DateTime date) => SizedBox(
     height: 36,
-    child: TextButton(
-      style: TextButton.styleFrom(
-        padding: EdgeInsets.zero,
-        minimumSize: Size.zero,
-        foregroundColor: date.month == widget.page.date.month
-            ? Theme.of(context).colorScheme.onSurface
-            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+    child: DCalendarDayButton(
+      details: DCalendarDayDetails(
+        date: DCalendarDate.fromDateTime(date),
+        outside: date.month != widget.page.date.month,
+        today:
+            date.year == _now().year &&
+            date.month == _now().month &&
+            date.day == _now().day,
+        disabled: false,
+        hidden: false,
+        booked: false,
+        selected: false,
+        rangeStart: false,
+        rangeMiddle: false,
+        rangeEnd: false,
       ),
       onPressed: () => _openDay(date),
-      child: Text(
-        '${date.day}',
-        semanticsLabel: DateFormat.yMMMMEEEEd(_locale).format(date),
-      ),
+      semanticLabel: DateFormat.yMMMMEEEEd(_locale).format(date),
+      child: Text('${date.day}'),
     ),
   );
 
