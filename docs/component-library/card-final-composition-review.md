@@ -35,19 +35,19 @@ wraps using the inherited scaler and available width, while the accepted
 
 ## Source and automated verification
 
-Reviewed source commit: `64b096856b682621b1c6f5cb17ac1f7a376abdd4`.
+Reviewed source commit: `89760c1d139aa7a044ca73541f12ae77f7526112`.
 Only the Card example source and its focused widget tests changed. The seven
 passive widgets in `d_card.dart` and every application adopter remain byte
 identical to accepted main.
 
-- 115 Card/Button/Input/Badge/Toggle Group/Field component and example tests
+- 117 Card/Button/Input/Badge/Toggle Group/Field component and example tests
   passed with randomized seed `9082026`.
-- Card's wider affected consumer run reached 200 passing cases. Two unchanged
-  current-main failures remain outside this follow-up: the Button adoption
-  inventory expects two Event Calendar constructions but finds one, and the
-  Voice diagnostics export test does not observe `Voice report saved`. Neither
-  involved a file changed here; the complete log is
-  `/private/tmp/card-final-composition-impact.log`.
+- The combined owner/example/affected-consumer run on integrated source
+  `2cbfd9fe` reached 304 passing cases. One unchanged failure remains outside
+  this follow-up: the Voice diagnostics export test does not observe
+  `Voice report saved`. The earlier Calendar adoption inventory failure was
+  resolved by main's `9834f36a` test correction. The subsequent inline-link
+  change affects only Card examples and passed the 117-case owner/example run.
 - Root and `profiles/full` locked dependency resolution passed without lockfile
   changes. Root and full-profile `flutter analyze --no-pub` passed.
 - Formatting and `git diff --check` passed. Widget regressions verify local
@@ -58,14 +58,14 @@ identical to accepted main.
 ## Exact-source macOS fixture
 
 `flutter build macos --debug --no-pub -t lib/styleguide_main.dart` succeeded
-from source `64b09685`. The isolated copy is
-`/private/tmp/CardCompositionReview-64b09685.app`, identifier
-`org.discourse.native.card-composition.64b09685`, display name
+from source `89760c1d`. The isolated copy is
+`/private/tmp/CardCompositionReview-89760c1d.app`, identifier
+`org.discourse.native.card-composition.89760c1d`, display name
 **Card Composition Review**, and URL scheme
-`discourse-card-composition-64b09685`.
+`discourse-card-composition-89760c1d`.
 
 The build and isolated copy have matching `kernel_blob.bin` SHA-256
-`33a11a529025b74ec2c51f9bce86e5a8d32ebada1d5748afa2708b95934f699d`.
+`c6ff8638653ff6a6458fcd1b9fb69aee05c1121fbd8bc4cdbbdb210cd8e1b308`.
 Deep strict ad-hoc signature verification passed. Signed entitlement read-back
 contains only sandbox, JIT, local file selection, audio/camera, debug and
 network client/server capabilities; it contains no application/team/APNs
