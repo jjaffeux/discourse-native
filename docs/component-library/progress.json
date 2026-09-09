@@ -2101,7 +2101,6 @@
       "reviewStatus": "in_progress",
       "reviewTaskId": "01a085e1-1106-7ba1-a30c-15a8a7a5bd22",
       "reviewBranch": "codex/review-select",
-      "reviewedBranchHead": "f3966666d772f5835a804a17f86eacb5bdf30a37",
       "preparedDependencies": [
         {
           "id": "popover",

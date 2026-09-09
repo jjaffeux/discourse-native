@@ -251,6 +251,34 @@ void main() {
     expect((selectedCenter.dy - triggerCenter.dy).abs(), lessThanOrEqualTo(4));
   });
 
+  testWidgets('caller-owned popup scrolling stays bounded', (tester) async {
+    await _mount(
+      tester,
+      DSelect<int>(
+        initialValue: 0,
+        semanticLabel: 'Number',
+        maxPopupHeight: 120,
+        entries: [
+          for (var value = 0; value < 30; value++)
+            DSelectOption(
+              value: value,
+              label: 'Number $value',
+              child: Text('Number $value'),
+            ),
+        ],
+        onChanged: (_) {},
+      ),
+    );
+
+    await tester.tap(find.text('Number 0'));
+    await tester.pumpAndSettle();
+
+    final content = find.byType(DPopoverContent);
+    expect(tester.getSize(content).height, lessThanOrEqualTo(120));
+    expect(tester.widget<DPopoverContent>(content).scrollable, isFalse);
+    expect(find.byType(Scrollable), findsOneWidget);
+  });
+
   testWidgets('button-group handoff keeps adjacent actions independent', (
     tester,
   ) async {

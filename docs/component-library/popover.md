@@ -40,6 +40,13 @@ or changes size, covering scroll/layout/animation without running a perpetual
 ticker. Content gets a bounded native scroll owner when large text or collision
 space makes it taller than the available side.
 
+The optional `DPopoverPlacementResolver` receives resolved read-only geometry.
+Its `defaultOffset` and any returned `Offset` are overlay-local content origins;
+returning null keeps `defaultOffset`, and every non-null result still passes the
+configured collision policy and boundary. `scrollable: false` delegates
+overflow to a caller-owned bounded viewport and never transfers controller
+ownership to Popover.
+
 Keyboard activation enters the first nested focusable control. Touch activation
 focuses the popup scope rather than summoning a field keyboard. Escape, outside
 press, a composed close action, trigger activation, lifecycle loss, trigger
