@@ -63,17 +63,18 @@ state is required. Focused links in scrolling paths are brought into view.
   every build. There is no cached palette, component overlay, or animation
   controller.
 
-## Dependency preparation
+## Dependency reconciliation
 
 Button is accepted on main at merge `eb6d8ea0d9417f0edc830c5ce715b52436f12c94`.
-Dropdown Menu is not yet accepted. Source preparation integrates exact tested
+Source preparation integrated the exact tested Dropdown Menu
 candidate `d273c27e788bb3991c773c7432e0b8c927715651` from
 `codex/review-dropdown-menu-candidate`, owned by reviewer task
 `01a085cf-f401-7813-80da-7c687de8a5d5`. That candidate had 47 focused
 Dropdown/Popover/Table/styleguide tests passing with seed 826145 and clean root
-and full-profile analysis. Breadcrumb's reviewer must wait for Dropdown Menu's
-accepted local-main merge, reconcile its accepted API/source, and verify the
-affected collapsed/dropdown behavior. The prepared parent is not acceptance.
+and full-profile analysis. Dropdown Menu was subsequently accepted on local
+main at `5c6ab6a15d69c7241ab7d9345eb9f6d6418e2787`. The independent reviewer
+integrated that accepted history and verified that the prepared component,
+example and focused-test paths are byte-equal to the accepted revision.
 
 ## Application adoption audit
 
@@ -105,7 +106,7 @@ chevrons.
 - No additional genuine breadcrumb owner exists in bundled plugins or profile
   packages.
 
-## Verification and remaining acceptance
+## Implementation verification
 
 Implementation tests cover exact metrics/gaps/artwork, live typed callbacks and
 adapter values, pointer/Return/Space, disabled focus/activation, borrowed focus,
@@ -116,9 +117,8 @@ mount every example at 240px/200% in Light, Dark and Forest and exercise real
 route and collapsed-menu state. Focused topic-row tests preserve long-category
 ellipsis, link callbacks and category hierarchy.
 
-Official rendered browser comparison and real macOS inspection are deliberately
-left to the required independent reviewer. No browser/native, VoiceOver, iOS or
-Linux inspection is claimed by this implementation task.
+The implementation handoff left official rendered browser comparison and real
+macOS inspection to the independent reviewer; those results are recorded below.
 
 ## Independent review evidence
 
