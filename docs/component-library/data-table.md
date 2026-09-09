@@ -176,7 +176,7 @@ The initial bundle was
 `org.discourse.native.datatable.3191`, kernel
 `c27c5234d8c29d43445523b3b711b5ce817457330ae299f36df6809caf9d4fca`.
 
-Final acceptance is pending the corrected footer's brief native check and the
+At that stage, acceptance was pending the corrected footer's native check and the
 rendered reusable Tasks controls comparison. On 2026-09-09 at 17:53 UTC the
 reviewer acquired desktop access, but approved CUA `getApp` repeatedly returned
 `-10005: timeoutReached` for the final bundle's exact path and identifier,
@@ -221,3 +221,36 @@ one fresh-session CUA call for the exact `228f` bundle. The approved surface
 reported that the Mac is locked and requires manual unlocking. The lease was
 released immediately; no alternate route or unlock attempt was used. The
 rebuilt fixture has not received its final native pass and remains unaccepted.
+
+### Final acceptance — 2026-09-09
+
+After user-confirmed unlock and normal-CUA recovery, the reviewer acquired its
+own desktop lease at 19:03 UTC. The exact `228f838c` fixture rendered normally.
+Actual native verification confirmed the empty visual Actions header with its
+semantic label retained; repeated Amount off/on toggles; row-menu Down/Return
+activation with `Opened m5gr84i9`; visible restored trigger focus and keyboard
+Return/Escape reopening/dismissal. No ancestor-scroll jump occurred in these
+menu interactions against the accepted Dropdown Menu follow-up.
+
+At 360px and 200% text with reduced motion, selected page sizes 10 and 20 are
+fully readable in Light LTR and Plum RTL. Actual page-size changes update the
+page count between 1 of 2 and 1 of 1; the footer wraps without overflow. Earlier
+exact-source coverage remains valid for unchanged documented compositions,
+selection, sorting, filtering, dynamic rows and the other live palettes.
+
+The rendered official `https://ui.shadcn.com/examples/tasks` reference was
+compared for the reusable Asc/Desc/Hide header menu, View column toggles and
+advanced footer. Actual interactions applied ascending sort, hid/restored
+Priority, changed page size 25 to 10 and exercised next, previous, last and first
+with corresponding page counts. Its supporting Radix Tasks View menu closes
+after a toggle; the primary Base UI payment example and this port retain the
+previously verified repeated-toggle behavior. The Tasks domain app itself is
+not a required production migration.
+
+Both review surfaces were closed and desktop access released. All outstanding
+native/reference checks are complete, and the styleguide entry is accepted as
+implemented. No iOS/Linux device or spoken VoiceOver pass is claimed. Final
+main integration preserves the inspected Data Table bodies; newer Popover
+transition parameters retain the same defaults, and these examples do not use
+its explicit anchor lifecycle. Affected composition checks are rerun on the
+final integration rather than repeating unchanged native work.

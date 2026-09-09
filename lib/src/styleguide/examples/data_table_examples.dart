@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final dataTableExamples = ComponentExamples(
-  status: ComponentStatus.baseline,
+  status: ComponentStatus.implemented,
   description:
       'A typed, headless-friendly table with sorting, filtering, visibility, stable selection, row actions, and local or server-controlled state.',
   notes:
-      'Ports the frozen Base UI/base-nova Data Table guide without bringing a web TanStack dependency into Flutter. Columns define stable IDs, typed cell formatting and optional compare/filter functions; rows define stable IDs separately from their display order. DTable remains the semantic presentation owner while Checkbox, Input, Dropdown Menu, Button, Badge, Pagination and Select retain their independent interactions. Prepared Pagination and Dropdown Menu pins are integrated only for isolated verification, so this page remains baseline until dependency acceptance and the independent browser/native review gate are complete.',
+      'Ports the frozen Base UI/base-nova Data Table guide without bringing a web TanStack dependency into Flutter. Columns define stable IDs, typed cell formatting and optional compare/filter functions; rows define stable IDs separately from their display order. DTable remains the semantic presentation owner while Checkbox, Input, Dropdown Menu, Button, Badge, Pagination and Select retain their independent interactions. Accepted shared owners are integrated. Independent rendered-reference and macOS review covers the documented compositions, keyboard actions, live palettes, RTL, reduced motion and narrow large-text layouts; exact evidence and platform limits are recorded in the component documentation.',
   examples: [
     StyleguideExample(
       title: 'Basic table and cell formatting',

@@ -8,19 +8,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test(
-    'Data Table registers the documented compositions without promotion',
-    () {
-      expect(componentExamples['data-table'], same(dataTableExamples));
-      expect(dataTableExamples.status, ComponentStatus.baseline);
-      expect(dataTableExamples.examples.map((example) => example.title), [
-        'Basic table and cell formatting',
-        'Sorting, filtering, visibility, selection, and actions',
-        'Dynamic data',
-        'RTL',
-      ]);
-    },
-  );
+  test('Data Table registers the accepted documented compositions', () {
+    expect(componentExamples['data-table'], same(dataTableExamples));
+    expect(dataTableExamples.status, ComponentStatus.implemented);
+    expect(dataTableExamples.examples.map((example) => example.title), [
+      'Basic table and cell formatting',
+      'Sorting, filtering, visibility, selection, and actions',
+      'Dynamic data',
+      'RTL',
+    ]);
+  });
 
   testWidgets('all examples mount at narrow 200 percent RTL in live palettes', (
     tester,
