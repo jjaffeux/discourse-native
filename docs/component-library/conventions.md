@@ -132,7 +132,7 @@ task. The reviewer owns fixes, verification, integration and local main merge
 without returning to the coordinator for approval. Follow the committed
 [review and merge procedure](review-and-merge.md), including shared desktop
 and main-checkout leases. The 17 backlog reviewers run independently; keep
-up to four new implementation tasks running as dependencies become available.
+up to five new implementation tasks running as dependencies become available.
 Each component implementation uses its own isolated worktree from latest main
 and `codex/ui-<component>` branch. Preserve original implementation task and
 branch history alongside the reviewer task and branch in progress. Source
