@@ -94,27 +94,14 @@ void main() {
       skeletonExamples.examples.first,
       theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
     );
-    final width = find.byType(Slider).first;
+    final width = find.byType(DSlider).first;
     await tester.ensureVisible(width);
     await tester.tap(width);
     await tester.pumpAndSettle();
-    final sliderFocus = tester
-        .widget<FocusableActionDetector>(
-          find.descendant(
-            of: width,
-            matching: find.byType(FocusableActionDetector),
-          ),
-        )
-        .focusNode!;
-    for (var step = 0; step < 10 && !sliderFocus.hasPrimaryFocus; step++) {
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pumpAndSettle();
-    }
-    expect(sliderFocus.hasPrimaryFocus, isTrue);
-    final before = tester.widget<Slider>(width).value;
+    final before = tester.widget<DSlider>(width).value;
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
-    expect(tester.widget<Slider>(width).value, greaterThan(before));
+    expect(tester.widget<DSlider>(width).value, greaterThan(before));
     await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Circle'));
     await tester.tap(find.widgetWithText(ChoiceChip, 'Circle'));
     await tester.pumpAndSettle();

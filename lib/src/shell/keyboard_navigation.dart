@@ -43,6 +43,7 @@ bool navigationShortcutsAllowed(
       widget is RadioListTile<Object?> ||
       widget is Switch ||
       widget is SwitchListTile ||
+      widget is DMultiSlider ||
       widget is Slider ||
       widget is RangeSlider ||
       widget is SegmentedButton<Object?> ||

@@ -13,6 +13,7 @@ import 'examples/radio_group_examples.dart';
 import 'examples/separator_examples.dart';
 import 'examples/sidebar_examples.dart';
 import 'examples/skeleton_examples.dart';
+import 'examples/slider_examples.dart';
 import 'examples/spinner_examples.dart';
 import 'examples/tooltip_examples.dart';
 import 'examples/typography_examples.dart';
@@ -36,6 +37,7 @@ final componentExamples = <String, ComponentExamples>{
   'skeleton': skeletonExamples,
   'sidebar': sidebarExamples,
   'spinner': spinnerExamples,
+  'slider': sliderExamples,
   'button': buttonExamples,
   'tooltip': tooltipExamples,
   'select': baselineSelectExamples,

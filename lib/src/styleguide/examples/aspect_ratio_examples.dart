@@ -252,8 +252,10 @@ class _ArbitraryRatioState extends State<_ArbitraryRatio> {
     mainAxisSize: MainAxisSize.min,
     children: [
       Text('Width / height: ${_ratio.toStringAsFixed(2)}'),
-      Slider(
+      DSlider(
         value: _ratio,
+        step: null,
+        semanticLabel: 'Aspect ratio',
         min: 0.25,
         max: 3.5,
         semanticFormatterCallback: (value) =>

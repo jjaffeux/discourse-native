@@ -17,6 +17,7 @@ export 'src/ui/components/d_radio_group.dart';
 export 'src/ui/components/d_separator.dart';
 export 'src/ui/components/d_sidebar.dart';
 export 'src/ui/components/d_skeleton.dart';
+export 'src/ui/components/d_slider.dart';
 export 'src/ui/components/d_spinner.dart';
 export 'src/ui/components/d_tooltip.dart';
 export 'src/ui/components/d_typography.dart';
