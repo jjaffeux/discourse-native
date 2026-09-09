@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show PointerDeviceKind, SemanticsAction;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/diagnostics_panel_width_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
@@ -457,7 +458,7 @@ void main() {
       final timeline = tester.widget<ListView>(
         find.byKey(const ValueKey('diagnostics-timeline')),
       );
-      final scrollbar = tester.widget<Scrollbar>(find.byType(Scrollbar));
+      final scrollbar = tester.widget<DScrollBar>(find.byType(DScrollBar));
       expect(scrollbar.controller, same(timeline.controller));
 
       await tester.tap(find.text('Requests'));
