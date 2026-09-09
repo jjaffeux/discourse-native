@@ -431,7 +431,10 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
           )
         : null;
     final loading = widget.members.loading || widget.members.loadingMore
-        ? const LinearProgressIndicator(minHeight: 2)
+        ? const DProgress(
+            semanticsLabel: 'Loading group members',
+            track: DProgressTrack(height: 2),
+          )
         : null;
 
     final panel = Material(
@@ -777,17 +780,17 @@ class _AssignedError extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.all(16),
-    child: Row(
-      children: [
-        const DIcon(DIcons.triangleExclamation, size: 18),
-        const SizedBox(width: 8),
-        Expanded(child: Text(message)),
-        DButton(
+    child: DAlert(
+      variant: DAlertVariant.destructive,
+      icon: const DIcon(DIcons.triangleExclamation),
+      description: DAlertDescription(child: Text(message)),
+      action: DAlertAction(
+        child: DButton(
           label: const Text('Try again'),
           onPressed: onRetry,
           variant: DButtonVariant.link,
         ),
-      ],
+      ),
     ),
   );
 }

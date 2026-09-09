@@ -125,7 +125,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(find.byType(DProgress), findsNothing);
       expect(find.text(_topic.title), findsOneWidget);
     });
 
@@ -137,6 +137,7 @@ void main() {
       );
       await _pumpView(tester, presentation);
 
+      expect(find.byType(DAlert), findsOneWidget);
       expect(find.text('Assignments unavailable.'), findsOneWidget);
       expect(find.text('Try again'), findsOneWidget);
 

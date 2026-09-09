@@ -544,7 +544,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_busy) ...[
-          const LinearProgressIndicator(),
+          const DProgress(semanticsLabel: 'Saving bookmark'),
           const SizedBox(height: 16),
         ],
         if (_error case final error?) ...[

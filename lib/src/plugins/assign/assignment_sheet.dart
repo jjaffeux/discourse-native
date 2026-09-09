@@ -460,7 +460,8 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
           if (_loadingSuggestions)
             const AnchoredPickerProgress()
           else if (_suggestions != null) ...[
-            if (_searching) const LinearProgressIndicator(),
+            if (_searching)
+              const DProgress(semanticsLabel: 'Searching assignments'),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 180),
               child: _results.isEmpty && !_searching
