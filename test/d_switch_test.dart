@@ -270,6 +270,51 @@ void main() {
     },
   );
 
+  testWidgets(
+    'controlled read-only switch needs no callback and stays focusable',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      await mount(
+        tester,
+        DSwitch(
+          value: true,
+          readOnly: true,
+          focusNode: focus,
+          semanticLabel: 'Read-only setting',
+        ),
+      );
+
+      await tester.tap(find.byType(DSwitch));
+      await tester.pump();
+
+      expect(focus.hasFocus, isTrue);
+      expect(
+        tester.getSemantics(find.byType(DSwitch)),
+        isSemantics(
+          label: 'Read-only setting',
+          isToggled: true,
+          isEnabled: true,
+          isReadOnly: true,
+          isFocusable: true,
+        ),
+      );
+      expect(
+        tester
+            .widget<Opacity>(
+              find.descendant(
+                of: find.byType(DSwitch),
+                matching: find.byType(Opacity),
+              ),
+            )
+            .opacity,
+        1,
+      );
+      semantics.dispose();
+    },
+  );
+
   testWidgets('exact track thumb and directional travel retain 48px targets', (
     tester,
   ) async {
@@ -619,6 +664,47 @@ void main() {
     },
   );
 
+  testWidgets('read-only choice card does not advertise pointer activation', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      const DSwitchTile(
+        value: true,
+        onChanged: null,
+        readOnly: true,
+        choiceCard: true,
+        title: Text('Read-only card'),
+      ),
+    );
+    final card = find
+        .descendant(
+          of: find.byType(DSwitch),
+          matching: find.byType(AnimatedContainer),
+        )
+        .first;
+    final before =
+        (tester.widget<AnimatedContainer>(card).decoration! as BoxDecoration)
+            .color;
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('Read-only card')));
+    await tester.pumpAndSettle();
+
+    expect(
+      (tester.widget<AnimatedContainer>(card).decoration! as BoxDecoration)
+          .color,
+      before,
+    );
+    expect(
+      tester
+          .widget<FocusableActionDetector>(find.byType(FocusableActionDetector))
+          .mouseCursor,
+      SystemMouseCursors.basic,
+    );
+    await mouse.removePointer();
+  });
+
   testWidgets(
     'input surface stays distinct from border and preserves translucent alpha',
     (tester) async {
@@ -748,9 +834,8 @@ void main() {
           await mouse.moveTo(Offset.zero);
           await tester.pumpAndSettle();
         }
-        final tokens = DTokens.fromTheme(
-          base,
-        ).copyWith(border: const Color(0x66551122));
+        final tokens = DTokens.fromTheme(base)
+            .copyWith(border: const Color(0x66551122));
         await mount(
           tester,
           DSwitchTile(

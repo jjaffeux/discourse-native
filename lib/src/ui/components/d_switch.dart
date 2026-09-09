@@ -12,9 +12,10 @@ enum DSwitchSize { standard, small }
 /// A shadcn switch with native focus, keyboard and accessibility interaction.
 ///
 /// Supply [value] for controlled state, or omit it to own state initialized by
-/// [initialValue]. A controlled switch with no [onChanged] is disabled.
-/// Uncontrolled switches can omit the callback. [readOnly] keeps focus and the
-/// value available while preventing edits. Borrowed [focusNode] is never disposed.
+/// [initialValue]. A controlled switch with no [onChanged] is disabled unless
+/// it is [readOnly]. Uncontrolled switches can omit the callback. [readOnly]
+/// keeps focus and the value available while preventing edits. Borrowed
+/// [focusNode] is never disposed.
 class DSwitch extends StatefulWidget {
   const DSwitch({
     super.key,
@@ -76,7 +77,8 @@ class _DSwitchState extends State<DSwitch> {
 
   bool get _checked => widget.value ?? _value;
   bool get _enabled =>
-      widget.enabled && (widget.value == null || widget.onChanged != null);
+      widget.enabled &&
+      (widget.readOnly || widget.value == null || widget.onChanged != null);
 
   void _toggle() {
     if (!_enabled || widget.readOnly) return;
@@ -303,7 +305,7 @@ class DSwitchTile extends StatelessWidget {
                       : tokens.border,
                 ),
                 borderRadius: BorderRadius.circular(tokens.radius),
-                color: hovered && enabled && onChanged != null
+                color: hovered && enabled && !readOnly && onChanged != null
                     ? _multiplyAlpha(tokens.muted, 0.5)
                     : value
                     ? _multiplyAlpha(tokens.primary, dark ? 0.1 : 0.05)
