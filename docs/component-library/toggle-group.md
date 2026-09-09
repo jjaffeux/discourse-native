@@ -86,6 +86,9 @@ grid versus carousel markup is distinct from rendering a carousel.
 ## Prepared verification boundary
 
 Source implementation: `d6a9be0d00c160dffa7daf67e8f2f4cefa00c336`.
+Latest-main integration handoff: `1f97c825115e5511d857ec255bd875bf6ec34398`.
+Reviewer: `01a085e6-4bb7-7e13-9e2a-98992292b4b3` on
+`codex/review-toggle-group`.
 
 The implementation task verifies source hashes, focused component/styleguide
 tests, composer consumer regressions, root and full-profile analysis, and a

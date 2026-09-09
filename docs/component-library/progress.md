@@ -16,7 +16,7 @@ Branch preparation does not mark a component merged or visually verified.
 
 | Component | Current stage | Branch head | Reviewer task |
 | --- | --- | --- | --- |
-| toggle-group | Implementation and checks | — | — |
+| toggle-group | Implementation and checks | — | 01a085e6-4bb7-7e13-9e2a-98992292b4b3 |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | accordion | independent review | 42e6cc26 | 01a085b9-6a74-7181-8252-f5bbe9c6e05b |
 | popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
@@ -1185,7 +1185,9 @@ Status: in_progress. Task: 01a085ce-ca89-7af3-8375-946721be90c6. Branch: codex/u
 - 6 focused Toggle Group tests passed with seed 1235496787, covering controlled clearable single selection, ordered multiple values across pointer/keyboard/semantics activation, borrowed controller/required choice, disabled items, RTL looping roving focus, joined outline geometry and all examples at narrow 200% RTL/reduced-motion across light/dark/custom palettes.
 - 70 focused Toggle Group, accepted Toggle, Voice fixture and composer gallery tests passed with seed 4045977064: test/d_toggle_group_test.dart test/d_toggle_test.dart test/toggle_review_fixture_test.dart test/composer_upload_panel_test.dart test/composer_image_gallery_test.dart.
 - Root flutter analyze --no-pub and profiles/full flutter analyze --no-pub passed clean. Root and profiles/full flutter pub get --enforce-lockfile passed without lockfile changes. git diff --check passed.
-- flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed and produced build/macos/Build/Products/Debug/Discourse.app. This is build evidence only; no native app launch is claimed.
+- 17 styleguide access/page tests passed with seed 9052031 after serially rerunning the suite; a prior concurrent Flutter test-process native-assets race was discarded as harness interference.
+- After integrating current main 5a26e5713719988f69930a7f02b3373b530d050a at 1f97c825115e5511d857ec255bd875bf6ec34398, the 70 focused tests, root/full analysis and flutter build macos --debug --no-pub -t lib/styleguide_main.dart passed. Source SHA256 values: Toggle Group c19c1e0450c4608ee75f687f4c8ad0c298003a7ac2b5b6183ee41b2b7632cb35; Toggle e63bc586b435ace2fa339449076610263d1eb43429ae6a796caf2e72bbc4ac3e; composer panel ed569036841899909095f45d192a776a00c454fde5c3bb949b458a7159aeb562; refreshed ordinary build kernel 881474764fd91535a485937075ca41982c0cc7572e28ba85e168ec5e87d32b4e. Build evidence only; no native launch claimed.
+- Created independent reviewer task Review and merge Toggle Group (01a085e6-4bb7-7e13-9e2a-98992292b4b3) on codex/review-toggle-group; it owns fixes, accepted dependency reconciliation, official browser/native acceptance and final local-main merge.
 
 **limitations**
 
