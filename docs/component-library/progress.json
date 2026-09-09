@@ -2555,6 +2555,14 @@
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/c8fa/discourse-native",
           "baseCommit": "9d7a49e797dff14c908369315d035a1437d49c07",
           "status": "implementation"
+        },
+        {
+          "component": "progress",
+          "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
+          "branch": "codex/ui-progress",
+          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cfac/discourse-native",
+          "headCommit": "c296e0e1a4e39438351f0a672496d8538f0c3e29",
+          "status": "main_integration_and_browser_review"
         }
       ],
       "nativeReadyTasks": [
@@ -2572,14 +2580,6 @@
           "branch": "codex/ui-scroll-area",
           "worktree": "/Users/joffreyjaffeux/.codex/worktrees/d422/discourse-native",
           "headCommit": "5f4e013333459e32b22215101f0273af41e1d0f6",
-          "status": "awaiting_native_review"
-        },
-        {
-          "component": "progress",
-          "taskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
-          "branch": "codex/ui-progress",
-          "worktree": "/Users/joffreyjaffeux/.codex/worktrees/cfac/discourse-native",
-          "headCommit": "c296e0e1a4e39438351f0a672496d8538f0c3e29",
           "status": "awaiting_native_review"
         },
         {
@@ -2697,7 +2697,7 @@
     },
     "pendingCoordinatorNativeReview": null,
     "implementationQueuePolicy": "Up to four running implementation tasks. Committed native-ready tasks end their turns and remain queued; they are not review_ready or mergeable until the recorded visual/native gate passes. Native inspections and final merges remain serialized.",
-    "browserInspectionTaskId": null,
+    "browserInspectionTaskId": "01a083ce-313e-7f70-a1a8-e645f31235c8",
     "browserInspectionPolicy": "Browser-only public reference comparison is available through CUA Chrome while the Mac is locked. One task at a time; no native app actions until unlock. Widget-test image exports are distinct from native verification.",
     "pendingSourceReviews": {
       "radio-group": {
