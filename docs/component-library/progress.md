@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**40 of 64 components are merged locally.** 24 existing components are in progress; 0 are planned.
+**41 of 64 components are merged locally.** 23 existing components are in progress; 0 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -18,7 +18,6 @@ Branch preparation does not mark a component merged or visually verified.
 | --- | --- | --- | --- |
 | toggle-group | independent review | 7f4de6a8 | 01a085e6-4bb7-7e13-9e2a-98992292b4b3 |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
-| hover-card | independent review | 4d0a7058 | 01a08619-dc41-7213-a887-5afb891b99da |
 | alert-dialog | Implementation and checks | — | — |
 | sheet | independent review | 88e3e8c2 | 01a0862f-b27f-76d2-a441-8a77594aedc8 |
 | drawer | independent review | 8377cebe | 01a08643-3074-72e1-8b18-a2266dd724e6 |
@@ -76,7 +75,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 29 | tabs | merged | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | 7e6bf1234fcd55aced4037c7e36946d017fe5c79 |
 | 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
 | 31 | popover | merged | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | dc6ab75fe99f2af8b401bae60285fdbe65e8012a |
-| 32 | hover-card | implemented | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | — |
+| 32 | hover-card | merged | 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8 | codex/ui-hover-card | popover, avatar | de39686f2a5d75651ef37268edb44adb6376cd7c |
 | 33 | dialog | merged | 01a084fb-b319-7053-8265-8cb4db577932 | codex/ui-dialog | button | 6a0aaa54d86aaa492681f5cc4dcd32b5e2feefe3 |
 | 34 | alert-dialog | in_progress | 01a085d9-7909-7fd0-b1b8-30914ac699b4 | codex/ui-alert-dialog | dialog | — |
 | 35 | sheet | in_progress | 01a08606-5dcc-7381-bbbb-719367c8f574 | codex/ui-sheet | dialog | — |
@@ -1989,7 +1988,7 @@ Status: merged. Task: 01a084fb-b319-7053-8265-8cdfd4e2c2bd. Branch: codex/ui-pop
 
 ### hover-card
 
-Status: implemented. Task: 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8. Branch: codex/ui-hover-card.
+Status: merged. Task: 01a085fd-5d84-7e40-bce5-c4ed49e7f2d8. Branch: codex/ui-hover-card.
 
 **acceptanceCriteria**
 

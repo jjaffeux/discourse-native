@@ -1956,7 +1956,7 @@
     },
     {
       "id": "hover-card",
-      "status": "implemented",
+      "status": "merged",
       "taskId": "01a085fd-5d84-7e40-bce5-c4ed49e7f2d8",
       "branch": "codex/ui-hover-card",
       "dependencies": [
@@ -2011,11 +2011,11 @@
         "No spoken VoiceOver session or iOS/Linux device inspection was performed."
       ],
       "implementationCommit": "c03c39b5bf037e33dd84e86db6216ee3b7febaa9",
-      "mergeCommit": null,
+      "mergeCommit": "de39686f2a5d75651ef37268edb44adb6376cd7c",
       "worktree": "/Users/joffreyjaffeux/.codex/worktrees/02bf/discourse-native",
       "browserInspectionStatus": "completed",
       "nativeInspectionStatus": "completed",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewTaskId": "01a08619-dc41-7213-a887-5afb891b99da",
       "reviewBranch": "codex/review-hover-card",
       "reviewWorktree": "/Users/joffreyjaffeux/.codex/worktrees/4417/discourse-native",
