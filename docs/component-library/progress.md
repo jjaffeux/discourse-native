@@ -8,7 +8,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 
 ## Current review queue
 
-**24 of 64 components are merged locally.** 15 existing components are in progress; 25 are planned.
+**24 of 64 components are merged locally.** 16 existing components are in progress; 24 are planned.
 
 Each component has an independent review task that owns fixes, remaining verification and the local main merge. See the [review and merge procedure](review-and-merge.md).
 
@@ -21,6 +21,7 @@ Branch preparation does not mark a component merged or visually verified.
 | empty | independent review | 9d4ebc9e | 01a08558-ae1d-7d61-a060-dd8cce1380fc |
 | item | independent review | 32ce1f96 | 01a08558-aec4-7591-ac85-682a1eae4290 |
 | table | independent review | b3107cab | 01a08558-73ce-7a51-bfd4-8e0f48d5f675 |
+| accordion | Implementation and checks | — | — |
 | tabs | independent review | fcb0e06f | 01a08581-d666-7f81-b039-f9caae6c45c2 |
 | popover | independent review | cb7f9e2e | 01a08558-ae1e-7843-8cff-7221a399ea5c |
 | dialog | independent review | 715ab477 | 01a08558-7ac2-79a3-bd49-1be6148f540c |
@@ -28,7 +29,7 @@ Branch preparation does not mark a component merged or visually verified.
 | field | independent review | 09869a67 | 01a08558-7a22-7f53-a798-52669b7ddef5 |
 | button-group | Implementation and checks | — | — |
 | carousel | independent review | ace58e0f | 01a08589-3822-72d2-88a1-5fcaea66e089 |
-| toast | Implementation and checks | — | — |
+| toast | independent review | 329c3e11 | 01a08592-b1eb-7ad2-bebb-3ddea00f2702 |
 | alert | independent review | 38002135 | 01a08558-ae1e-7843-8cff-724c8e877ba5 |
 | chart | independent review | c782a940 | 01a08558-4ae6-7db2-bdd6-ee52e8570ff3 |
 
@@ -63,7 +64,7 @@ Branch preparation does not mark a component merged or visually verified.
 | 25 | table | review_ready | 01a0844a-0669-7780-92e8-33cc4314f64a | codex/ui-table | typography | — |
 | 26 | scroll-area | merged | 01a083e1-420b-7711-b8e8-f268576dcc3b | codex/ui-scroll-area | separator | 655be577246f1f247e1e71199d32add8366deffc |
 | 27 | collapsible | merged | 01a08445-7647-7a83-a366-e06252405043 | codex/ui-collapsible | — | 985b4efdf4dd5e4502c98d4c2c0332df8e344982 |
-| 28 | accordion | planned | — | — | collapsible | — |
+| 28 | accordion | in_progress | 01a0859b-73ff-7190-8c59-b71fe74d2b2f | codex/ui-accordion | collapsible | — |
 | 29 | tabs | in_progress | 01a08560-5018-7e52-aa73-14ff2ce6cc28 | codex/ui-tabs | button | — |
 | 30 | resizable | merged | 01a083e2-4063-7c30-89ea-fa664ff9c943 | codex/ui-resizable | — | eff4770f10b73dd6fb1e5eed17b374d68b68bfed |
 | 31 | popover | in_progress | 01a084fb-b319-7053-8265-8cdfd4e2c2bd | codex/ui-popover | button | — |
@@ -1754,6 +1755,23 @@ Status: merged. Task: 01a08445-7647-7a83-a366-e06252405043. Branch: codex/ui-col
 - Browser Geist and native host font rasterization differ, so no pixel-equality claim is made. Geometry, palette mapping, interaction and native semantics were compared directly.
 - The File Tree keeps its temporary two-DButton Explorer/Outline selector until the separately reviewed Tabs owner performs the recorded DTabs.controlled adoption; Collapsible does not duplicate that owner.
 
+### accordion
+
+Status: in_progress. Task: 01a0859b-73ff-7190-8c59-b71fe74d2b2f. Branch: codex/ui-accordion.
+
+**acceptanceCriteria**
+
+- Match all frozen Basic, Multiple, Disabled, Borders, Card and RTL variants and the complete native API contract against official source and rendered behavior.
+- Compose accepted Collapsible state/lifecycle behavior with genuine controlled/uncontrolled expansion, dynamic/disabled items, keyboard/focus, bounded actionable headings/triggers and accessible descendants.
+- Preserve exact reference geometry and states while supporting live palette/font/radius, touch, RTL, text scaling, narrow layout, reduced motion and panel lifecycle.
+- Audit and migrate appropriate related disclosure groups, retain independent disclosures when appropriate, and add complete styleguide/usage plus meaningful focused component/consumer verification.
+- Create a fresh independent reviewer that owns fixes, remaining rendered/native acceptance and the final local main merge.
+
+**decisions**
+
+- Collapsible is accepted and merged as 985b4efd; its corrected native trigger semantics boundary must be preserved. Card and other shared foundations are also merged.
+- Existing Events/Local Dates standalone disclosures retain the merged Collapsible owner unless a real grouped accordion use case justifies migration.
+
 ### tabs
 
 Status: in_progress. Task: 01a08560-5018-7e52-aa73-14ff2ce6cc28. Branch: codex/ui-tabs.
@@ -2101,16 +2119,43 @@ Status: in_progress. Task: 01a0857a-fcd6-7880-90c0-501e72f034df. Branch: codex/u
 
 **acceptanceCriteria**
 
-- Faithfully port the frozen shadcn/Sonner Toast types, actions, promise behavior and documented native API contract, including real presentation, state and lifecycle behavior.
-- Implement complete scoped toaster/controller composition, timing/dismissal, stacking/positioning, accessibility/focus/keyboard, live themes and reduced motion without leaking callbacks or notices across disposed/replaced scopes.
-- Provide every documented interactive example and meaningful edge case using actual shared components; audit/migrate appropriate core/plugin transient notifications while preserving their app-owned behavior.
-- Verify meaningful focused timing/interaction/lifecycle and consumer regressions plus root/full analysis, then create a new independent reviewer to finish rendered/native acceptance and the local main merge.
+- Implement a scoped DToaster, DToastController and reusable typed content/action API matching the frozen base-nova Toast/Sonner appearance, including default, success, info, warning, error and loading treatments.
+- Support controlled add/update/upsert/close/close-all and owned/borrowed lifecycle, deterministic promise loading/success/error transitions, stable repeated ids, limits, pause/resume, timeouts and close reasons without late completion leaks.
+- Support safe-area-aware six-position placement, stacking, swipe dismissal, close/action controls, F6 focus entry, Escape dismissal, visible focus, live regions, touch/pointer input, reduced motion, RTL, narrow layouts and large text.
+- Mount one live-theme root app scope and nested local styleguide scopes; provide interactive examples for Basic, Types, Action, Promise, custom content, stacking/limits/dismissal, positions and theme/direction/scale changes.
+- Audit all core and bundled plugin transient notifications, migrate appropriate SnackBar/ScaffoldMessenger sites while preserving callback, permission, async and navigation ownership, and retain permanent inline statuses for Alert/Field/Empty with specific reasons.
+- Pass formatting, focused manager/widget/styleguide/consumer regression tests and root/full-profile analysis; provide exact source/build evidence and leave rendered browser/native acceptance to the direct reviewer if the shared desktop lease remains occupied.
 
 **decisions**
 
-- Toast includes Sonner under this one frozen catalogue row; Button is merged.
-- Transient ScaffoldMessenger/SnackBar usage is the adoption inventory; persistent inline status/error surfaces retain their Alert/Field/Empty meaning.
-- Source implementation hands directly to its own new Review and merge Toast task; root is not an approval gate.
+- Frozen Markdown hash e1dd1c08ccb082e6ca90fe352e09242cbf81132e37e05db889c67c8e601e1174 reverified. Inspected base-nova toast registry source hash 161ed77c409fe7345ee6308f7cf66f7bcf2717d8d5e1a8b36a7f8e8fa0df745e and supporting Sonner registry hash 831967f80f645ac3908b356a44748698a9ceed1c6a51b232dd5e87c52a54d7c3; mapping is recorded in toast.md.
+- DToaster is a local inherited manager plus renderer, not a Material SnackBar wrapper. An omitted controller is owned/disposed; a supplied controller is borrowed. Root and styleguide preview scopes are independent and read live inherited tokens on every build.
+- Promise completion is revision-checked. Replacement, repeated ids, explicit dismissal and scope disposal prevent stale terminal updates. Loading promise state is persistent; terminal options control their own duration.
+- Flutter Focus/Shortcuts, Semantics, SafeArea, Dismissible and app lifecycle observation are the native equivalents for the reference landmark, keyboard entry, ARIA live region, viewport, swipe and pause behavior.
+
+**migrations**
+
+- Root DiscourseApp and standalone styleguide mount DToaster; every interactive styleguide preview mounts a nested scope so notices disappear with the preview lifecycle.
+- Migrated transient feedback in topic_list_view, topic_share, user_menu, diagnostics_panel, topic_move_posts, composer_discard, topic_tag_picker and reaction_presentation, preserving async guards and stable replacement behavior.
+- Button styleguide feedback now demonstrates DToast instead of Material SnackBar.
+
+**retainedAlternatives**
+
+- Permanent inline validation/status and page-scale errors remain owned by Alert, Field and Empty rather than becoming temporary notifications.
+- Remaining core/plugin ScaffoldMessenger sites require reviewer reconciliation with concurrent Alert ownership; each must be classified and migrated or retained with a specific application reason before final acceptance.
+
+**verification**
+
+- Fresh-worktree root and profiles/full flutter pub get --enforce-lockfile passed with committed versions and hashes unchanged.
+- Focused d_toast manager/widget lifecycle suite passed 5 tests. Toast examples plus the complete styleguide page regression passed 24 tests; all examples also render at 280px, RTL, 200% text and a custom Plum palette.
+- Topic Share focused behavior passed 14 tests. Combined Toast/styleguide and named consumer ownership suites passed 97 tests after current-main integration; Diagnostics passed independently before integration and its later combined-run miss is a known pre-existing resize-handle hit-test failure unrelated to Toast.
+- Root and profiles/full flutter analyze --no-pub passed with no issues after current-main integration; dart format and git diff --check pass.
+- flutter build macos --debug --no-pub succeeded from integrated source 212577a5; bundle build/macos/Build/Products/Debug/Discourse.app, kernel SHA256 2a083264635f19a56c9e619132b367e6d78d349ec1cda3481e5d467a38458a40. Subsequent integrated main commit changed only coordination documentation. The bundle was not launched or re-signed as an isolated review app.
+
+**limitations**
+
+- Implementation source is prepared without a desktop lease. Official rendered browser comparison, native styleguide/production fixture inspection, macOS build provenance, exhaustive remaining transient notification migration and affected legacy-test updates remain owned by the new review task.
+- No iOS or Linux device run was performed.
 
 ### alert
 
