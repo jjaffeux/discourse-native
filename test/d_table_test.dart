@@ -225,7 +225,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.text('Edit'), findsOneWidget);
-    await tester.tap(find.text('Edit'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.text('Wireless Mouse (edited)'), findsOneWidget);
     expect(find.text('Edit'), findsNothing);

@@ -210,6 +210,7 @@ class _TableActionsExampleState extends State<TableActionsExample> {
                       menuChildren: [
                         for (final action in ['Edit', 'Duplicate', 'Delete'])
                           MenuItemButton(
+                            autofocus: action == 'Edit',
                             onPressed: () => setState(() {
                               final index = _products.indexWhere(
                                 (p) => p.$1 == product.$1,
@@ -380,7 +381,7 @@ class _ProductTableState extends State<ProductTable> {
           onOpen: () => setState(() => expanded = p.$1),
           onClose: () => setState(() => expanded = null),
           menuChildren: [for (final action in ['Edit', 'Duplicate', 'Delete'])
-            MenuItemButton(onPressed: () => setState(() {
+            MenuItemButton(autofocus: action == 'Edit', onPressed: () => setState(() {
               final i = products.indexWhere((item) => item.$1 == p.$1);
               if (action == 'Edit') products[i] = (p.$1, '${p.$2} (edited)', p.$3);
               if (action == 'Duplicate') products.insert(i + 1, (nextId++, '${p.$2} (copy)', p.$3));
