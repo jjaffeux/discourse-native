@@ -77,15 +77,13 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
           children: [
             Semantics(
               isRequired: true,
-              child: TextField(
-                style: Theme.of(context).textTheme.bodyMedium,
+              child: DInput(
+                isRequired: true,
                 controller: _name,
                 autofocus: true,
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  helperText: 'Required',
-                ),
+                labelText: 'Name',
+                helperText: 'Required',
               ),
             ),
             TextField(
@@ -110,13 +108,10 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
               onChanged: (value) => setState(() => _video = value),
               title: const DLabel(child: Text('Allow video')),
             ),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DInput(
               controller: _maximum,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Maximum participants',
-              ),
+              labelText: 'Maximum participants',
             ),
             DSelectField<VoiceQualityProfile>(
               initialValue: _quality,
@@ -130,19 +125,15 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
                   DropdownMenuItem(value: value, child: Text(value.name)),
               ],
             ),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DInput(
               controller: _chatChannel,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Chat channel ID (optional)',
-              ),
+              labelText: 'Chat channel ID (optional)',
             ),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DInput(
               controller: _chatIdle,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Chat idle minutes'),
+              labelText: 'Chat idle minutes',
             ),
             if (_room?.livekitEnabled != null)
               DSwitchTile(

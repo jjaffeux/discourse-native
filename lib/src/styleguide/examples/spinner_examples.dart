@@ -18,7 +18,7 @@ final spinnerExamples = ComponentExamples(
       'status. Stationary spinners still mean busy. Remove them on completion. '
       'Motion pauses for Reduce motion, inactive apps and disabled ticker '
       'subtrees. The spinner takes no input or focus. Host controls own actions, '
-      'errors and async completion. Badge, input and empty surfaces here are '
+      'errors and async completion. Badges use DBadge; input and empty surfaces are '
       'local Flutter compositions; their catalogue APIs belong to separate tasks.',
   examples: [
     StyleguideExample(
@@ -76,29 +76,17 @@ const DButton(
     StyleguideExample(
       title: 'Badge and inline placement',
       description:
-          'Toggle activity and inline-end placement. These local badge '
+          'Toggle activity and inline-end placement. These DBadge '
           'compositions demonstrate default, secondary and outline surfaces. '
           'Their text and indicator follow preview direction together; the '
           'status remains understandable without animation or color.',
       states: const ['Default surface', 'Secondary surface', 'Outline', 'RTL'],
-      code: '''Semantics(
-  label: syncing ? 'Syncing' : 'Synced',
+      code: """DBadge(
+  variant: DBadgeVariant.secondary,
+  leading: syncing ? const DSpinner(size: 12, semanticLabel: null) : null,
   liveRegion: true,
-  excludeSemantics: true,
-  child: Container(
-    padding: const EdgeInsetsDirectional.fromSTEB(5, 1, 7, 1),
-    decoration: BoxDecoration(
-      color: DTokens.of(context).muted,
-      border: Border.all(color: Colors.transparent),
-      borderRadius: BorderRadius.circular(32),
-    ),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      if (syncing) const DSpinner(size: 12, semanticLabel: null),
-      if (syncing) const SizedBox(width: DSpacing.xs),
-      Flexible(child: Text(syncing ? 'Syncing' : 'Synced')),
-    ]),
-  ),
-)''',
+  child: Text(syncing ? 'Syncing' : 'Synced'),
+)""",
       builder: (_) => const _SpinnerBadges(),
     ),
     StyleguideExample(
@@ -378,7 +366,6 @@ class _SpinnerBadgesState extends State<_SpinnerBadges> {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -386,60 +373,21 @@ class _SpinnerBadgesState extends State<_SpinnerBadges> {
           spacing: DSpacing.lg,
           runSpacing: DSpacing.lg,
           children: [
-            for (final (label, background, foreground, outlined) in [
-              (
-                _busy ? 'Syncing' : 'Synced',
-                tokens.primary,
-                tokens.primaryForeground,
-                false,
-              ),
-              (
-                _busy ? 'Updating' : 'Updated',
-                tokens.muted,
-                tokens.foreground,
-                false,
-              ),
-              (
-                _busy ? 'Processing' : 'Processed',
-                tokens.background,
-                tokens.foreground,
-                true,
-              ),
+            for (final (label, variant) in [
+              (_busy ? 'Syncing' : 'Synced', DBadgeVariant.primary),
+              (_busy ? 'Updating' : 'Updated', DBadgeVariant.secondary),
+              (_busy ? 'Processing' : 'Processed', DBadgeVariant.outline),
             ])
-              Semantics(
-                label: label,
+              DBadge(
+                variant: variant,
                 liveRegion: true,
-                excludeSemantics: true,
-                child: Container(
-                  padding: EdgeInsetsDirectional.fromSTEB(
-                    _trailing ? 7 : 5,
-                    1,
-                    _trailing ? 5 : 7,
-                    1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: background,
-                    border: Border.all(
-                      color: outlined ? tokens.border : Colors.transparent,
-                    ),
-                    borderRadius: BorderRadius.circular(32),
-                  ),
-                  child: IconTheme.merge(
-                    data: IconThemeData(color: foreground),
-                    child: DefaultTextStyle.merge(
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelSmall!.copyWith(color: foreground),
-                      child: _SpinnerStatus(
-                        label: label,
-                        trailing: _trailing,
-                        busy: _busy,
-                        size: 12,
-                        gap: DSpacing.xs,
-                      ),
-                    ),
-                  ),
-                ),
+                leading: _busy && !_trailing
+                    ? const DSpinner(size: 12, semanticLabel: null)
+                    : null,
+                trailing: _busy && _trailing
+                    ? const DSpinner(size: 12, semanticLabel: null)
+                    : null,
+                child: Text(label),
               ),
           ],
         ),
@@ -780,32 +728,23 @@ class _SpinnerEmptyState extends State<_SpinnerEmpty> {
 }
 
 class _SpinnerStatus extends StatelessWidget {
-  const _SpinnerStatus({
-    required this.label,
-    this.trailing = false,
-    this.busy = true,
-    this.size = 16,
-    this.gap = DSpacing.xs,
-  });
+  const _SpinnerStatus({required this.label, this.trailing = false});
 
-  final double size;
-  final double gap;
   final String label;
   final bool trailing;
-  final bool busy;
 
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      if (busy && !trailing) ...[
-        DSpinner(size: size, semanticLabel: null),
-        SizedBox(width: gap),
+      if (!trailing) ...[
+        const DSpinner(semanticLabel: null),
+        const SizedBox(width: DSpacing.xs),
       ],
       Flexible(child: Text(label)),
-      if (busy && trailing) ...[
-        SizedBox(width: gap),
-        DSpinner(size: size, semanticLabel: null),
+      if (trailing) ...[
+        const SizedBox(width: DSpacing.xs),
+        const DSpinner(semanticLabel: null),
       ],
     ],
   );

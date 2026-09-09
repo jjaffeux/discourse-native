@@ -1,6 +1,5 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-
-import '../theme/d_button.dart';
 
 class HoverActionToolbar extends StatelessWidget {
   const HoverActionToolbar({super.key, required this.children});

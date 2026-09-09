@@ -1,0 +1,32 @@
+{
+  "referenceUrl": "https://ui.shadcn.com/docs/components/base/input",
+  "inputSourceSha256": "5f0e6f3ad2a755837de4baa3c8ef2f0148cad4e6778ee6de37eb59dbeec70f49",
+  "images": {
+    "app-add-site.png": "1da89dfbbd93788a3940f6b5385bc9fd435091030aaa18c0f0084a934646931c",
+    "app-invite.png": "2aecd59295c948ae61f34d798f6a962b1681e89dd1766d99d9fcf4a96808ffe8",
+    "dark-example-0.png": "364368a95cf6807e7121a75114d80d977402a0de246acc0b364ed09079278091",
+    "dark-example-1.png": "fb36b8491165cafa86154bc1c1c2954a6022b16778f8b8aadd44a2cfd27def83",
+    "dark-example-2.png": "165f8550166d212f60baa807aefff43d0f7f394c978df6e6a68ecdb3e28ca873",
+    "dark-example-3.png": "4f236913ab19ba90036eb03e26e81b761851e7c5e5c7b91f86c6854425d8501b",
+    "dark-example-4.png": "0c3e9685ac7d30da02d7a5ee2fa1ffbd138e33cda4dd469560a81d13788a4e60",
+    "dark-example-5.png": "51c8e883998c643d92175cc11724a32724b7cd479dedbf1233cff61cb2fb2f28",
+    "dark-example-6.png": "9d46f05503da35399a88aa5324430d49df90c9405a7f4566388b87ed298b00c0",
+    "light-example-0.png": "9fc696cb34985ec4aa97ce57aa5f45e58b553bbc977f0b9aa7e67c997550d78e",
+    "light-example-1.png": "6b6a9c9eeb95a8e103bdf3e1c3e11708f731f7f97ea56e4f9532d3cb69d03596",
+    "light-example-2.png": "3d493932d1c371ad84e27e382f4f72373ae2297c3aca3597ff406c020074ef13",
+    "light-example-3.png": "d7727e2a2a57ef0c7a9c50a0ced945b6b46c38b1f27c096d91e03ea8bbe68bca",
+    "light-example-4.png": "2a62d24d7dd35588196ee86dc23b240001a84d5e1f78981c79c81cf4c2c94e8a",
+    "light-example-5.png": "4b9d1f12ee136c0f490a92a029861c18d22c580ceb3476d9b29f0df6629abf55",
+    "light-example-6.png": "1bff305328e96290082194cfc6c8ecd868cc1650f8e913765fb660f53456ad65"
+  },
+  "kind": "Font-loaded Flutter registered examples and migrated Add Site/Invite; not native screenshots",
+  "font": "assets/fonts/JetBrainsMono-Regular.ttf",
+  "fontSha256": "a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f",
+  "dimensions": [
+    600,
+    850
+  ],
+  "pixelRatio": 1,
+  "implementationCommit": "3201d96b51f86abbb638218eee8d0178ef168938",
+  "nativeKernelSha256": "ffd5c6d2683dcadd2bc3a93c85fd3256bbcaa2d11b50285b067d3553fb222b2f"
+}

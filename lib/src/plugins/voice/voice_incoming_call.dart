@@ -1,10 +1,9 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../theme/d_button.dart';
 import 'voice_controller.dart';
 import 'voice_icons.dart';
 import 'voice_models.dart';

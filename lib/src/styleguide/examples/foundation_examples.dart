@@ -32,29 +32,6 @@ Container(
   ],
 );
 
-final baselineButtonExamples = ComponentExamples(
-  description: 'Actions and links, with variants for emphasis and intent.',
-  status: ComponentStatus.baseline,
-  notes:
-      'Existing app control, exposed through discourse_ui.dart. '
-      'The Button task will implement the complete frozen reference and migrate callers.',
-  examples: [
-    StyleguideExample(
-      title: 'Existing variants and states',
-      description:
-          'Each enabled action increments a local counter. '
-          'Disabled and loading controls cannot activate.',
-      states: const ['Hover', 'Focus', 'Pressed', 'Disabled', 'Loading'],
-      code: '''DButton(
-  label: const Text('Save'),
-  variant: DButtonVariant.primary,
-  onPressed: () => setState(() => count++),
-)''',
-      builder: (_) => const _ButtonPreview(),
-    ),
-  ],
-);
-
 final baselineSelectExamples = ComponentExamples(
   description: 'Choose a value from a list of options.',
   status: ComponentStatus.baseline,

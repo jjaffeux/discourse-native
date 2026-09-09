@@ -1,0 +1,16 @@
+{
+  "hover": {
+    "background": "oklab(0.921998 -0.00000908971 0.0000215769 / 0.8)",
+    "border": "1px solid rgba(0, 0, 0, 0)",
+    "focus": false,
+    "hover": true,
+    "shadow": "none"
+  },
+  "focus": {
+    "background": "lab(90.952 0 -0.0000119209)",
+    "border": "1px solid lab(48.496 0 0)",
+    "focus": true,
+    "hover": false,
+    "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.555999 -0.00000530481 0.000012964 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"
+  }
+}
