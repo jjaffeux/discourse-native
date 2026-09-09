@@ -19,7 +19,7 @@ Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d332
 | 7 | separator | merged | 01a08213-a2e5-7692-a127-f09d2a03094b | codex/ui-separator | — | 855f131dc0bdaadaf5aea034a9cd78dbbe06b7b1 |
 | 8 | label | merged | 01a0825a-9fe1-7700-878c-f448801c0851 | codex/ui-label | typography | 9bbc2806020646451fd1c283d347283fe4e45f67 |
 | 9 | badge | in_progress | 01a083ac-c98c-7fe0-878d-54ee3bcbebb9 | codex/ui-badge | spinner | — |
-| 10 | input | in_progress | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label | — |
+| 10 | input | in_progress | 01a083ad-3168-7c01-b35a-7271f9fe6326 | codex/ui-input | label, button | — |
 | 11 | textarea | planned | — | — | label | — |
 | 12 | checkbox | in_progress | 01a083ad-91cf-7e91-9083-a861d5c4fa28 | codex/ui-checkbox | label | — |
 | 13 | radio-group | planned | — | — | label | — |
@@ -531,6 +531,10 @@ Status: in_progress. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/u
 - Adopt public owner in core/plugins and appropriate native-button exceptions; exercise actual components in interactive examples without changing Sidebar shell.
 - Verify root/full-profile analysis and focused component/adoption/downstream tests; compare official and isolated native light/dark/custom/RTL/200% states before review_ready.
 
+**verification**
+
+- Implementation task reports 222 impact tests and 35 later focused tests passing, with root/full analysis clean. Native comparison remains pending. Coordinator requested an additional legacy inset-icon touch-target regression before the final bundle.
+
 ### separator
 
 Status: merged. Task: 01a08213-a2e5-7692-a127-f09d2a03094b. Branch: codex/ui-separator.
@@ -684,6 +688,10 @@ Status: in_progress. Task: 01a083ad-3168-7c01-b35a-7271f9fe6326. Branch: codex/u
 - Provide actual component examples for documented Input capabilities and compositions, forms, independent state, RTL/long text, live palettes and 200 percent/narrow layouts.
 - Format touched source; pass root/full-profile analysis and focused editing, lifecycle, example and migration regressions; inspect isolated exact-source native review build only after coordinator desktop authorization.
 
+**decisions**
+
+- The native file input composes DButton, so Button is an operational dependency. Parallel preparation is using the existing baseline API; final integration and merge must follow the completed Button component.
+
 ### checkbox
 
 Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/ui-checkbox.
@@ -695,6 +703,10 @@ Status: in_progress. Task: 01a083ad-91cf-7e91-9083-a861d5c4fa28. Branch: codex/u
 - Migrate matching core/plugin checkboxes and multi-selection owners preserving permission, tri-state, callbacks and labels; document retained alternatives.
 - Provide actual interactive styleguide variants, group/table/form/error and narrow/200%/RTL/theme examples, preserving Sidebar shell.
 - Pass formatting, root/full-profile analysis and focused component/form/semantics/migration tests; inspect isolated native fixtures only in coordinator desktop slot before review_ready.
+
+**verification**
+
+- Implementation task reports 392 focused tests passing with seed 734129 and root/full analysis clean; pointer-to-keyboard and mixed-state fixes included. Native comparison and the read-only-state review remain pending.
 
 ### skeleton
 

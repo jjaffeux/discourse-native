@@ -403,10 +403,13 @@
       "decisions": [],
       "migrations": [],
       "retainedAlternatives": [],
-      "verification": [],
+      "verification": [
+        "Implementation task reports 222 impact tests and 35 later focused tests passing, with root/full analysis clean. Native comparison remains pending. Coordinator requested an additional legacy inset-icon touch-target regression before the final bundle."
+      ],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "nativeInspectionStatus": "waiting_for_unlocked_desktop"
     },
     {
       "id": "separator",
@@ -574,7 +577,8 @@
       "taskId": "01a083ad-3168-7c01-b35a-7271f9fe6326",
       "branch": "codex/ui-input",
       "dependencies": [
-        "label"
+        "label",
+        "button"
       ],
       "acceptanceCriteria": [
         "Match official base-nova Input geometry, typography, border, placeholder, focus, disabled and invalid states with recorded source hashes and actual native comparison.",
@@ -583,7 +587,9 @@
         "Provide actual component examples for documented Input capabilities and compositions, forms, independent state, RTL/long text, live palettes and 200 percent/narrow layouts.",
         "Format touched source; pass root/full-profile analysis and focused editing, lifecycle, example and migration regressions; inspect isolated exact-source native review build only after coordinator desktop authorization."
       ],
-      "decisions": [],
+      "decisions": [
+        "The native file input composes DButton, so Button is an operational dependency. Parallel preparation is using the existing baseline API; final integration and merge must follow the completed Button component."
+      ],
       "migrations": [],
       "retainedAlternatives": [],
       "verification": [],
@@ -626,10 +632,13 @@
       "decisions": [],
       "migrations": [],
       "retainedAlternatives": [],
-      "verification": [],
+      "verification": [
+        "Implementation task reports 392 focused tests passing with seed 734129 and root/full analysis clean; pointer-to-keyboard and mixed-state fixes included. Native comparison and the read-only-state review remain pending."
+      ],
       "limitations": [],
       "implementationCommit": null,
-      "mergeCommit": null
+      "mergeCommit": null,
+      "nativeInspectionStatus": "waiting_for_unlocked_desktop"
     },
     {
       "id": "radio-group",
@@ -1781,7 +1790,11 @@
     "mergePolicy": "Coordinator reviews and merges one result at a time from the main checkout.",
     "nativeInspectionPolicy": "Coordinator grants one desktop inspection slot at a time; code and automated verification run concurrently.",
     "nativeInspectionTaskId": null,
-    "nativeInspectionQueue": [],
+    "nativeInspectionQueue": [
+      "01a0816f-d4e0-7f93-9d6b-baeaf6961181",
+      "01a083ac-5fd5-78b1-9263-7e3218a878b6",
+      "01a083ad-91cf-7e91-9083-a861d5c4fa28"
+    ],
     "visualFidelityPolicy": "Reproduce shadcn appearance and behavior; official source mapping and actual rendered comparison are required before review_ready.",
     "pauseAfterCurrentBatch": {
       "requestedBy": "user",
@@ -1873,7 +1886,8 @@
       "observedAt": "2026-09-09T03:04:54+02:00",
       "userUnlockRequested": true,
       "unaffectedWork": "Component implementation, reference source review, fixtures, tests and static analysis continue."
-    }
+    },
+    "pendingCoordinatorNativeReview": "Final explicit styleguide scrollbar screenshot/drag after Mac unlock."
   },
   "visualFidelity": {
     "status": "merged",
